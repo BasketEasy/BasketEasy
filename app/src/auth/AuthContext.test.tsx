@@ -1,12 +1,31 @@
-import { describe, expect, it } from 'vitest';
+import { StrictMode } from 'react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
-import { AuthProvider, useAuth } from './AuthContext';
+import { AuthProvider, useAuth, __resetSessionRestoreForTests } from './AuthContext';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
 }
+
+function strictWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <StrictMode>
+      <AuthProvider>{children}</AuthProvider>
+    </StrictMode>
+  );
+}
+
+beforeEach(() => {
+  // The session-restore promise is a module-level singleton by design (see
+  // AuthContext.tsx) so StrictMode's double-invoked mount effect dedupes
+  // onto a single /auth/refresh call. That means it must be reset between
+  // tests, otherwise a later test's AuthProvider mount would reuse an
+  // earlier test's cached restore result instead of hitting its own MSW
+  // handlers.
+  __resetSessionRestoreForTests();
+});
 
 describe('useAuth', () => {
   it('throws when used outside AuthProvider', () => {
@@ -34,6 +53,36 @@ describe('useAuth', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.user).toEqual({ id: 'user-1', email: 'a@b.com', memberships: [] });
+  });
+
+  it('restores the session exactly once under React.StrictMode double-invoked mount effects (regression: single-use refresh token race)', async () => {
+    // Simulates the backend's single-use rotating refresh token: the first
+    // call succeeds and rotates the token, any subsequent call (e.g. a
+    // second, duplicate effect invocation reusing the now-stale cookie)
+    // gets a 401, exactly like the real server does. Without the
+    // module-level restoreSessionOnce() dedup, StrictMode's mount ->
+    // cleanup -> mount double-invoke fires this handler twice, the second
+    // call 401s, and the restored session is discarded (user stays null).
+    let refreshCallCount = 0;
+    server.use(
+      http.post('/api/auth/refresh', () => {
+        refreshCallCount += 1;
+        if (refreshCallCount === 1) {
+          return HttpResponse.json({ accessToken: 'restored-token' });
+        }
+        return HttpResponse.json({ message: 'Invalid refresh token' }, { status: 401 });
+      }),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({ id: 'user-1', email: 'strict@b.com', memberships: [] }),
+      ),
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper: strictWrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.user).toEqual({ id: 'user-1', email: 'strict@b.com', memberships: [] });
+    expect(refreshCallCount).toBe(1);
   });
 
   it('login sets the user on success', async () => {
