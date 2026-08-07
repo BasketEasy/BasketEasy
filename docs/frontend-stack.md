@@ -43,7 +43,7 @@ Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context
 | Styling | Tailwind CSS | fast iteration, consistent design tokens for brand |
 | Component primitives | shadcn/ui (Radix-based) | you own the generated code directly, so it's fully restylable to the BasketEasy brand rather than a black box |
 | Icons | custom icon set | brand-specific, avoids a generic library look |
-| Component library structure | separate `packages/ui` package, consumed by the app(s) | decouples UI kit from app code, reusable if a second frontend (CTC admin, etc.) is added later |
+| Component library structure | separate `packages/@basketeasy/ui` package, consumed by the app(s) | decouples UI kit from app code, reusable if a second frontend (CTC admin, etc.) is added later |
 
 ## Mobile / PWA
 
@@ -67,11 +67,11 @@ Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context
 | E2E | Playwright | covers RSVP flow, scoresheet upload, payment flow end-to-end |
 | API mocking | MSW (Mock Service Worker) | mocks NestJS API in dev/tests without a live backend |
 | Linting/formatting | ESLint + Prettier, typescript-eslint | standard |
-| Type-safe API contracts | shared `packages/types` package, mirroring NestJS DTOs | keeps FE/BE in sync as DTOs evolve, no duplicate type definitions |
+| Type-safe API contracts | shared `packages/@basketeasy/types` package, mirroring NestJS DTOs | keeps FE/BE in sync as DTOs evolve, no duplicate type definitions |
 
 ## Monorepo
 
-pnpm workspace: `app` + `packages/ui` (once created) + `packages/types`, with `server` (NestJS) alongside at the repo root. An Nx layer is the eventual plan for shared tooling (lint/build/test caching) and enforced package boundaries — not yet added to this scaffold.
+pnpm workspace: `app` + `packages/@basketeasy/ui` (once created) + `packages/@basketeasy/types`, with `server` (NestJS) alongside at the repo root. An Nx layer is the eventual plan for shared tooling (lint/build/test caching) and enforced package boundaries — not yet added to this scaffold.
 
 ## Open decisions
 

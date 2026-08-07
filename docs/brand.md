@@ -31,4 +31,4 @@ Launch market: Loire-Atlantique (CD44), ~130 affiliated clubs, ~28,000 licensed 
 - **Texte (body):** Inter, weight 400–600
 - **Logomark:** a basketball rendered as a circle with crosshair seams inside a rounded-square orange tile — reads at both app-icon and favicon sizes.
 
-These tokens should be wired into `packages/ui`'s Tailwind theme as the design system matures (see `docs/frontend-stack.md` — shadcn/ui primitives, fully restylable).
+These tokens should be wired into `packages/@basketeasy/ui`'s Tailwind theme as the design system matures (see `docs/frontend-stack.md` — shadcn/ui primitives, fully restylable).

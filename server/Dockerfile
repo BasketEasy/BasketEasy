@@ -6,7 +6,7 @@ WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY server/package.json server/package.json
-COPY packages/types/package.json packages/types/package.json
+COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/server... || pnpm install --filter @basketeasy/server...
 
 # --- build: compile TypeScript to dist ---
@@ -14,7 +14,7 @@ FROM node:20-alpine AS build
 WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
-COPY packages/types packages/types
+COPY packages/@basketeasy/types packages/@basketeasy/types
 COPY server server
 RUN pnpm --filter @basketeasy/server build
 
@@ -25,7 +25,7 @@ ENV NODE_ENV=production
 RUN corepack enable
 COPY --from=build /workspace/server/dist ./dist
 COPY --from=build /workspace/server/package.json ./package.json
-COPY --from=build /workspace/packages/types ./packages/types
+COPY --from=build /workspace/packages/@basketeasy/types ./packages/@basketeasy/types
 COPY --from=build /workspace/node_modules ./node_modules
 
 EXPOSE 3000

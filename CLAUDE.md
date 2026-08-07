@@ -37,23 +37,23 @@ Full list with priority tiers and explicit scope cuts: [`docs/feature-set.md`](.
 ```
 server        NestJS backend. Global prefix /api. Health check at GET /api/health (Terminus) and GET /api/health/ping. npm package @basketeasy/server.
 app           React + Vite frontend. Calls the API via same-origin /api/* (Vite proxy in dev, nginx proxy in the Docker image). npm package @basketeasy/app.
-packages/types  Shared TS types/DTOs (currently just HealthResponse) — add domain DTOs here as modules land, mirrored by backend class-validator DTOs. npm package @basketeasy/types.
+packages/@basketeasy/types  Shared TS types/DTOs, exposed via package.json subpath exports (e.g. `@basketeasy/types/health`), not a barrel index.ts — add a new file + a matching "exports" entry per domain area as modules land, mirrored by backend class-validator DTOs. npm package @basketeasy/types.
 docs/         Architecture, stack decisions, brand, feature set, market research — read before making structural changes.
 ```
 
-`server` and `app` sit at the repo root (not nested under an `apps/` folder) — deliberate, so top-level `ls` reads as "here's the backend, here's the frontend" rather than requiring a detour into `apps/`. Every workspace package (`server`, `app`, `packages/types`) is a real npm package with its own `package.json`, named `@basketeasy/<name>`. Add new shared packages under `packages/` following that same convention.
+`server` and `app` sit at the repo root (not nested under an `apps/` folder) — deliberate, so top-level `ls` reads as "here's the backend, here's the frontend" rather than requiring a detour into `apps/`. Every workspace package (`server`, `app`, `packages/@basketeasy/types`) is a real npm package with its own `package.json`, named `@basketeasy/<name>`. Shared packages live under `packages/@basketeasy/<name>` (scope in the folder path, matching the npm name) — add new ones following that convention, in `pnpm-workspace.yaml`'s `packages/@basketeasy/*` glob.
 
 This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs describing Nx as the eventual monorepo tool (for build/lint/test caching and enforced package boundaries). Don't assume Nx commands (`nx run`, `nx.json`, `project.json`) exist — they don't yet. If adding Nx, update this file and both stack docs' "Open decisions" sections.
 
 ## Working conventions
 
-- **Language:** TypeScript everywhere, strict mode on. Shared shapes go in `packages/types`, mirrored (not auto-generated yet) by backend DTOs.
+- **Language:** TypeScript everywhere, strict mode on. Shared shapes go in `packages/@basketeasy/types`, mirrored (not auto-generated yet) by backend DTOs. No barrel `index.ts` — each module (e.g. `health.ts`) is exposed as its own subpath via the package's `exports` field in `package.json` and imported as `@basketeasy/types/health`. Add a new file + a matching `exports` entry together when adding a domain area, rather than growing a single re-export file.
 - **Formatting:** Prettier (`pnpm format:check` is what CI runs — run `pnpm format` before committing).
 - **Linting:** ESLint per package (`server`, `app` each have their own config — Nest's decorator-heavy style differs from the frontend's React rules).
 - **Tests:** Jest for the API (`server`, colocated `*.spec.ts`), Vitest + React Testing Library for the frontend (`app`, colocated `*.test.tsx`). Add tests alongside new modules/components, not in a separate mirror tree.
-- **API contract changes:** update `packages/types` first, then the NestJS DTO, then the frontend caller — keeps the "shared types" promise honest instead of drifting.
+- **API contract changes:** update `packages/@basketeasy/types` first, then the NestJS DTO, then the frontend caller — keeps the "shared types" promise honest instead of drifting.
 - **Health endpoint:** `server/src/health/health.controller.ts` is intentionally dependency-free (no DB/Redis indicators) until Prisma/Redis modules exist. When adding them, wire real Terminus indicators (`TypeOrmHealthIndicator`-equivalent for Prisma, `MemoryHealthIndicator`, a Redis ping) into the `check()` array instead of adding a second endpoint.
-- **Docker:** each of `server` and `app` has its own multi-stage `Dockerfile` (deps → build → runtime) built from the **repo root** as context (see `docker-compose.yml`) so both can reach `packages/types`. Don't change the build context to the package subdirectory without updating both Dockerfiles' COPY paths.
+- **Docker:** each of `server` and `app` has its own multi-stage `Dockerfile` (deps → build → runtime) built from the **repo root** as context (see `docker-compose.yml`) so both can reach `packages/@basketeasy/types`. Don't change the build context to the package subdirectory without updating both Dockerfiles' COPY paths.
 - **CI:** `.github/workflows/ci.yml` runs format check → lint → test → build, in that order, per app. `.github/workflows/docker-build.yml` validates both Dockerfiles build (no push yet — add registry push + secrets when a deploy target exists). Keep new workflows scoped to one concern (don't fold deploy logic into `ci.yml`).
 - **Locale:** product-facing copy is French-first (`fr` default locale, per `docs/frontend-stack.md`'s i18n choice) — the landing tagline and marketing copy in `docs/brand.md` are the source of truth for tone, not translations of English drafts.
 

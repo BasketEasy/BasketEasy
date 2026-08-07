@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { HealthResponse } from '@basketeasy/types';
+import type { HealthResponse } from '@basketeasy/types/health';
 import { apiClient, ApiError } from '../api/client';
 
 type LoadState =

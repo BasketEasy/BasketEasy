@@ -72,7 +72,7 @@ BullMQ wins because Redis is already in the stack, it's the standard choice for 
 
 ## Monorepo
 
-pnpm workspace, `server` (NestJS) alongside `app` (React) at the repo root, sharing `packages/types` (DTOs shared between client and server) so API contracts can't silently drift. The architecture docs describe an eventual Nx layer on top for build/lint/test caching — not yet added to this scaffold; see "Open decisions" below.
+pnpm workspace, `server` (NestJS) alongside `app` (React) at the repo root, sharing `packages/@basketeasy/types` (DTOs shared between client and server, exposed as package.json subpath exports rather than a barrel `index.ts`) so API contracts can't silently drift. The architecture docs describe an eventual Nx layer on top for build/lint/test caching — not yet added to this scaffold; see "Open decisions" below.
 
 ## Open decisions
 

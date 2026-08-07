@@ -12,7 +12,7 @@ See [`CLAUDE.md`](./CLAUDE.md) for architecture, brand, positioning, and the ful
 |---|---|
 | Backend | NestJS (TypeScript), PostgreSQL + Prisma, Redis + BullMQ |
 | Frontend | React 18 + Vite, TanStack Query, Tailwind + shadcn/ui |
-| Monorepo | pnpm workspaces (`server`, `app`, `packages/types`) |
+| Monorepo | pnpm workspaces (`server`, `app`, `packages/@basketeasy/types`) |
 | Infra | Docker, Scaleway (EU/RGPD-friendly hosting) |
 | CI | GitHub Actions (lint, format, test, build, Docker build) |
 
@@ -24,7 +24,9 @@ Full rationale and alternatives considered: [`docs/backend-stack.md`](./docs/bac
 server/           NestJS backend — GET /api/health
 app/              React + Vite frontend — calls /api/health, renders status
 packages/
-  types/          Shared TypeScript types/DTOs between server and app
+  @basketeasy/
+    types/        Shared TypeScript types/DTOs between server and app,
+                  exposed as package.json subpath exports (no barrel index.ts)
 docs/             Architecture, stack rationale, brand, feature set, market research
 .github/
   workflows/      CI: lint, format check, test, build, Docker build

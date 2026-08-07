@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
-import type { HealthResponse } from '@basketeasy/types';
+import type { HealthResponse } from '@basketeasy/types/health';
 
 /**
  * GET /api/health

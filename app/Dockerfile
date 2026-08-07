@@ -6,7 +6,7 @@ WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY app/package.json app/package.json
-COPY packages/types/package.json packages/types/package.json
+COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/app... || pnpm install --filter @basketeasy/app...
 
 # --- build ---
@@ -14,7 +14,7 @@ FROM node:20-alpine AS build
 WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
-COPY packages/types packages/types
+COPY packages/@basketeasy/types packages/@basketeasy/types
 COPY app app
 RUN pnpm --filter @basketeasy/app build
 
