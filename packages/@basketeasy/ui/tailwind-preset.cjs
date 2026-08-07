@@ -1,0 +1,19 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        orange: '#D4622A',
+        'blue-green': '#1E5F74',
+        cream: '#FAF5EF',
+        charcoal: '#23201C',
+        muted: '#5B564F',
+        border: '#E7DECF',
+      },
+      fontFamily: {
+        heading: ['"Barlow Condensed"', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+    },
+  },
+};
