@@ -1,7 +1,14 @@
+import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { HealthStatus } from './components/HealthStatus';
+import { useAuth } from './auth/AuthContext';
+import { LoginForm } from './auth/LoginForm';
+import { RegisterForm } from './auth/RegisterForm';
 
 export default function App() {
+  const { user, isLoading, logout } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+
   return (
     <main
       style={{
@@ -22,9 +29,20 @@ export default function App() {
 
       <HealthStatus />
 
-      <div>
-        <Button>Rejoindre un club</Button>
-      </div>
+      {!isLoading && !user && authView === 'login' && (
+        <LoginForm onSwitchToRegister={() => setAuthView('register')} />
+      )}
+      {!isLoading && !user && authView === 'register' && (
+        <RegisterForm onSwitchToLogin={() => setAuthView('login')} />
+      )}
+      {!isLoading && user && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span>{user.email}</span>
+          <Button variant="outline" onClick={() => void logout()}>
+            Se déconnecter
+          </Button>
+        </div>
+      )}
     </main>
   );
 }
