@@ -19,11 +19,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-basketeasy}
       POSTGRES_DB: ${POSTGRES_DB:-basketeasy}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-basketeasy}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-basketeasy}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,9 +32,9 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -51,7 +51,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
       REDIS_URL: redis://redis:6379
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - ./server:/workspace/server
       - ./packages:/workspace/packages
@@ -64,7 +64,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -81,7 +81,7 @@ services:
       # the app container rather than on the host.
       VITE_API_PROXY_TARGET: http://server:3000
     ports:
-      - "5173:5173"
+      - '5173:5173'
     volumes:
       - ./app:/workspace/app
       - ./packages:/workspace/packages

@@ -6,6 +6,7 @@ WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY server/package.json server/package.json
+COPY server/prisma server/prisma
 COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/server... || pnpm install --filter @basketeasy/server...
 
@@ -16,9 +17,12 @@ RUN pnpm install --frozen-lockfile --filter @basketeasy/server... || pnpm instal
 # bind-mounts server/ and packages/ over this at container start, and nest's
 # --watch picks up changes live. See docker-compose.dev.yml for the volumes
 # that protect node_modules from being shadowed by those bind mounts.
+#
+# schema.prisma only exists once the bind mount lands, so the Prisma client
+# generate + migrate deploy have to run at container start (not build time).
 FROM deps AS dev
 WORKDIR /workspace
-CMD ["pnpm", "--filter", "@basketeasy/server", "start:dev"]
+CMD ["sh", "-c", "server/node_modules/.bin/prisma generate --schema=server/prisma/schema.prisma && server/node_modules/.bin/prisma migrate deploy --schema=server/prisma/schema.prisma && pnpm --filter @basketeasy/server start:dev"]
 
 # --- build: compile TypeScript to dist ---
 FROM node:25-alpine AS build
@@ -45,7 +49,8 @@ COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/server/node_modules ./server/node_modules
 COPY --from=build /workspace/server/dist ./server/dist
 COPY --from=build /workspace/server/package.json ./server/package.json
+COPY --from=build /workspace/server/prisma ./server/prisma
 COPY --from=build /workspace/packages/@basketeasy/types ./packages/@basketeasy/types
 
 EXPOSE 3000
-CMD ["node", "server/dist/main.js"]
+CMD ["sh", "-c", "server/node_modules/.bin/prisma migrate deploy --schema=server/prisma/schema.prisma && node server/dist/main.js"]
