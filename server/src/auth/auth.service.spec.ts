@@ -206,4 +206,28 @@ describe('AuthService', () => {
       expect(prisma.refreshToken.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('me', () => {
+    it('returns the user with their club memberships', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
+      });
+
+      const result = await service.me('user-1');
+
+      expect(result).toEqual({
+        id: 'user-1',
+        email: 'a@b.com',
+        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
+      });
+    });
+
+    it('throws UnauthorizedException when the user no longer exists', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.me('gone')).rejects.toThrow(UnauthorizedException);
+    });
+  });
 });

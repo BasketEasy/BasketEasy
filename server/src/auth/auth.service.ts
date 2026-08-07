@@ -130,4 +130,21 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
   }
+
+  async me(userId: string): Promise<AuthUser> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { memberships: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      memberships: user.memberships.map((m) => ({ clubId: m.clubId, role: m.role })),
+    };
+  }
 }
