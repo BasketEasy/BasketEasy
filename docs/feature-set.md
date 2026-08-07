@@ -1,6 +1,6 @@
 # BasketEasy — Full Feature Set to Lead the Loire-Atlantique Market
 
-*Based on `market-research.md`, revised against real build constraints (no FBI/e-Marque API access, gym booking owned by city councils).*
+_Based on `market-research.md`, revised against real build constraints (no FBI/e-Marque API access, gym booking owned by city councils)._
 
 ---
 
@@ -16,7 +16,7 @@
 
 - **Multi-club team support (CTC/entente)** — a single team can pull players, staff, and admin rights from 2–3 different clubs; rosters and permissions need to model this natively, not bolt it on.
 - **Internal créneaux scheduling** — visibility into which team/club has which slot when, conflict flags when two internal bookings overlap. Scoped to coordination only — gym allocation itself stays with the mairie.
-- **Post-game scoresheet capture (AI-assisted)** — photo/scan of the official *feuille de marque* at game end, parsed by an AI model to auto-populate match details, box score, and per-player stats into the DB. Sidesteps the lack of e-Marque API access while still getting structured match data.
+- **Post-game scoresheet capture (AI-assisted)** — photo/scan of the official _feuille de marque_ at game end, parsed by an AI model to auto-populate match details, box score, and per-player stats into the DB. Sidesteps the lack of e-Marque API access while still getting structured match data.
 - **Fair playing-time tracking** — automatic minutes-per-player tracking against team rules (mandatory minutes for younger categories), surfaced to coaches and parents, fed by the scoresheet capture above.
 
 ---
