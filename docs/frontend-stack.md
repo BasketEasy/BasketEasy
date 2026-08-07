@@ -71,7 +71,7 @@ Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context
 
 ## Monorepo
 
-pnpm workspace: `apps/web` + `packages/ui` + `packages/types`, with `apps/api` (NestJS) alongside. An Nx layer is the eventual plan for shared tooling (lint/build/test caching) and enforced package boundaries — not yet added to this scaffold.
+pnpm workspace: `app` + `packages/ui` (once created) + `packages/types`, with `server` (NestJS) alongside at the repo root. An Nx layer is the eventual plan for shared tooling (lint/build/test caching) and enforced package boundaries — not yet added to this scaffold.
 
 ## Open decisions
 

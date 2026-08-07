@@ -7,8 +7,8 @@
   },
   "packageManager": "pnpm@9.7.0",
   "scripts": {
-    "dev:api": "pnpm --filter @basketeasy/api start:dev",
-    "dev:web": "pnpm --filter @basketeasy/web dev",
+    "dev:server": "pnpm --filter @basketeasy/server start:dev",
+    "dev:app": "pnpm --filter @basketeasy/app dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",

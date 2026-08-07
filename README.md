@@ -12,7 +12,7 @@ See [`CLAUDE.md`](./CLAUDE.md) for architecture, brand, positioning, and the ful
 |---|---|
 | Backend | NestJS (TypeScript), PostgreSQL + Prisma, Redis + BullMQ |
 | Frontend | React 18 + Vite, TanStack Query, Tailwind + shadcn/ui |
-| Monorepo | pnpm workspaces (`apps/api`, `apps/web`, `packages/types`) |
+| Monorepo | pnpm workspaces (`server`, `app`, `packages/types`) |
 | Infra | Docker, Scaleway (EU/RGPD-friendly hosting) |
 | CI | GitHub Actions (lint, format, test, build, Docker build) |
 
@@ -21,11 +21,10 @@ Full rationale and alternatives considered: [`docs/backend-stack.md`](./docs/bac
 ## Repo layout
 
 ```
-apps/
-  api/            NestJS backend — GET /api/health
-  web/            React + Vite frontend — calls /api/health, renders status
+server/           NestJS backend — GET /api/health
+app/              React + Vite frontend — calls /api/health, renders status
 packages/
-  types/          Shared TypeScript types/DTOs between api and web
+  types/          Shared TypeScript types/DTOs between server and app
 docs/             Architecture, stack rationale, brand, feature set, market research
 .github/
   workflows/      CI: lint, format check, test, build, Docker build
@@ -52,10 +51,10 @@ corepack enable
 pnpm install
 
 # terminal 1 — API on :3000
-pnpm dev:api
+pnpm dev:server
 
 # terminal 2 — web on :5173 (Vite dev server proxies /api → :3000)
-pnpm dev:web
+pnpm dev:app
 ```
 
 ## Common tasks

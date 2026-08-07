@@ -5,9 +5,9 @@ FROM node:20-alpine AS deps
 WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
-COPY apps/web/package.json apps/web/package.json
+COPY app/package.json app/package.json
 COPY packages/types/package.json packages/types/package.json
-RUN pnpm install --frozen-lockfile --filter @basketeasy/web... || pnpm install --filter @basketeasy/web...
+RUN pnpm install --frozen-lockfile --filter @basketeasy/app... || pnpm install --filter @basketeasy/app...
 
 # --- build ---
 FROM node:20-alpine AS build
@@ -15,13 +15,13 @@ WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
 COPY packages/types packages/types
-COPY apps/web apps/web
-RUN pnpm --filter @basketeasy/web build
+COPY app app
+RUN pnpm --filter @basketeasy/app build
 
 # --- runtime: static files served by nginx ---
 FROM nginx:1.27-alpine AS runtime
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /workspace/apps/web/dist /usr/share/nginx/html
+COPY app/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /workspace/app/dist /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

@@ -59,7 +59,7 @@ BullMQ wins because Redis is already in the stack, it's the standard choice for 
 | Concern | Choice | Alternatives considered | Why |
 |---|---|---|---|
 | Config/secrets | `@nestjs/config` + `.env` (dev), Scaleway secrets manager (prod) | Doppler, Vault | native Nest module is enough at this scale |
-| Health checks | `@nestjs/terminus` | custom endpoint | standard Nest module, checks DB/Redis connectivity out of the box — this is what backs `GET /api/health` in this repo |
+| Health checks | `@nestjs/terminus` | custom endpoint | standard Nest module, checks DB/Redis connectivity out of the box — this is what backs `GET /api/health` in `server` |
 | Logging | Pino (via `nestjs-pino`) | Winston, console.log | structured JSON logs, faster than Winston |
 
 ## Testing & quality
@@ -72,7 +72,7 @@ BullMQ wins because Redis is already in the stack, it's the standard choice for 
 
 ## Monorepo
 
-pnpm workspace, `apps/api` (NestJS) alongside `apps/web` (React), sharing `packages/types` (DTOs shared between client and server) so API contracts can't silently drift. The architecture docs describe an eventual Nx layer on top for build/lint/test caching — not yet added to this scaffold; see "Open decisions" below.
+pnpm workspace, `server` (NestJS) alongside `app` (React) at the repo root, sharing `packages/types` (DTOs shared between client and server) so API contracts can't silently drift. The architecture docs describe an eventual Nx layer on top for build/lint/test caching — not yet added to this scaffold; see "Open decisions" below.
 
 ## Open decisions
 

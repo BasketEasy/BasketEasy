@@ -58,10 +58,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Lint API
-        run: pnpm --filter @basketeasy/api run lint
-      - name: Lint web
-        run: pnpm --filter @basketeasy/web run lint
+      - name: Lint server
+        run: pnpm --filter @basketeasy/server run lint
+      - name: Lint app
+        run: pnpm --filter @basketeasy/app run lint
 
   test:
     needs: install
@@ -76,10 +76,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Test API
-        run: pnpm --filter @basketeasy/api run test
-      - name: Test web
-        run: pnpm --filter @basketeasy/web run test
+      - name: Test server
+        run: pnpm --filter @basketeasy/server run test
+      - name: Test app
+        run: pnpm --filter @basketeasy/app run test
 
   build:
     needs: [format, lint, test]

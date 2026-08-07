@@ -9,12 +9,12 @@ updates:
         dependency-type: "development"
 
   - package-ecosystem: "docker"
-    directory: "/apps/api"
+    directory: "/server"
     schedule:
       interval: "weekly"
 
   - package-ecosystem: "docker"
-    directory: "/apps/web"
+    directory: "/app"
     schedule:
       interval: "weekly"
 

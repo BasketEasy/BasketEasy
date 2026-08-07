@@ -1,8 +1,8 @@
 {
-  "name": "@basketeasy/api",
+  "name": "@basketeasy/server",
   "version": "0.0.0",
   "private": true,
-  "description": "BasketEasy API (NestJS)",
+  "description": "BasketEasy API server (NestJS)",
   "scripts": {
     "build": "nest build",
     "start": "nest start",

@@ -1,8 +1,8 @@
 {
-  "name": "@basketeasy/web",
+  "name": "@basketeasy/app",
   "version": "0.0.0",
   "private": true,
-  "description": "BasketEasy web app (React + Vite)",
+  "description": "BasketEasy frontend (React + Vite)",
   "type": "module",
   "scripts": {
     "dev": "vite",
