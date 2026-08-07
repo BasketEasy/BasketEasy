@@ -8,7 +8,7 @@ import { Input } from '@basketeasy/ui/input';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { ApiError } from '../api/client';
-import { useAuth } from './AuthContext';
+import { useAuth } from './useAuth';
 
 const registerSchema = z.object({
   email: z.string().email('Adresse email invalide'),

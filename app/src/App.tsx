@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { HealthStatus } from './components/HealthStatus';
-import { useAuth } from './auth/AuthContext';
+import { useAuth } from './auth/useAuth';
 import { LoginForm } from './auth/LoginForm';
 import { RegisterForm } from './auth/RegisterForm';
 

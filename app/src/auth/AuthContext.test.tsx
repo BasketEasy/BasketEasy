@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
-import { AuthProvider, useAuth, __resetSessionRestoreForTests } from './AuthContext';
+import { AuthProvider } from './AuthContext';
+import { useAuth } from './useAuth';
+import { __resetSessionRestoreForTests } from './sessionRestore';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AuthProvider>{children}</AuthProvider>;
