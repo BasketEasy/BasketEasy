@@ -10,8 +10,8 @@ describe('App', () => {
         ok: true,
         json: async () => ({
           status: 'ok',
-          service: 'basketeasy-api',
-          timestamp: '2026-01-01T00:00:00.000Z',
+          info: { database: { status: 'up' } },
+          details: { database: { status: 'up' } },
         }),
       }),
     );
@@ -24,6 +24,6 @@ describe('App', () => {
 
   it('renders the API health status once the fetch resolves', async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByText(/basketeasy-api/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/database: up/)).toBeInTheDocument());
   });
 });

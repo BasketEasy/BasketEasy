@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { HealthResponse } from '@basketeasy/types/health';
+import type { HealthCheckResponse } from '@basketeasy/types/health';
 import { apiClient, ApiError } from '../api/client';
 
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'ok'; data: HealthResponse }
+  | { kind: 'ok'; data: HealthCheckResponse }
   | { kind: 'error'; message: string };
 
 /**
- * Calls GET /api/health/ping and renders the backend's status. This is the
- * "does the frontend talk to the backend" smoke test for the scaffold —
- * domain pages (Calendar, Roster, ...) will use TanStack Query instead once
- * they land, per docs/frontend-stack.md.
+ * Calls GET /api/health and renders the backend's status, including the
+ * Prisma-backed database indicator. This is the "does the frontend talk to
+ * the backend, and does the backend talk to the DB" smoke test for the
+ * scaffold — domain pages (Calendar, Roster, ...) will use TanStack Query
+ * instead once they land, per docs/frontend-stack.md.
  */
 export function HealthStatus() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -20,7 +21,7 @@ export function HealthStatus() {
     let cancelled = false;
 
     apiClient
-      .get<HealthResponse>('/health/ping')
+      .get<HealthCheckResponse>('/health')
       .then((data) => {
         if (!cancelled) setState({ kind: 'ok', data });
       })
@@ -52,8 +53,12 @@ export function HealthStatus() {
       {state.kind === 'ok' && (
         <p>
           <span style={{ color: '#2E7D32', fontWeight: 600 }}>● {state.data.status}</span>
-          {' — '}
-          {state.data.service} @ {state.data.timestamp}
+          {Object.entries(state.data.details).map(([key, detail]) => (
+            <span key={key}>
+              {' — '}
+              {key}: {detail.status}
+            </span>
+          ))}
         </p>
       )}
 

@@ -3,8 +3,8 @@
 ## Identity
 
 - **Name:** BasketEasy
-- **Tagline (FR):** *La gestion d'équipe, simplifiée.*
-- **Landing headline (FR):** *Moins de tableurs, plus de terrain.*
+- **Tagline (FR):** _La gestion d'équipe, simplifiée._
+- **Landing headline (FR):** _Moins de tableurs, plus de terrain._
 - **Landing subhead (FR):** BasketEasy centralise calendriers, créneaux et feuilles de marque pour les clubs de basket amateurs de Loire-Atlantique. Pensé pour les bénévoles, pas pour les DSI.
 - **Footer line:** Données hébergées en France · RGPD
 
@@ -20,12 +20,12 @@ Launch market: Loire-Atlantique (CD44), ~130 affiliated clubs, ~28,000 licensed 
 
 ## Visual system
 
-| Token | Value | Use |
-|---|---|---|
-| Orange primaire | `#D4622A` | primary brand color, CTAs, active states |
-| Bleu-vert secondaire | `#1E5F74` | secondary accent, links, info states |
-| Crème (fond) | `#FAF5EF` | background |
-| Charbon (texte) | `#23201C` | primary text |
+| Token                | Value     | Use                                      |
+| -------------------- | --------- | ---------------------------------------- |
+| Orange primaire      | `#D4622A` | primary brand color, CTAs, active states |
+| Bleu-vert secondaire | `#1E5F74` | secondary accent, links, info states     |
+| Crème (fond)         | `#FAF5EF` | background                               |
+| Charbon (texte)      | `#23201C` | primary text                             |
 
 - **Titrage (headings):** Barlow Condensed, weight 700–800
 - **Texte (body):** Inter, weight 400–600
