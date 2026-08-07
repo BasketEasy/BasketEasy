@@ -1,0 +1,16 @@
+{
+  "name": "@basketeasy/types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TypeScript types/DTOs between apps/api and apps/web",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "build": "tsc -p tsconfig.json",
+    "test": "echo \"no tests yet in @basketeasy/types\""
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

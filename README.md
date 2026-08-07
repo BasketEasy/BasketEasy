@@ -1,0 +1,73 @@
+# BasketEasy
+
+**La gestion d'équipe, simplifiée.**
+
+BasketEasy centralizes calendars, gym slots (*créneaux*), and post-game scoresheets for amateur basketball clubs — starting with a Loire-Atlantique (CD44) first launch. It's a companion layer to the FFBB's official stack (FBI, e-Marque V2), not a replacement, purpose-built for volunteer-run clubs and the multi-club team (CTC/entente) reality of French grassroots basketball.
+
+See [`CLAUDE.md`](./CLAUDE.md) for architecture, brand, positioning, and the full feature roadmap. Full reference docs live in [`docs/`](./docs).
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Backend | NestJS (TypeScript), PostgreSQL + Prisma, Redis + BullMQ |
+| Frontend | React 18 + Vite, TanStack Query, Tailwind + shadcn/ui |
+| Monorepo | pnpm workspaces (`apps/api`, `apps/web`, `packages/types`) |
+| Infra | Docker, Scaleway (EU/RGPD-friendly hosting) |
+| CI | GitHub Actions (lint, format, test, build, Docker build) |
+
+Full rationale and alternatives considered: [`docs/backend-stack.md`](./docs/backend-stack.md), [`docs/frontend-stack.md`](./docs/frontend-stack.md).
+
+## Repo layout
+
+```
+apps/
+  api/            NestJS backend — GET /api/health
+  web/            React + Vite frontend — calls /api/health, renders status
+packages/
+  types/          Shared TypeScript types/DTOs between api and web
+docs/             Architecture, stack rationale, brand, feature set, market research
+.github/
+  workflows/      CI: lint, format check, test, build, Docker build
+```
+
+## Quickstart — Docker (recommended)
+
+Brings up Postgres, Redis, the API, and the web app together:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- Web: http://localhost:5173 (shows live API health status)
+- API: http://localhost:3000/api/health
+
+## Quickstart — local dev (without Docker)
+
+Requires Node 20+ and pnpm.
+
+```bash
+corepack enable
+pnpm install
+
+# terminal 1 — API on :3000
+pnpm dev:api
+
+# terminal 2 — web on :5173 (Vite dev server proxies /api → :3000)
+pnpm dev:web
+```
+
+## Common tasks
+
+```bash
+pnpm lint           # lint all workspace packages
+pnpm format         # prettier --write
+pnpm format:check   # prettier --check (what CI runs)
+pnpm test           # run all test suites
+pnpm build          # build all workspace packages
+```
+
+## Status
+
+This is an initial scaffold: repo structure, Docker setup, CI, and a working `/api/health` round-trip from backend to frontend. Domain modules (Auth, Clubs/Teams, Scheduling, Scoresheet, Payments) are not implemented yet — see [`docs/feature-set.md`](./docs/feature-set.md) for what's next.
