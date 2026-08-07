@@ -1,6 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
+
+function renderApp() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>,
+  );
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -18,12 +30,12 @@ describe('App', () => {
   });
 
   it('renders the brand tagline', () => {
-    render(<App />);
+    renderApp();
     expect(screen.getByText("La gestion d'équipe, simplifiée.")).toBeInTheDocument();
   });
 
   it('renders the API health status once the fetch resolves', async () => {
-    render(<App />);
+    renderApp();
     await waitFor(() => expect(screen.getByText(/database: up/)).toBeInTheDocument());
   });
 });
