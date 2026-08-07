@@ -85,4 +85,4 @@ pnpm build          # build all workspace packages
 
 ## Status
 
-This is an initial scaffold: repo structure, Docker setup, CI, and a working `/api/health` round-trip from backend to frontend. Domain modules (Auth, Clubs/Teams, Scheduling, Scoresheet, Payments) are not implemented yet — see [`docs/feature-set.md`](./docs/feature-set.md) for what's next.
+This is an initial scaffold plus a first domain module: repo structure, Docker setup, CI, a working `/api/health` round-trip from backend to frontend, and an Auth module (register/login/refresh/logout/me, JWT access tokens + rotating refresh tokens with reuse detection, argon2 password hashing, club-role guards). Remaining domain modules (Clubs/Teams, Scheduling, Scoresheet, Payments) are not implemented yet — see [`docs/feature-set.md`](./docs/feature-set.md) for what's next.
