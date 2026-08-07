@@ -106,13 +106,13 @@ self-verified like a JWT).
 
 ## Endpoints (`server/src/auth/`)
 
-| Route | Auth | Behavior |
-|---|---|---|
-| `POST /api/auth/register` | none | `{email, password}` → argon2-hash password, create `User`, issue tokens (new `familyId`), set refresh cookie. `409` on duplicate email. |
-| `POST /api/auth/login` | none | Validate credentials → issue tokens (new `familyId`), set refresh cookie. `401` with an identical generic message whether email or password was wrong (no user-enumeration signal). |
-| `POST /api/auth/refresh` | refresh cookie | Look up `tokenHash` → if valid and unexpired, rotate (revoke old row, issue new access + refresh in same family, set new cookie). If the row is already revoked, revoke the whole family and return `401` + clear cookie. |
-| `POST /api/auth/logout` | refresh cookie | Revoke the presented token's row, clear cookie. (Does not revoke the whole family — a normal logout, not a theft response.) |
-| `GET /api/auth/me` | `JwtAuthGuard` | Returns `{id, email, memberships: [{clubId, role}]}`. |
+| Route                     | Auth           | Behavior                                                                                                                                                                                                                  |
+| ------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/auth/register` | none           | `{email, password}` → argon2-hash password, create `User`, issue tokens (new `familyId`), set refresh cookie. `409` on duplicate email.                                                                                   |
+| `POST /api/auth/login`    | none           | Validate credentials → issue tokens (new `familyId`), set refresh cookie. `401` with an identical generic message whether email or password was wrong (no user-enumeration signal).                                       |
+| `POST /api/auth/refresh`  | refresh cookie | Look up `tokenHash` → if valid and unexpired, rotate (revoke old row, issue new access + refresh in same family, set new cookie). If the row is already revoked, revoke the whole family and return `401` + clear cookie. |
+| `POST /api/auth/logout`   | refresh cookie | Revoke the presented token's row, clear cookie. (Does not revoke the whole family — a normal logout, not a theft response.)                                                                                               |
+| `GET /api/auth/me`        | `JwtAuthGuard` | Returns `{id, email, memberships: [{clubId, role}]}`.                                                                                                                                                                     |
 
 ## Guards & strategy
 

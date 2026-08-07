@@ -53,9 +53,11 @@ app/src/
 ## Task 1: Add frontend dependencies
 
 **Files:**
+
 - Modify: `app/package.json`
 
 **Interfaces:**
+
 - Produces: `react-hook-form`, `zod`, `@hookform/resolvers` importable in later tasks (`useForm` from `react-hook-form`, `z` from `zod`, `zodResolver` from `@hookform/resolvers/zod`).
 
 - [ ] **Step 1: Add dependencies**
@@ -83,9 +85,11 @@ git commit -m "chore(app): add react-hook-form, zod, @hookform/resolvers"
 ## Task 2: Shared `RefreshResponse` type
 
 **Files:**
+
 - Modify: `packages/@basketeasy/types/auth.ts`
 
 **Interfaces:**
+
 - Produces: `interface RefreshResponse { accessToken: string; }`
 - Consumed by: `app/src/api/client.ts` (Task 3).
 
@@ -116,10 +120,12 @@ git commit -m "feat(types): add RefreshResponse for the /auth/refresh endpoint"
 ## Task 3: `ApiClient` — auth header, POST, 401 refresh-retry
 
 **Files:**
+
 - Modify: `app/src/api/client.ts`
 - Create: `app/src/api/client.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RefreshResponse` from `@basketeasy/types/auth` (Task 2).
 - Produces:
   - `export function setAccessToken(token: string | null): void`
@@ -271,8 +277,12 @@ describe('apiClient', () => {
     const unsubscribe = subscribeToSessionExpiry(listener);
 
     server.use(
-      http.get('/api/whoami', () => HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })),
-      http.post('/api/auth/refresh', () => HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })),
+      http.get('/api/whoami', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
     );
 
     setAccessToken('stale-token');
@@ -429,9 +439,11 @@ git commit -m "feat(app): ApiClient auth header injection, POST, 401 refresh-ret
 ## Task 4: MSW handlers for `/api/auth/*`
 
 **Files:**
+
 - Modify: `app/src/mocks/handlers.ts`
 
 **Interfaces:**
+
 - Produces: default (happy-path-agnostic) handlers for all five auth endpoints, overridable per test via `server.use(...)`.
 - Consumed by: `AuthContext.test.tsx` (Task 5), `LoginForm.test.tsx` (Task 6), `RegisterForm.test.tsx` (Task 7), `App.test.tsx` (Task 9), and implicitly by every test that mounts `AuthProvider` once Task 8 wires it into `main.tsx` (though `App.test.tsx` renders `<App />` directly wrapped in its own providers, not through `main.tsx` — see Task 9's existing `renderApp()` helper).
 
@@ -497,10 +509,12 @@ git commit -m "test(app): add default MSW handlers for /api/auth/*"
 ## Task 5: `AuthContext`
 
 **Files:**
+
 - Create: `app/src/auth/AuthContext.tsx`
 - Create: `app/src/auth/AuthContext.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `apiClient`, `setAccessToken`, `subscribeToSessionExpiry` from `../api/client` (Task 3); `AuthUser`, `AccessTokenResponse`, `RefreshResponse` from `@basketeasy/types/auth`.
 - Produces:
   - `export function AuthProvider({ children }: { children: ReactNode }): JSX.Element`
@@ -779,10 +793,12 @@ git commit -m "feat(app): AuthContext with login/register/logout/session-restore
 ## Task 6: `LoginForm`
 
 **Files:**
+
 - Create: `app/src/auth/LoginForm.tsx`
 - Create: `app/src/auth/LoginForm.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAuth` from `./AuthContext` (Task 5); `Card`, `CardHeader`, `CardTitle`, `CardContent` from `@basketeasy/ui/card`; `Label` from `@basketeasy/ui/label`; `Input` from `@basketeasy/ui/input`; `Button` from `@basketeasy/ui/button`; `Alert`, `AlertDescription` from `@basketeasy/ui/alert`; `useForm` from `react-hook-form`; `zodResolver` from `@hookform/resolvers/zod`; `z` from `zod`.
 - Produces: `export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }): JSX.Element`
 - Consumed by: `App.tsx` (Task 9).
@@ -993,10 +1009,12 @@ git commit -m "feat(app): LoginForm with react-hook-form + zod validation"
 ## Task 7: `RegisterForm`
 
 **Files:**
+
 - Create: `app/src/auth/RegisterForm.tsx`
 - Create: `app/src/auth/RegisterForm.test.tsx`
 
 **Interfaces:**
+
 - Consumes: same as `LoginForm` (Task 6), plus `useAuth().register` instead of `.login`.
 - Produces: `export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }): JSX.Element`
 - Consumed by: `App.tsx` (Task 9).
@@ -1203,9 +1221,11 @@ git commit -m "feat(app): RegisterForm with react-hook-form + zod validation"
 ## Task 8: Wire `AuthProvider` into `main.tsx`
 
 **Files:**
+
 - Modify: `app/src/main.tsx`
 
 **Interfaces:**
+
 - Consumes: `AuthProvider` from `./auth/AuthContext` (Task 5).
 
 Current content of `app/src/main.tsx`:
@@ -1270,10 +1290,12 @@ git commit -m "feat(app): wire AuthProvider into the app root"
 ## Task 9: `App.tsx` — login/register ↔ logged-in toggle
 
 **Files:**
+
 - Modify: `app/src/App.tsx`
 - Modify: `app/src/App.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAuth` from `./auth/AuthContext` (Task 5); `LoginForm` (Task 6); `RegisterForm` (Task 7).
 
 Current content of `app/src/App.tsx`:
@@ -1546,6 +1568,7 @@ pnpm --filter @basketeasy/app dev
 - [ ] **Step 3: Verify in a browser**
 
 Open `http://localhost:5173`. Confirm:
+
 - The login form renders by default (no console errors about `AuthProvider`/`useAuth`).
 - Clicking "Créer un compte" switches to the register form; "J'ai déjà un compte" switches back.
 - Registering a new account (a fresh email) logs you in immediately — the page switches to showing your email + "Se déconnecter", with no page reload.

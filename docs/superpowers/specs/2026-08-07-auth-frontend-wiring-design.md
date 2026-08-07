@@ -54,13 +54,14 @@ the Vite proxy / nginx image, so the refresh cookie round-trips without extra co
 this is just making that assumption explicit rather than relying on the fetch spec's
 default).
 
-On a `401` response from any request *other than* the refresh call itself:
+On a `401` response from any request _other than_ the refresh call itself:
+
 1. If a refresh is already in flight, await its shared promise instead of starting a
    second one (dedupes concurrent 401s from multiple simultaneous requests).
 2. Otherwise call `POST /auth/refresh`. On success, call `setAccessToken` with the new
    token and retry the original request once.
 3. On refresh failure, call `setAccessToken(null)`, notify every
-   `subscribeToSessionExpiry` listener, and reject with the *original* 401 `ApiError`
+   `subscribeToSessionExpiry` listener, and reject with the _original_ 401 `ApiError`
    (not the refresh call's error — the caller asked for the original resource).
 
 `apiClient.post<T>(path, body)` is added alongside the existing `get`.

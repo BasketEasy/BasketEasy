@@ -64,9 +64,11 @@ server/
 ## Task 1: Add auth dependencies
 
 **Files:**
+
 - Modify: `server/package.json`
 
 **Interfaces:**
+
 - Produces: `@nestjs/jwt`, `@nestjs/passport`, `passport`, `passport-jwt`, `argon2`, `cookie-parser` available to import in later tasks; `@types/passport-jwt`, `@types/cookie-parser` for TS.
 
 - [ ] **Step 1: Add dependencies**
@@ -95,10 +97,12 @@ git commit -m "chore(server): add JWT/passport/argon2/cookie-parser dependencies
 ## Task 2: Shared auth types
 
 **Files:**
+
 - Create: `packages/@basketeasy/types/auth.ts`
 - Modify: `packages/@basketeasy/types/package.json`
 
 **Interfaces:**
+
 - Produces:
   - `interface ClubMembershipInfo { clubId: string; role: 'ADMIN' | 'MEMBER'; }`
   - `interface AuthUser { id: string; email: string; memberships: ClubMembershipInfo[]; }`
@@ -165,10 +169,12 @@ git commit -m "feat(types): add shared auth DTOs"
 ## Task 3: Prisma schema — User.passwordHash, Club, ClubMembership, RefreshToken
 
 **Files:**
+
 - Modify: `server/prisma/schema.prisma`
 - Create: `server/prisma/migrations/<timestamp>_add_auth_tables/migration.sql` (generated, not hand-written)
 
 **Interfaces:**
+
 - Produces (Prisma Client types, generated): `User.passwordHash: string`, `Club`, `ClubRole` enum (`ADMIN`/`MEMBER`), `ClubMembership`, `RefreshToken` (`id, userId, familyId, tokenHash, expiresAt, revokedAt, createdAt`).
 - Consumed by: `AuthService` (Task 5+), `ClubRolesGuard` (Task 8).
 
@@ -273,10 +279,12 @@ git commit -m "feat(server): add Club/ClubMembership/RefreshToken schema and Use
 ## Task 4: Register/Login DTOs
 
 **Files:**
+
 - Create: `server/src/auth/dto/register.dto.ts`
 - Create: `server/src/auth/dto/login.dto.ts`
 
 **Interfaces:**
+
 - Consumes: `RegisterRequest`, `LoginRequest` from `@basketeasy/types/auth` (Task 2).
 - Produces: `RegisterDto implements RegisterRequest`, `LoginDto implements LoginRequest` — used by `AuthController` (Task 9).
 
@@ -328,10 +336,12 @@ git commit -m "feat(server): add register/login DTOs"
 ## Task 5: AuthService — register & login (token issuance)
 
 **Files:**
+
 - Create: `server/src/auth/auth.service.ts`
 - Create: `server/src/auth/auth.service.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `PrismaService` (`server/src/prisma/prisma.service.ts`) — `prisma.user`, `prisma.refreshToken`; `JwtService` from `@nestjs/jwt` (`signAsync(payload, options)`); `ConfigService` from `@nestjs/config` (`get(key)`); `argon2.hash`, `argon2.verify`; `crypto.randomBytes`, `crypto.createHash`, `crypto.randomUUID`.
 - Produces (this task):
   - `class AuthService` with constructor `(prisma: PrismaService, jwt: JwtService, config: ConfigService)`.
@@ -356,7 +366,12 @@ describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
     user: { findUnique: jest.Mock; create: jest.Mock };
-    refreshToken: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
+    refreshToken: {
+      create: jest.Mock;
+      findUnique: jest.Mock;
+      update: jest.Mock;
+      updateMany: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -374,10 +389,17 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
-        { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') } },
+        {
+          provide: JwtService,
+          useValue: { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') },
+        },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((key: string) => (key === 'JWT_ACCESS_SECRET' ? 'access-secret' : undefined)) },
+          useValue: {
+            get: jest.fn((key: string) =>
+              key === 'JWT_ACCESS_SECRET' ? 'access-secret' : undefined,
+            ),
+          },
         },
       ],
     }).compile();
@@ -432,7 +454,9 @@ describe('AuthService', () => {
     it('throws UnauthorizedException for an unknown email', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.login('nobody@b.com', 'password123')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('nobody@b.com', 'password123')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('throws UnauthorizedException for a wrong password', async () => {
@@ -444,7 +468,9 @@ describe('AuthService', () => {
         memberships: [],
       });
 
-      await expect(service.login('a@b.com', 'wrong-password')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login('a@b.com', 'wrong-password')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });
@@ -519,7 +545,11 @@ export class AuthService {
     return { ...tokens, user: { id: user.id, email: user.email, memberships } };
   }
 
-  private async issueTokenPair(userId: string, email: string, familyId: string): Promise<TokenPair> {
+  private async issueTokenPair(
+    userId: string,
+    email: string,
+    familyId: string,
+  ): Promise<TokenPair> {
     const accessToken = await this.jwt.signAsync(
       { sub: userId, email },
       { secret: this.config.get<string>('JWT_ACCESS_SECRET'), expiresIn: ACCESS_TOKEN_TTL },
@@ -559,10 +589,12 @@ git commit -m "feat(server): AuthService register/login with argon2 + token issu
 ## Task 6: AuthService — refresh (rotation + family revocation) & logout
 
 **Files:**
+
 - Modify: `server/src/auth/auth.service.ts`
 - Modify: `server/src/auth/auth.service.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `issueTokenPair` (private, Task 5), `prisma.refreshToken.findUnique/update/updateMany`.
 - Produces: `async refresh(rawToken: string): Promise<TokenPair>` — throws `UnauthorizedException` if not found, expired, or already revoked (and in the revoked case, revokes the whole family first). `async logout(rawToken: string): Promise<void>` — revokes only the presented token's row; no-op (does not throw) if the token isn't found.
 - Consumed by: `AuthController` (Task 9).
@@ -572,92 +604,94 @@ git commit -m "feat(server): AuthService register/login with argon2 + token issu
 Append to `server/src/auth/auth.service.spec.ts`, inside the existing `describe('AuthService', ...)` block (after the `login` describe block):
 
 ```typescript
-  describe('refresh', () => {
-    it('rotates a valid token: revokes the old row and issues a new pair in the same family', async () => {
-      const now = new Date();
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt-1',
-        userId: 'user-1',
-        familyId: 'family-1',
-        tokenHash: 'hash-1',
-        expiresAt: new Date(now.getTime() + 1000 * 60 * 60),
-        revokedAt: null,
-      });
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
-      prisma.refreshToken.update.mockResolvedValue({});
-      prisma.refreshToken.create.mockResolvedValue({});
+describe('refresh', () => {
+  it('rotates a valid token: revokes the old row and issues a new pair in the same family', async () => {
+    const now = new Date();
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      familyId: 'family-1',
+      tokenHash: 'hash-1',
+      expiresAt: new Date(now.getTime() + 1000 * 60 * 60),
+      revokedAt: null,
+    });
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+    prisma.refreshToken.update.mockResolvedValue({});
+    prisma.refreshToken.create.mockResolvedValue({});
 
-      const result = await service.refresh('raw-token');
+    const result = await service.refresh('raw-token');
 
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: 'rt-1' },
-        data: { revokedAt: expect.any(Date) },
-      });
-      expect(prisma.refreshToken.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ familyId: 'family-1', userId: 'user-1' }) }),
-      );
-      expect(result.accessToken).toBe('signed.jwt.token');
-      expect(result.refreshToken).toEqual(expect.any(String));
+    expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { id: 'rt-1' },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(prisma.refreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ familyId: 'family-1', userId: 'user-1' }),
+      }),
+    );
+    expect(result.accessToken).toBe('signed.jwt.token');
+    expect(result.refreshToken).toEqual(expect.any(String));
+  });
+
+  it('throws UnauthorizedException when the token is unknown', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue(null);
+
+    await expect(service.refresh('unknown')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('throws UnauthorizedException when the token is expired', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      familyId: 'family-1',
+      tokenHash: 'hash-1',
+      expiresAt: new Date(Date.now() - 1000),
+      revokedAt: null,
     });
 
-    it('throws UnauthorizedException when the token is unknown', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue(null);
+    await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+  });
 
-      await expect(service.refresh('unknown')).rejects.toThrow(UnauthorizedException);
+  it('revokes the whole family and throws when a revoked token is reused', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      familyId: 'family-1',
+      tokenHash: 'hash-1',
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      revokedAt: new Date(),
     });
+    prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
 
-    it('throws UnauthorizedException when the token is expired', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt-1',
-        userId: 'user-1',
-        familyId: 'family-1',
-        tokenHash: 'hash-1',
-        expiresAt: new Date(Date.now() - 1000),
-        revokedAt: null,
-      });
-
-      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+    await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { familyId: 'family-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
     });
+  });
+});
 
-    it('revokes the whole family and throws when a revoked token is reused', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({
-        id: 'rt-1',
-        userId: 'user-1',
-        familyId: 'family-1',
-        tokenHash: 'hash-1',
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-        revokedAt: new Date(),
-      });
-      prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+describe('logout', () => {
+  it('revokes the presented token', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', revokedAt: null });
+    prisma.refreshToken.update.mockResolvedValue({});
 
-      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
-      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
-        where: { familyId: 'family-1', revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
-      });
+    await service.logout('raw-token');
+
+    expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { id: 'rt-1' },
+      data: { revokedAt: expect.any(Date) },
     });
   });
 
-  describe('logout', () => {
-    it('revokes the presented token', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', revokedAt: null });
-      prisma.refreshToken.update.mockResolvedValue({});
+  it('does nothing when the token is unknown', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue(null);
 
-      await service.logout('raw-token');
-
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: 'rt-1' },
-        data: { revokedAt: expect.any(Date) },
-      });
-    });
-
-    it('does nothing when the token is unknown', async () => {
-      prisma.refreshToken.findUnique.mockResolvedValue(null);
-
-      await expect(service.logout('unknown')).resolves.toBeUndefined();
-      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
-    });
+    await expect(service.logout('unknown')).resolves.toBeUndefined();
+    expect(prisma.refreshToken.update).not.toHaveBeenCalled();
   });
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -737,10 +771,12 @@ git commit -m "feat(server): AuthService refresh rotation with family reuse dete
 ## Task 7: AuthService — me()
 
 **Files:**
+
 - Modify: `server/src/auth/auth.service.ts`
 - Modify: `server/src/auth/auth.service.spec.ts`
 
 **Interfaces:**
+
 - Produces: `async me(userId: string): Promise<AuthUser>` — throws `UnauthorizedException` if the user no longer exists.
 - Consumed by: `AuthController` (Task 9).
 
@@ -749,29 +785,29 @@ git commit -m "feat(server): AuthService refresh rotation with family reuse dete
 Append inside `describe('AuthService', ...)`:
 
 ```typescript
-  describe('me', () => {
-    it('returns the user with their club memberships', async () => {
-      prisma.user.findUnique.mockResolvedValue({
-        id: 'user-1',
-        email: 'a@b.com',
-        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
-      });
-
-      const result = await service.me('user-1');
-
-      expect(result).toEqual({
-        id: 'user-1',
-        email: 'a@b.com',
-        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
-      });
+describe('me', () => {
+  it('returns the user with their club memberships', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'a@b.com',
+      memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
     });
 
-    it('throws UnauthorizedException when the user no longer exists', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
+    const result = await service.me('user-1');
 
-      await expect(service.me('gone')).rejects.toThrow(UnauthorizedException);
+    expect(result).toEqual({
+      id: 'user-1',
+      email: 'a@b.com',
+      memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
     });
   });
+
+  it('throws UnauthorizedException when the user no longer exists', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.me('gone')).rejects.toThrow(UnauthorizedException);
+  });
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -817,11 +853,13 @@ git commit -m "feat(server): AuthService.me"
 ## Task 8: JwtStrategy + JwtAuthGuard
 
 **Files:**
+
 - Create: `server/src/auth/strategies/jwt.strategy.ts`
 - Create: `server/src/auth/strategies/jwt.strategy.spec.ts`
 - Create: `server/src/auth/guards/jwt-auth.guard.ts`
 
 **Interfaces:**
+
 - Consumes: `passport-jwt`'s `Strategy`/`ExtractJwt`, `PassportStrategy` from `@nestjs/passport`, `ConfigService`.
 - Produces: `class JwtStrategy extends PassportStrategy(Strategy, 'jwt')` with `validate(payload: { sub: string; email: string }): { id: string; email: string }`. `class JwtAuthGuard extends AuthGuard('jwt')`.
 - Consumed by: `AuthModule` registers `JwtStrategy` as a provider (Task 10); `AuthController.me` uses `JwtAuthGuard` (Task 9); `CurrentUser` decorator (Task 9) reads `req.user` this strategy populates.
@@ -916,11 +954,13 @@ git commit -m "feat(server): JwtStrategy and JwtAuthGuard"
 ## Task 9: ClubRolesGuard + @ClubRoles decorator
 
 **Files:**
+
 - Create: `server/src/auth/decorators/club-roles.decorator.ts`
 - Create: `server/src/auth/guards/club-roles.guard.ts`
 - Create: `server/src/auth/guards/club-roles.guard.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `PrismaService.clubMembership.findUnique`, `Reflector` from `@nestjs/core`, `ClubRole` enum from `@prisma/client`.
 - Produces: `const CLUB_ROLES_KEY = 'clubRoles'`, `ClubRoles(...roles: ClubRole[])` decorator (sets route metadata), `class ClubRolesGuard implements CanActivate` — expects `req.user.id` (set by `JwtAuthGuard`, must run first) and `req.params.clubId`; returns `true` if no `@ClubRoles` metadata is present on the handler (guard is a no-op unless explicitly applied); throws `ForbiddenException` if the user has no membership in that club or the membership's role isn't in the required list.
 - Not consumed by any controller in this plan (no Club module exists yet) — exported from `AuthModule` (Task 10) for future modules.
@@ -1001,14 +1041,18 @@ describe('ClubRolesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue(['ADMIN']);
     prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
 
-    await expect(guard.canActivate(buildContext({ id: 'user-1' }, 'club-1'))).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(buildContext({ id: 'user-1' }, 'club-1'))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 
   it('denies a user with no membership in the club', async () => {
     reflector.getAllAndOverride.mockReturnValue(['ADMIN']);
     prisma.clubMembership.findUnique.mockResolvedValue(null);
 
-    await expect(guard.canActivate(buildContext({ id: 'user-1' }, 'club-1'))).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(buildContext({ id: 'user-1' }, 'club-1'))).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
 ```
@@ -1078,12 +1122,14 @@ git commit -m "feat(server): ClubRolesGuard and @ClubRoles decorator"
 ## Task 10: CurrentUser decorator + AuthModule wiring
 
 **Files:**
+
 - Create: `server/src/auth/decorators/current-user.decorator.ts`
 - Create: `server/src/auth/auth.module.ts`
 - Modify: `server/src/app.module.ts`
 - Modify: `server/.env.example`
 
 **Interfaces:**
+
 - Produces: `CurrentUser` param decorator returning `req.user` (`{ id: string; email: string }`, populated by `JwtAuthGuard`/`JwtStrategy`). `AuthModule` registers `AuthController`, `AuthService`, `JwtStrategy`, `ClubRolesGuard`, and configures `JwtModule` — exports `ClubRolesGuard` for future modules.
 - Consumed by: `AuthController` (Task 11), `AppModule`.
 
@@ -1097,10 +1143,12 @@ export interface RequestUser {
   email: string;
 }
 
-export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext): RequestUser => {
-  const request = ctx.switchToHttp().getRequest();
-  return request.user;
-});
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): RequestUser => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user;
+  },
+);
 ```
 
 - [ ] **Step 2: Write `auth.module.ts`**
@@ -1175,11 +1223,13 @@ git commit -m "feat(server): AuthModule wiring, CurrentUser decorator, JWT env v
 ## Task 11: AuthController — register/login/refresh/logout/me
 
 **Files:**
+
 - Create: `server/src/auth/auth.controller.ts`
 - Create: `server/src/auth/auth.controller.spec.ts`
 - Modify: `server/src/main.ts` (add `cookie-parser` middleware)
 
 **Interfaces:**
+
 - Consumes: `AuthService` (Tasks 5-7), `RegisterDto`/`LoginDto` (Task 4), `JwtAuthGuard` (Task 8), `CurrentUser`/`RequestUser` (Task 10).
 - Produces: the five HTTP routes from the spec. Cookie name `refresh_token`, path `/api/auth`, `httpOnly: true`, `sameSite: 'strict'`, `secure: process.env.NODE_ENV !== 'development'`, `maxAge: 30 * 24 * 60 * 60 * 1000`.
 
@@ -1239,7 +1289,10 @@ describe('AuthController', () => {
       'refresh-1',
       expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/api/auth' }),
     );
-    expect(result).toEqual({ accessToken: 'access-1', user: { id: 'user-1', email: 'a@b.com', memberships: [] } });
+    expect(result).toEqual({
+      accessToken: 'access-1',
+      user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+    });
   });
 
   it('login sets the refresh cookie and returns the access token + user', async () => {
@@ -1249,7 +1302,10 @@ describe('AuthController', () => {
       user: { id: 'user-1', email: 'a@b.com', memberships: [] },
     });
 
-    const result = await controller.login({ email: 'a@b.com', password: 'password123' }, res as unknown as Response);
+    const result = await controller.login(
+      { email: 'a@b.com', password: 'password123' },
+      res as unknown as Response,
+    );
 
     expect(res.cookie).toHaveBeenCalled();
     expect(result.accessToken).toBe('access-1');
@@ -1258,7 +1314,10 @@ describe('AuthController', () => {
   it('refresh reads the cookie, rotates it, and sets the new cookie', async () => {
     service.refresh.mockResolvedValue({ accessToken: 'access-2', refreshToken: 'refresh-2' });
 
-    const result = await controller.refresh({ refresh_token: 'refresh-1' }, res as unknown as Response);
+    const result = await controller.refresh(
+      { refresh_token: 'refresh-1' },
+      res as unknown as Response,
+    );
 
     expect(service.refresh).toHaveBeenCalledWith('refresh-1');
     expect(res.cookie).toHaveBeenCalledWith('refresh_token', 'refresh-2', expect.any(Object));
@@ -1266,7 +1325,9 @@ describe('AuthController', () => {
   });
 
   it('refresh throws UnauthorizedException when no cookie is present', async () => {
-    await expect(controller.refresh({}, res as unknown as Response)).rejects.toThrow(UnauthorizedException);
+    await expect(controller.refresh({}, res as unknown as Response)).rejects.toThrow(
+      UnauthorizedException,
+    );
     expect(service.refresh).not.toHaveBeenCalled();
   });
 
@@ -1276,7 +1337,10 @@ describe('AuthController', () => {
     await controller.logout({ refresh_token: 'refresh-1' }, res as unknown as Response);
 
     expect(service.logout).toHaveBeenCalledWith('refresh-1');
-    expect(res.clearCookie).toHaveBeenCalledWith('refresh_token', expect.objectContaining({ path: '/api/auth' }));
+    expect(res.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/api/auth' }),
+    );
   });
 
   it('me returns the current user from the service', async () => {
@@ -1298,7 +1362,16 @@ Expected: FAIL — `Cannot find module './auth.controller'`.
 - [ ] **Step 3: Write `auth.controller.ts`**
 
 ```typescript
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import type { AccessTokenResponse, AuthUser } from '@basketeasy/types/auth';
 import { RegisterDto } from './dto/register.dto';
@@ -1321,15 +1394,27 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response): Promise<AccessTokenResponse> {
-    const { accessToken, refreshToken, user } = await this.authService.register(dto.email, dto.password);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AccessTokenResponse> {
+    const { accessToken, refreshToken, user } = await this.authService.register(
+      dto.email,
+      dto.password,
+    );
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, REFRESH_COOKIE_OPTIONS);
     return { accessToken, user };
   }
 
   @Post('login')
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response): Promise<AccessTokenResponse> {
-    const { accessToken, refreshToken, user } = await this.authService.login(dto.email, dto.password);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AccessTokenResponse> {
+    const { accessToken, refreshToken, user } = await this.authService.login(
+      dto.email,
+      dto.password,
+    );
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, REFRESH_COOKIE_OPTIONS);
     return { accessToken, user };
   }
