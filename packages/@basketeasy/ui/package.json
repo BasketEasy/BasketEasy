@@ -94,6 +94,10 @@
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.41",
+    "storybook": "^8.2.9",
+    "@storybook/react": "^8.2.9",
+    "@storybook/react-vite": "^8.2.9",
+    "@storybook/addon-essentials": "^8.2.9",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",
