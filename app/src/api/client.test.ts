@@ -1,5 +1,5 @@
 // app/src/api/client.test.ts
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { apiClient, ApiError, setAccessToken, subscribeToSessionExpiry } from './client';
