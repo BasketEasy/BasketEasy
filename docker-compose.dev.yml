@@ -5,10 +5,11 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #
 # server/ and app/ source is bind-mounted in; each service's own node_modules
-# (and the shared packages/@basketeasy/types) get an anonymous volume so the
-# bind mount doesn't shadow what `pnpm install` put there at image build time —
-# same class of issue as the @nestjs/core fix in server/Dockerfile's runtime
-# stage, just happening via volumes instead of COPY here.
+# (and the shared packages/@basketeasy/types, @basketeasy/ui) get an anonymous
+# volume so the bind mount doesn't shadow what `pnpm install` put there at
+# image build time — same class of issue as the @nestjs/core fix in
+# server/Dockerfile's runtime stage, just happening via volumes instead of
+# COPY here.
 
 services:
   postgres:
@@ -88,6 +89,7 @@ services:
       - /workspace/node_modules
       - /workspace/app/node_modules
       - /workspace/packages/@basketeasy/types/node_modules
+      - /workspace/packages/@basketeasy/ui/node_modules
     depends_on:
       server:
         condition: service_healthy
