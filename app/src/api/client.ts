@@ -46,7 +46,22 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    throw new ApiError(`Request to ${path} failed with status ${res.status}`, res.status);
+    let message = `Request to ${path} failed with status ${res.status}`;
+    try {
+      const body: unknown = await res.clone().json();
+      if (body && typeof body === 'object' && 'message' in body) {
+        const bodyMessage = (body as { message: unknown }).message;
+        if (typeof bodyMessage === 'string') {
+          message = bodyMessage;
+        } else if (Array.isArray(bodyMessage) && bodyMessage.every((m) => typeof m === 'string')) {
+          message = bodyMessage.join(', ');
+        }
+      }
+    } catch {
+      // Response body wasn't JSON (or had no body) — fall back to the
+      // generic status-based message above.
+    }
+    throw new ApiError(message, res.status);
   }
 
   return res.json() as Promise<T>;

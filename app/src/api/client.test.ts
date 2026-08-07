@@ -99,8 +99,12 @@ describe('apiClient', () => {
     const unsubscribe = subscribeToSessionExpiry(listener);
 
     server.use(
-      http.get('/api/whoami', () => HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })),
-      http.post('/api/auth/refresh', () => HttpResponse.json({ message: 'Unauthorized' }, { status: 401 })),
+      http.get('/api/whoami', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
     );
 
     setAccessToken('stale-token');
@@ -126,5 +130,23 @@ describe('apiClient', () => {
     expect(receivedAuth).toBeNull();
 
     unsubscribe();
+  });
+
+  it('ApiError carries the server-provided message from the response body', async () => {
+    server.use(
+      http.post('/api/auth/login', () =>
+        HttpResponse.json({ message: 'Invalid credentials' }, { status: 401 }),
+      ),
+    );
+
+    let caught: unknown;
+    try {
+      await apiClient.post('/auth/login', { email: 'a@b.com', password: 'wrong' });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).message).toBe('Invalid credentials');
   });
 });
