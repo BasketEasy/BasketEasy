@@ -26,6 +26,10 @@
       "types": "./src/components/Input.tsx",
       "default": "./src/components/Input.tsx"
     },
+    "./form-field": {
+      "types": "./src/components/FormField.tsx",
+      "default": "./src/components/FormField.tsx"
+    },
     "./textarea": {
       "types": "./src/components/Textarea.tsx",
       "default": "./src/components/Textarea.tsx"
