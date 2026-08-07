@@ -1,14 +1,12 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
-import { Label } from '@basketeasy/ui/label';
-import { Input } from '@basketeasy/ui/input';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
-import { ApiError } from '../api/client';
-import { useAuth } from './useAuth';
+import { FormField } from '@basketeasy/ui/form-field';
+import { useLoginMutation } from './mutations';
+import { getAuthErrorMessage } from './errorMessages';
 
 const loginSchema = z.object({
   email: z.string().email('Adresse email invalide'),
@@ -18,20 +16,19 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
-  const { login } = useAuth();
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const loginMutation = useLoginMutation();
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
   const onSubmit = async (values: LoginFormValues) => {
-    setSubmitError(null);
     try {
-      await login(values.email, values.password);
+      await loginMutation.mutateAsync(values);
     } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      setError('root', { message: getAuthErrorMessage(err) });
     }
   };
 
@@ -46,35 +43,33 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
           onSubmit={(e) => {
             void handleSubmit(onSubmit)(e);
           }}
-          style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+          className="flex flex-col gap-4"
         >
-          {submitError && (
+          {errors.root?.message && (
             <Alert variant="destructive">
-              <AlertDescription>{submitError}</AlertDescription>
+              <AlertDescription>{errors.root.message}</AlertDescription>
             </Alert>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <Label htmlFor="login-email">Adresse e-mail</Label>
-            <Input id="login-email" type="email" {...register('email')} />
-            {errors.email && (
-              <p style={{ color: 'var(--be-error, #B23A2E)', fontSize: 13 }}>
-                {errors.email.message}
-              </p>
-            )}
-          </div>
+          <FormField
+            label="Adresse e-mail"
+            id="login-email"
+            type="email"
+            autoComplete="email"
+            error={errors.email?.message}
+            {...register('email')}
+          />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <Label htmlFor="login-password">Mot de passe</Label>
-            <Input id="login-password" type="password" {...register('password')} />
-            {errors.password && (
-              <p style={{ color: 'var(--be-error, #B23A2E)', fontSize: 13 }}>
-                {errors.password.message}
-              </p>
-            )}
-          </div>
+          <FormField
+            label="Mot de passe"
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            {...register('password')}
+          />
 
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" disabled={isSubmitting || loginMutation.isPending}>
             Se connecter
           </Button>
 

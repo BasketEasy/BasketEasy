@@ -1,23 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { server } from './mocks/server';
-import { AuthProvider } from './auth/AuthContext';
+import { renderWithProviders } from './testUtils';
 import App from './App';
 
 function renderApp() {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </QueryClientProvider>,
-  );
+  return renderWithProviders(<App />);
 }
 
 describe('App', () => {
@@ -42,7 +32,9 @@ describe('App', () => {
     const user = userEvent.setup();
     renderApp();
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
+    );
 
     await user.click(screen.getByRole('button', { name: /créer un compte/i }));
     expect(screen.getByRole('heading', { name: /créer un compte/i })).toBeInTheDocument();
@@ -64,7 +56,9 @@ describe('App', () => {
     const user = userEvent.setup();
     renderApp();
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
+    );
 
     await user.type(screen.getByLabelText(/adresse e-mail/i), 'a@b.com');
     await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
@@ -75,6 +69,8 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
+    );
   });
 });
