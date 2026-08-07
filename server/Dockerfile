@@ -6,6 +6,7 @@ WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY server/package.json server/package.json
+COPY server/prisma server/prisma
 COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/server... || pnpm install --filter @basketeasy/server...
 
@@ -30,7 +31,6 @@ RUN corepack enable
 COPY --from=deps /workspace ./
 COPY packages/@basketeasy/types packages/@basketeasy/types
 COPY server server
-RUN server/node_modules/.bin/prisma generate --schema=server/prisma/schema.prisma
 RUN pnpm --filter @basketeasy/server build
 
 # --- runtime: minimal image, prod deps only ---
