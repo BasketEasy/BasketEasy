@@ -19,14 +19,22 @@ COPY server server
 RUN pnpm --filter @basketeasy/server build
 
 # --- runtime: minimal image, prod deps only ---
+#
+# pnpm workspaces resolve each package's dependencies via symlinks that live
+# in that package's own node_modules (e.g. server/node_modules/@nestjs/core),
+# pointing back into the root node_modules/.pnpm store. Both layers have to
+# be copied together, in the same relative layout they were created in, or
+# Node's module resolution can't walk from server/dist up to a node_modules
+# directory that actually has the symlink. So this stage keeps the
+# /workspace root instead of flattening into /server.
 FROM node:20-alpine AS runtime
-WORKDIR /server
+WORKDIR /workspace
 ENV NODE_ENV=production
-RUN corepack enable
-COPY --from=build /workspace/server/dist ./dist
-COPY --from=build /workspace/server/package.json ./package.json
-COPY --from=build /workspace/packages/@basketeasy/types ./packages/@basketeasy/types
 COPY --from=build /workspace/node_modules ./node_modules
+COPY --from=build /workspace/server/node_modules ./server/node_modules
+COPY --from=build /workspace/server/dist ./server/dist
+COPY --from=build /workspace/server/package.json ./server/package.json
+COPY --from=build /workspace/packages/@basketeasy/types ./packages/@basketeasy/types
 
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+CMD ["node", "server/dist/main.js"]
