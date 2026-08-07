@@ -4,10 +4,31 @@ import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 
+// Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
+// signature a reasonable amount of entropy to resist brute force; this is a
+// floor, not a recommendation — deployments should use a properly random secret.
+const MIN_JWT_ACCESS_SECRET_LENGTH = 32;
+
+// No schema-validation library (Joi/zod) is a server dependency yet, so this
+// uses ConfigModule's own `validate` hook instead of pulling one in just for
+// a single required var. Revisit with a real schema (Joi/zod) once more env
+// vars land and hand-rolled checks stop scaling.
+function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
+  const secret = config.JWT_ACCESS_SECRET;
+  if (typeof secret !== 'string' || secret.trim().length < MIN_JWT_ACCESS_SECRET_LENGTH) {
+    throw new Error(
+      `JWT_ACCESS_SECRET must be set to a string of at least ${MIN_JWT_ACCESS_SECRET_LENGTH} characters. ` +
+        'A missing or weak secret makes HMAC-signed access tokens forgeable.',
+    );
+  }
+  return config;
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
     }),
     PrismaModule,
     HealthModule,

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -75,6 +76,32 @@ describe('AuthService', () => {
 
       await expect(service.register('a@b.com', 'password123')).rejects.toThrow(ConflictException);
       expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException (not a raw 500) when two concurrent registrations race on the same email', async () => {
+      // findUnique sees no existing row (the race window), but the create()
+      // itself loses to a concurrent registration and hits Prisma's unique
+      // constraint on User.email.
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Unique constraint failed on the fields: (`email`)',
+          {
+            code: 'P2002',
+            clientVersion: '6.19.3',
+          },
+        ),
+      );
+
+      await expect(service.register('a@b.com', 'password123')).rejects.toThrow(ConflictException);
+    });
+
+    it('rethrows unrelated errors from user.create unchanged', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      const unrelated = new Error('database is on fire');
+      prisma.user.create.mockRejectedValue(unrelated);
+
+      await expect(service.register('a@b.com', 'password123')).rejects.toThrow(unrelated);
     });
   });
 
@@ -213,6 +240,25 @@ describe('AuthService', () => {
         data: { revokedAt: expect.any(Date) },
       });
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when the CAS claim succeeds but the owning user no longer exists', async () => {
+      // The refresh-token row is valid and the CAS claim on it succeeds, but
+      // the user it belongs to was deleted in the interim.
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'deleted-user',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        revokedAt: null,
+      });
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'deleted-user' } });
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
     });
   });
 

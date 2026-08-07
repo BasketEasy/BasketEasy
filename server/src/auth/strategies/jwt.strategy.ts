@@ -14,7 +14,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
+      // The `!` is safe: AppModule's ConfigModule.forRoot({ validate }) fails
+      // fast at boot if JWT_ACCESS_SECRET is missing/too short, so by the
+      // time any Nest provider (including this strategy) is constructed the
+      // value is guaranteed present.
       secretOrKey: config.get<string>('JWT_ACCESS_SECRET')!,
+      // Explicit allow-list: defense-in-depth against alg-confusion if the
+      // secret's shape or a future library default ever changes. Not
+      // currently exploitable (jsonwebtoken defaults to HMAC for a
+      // plain-string secret), but cheap to pin down.
+      algorithms: ['HS256'],
     });
   }
 

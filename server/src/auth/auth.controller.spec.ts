@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -15,6 +16,21 @@ describe('AuthController', () => {
   };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
 
+  async function buildController(nodeEnv: string | undefined): Promise<AuthController> {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AuthController],
+      providers: [
+        { provide: AuthService, useValue: service },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((key: string) => (key === 'NODE_ENV' ? nodeEnv : undefined)) },
+        },
+      ],
+    }).compile();
+
+    return module.get<AuthController>(AuthController);
+  }
+
   beforeEach(async () => {
     service = {
       register: jest.fn(),
@@ -25,12 +41,7 @@ describe('AuthController', () => {
     };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: service }],
-    }).compile();
-
-    controller = module.get<AuthController>(AuthController);
+    controller = await buildController('production');
   });
 
   it('register sets the refresh cookie and returns the access token + user', async () => {
@@ -48,12 +59,57 @@ describe('AuthController', () => {
     expect(res.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'refresh-1',
-      expect.objectContaining({ httpOnly: true, sameSite: 'strict', path: '/api/auth' }),
+      expect.objectContaining({
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: true,
+        path: '/api/auth',
+      }),
     );
     expect(result).toEqual({
       accessToken: 'access-1',
       user: { id: 'user-1', email: 'a@b.com', memberships: [] },
     });
+  });
+
+  it('sets a non-secure cookie only when NODE_ENV is development', async () => {
+    service.register.mockResolvedValue({
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+    });
+    const devController = await buildController('development');
+
+    await devController.register(
+      { email: 'a@b.com', password: 'password123' },
+      res as unknown as Response,
+    );
+
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refresh_token',
+      'refresh-1',
+      expect.objectContaining({ secure: false }),
+    );
+  });
+
+  it('sets a secure cookie when NODE_ENV is unset (defaults to production-like)', async () => {
+    service.register.mockResolvedValue({
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+    });
+    const unsetController = await buildController(undefined);
+
+    await unsetController.register(
+      { email: 'a@b.com', password: 'password123' },
+      res as unknown as Response,
+    );
+
+    expect(res.cookie).toHaveBeenCalledWith(
+      'refresh_token',
+      'refresh-1',
+      expect.objectContaining({ secure: true }),
+    );
   });
 
   it('login sets the refresh cookie and returns the access token + user', async () => {
