@@ -22,8 +22,12 @@ export class ClubRolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const userId: string = request.user.id;
-    const clubId: string = request.params.clubId;
+    const userId: string | undefined = request.user?.id;
+    const clubId: string | undefined = request.params?.clubId;
+
+    if (!userId || !clubId) {
+      throw new ForbiddenException('Insufficient club role');
+    }
 
     const membership = await this.prisma.clubMembership.findUnique({
       where: { userId_clubId: { userId, clubId } },

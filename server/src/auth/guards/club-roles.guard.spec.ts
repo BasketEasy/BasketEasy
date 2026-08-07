@@ -4,7 +4,10 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { ClubRolesGuard } from './club-roles.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 
-function buildContext(user: { id: string } | undefined, clubId: string): ExecutionContext {
+function buildContext(
+  user: { id: string } | undefined,
+  clubId: string | undefined,
+): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({ user, params: { clubId } }),
@@ -71,5 +74,23 @@ describe('ClubRolesGuard', () => {
     await expect(guard.canActivate(buildContext({ id: 'user-1' }, 'club-1'))).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('denies with ForbiddenException when there is no authenticated user on the request', async () => {
+    reflector.getAllAndOverride.mockReturnValue(['ADMIN']);
+
+    await expect(guard.canActivate(buildContext(undefined, 'club-1'))).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma.clubMembership.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('denies with ForbiddenException when the route has no clubId param', async () => {
+    reflector.getAllAndOverride.mockReturnValue(['ADMIN']);
+
+    await expect(guard.canActivate(buildContext({ id: 'user-1' }, undefined))).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(prisma.clubMembership.findUnique).not.toHaveBeenCalled();
   });
 });

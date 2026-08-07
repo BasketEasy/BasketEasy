@@ -130,13 +130,13 @@ describe('AuthService', () => {
         revokedAt: null,
       });
       prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
-      prisma.refreshToken.update.mockResolvedValue({});
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.refresh('raw-token');
 
-      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
-        where: { id: 'rt-1' },
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { id: 'rt-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
       expect(prisma.refreshToken.create).toHaveBeenCalledWith(
@@ -176,13 +176,43 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
         revokedAt: new Date(),
       });
-      prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+      // CAS claim on the (already-revoked) row matches nothing.
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      // Family-wide revoke.
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 3 });
 
       await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
-      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: 'rt-1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
         where: { familyId: 'family-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+    });
+
+    it('revokes the whole family and throws when two concurrent requests race on the same token', async () => {
+      // Simulates the race: the row is still unrevoked when read, but the CAS
+      // claim loses (another request already claimed it), so this must be
+      // treated as reuse rather than silently issuing a second token pair.
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        revokedAt: null,
+      });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 2 });
+
+      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { familyId: 'family-1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
   });
 
