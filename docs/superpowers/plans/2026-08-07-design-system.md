@@ -29,6 +29,7 @@ clsx, tailwind-merge, Storybook 8 (Vite builder), Vitest + React Testing Library
 ## Task 1: Scaffold `@basketeasy/ui` package + Tailwind preset
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/package.json`
 - Create: `packages/@basketeasy/ui/tsconfig.json`
 - Create: `packages/@basketeasy/ui/tailwind-preset.cjs`
@@ -38,6 +39,7 @@ clsx, tailwind-merge, Storybook 8 (Vite builder), Vitest + React Testing Library
 - Test: `packages/@basketeasy/ui/src/lib/cn.test.ts`
 
 **Interfaces:**
+
 - Produces: `cn(...inputs: ClassValue[]): string` from `src/lib/cn.ts`, exported as
   `@basketeasy/ui/cn`. Later component tasks import it as
   `import { cn } from '../lib/cn'`.
@@ -105,7 +107,7 @@ clsx, tailwind-merge, Storybook 8 (Vite builder), Vitest + React Testing Library
 ```
 
 - [ ] **Step 2: Create tsconfig.json** (mirror `app/tsconfig.json`'s compilerOptions — strict,
-  jsx: react-jsx, module: ESNext, moduleResolution: bundler — `include: ["src"]`)
+      jsx: react-jsx, module: ESNext, moduleResolution: bundler — `include: ["src"]`)
 
 - [ ] **Step 3: Create tailwind-preset.cjs**
 
@@ -143,7 +145,7 @@ module.exports = {
 ```
 
 - [ ] **Step 5: Create .eslintrc.cjs** (mirror `app/.eslintrc.cjs`, drop `react-refresh` plugin
-  since this package has no dev server HMR entrypoint)
+      since this package has no dev server HMR entrypoint)
 
 - [ ] **Step 6: Write cn.ts**
 
@@ -194,6 +196,7 @@ git commit -m "feat(ui): scaffold @basketeasy/ui package with cn() util"
 ## Task 2: Button + Badge + Label (no external primitive)
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/button.tsx`
 - Test: `packages/@basketeasy/ui/src/components/button.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/badge.tsx`
@@ -203,6 +206,7 @@ git commit -m "feat(ui): scaffold @basketeasy/ui package with cn() util"
 - Modify: `packages/@basketeasy/ui/package.json` (add 3 export entries)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn` (Task 1).
 - Produces: `Button` (props: `variant?: 'default'|'secondary'|'outline'|'ghost'|'destructive'`,
   `size?: 'sm'|'default'|'lg'`, plus native `ButtonHTMLAttributes`), exported from
@@ -275,17 +279,16 @@ const buttonVariants = cva(
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
-  }
+  },
 );
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+  extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {}
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, ...props }, ref) => (
     <button ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props} />
-  )
+  ),
 );
 Button.displayName = 'Button';
 ```
@@ -322,18 +325,22 @@ import { type HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
-const badgeVariants = cva('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold', {
-  variants: {
-    variant: {
-      default: 'bg-orange text-cream',
-      secondary: 'bg-blue-green text-cream',
-      outline: 'border border-border text-charcoal',
+const badgeVariants = cva(
+  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
+  {
+    variants: {
+      variant: {
+        default: 'bg-orange text-cream',
+        secondary: 'bg-blue-green text-cream',
+        outline: 'border border-border text-charcoal',
+      },
     },
+    defaultVariants: { variant: 'default' },
   },
-  defaultVariants: { variant: 'default' },
-});
+);
 
-export interface BadgeProps extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
+export interface BadgeProps
+  extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
@@ -353,7 +360,7 @@ describe('Label', () => {
       <>
         <Label htmlFor="email">Email</Label>
         <input id="email" />
-      </>
+      </>,
     );
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
   });
@@ -369,7 +376,7 @@ import { cn } from '../lib/cn';
 export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
     <label ref={ref} className={cn('text-sm font-medium text-charcoal', className)} {...props} />
-  )
+  ),
 );
 Label.displayName = 'Label';
 ```
@@ -399,6 +406,7 @@ git commit -m "feat(ui): add Button, Badge, Label components"
 ## Task 3: Input, Textarea, Card, Alert
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/input.tsx` + `.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/textarea.tsx` + `.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/card.tsx` + `.test.tsx`
@@ -406,6 +414,7 @@ git commit -m "feat(ui): add Button, Badge, Label components"
 - Modify: `packages/@basketeasy/ui/package.json` (4 export entries)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn`.
 - Produces: `Input` (native `InputHTMLAttributes<HTMLInputElement>`) from `@basketeasy/ui/input`.
 - Produces: `Textarea` (native `TextareaHTMLAttributes<HTMLTextAreaElement>`) from
@@ -457,11 +466,11 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
       type={type}
       className={cn(
         'flex h-10 w-full rounded-md border border-border bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange disabled:cursor-not-allowed disabled:opacity-50',
-        className
+        className,
       )}
       {...props}
     />
-  )
+  ),
 );
 Input.displayName = 'Input';
 ```
@@ -490,18 +499,19 @@ describe('Textarea', () => {
 import { type TextareaHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../lib/cn';
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => (
-    <textarea
-      ref={ref}
-      className={cn(
-        'flex min-h-[80px] w-full rounded-md border border-border bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange disabled:cursor-not-allowed disabled:opacity-50',
-        className
-      )}
-      {...props}
-    />
-  )
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => (
+  <textarea
+    ref={ref}
+    className={cn(
+      'flex min-h-[80px] w-full rounded-md border border-border bg-cream px-3 py-2 text-sm text-charcoal placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange disabled:cursor-not-allowed disabled:opacity-50',
+      className,
+    )}
+    {...props}
+  />
+));
 Textarea.displayName = 'Textarea';
 ```
 
@@ -521,7 +531,7 @@ describe('Card', () => {
           <CardDescription>Club de Loire-Atlantique</CardDescription>
         </CardHeader>
         <CardContent>42 licenciés</CardContent>
-      </Card>
+      </Card>,
     );
     expect(screen.getByText('AS Basket')).toBeInTheDocument();
     expect(screen.getByText('Club de Loire-Atlantique')).toBeInTheDocument();
@@ -538,41 +548,52 @@ import { cn } from '../lib/cn';
 
 export const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('rounded-lg border border-border bg-cream shadow-sm', className)} {...props} />
-  )
+    <div
+      ref={ref}
+      className={cn('rounded-lg border border-border bg-cream shadow-sm', className)}
+      {...props}
+    />
+  ),
 );
 Card.displayName = 'Card';
 
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn('flex flex-col gap-1.5 p-6', className)} {...props} />
-  )
+  ),
 );
 CardHeader.displayName = 'CardHeader';
 
 export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('font-heading text-xl font-bold leading-none text-charcoal', className)} {...props} />
-  )
+    <h3
+      ref={ref}
+      className={cn('font-heading text-xl font-bold leading-none text-charcoal', className)}
+      {...props}
+    />
+  ),
 );
 CardTitle.displayName = 'CardTitle';
 
-export const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn('text-sm text-muted', className)} {...props} />
-  )
-);
+export const CardDescription = forwardRef<
+  HTMLParagraphElement,
+  HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p ref={ref} className={cn('text-sm text-muted', className)} {...props} />
+));
 CardDescription.displayName = 'CardDescription';
 
 export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
+  ),
 );
 CardContent.displayName = 'CardContent';
 
 export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn('flex items-center p-6 pt-0', className)} {...props} />
-  )
+  ),
 );
 CardFooter.displayName = 'CardFooter';
 ```
@@ -590,7 +611,7 @@ describe('Alert', () => {
       <Alert>
         <AlertTitle>Créneau annulé</AlertTitle>
         <AlertDescription>La salle est indisponible ce soir.</AlertDescription>
-      </Alert>
+      </Alert>,
     );
     expect(screen.getByText('Créneau annulé')).toBeInTheDocument();
     expect(screen.getByText('La salle est indisponible ce soir.')).toBeInTheDocument();
@@ -625,23 +646,33 @@ const alertVariants = cva('relative w-full rounded-lg border p-4', {
   defaultVariants: { variant: 'default' },
 });
 
-export interface AlertProps extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {}
+export interface AlertProps
+  extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {}
 
-export const Alert = forwardRef<HTMLDivElement, AlertProps>(({ className, variant, ...props }, ref) => (
-  <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
-));
+export const Alert = forwardRef<HTMLDivElement, AlertProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props} />
+  ),
+);
 Alert.displayName = 'Alert';
 
 export const AlertTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h5 ref={ref} className={cn('mb-1 font-heading text-base font-bold leading-none', className)} {...props} />
-  )
+    <h5
+      ref={ref}
+      className={cn('mb-1 font-heading text-base font-bold leading-none', className)}
+      {...props}
+    />
+  ),
 );
 AlertTitle.displayName = 'AlertTitle';
 
-export const AlertDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => <p ref={ref} className={cn('text-sm', className)} {...props} />
-);
+export const AlertDescription = forwardRef<
+  HTMLParagraphElement,
+  HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p ref={ref} className={cn('text-sm', className)} {...props} />
+));
 AlertDescription.displayName = 'AlertDescription';
 ```
 
@@ -671,11 +702,13 @@ git commit -m "feat(ui): add Input, Textarea, Card, Alert components"
 ## Task 4: Checkbox, Avatar (Radix-based)
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/checkbox.tsx` + `.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/avatar.tsx` + `.test.tsx`
 - Modify: `packages/@basketeasy/ui/package.json` (2 export entries)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn`, `@radix-ui/react-checkbox`, `@radix-ui/react-avatar`.
 - Produces: `Checkbox` (props: `CheckboxPrimitive.CheckboxProps`, forwards `checked`/`onCheckedChange`)
   from `@basketeasy/ui/checkbox`.
@@ -720,7 +753,7 @@ export const Checkbox = forwardRef<
     ref={ref}
     className={cn(
       'peer h-4 w-4 shrink-0 rounded-sm border border-border ring-offset-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-orange data-[state=checked]:text-cream',
-      className
+      className,
     )}
     {...props}
   >
@@ -733,8 +766,8 @@ Checkbox.displayName = 'Checkbox';
 ```
 
 - [ ] **Step 3: Write a minimal inline Check icon** (avoids pulling an icon library — matches
-  `docs/frontend-stack.md`'s "custom icon set" note; this is a placeholder glyph, not the full
-  icon set from that future work item)
+      `docs/frontend-stack.md`'s "custom icon set" note; this is a placeholder glyph, not the full
+      icon set from that future work item)
 
 Create `packages/@basketeasy/ui/src/components/icons/check.tsx`:
 
@@ -767,7 +800,7 @@ describe('Avatar', () => {
     render(
       <Avatar>
         <AvatarFallback>AB</AvatarFallback>
-      </Avatar>
+      </Avatar>,
     );
     expect(screen.getByText('AB')).toBeInTheDocument();
   });
@@ -797,7 +830,11 @@ export const AvatarImage = forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
 >(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image ref={ref} className={cn('aspect-square h-full w-full', className)} {...props} />
+  <AvatarPrimitive.Image
+    ref={ref}
+    className={cn('aspect-square h-full w-full', className)}
+    {...props}
+  />
 ));
 AvatarImage.displayName = 'AvatarImage';
 
@@ -807,7 +844,10 @@ export const AvatarFallback = forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}
-    className={cn('flex h-full w-full items-center justify-center rounded-full bg-blue-green text-sm font-medium text-cream', className)}
+    className={cn(
+      'flex h-full w-full items-center justify-center rounded-full bg-blue-green text-sm font-medium text-cream',
+      className,
+    )}
     {...props}
   />
 ));
@@ -838,11 +878,13 @@ git commit -m "feat(ui): add Checkbox, Avatar components"
 ## Task 5: Select, Tabs (Radix-based)
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/select.tsx` + `.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/tabs.tsx` + `.test.tsx`
 - Modify: `packages/@basketeasy/ui/package.json` (2 export entries)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn`, `@radix-ui/react-select`, `@radix-ui/react-tabs`.
 - Produces: `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` from
   `@basketeasy/ui/select` (thin wrapper re-exporting `Root`/`Value` from Radix, styled
@@ -850,8 +892,8 @@ git commit -m "feat(ui): add Checkbox, Avatar components"
 - Produces: `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` from `@basketeasy/ui/tabs`.
 
 - [ ] **Step 1: Write tabs.test.tsx** (Radix Select requires `hasPointerCapture`/`scrollIntoView`
-  polyfills under jsdom that aren't worth the setup cost here — Tabs has simpler interaction
-  semantics and is tested directly; Select gets a render-only smoke test in Step 5)
+      polyfills under jsdom that aren't worth the setup cost here — Tabs has simpler interaction
+      semantics and is tested directly; Select gets a render-only smoke test in Step 5)
 
 ```tsx
 import { render, screen } from '@testing-library/react';
@@ -869,7 +911,7 @@ describe('Tabs', () => {
         </TabsList>
         <TabsContent value="roster">Liste des joueurs</TabsContent>
         <TabsContent value="calendar">Prochains matchs</TabsContent>
-      </Tabs>
+      </Tabs>,
     );
     expect(screen.getByText('Liste des joueurs')).toBeInTheDocument();
     expect(screen.queryByText('Prochains matchs')).not.toBeInTheDocument();
@@ -909,7 +951,7 @@ export const TabsTrigger = forwardRef<
     ref={ref}
     className={cn(
       'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-cream data-[state=active]:text-orange data-[state=active]:shadow-sm',
-      className
+      className,
     )}
     {...props}
   />
@@ -948,7 +990,7 @@ export const SelectTrigger = forwardRef<
     ref={ref}
     className={cn(
       'flex h-10 w-full items-center justify-between rounded-md border border-border bg-cream px-3 py-2 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-orange disabled:cursor-not-allowed disabled:opacity-50',
-      className
+      className,
     )}
     {...props}
   >
@@ -981,7 +1023,7 @@ export const SelectItem = forwardRef<
     ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center rounded-sm px-3 py-2 text-sm text-charcoal outline-none data-[highlighted]:bg-orange data-[highlighted]:text-cream',
-      className
+      className,
     )}
     {...props}
   >
@@ -1009,7 +1051,7 @@ describe('Select', () => {
           <SelectItem value="u13">U13</SelectItem>
           <SelectItem value="u15">U15</SelectItem>
         </SelectContent>
-      </Select>
+      </Select>,
     );
     expect(screen.getByText('Choisir une équipe')).toBeInTheDocument();
   });
@@ -1040,11 +1082,13 @@ git commit -m "feat(ui): add Select, Tabs components"
 ## Task 6: Dialog, Tooltip (Radix-based)
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/dialog.tsx` + `.test.tsx`
 - Create: `packages/@basketeasy/ui/src/components/tooltip.tsx` + `.test.tsx`
 - Modify: `packages/@basketeasy/ui/package.json` (2 export entries)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn`, `Check` icon from `./icons/check` (reused as close-icon glyph
   is out of scope — Dialog uses Radix's default close-button text "×" instead, see Step 2),
   `@radix-ui/react-dialog`, `@radix-ui/react-tooltip`.
@@ -1071,7 +1115,7 @@ describe('Dialog', () => {
             <DialogTitle>Supprimer le créneau</DialogTitle>
           </DialogHeader>
         </DialogContent>
-      </Dialog>
+      </Dialog>,
     );
     expect(screen.queryByText('Supprimer le créneau')).not.toBeInTheDocument();
     await userEvent.click(screen.getByText('Ouvrir'));
@@ -1100,7 +1144,7 @@ export const DialogContent = forwardRef<
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-cream p-6 shadow-lg',
-        className
+        className,
       )}
       {...props}
     >
@@ -1133,7 +1177,11 @@ export const DialogDescription = forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn('text-sm text-muted', className)} {...props} />
+  <DialogPrimitive.Description
+    ref={ref}
+    className={cn('text-sm text-muted', className)}
+    {...props}
+  />
 ));
 DialogDescription.displayName = 'DialogDescription';
 ```
@@ -1159,7 +1207,7 @@ describe('Tooltip', () => {
           <TooltipTrigger>Info</TooltipTrigger>
           <TooltipContent>Détails du créneau</TooltipContent>
         </Tooltip>
-      </TooltipProvider>
+      </TooltipProvider>,
     );
     await userEvent.hover(screen.getByText('Info'));
     expect(await screen.findByText('Détails du créneau')).toBeInTheDocument();
@@ -1186,7 +1234,10 @@ export const TooltipContent = forwardRef<
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
-      className={cn('z-50 rounded-md bg-charcoal px-3 py-1.5 text-xs text-cream shadow-md', className)}
+      className={cn(
+        'z-50 rounded-md bg-charcoal px-3 py-1.5 text-xs text-cream shadow-md',
+        className,
+      )}
       {...props}
     />
   </TooltipPrimitive.Portal>
@@ -1218,10 +1269,12 @@ git commit -m "feat(ui): add Dialog, Tooltip components"
 ## Task 7: Table
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/src/components/table.tsx` + `.test.tsx`
 - Modify: `packages/@basketeasy/ui/package.json` (1 export entry)
 
 **Interfaces:**
+
 - Consumes: `cn` from `../lib/cn`.
 - Produces: `Table`, `TableHeader`, `TableBody`, `TableFooter`, `TableRow`, `TableHead`,
   `TableCell` from `@basketeasy/ui/table`.
@@ -1249,7 +1302,7 @@ describe('Table', () => {
             <TableCell>Meneur</TableCell>
           </TableRow>
         </TableBody>
-      </Table>
+      </Table>,
     );
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Joueur')).toBeInTheDocument();
@@ -1269,48 +1322,59 @@ export const Table = forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTable
     <div className="w-full overflow-auto">
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
-  )
+  ),
 );
 Table.displayName = 'Table';
 
-export const TableHeader = forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn('border-b border-border', className)} {...props} />
-  )
-);
+export const TableHeader = forwardRef<
+  HTMLTableSectionElement,
+  React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <thead ref={ref} className={cn('border-b border-border', className)} {...props} />
+));
 TableHeader.displayName = 'TableHeader';
 
-export const TableBody = forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <tbody ref={ref} className={cn('divide-y divide-border', className)} {...props} />
-);
+export const TableBody = forwardRef<
+  HTMLTableSectionElement,
+  React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <tbody ref={ref} className={cn('divide-y divide-border', className)} {...props} />
+));
 TableBody.displayName = 'TableBody';
 
-export const TableFooter = forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => (
-    <tfoot ref={ref} className={cn('border-t border-border font-medium', className)} {...props} />
-  )
-);
+export const TableFooter = forwardRef<
+  HTMLTableSectionElement,
+  React.HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <tfoot ref={ref} className={cn('border-t border-border font-medium', className)} {...props} />
+));
 TableFooter.displayName = 'TableFooter';
 
 export const TableRow = forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
   ({ className, ...props }, ref) => (
     <tr ref={ref} className={cn('transition-colors hover:bg-border/20', className)} {...props} />
-  )
+  ),
 );
 TableRow.displayName = 'TableRow';
 
-export const TableHead = forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <th ref={ref} className={cn('h-10 px-3 text-left align-middle font-medium text-muted', className)} {...props} />
-  )
-);
+export const TableHead = forwardRef<
+  HTMLTableCellElement,
+  React.ThHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => (
+  <th
+    ref={ref}
+    className={cn('h-10 px-3 text-left align-middle font-medium text-muted', className)}
+    {...props}
+  />
+));
 TableHead.displayName = 'TableHead';
 
-export const TableCell = forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn('p-3 align-middle text-charcoal', className)} {...props} />
-  )
-);
+export const TableCell = forwardRef<
+  HTMLTableCellElement,
+  React.TdHTMLAttributes<HTMLTableCellElement>
+>(({ className, ...props }, ref) => (
+  <td ref={ref} className={cn('p-3 align-middle text-charcoal', className)} {...props} />
+));
 TableCell.displayName = 'TableCell';
 ```
 
@@ -1337,6 +1401,7 @@ git commit -m "feat(ui): add Table component"
 ## Task 8: Storybook setup + one story per component
 
 **Files:**
+
 - Create: `packages/@basketeasy/ui/.storybook/main.ts`
 - Create: `packages/@basketeasy/ui/.storybook/preview.ts`
 - Create: `packages/@basketeasy/ui/src/styles/globals.css`
@@ -1344,6 +1409,7 @@ git commit -m "feat(ui): add Table component"
 - Modify: `packages/@basketeasy/ui/package.json` (add storybook devDependencies)
 
 **Interfaces:**
+
 - Consumes: every component export from Task 2–7, and `tailwind-preset.cjs` from Task 1.
 - Produces: nothing consumed by later tasks — Storybook is a leaf/dev-only tool.
 
@@ -1455,6 +1521,7 @@ git commit -m "feat(ui): add Storybook and stories for all components"
 ## Task 9: Wire Tailwind into `app`
 
 **Files:**
+
 - Create: `app/tailwind.config.js`
 - Create: `app/postcss.config.js`
 - Modify: `app/src/index.css`
@@ -1463,6 +1530,7 @@ git commit -m "feat(ui): add Storybook and stories for all components"
 - Modify: `app/src/App.test.tsx` (update if the smoke-test addition changes existing assertions)
 
 **Interfaces:**
+
 - Consumes: `tailwind-preset.cjs` from `@basketeasy/ui` (Task 1), `Button` from
   `@basketeasy/ui/button` (Task 2).
 
@@ -1524,7 +1592,6 @@ Add at the very top of the existing file (keep every existing rule below untouch
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 ```
 
 - [ ] **Step 6: Add a Button import to App.tsx as a smoke test**
