@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- deps ---
-FROM node:20-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
@@ -23,7 +23,7 @@ WORKDIR /workspace
 CMD ["pnpm", "--filter", "@basketeasy/app", "dev"]
 
 # --- build ---
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
