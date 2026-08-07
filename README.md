@@ -44,6 +44,20 @@ docker compose up --build
 - Web: http://localhost:5173 (shows live API health status)
 - API: http://localhost:3000/api/health
 
+This builds production images (compiled `dist/`, static nginx-served frontend) — no hot reload.
+
+## Quickstart — Docker with hot reload
+
+`docker-compose.dev.yml` bind-mounts `server/` and `app/` into the containers and runs `nest start --watch` / the Vite dev server instead, so edits on the host show up live:
+
+```bash
+cp .env.example .env
+pnpm docker:dev
+# equivalent to: docker compose -f docker-compose.dev.yml up --build
+```
+
+Same ports as above (web on :5173, API on :3000). It's a separate, standalone compose file rather than a `docker-compose.yml` override — see the comment at the top of `docker-compose.dev.yml` for why.
+
 ## Quickstart — local dev (without Docker)
 
 Requires Node 20+ and pnpm.

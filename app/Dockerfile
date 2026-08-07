@@ -9,6 +9,16 @@ COPY app/package.json app/package.json
 COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/app... || pnpm install --filter @basketeasy/app...
 
+# --- dev: hot reload via docker-compose.dev.yml ---
+#
+# Built from `deps`. No source is COPYed in — docker-compose.dev.yml
+# bind-mounts app/ and packages/ over this at container start, and Vite's
+# dev server + HMR pick up changes live. --host is required so the dev
+# server is reachable from outside the container.
+FROM deps AS dev
+WORKDIR /workspace
+CMD ["pnpm", "--filter", "@basketeasy/app", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+
 # --- build ---
 FROM node:20-alpine AS build
 WORKDIR /workspace

@@ -1,0 +1,96 @@
+# Hot-reload dev stack. Standalone on purpose (not merged with docker-compose.yml
+# via `-f`) so `ports` don't get concatenated with the prod file's mappings —
+# see docs/backend-stack.md / CLAUDE.md for why. Run with:
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# server/ and app/ source is bind-mounted in; each service's own node_modules
+# (and the shared packages/@basketeasy/types) get an anonymous volume so the
+# bind mount doesn't shadow what `pnpm install` put there at image build time —
+# same class of issue as the @nestjs/core fix in server/Dockerfile's runtime
+# stage, just happening via volumes instead of COPY here.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-basketeasy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-basketeasy}
+      POSTGRES_DB: ${POSTGRES_DB:-basketeasy}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-basketeasy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./server:/workspace/server
+      - ./packages:/workspace/packages
+      - /workspace/node_modules
+      - /workspace/server/node_modules
+      - /workspace/packages/@basketeasy/types/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+      target: dev
+    restart: unless-stopped
+    environment:
+      # Vite's dev-server proxy (apps/web/vite.config.ts) needs the
+      # in-network service name, not localhost, since it's running inside
+      # the app container rather than on the host.
+      VITE_API_PROXY_TARGET: http://server:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./app:/workspace/app
+      - ./packages:/workspace/packages
+      - /workspace/node_modules
+      - /workspace/app/node_modules
+      - /workspace/packages/@basketeasy/types/node_modules
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  postgres_data_dev:

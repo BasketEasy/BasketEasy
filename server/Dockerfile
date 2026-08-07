@@ -9,6 +9,17 @@ COPY server/package.json server/package.json
 COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/server... || pnpm install --filter @basketeasy/server...
 
+# --- dev: hot reload via docker-compose.dev.yml ---
+#
+# Built from `deps` (already has devDependencies like @nestjs/cli installed
+# for the filtered workspace). No source is COPYed in — docker-compose.dev.yml
+# bind-mounts server/ and packages/ over this at container start, and nest's
+# --watch picks up changes live. See docker-compose.dev.yml for the volumes
+# that protect node_modules from being shadowed by those bind mounts.
+FROM deps AS dev
+WORKDIR /workspace
+CMD ["pnpm", "--filter", "@basketeasy/server", "start:dev"]
+
 # --- build: compile TypeScript to dist ---
 FROM node:20-alpine AS build
 WORKDIR /workspace
