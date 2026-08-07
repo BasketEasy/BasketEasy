@@ -4,6 +4,10 @@
 FROM node:20-alpine AS deps
 WORKDIR /workspace
 RUN corepack enable
+# argon2 ships prebuilt binaries per platform/libc, but falls back to a
+# node-gyp source build (needs python3/make/g++) when no matching prebuild
+# is found — install these so that fallback doesn't crash-loop the build.
+RUN apk add --no-cache python3 make g++
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY server/package.json server/package.json
 COPY server/prisma server/prisma
