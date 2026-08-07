@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- deps: install full workspace deps once, reused by build stage ---
-FROM node:20-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /workspace
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
@@ -21,7 +21,7 @@ WORKDIR /workspace
 CMD ["pnpm", "--filter", "@basketeasy/server", "start:dev"]
 
 # --- build: compile TypeScript to dist ---
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
@@ -38,7 +38,7 @@ RUN pnpm --filter @basketeasy/server build
 # Node's module resolution can't walk from server/dist up to a node_modules
 # directory that actually has the symlink. So this stage keeps the
 # /workspace root instead of flattening into /server.
-FROM node:20-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /workspace
 ENV NODE_ENV=production
 COPY --from=build /workspace/node_modules ./node_modules
