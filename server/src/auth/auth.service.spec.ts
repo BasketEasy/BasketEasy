@@ -117,4 +117,93 @@ describe('AuthService', () => {
       );
     });
   });
+
+  describe('refresh', () => {
+    it('rotates a valid token: revokes the old row and issues a new pair in the same family', async () => {
+      const now = new Date();
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(now.getTime() + 1000 * 60 * 60),
+        revokedAt: null,
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+      prisma.refreshToken.update.mockResolvedValue({});
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.refresh('raw-token');
+
+      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'rt-1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ familyId: 'family-1', userId: 'user-1' }),
+        }),
+      );
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(result.refreshToken).toEqual(expect.any(String));
+    });
+
+    it('throws UnauthorizedException when the token is unknown', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(null);
+
+      await expect(service.refresh('unknown')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws UnauthorizedException when the token is expired', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() - 1000),
+        revokedAt: null,
+      });
+
+      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('revokes the whole family and throws when a revoked token is reused', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        revokedAt: new Date(),
+      });
+      prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+
+      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { familyId: 'family-1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the presented token', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', revokedAt: null });
+      prisma.refreshToken.update.mockResolvedValue({});
+
+      await service.logout('raw-token');
+
+      expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 'rt-1' },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('does nothing when the token is unknown', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue(null);
+
+      await expect(service.logout('unknown')).resolves.toBeUndefined();
+      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -70,7 +70,7 @@ export class AuthService {
     );
 
     const rawRefreshToken = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(rawRefreshToken).digest('hex');
+    const tokenHash = this.hashToken(rawRefreshToken);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -82,5 +82,52 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken: rawRefreshToken };
+  }
+
+  private hashToken(rawToken: string): string {
+    return createHash('sha256').update(rawToken).digest('hex');
+  }
+
+  async refresh(rawToken: string): Promise<TokenPair> {
+    const tokenHash = this.hashToken(rawToken);
+    const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!stored || stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (stored.revokedAt) {
+      await this.prisma.refreshToken.updateMany({
+        where: { familyId: stored.familyId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token reuse detected');
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const user = await this.prisma.user.findUnique({ where: { id: stored.userId } });
+    if (!user) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    return this.issueTokenPair(user.id, user.email, stored.familyId);
+  }
+
+  async logout(rawToken: string): Promise<void> {
+    const tokenHash = this.hashToken(rawToken);
+    const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!stored) {
+      return;
+    }
+
+    await this.prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
   }
 }
