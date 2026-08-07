@@ -1,3 +1,4 @@
+import { Button } from '@basketeasy/ui/button';
 import { HealthStatus } from './components/HealthStatus';
 
 export default function App() {
@@ -20,6 +21,10 @@ export default function App() {
       </div>
 
       <HealthStatus />
+
+      <div>
+        <Button>Rejoindre un club</Button>
+      </div>
     </main>
   );
 }

@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --be-orange: #d4622a;
   --be-blue-green: #1e5f74;

@@ -1,0 +1,56 @@
+import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'react';
+import * as SelectPrimitive from '@radix-ui/react-select';
+import { cn } from '../lib/cn';
+
+export const Select = SelectPrimitive.Root;
+export const SelectValue = SelectPrimitive.Value;
+
+export const SelectTrigger = forwardRef<
+  ElementRef<typeof SelectPrimitive.Trigger>,
+  ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      'flex h-10 w-full items-center justify-between rounded-md border border-border bg-cream px-3 py-2 text-sm text-charcoal focus:outline-none focus:ring-2 focus:ring-orange disabled:cursor-not-allowed disabled:opacity-50',
+      className,
+    )}
+    {...props}
+  >
+    {children}
+  </SelectPrimitive.Trigger>
+));
+SelectTrigger.displayName = 'SelectTrigger';
+
+export const SelectContent = forwardRef<
+  ElementRef<typeof SelectPrimitive.Content>,
+  ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={cn('z-50 rounded-md border border-border bg-cream shadow-md', className)}
+      {...props}
+    >
+      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+));
+SelectContent.displayName = 'SelectContent';
+
+export const SelectItem = forwardRef<
+  ElementRef<typeof SelectPrimitive.Item>,
+  ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      'relative flex cursor-default select-none items-center rounded-sm px-3 py-2 text-sm text-charcoal outline-none data-[highlighted]:bg-orange data-[highlighted]:text-cream',
+      className,
+    )}
+    {...props}
+  >
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+));
+SelectItem.displayName = 'SelectItem';

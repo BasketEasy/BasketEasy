@@ -1,0 +1,120 @@
+{
+  "name": "@basketeasy/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "BasketEasy design system components",
+  "type": "module",
+  "exports": {
+    "./cn": {
+      "types": "./src/lib/cn.ts",
+      "default": "./src/lib/cn.ts"
+    },
+    "./tailwind-preset": "./tailwind-preset.cjs",
+    "./button": {
+      "types": "./src/components/Button.tsx",
+      "default": "./src/components/Button.tsx"
+    },
+    "./badge": {
+      "types": "./src/components/Badge.tsx",
+      "default": "./src/components/Badge.tsx"
+    },
+    "./label": {
+      "types": "./src/components/Label.tsx",
+      "default": "./src/components/Label.tsx"
+    },
+    "./input": {
+      "types": "./src/components/Input.tsx",
+      "default": "./src/components/Input.tsx"
+    },
+    "./textarea": {
+      "types": "./src/components/Textarea.tsx",
+      "default": "./src/components/Textarea.tsx"
+    },
+    "./card": {
+      "types": "./src/components/Card.tsx",
+      "default": "./src/components/Card.tsx"
+    },
+    "./alert": {
+      "types": "./src/components/Alert.tsx",
+      "default": "./src/components/Alert.tsx"
+    },
+    "./checkbox": {
+      "types": "./src/components/Checkbox.tsx",
+      "default": "./src/components/Checkbox.tsx"
+    },
+    "./avatar": {
+      "types": "./src/components/Avatar.tsx",
+      "default": "./src/components/Avatar.tsx"
+    },
+    "./select": {
+      "types": "./src/components/Select.tsx",
+      "default": "./src/components/Select.tsx"
+    },
+    "./tabs": {
+      "types": "./src/components/Tabs.tsx",
+      "default": "./src/components/Tabs.tsx"
+    },
+    "./dialog": {
+      "types": "./src/components/Dialog.tsx",
+      "default": "./src/components/Dialog.tsx"
+    },
+    "./tooltip": {
+      "types": "./src/components/Tooltip.tsx",
+      "default": "./src/components/Tooltip.tsx"
+    },
+    "./table": {
+      "types": "./src/components/Table.tsx",
+      "default": "./src/components/Table.tsx"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --ext ts,tsx --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.2",
+    "@radix-ui/react-checkbox": "^1.1.1",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-avatar": "^1.1.0",
+    "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-tabs": "^1.1.0",
+    "@radix-ui/react-tooltip": "^1.1.2",
+    "@radix-ui/react-label": "^2.1.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.41",
+    "storybook": "^8.2.9",
+    "@storybook/react": "^8.2.9",
+    "@storybook/react-vite": "^8.2.9",
+    "@storybook/addon-essentials": "^8.2.9",
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "jsdom": "^24.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "vite": "^5.4.1",
+    "@vitejs/plugin-react": "^4.3.1"
+  }
+}

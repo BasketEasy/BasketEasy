@@ -7,6 +7,7 @@ RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY app/package.json app/package.json
 COPY packages/@basketeasy/types/package.json packages/@basketeasy/types/package.json
+COPY packages/@basketeasy/ui/package.json packages/@basketeasy/ui/package.json
 RUN pnpm install --frozen-lockfile --filter @basketeasy/app... || pnpm install --filter @basketeasy/app...
 
 # --- dev: hot reload via docker-compose.dev.yml ---
@@ -27,6 +28,7 @@ WORKDIR /workspace
 RUN corepack enable
 COPY --from=deps /workspace ./
 COPY packages/@basketeasy/types packages/@basketeasy/types
+COPY packages/@basketeasy/ui packages/@basketeasy/ui
 COPY app app
 RUN pnpm --filter @basketeasy/app build
 
