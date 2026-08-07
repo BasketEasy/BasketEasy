@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Bind all interfaces, not just localhost. Harmless locally, required
+    // in Docker: the dev container's process needs to accept connections
+    // arriving through the port mapping, not just from inside the
+    // container's own loopback.
+    host: true,
     proxy: {
       // In dev, forward same-origin /api/* calls to the NestJS API so the
       // frontend code never needs to know the API's host/port.

@@ -13,11 +13,13 @@ RUN pnpm install --frozen-lockfile --filter @basketeasy/app... || pnpm install -
 #
 # Built from `deps`. No source is COPYed in — docker-compose.dev.yml
 # bind-mounts app/ and packages/ over this at container start, and Vite's
-# dev server + HMR pick up changes live. --host is required so the dev
-# server is reachable from outside the container.
+# dev server + HMR pick up changes live. host: true is set in vite.config.ts
+# (not passed as a CLI flag here) so the dev server is reachable from outside
+# the container — pnpm doesn't cleanly strip a `--` separator when a command
+# is exec'd directly as a Docker CMD array instead of through a shell.
 FROM deps AS dev
 WORKDIR /workspace
-CMD ["pnpm", "--filter", "@basketeasy/app", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+CMD ["pnpm", "--filter", "@basketeasy/app", "dev"]
 
 # --- build ---
 FROM node:20-alpine AS build
