@@ -14,7 +14,13 @@ const playerSchema = z.object({
 
 type PlayerFormValues = z.infer<typeof playerSchema>;
 
-export function PlayerCreateForm({ clubId }: { clubId: string }) {
+export function PlayerCreateForm({
+  clubId,
+  onSuccess,
+}: {
+  clubId: string;
+  onSuccess?: () => void;
+}) {
   const { mutate: createPlayer, isPending } = usePlayerCreate(clubId);
   const {
     register,
@@ -26,7 +32,10 @@ export function PlayerCreateForm({ clubId }: { clubId: string }) {
 
   const onSubmit = (values: PlayerFormValues) => {
     createPlayer(values, {
-      onSuccess: () => reset(),
+      onSuccess: () => {
+        reset();
+        onSuccess?.();
+      },
       onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
     });
   };
@@ -37,7 +46,7 @@ export function PlayerCreateForm({ clubId }: { clubId: string }) {
       onSubmit={(e) => {
         void handleSubmit(onSubmit)(e);
       }}
-      className="flex items-end gap-4"
+      className="flex flex-col gap-4"
     >
       {errors.root?.message && (
         <Alert variant="destructive">
@@ -59,7 +68,7 @@ export function PlayerCreateForm({ clubId }: { clubId: string }) {
       />
 
       <Button type="submit" disabled={isSubmitting || isPending}>
-        Ajouter un joueur
+        Ajouter
       </Button>
     </form>
   );

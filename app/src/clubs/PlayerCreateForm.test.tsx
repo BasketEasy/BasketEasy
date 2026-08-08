@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -11,13 +11,13 @@ describe('PlayerCreateForm', () => {
     const user = userEvent.setup();
     renderWithProviders(<PlayerCreateForm clubId="club-1" />);
 
-    await user.click(screen.getByRole('button', { name: /ajouter un joueur/i }));
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
     expect(await screen.findByText(/prénom requis/i)).toBeInTheDocument();
     expect(screen.getByText(/^nom requis$/i)).toBeInTheDocument();
   });
 
-  it('submits valid names and clears the fields on success', async () => {
+  it('submits valid names, clears the fields, and calls onSuccess', async () => {
     let createCalled = false;
     server.use(
       http.post('/api/clubs/club-1/players', async ({ request }) => {
@@ -34,16 +34,18 @@ describe('PlayerCreateForm', () => {
       }),
     );
 
+    const onSuccess = vi.fn();
     const user = userEvent.setup();
-    renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+    renderWithProviders(<PlayerCreateForm clubId="club-1" onSuccess={onSuccess} />);
 
     await user.type(screen.getByLabelText(/prénom/i), 'Alex');
     await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
-    await user.click(screen.getByRole('button', { name: /ajouter un joueur/i }));
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
-    await screen.findByRole('button', { name: /ajouter un joueur/i });
+    await screen.findByRole('button', { name: /^ajouter$/i });
     expect(createCalled).toBe(true);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('shows a submit-level error on a server failure', async () => {
@@ -58,7 +60,7 @@ describe('PlayerCreateForm', () => {
 
     await user.type(screen.getByLabelText(/prénom/i), 'Alex');
     await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
-    await user.click(screen.getByRole('button', { name: /ajouter un joueur/i }));
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/erreur est survenue/i);
   });
