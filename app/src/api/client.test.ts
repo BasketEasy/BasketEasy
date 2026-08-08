@@ -143,7 +143,7 @@ describe('apiClient', () => {
   it('patch sends a JSON body and returns the parsed response', async () => {
     server.use(
       http.patch('/api/clubs/club-1/players/p1', async ({ request }) => {
-        const body = await request.json();
+        const body = (await request.json()) as { firstName: string };
         return HttpResponse.json({ ...body, id: 'p1' });
       }),
     );
