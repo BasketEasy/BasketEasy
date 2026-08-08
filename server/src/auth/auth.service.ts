@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomBytes, randomUUID, createHash } from 'crypto';
-import type { ClubMembershipInfo, AuthUser } from '@basketeasy/types/auth';
+import type { ClubMembershipInfo, User } from '@basketeasy/types/auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { REFRESH_TOKEN_TTL_MS } from './auth.constants';
 
@@ -30,7 +30,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async register(email: string, password: string): Promise<TokenPair & { user: AuthUser }> {
+  async register(email: string, password: string): Promise<TokenPair & { user: User }> {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('Email already in use');
@@ -57,7 +57,7 @@ export class AuthService {
     return { ...tokens, user: { id: user.id, email: user.email, memberships: [] } };
   }
 
-  async login(email: string, password: string): Promise<TokenPair & { user: AuthUser }> {
+  async login(email: string, password: string): Promise<TokenPair & { user: User }> {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: { memberships: true },
@@ -162,7 +162,7 @@ export class AuthService {
     });
   }
 
-  async me(userId: string): Promise<AuthUser> {
+  async me(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { memberships: true },

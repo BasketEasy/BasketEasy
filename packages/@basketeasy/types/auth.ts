@@ -3,7 +3,7 @@ export interface ClubMembershipInfo {
   role: 'ADMIN' | 'MEMBER';
 }
 
-export interface AuthUser {
+export interface User {
   id: string;
   email: string;
   memberships: ClubMembershipInfo[];
@@ -21,7 +21,7 @@ export interface LoginRequest {
 
 export interface AccessTokenResponse {
   accessToken: string;
-  user: AuthUser;
+  user: User;
 }
 
 export interface RefreshResponse {

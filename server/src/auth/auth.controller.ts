@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -12,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
-import type { AccessTokenResponse, AuthUser, RefreshResponse } from '@basketeasy/types/auth';
+import type { AccessTokenResponse, RefreshResponse, User } from '@basketeasy/types/auth';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthService } from './auth.service';
@@ -31,9 +32,11 @@ export class AuthController {
 
   @Post('register')
   async register(
+    @Req() req: Request,
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AccessTokenResponse> {
+    this.assertSameOrigin(req);
     const { accessToken, refreshToken, user } = await this.authService.register(
       dto.email,
       dto.password,
@@ -44,9 +47,11 @@ export class AuthController {
 
   @Post('login')
   async login(
+    @Req() req: Request,
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AccessTokenResponse> {
+    this.assertSameOrigin(req);
     const { accessToken, refreshToken, user } = await this.authService.login(
       dto.email,
       dto.password,
@@ -82,22 +87,46 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async me(@CurrentUser() user: RequestUser): Promise<AuthUser> {
+  async me(@CurrentUser() user: RequestUser): Promise<User> {
     return this.authService.me(user.id);
   }
 
-  // Derived from ConfigService (rather than reading process.env.NODE_ENV
-  // directly) for consistency with the rest of this module, and so it can be
-  // mocked/asserted in tests.
-  private isProductionLike(): boolean {
-    return this.config.get<string>('NODE_ENV') !== 'development';
+  // A dedicated COOKIE_SECURE flag rather than deriving from NODE_ENV: the
+  // "production-image" docker-compose.yml sets NODE_ENV=development (no
+  // hot-reload, but still development-mode), which would otherwise silently
+  // ship the refresh cookie without `Secure`. Defaults to secure; only
+  // docker-compose.dev.yml opts out for plain-HTTP local dev.
+  private isSecureCookie(): boolean {
+    return this.config.get<string>('COOKIE_SECURE') !== 'false';
+  }
+
+  // `sameSite: 'strict'` on the refresh cookie stops it being *sent* on a
+  // cross-site request, but not a cross-site request from *setting* it in
+  // the first place — a page the victim visits could auto-submit a hidden
+  // form to /api/auth/login with the attacker's credentials, planting the
+  // attacker's session in the victim's browser. `Sec-Fetch-Site` (sent by
+  // all modern browsers) is authoritative when present; the `Origin` header
+  // is the fallback for older clients that omit it.
+  private assertSameOrigin(req: Request): void {
+    const fetchSite = req.headers['sec-fetch-site'];
+    if (typeof fetchSite === 'string') {
+      if (fetchSite !== 'same-origin' && fetchSite !== 'none') {
+        throw new ForbiddenException('Cross-site request rejected');
+      }
+      return;
+    }
+
+    const origin = req.headers.origin;
+    if (typeof origin === 'string' && origin !== `${req.protocol}://${req.get('host')}`) {
+      throw new ForbiddenException('Cross-site request rejected');
+    }
   }
 
   private setRefreshCookie(res: Response, refreshToken: string): void {
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
       sameSite: 'strict',
-      secure: this.isProductionLike(),
+      secure: this.isSecureCookie(),
       path: '/api/auth',
       maxAge: REFRESH_TOKEN_TTL_MS,
     });

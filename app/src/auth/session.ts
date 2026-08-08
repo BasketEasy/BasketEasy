@@ -11,16 +11,16 @@
 // refresh token is single-use/rotating — a genuine second concurrent call to
 // /auth/refresh would always 401 and discard a valid session.
 import { useQuery } from '@tanstack/react-query';
-import type { AuthUser, RefreshResponse } from '@basketeasy/types/auth';
+import type { RefreshResponse, User } from '@basketeasy/types/auth';
 import { apiClient, setAccessToken } from '../api/client';
 
 export const sessionQueryKey = ['auth', 'session'] as const;
 
-async function fetchSession(): Promise<AuthUser | null> {
+async function fetchSession(): Promise<User | null> {
   try {
     const refreshResponse = await apiClient.post<RefreshResponse>('/auth/refresh');
     setAccessToken(refreshResponse.accessToken);
-    return await apiClient.get<AuthUser>('/auth/me');
+    return await apiClient.get<User>('/auth/me');
   } catch {
     // No valid session to restore — this is the normal state for a
     // first-time visitor, not an error to surface.
