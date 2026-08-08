@@ -1,43 +1,69 @@
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { Label } from '@basketeasy/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@basketeasy/ui/select';
+import type { ClubMember } from '@basketeasy/types/club-members';
 import { usePlayerCreate } from './usePlayerCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
+
+const UNLINKED = 'none';
 
 const playerSchema = z.object({
   firstName: z.string().min(1, 'Prénom requis'),
   lastName: z.string().min(1, 'Nom requis'),
+  userId: z.string(),
 });
 
 type PlayerFormValues = z.infer<typeof playerSchema>;
 
 export function PlayerCreateForm({
   clubId,
+  linkableMembers = [],
   onSuccess,
 }: {
   clubId: string;
+  /** Club members not yet linked to another player, offered as a link target. */
+  linkableMembers?: ClubMember[];
   onSuccess?: () => void;
 }) {
   const { mutate: createPlayer, isPending } = usePlayerCreate(clubId);
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<PlayerFormValues>({ resolver: zodResolver(playerSchema) });
+  } = useForm<PlayerFormValues>({
+    resolver: zodResolver(playerSchema),
+    defaultValues: { firstName: '', lastName: '', userId: UNLINKED },
+  });
 
   const onSubmit = (values: PlayerFormValues) => {
-    createPlayer(values, {
-      onSuccess: () => {
-        reset();
-        onSuccess?.();
+    createPlayer(
+      {
+        firstName: values.firstName,
+        lastName: values.lastName,
+        userId: values.userId === UNLINKED ? undefined : values.userId,
       },
-      onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
-    });
+      {
+        onSuccess: () => {
+          reset();
+          onSuccess?.();
+        },
+        onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
+      },
+    );
   };
 
   return (
@@ -66,6 +92,29 @@ export function PlayerCreateForm({
         error={errors.lastName?.message}
         {...register('lastName')}
       />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="player-linked-member">Compte lié (optionnel)</Label>
+        <Controller
+          control={control}
+          name="userId"
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger id="player-linked-member" aria-label="Compte lié (optionnel)">
+                <SelectValue placeholder="Aucun compte lié" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={UNLINKED}>Aucun compte lié</SelectItem>
+                {linkableMembers.map((member) => (
+                  <SelectItem key={member.userId} value={member.userId}>
+                    {member.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
 
       <Button type="submit" disabled={isSubmitting || isPending}>
         Ajouter

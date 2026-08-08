@@ -14,7 +14,13 @@ const memberSchema = z.object({
 
 type MemberFormValues = z.infer<typeof memberSchema>;
 
-export function ClubMemberAddForm({ clubId }: { clubId: string }) {
+export function ClubMemberAddForm({
+  clubId,
+  onSuccess,
+}: {
+  clubId: string;
+  onSuccess?: () => void;
+}) {
   const { mutate: addMember, isPending } = useClubMemberAdd(clubId);
   const {
     register,
@@ -26,7 +32,10 @@ export function ClubMemberAddForm({ clubId }: { clubId: string }) {
 
   const onSubmit = (values: MemberFormValues) => {
     addMember(values, {
-      onSuccess: () => reset(),
+      onSuccess: () => {
+        reset();
+        onSuccess?.();
+      },
       onError: (err) => {
         const message =
           err instanceof ApiError && err.status === 404

@@ -81,18 +81,20 @@ describe('ClubsController', () => {
     expect(service.removeMember).toHaveBeenCalledWith('club-1', 'user-2');
   });
 
-  it('createPlayer delegates clubId and the DTO fields', async () => {
+  it('createPlayer delegates clubId and the DTO', async () => {
     service.createPlayer.mockResolvedValue({
       id: 'p1',
       clubId: 'club-1',
       firstName: 'A',
       lastName: 'B',
+      userId: null,
       createdAt: 'x',
     });
 
-    const result = await controller.createPlayer('club-1', { firstName: 'A', lastName: 'B' });
+    const dto = { firstName: 'A', lastName: 'B' };
+    const result = await controller.createPlayer('club-1', dto);
 
-    expect(service.createPlayer).toHaveBeenCalledWith('club-1', 'A', 'B');
+    expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto);
     expect(result.id).toBe('p1');
   });
 

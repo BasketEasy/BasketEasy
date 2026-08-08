@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import type { CreatePlayerRequest } from '@basketeasy/types/players';
 
 export class CreatePlayerDto implements CreatePlayerRequest {
@@ -14,4 +14,8 @@ export class CreatePlayerDto implements CreatePlayerRequest {
   @MinLength(1)
   @MaxLength(80)
   lastName!: string;
+
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 }

@@ -27,7 +27,7 @@ export function ClubCreateForm() {
 
   const onSubmit = (values: ClubFormValues) => {
     createClub(values, {
-      onSuccess: (club) => navigate(`/clubs/${club.id}/players`),
+      onSuccess: (club) => navigate(`/clubs/${club.id}/roster`),
       onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
     });
   };

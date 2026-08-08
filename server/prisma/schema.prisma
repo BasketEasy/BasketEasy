@@ -15,6 +15,7 @@ model User {
   updatedAt     DateTime         @updatedAt
   memberships   ClubMembership[]
   refreshTokens RefreshToken[]
+  linkedPlayers Player[]
 }
 
 model Player {
@@ -22,9 +23,12 @@ model Player {
   firstName String
   lastName  String
   clubId    String
+  userId    String?
   createdAt DateTime @default(now())
   club      Club     @relation(fields: [clubId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
 
+  @@unique([clubId, userId])
   @@index([clubId])
 }
 

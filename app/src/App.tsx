@@ -6,8 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClubCreatePage } from './pages/ClubCreatePage';
-import { ClubMembersPage } from './pages/ClubMembersPage';
-import { ClubPlayersPage } from './pages/ClubPlayersPage';
+import { RosterPage } from './pages/RosterPage';
 
 export default function App() {
   return (
@@ -22,8 +21,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/clubs/new" element={<ClubCreatePage />} />
-        <Route path="/clubs/:clubId/members" element={<ClubMembersPage />} />
-        <Route path="/clubs/:clubId/players" element={<ClubPlayersPage />} />
+        <Route path="/clubs/:clubId/roster" element={<RosterPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
