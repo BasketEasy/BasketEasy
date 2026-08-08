@@ -6,27 +6,33 @@ import { useAccount } from '../auth/useAccount';
 
 // Copy sourced from docs/brand.md (headline/subhead/footer) and
 // docs/feature-set.md (P0/P1 highlights) — see CLAUDE.md's "What BasketEasy
-// is" for why these are the ones called out first.
+// is" for why these are the ones called out first. Every card below is
+// badged 'Bientôt' because only the Auth module is built so far (see
+// CLAUDE.md's "What's deliberately not here yet") — nothing here is live
+// functionality yet, and the copy shouldn't imply otherwise.
 const FEATURES: { title: string; description: string; badge?: string }[] = [
   {
     title: 'Calendrier & convocations',
     description:
       "Un agenda partagé pour l'équipe, des convocations envoyées en un clic et un suivi des réponses en temps réel.",
+    badge: 'Bientôt',
   },
   {
     title: 'Paiement à la HelloAsso',
     description:
       'Collecte des cotisations sans frais cachés, adaptée aux habitudes de paiement des clubs amateurs français.',
+    badge: 'Bientôt',
   },
   {
     title: 'Hébergement France · RGPD',
     description:
       'Toutes les données, y compris celles des mineurs, restent hébergées en France et conformes au RGPD par défaut.',
+    badge: 'Bientôt',
   },
   {
     title: 'Équipes multi-clubs (CTC)',
     description:
-      'Gérez nativement les ententes entre plusieurs clubs : effectifs, encadrants et droits partagés sur une même équipe.',
+      'Une équipe peut réunir plusieurs clubs : partagez effectifs, encadrants et accès sans ressaisir les informations.',
     badge: 'Bientôt',
   },
   {
@@ -48,15 +54,18 @@ const HIGHLIGHTS = [
     title: 'Calendrier partagé',
     description:
       "Toute l'équipe voit les prochains entraînements et matchs au même endroit, à jour en permanence.",
+    badge: 'Bientôt',
   },
   {
     title: 'Résultats centralisés',
     description: 'Les résultats de chaque match sont enregistrés et consultables par tous.',
+    badge: 'Bientôt',
   },
   {
     title: 'Présences suivies',
     description:
-      'Convocations et réponses RSVP en un clin d’œil, sans relance manuelle par SMS ou tableur.',
+      "Confirmations de présence en un clin d'œil, sans relance manuelle par SMS ou tableur.",
+    badge: 'Bientôt',
   },
 ];
 
@@ -87,10 +96,12 @@ export function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
+          <Badge variant="outline">Pensé pour les CTC</Badge>
           <h1 className="text-5xl">Moins de tableurs, plus de terrain.</h1>
           <p className="max-w-xl text-lg text-muted">
             BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
-            amateurs. Pensé pour les bénévoles, pas pour les DSI.
+            amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les bénévoles,
+            pas pour les DSI.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {!isLoading && user ? (
@@ -108,13 +119,20 @@ export function LandingPage() {
               </>
             )}
           </div>
+          <p className="text-sm text-muted">
+            BasketEasy est en cours de construction — créez un compte pour être informé du
+            lancement.
+          </p>
         </section>
 
-        <section className="border-y border-border bg-white">
+        <section className="border-y border-border">
           <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 md:grid-cols-3">
             {HIGHLIGHTS.map((item) => (
               <div key={item.title} className="flex flex-col gap-2">
-                <h2 className="text-xl">{item.title}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl">{item.title}</h2>
+                  <Badge variant="secondary">{item.badge}</Badge>
+                </div>
                 <p className="text-sm text-muted">{item.description}</p>
               </div>
             ))}
