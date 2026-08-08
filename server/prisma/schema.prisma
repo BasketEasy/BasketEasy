@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id            String           @id @default(uuid())
-  email         String           @unique
-  passwordHash  String
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  memberships   ClubMembership[]
-  refreshTokens RefreshToken[]
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  memberships     ClubMembership[]
+  refreshTokens   RefreshToken[]
+  teamMemberships TeamMembership[]
 }
 
 model Player {
@@ -34,6 +35,7 @@ model Club {
   createdAt   DateTime         @default(now())
   memberships ClubMembership[]
   players     Player[]
+  teams       TeamClub[]
 }
 
 enum ClubRole {
@@ -64,5 +66,43 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id])
 
   @@index([familyId])
+  @@index([userId])
+}
+
+model Team {
+  id        String           @id @default(uuid())
+  name      String
+  createdAt DateTime         @default(now())
+  clubs     TeamClub[]
+  members   TeamMembership[]
+}
+
+// Join table, not a single `clubId` FK on Team: a team can end up shared by
+// multiple clubs (CTC/entente). Creating a team links it to exactly one
+// club to start — see TeamsService.createTeam. Linking a second club (the
+// actual cross-club handshake) is a later feature this schema doesn't block.
+model TeamClub {
+  id        String   @id @default(uuid())
+  teamId    String
+  clubId    String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id])
+  club      Club     @relation(fields: [clubId], references: [id])
+
+  @@unique([teamId, clubId])
+  @@index([clubId])
+}
+
+// A member must already hold a ClubMembership in (at least) one of the
+// team's linked clubs — enforced in TeamsService.addMember, not here.
+model TeamMembership {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
   @@index([userId])
 }
