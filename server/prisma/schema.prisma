@@ -21,7 +21,11 @@ model Player {
   id        String   @id @default(uuid())
   firstName String
   lastName  String
+  clubId    String
   createdAt DateTime @default(now())
+  club      Club     @relation(fields: [clubId], references: [id])
+
+  @@index([clubId])
 }
 
 model Club {
@@ -29,6 +33,7 @@ model Club {
   name        String
   createdAt   DateTime         @default(now())
   memberships ClubMembership[]
+  players     Player[]
 }
 
 enum ClubRole {
