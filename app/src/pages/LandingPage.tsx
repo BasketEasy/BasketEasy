@@ -38,26 +38,25 @@ const FEATURES: { title: string; description: string; badge?: string }[] = [
   {
     title: 'Feuille de marque par IA',
     description:
-      'Photographiez la feuille de marque officielle en fin de match : les statistiques et le temps de jeu sont extraits automatiquement.',
+      'Téléversez une photo ou un scan de la feuille de marque officielle en fin de match : les statistiques et le temps de jeu sont extraits automatiquement.',
     badge: 'Bientôt',
   },
 ];
 
-const POSITIONING = [
+const HIGHLIGHTS = [
   {
-    title: 'Un complément, pas un remplacement',
+    title: 'Calendrier partagé',
     description:
-      "BasketEasy vient en appui de la FBI et d'e-Marque V2, la pile officielle de la FFBB — pas à leur place.",
+      "Toute l'équipe voit les prochains entraînements et matchs au même endroit, à jour en permanence.",
   },
   {
-    title: 'Pensé pour les CTC',
-    description:
-      'En Loire-Atlantique, une équipe rassemble souvent plusieurs clubs. BasketEasy modélise ça nativement.',
+    title: 'Résultats centralisés',
+    description: 'Les résultats de chaque match sont enregistrés et consultables par tous.',
   },
   {
-    title: 'Fait pour les bénévoles',
+    title: 'Présences suivies',
     description:
-      'Une interface simple pour les présidents, trésoriers et coachs bénévoles — pas pour des services informatiques.',
+      'Convocations et réponses RSVP en un clin d’œil, sans relance manuelle par SMS ou tableur.',
   },
 ];
 
@@ -88,11 +87,10 @@ export function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-          <Badge variant="outline">Loire-Atlantique · CD44</Badge>
           <h1 className="text-5xl">Moins de tableurs, plus de terrain.</h1>
           <p className="max-w-xl text-lg text-muted">
-            BasketEasy centralise calendriers, créneaux et feuilles de marque pour les clubs de
-            basket amateurs de Loire-Atlantique. Pensé pour les bénévoles, pas pour les DSI.
+            BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
+            amateurs. Pensé pour les bénévoles, pas pour les DSI.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {!isLoading && user ? (
@@ -114,7 +112,7 @@ export function LandingPage() {
 
         <section className="border-y border-border bg-white">
           <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 md:grid-cols-3">
-            {POSITIONING.map((item) => (
+            {HIGHLIGHTS.map((item) => (
               <div key={item.title} className="flex flex-col gap-2">
                 <h2 className="text-xl">{item.title}</h2>
                 <p className="text-sm text-muted">{item.description}</p>
