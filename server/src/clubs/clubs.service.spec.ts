@@ -126,9 +126,7 @@ describe('ClubsService', () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'ADMIN' });
       prisma.clubMembership.count.mockResolvedValue(1);
 
-      await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(BadRequestException);
       expect(prisma.clubMembership.delete).not.toHaveBeenCalled();
     });
 
