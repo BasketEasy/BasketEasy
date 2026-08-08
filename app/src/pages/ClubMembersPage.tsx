@@ -19,8 +19,7 @@ export function ClubMembersPage() {
   const { data: members, isLoading } = useClubMemberList(clubId!);
   const { mutate: removeMember } = useClubMemberRemove(clubId!);
 
-  const isAdmin =
-    user?.memberships.some((m) => m.clubId === clubId && m.role === 'ADMIN') ?? false;
+  const isAdmin = user?.memberships.some((m) => m.clubId === clubId && m.role === 'ADMIN') ?? false;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">

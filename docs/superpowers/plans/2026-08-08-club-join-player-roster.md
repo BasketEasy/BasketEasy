@@ -19,7 +19,7 @@
 - Jest for the API (colocated `*.spec.ts`); Vitest + RTL for the app (colocated `*.test.tsx`/`.test.ts`) — per root `CLAUDE.md`.
 - **Route param naming is load-bearing:** `ClubRolesGuard` (`server/src/auth/guards/club-roles.guard.ts`) hardcodes `request.params.clubId`. Every club-scoped route in the new controller must use `:clubId`, not `:id`. `@ClubRoles(...)` must be applied explicitly even for "any member may read" routes — the guard no-ops (`return true`) when no `@ClubRoles` metadata is present at all.
 - **Scope decisions carried over from prior discussion (not re-litigated here):**
-  - "Join a club" = an ADMIN looks up an *existing* `User` by email and adds them as `MEMBER`. No invite emails, no join codes. 404 if the email has no account.
+  - "Join a club" = an ADMIN looks up an _existing_ `User` by email and adds them as `MEMBER`. No invite emails, no join codes. 404 if the email has no account.
   - "Players" are roster entries (`firstName`/`lastName`) scoped to a `Club`, unrelated to `User` — no login, no email, no link to a membership. `ClubRole` stays `ADMIN | MEMBER`; no coach/parent/président/trésorier yet.
   - No new "current club" Context/switcher — a page reads the caller's role for the club in the URL from `useAccount().user.memberships` (already present on `User`), which is the actual authorization signal; the backend guard is the real enforcement, this is only for hiding admin-only UI.
   - `docs/frontend-stack.md` already documents hook naming (`use<Model><Method>`) and one-hook-per-file; Task 15 adds the `setQueryData`-over-`invalidateQueries` convention to the same table.
@@ -551,9 +551,7 @@ describe('ClubsService', () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'ADMIN' });
       prisma.clubMembership.count.mockResolvedValue(1);
 
-      await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(BadRequestException);
       expect(prisma.clubMembership.delete).not.toHaveBeenCalled();
     });
 
@@ -709,7 +707,7 @@ git commit -m "feat(server): ClubsService club creation and membership managemen
 
 **Interfaces:**
 
-- Produces: `listPlayers(clubId)`, `createPlayer(clubId, firstName, lastName)`, `updatePlayer(clubId, playerId, data)`, `deletePlayer(clubId, playerId)` — `updatePlayer`/`deletePlayer` throw `NotFoundException` if the player doesn't exist *or* belongs to a different club (defense in depth beyond the route-level `clubId` scoping).
+- Produces: `listPlayers(clubId)`, `createPlayer(clubId, firstName, lastName)`, `updatePlayer(clubId, playerId, data)`, `deletePlayer(clubId, playerId)` — `updatePlayer`/`deletePlayer` throw `NotFoundException` if the player doesn't exist _or_ belongs to a different club (defense in depth beyond the route-level `clubId` scoping).
 - Consumed by: `ClubsController` (Task 6).
 
 - [ ] **Step 1: Add the failing tests**
@@ -720,7 +718,13 @@ Append inside `describe('ClubsService', ...)`:
 describe('players', () => {
   it('lists players for a club, ordered by name', async () => {
     prisma.player.findMany.mockResolvedValue([
-      { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: new Date('2026-01-01') },
+      {
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        createdAt: new Date('2026-01-01'),
+      },
     ]);
 
     const result = await service.listPlayers('club-1');
@@ -730,7 +734,13 @@ describe('players', () => {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     expect(result).toEqual([
-      { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: '2026-01-01T00:00:00.000Z' },
+      {
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
     ]);
   });
 
@@ -887,18 +897,18 @@ git commit -m "feat(server): ClubsService player roster CRUD"
 - Consumes: `ClubsService` (Tasks 4-5), all four DTOs (Task 3), `JwtAuthGuard`/`ClubRolesGuard`/`@ClubRoles`/`@CurrentUser` from `../auth/*` (existing).
 - Produces: the 9 HTTP routes listed below, all under class-level `@UseGuards(JwtAuthGuard)`.
 
-| Method | Path | Extra guard |
-|---|---|---|
-| POST | `/clubs` | — |
-| GET | `/clubs` | — |
-| GET | `/clubs/:clubId` | `@ClubRoles('ADMIN','MEMBER')` |
-| POST | `/clubs/:clubId/members` | `@ClubRoles('ADMIN')` |
-| GET | `/clubs/:clubId/members` | `@ClubRoles('ADMIN','MEMBER')` |
-| DELETE | `/clubs/:clubId/members/:userId` | `@ClubRoles('ADMIN')` |
-| POST | `/clubs/:clubId/players` | `@ClubRoles('ADMIN')` |
-| GET | `/clubs/:clubId/players` | `@ClubRoles('ADMIN','MEMBER')` |
-| PATCH | `/clubs/:clubId/players/:playerId` | `@ClubRoles('ADMIN')` |
-| DELETE | `/clubs/:clubId/players/:playerId` | `@ClubRoles('ADMIN')` |
+| Method | Path                               | Extra guard                    |
+| ------ | ---------------------------------- | ------------------------------ |
+| POST   | `/clubs`                           | —                              |
+| GET    | `/clubs`                           | —                              |
+| GET    | `/clubs/:clubId`                   | `@ClubRoles('ADMIN','MEMBER')` |
+| POST   | `/clubs/:clubId/members`           | `@ClubRoles('ADMIN')`          |
+| GET    | `/clubs/:clubId/members`           | `@ClubRoles('ADMIN','MEMBER')` |
+| DELETE | `/clubs/:clubId/members/:userId`   | `@ClubRoles('ADMIN')`          |
+| POST   | `/clubs/:clubId/players`           | `@ClubRoles('ADMIN')`          |
+| GET    | `/clubs/:clubId/players`           | `@ClubRoles('ADMIN','MEMBER')` |
+| PATCH  | `/clubs/:clubId/players/:playerId` | `@ClubRoles('ADMIN')`          |
+| DELETE | `/clubs/:clubId/players/:playerId` | `@ClubRoles('ADMIN')`          |
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -955,7 +965,12 @@ describe('ClubsController', () => {
   });
 
   it('addMember delegates clubId and email', async () => {
-    service.addMember.mockResolvedValue({ userId: 'u2', email: 'a@b.com', role: 'MEMBER', joinedAt: 'x' });
+    service.addMember.mockResolvedValue({
+      userId: 'u2',
+      email: 'a@b.com',
+      role: 'MEMBER',
+      joinedAt: 'x',
+    });
 
     const result = await controller.addMember('club-1', { email: 'a@b.com' });
 
@@ -972,7 +987,13 @@ describe('ClubsController', () => {
   });
 
   it('createPlayer delegates clubId and the DTO fields', async () => {
-    service.createPlayer.mockResolvedValue({ id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: 'x' });
+    service.createPlayer.mockResolvedValue({
+      id: 'p1',
+      clubId: 'club-1',
+      firstName: 'A',
+      lastName: 'B',
+      createdAt: 'x',
+    });
 
     const result = await controller.createPlayer('club-1', { firstName: 'A', lastName: 'B' });
 
@@ -981,7 +1002,13 @@ describe('ClubsController', () => {
   });
 
   it('updatePlayer delegates clubId, playerId, and the DTO', async () => {
-    service.updatePlayer.mockResolvedValue({ id: 'p1', clubId: 'club-1', firstName: 'C', lastName: 'B', createdAt: 'x' });
+    service.updatePlayer.mockResolvedValue({
+      id: 'p1',
+      clubId: 'club-1',
+      firstName: 'C',
+      lastName: 'B',
+      createdAt: 'x',
+    });
 
     const result = await controller.updatePlayer('club-1', 'p1', { firstName: 'C' });
 
@@ -1241,9 +1268,9 @@ Expected: FAIL — `apiClient.delete is not a function` / the 204 case throws a 
 In `rawRequest`, right after the `if (!res.ok) { ... }` block, add:
 
 ```typescript
-  if (res.status === 204) {
-    return undefined as T;
-  }
+if (res.status === 204) {
+  return undefined as T;
+}
 ```
 
 And extend the exported object:
@@ -1501,7 +1528,7 @@ export function useClubMemberRemove(clubId: string) {
 
 - [ ] **Step 4: Write `clubErrorMessages.ts`**
 
-Mirrors `app/src/auth/errorMessages.ts` — keyed on HTTP status, not message text. Note: 404 here is deliberately generic ("resource not found"), *not* "no account with that email" — that email-specific copy is context-only-valid on the add-member form and is handled inline there (Task 14), not centralized in this shared mapper, since a 404 means something different on a player-not-found path.
+Mirrors `app/src/auth/errorMessages.ts` — keyed on HTTP status, not message text. Note: 404 here is deliberately generic ("resource not found"), _not_ "no account with that email" — that email-specific copy is context-only-valid on the add-member form and is handled inline there (Task 14), not centralized in this shared mapper, since a 404 means something different on a player-not-found path.
 
 ```typescript
 import { ApiError } from '../api/client';
