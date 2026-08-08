@@ -1,9 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+
+function buildReq(headers: Record<string, string> = {}): Request {
+  return {
+    headers,
+    protocol: 'http',
+    get: (name: string) => (name.toLowerCase() === 'host' ? 'example.com' : undefined),
+  } as unknown as Request;
+}
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -16,14 +24,16 @@ describe('AuthController', () => {
   };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
 
-  async function buildController(nodeEnv: string | undefined): Promise<AuthController> {
+  async function buildController(cookieSecure: string | undefined): Promise<AuthController> {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: service },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn((key: string) => (key === 'NODE_ENV' ? nodeEnv : undefined)) },
+          useValue: {
+            get: jest.fn((key: string) => (key === 'COOKIE_SECURE' ? cookieSecure : undefined)),
+          },
         },
       ],
     }).compile();
@@ -41,7 +51,7 @@ describe('AuthController', () => {
     };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 
-    controller = await buildController('production');
+    controller = await buildController(undefined);
   });
 
   it('register sets the refresh cookie and returns the access token + user', async () => {
@@ -52,6 +62,7 @@ describe('AuthController', () => {
     });
 
     const result = await controller.register(
+      buildReq(),
       { email: 'a@b.com', password: 'password123' },
       res as unknown as Response,
     );
@@ -72,15 +83,38 @@ describe('AuthController', () => {
     });
   });
 
-  it('sets a non-secure cookie only when NODE_ENV is development', async () => {
+  it('register rejects a cross-site request (Sec-Fetch-Site)', async () => {
+    await expect(
+      controller.register(
+        buildReq({ 'sec-fetch-site': 'cross-site' }),
+        { email: 'a@b.com', password: 'password123' },
+        res as unknown as Response,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(service.register).not.toHaveBeenCalled();
+  });
+
+  it('register rejects a cross-origin request (Origin fallback)', async () => {
+    await expect(
+      controller.register(
+        buildReq({ origin: 'https://evil.example' }),
+        { email: 'a@b.com', password: 'password123' },
+        res as unknown as Response,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(service.register).not.toHaveBeenCalled();
+  });
+
+  it('sets a non-secure cookie only when COOKIE_SECURE is "false"', async () => {
     service.register.mockResolvedValue({
       accessToken: 'access-1',
       refreshToken: 'refresh-1',
       user: { id: 'user-1', email: 'a@b.com', memberships: [] },
     });
-    const devController = await buildController('development');
+    const devController = await buildController('false');
 
     await devController.register(
+      buildReq(),
       { email: 'a@b.com', password: 'password123' },
       res as unknown as Response,
     );
@@ -92,7 +126,7 @@ describe('AuthController', () => {
     );
   });
 
-  it('sets a secure cookie when NODE_ENV is unset (defaults to production-like)', async () => {
+  it('sets a secure cookie when COOKIE_SECURE is unset (defaults to secure)', async () => {
     service.register.mockResolvedValue({
       accessToken: 'access-1',
       refreshToken: 'refresh-1',
@@ -101,6 +135,7 @@ describe('AuthController', () => {
     const unsetController = await buildController(undefined);
 
     await unsetController.register(
+      buildReq(),
       { email: 'a@b.com', password: 'password123' },
       res as unknown as Response,
     );
@@ -120,12 +155,40 @@ describe('AuthController', () => {
     });
 
     const result = await controller.login(
+      buildReq(),
       { email: 'a@b.com', password: 'password123' },
       res as unknown as Response,
     );
 
     expect(res.cookie).toHaveBeenCalled();
     expect(result.accessToken).toBe('access-1');
+  });
+
+  it('login rejects a cross-site request (Sec-Fetch-Site)', async () => {
+    await expect(
+      controller.login(
+        buildReq({ 'sec-fetch-site': 'cross-site' }),
+        { email: 'a@b.com', password: 'password123' },
+        res as unknown as Response,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+    expect(service.login).not.toHaveBeenCalled();
+  });
+
+  it('login allows a same-origin request identified via the Origin header', async () => {
+    service.login.mockResolvedValue({
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+    });
+
+    await controller.login(
+      buildReq({ origin: 'http://example.com' }),
+      { email: 'a@b.com', password: 'password123' },
+      res as unknown as Response,
+    );
+
+    expect(service.login).toHaveBeenCalled();
   });
 
   it('refresh reads the cookie, rotates it, and sets the new cookie', async () => {

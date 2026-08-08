@@ -4,10 +4,10 @@
 // only-export-components rule — the reason AccountContext.tsx can't also
 // export these — doesn't apply here, and one small file beats three.
 import { createContext, useContext } from 'react';
-import type { AuthUser } from '@basketeasy/types/auth';
+import type { User } from '@basketeasy/types/auth';
 
 export interface AccountContextValue {
-  user: AuthUser | null;
+  user: User | null;
   isLoading: boolean;
 }
 
