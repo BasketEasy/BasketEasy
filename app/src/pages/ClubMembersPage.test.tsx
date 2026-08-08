@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -48,5 +49,30 @@ describe('ClubMembersPage', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     expect(screen.queryByLabelText(/adresse e-mail du membre/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /retirer/i })).not.toBeInTheDocument();
+  });
+
+  it('shows an error instead of silently doing nothing when removing the last admin fails', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+        ]),
+      ),
+      http.delete('/api/clubs/club-1/members/user-1', () =>
+        HttpResponse.json({ message: 'Cannot remove the last admin of a club' }, { status: 400 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /retirer/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /informations saisies sont invalides/i,
+    );
+    expect(screen.getByText('a@b.com')).toBeInTheDocument();
   });
 });

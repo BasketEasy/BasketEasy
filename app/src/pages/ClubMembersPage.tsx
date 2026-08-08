@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Table,
@@ -7,25 +8,37 @@ import {
   TableHeader,
   TableRow,
 } from '@basketeasy/ui/table';
+import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
-import { useAccount } from '../auth/useAccount';
 import { useClubMemberList } from '../clubs/useClubMemberList';
 import { useClubMemberRemove } from '../clubs/useClubMemberRemove';
+import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
+import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
 export function ClubMembersPage() {
   const { clubId } = useParams<{ clubId: string }>();
-  const { user } = useAccount();
   const { data: members, isLoading } = useClubMemberList(clubId!);
   const { mutate: removeMember } = useClubMemberRemove(clubId!);
+  const isAdmin = useIsClubAdmin(clubId);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
-  const isAdmin = user?.memberships.some((m) => m.clubId === clubId && m.role === 'ADMIN') ?? false;
+  const handleRemove = (userId: string) => {
+    setRemoveError(null);
+    removeMember(userId, { onError: (err) => setRemoveError(getClubErrorMessage(err)) });
+  };
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
       <h1 className="m-0 text-4xl">Membres du club</h1>
 
       {isAdmin && <ClubMemberAddForm clubId={clubId!} />}
+
+      {removeError && (
+        <Alert variant="destructive">
+          <AlertDescription>{removeError}</AlertDescription>
+        </Alert>
+      )}
 
       {isLoading ? (
         <p>Chargement...</p>
@@ -45,7 +58,7 @@ export function ClubMembersPage() {
                 <TableCell>{member.role === 'ADMIN' ? 'Administrateur' : 'Membre'}</TableCell>
                 {isAdmin && (
                   <TableCell>
-                    <Button variant="outline" onClick={() => removeMember(member.userId)}>
+                    <Button variant="outline" onClick={() => handleRemove(member.userId)}>
                       Retirer
                     </Button>
                   </TableCell>
