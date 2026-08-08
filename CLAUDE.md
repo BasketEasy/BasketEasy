@@ -16,7 +16,7 @@ Full diagrams (global, frontend, backend, ER model) are in [`docs/architecture.m
 
 - **Client:** React SPA (Vite), calling the API through a single `ApiClient` wrapper (`app/src/api/client.ts`). TanStack Query owns server state once domain pages land; Context owns local UI state (auth, multi-club switcher).
 - **API Gateway:** NestJS, REST, global `/api` prefix, guards + DTO validation pipes.
-- **Domain modules (planned, not yet built):** Auth, Clubs/CTC, Teams/Players, Scheduling (créneaux + conflict detection), Scoresheet (AI-assisted capture), Payments (HelloAsso), Subvention, Volunteer/Role.
+- **Domain modules:** Auth (built — see below); Clubs/CTC, Teams/Players, Scheduling (créneaux + conflict detection), Scoresheet (AI-assisted capture), Payments (HelloAsso), Subvention, Volunteer/Role (planned, not yet built).
 - **Async:** BullMQ (Redis-backed) for scoresheet OCR parsing and scheduled reminders.
 - **Data:** PostgreSQL (Prisma ORM) as primary store, Redis for cache + queue, Scaleway S3 for scoresheet photos.
 - **External:** LLM vision API (scoresheet OCR — provider TBD), HelloAsso (payments), Brevo (email).
@@ -57,6 +57,14 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - **CI:** `.github/workflows/ci.yml` runs format check → lint → test → build, in that order, per app. `.github/workflows/docker-build.yml` validates both Dockerfiles build (no push yet — add registry push + secrets when a deploy target exists). Keep new workflows scoped to one concern (don't fold deploy logic into `ci.yml`).
 - **Locale:** product-facing copy is French-first (`fr` default locale, per `docs/frontend-stack.md`'s i18n choice) — the landing tagline and marketing copy in `docs/brand.md` are the source of truth for tone, not translations of English drafts.
 
+## Auth module
+
+`server/src/auth` implements register/login/refresh/logout/me over a minimal `Club`/`ClubMembership` schema (`server/prisma/schema.prisma`):
+
+- Passwords hashed with argon2; JWT access tokens (short-lived, `JwtStrategy` + `JwtAuthGuard`) plus rotating opaque refresh tokens stored hashed in `RefreshToken`, grouped by `familyId` for reuse detection (a reused/already-revoked refresh token revokes the whole family).
+- `ClubRolesGuard` + `@ClubRoles()` decorator gate club-scoped routes by the caller's `ClubMembership.role`.
+- `JWT_ACCESS_SECRET` env var is required — set in `docker-compose.yml`'s `server` service and `.env.example`.
+
 ## What's deliberately not here yet
 
-No Auth module, no Prisma schema, no domain modules, no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Clubs/CTC, Teams/Players, Scheduling, Scoresheet, Payments, Subvention, or Volunteer/Role domain modules; no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth as the first domain module — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

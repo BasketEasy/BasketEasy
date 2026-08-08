@@ -9,6 +9,7 @@ module.exports = {
         charcoal: '#23201C',
         muted: '#5B564F',
         border: '#E7DECF',
+        error: '#B23A2E',
       },
       fontFamily: {
         heading: ['"Barlow Condensed"', 'sans-serif'],

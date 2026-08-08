@@ -7,6 +7,10 @@
     "./health": {
       "types": "./health.ts",
       "default": "./health.ts"
+    },
+    "./auth": {
+      "types": "./auth.ts",
+      "default": "./auth.ts"
     }
   },
   "scripts": {

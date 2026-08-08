@@ -1,0 +1,152 @@
+// app/src/api/client.test.ts
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server';
+import { apiClient, ApiError, setAccessToken, subscribeToSessionExpiry } from './client';
+
+describe('apiClient', () => {
+  afterEach(() => {
+    setAccessToken(null);
+  });
+
+  it('attaches the Authorization header when an access token is set', async () => {
+    let receivedAuth: string | null = null;
+    server.use(
+      http.get('/api/whoami', ({ request }) => {
+        receivedAuth = request.headers.get('Authorization');
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    setAccessToken('token-123');
+    await apiClient.get('/whoami');
+
+    expect(receivedAuth).toBe('Bearer token-123');
+  });
+
+  it('does not attach an Authorization header when no token is set', async () => {
+    let receivedAuth: string | null | undefined = undefined;
+    server.use(
+      http.get('/api/whoami', ({ request }) => {
+        receivedAuth = request.headers.get('Authorization');
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+
+    await apiClient.get('/whoami');
+
+    expect(receivedAuth).toBeNull();
+  });
+
+  it('post() sends a JSON body and returns the parsed response', async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.post('/api/echo', async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ received: true });
+      }),
+    );
+
+    const result = await apiClient.post<{ received: boolean }>('/echo', { foo: 'bar' });
+
+    expect(receivedBody).toEqual({ foo: 'bar' });
+    expect(result).toEqual({ received: true });
+  });
+
+  it('on a 401, refreshes once and retries the original request', async () => {
+    let whoamiCallCount = 0;
+    server.use(
+      http.get('/api/whoami', () => {
+        whoamiCallCount += 1;
+        if (whoamiCallCount === 1) {
+          return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+        }
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'new-token' })),
+    );
+
+    const result = await apiClient.get<{ ok: boolean }>('/whoami');
+
+    expect(result).toEqual({ ok: true });
+    expect(whoamiCallCount).toBe(2);
+  });
+
+  it('dedupes concurrent 401s into a single refresh call', async () => {
+    let refreshCallCount = 0;
+    let whoamiCallCount = 0;
+    server.use(
+      http.get('/api/whoami', () => {
+        whoamiCallCount += 1;
+        if (whoamiCallCount <= 2) {
+          return HttpResponse.json({ message: 'Unauthorized' }, { status: 401 });
+        }
+        return HttpResponse.json({ ok: true });
+      }),
+      http.post('/api/auth/refresh', () => {
+        refreshCallCount += 1;
+        return HttpResponse.json({ accessToken: 'new-token' });
+      }),
+    );
+
+    await Promise.all([apiClient.get('/whoami'), apiClient.get('/whoami')]);
+
+    expect(refreshCallCount).toBe(1);
+  });
+
+  it('on a failed refresh, clears the token, notifies subscribers, and rejects with the original 401', async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToSessionExpiry(listener);
+
+    server.use(
+      http.get('/api/whoami', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+    );
+
+    setAccessToken('stale-token');
+    let caught: unknown;
+    try {
+      await apiClient.get('/whoami');
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(401);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    let receivedAuth: string | null | undefined;
+    server.use(
+      http.get('/api/whoami2', ({ request }) => {
+        receivedAuth = request.headers.get('Authorization');
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    await apiClient.get('/whoami2');
+    expect(receivedAuth).toBeNull();
+
+    unsubscribe();
+  });
+
+  it('ApiError carries the server-provided message from the response body', async () => {
+    server.use(
+      http.post('/api/auth/login', () =>
+        HttpResponse.json({ message: 'Invalid credentials' }, { status: 401 }),
+      ),
+    );
+
+    let caught: unknown;
+    try {
+      await apiClient.post('/auth/login', { email: 'a@b.com', password: 'wrong' });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).message).toBe('Invalid credentials');
+  });
+});
