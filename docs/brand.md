@@ -5,8 +5,10 @@
 - **Name:** BasketEasy
 - **Tagline (FR):** _La gestion d'équipe, simplifiée._
 - **Landing headline (FR):** _Moins de tableurs, plus de terrain._
-- **Landing subhead (FR):** BasketEasy centralise calendriers, créneaux et feuilles de marque pour les clubs de basket amateurs de Loire-Atlantique. Pensé pour les bénévoles, pas pour les DSI.
+- **Landing subhead (FR):** BasketEasy centralise calendriers, résultats et présences pour les clubs de basket amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les bénévoles, pas pour les DSI.
 - **Footer line:** Données hébergées en France · RGPD
+
+The landing page deliberately doesn't name FBI/e-Marque V2/FFBB or lock the pitch to a region — that reads as internal competitive strategy, not a visitor-facing benefit (founder call on PR #21). The one differentiator surfaced above the fold is a plain "Pensé pour les CTC" badge; the fuller strategic framing below still holds internally, it just isn't recited verbatim on the page. The launch market itself (Loire-Atlantique/CD44-first) hasn't changed — only the marketing copy's framing has.
 
 ## Positioning
 
