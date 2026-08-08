@@ -6,44 +6,43 @@ import { server } from './mocks/server';
 import { renderWithProviders } from './testUtils';
 import App from './App';
 
-function renderApp() {
-  return renderWithProviders(<App />);
-}
-
-describe('App', () => {
-  it('renders the brand tagline', () => {
-    renderApp();
-    expect(screen.getByText("La gestion d'équipe, simplifiée.")).toBeInTheDocument();
+describe('App routing', () => {
+  it('renders the landing page at /', () => {
+    renderWithProviders(<App />, { route: '/' });
+    expect(
+      screen.getByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
+    ).toBeInTheDocument();
   });
 
-  it('renders the API health status once the fetch resolves', async () => {
-    renderApp();
-    await waitFor(() => expect(screen.getByText(/database: up/)).toBeInTheDocument());
-  });
-
-  it('renders an error state when the health check fails', async () => {
-    server.use(http.get('/api/health', () => HttpResponse.json(null, { status: 500 })));
-
-    renderApp();
-    await waitFor(() => expect(screen.getByText(/unreachable/)).toBeInTheDocument());
-  });
-
-  it('shows the login form when logged out, and can switch to the register form and back', async () => {
-    const user = userEvent.setup();
-    renderApp();
+  it('redirects /dashboard to /login when logged out', async () => {
+    renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
     );
-
-    await user.click(screen.getByRole('button', { name: /créer un compte/i }));
-    expect(screen.getByRole('heading', { name: /créer un compte/i })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /j'ai déjà un compte/i }));
-    expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument();
   });
 
-  it('shows the logged-in view after a successful login, and can log out back to the login form', async () => {
+  it('redirects /login to /dashboard when already logged in', async () => {
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/login' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+  });
+
+  it('unknown routes redirect back to the landing page', () => {
+    renderWithProviders(<App />, { route: '/nope' });
+    expect(
+      screen.getByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
+    ).toBeInTheDocument();
+  });
+
+  it('logging in from /login lands on the dashboard, and logging out returns to /login', async () => {
     server.use(
       http.post('/api/auth/login', () =>
         HttpResponse.json({
@@ -54,7 +53,7 @@ describe('App', () => {
     );
 
     const user = userEvent.setup();
-    renderApp();
+    renderWithProviders(<App />, { route: '/login' });
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
@@ -64,8 +63,10 @@ describe('App', () => {
     await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
     await user.click(screen.getByRole('button', { name: /se connecter/i }));
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /se déconnecter/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /tableau de bord/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
 
