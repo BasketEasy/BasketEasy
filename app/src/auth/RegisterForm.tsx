@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
-import { useRegisterMutation } from './mutations';
+import { useRegister } from './mutations';
 import { getAuthErrorMessage } from './errorMessages';
 
 const registerSchema = z.object({
@@ -16,20 +16,18 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void }) {
-  const registerMutation = useRegisterMutation();
+  const { mutate: register, isPending } = useRegister();
   const {
-    register,
+    register: registerField,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) });
 
-  const onSubmit = async (values: RegisterFormValues) => {
-    try {
-      await registerMutation.mutateAsync(values);
-    } catch (err) {
-      setError('root', { message: getAuthErrorMessage(err) });
-    }
+  const onSubmit = (values: RegisterFormValues) => {
+    register(values, {
+      onError: (err) => setError('root', { message: getAuthErrorMessage(err) }),
+    });
   };
 
   return (
@@ -57,7 +55,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             type="email"
             autoComplete="email"
             error={errors.email?.message}
-            {...register('email')}
+            {...registerField('email')}
           />
 
           <FormField
@@ -66,10 +64,10 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             type="password"
             autoComplete="new-password"
             error={errors.password?.message}
-            {...register('password')}
+            {...registerField('password')}
           />
 
-          <Button type="submit" disabled={isSubmitting || registerMutation.isPending}>
+          <Button type="submit" disabled={isSubmitting || isPending}>
             Créer un compte
           </Button>
 

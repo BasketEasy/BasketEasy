@@ -28,7 +28,7 @@ async function fetchSession(): Promise<AuthUser | null> {
   }
 }
 
-export function useSessionQuery() {
+export function useSession() {
   return useQuery({
     queryKey: sessionQueryKey,
     queryFn: fetchSession,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { subscribeToSessionExpiry } from '../api/client';
 import { AccountContext } from './useAccount';
-import { sessionQueryKey, useSessionQuery } from './session';
+import { sessionQueryKey, useSession } from './session';
 
 // Named AccountContext (not AuthContext): it holds the current account's
 // identity/loading state for the app to read, not the auth *actions*
@@ -12,7 +12,7 @@ import { sessionQueryKey, useSessionQuery } from './session';
 // it only owns "who's the current account, and do we know yet".
 export function AccountProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { data: user, isLoading } = useSessionQuery();
+  const { data: user, isLoading } = useSession();
 
   useEffect(() => {
     // Any other API call's 401-after-refresh-failure (handled centrally in

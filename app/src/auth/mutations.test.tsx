@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { AccountProvider } from './AccountContext';
 import { useAccount } from './useAccount';
-import { useLoginMutation, useRegisterMutation, useLogoutMutation } from './mutations';
+import { useLogin, useRegister, useLogout } from './mutations';
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -20,9 +20,9 @@ function wrapper({ children }: { children: ReactNode }) {
 function useHarness() {
   return {
     account: useAccount(),
-    login: useLoginMutation(),
-    register: useRegisterMutation(),
-    logout: useLogoutMutation(),
+    login: useLogin(),
+    register: useRegister(),
+    logout: useLogout(),
   };
 }
 

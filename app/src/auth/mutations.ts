@@ -14,7 +14,7 @@ export interface AuthCredentials {
   password: string;
 }
 
-export function useLoginMutation() {
+export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -27,7 +27,7 @@ export function useLoginMutation() {
   });
 }
 
-export function useRegisterMutation() {
+export function useRegister() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -40,7 +40,7 @@ export function useRegisterMutation() {
   });
 }
 
-export function useLogoutMutation() {
+export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({

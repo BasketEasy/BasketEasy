@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { HealthStatus } from './components/HealthStatus';
 import { useAccount } from './auth/useAccount';
-import { useLogoutMutation } from './auth/mutations';
+import { useLogout } from './auth/mutations';
 import { LoginForm } from './auth/LoginForm';
 import { RegisterForm } from './auth/RegisterForm';
 
 export default function App() {
   const { user, isLoading } = useAccount();
-  const logoutMutation = useLogoutMutation();
+  const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
   return (
@@ -40,11 +40,7 @@ export default function App() {
       {!isLoading && user && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span>{user.email}</span>
-          <Button
-            variant="outline"
-            disabled={logoutMutation.isPending}
-            onClick={() => logoutMutation.mutate()}
-          >
+          <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
             Se déconnecter
           </Button>
         </div>

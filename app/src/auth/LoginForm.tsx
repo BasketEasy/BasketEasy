@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
-import { useLoginMutation } from './mutations';
+import { useLogin } from './mutations';
 import { getAuthErrorMessage } from './errorMessages';
 
 const loginSchema = z.object({
@@ -16,7 +16,7 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
-  const loginMutation = useLoginMutation();
+  const { mutate: login, isPending } = useLogin();
   const {
     register,
     handleSubmit,
@@ -24,12 +24,10 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
-  const onSubmit = async (values: LoginFormValues) => {
-    try {
-      await loginMutation.mutateAsync(values);
-    } catch (err) {
-      setError('root', { message: getAuthErrorMessage(err) });
-    }
+  const onSubmit = (values: LoginFormValues) => {
+    login(values, {
+      onError: (err) => setError('root', { message: getAuthErrorMessage(err) }),
+    });
   };
 
   return (
@@ -69,7 +67,7 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
             {...register('password')}
           />
 
-          <Button type="submit" disabled={isSubmitting || loginMutation.isPending}>
+          <Button type="submit" disabled={isSubmitting || isPending}>
             Se connecter
           </Button>
 
