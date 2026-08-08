@@ -96,7 +96,6 @@ export function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-          <Badge variant="outline">Pensé pour les CTC</Badge>
           <h1 className="text-5xl">Moins de tableurs, plus de terrain.</h1>
           <p className="max-w-xl text-lg text-muted">
             BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
