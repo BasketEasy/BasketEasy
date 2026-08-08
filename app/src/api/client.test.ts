@@ -132,6 +132,30 @@ describe('apiClient', () => {
     unsubscribe();
   });
 
+  it('delete resolves without throwing on a 204 No Content response', async () => {
+    server.use(
+      http.delete('/api/clubs/club-1/players/p1', () => new HttpResponse(null, { status: 204 })),
+    );
+
+    await expect(apiClient.delete('/clubs/club-1/players/p1')).resolves.toBeUndefined();
+  });
+
+  it('patch sends a JSON body and returns the parsed response', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/players/p1', async ({ request }) => {
+        const body = (await request.json()) as { firstName: string };
+        return HttpResponse.json({ ...body, id: 'p1' });
+      }),
+    );
+
+    const result = await apiClient.patch<{ id: string; firstName: string }>(
+      '/clubs/club-1/players/p1',
+      { firstName: 'Updated' },
+    );
+
+    expect(result).toEqual({ id: 'p1', firstName: 'Updated' });
+  });
+
   it('ApiError carries the server-provided message from the response body', async () => {
     server.use(
       http.post('/api/auth/login', () =>

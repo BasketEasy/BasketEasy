@@ -13,12 +13,15 @@ Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context
 
 ## Data fetching & server state
 
-| Concern            | Choice                                                                | Why                                                                                                                          |
-| ------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Query/cache layer  | TanStack Query                                                        | caching, background refetch, optimistic updates for RSVP/scoresheet status                                                   |
-| HTTP client        | bare `fetch`, wrapped in a singleton `ApiClient` class                | no dependency; one place to hold base URL, default headers, auth header injection, 401/refresh handling, error normalization |
-| Auth token refresh | handled inside `ApiClient` (queue requests on 401, refresh, retry)    | keeps refresh logic in one class instead of scattered interceptors                                                           |
-| Realtime (later)   | none for v1; revisit WebSocket/SSE if chat/live scoreboard gets built | avoid over-building before P1/P2 features ship                                                                               |
+| Concern                | Choice                                                                                      | Why                                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Query/cache layer      | TanStack Query                                                                              | caching, background refetch, optimistic updates for RSVP/scoresheet status                                                   |
+| Query hook naming      | `use<Model><Method>`, e.g. `useClubCreate`, `useClubList`, `useClubShow`, `usePlayerUpdate` | model-first name is greppable/sortable by domain across the whole hooks folder                                               |
+| Query hook files       | one hook per file (not grouped into a shared `useClub.ts` with multiple exports)            | keeps diffs small and each hook independently locatable/importable                                                           |
+| Mutation cache updates | `queryClient.setQueryData(...)` with the mutation response, not `invalidateQueries`         | the response already has the full updated record — writing it directly into the cache avoids an extra round-trip refetch     |
+| HTTP client            | bare `fetch`, wrapped in a singleton `ApiClient` class                                      | no dependency; one place to hold base URL, default headers, auth header injection, 401/refresh handling, error normalization |
+| Auth token refresh     | handled inside `ApiClient` (queue requests on 401, refresh, retry)                          | keeps refresh logic in one class instead of scattered interceptors                                                           |
+| Realtime (later)       | none for v1; revisit WebSocket/SSE if chat/live scoreboard gets built                       | avoid over-building before P1/P2 features ship                                                                               |
 
 ## Client/local state & contexts
 

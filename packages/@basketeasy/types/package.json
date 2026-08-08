@@ -11,6 +11,18 @@
     "./auth": {
       "types": "./auth.ts",
       "default": "./auth.ts"
+    },
+    "./clubs": {
+      "types": "./clubs.ts",
+      "default": "./clubs.ts"
+    },
+    "./club-members": {
+      "types": "./club-members.ts",
+      "default": "./club-members.ts"
+    },
+    "./players": {
+      "types": "./players.ts",
+      "default": "./players.ts"
     }
   },
   "scripts": {

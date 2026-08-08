@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { ClubsModule } from './clubs/clubs.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
 // signature a reasonable amount of entropy to resist brute force; this is a
@@ -33,6 +34,7 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     PrismaModule,
     HealthModule,
     AuthModule,
+    ClubsModule,
   ],
 })
 export class AppModule {}

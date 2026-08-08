@@ -17,4 +17,8 @@ export const handlers = [
   ),
 
   http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })),
+
+  // Default: no clubs. Tests exercising the nav's per-club links override
+  // this with server.use(...).
+  http.get('/api/clubs', () => HttpResponse.json([])),
 ];
