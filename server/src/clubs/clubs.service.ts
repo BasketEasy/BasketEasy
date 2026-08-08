@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
+import type { Player } from '@basketeasy/types/players';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -97,6 +98,59 @@ export class ClubsService {
     await this.prisma.clubMembership.delete({
       where: { userId_clubId: { userId, clubId } },
     });
+  }
+
+  async listPlayers(clubId: string): Promise<Player[]> {
+    const players = await this.prisma.player.findMany({
+      where: { clubId },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+    return players.map((p) => this.toPlayer(p));
+  }
+
+  async createPlayer(clubId: string, firstName: string, lastName: string): Promise<Player> {
+    const player = await this.prisma.player.create({
+      data: { clubId, firstName, lastName },
+    });
+    return this.toPlayer(player);
+  }
+
+  async updatePlayer(
+    clubId: string,
+    playerId: string,
+    data: { firstName?: string; lastName?: string },
+  ): Promise<Player> {
+    await this.findPlayerInClub(clubId, playerId);
+    const player = await this.prisma.player.update({ where: { id: playerId }, data });
+    return this.toPlayer(player);
+  }
+
+  async deletePlayer(clubId: string, playerId: string): Promise<void> {
+    await this.findPlayerInClub(clubId, playerId);
+    await this.prisma.player.delete({ where: { id: playerId } });
+  }
+
+  private async findPlayerInClub(clubId: string, playerId: string): Promise<void> {
+    const existing = await this.prisma.player.findUnique({ where: { id: playerId } });
+    if (!existing || existing.clubId !== clubId) {
+      throw new NotFoundException('Player not found');
+    }
+  }
+
+  private toPlayer(player: {
+    id: string;
+    clubId: string;
+    firstName: string;
+    lastName: string;
+    createdAt: Date;
+  }): Player {
+    return {
+      id: player.id,
+      clubId: player.clubId,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      createdAt: player.createdAt.toISOString(),
+    };
   }
 
   private toClub(club: { id: string; name: string; createdAt: Date }): Club {
