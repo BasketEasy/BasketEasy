@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAccount } from './useAccount';
+import { AppHeader } from '../components/AppHeader';
 
 export function ProtectedRoute() {
   const { user, isLoading } = useAccount();
@@ -12,5 +13,10 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <AppHeader />
+      <Outlet />
+    </>
+  );
 }
