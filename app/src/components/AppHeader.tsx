@@ -76,6 +76,13 @@ export function AppHeader() {
                   >
                     Joueurs
                   </Button>
+                  <Button
+                    variant="ghost"
+                    className="justify-start"
+                    onClick={() => go(`/clubs/${club.id}/teams`)}
+                  >
+                    Équipes
+                  </Button>
                 </div>
               ))}
             </div>
