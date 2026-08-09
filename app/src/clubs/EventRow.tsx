@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
+import { FieldError } from '@basketeasy/ui/field-error';
 import { Input } from '@basketeasy/ui/input';
 import { Textarea } from '@basketeasy/ui/textarea';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
@@ -61,11 +62,7 @@ export function EventRow({
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </TableCell>
         <TableCell className="flex flex-col gap-2">
-          {error && (
-            <p role="alert" className="text-sm text-error">
-              {error}
-            </p>
-          )}
+          {error && <FieldError>{error}</FieldError>}
           <div className="flex gap-2">
             <Button
               disabled={isUpdating}
@@ -103,11 +100,7 @@ export function EventRow({
       <TableCell>{event.location}</TableCell>
       <TableCell>{event.notes ?? '—'}</TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && (
-          <p role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
+        {error && <FieldError>{error}</FieldError>}
         {isAdmin && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={startEditing}>

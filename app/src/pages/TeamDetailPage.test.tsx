@@ -244,14 +244,16 @@ describe('TeamDetailPage', () => {
       http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
         createCalled = true;
         const body = (await request.json()) as { startsAt: string; location: string };
-        return HttpResponse.json({
-          id: 'event-2',
-          teamId: 'team-1',
-          startsAt: body.startsAt,
-          location: body.location,
-          notes: null,
-          createdAt: 'x',
-        });
+        return HttpResponse.json([
+          {
+            id: 'event-2',
+            teamId: 'team-1',
+            startsAt: body.startsAt,
+            location: body.location,
+            notes: null,
+            createdAt: 'x',
+          },
+        ]);
       }),
     );
 

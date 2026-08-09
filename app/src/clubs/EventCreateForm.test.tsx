@@ -23,14 +23,16 @@ describe('EventCreateForm', () => {
       http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
         createCalled = true;
         const body = (await request.json()) as { startsAt: string; location: string };
-        return HttpResponse.json({
-          id: 'event-1',
-          teamId: 'team-1',
-          startsAt: body.startsAt,
-          location: body.location,
-          notes: null,
-          createdAt: '2026-01-01',
-        });
+        return HttpResponse.json([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            startsAt: body.startsAt,
+            location: body.location,
+            notes: null,
+            createdAt: '2026-01-01',
+          },
+        ]);
       }),
     );
 
@@ -61,5 +63,45 @@ describe('EventCreateForm', () => {
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/erreur est survenue/i);
+  });
+
+  it('requires an end date and sends a weekly recurrence request when "se répète" is checked', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            notes: null,
+            createdAt: '2026-01-01',
+          },
+        ]);
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<EventCreateForm clubId="club-1" teamId="team-1" />);
+
+    await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
+    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.click(screen.getByLabelText(/se répète chaque semaine/i));
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    expect(await screen.findByText(/date de fin requise/i)).toBeInTheDocument();
+    expect(capturedBody).toBeUndefined();
+
+    await user.type(screen.getByLabelText(/jusqu'au/i), '2026-01-19');
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toMatchObject({
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'Gymnase A',
+      recurrence: { frequency: 'WEEKLY', until: '2026-01-19T00:00:00.000Z' },
+    });
   });
 });

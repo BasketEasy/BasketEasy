@@ -43,20 +43,22 @@ describe('EventsController', () => {
   });
 
   it('createEvent delegates clubId, teamId, and the DTO', async () => {
-    service.createEvent.mockResolvedValue({
-      id: 'event-1',
-      teamId: 'team-1',
-      startsAt: '2026-01-05T18:00:00.000Z',
-      location: 'Gymnase A',
-      notes: null,
-      createdAt: 'x',
-    });
+    service.createEvent.mockResolvedValue([
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        startsAt: '2026-01-05T18:00:00.000Z',
+        location: 'Gymnase A',
+        notes: null,
+        createdAt: 'x',
+      },
+    ]);
 
     const dto = { startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' };
     const result = await controller.createEvent('club-1', 'team-1', dto);
 
     expect(service.createEvent).toHaveBeenCalledWith('club-1', 'team-1', dto);
-    expect(result.id).toBe('event-1');
+    expect(result[0].id).toBe('event-1');
   });
 
   it('updateEvent delegates clubId, teamId, eventId, and the DTO', async () => {

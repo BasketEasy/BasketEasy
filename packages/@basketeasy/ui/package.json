@@ -94,6 +94,14 @@
     "./heading": {
       "types": "./src/components/Heading.tsx",
       "default": "./src/components/Heading.tsx"
+    },
+    "./field-error": {
+      "types": "./src/components/FieldError.tsx",
+      "default": "./src/components/FieldError.tsx"
+    },
+    "./loader": {
+      "types": "./src/components/Loader.tsx",
+      "default": "./src/components/Loader.tsx"
     }
   },
   "scripts": {

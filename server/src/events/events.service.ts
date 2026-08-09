@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { TeamEvent } from '@basketeasy/types/events';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { EventRecurrenceRequest, TeamEvent } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
+
+const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
+// Caps a single recurring create at ~2 years of weekly occurrences, so a
+// distant `until` date can't be used to write an unbounded number of rows.
+const MAX_RECURRING_OCCURRENCES = 104;
 
 @Injectable()
 export class EventsService {
@@ -18,18 +23,50 @@ export class EventsService {
   async createEvent(
     clubId: string,
     teamId: string,
-    data: { startsAt: string; location: string; notes?: string },
-  ): Promise<TeamEvent> {
+    data: {
+      startsAt: string;
+      location: string;
+      notes?: string;
+      recurrence?: EventRecurrenceRequest;
+    },
+  ): Promise<TeamEvent[]> {
     await this.assertTeamInClub(clubId, teamId);
-    const event = await this.prisma.event.create({
-      data: {
-        teamId,
-        startsAt: new Date(data.startsAt),
-        location: data.location,
-        notes: data.notes ?? null,
-      },
-    });
-    return this.toTeamEvent(event);
+    const occurrences = this.buildOccurrences(data.startsAt, data.recurrence);
+    const events = await this.prisma.$transaction(
+      occurrences.map((startsAt) =>
+        this.prisma.event.create({
+          data: { teamId, startsAt, location: data.location, notes: data.notes ?? null },
+        }),
+      ),
+    );
+    return events.map((e) => this.toTeamEvent(e));
+  }
+
+  // A recurring create is materialized as one independent Event row per
+  // week, rather than a stored rule expanded at read time — each occurrence
+  // is edited/deleted on its own, with no series link back to the others.
+  private buildOccurrences(startsAt: string, recurrence?: EventRecurrenceRequest): Date[] {
+    const start = new Date(startsAt);
+    if (!recurrence) {
+      return [start];
+    }
+
+    const until = new Date(recurrence.until);
+    if (until < start) {
+      throw new BadRequestException(
+        'La date de fin de récurrence doit être postérieure à la date de début',
+      );
+    }
+
+    const occurrences: Date[] = [];
+    for (
+      let current = start;
+      current <= until && occurrences.length < MAX_RECURRING_OCCURRENCES;
+      current = new Date(current.getTime() + WEEK_IN_MS)
+    ) {
+      occurrences.push(current);
+    }
+    return occurrences;
   }
 
   async updateEvent(

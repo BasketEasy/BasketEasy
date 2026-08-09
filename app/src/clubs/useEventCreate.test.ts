@@ -19,14 +19,16 @@ describe('useEventCreate', () => {
     server.use(
       http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
         const body = (await request.json()) as { startsAt: string; location: string };
-        return HttpResponse.json({
-          id: 'event-1',
-          teamId: 'team-1',
-          startsAt: body.startsAt,
-          location: body.location,
-          notes: null,
-          createdAt: '2026-01-01',
-        });
+        return HttpResponse.json([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            startsAt: body.startsAt,
+            location: body.location,
+            notes: null,
+            createdAt: '2026-01-01',
+          },
+        ]);
       }),
     );
 

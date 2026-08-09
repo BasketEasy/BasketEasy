@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -14,6 +14,7 @@ describe('EventsService', () => {
       update: jest.Mock;
       delete: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -26,6 +27,7 @@ describe('EventsService', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -88,7 +90,7 @@ describe('EventsService', () => {
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
 
-    it('creates the event for the team', async () => {
+    it('creates a single event for the team when no recurrence is given', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.create.mockResolvedValue({
         id: 'event-1',
@@ -104,6 +106,7 @@ describe('EventsService', () => {
         location: 'Gymnase A',
       });
 
+      expect(prisma.event.create).toHaveBeenCalledTimes(1);
       expect(prisma.event.create).toHaveBeenCalledWith({
         data: {
           teamId: 'team-1',
@@ -112,7 +115,48 @@ describe('EventsService', () => {
           notes: null,
         },
       });
-      expect(result.id).toBe('event-1');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('event-1');
+    });
+
+    it('creates one event per week through the recurrence end date, inclusive', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockImplementation(({ data }: { data: { startsAt: Date } }) =>
+        Promise.resolve({
+          id: `event-${data.startsAt.toISOString()}`,
+          teamId: 'team-1',
+          startsAt: data.startsAt,
+          location: 'Gymnase A',
+          notes: null,
+          createdAt: new Date('2026-01-01'),
+        }),
+      );
+
+      const result = await service.createEvent('club-1', 'team-1', {
+        startsAt: '2026-01-05T18:00:00.000Z',
+        location: 'Gymnase A',
+        recurrence: { frequency: 'WEEKLY', until: '2026-01-19T18:00:00.000Z' },
+      });
+
+      expect(prisma.event.create).toHaveBeenCalledTimes(3);
+      expect(result.map((e) => e.startsAt)).toEqual([
+        '2026-01-05T18:00:00.000Z',
+        '2026-01-12T18:00:00.000Z',
+        '2026-01-19T18:00:00.000Z',
+      ]);
+    });
+
+    it('throws BadRequestException when the recurrence end date is before the start date', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+
+      await expect(
+        service.createEvent('club-1', 'team-1', {
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+          recurrence: { frequency: 'WEEKLY', until: '2026-01-01T18:00:00.000Z' },
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.create).not.toHaveBeenCalled();
     });
   });
 

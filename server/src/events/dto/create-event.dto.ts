@@ -1,6 +1,14 @@
-import { Transform } from 'class-transformer';
-import { IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import type { CreateEventRequest } from '@basketeasy/types/events';
+import { CreateEventRecurrenceDto } from './create-event-recurrence.dto';
 
 export class CreateEventDto implements CreateEventRequest {
   @IsISO8601()
@@ -17,4 +25,9 @@ export class CreateEventDto implements CreateEventRequest {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateEventRecurrenceDto)
+  recurrence?: CreateEventRecurrenceDto;
 }

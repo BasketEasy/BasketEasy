@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
+import { Loader } from '@basketeasy/ui/loader';
 import { SelectField } from '@basketeasy/ui/select-field';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import { useTeamShow } from '../clubs/useTeamShow';
@@ -86,7 +87,7 @@ export function TeamDetailPage() {
   if (isLoadingTeam || !team) {
     return (
       <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
-        <p>Chargement...</p>
+        <Loader>Chargement...</Loader>
       </main>
     );
   }
@@ -203,7 +204,7 @@ export function TeamDetailPage() {
         </div>
 
         {isLoadingClubs ? (
-          <p>Chargement...</p>
+          <Loader>Chargement...</Loader>
         ) : (
           <Table>
             <TableHeader>
@@ -251,7 +252,7 @@ export function TeamDetailPage() {
         </div>
 
         {isLoadingPlayers ? (
-          <p>Chargement...</p>
+          <Loader>Chargement...</Loader>
         ) : (
           <Table>
             <TableHeader>
@@ -299,7 +300,7 @@ export function TeamDetailPage() {
         </div>
 
         {isLoadingEvents ? (
-          <p>Chargement...</p>
+          <Loader>Chargement...</Loader>
         ) : (
           <Table>
             <TableHeader>

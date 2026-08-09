@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
+import { FieldError } from '@basketeasy/ui/field-error';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamClubLink } from '@basketeasy/types/teams';
 import { useTeamClubRemove } from './useTeamClubRemove';
@@ -32,11 +33,7 @@ export function TeamClubRow({
         )}
       </TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && (
-          <p role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
+        {error && <FieldError>{error}</FieldError>}
         {canManage && !link.isOwner && (
           <Button
             variant="outline"

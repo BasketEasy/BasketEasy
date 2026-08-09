@@ -40,7 +40,7 @@ export class EventsController {
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Body() dto: CreateEventDto,
-  ): Promise<TeamEvent> {
+  ): Promise<TeamEvent[]> {
     return this.eventsService.createEvent(clubId, teamId, dto);
   }
 

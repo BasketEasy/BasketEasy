@@ -14,6 +14,7 @@ import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { Heading } from '@basketeasy/ui/heading';
+import { Loader } from '@basketeasy/ui/loader';
 import {
   Dialog,
   DialogContent,
@@ -184,7 +185,7 @@ export function MembersPage() {
           <Card>
             <CardContent className="pt-6">
               {isLoadingMembers ? (
-                <p>Chargement...</p>
+                <Loader>Chargement...</Loader>
               ) : (
                 <Table>
                   <TableHeader>
@@ -238,7 +239,7 @@ export function MembersPage() {
           <Card>
             <CardContent className="pt-6">
               {isLoadingPlayers ? (
-                <p>Chargement...</p>
+                <Loader>Chargement...</Loader>
               ) : (
                 <Table>
                   <TableHeader>
@@ -287,7 +288,7 @@ export function MembersPage() {
           )}
 
           {isLoadingTeams ? (
-            <p>Chargement...</p>
+            <Loader>Chargement...</Loader>
           ) : (
             <Table>
               <TableHeader>
