@@ -21,4 +21,10 @@ export const handlers = [
   // Default: no clubs. Tests exercising the nav's per-club links override
   // this with server.use(...).
   http.get('/api/clubs', () => HttpResponse.json([])),
+
+  // Default: no teams for any club. RosterPage always queries this (its
+  // Équipes tab), so most tests that don't care about teams rely on this
+  // default rather than stubbing it individually; team-focused tests
+  // override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams', () => HttpResponse.json([])),
 ];

@@ -22,14 +22,15 @@ model User {
 }
 
 model Player {
-  id        String   @id @default(uuid())
-  firstName String
-  lastName  String
-  clubId    String
-  userId    String?
-  createdAt DateTime @default(now())
-  club      Club     @relation(fields: [clubId], references: [id])
-  user      User?    @relation(fields: [userId], references: [id])
+  id          String       @id @default(uuid())
+  firstName   String
+  lastName    String
+  clubId      String
+  userId      String?
+  createdAt   DateTime     @default(now())
+  club        Club         @relation(fields: [clubId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+  teamPlayers TeamPlayer[]
 
   @@unique([clubId, userId])
   @@index([clubId])
@@ -41,6 +42,65 @@ model Club {
   createdAt   DateTime         @default(now())
   memberships ClubMembership[]
   players     Player[]
+  clubTeams   ClubTeam[]
+}
+
+enum TeamCategory {
+  U9
+  U11
+  U13
+  U15
+  U18
+  U21
+  SENIORS
+}
+
+enum TeamGender {
+  MEN
+  WOMEN
+}
+
+model Team {
+  id          String       @id @default(uuid())
+  name        String
+  category    TeamCategory
+  gender      TeamGender
+  createdAt   DateTime     @default(now())
+  clubTeams   ClubTeam[]
+  teamPlayers TeamPlayer[]
+}
+
+// Join between Club and Team: a team can be linked to several clubs at once
+// (a CTC/entente shared team). The club that created the team is the owner
+// (isOwner: true) and is the only one that can manage the partner-club list
+// or disband the team; partner clubs get full roster/detail access.
+model ClubTeam {
+  id        String   @id @default(uuid())
+  clubId    String
+  teamId    String
+  isOwner   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  club      Club     @relation(fields: [clubId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, teamId])
+  @@index([teamId])
+}
+
+// Team roster entry. A player can only be rostered on a team if their club
+// is one of the team's linked clubs (enforced in TeamsService, not the DB).
+// Cascades on both sides: deleting the team or the player should not be
+// blocked by leftover roster rows.
+model TeamPlayer {
+  id        String   @id @default(uuid())
+  teamId    String
+  playerId  String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId])
+  @@index([playerId])
 }
 
 enum ClubRole {
