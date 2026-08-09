@@ -11,12 +11,12 @@ export function DashboardPage() {
 
   return (
     <PageContainer size="lg">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <Heading as="h1" className="m-0">
             Tableau de bord
           </Heading>
-          {user && <p className="mt-1 text-muted">{user.email}</p>}
+          {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
         </div>
         <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
           Se déconnecter

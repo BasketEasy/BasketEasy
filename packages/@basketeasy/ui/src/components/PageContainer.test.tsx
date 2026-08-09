@@ -10,8 +10,10 @@ describe('PageContainer', () => {
       'flex',
       'flex-col',
       'gap-6',
-      'px-6',
-      'py-16',
+      'px-4',
+      'py-10',
+      'sm:px-6',
+      'sm:py-16',
     );
   });
 

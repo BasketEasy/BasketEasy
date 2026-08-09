@@ -102,15 +102,15 @@ export function AppHeader() {
 
   return (
     <header className="relative border-b border-border">
-      <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
+      <nav className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
         <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
 
         {isDesktop ? (
-          <div className="flex items-center gap-1">{links}</div>
+          <div className="flex flex-wrap items-center justify-end gap-1">{links}</div>
         ) : (
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             aria-label="Menu"
             aria-expanded={isOpen}
             onClick={() => setIsOpen((open) => !open)}

@@ -83,7 +83,7 @@ export function PlayerRow({
         </TableCell>
         <TableCell className="flex flex-col gap-2">
           {error && <FieldError>{error}</FieldError>}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               disabled={isUpdating}
               onClick={() =>
@@ -118,7 +118,7 @@ export function PlayerRow({
       <TableCell className="flex flex-col gap-2">
         {error && <FieldError>{error}</FieldError>}
         {isAdmin && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={startEditing}>
               Modifier
             </Button>
