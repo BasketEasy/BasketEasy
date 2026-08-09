@@ -5,7 +5,12 @@ on:
     branches:
       - main
     paths:
-      - 'prisma/**' # Only run if database schema or migrations change
+      - 'server/prisma/**' # Only run if database schema or migrations change
+  workflow_dispatch: {} # Allow running manually from the Actions tab
+
+env:
+  PNPM_VERSION: 9.7.0
+  NODE_VERSION: 20
 
 jobs:
   migrate:
@@ -15,17 +20,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run Prisma Migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
-        run: npx prisma migrate deploy
+        run: pnpm --filter @basketeasy/server run prisma:migrate:deploy
