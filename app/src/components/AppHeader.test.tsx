@@ -6,11 +6,11 @@ import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import App from '../App';
 
-function mockSession() {
+function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[] = []) {
   server.use(
     http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
     http.get('/api/auth/me', () =>
-      HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+      HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships }),
     ),
   );
 }
@@ -50,8 +50,8 @@ describe('AppHeader', () => {
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
-  it('lists each of the user’s clubs with a link to its roster page on a desktop-width screen', async () => {
-    mockSession();
+  it('lists each of the user’s clubs with a link to its members page on a desktop-width screen', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs', () =>
         HttpResponse.json([{ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' }]),
@@ -68,6 +68,21 @@ describe('AppHeader', () => {
     await user.click(screen.getByRole('button', { name: /effectif/i }));
 
     expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+  });
+
+  it('does not list a club, or its Effectif entry, when the user is only a MEMBER there', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/clubs', () =>
+        HttpResponse.json([{ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' }]),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /effectif/i })).not.toBeInTheDocument();
   });
 
   it('falls back to a burger menu on a narrow (mobile-width) screen', async () => {
