@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,11 +20,13 @@ type AccountFormValues = z.infer<typeof accountSchema>;
 export function AccountProfileForm() {
   const { user } = useAccount();
   const { mutate: updateAccount, isPending } = useAccountUpdate();
+  const [showSuccess, setShowSuccess] = useState(false);
   const {
     register,
     handleSubmit,
     reset,
     setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<AccountFormValues>({
     resolver: zodResolver(accountSchema),
@@ -49,6 +51,7 @@ export function AccountProfileForm() {
   }, [user, reset]);
 
   const onSubmit = (values: AccountFormValues) => {
+    setShowSuccess(false);
     updateAccount(
       {
         firstName: values.firstName,
@@ -59,6 +62,10 @@ export function AccountProfileForm() {
         avatarUrl: values.avatarUrl === '' ? null : values.avatarUrl,
       },
       {
+        onSuccess: () => {
+          clearErrors('root');
+          setShowSuccess(true);
+        },
         onError: (err) => setError('root', { message: getAccountErrorMessage(err) }),
       },
     );
@@ -75,6 +82,12 @@ export function AccountProfileForm() {
       {errors.root?.message && (
         <Alert variant="destructive">
           <AlertDescription>{errors.root.message}</AlertDescription>
+        </Alert>
+      )}
+
+      {showSuccess && !errors.root?.message && (
+        <Alert>
+          <AlertDescription>Profil mis à jour.</AlertDescription>
         </Alert>
       )}
 

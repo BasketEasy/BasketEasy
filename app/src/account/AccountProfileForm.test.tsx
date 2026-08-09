@@ -66,7 +66,7 @@ describe('AccountProfileForm', () => {
         avatarUrl: 'https://example.com/avatar.png',
       }),
     );
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/mis à jour/i);
   });
 
   it('shows a French, submit-level error when the update fails', async () => {
