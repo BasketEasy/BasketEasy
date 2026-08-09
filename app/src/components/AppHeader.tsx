@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { useClubList } from '../clubs/useClubList';
+import { useAccount } from '../auth/useAccount';
 
 const DESKTOP_BREAKPOINT_PX = 768;
 
@@ -30,7 +31,13 @@ export function AppHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const isDesktop = useIsDesktopViewport();
   const navigate = useNavigate();
+  const { user } = useAccount();
   const { data: clubs } = useClubList();
+
+  const adminClubIds = new Set(
+    (user?.memberships ?? []).filter((m) => m.role === 'ADMIN').map((m) => m.clubId),
+  );
+  const adminClubs = (clubs ?? []).filter((club) => adminClubIds.has(club.id));
 
   const go = (path: string) => {
     setIsOpen(false);
@@ -49,7 +56,7 @@ export function AppHeader() {
         Créer un club
       </Button>
 
-      {clubs && clubs.length > 0 && (
+      {adminClubs.length > 0 && (
         <div
           className={
             isDesktop
@@ -57,7 +64,7 @@ export function AppHeader() {
               : 'mt-1 flex flex-col gap-1 border-t border-border pt-1'
           }
         >
-          {clubs.map((club) => (
+          {adminClubs.map((club) => (
             <div key={club.id} className={isDesktop ? 'flex items-center gap-1' : 'flex flex-col'}>
               <span
                 className={
@@ -71,7 +78,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 className="justify-start"
-                onClick={() => go(`/clubs/${club.id}/roster`)}
+                onClick={() => go(`/clubs/${club.id}/members`)}
               >
                 Effectif
               </Button>

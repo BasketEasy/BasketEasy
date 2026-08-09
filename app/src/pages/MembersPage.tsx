@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -28,7 +28,7 @@ import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
 import { PlayerRow } from '../clubs/PlayerRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
-type RosterTab = 'members' | 'players';
+type MembersTab = 'members' | 'players';
 
 function MemberRow({
   member,
@@ -85,15 +85,20 @@ function MemberRow({
   );
 }
 
-export function RosterPage() {
+export function MembersPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab: RosterTab = searchParams.get('tab') === 'players' ? 'players' : 'members';
+  const activeTab: MembersTab = searchParams.get('tab') === 'players' ? 'players' : 'members';
 
-  const { data: members, isLoading: isLoadingMembers } = useClubMemberList(clubId!);
-  const { data: players, isLoading: isLoadingPlayers } = usePlayerList(clubId!);
-  const { mutate: removeMember } = useClubMemberRemove(clubId!);
   const isAdmin = useIsClubAdmin(clubId);
+
+  const { data: members, isLoading: isLoadingMembers } = useClubMemberList(clubId!, {
+    enabled: isAdmin,
+  });
+  const { data: players, isLoading: isLoadingPlayers } = usePlayerList(clubId!, {
+    enabled: isAdmin,
+  });
+  const { mutate: removeMember } = useClubMemberRemove(clubId!);
 
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -120,6 +125,10 @@ export function RosterPage() {
     setRemoveError(null);
     removeMember(userId, { onError: (err) => setRemoveError(getClubErrorMessage(err)) });
   };
+
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">

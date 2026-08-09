@@ -15,7 +15,7 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
-describe('RosterPage', () => {
+describe('MembersPage', () => {
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -28,29 +28,33 @@ describe('RosterPage', () => {
       http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
     );
 
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() => expect(screen.getByText('b@example.com')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /retirer/i })).toHaveLength(2);
   });
 
-  it('hides admin-only controls for a MEMBER', async () => {
+  it('redirects a non-admin (MEMBER role, or no membership at all) away from the page without calling the members/players endpoints', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    let membersRequested = false;
+    let playersRequested = false;
     server.use(
-      http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-1', email: 'a@b.com', role: 'MEMBER', joinedAt: '2026-01-01' },
-        ]),
-      ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () => {
+        membersRequested = true;
+        return HttpResponse.json([]);
+      }),
+      http.get('/api/clubs/club-1/players', () => {
+        playersRequested = true;
+        return HttpResponse.json([]);
+      }),
     );
 
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /ajouter un membre/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /retirer/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /tableau de bord/i })).toBeInTheDocument();
+    expect(membersRequested).toBe(false);
+    expect(playersRequested).toBe(false);
   });
 
   it('shows an error instead of silently doing nothing when removing the last admin fails', async () => {
@@ -68,7 +72,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /retirer/i }));
@@ -108,7 +112,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() => expect(screen.getByText('b@example.com')).toBeInTheDocument());
     expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
@@ -142,7 +146,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() => expect(screen.getByText('b@example.com')).toBeInTheDocument());
     const retirerButtons = screen.getAllByRole('button', { name: /retirer/i });
@@ -169,7 +173,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
@@ -207,7 +211,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
@@ -219,36 +223,6 @@ describe('RosterPage', () => {
     expect(screen.getByRole('button', { name: /modifier/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /supprimer/i })).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
-  });
-
-  it('hides player-row admin-only controls for a MEMBER', async () => {
-    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
-    server.use(
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'p1',
-            clubId: 'club-1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            userId: null,
-            createdAt: 'x',
-          },
-        ]),
-      ),
-    );
-
-    const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
-
-    await waitFor(() => expect(screen.getByRole('tab', { name: /joueurs/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: /joueurs/i }));
-
-    await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /modifier/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /supprimer/i })).not.toBeInTheDocument();
   });
 
   it('opens the add-player form in a modal, offering unlinked members, and shows the linked email once added', async () => {
@@ -278,7 +252,7 @@ describe('RosterPage', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     await waitFor(() => expect(screen.getByRole('tab', { name: /joueurs/i })).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /joueurs/i }));

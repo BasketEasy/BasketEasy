@@ -54,7 +54,7 @@ export class ClubsController {
 
   @Get(':clubId/members')
   @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN', 'MEMBER')
+  @ClubRoles('ADMIN')
   listMembers(@Param('clubId') clubId: string): Promise<ClubMember[]> {
     return this.clubsService.listMembers(clubId);
   }
@@ -76,7 +76,7 @@ export class ClubsController {
 
   @Get(':clubId/players')
   @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN', 'MEMBER')
+  @ClubRoles('ADMIN')
   listPlayers(@Param('clubId') clubId: string): Promise<Player[]> {
     return this.clubsService.listPlayers(clubId);
   }
