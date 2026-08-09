@@ -99,4 +99,37 @@ describe('AppHeader', () => {
     await user.click(screen.getByRole('button', { name: /créer un club/i }));
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
+
+  it('closes the mobile menu when the backdrop behind it is clicked', async () => {
+    setViewportWidth(375);
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+
+    await user.click(screen.getByLabelText(/menu/i));
+    expect(screen.getByRole('button', { name: /créer un club/i })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('mobile-menu-backdrop'));
+
+    expect(screen.queryByRole('button', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile menu when Escape is pressed', async () => {
+    setViewportWidth(375);
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+
+    await user.click(screen.getByLabelText(/menu/i));
+    expect(screen.getByRole('button', { name: /créer un club/i })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('button', { name: /créer un club/i })).not.toBeInTheDocument();
+  });
 });
