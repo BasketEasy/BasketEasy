@@ -26,7 +26,14 @@ describe('App routing', () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'a@b.com',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          avatarUrl: null,
+          memberships: [],
+        }),
       ),
     );
 
@@ -47,7 +54,14 @@ describe('App routing', () => {
       http.post('/api/auth/login', () =>
         HttpResponse.json({
           accessToken: 'access-1',
-          user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+          user: {
+            id: 'user-1',
+            email: 'a@b.com',
+            firstName: 'Alex',
+            lastName: 'Dupont',
+            avatarUrl: null,
+            memberships: [],
+          },
         }),
       ),
     );

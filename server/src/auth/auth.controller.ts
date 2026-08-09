@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Res,
@@ -16,6 +17,7 @@ import type { Request, Response } from 'express';
 import type { AccessTokenResponse, RefreshResponse, User } from '@basketeasy/types/auth';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser, RequestUser } from './decorators/current-user.decorator';
@@ -89,6 +91,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: RequestUser): Promise<User> {
     return this.authService.me(user.id);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateMe(@CurrentUser() user: RequestUser, @Body() dto: UpdateProfileDto): Promise<User> {
+    return this.authService.updateProfile(user.id, dto);
   }
 
   // A dedicated COOKIE_SECURE flag rather than deriving from NODE_ENV: the

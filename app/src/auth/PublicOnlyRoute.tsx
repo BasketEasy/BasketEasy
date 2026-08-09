@@ -12,6 +12,9 @@ export function PublicOnlyRoute() {
   }
 
   if (user) {
+    if (!user.firstName) {
+      return <Navigate to="/account" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -69,6 +69,18 @@
     "./table": {
       "types": "./src/components/Table.tsx",
       "default": "./src/components/Table.tsx"
+    },
+    "./toast": {
+      "types": "./src/components/Toast.tsx",
+      "default": "./src/components/Toast.tsx"
+    },
+    "./toaster": {
+      "types": "./src/components/Toaster.tsx",
+      "default": "./src/components/Toaster.tsx"
+    },
+    "./toast-store": {
+      "types": "./src/lib/toast-store.ts",
+      "default": "./src/lib/toast-store.ts"
     }
   },
   "scripts": {
@@ -84,24 +96,22 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.2",
+    "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",
-    "@radix-ui/react-avatar": "^1.1.0",
+    "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-tabs": "^1.1.0",
+    "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
-    "@radix-ui/react-label": "^2.1.0"
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.41",
-    "storybook": "^8.2.9",
+    "@storybook/addon-essentials": "^8.2.9",
     "@storybook/react": "^8.2.9",
     "@storybook/react-vite": "^8.2.9",
-    "@storybook/addon-essentials": "^8.2.9",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",
@@ -109,16 +119,19 @@
     "@types/react-dom": "^18.3.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jsdom": "^24.1.1",
+    "postcss": "^8.4.41",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "storybook": "^8.2.9",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4",
-    "vitest": "^2.0.5",
     "vite": "^5.4.1",
-    "@vitejs/plugin-react": "^4.3.1"
+    "vitest": "^2.0.5"
   }
 }

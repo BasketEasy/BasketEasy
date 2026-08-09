@@ -11,6 +11,9 @@ model User {
   id            String           @id @default(uuid())
   email         String           @unique
   passwordHash  String
+  firstName     String?
+  lastName      String?
+  avatarUrl     String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   memberships   ClubMembership[]

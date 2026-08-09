@@ -15,6 +15,7 @@ function renderPublicOnlyAt(initialPath: string) {
         <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
             <Route path="/dashboard" element={<div>Tableau de bord</div>} />
+            <Route path="/account" element={<div>Mon compte</div>} />
             <Route element={<PublicOnlyRoute />}>
               <Route path="/login" element={<div>Page de connexion</div>} />
             </Route>
@@ -32,11 +33,39 @@ describe('PublicOnlyRoute', () => {
     await waitFor(() => expect(screen.getByText('Page de connexion')).toBeInTheDocument());
   });
 
-  it('redirects to /dashboard when a session is restored', async () => {
+  it('redirects to /account when a session is restored but profile is incomplete', async () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'a@b.com',
+          firstName: null,
+          lastName: null,
+          avatarUrl: null,
+          memberships: [],
+        }),
+      ),
+    );
+
+    renderPublicOnlyAt('/login');
+
+    await waitFor(() => expect(screen.getByText('Mon compte')).toBeInTheDocument());
+    expect(screen.queryByText('Page de connexion')).not.toBeInTheDocument();
+  });
+
+  it('redirects to /dashboard when a session is restored with complete profile', async () => {
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'a@b.com',
+          firstName: 'Jean',
+          lastName: 'Dupont',
+          avatarUrl: null,
+          memberships: [],
+        }),
       ),
     );
 

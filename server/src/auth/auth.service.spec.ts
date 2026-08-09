@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
-    user: { findUnique: jest.Mock; create: jest.Mock };
+    user: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     refreshToken: {
       create: jest.Mock;
       findUnique: jest.Mock;
@@ -21,7 +21,7 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     prisma = {
-      user: { findUnique: jest.fn(), create: jest.fn() },
+      user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       refreshToken: {
         create: jest.fn(),
         findUnique: jest.fn(),
@@ -55,7 +55,13 @@ describe('AuthService', () => {
   describe('register', () => {
     it('creates a user with a hashed password and returns a token pair', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+      prisma.user.create.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+      });
       prisma.refreshToken.create.mockResolvedValue({});
 
       const result = await service.register('a@b.com', 'password123');
@@ -68,7 +74,14 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('signed.jwt.token');
       expect(result.refreshToken).toEqual(expect.any(String));
-      expect(result.user).toEqual({ id: 'user-1', email: 'a@b.com', memberships: [] });
+      expect(result.user).toEqual({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        memberships: [],
+      });
     });
 
     it('throws ConflictException when the email is already taken', async () => {
@@ -112,6 +125,9 @@ describe('AuthService', () => {
         id: 'user-1',
         email: 'a@b.com',
         passwordHash,
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
         memberships: [],
       });
       prisma.refreshToken.create.mockResolvedValue({});
@@ -119,7 +135,14 @@ describe('AuthService', () => {
       const result = await service.login('a@b.com', 'password123');
 
       expect(result.accessToken).toBe('signed.jwt.token');
-      expect(result.user).toEqual({ id: 'user-1', email: 'a@b.com', memberships: [] });
+      expect(result.user).toEqual({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        memberships: [],
+      });
     });
 
     it('throws UnauthorizedException for an unknown email', async () => {
@@ -288,6 +311,9 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-1',
         email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        avatarUrl: 'https://example.com/avatar.png',
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
 
@@ -296,6 +322,9 @@ describe('AuthService', () => {
       expect(result).toEqual({
         id: 'user-1',
         email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        avatarUrl: 'https://example.com/avatar.png',
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
     });
@@ -304,6 +333,58 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.me('gone')).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('updates the user and returns the same User shape as me()', async () => {
+      prisma.user.update.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        avatarUrl: null,
+        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
+      });
+
+      const result = await service.updateProfile('user-1', {
+        firstName: 'Alex',
+        lastName: 'Dupont',
+      });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { firstName: 'Alex', lastName: 'Dupont' },
+        include: { memberships: true },
+      });
+      expect(result).toEqual({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        avatarUrl: null,
+        memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
+      });
+    });
+
+    it('allows clearing the avatar by passing null', async () => {
+      prisma.user.update.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        memberships: [],
+      });
+
+      const result = await service.updateProfile('user-1', { avatarUrl: null });
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { avatarUrl: null },
+        include: { memberships: true },
+      });
+      expect(result.avatarUrl).toBeNull();
     });
   });
 });

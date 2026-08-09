@@ -21,6 +21,7 @@ describe('AuthController', () => {
     refresh: jest.Mock;
     logout: jest.Mock;
     me: jest.Mock;
+    updateProfile: jest.Mock;
   };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
 
@@ -48,6 +49,7 @@ describe('AuthController', () => {
       refresh: jest.fn(),
       logout: jest.fn(),
       me: jest.fn(),
+      updateProfile: jest.fn(),
     };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 
@@ -233,5 +235,34 @@ describe('AuthController', () => {
 
     expect(service.me).toHaveBeenCalledWith('user-1');
     expect(result).toEqual({ id: 'user-1', email: 'a@b.com', memberships: [] });
+  });
+
+  it('updateMe forwards the current user id and dto to the service', async () => {
+    service.updateProfile.mockResolvedValue({
+      id: 'user-1',
+      email: 'a@b.com',
+      firstName: 'Alex',
+      lastName: 'Dupont',
+      avatarUrl: null,
+      memberships: [],
+    });
+
+    const result = await controller.updateMe(
+      { id: 'user-1', email: 'a@b.com' },
+      { firstName: 'Alex', lastName: 'Dupont' },
+    );
+
+    expect(service.updateProfile).toHaveBeenCalledWith('user-1', {
+      firstName: 'Alex',
+      lastName: 'Dupont',
+    });
+    expect(result).toEqual({
+      id: 'user-1',
+      email: 'a@b.com',
+      firstName: 'Alex',
+      lastName: 'Dupont',
+      avatarUrl: null,
+      memberships: [],
+    });
   });
 });

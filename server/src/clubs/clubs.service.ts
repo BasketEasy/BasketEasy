@@ -62,6 +62,8 @@ export class ClubsService {
     return {
       userId: user.id,
       email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       role: membership.role,
       joinedAt: membership.createdAt.toISOString(),
     };
@@ -76,6 +78,8 @@ export class ClubsService {
     return memberships.map((m) => ({
       userId: m.userId,
       email: m.user.email,
+      firstName: m.user.firstName,
+      lastName: m.user.lastName,
       role: m.role,
       joinedAt: m.createdAt.toISOString(),
     }));

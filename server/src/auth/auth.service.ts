@@ -54,7 +54,7 @@ export class AuthService {
     const familyId = randomUUID();
     const tokens = await this.issueTokenPair(user.id, user.email, familyId);
 
-    return { ...tokens, user: { id: user.id, email: user.email, memberships: [] } };
+    return { ...tokens, user: this.toUserResponse(user, []) };
   }
 
   async login(email: string, password: string): Promise<TokenPair & { user: User }> {
@@ -74,7 +74,7 @@ export class AuthService {
       role: m.role,
     }));
 
-    return { ...tokens, user: { id: user.id, email: user.email, memberships } };
+    return { ...tokens, user: this.toUserResponse(user, memberships) };
   }
 
   private async issueTokenPair(
@@ -172,10 +172,48 @@ export class AuthService {
       throw new UnauthorizedException('User no longer exists');
     }
 
+    return this.toUserResponse(
+      user,
+      user.memberships.map((m) => ({ clubId: m.clubId, role: m.role })),
+    );
+  }
+
+  async updateProfile(
+    userId: string,
+    data: { firstName?: string; lastName?: string; avatarUrl?: string | null },
+  ): Promise<User> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      include: { memberships: true },
+    });
+
+    return this.toUserResponse(
+      user,
+      user.memberships.map((m) => ({ clubId: m.clubId, role: m.role })),
+    );
+  }
+
+  // Shared shape builder for register/login/me/updateProfile, all of which
+  // return the same User projection off a Prisma user record plus whatever
+  // memberships that call site already fetched/shaped.
+  private toUserResponse(
+    user: {
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      avatarUrl: string | null;
+    },
+    memberships: ClubMembershipInfo[],
+  ): User {
     return {
       id: user.id,
       email: user.email,
-      memberships: user.memberships.map((m) => ({ clubId: m.clubId, role: m.role })),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      avatarUrl: user.avatarUrl,
+      memberships,
     };
   }
 }
