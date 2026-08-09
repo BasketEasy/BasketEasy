@@ -27,7 +27,16 @@ export function ClubCreateForm() {
 
   const onSubmit = (values: ClubFormValues) => {
     createClub(values, {
-      onSuccess: (club) => navigate(`/clubs/${club.id}/members`),
+      // useClubCreate's onSuccess writes the new ADMIN membership into the
+      // cached account/me query synchronously, but TanStack Query notifies
+      // that query's subscribers (AccountProvider's useSession) via a
+      // macrotask (setTimeout 0), not synchronously. Navigating in this
+      // same tick would mount MembersPage — and run its `!isAdmin` guard —
+      // before that notification lands, bouncing the brand-new admin to
+      // /dashboard. Deferring the navigation by one macrotask lets the
+      // already-scheduled cache notification run first, so useIsClubAdmin
+      // sees the new membership on MembersPage's first render.
+      onSuccess: (club) => setTimeout(() => navigate(`/clubs/${club.id}/members`), 0),
       onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
     });
   };

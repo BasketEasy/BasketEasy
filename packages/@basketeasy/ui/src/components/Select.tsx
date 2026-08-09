@@ -45,7 +45,7 @@ export const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-sm px-3 py-2 text-sm text-charcoal outline-none data-[highlighted]:bg-orange data-[highlighted]:text-cream',
+      'relative flex cursor-default select-none items-center rounded-sm px-3 py-2 text-sm text-charcoal outline-none data-[highlighted]:bg-orange-text data-[highlighted]:text-cream',
       className,
     )}
     {...props}

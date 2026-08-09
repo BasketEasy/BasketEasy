@@ -44,6 +44,17 @@ export function AppHeader() {
     navigate(path);
   };
 
+  // Escape mirrors the backdrop-click dismissal below, so keyboard users get
+  // the same way out of the mobile menu as mouse/touch users.
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   const links = (
     <>
       <Button variant="ghost" className="justify-start" onClick={() => go('/dashboard')}>
@@ -92,7 +103,7 @@ export function AppHeader() {
   return (
     <header className="relative border-b border-border">
       <nav className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-        <span className="font-heading text-2xl font-extrabold text-orange">BasketEasy</span>
+        <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
 
         {isDesktop ? (
           <div className="flex items-center gap-1">{links}</div>
@@ -123,9 +134,20 @@ export function AppHeader() {
       </nav>
 
       {!isDesktop && isOpen && (
-        <div className="absolute right-6 top-full z-10 flex w-64 flex-col gap-1 rounded-md border border-border bg-cream p-2 shadow-lg">
-          {links}
-        </div>
+        <>
+          {/* Sits between page content and the menu (page < backdrop < menu)
+              so the menu no longer collides visually with content underneath
+              it, and gives mobile users a click-outside way to dismiss it. */}
+          <div
+            className="fixed inset-0 z-[5] bg-charcoal/30"
+            aria-hidden="true"
+            data-testid="mobile-menu-backdrop"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-6 top-full z-10 flex w-64 flex-col gap-1 rounded-md border border-border bg-cream p-2 shadow-lg">
+            {links}
+          </div>
+        </>
       )}
     </header>
   );

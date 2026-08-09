@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { HealthCheckResponse } from '@basketeasy/types/health';
+import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
+import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { apiClient, ApiError } from '../api/client';
 
 /**
@@ -15,38 +17,35 @@ export function HealthStatus() {
   });
 
   return (
-    <div
-      style={{
-        background: '#ffffff',
-        border: '1px solid var(--be-border)',
-        borderRadius: 14,
-        padding: 24,
-        maxWidth: 420,
-      }}
-    >
-      <h3 style={{ margin: '0 0 12px' }}>API status</h3>
+    <Card className="max-w-md">
+      <CardHeader>
+        <CardTitle>Statut de l&apos;API</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isPending && <p className="text-muted">Vérification de /api/health…</p>}
 
-      {isPending && <p>Checking /api/health…</p>}
+        {data && (
+          <p>
+            <span className="font-semibold text-success">● {data.status}</span>
+            {Object.entries(data.details).map(([key, detail]) => (
+              <span key={key}>
+                {' — '}
+                {key}: {detail.status}
+              </span>
+            ))}
+          </p>
+        )}
 
-      {data && (
-        <p>
-          <span style={{ color: '#2E7D32', fontWeight: 600 }}>● {data.status}</span>
-          {Object.entries(data.details).map(([key, detail]) => (
-            <span key={key}>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <strong>● injoignable</strong>
               {' — '}
-              {key}: {detail.status}
-            </span>
-          ))}
-        </p>
-      )}
-
-      {error && (
-        <p style={{ color: '#B23A2E' }}>
-          <strong>● unreachable</strong>
-          {' — '}
-          {error instanceof ApiError ? error.message : 'Unknown error'}
-        </p>
-      )}
-    </div>
+              {error instanceof ApiError ? error.message : 'Erreur inconnue'}
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   );
 }
