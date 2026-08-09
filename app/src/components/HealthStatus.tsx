@@ -26,7 +26,7 @@ export function HealthStatus() {
 
         {data && (
           <p>
-            <span className="font-semibold text-green-700">● {data.status}</span>
+            <span className="font-semibold text-success">● {data.status}</span>
             {Object.entries(data.details).map(([key, detail]) => (
               <span key={key}>
                 {' — '}
