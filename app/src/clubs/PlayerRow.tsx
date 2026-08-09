@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
+import { FieldError } from '@basketeasy/ui/field-error';
 import { Input } from '@basketeasy/ui/input';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import {
@@ -81,11 +82,7 @@ export function PlayerRow({
           </Select>
         </TableCell>
         <TableCell className="flex flex-col gap-2">
-          {error && (
-            <p role="alert" className="text-sm text-error">
-              {error}
-            </p>
-          )}
+          {error && <FieldError>{error}</FieldError>}
           <div className="flex gap-2">
             <Button
               disabled={isUpdating}
@@ -119,11 +116,7 @@ export function PlayerRow({
       <TableCell>{player.lastName}</TableCell>
       <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && (
-          <p role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
+        {error && <FieldError>{error}</FieldError>}
         {isAdmin && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={startEditing}>

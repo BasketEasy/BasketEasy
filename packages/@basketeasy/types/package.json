@@ -27,6 +27,10 @@
     "./teams": {
       "types": "./teams.ts",
       "default": "./teams.ts"
+    },
+    "./events": {
+      "types": "./events.ts",
+      "default": "./events.ts"
     }
   },
   "scripts": {

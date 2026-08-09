@@ -217,6 +217,60 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
   });
 
+  it('shows the team events and lets an admin create one', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let createCalled = false;
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json([
+          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
+        ]),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/events', () =>
+        HttpResponse.json([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            notes: null,
+            createdAt: 'x',
+          },
+        ]),
+      ),
+      http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
+        createCalled = true;
+        const body = (await request.json()) as { startsAt: string; location: string };
+        return HttpResponse.json([
+          {
+            id: 'event-2',
+            teamId: 'team-1',
+            startsAt: body.startsAt,
+            location: body.location,
+            notes: null,
+            createdAt: 'x',
+          },
+        ]);
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText('Gymnase A')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /créer un événement/i }));
+    await user.type(screen.getByLabelText(/date et heure/i), '2026-01-06T18:00');
+    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase B');
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    await waitFor(() => expect(createCalled).toBe(true));
+    expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
+  });
+
   it('deletes the team and navigates back to the roster page', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     let deleteCalled = false;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
+import { FieldError } from '@basketeasy/ui/field-error';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamPlayer } from '@basketeasy/types/teams';
 import { useTeamPlayerRemove } from './useTeamPlayerRemove';
@@ -24,11 +25,7 @@ export function TeamPlayerRow({
       <TableCell>{teamPlayer.firstName}</TableCell>
       <TableCell>{teamPlayer.lastName}</TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && (
-          <p role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
+        {error && <FieldError>{error}</FieldError>}
         {isAdmin && (
           <Button
             variant="outline"

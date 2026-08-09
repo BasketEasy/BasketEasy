@@ -9,3 +9,5 @@ export const teamClubsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'clubs'] as const;
 export const teamPlayersQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'players'] as const;
+export const teamEventsQueryKey = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'events'] as const;
