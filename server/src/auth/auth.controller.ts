@@ -67,6 +67,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RefreshResponse> {
+    this.assertSameOrigin(req);
     const rawToken = this.readRefreshCookie(req);
     if (!rawToken) {
       throw new UnauthorizedException('Missing refresh token');
@@ -80,6 +81,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
+    this.assertSameOrigin(req);
     const rawToken = this.readRefreshCookie(req);
     if (rawToken) {
       await this.authService.logout(rawToken);
@@ -108,32 +110,43 @@ export class AuthController {
     return this.config.get<string>('COOKIE_SECURE') !== 'false';
   }
 
-  // `sameSite: 'strict'` on the refresh cookie stops it being *sent* on a
-  // cross-site request, but not a cross-site request from *setting* it in
-  // the first place — a page the victim visits could auto-submit a hidden
-  // form to /api/auth/login with the attacker's credentials, planting the
-  // attacker's session in the victim's browser. `Sec-Fetch-Site` (sent by
-  // all modern browsers) is authoritative when present; the `Origin` header
-  // is the fallback for older clients that omit it.
+  // The frontend (basketeasy.pages.dev) and API (basketeasy.onrender.com) are
+  // different sites in production, so the refresh cookie must be `sameSite:
+  // 'none'` to be sent at all — which means `sameSite` does none of the CSRF
+  // work here. This check is the actual defense: a page the victim visits
+  // could auto-submit a hidden cross-site form/fetch to these endpoints
+  // (e.g. planting the attacker's session via /api/auth/login, or forcing a
+  // refresh/logout), so every cookie-touching endpoint must only accept
+  // same-origin requests or requests from the configured frontend origin.
+  // `Sec-Fetch-Site` (sent by all modern browsers) is authoritative when
+  // present; the `Origin` header is the fallback for older clients that omit
+  // it.
   private assertSameOrigin(req: Request): void {
+    const frontendOrigin = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+
     const fetchSite = req.headers['sec-fetch-site'];
     if (typeof fetchSite === 'string') {
-      if (fetchSite !== 'same-origin' && fetchSite !== 'none') {
-        throw new ForbiddenException('Cross-site request rejected');
+      if (fetchSite === 'same-origin' || fetchSite === 'none') {
+        return;
       }
-      return;
+      if (fetchSite === 'cross-site' && req.headers.origin === frontendOrigin) {
+        return;
+      }
+      throw new ForbiddenException('Cross-site request rejected');
     }
 
     const origin = req.headers.origin;
-    if (typeof origin === 'string' && origin !== `${req.protocol}://${req.get('host')}`) {
-      throw new ForbiddenException('Cross-site request rejected');
+    if (typeof origin === 'string') {
+      if (origin !== `${req.protocol}://${req.get('host')}` && origin !== frontendOrigin) {
+        throw new ForbiddenException('Cross-site request rejected');
+      }
     }
   }
 
   private setRefreshCookie(res: Response, refreshToken: string): void {
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: this.isSecureCookie() ? 'none' : 'lax',
       secure: this.isSecureCookie(),
       path: '/api/auth',
       maxAge: REFRESH_TOKEN_TTL_MS,

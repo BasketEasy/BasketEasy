@@ -74,7 +74,7 @@ describe('AuthController', () => {
       'refresh-1',
       expect.objectContaining({
         httpOnly: true,
-        sameSite: 'strict',
+        sameSite: 'none',
         secure: true,
         path: '/api/auth',
       }),
@@ -105,6 +105,22 @@ describe('AuthController', () => {
       ),
     ).rejects.toThrow(ForbiddenException);
     expect(service.register).not.toHaveBeenCalled();
+  });
+
+  it('register allows a cross-site request from the configured frontend origin', async () => {
+    service.register.mockResolvedValue({
+      accessToken: 'access-1',
+      refreshToken: 'refresh-1',
+      user: { id: 'user-1', email: 'a@b.com', memberships: [] },
+    });
+
+    await controller.register(
+      buildReq({ 'sec-fetch-site': 'cross-site', origin: 'http://localhost:5173' }),
+      { email: 'a@b.com', password: 'password123' },
+      res as unknown as Response,
+    );
+
+    expect(service.register).toHaveBeenCalled();
   });
 
   it('sets a non-secure cookie only when COOKIE_SECURE is "false"', async () => {
@@ -196,10 +212,11 @@ describe('AuthController', () => {
   it('refresh reads the cookie, rotates it, and sets the new cookie', async () => {
     service.refresh.mockResolvedValue({ accessToken: 'access-2', refreshToken: 'refresh-2' });
 
-    const result = await controller.refresh(
-      { cookies: { refresh_token: 'refresh-1' } } as unknown as Request,
-      res as unknown as Response,
-    );
+    const req = {
+      ...buildReq({ 'sec-fetch-site': 'same-origin' }),
+      cookies: { refresh_token: 'refresh-1' },
+    };
+    const result = await controller.refresh(req as unknown as Request, res as unknown as Response);
 
     expect(service.refresh).toHaveBeenCalledWith('refresh-1');
     expect(res.cookie).toHaveBeenCalledWith('refresh_token', 'refresh-2', expect.any(Object));
@@ -207,25 +224,49 @@ describe('AuthController', () => {
   });
 
   it('refresh throws UnauthorizedException when no cookie is present', async () => {
+    const req = { ...buildReq({ 'sec-fetch-site': 'same-origin' }), cookies: {} };
     await expect(
-      controller.refresh({ cookies: {} } as unknown as Request, res as unknown as Response),
+      controller.refresh(req as unknown as Request, res as unknown as Response),
     ).rejects.toThrow(UnauthorizedException);
+    expect(service.refresh).not.toHaveBeenCalled();
+  });
+
+  it('refresh rejects a cross-site request', async () => {
+    const req = {
+      ...buildReq({ 'sec-fetch-site': 'cross-site', origin: 'https://evil.example' }),
+      cookies: { refresh_token: 'refresh-1' },
+    };
+    await expect(
+      controller.refresh(req as unknown as Request, res as unknown as Response),
+    ).rejects.toThrow(ForbiddenException);
     expect(service.refresh).not.toHaveBeenCalled();
   });
 
   it('logout revokes the token and clears the cookie', async () => {
     service.logout.mockResolvedValue(undefined);
 
-    await controller.logout(
-      { cookies: { refresh_token: 'refresh-1' } } as unknown as Request,
-      res as unknown as Response,
-    );
+    const req = {
+      ...buildReq({ 'sec-fetch-site': 'same-origin' }),
+      cookies: { refresh_token: 'refresh-1' },
+    };
+    await controller.logout(req as unknown as Request, res as unknown as Response);
 
     expect(service.logout).toHaveBeenCalledWith('refresh-1');
     expect(res.clearCookie).toHaveBeenCalledWith(
       'refresh_token',
       expect.objectContaining({ path: '/api/auth' }),
     );
+  });
+
+  it('logout rejects a cross-site request', async () => {
+    const req = {
+      ...buildReq({ 'sec-fetch-site': 'cross-site', origin: 'https://evil.example' }),
+      cookies: { refresh_token: 'refresh-1' },
+    };
+    await expect(
+      controller.logout(req as unknown as Request, res as unknown as Response),
+    ).rejects.toThrow(ForbiddenException);
+    expect(service.logout).not.toHaveBeenCalled();
   });
 
   it('me returns the current user from the service', async () => {

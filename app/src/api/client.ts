@@ -40,7 +40,7 @@ function buildHeaders(): Record<string, string> {
 
 async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    credentials: 'same-origin',
+    credentials: 'include',
     headers: buildHeaders(),
     ...init,
   });

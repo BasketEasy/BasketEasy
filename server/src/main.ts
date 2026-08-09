@@ -4,8 +4,16 @@ import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    // FRONTEND_URL: basketeasy.pages.dev (prod) is a different site from
+    // basketeasy.onrender.com (API), so this can't be same-origin-only.
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true, // required for the refresh cookie to be sent cross-site
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
   app.use(cookieParser());
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
