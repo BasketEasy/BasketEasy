@@ -15,5 +15,8 @@ export const H1Hero: Story = {
 export const H2: Story = {
   args: { as: 'h2', children: 'Ce que BasketEasy simplifie pour votre club' },
 };
+export const H2Section: Story = {
+  args: { as: 'h2', size: '2xl', children: 'Clubs partenaires (CTC)' },
+};
 export const H2Small: Story = { args: { as: 'h2', size: 'xl', children: 'Calendrier partagé' } };
 export const H3: Story = { args: { as: 'h3', children: 'Titre de sous-section' } };

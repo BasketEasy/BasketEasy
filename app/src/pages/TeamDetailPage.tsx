@@ -3,9 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
+import { Card, CardContent } from '@basketeasy/ui/card';
+import { PageContainer } from '@basketeasy/ui/page-container';
+import { Heading } from '@basketeasy/ui/heading';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -80,14 +84,14 @@ export function TeamDetailPage() {
 
   if (isLoadingTeam || !team) {
     return (
-      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
+      <PageContainer size="lg">
         <p>Chargement...</p>
-      </main>
+      </PageContainer>
     );
   }
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
+    <PageContainer size="lg">
       <Button
         variant="ghost"
         className="self-start"
@@ -149,7 +153,9 @@ export function TeamDetailPage() {
       ) : (
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="m-0 text-4xl">{team.name}</h1>
+            <Heading as="h1" className="m-0">
+              {team.name}
+            </Heading>
             <p className="mt-1 text-muted">
               {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
             </p>
@@ -177,7 +183,9 @@ export function TeamDetailPage() {
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="m-0 text-2xl">Clubs partenaires (CTC)</h2>
+          <Heading as="h2" size="2xl" className="m-0">
+            Clubs partenaires (CTC)
+          </Heading>
           {isAdmin && isOwner && (
             <Dialog open={isAddClubOpen} onOpenChange={setIsAddClubOpen}>
               <DialogTrigger asChild>
@@ -186,6 +194,10 @@ export function TeamDetailPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Associer un club partenaire</DialogTitle>
+                  <DialogDescription>
+                    Ajoutez un club partenaire à cette équipe CTC pour partager son effectif et son
+                    encadrement.
+                  </DialogDescription>
                 </DialogHeader>
                 <TeamClubAddForm
                   clubId={clubId!}
@@ -197,34 +209,40 @@ export function TeamDetailPage() {
           )}
         </div>
 
-        {isLoadingClubs ? (
-          <p>Chargement...</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Club</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamClubs?.map((link) => (
-                <TeamClubRow
-                  key={link.clubId}
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  link={link}
-                  canManage={isAdmin && isOwner}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <Card>
+          <CardContent className="pt-6">
+            {isLoadingClubs ? (
+              <p>Chargement...</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Club</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamClubs?.map((link) => (
+                    <TeamClubRow
+                      key={link.clubId}
+                      clubId={clubId!}
+                      teamId={teamId!}
+                      link={link}
+                      canManage={isAdmin && isOwner}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="m-0 text-2xl">Effectif</h2>
+          <Heading as="h2" size="2xl" className="m-0">
+            Effectif
+          </Heading>
           {isAdmin && (
             <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
               <DialogTrigger asChild>
@@ -233,6 +251,9 @@ export function TeamDetailPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Ajouter un joueur à l'effectif</DialogTitle>
+                  <DialogDescription>
+                    Ajoutez un joueur du club à l'effectif de cette équipe.
+                  </DialogDescription>
                 </DialogHeader>
                 <TeamPlayerAddForm
                   clubId={clubId!}
@@ -245,31 +266,35 @@ export function TeamDetailPage() {
           )}
         </div>
 
-        {isLoadingPlayers ? (
-          <p>Chargement...</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Prénom</TableHead>
-                <TableHead>Nom</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamPlayers?.map((teamPlayer) => (
-                <TeamPlayerRow
-                  key={teamPlayer.id}
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  teamPlayer={teamPlayer}
-                  isAdmin={isAdmin}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <Card>
+          <CardContent className="pt-6">
+            {isLoadingPlayers ? (
+              <p>Chargement...</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Prénom</TableHead>
+                    <TableHead>Nom</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamPlayers?.map((teamPlayer) => (
+                    <TeamPlayerRow
+                      key={teamPlayer.id}
+                      clubId={clubId!}
+                      teamId={teamId!}
+                      teamPlayer={teamPlayer}
+                      isAdmin={isAdmin}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </section>
-    </main>
+    </PageContainer>
   );
 }
