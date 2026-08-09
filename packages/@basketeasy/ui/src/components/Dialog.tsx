@@ -21,8 +21,10 @@ export const DialogContent = forwardRef<
       className={cn(
         // max-h + overflow-y-auto keeps the dialog scrollable instead of
         // clipping its own content when the viewport is short — a phone in
-        // landscape, or the on-screen keyboard eating half the screen.
-        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-cream p-6 shadow-lg',
+        // landscape, or the on-screen keyboard eating into the visual
+        // viewport. dvh (not vh) tracks that shrunk viewport so the cap
+        // actually accounts for the keyboard, not just the layout viewport.
+        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-cream p-6 shadow-lg',
         className,
       )}
       {...props}
@@ -40,10 +42,11 @@ export const DialogContent = forwardRef<
 DialogContent.displayName = 'DialogContent';
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  // pr-8 keeps title/description text clear of the close button's enlarged
-  // (44x44) tap target, which sits closer to the corner than the content
-  // padding alone would suggest.
-  return <div className={cn('flex flex-col gap-1.5 pr-8', className)} {...props} />;
+  // pr-10 (stacked on top of DialogContent's own p-6) keeps title/description
+  // text clear of the close button's enlarged (44x44) tap target, which sits
+  // closer to the corner than the content padding alone would suggest —
+  // measured empirically against the app's longest dialog title at 320px.
+  return <div className={cn('flex flex-col gap-1.5 pr-10', className)} {...props} />;
 }
 
 export const DialogTitle = forwardRef<
