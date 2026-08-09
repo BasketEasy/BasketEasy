@@ -11,6 +11,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
+import { PageContainer } from '@basketeasy/ui/page-container';
 import {
   Dialog,
   DialogContent,
@@ -131,7 +132,7 @@ export function MembersPage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
+    <PageContainer size="lg">
       <h1 className="m-0 text-4xl">Effectif du club</h1>
 
       <Tabs
@@ -242,6 +243,6 @@ export function MembersPage() {
           )}
         </TabsContent>
       </Tabs>
-    </main>
+    </PageContainer>
   );
 }

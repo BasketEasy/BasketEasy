@@ -38,6 +38,10 @@
       "types": "./src/components/Card.tsx",
       "default": "./src/components/Card.tsx"
     },
+    "./page-container": {
+      "types": "./src/components/PageContainer.tsx",
+      "default": "./src/components/PageContainer.tsx"
+    },
     "./alert": {
       "types": "./src/components/Alert.tsx",
       "default": "./src/components/Alert.tsx"

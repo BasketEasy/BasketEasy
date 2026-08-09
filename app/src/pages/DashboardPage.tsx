@@ -1,4 +1,5 @@
 import { Button } from '@basketeasy/ui/button';
+import { PageContainer } from '@basketeasy/ui/page-container';
 import { HealthStatus } from '../components/HealthStatus';
 import { useAccount } from '../auth/useAccount';
 import { useLogout } from '../auth/mutations';
@@ -8,7 +9,7 @@ export function DashboardPage() {
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
+    <PageContainer size="lg">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="m-0 text-4xl">Tableau de bord</h1>
@@ -20,6 +21,6 @@ export function DashboardPage() {
       </div>
 
       <HealthStatus />
-    </main>
+    </PageContainer>
   );
 }

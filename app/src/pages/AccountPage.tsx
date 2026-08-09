@@ -1,9 +1,10 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
+import { PageContainer } from '@basketeasy/ui/page-container';
 import { AccountProfileForm } from '../account/AccountProfileForm';
 
 export function AccountPage() {
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-6 py-16">
+    <PageContainer size="md">
       <Card>
         <CardHeader>
           <CardTitle>Mon compte</CardTitle>
@@ -12,6 +13,6 @@ export function AccountPage() {
           <AccountProfileForm />
         </CardContent>
       </Card>
-    </main>
+    </PageContainer>
   );
 }
