@@ -10,6 +10,7 @@ module.exports = {
         muted: '#5B564F',
         border: '#E7DECF',
         error: '#B23A2E',
+        success: '#2F7D5C',
       },
       fontFamily: {
         heading: ['"Barlow Condensed"', 'sans-serif'],

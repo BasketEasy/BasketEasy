@@ -11,7 +11,7 @@ const buttonVariants = cva(
         secondary: 'bg-blue-green text-cream hover:bg-blue-green/90',
         outline: 'border border-border bg-transparent text-charcoal hover:bg-cream',
         ghost: 'bg-transparent text-charcoal hover:bg-cream',
-        destructive: 'bg-red-600 text-white hover:bg-red-600/90',
+        destructive: 'bg-error text-cream hover:bg-error/90',
       },
       size: {
         sm: 'h-8 px-3 text-sm',

@@ -26,7 +26,7 @@ describe('Toast', () => {
         <ToastViewport />
       </ToastProvider>,
     );
-    expect(screen.getByTestId('toast-root')).toHaveClass('border-green-600');
+    expect(screen.getByTestId('toast-root')).toHaveClass('border-success');
   });
 
   it('applies the destructive variant class', () => {
@@ -38,6 +38,6 @@ describe('Toast', () => {
         <ToastViewport />
       </ToastProvider>,
     );
-    expect(screen.getByTestId('toast-root')).toHaveClass('border-red-600');
+    expect(screen.getByTestId('toast-root')).toHaveClass('border-error');
   });
 });
