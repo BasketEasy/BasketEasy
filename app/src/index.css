@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import '@basketeasy/ui/styles/globals.css';
 
 :root {
   --be-orange: #d4622a;
@@ -20,12 +18,4 @@ body {
   background: var(--be-cream);
   color: var(--be-charcoal);
   font-family: 'Inter', system-ui, sans-serif;
-}
-
-h1,
-h2,
-h3 {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.01em;
 }

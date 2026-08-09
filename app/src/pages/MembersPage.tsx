@@ -11,6 +11,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
+import { Heading } from '@basketeasy/ui/heading';
 import {
   Dialog,
   DialogContent,
@@ -132,7 +133,9 @@ export function MembersPage() {
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
-      <h1 className="m-0 text-4xl">Effectif du club</h1>
+      <Heading as="h1" className="m-0">
+        Effectif du club
+      </Heading>
 
       <Tabs
         value={activeTab}

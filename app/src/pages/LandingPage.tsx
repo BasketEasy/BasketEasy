@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/card';
 import { Badge } from '@basketeasy/ui/badge';
+import { Heading } from '@basketeasy/ui/heading';
 import { useAccount } from '../auth/useAccount';
 
 // Copy sourced from docs/brand.md (headline/subhead/footer) and
@@ -96,7 +97,9 @@ export function LandingPage() {
 
       <main className="flex-1">
         <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-          <h1 className="text-5xl">Moins de tableurs, plus de terrain.</h1>
+          <Heading as="h1" size="5xl">
+            Moins de tableurs, plus de terrain.
+          </Heading>
           <p className="max-w-xl text-lg text-muted">
             BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
             amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les bénévoles,
@@ -129,7 +132,9 @@ export function LandingPage() {
             {HIGHLIGHTS.map((item) => (
               <div key={item.title} className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl">{item.title}</h2>
+                  <Heading as="h2" size="xl">
+                    {item.title}
+                  </Heading>
                   <Badge variant="secondary">{item.badge}</Badge>
                 </div>
                 <p className="text-sm text-muted">{item.description}</p>
@@ -139,7 +144,9 @@ export function LandingPage() {
         </section>
 
         <section className="mx-auto max-w-5xl px-6 py-16">
-          <h2 className="mb-8 text-center text-3xl">Ce que BasketEasy simplifie pour votre club</h2>
+          <Heading as="h2" className="mb-8 text-center">
+            Ce que BasketEasy simplifie pour votre club
+          </Heading>
           <div className="grid gap-6 md:grid-cols-3">
             {FEATURES.map((feature) => (
               <Card key={feature.title}>
