@@ -2,23 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --be-orange: #d4622a;
-  --be-blue-green: #1e5f74;
-  --be-cream: #faf5ef;
-  --be-charcoal: #23201c;
-  --be-muted: #5b564f;
-  --be-border: #e7decf;
-}
-
 * {
   box-sizing: border-box;
 }
 
 body {
+  @apply bg-cream text-charcoal;
   margin: 0;
-  background: var(--be-cream);
-  color: var(--be-charcoal);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
