@@ -7,7 +7,17 @@ import { useIsClubAdmin } from './useIsClubAdmin';
 function wrapperWithUser(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[] | null) {
   return function Wrapper({ children }: { children: ReactNode }) {
     const value = memberships
-      ? { user: { id: 'user-1', email: 'a@b.com', memberships }, isLoading: false }
+      ? {
+          user: {
+            id: 'user-1',
+            email: 'a@b.com',
+            firstName: null,
+            lastName: null,
+            avatarUrl: null,
+            memberships,
+          },
+          isLoading: false,
+        }
       : { user: null, isLoading: false };
     return createElement(AccountContext.Provider, { value }, children);
   };

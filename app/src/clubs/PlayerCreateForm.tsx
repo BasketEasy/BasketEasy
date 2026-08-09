@@ -43,6 +43,7 @@ export function PlayerCreateForm({
     handleSubmit,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<PlayerFormValues>({
     resolver: zodResolver(playerSchema),
@@ -99,7 +100,23 @@ export function PlayerCreateForm({
           control={control}
           name="userId"
           render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
+            <Select
+              value={field.value}
+              onValueChange={(value) => {
+                field.onChange(value);
+                const member = linkableMembers.find((m) => m.userId === value);
+                if (member?.firstName && member?.lastName) {
+                  setValue('firstName', member.firstName, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  setValue('lastName', member.lastName, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }
+              }}
+            >
               <SelectTrigger id="player-linked-member" aria-label="Compte lié (optionnel)">
                 <SelectValue placeholder="Aucun compte lié" />
               </SelectTrigger>

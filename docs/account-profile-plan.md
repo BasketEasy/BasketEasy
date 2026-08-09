@@ -7,6 +7,7 @@ Implementation plan. Not yet built — captured here for delegation.
 Today `User` (`server/prisma/schema.prisma`) has only `email`/`passwordHash` — no name or picture. `Player` (the roster entry) already has its own required `firstName`/`lastName` plus an optional `userId` link to a `User`, and `PlayerCreateForm` already lets an admin pick a "linked account" from the club's members (`ClubMember[]`, keyed by email only) — but today linking an account does **nothing** for the name fields; the admin still types them by hand. The goal is an account-level profile (first name, last name, profile picture) that a member fills in once, so that when a club admin adds that member as a player and links their account, the name is pulled in automatically instead of retyped.
 
 Scoped per product decisions so far:
+
 - Profile picture is a plain `avatarUrl` string field — no upload pipeline/S3 infra in this pass.
 - No extra fields beyond first/last name + avatar URL for now.
 - Registration stays email+password only; name/avatar are set afterward on a new profile page.

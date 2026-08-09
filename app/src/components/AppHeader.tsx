@@ -51,6 +51,9 @@ export function AppHeader() {
           <Button variant="ghost" className="justify-start" onClick={() => go('/dashboard')}>
             Tableau de bord
           </Button>
+          <Button variant="ghost" className="justify-start" onClick={() => go('/account')}>
+            Mon profil
+          </Button>
           <Button variant="ghost" className="justify-start" onClick={() => go('/clubs/new')}>
             Créer un club
           </Button>

@@ -125,7 +125,14 @@ describe('PlayerRow', () => {
             isAdmin={true}
             linkedMemberEmail={null}
             linkableMembers={[
-              { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: 'x' },
+              {
+                userId: 'user-2',
+                email: 'b@example.com',
+                firstName: null,
+                lastName: null,
+                role: 'MEMBER',
+                joinedAt: 'x',
+              },
             ]}
           />
         </TableBody>

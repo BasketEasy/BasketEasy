@@ -6,6 +6,9 @@ export interface ClubMembershipInfo {
 export interface User {
   id: string;
   email: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
   memberships: ClubMembershipInfo[];
 }
 
@@ -26,4 +29,10 @@ export interface AccessTokenResponse {
 
 export interface RefreshResponse {
   accessToken: string;
+}
+
+export interface UpdateProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string | null;
 }

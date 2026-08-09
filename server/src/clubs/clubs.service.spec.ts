@@ -99,7 +99,12 @@ describe('ClubsService', () => {
     });
 
     it('adds the user as MEMBER', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-2', email: 'a@b.com' });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-2',
+        email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
+      });
       prisma.clubMembership.findUnique.mockResolvedValue(null);
       prisma.clubMembership.create.mockResolvedValue({
         role: 'MEMBER',
@@ -114,9 +119,42 @@ describe('ClubsService', () => {
       expect(result).toEqual({
         userId: 'user-2',
         email: 'a@b.com',
+        firstName: 'Alex',
+        lastName: 'Dupont',
         role: 'MEMBER',
         joinedAt: '2026-01-02T00:00:00.000Z',
       });
+    });
+  });
+
+  describe('listMembers', () => {
+    it('returns members with names sourced from the related user record', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([
+        {
+          userId: 'user-2',
+          role: 'MEMBER',
+          createdAt: new Date('2026-01-02'),
+          user: { email: 'a@b.com', firstName: 'Alex', lastName: 'Dupont' },
+        },
+      ]);
+
+      const result = await service.listMembers('club-1');
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1' },
+        include: { user: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(result).toEqual([
+        {
+          userId: 'user-2',
+          email: 'a@b.com',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          role: 'MEMBER',
+          joinedAt: '2026-01-02T00:00:00.000Z',
+        },
+      ]);
     });
   });
 

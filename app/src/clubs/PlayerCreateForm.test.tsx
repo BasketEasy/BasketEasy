@@ -113,7 +113,14 @@ describe('PlayerCreateForm', () => {
       <PlayerCreateForm
         clubId="club-1"
         linkableMembers={[
-          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: 'x' },
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: null,
+            lastName: null,
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
         ]}
       />,
     );
@@ -126,5 +133,106 @@ describe('PlayerCreateForm', () => {
 
     await waitFor(() => expect(capturedBody).toBeDefined());
     expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
+  });
+
+  it('pre-fills firstName/lastName when selecting a linked member with a profile name', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: 'Bianca',
+            lastName: 'Martin',
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Bianca');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Martin');
+  });
+
+  it('leaves the name fields untouched when the selected member has no profile name', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: null,
+            lastName: null,
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Alex');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Dupont');
+  });
+
+  it('preserves a manual edit made after auto-fill when submitting', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Bianca',
+          lastName: 'Leblanc',
+          userId: 'user-2',
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: 'Bianca',
+            lastName: 'Martin',
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Bianca');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Martin');
+
+    const lastNameInput = screen.getByLabelText(/^nom$/i);
+    await user.clear(lastNameInput);
+    await user.type(lastNameInput, 'Leblanc');
+
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Bianca', lastName: 'Leblanc', userId: 'user-2' });
   });
 });
