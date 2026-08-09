@@ -10,6 +10,7 @@
       "default": "./src/lib/cn.ts"
     },
     "./tailwind-preset": "./tailwind-preset.cjs",
+    "./styles/globals.css": "./src/styles/globals.css",
     "./button": {
       "types": "./src/components/Button.tsx",
       "default": "./src/components/Button.tsx"
@@ -85,6 +86,10 @@
     "./toast-store": {
       "types": "./src/lib/toast-store.ts",
       "default": "./src/lib/toast-store.ts"
+    },
+    "./heading": {
+      "types": "./src/components/Heading.tsx",
+      "default": "./src/components/Heading.tsx"
     }
   },
   "scripts": {

@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { Heading } from '@basketeasy/ui/heading';
 import {
   Dialog,
   DialogContent,
@@ -135,7 +136,9 @@ export function MembersPage() {
 
   return (
     <PageContainer size="lg">
-      <h1 className="m-0 text-4xl">Effectif du club</h1>
+      <Heading as="h1" className="m-0">
+        Effectif du club
+      </Heading>
 
       {removeError && (
         <Alert variant="destructive">
