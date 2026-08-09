@@ -21,6 +21,6 @@ describe('Alert', () => {
 
   it('applies the destructive variant class', () => {
     render(<Alert variant="destructive">Erreur</Alert>);
-    expect(screen.getByRole('alert')).toHaveClass('border-red-600');
+    expect(screen.getByRole('alert')).toHaveClass('border-error');
   });
 });

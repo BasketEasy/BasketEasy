@@ -6,7 +6,7 @@ const alertVariants = cva('relative w-full rounded-lg border p-4', {
   variants: {
     variant: {
       default: 'border-border bg-cream text-charcoal',
-      destructive: 'border-red-600 bg-red-50 text-red-900',
+      destructive: 'border-error bg-error/10 text-error',
     },
   },
   defaultVariants: { variant: 'default' },
