@@ -27,4 +27,8 @@ export const handlers = [
   // default rather than stubbing it individually; team-focused tests
   // override it with server.use(...).
   http.get('/api/clubs/:clubId/teams', () => HttpResponse.json([])),
+
+  // Default: no events for any team. TeamDetailPage always queries this;
+  // event-focused tests override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/events', () => HttpResponse.json([])),
 ];

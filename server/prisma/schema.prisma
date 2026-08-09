@@ -69,6 +69,7 @@ model Team {
   createdAt   DateTime     @default(now())
   clubTeams   ClubTeam[]
   teamPlayers TeamPlayer[]
+  events      Event[]
 }
 
 // Join between Club and Team: a team can be linked to several clubs at once
@@ -102,6 +103,20 @@ model TeamPlayer {
 
   @@unique([teamId, playerId])
   @@index([playerId])
+}
+
+// A single team-day event (training session for now — no RSVP/convocation
+// yet, see CLAUDE.md's Events module section for what's deferred).
+model Event {
+  id        String   @id @default(uuid())
+  teamId    String
+  startsAt  DateTime
+  location  String
+  notes     String?
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }
 
 enum ClubRole {

@@ -73,6 +73,14 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - Roster entries (`TeamPlayer`) require the player's own club (`Player.clubId`) to be one of the team's linked clubs — enforced in `TeamsService.addTeamPlayer`, not the DB. Any admin of a linked club (owner or partner) can manage the shared roster.
 - `TeamPlayer`/`ClubTeam` rows cascade-delete at the DB level (`onDelete: Cascade`) when their `Team` or, for `TeamPlayer`, their `Player` is deleted — so deleting a player or disbanding a team never needs a manual cleanup transaction.
 
+## Events module
+
+`server/src/events` (mounted at `clubs/:clubId/teams/:teamId/events`) implements plain CRUD for a team's calendar — the first slice of P0's "basic team-day tools" (calendar/convocations/RSVP), deliberately scoped down to just events with no attendance tracking yet:
+
+- `Event` (`id`, `teamId`, `startsAt`, `location`, `notes?`) belongs to a single `Team` and cascade-deletes with it. No event `type` field yet — every event reads as a generic team-day event (see below for why that's deferred rather than pre-built).
+- Same authorization shape as Teams: `EventsService.assertTeamInClub`/`assertEventInTeam` re-verify the team belongs to the route's `:clubId` (and the event to that team) before any mutation, mirroring `TeamsService`'s pattern rather than importing across modules. Any admin of a linked club can manage a team's events — ownership doesn't gate this the way CTC partner-club management does.
+- **Next steps, in order, once this slice proves out:** (1) RSVP — a status per roster player on an event, the first cut deliberately dropped to keep this shippable; (2) convocations — targeted call-ups to specific players rather than open RSVP to the whole roster; (3) a `type` field to distinguish training from match events, feeding fair-playing-time tracking later; (4) folding in the P1 créneaux/gym-slot conflict detection once a Scheduling module exists. Don't build these speculatively — extend `Event`/`EventsService` when one of them is actually the next task.
+
 ## What's deliberately not here yet
 
-No Scheduling, Scoresheet, Payments, Subvention, or Volunteer/Role domain modules; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, and Teams as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Scheduling (beyond the plain Events CRUD above), Scoresheet, Payments, Subvention, or Volunteer/Role domain modules; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

@@ -19,11 +19,14 @@ import { useTeamDelete } from '../clubs/useTeamDelete';
 import { useTeamClubList } from '../clubs/useTeamClubList';
 import { useTeamPlayerList } from '../clubs/useTeamPlayerList';
 import { usePlayerList } from '../clubs/usePlayerList';
+import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
+import { EventCreateForm } from '../clubs/EventCreateForm';
+import { EventRow } from '../clubs/EventRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import {
   TEAM_CATEGORY_OPTIONS,
@@ -41,6 +44,7 @@ export function TeamDetailPage() {
   const { data: teamClubs, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!);
   const { data: teamPlayers, isLoading: isLoadingPlayers } = useTeamPlayerList(clubId!, teamId!);
   const { data: clubPlayers } = usePlayerList(clubId!);
+  const { data: events, isLoading: isLoadingEvents } = useEventList(clubId!, teamId!);
 
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
   const { mutate: deleteTeam, isPending: isDeleting } = useTeamDelete(clubId!);
@@ -53,6 +57,7 @@ export function TeamDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
 
   const isOwner = teamClubs?.find((c) => c.clubId === clubId)?.isOwner ?? false;
 
@@ -263,6 +268,55 @@ export function TeamDetailPage() {
                   clubId={clubId!}
                   teamId={teamId!}
                   teamPlayer={teamPlayer}
+                  isAdmin={isAdmin}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="m-0 text-2xl">Événements</h2>
+          {isAdmin && (
+            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Créer un événement</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Créer un événement</DialogTitle>
+                </DialogHeader>
+                <EventCreateForm
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  onSuccess={() => setIsAddEventOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        {isLoadingEvents ? (
+          <p>Chargement...</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Lieu</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events?.map((event) => (
+                <EventRow
+                  key={event.id}
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  event={event}
                   isAdmin={isAdmin}
                 />
               ))}
