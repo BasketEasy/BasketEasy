@@ -29,7 +29,7 @@ describe('DashboardPage', () => {
 
     renderLoggedIn();
 
-    await waitFor(() => expect(screen.getByText(/unreachable/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/injoignable/)).toBeInTheDocument());
   });
 
   it('logs out when "Se déconnecter" is clicked', async () => {
