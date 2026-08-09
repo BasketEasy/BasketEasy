@@ -11,9 +11,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
+import { Card, CardContent } from '@basketeasy/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -134,6 +136,12 @@ export function MembersPage() {
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-16">
       <h1 className="m-0 text-4xl">Effectif du club</h1>
 
+      {removeError && (
+        <Alert variant="destructive">
+          <AlertDescription>{removeError}</AlertDescription>
+        </Alert>
+      )}
+
       <Tabs
         value={activeTab}
         onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
@@ -143,7 +151,7 @@ export function MembersPage() {
           <TabsTrigger value="players">Joueurs</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="members" className="flex flex-col gap-6">
+        <TabsContent value="members" className="mt-4 flex flex-col gap-4">
           {isAdmin && (
             <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
               <DialogTrigger asChild>
@@ -152,46 +160,47 @@ export function MembersPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Ajouter un membre</DialogTitle>
+                  <DialogDescription>
+                    Invitez une personne ayant déjà un compte BasketEasy à rejoindre le club.
+                  </DialogDescription>
                 </DialogHeader>
                 <ClubMemberAddForm clubId={clubId!} onSuccess={() => setIsAddMemberOpen(false)} />
               </DialogContent>
             </Dialog>
           )}
 
-          {removeError && (
-            <Alert variant="destructive">
-              <AlertDescription>{removeError}</AlertDescription>
-            </Alert>
-          )}
-
-          {isLoadingMembers ? (
-            <p>Chargement...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Rôle</TableHead>
-                  <TableHead>Fiche joueur liée</TableHead>
-                  {isAdmin && <TableHead />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members?.map((member) => (
-                  <MemberRow
-                    key={member.userId}
-                    member={member}
-                    isAdmin={isAdmin}
-                    linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
-                    onRemove={handleRemove}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Card>
+            <CardContent className="pt-6">
+              {isLoadingMembers ? (
+                <p>Chargement...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Rôle</TableHead>
+                      <TableHead>Fiche joueur liée</TableHead>
+                      {isAdmin && <TableHead />}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members?.map((member) => (
+                      <MemberRow
+                        key={member.userId}
+                        member={member}
+                        isAdmin={isAdmin}
+                        linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
+                        onRemove={handleRemove}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="players" className="flex flex-col gap-6">
+        <TabsContent value="players" className="mt-4 flex flex-col gap-4">
           {isAdmin && (
             <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
               <DialogTrigger asChild>
@@ -200,6 +209,10 @@ export function MembersPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Ajouter un joueur</DialogTitle>
+                  <DialogDescription>
+                    Créez une fiche joueur pour le club, avec un lien optionnel vers un compte
+                    membre existant.
+                  </DialogDescription>
                 </DialogHeader>
                 <PlayerCreateForm
                   clubId={clubId!}
@@ -210,36 +223,40 @@ export function MembersPage() {
             </Dialog>
           )}
 
-          {isLoadingPlayers ? (
-            <p>Chargement...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Prénom</TableHead>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Compte lié</TableHead>
-                  {isAdmin && <TableHead />}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {players?.map((player) => (
-                  <PlayerRow
-                    key={player.id}
-                    clubId={clubId!}
-                    player={player}
-                    isAdmin={isAdmin}
-                    linkedMemberEmail={
-                      player.userId ? (emailByUserId.get(player.userId) ?? null) : null
-                    }
-                    linkableMembers={(members ?? []).filter(
-                      (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
-                    )}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Card>
+            <CardContent className="pt-6">
+              {isLoadingPlayers ? (
+                <p>Chargement...</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Prénom</TableHead>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Compte lié</TableHead>
+                      {isAdmin && <TableHead />}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {players?.map((player) => (
+                      <PlayerRow
+                        key={player.id}
+                        clubId={clubId!}
+                        player={player}
+                        isAdmin={isAdmin}
+                        linkedMemberEmail={
+                          player.userId ? (emailByUserId.get(player.userId) ?? null) : null
+                        }
+                        linkableMembers={(members ?? []).filter(
+                          (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
+                        )}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </main>
