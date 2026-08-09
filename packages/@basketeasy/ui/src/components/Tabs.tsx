@@ -23,7 +23,7 @@ export const TabsTrigger = forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-cream data-[state=active]:text-orange data-[state=active]:shadow-sm',
+      'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-cream data-[state=active]:text-orange-text data-[state=active]:shadow-sm',
       className,
     )}
     {...props}

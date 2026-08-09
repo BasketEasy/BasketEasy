@@ -77,7 +77,7 @@ export function LandingPage() {
     <div className="flex min-h-screen flex-col bg-cream text-charcoal">
       <header className="border-b border-border">
         <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="font-heading text-2xl font-extrabold text-orange">BasketEasy</span>
+          <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
           <div className="flex items-center gap-3">
             {!isLoading &&
               (user ? (
