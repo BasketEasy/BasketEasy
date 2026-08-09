@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
@@ -63,5 +63,68 @@ describe('PlayerCreateForm', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/erreur est survenue/i);
+  });
+
+  it('submits without a userId when no member is linked', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          userId: null,
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont' });
+  });
+
+  it('links the player to the selected member on submit', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          userId: 'user-2',
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: 'x' },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
   });
 });

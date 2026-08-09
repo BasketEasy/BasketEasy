@@ -4,10 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { Player } from '@basketeasy/types/players';
 import { PrismaService } from '../prisma/prisma.service';
+
+const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 @Injectable()
 export class ClubsService {
@@ -95,9 +98,18 @@ export class ClubsService {
       }
     }
 
-    await this.prisma.clubMembership.delete({
-      where: { userId_clubId: { userId, clubId } },
-    });
+    // Unlink (not delete) any player tied to this account — the account no
+    // longer has club access, but the roster entry and its history (stats,
+    // attendance) are independent of that and should survive.
+    await this.prisma.$transaction([
+      this.prisma.player.updateMany({
+        where: { clubId, userId },
+        data: { userId: null },
+      }),
+      this.prisma.clubMembership.delete({
+        where: { userId_clubId: { userId, clubId } },
+      }),
+    ]);
   }
 
   async listPlayers(clubId: string): Promise<Player[]> {
@@ -108,21 +120,57 @@ export class ClubsService {
     return players.map((p) => this.toPlayer(p));
   }
 
-  async createPlayer(clubId: string, firstName: string, lastName: string): Promise<Player> {
-    const player = await this.prisma.player.create({
-      data: { clubId, firstName, lastName },
-    });
-    return this.toPlayer(player);
+  async createPlayer(
+    clubId: string,
+    data: { firstName: string; lastName: string; userId?: string },
+  ): Promise<Player> {
+    if (data.userId) {
+      await this.assertClubMember(clubId, data.userId);
+    }
+    try {
+      const player = await this.prisma.player.create({
+        data: { clubId, firstName: data.firstName, lastName: data.lastName, userId: data.userId },
+      });
+      return this.toPlayer(player);
+    } catch (err) {
+      throw this.toPlayerLinkError(err);
+    }
   }
 
   async updatePlayer(
     clubId: string,
     playerId: string,
-    data: { firstName?: string; lastName?: string },
+    data: { firstName?: string; lastName?: string; userId?: string | null },
   ): Promise<Player> {
     await this.findPlayerInClub(clubId, playerId);
-    const player = await this.prisma.player.update({ where: { id: playerId }, data });
-    return this.toPlayer(player);
+    if (data.userId) {
+      await this.assertClubMember(clubId, data.userId);
+    }
+    try {
+      const player = await this.prisma.player.update({ where: { id: playerId }, data });
+      return this.toPlayer(player);
+    } catch (err) {
+      throw this.toPlayerLinkError(err);
+    }
+  }
+
+  private async assertClubMember(clubId: string, userId: string): Promise<void> {
+    const membership = await this.prisma.clubMembership.findUnique({
+      where: { userId_clubId: { userId, clubId } },
+    });
+    if (!membership) {
+      throw new BadRequestException('Le compte lié doit être membre du club');
+    }
+  }
+
+  private toPlayerLinkError(err: unknown): unknown {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === UNIQUE_CONSTRAINT_VIOLATION
+    ) {
+      return new ConflictException('Ce membre est déjà lié à un autre joueur');
+    }
+    return err;
   }
 
   async deletePlayer(clubId: string, playerId: string): Promise<void> {
@@ -142,6 +190,7 @@ export class ClubsService {
     clubId: string;
     firstName: string;
     lastName: string;
+    userId: string | null;
     createdAt: Date;
   }): Player {
     return {
@@ -149,6 +198,7 @@ export class ClubsService {
       clubId: player.clubId,
       firstName: player.firstName,
       lastName: player.lastName,
+      userId: player.userId,
       createdAt: player.createdAt.toISOString(),
     };
   }

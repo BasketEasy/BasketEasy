@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ClubsService } from './clubs.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,8 +21,10 @@ describe('ClubsService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       delete: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -40,8 +43,10 @@ describe('ClubsService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
       },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -133,12 +138,27 @@ describe('ClubsService', () => {
     it('removes a non-last-admin membership', async () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
       prisma.clubMembership.delete.mockResolvedValue({});
+      prisma.player.updateMany.mockResolvedValue({ count: 0 });
 
       await service.removeMember('club-1', 'user-2');
 
       expect(prisma.clubMembership.delete).toHaveBeenCalledWith({
         where: { userId_clubId: { userId: 'user-2', clubId: 'club-1' } },
       });
+    });
+
+    it('unlinks any player tied to the removed member, in the same transaction', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
+      prisma.clubMembership.delete.mockResolvedValue({});
+      prisma.player.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.removeMember('club-1', 'user-2');
+
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', userId: 'user-2' },
+        data: { userId: null },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -150,6 +170,7 @@ describe('ClubsService', () => {
           clubId: 'club-1',
           firstName: 'A',
           lastName: 'B',
+          userId: null,
           createdAt: new Date('2026-01-01'),
         },
       ]);
@@ -166,6 +187,7 @@ describe('ClubsService', () => {
           clubId: 'club-1',
           firstName: 'A',
           lastName: 'B',
+          userId: null,
           createdAt: '2026-01-01T00:00:00.000Z',
         },
       ]);
@@ -177,15 +199,62 @@ describe('ClubsService', () => {
         clubId: 'club-1',
         firstName: 'A',
         lastName: 'B',
+        userId: null,
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.createPlayer('club-1', 'A', 'B');
+      const result = await service.createPlayer('club-1', { firstName: 'A', lastName: 'B' });
 
       expect(prisma.player.create).toHaveBeenCalledWith({
-        data: { clubId: 'club-1', firstName: 'A', lastName: 'B' },
+        data: { clubId: 'club-1', firstName: 'A', lastName: 'B', userId: undefined },
       });
       expect(result.id).toBe('p1');
+    });
+
+    it('throws BadRequestException creating a player linked to a non-member', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.createPlayer('club-1', { firstName: 'A', lastName: 'B', userId: 'user-9' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.player.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a player linked to a club member', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ id: 'membership-1' });
+      prisma.player.create.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: 'user-2',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createPlayer('club-1', {
+        firstName: 'A',
+        lastName: 'B',
+        userId: 'user-2',
+      });
+
+      expect(prisma.player.create).toHaveBeenCalledWith({
+        data: { clubId: 'club-1', firstName: 'A', lastName: 'B', userId: 'user-2' },
+      });
+      expect(result.userId).toBe('user-2');
+    });
+
+    it('throws ConflictException when the linked member already has a player', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ id: 'membership-1' });
+      prisma.player.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '6.19.3',
+        }),
+      );
+
+      await expect(
+        service.createPlayer('club-1', { firstName: 'A', lastName: 'B', userId: 'user-2' }),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('throws NotFoundException updating a player from another club', async () => {
@@ -204,6 +273,7 @@ describe('ClubsService', () => {
         clubId: 'club-1',
         firstName: 'C',
         lastName: 'B',
+        userId: null,
         createdAt: new Date('2026-01-01'),
       });
 
@@ -214,6 +284,36 @@ describe('ClubsService', () => {
         data: { firstName: 'C' },
       });
       expect(result.firstName).toBe('C');
+    });
+
+    it('throws BadRequestException updating a player to link a non-member', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.clubMembership.findUnique.mockResolvedValue(null);
+
+      await expect(service.updatePlayer('club-1', 'p1', { userId: 'user-9' })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.player.update).not.toHaveBeenCalled();
+    });
+
+    it('unlinks a player by passing userId: null', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.player.update.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.updatePlayer('club-1', 'p1', { userId: null });
+
+      expect(prisma.player.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { userId: null },
+      });
+      expect(result.userId).toBeNull();
     });
 
     it('throws NotFoundException deleting a player from another club', async () => {

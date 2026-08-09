@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Table, TableBody } from '@basketeasy/ui/table';
@@ -12,6 +12,7 @@ const player = {
   clubId: 'club-1',
   firstName: 'Alex',
   lastName: 'Dupont',
+  userId: null,
   createdAt: 'x',
 };
 
@@ -19,7 +20,13 @@ function renderRow(isAdmin = true) {
   return renderWithProviders(
     <Table>
       <TableBody>
-        <PlayerRow clubId="club-1" player={player} isAdmin={isAdmin} />
+        <PlayerRow
+          clubId="club-1"
+          player={player}
+          isAdmin={isAdmin}
+          linkedMemberEmail={null}
+          linkableMembers={[]}
+        />
       </TableBody>
     </Table>,
   );
@@ -79,5 +86,63 @@ describe('PlayerRow', () => {
 
     expect(screen.queryByRole('button', { name: /modifier/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /supprimer/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the linked member email when the player already has one', () => {
+    renderWithProviders(
+      <Table>
+        <TableBody>
+          <PlayerRow
+            clubId="club-1"
+            player={{ ...player, userId: 'user-2' }}
+            isAdmin={true}
+            linkedMemberEmail="b@example.com"
+            linkableMembers={[]}
+          />
+        </TableBody>
+      </Table>,
+    );
+
+    expect(screen.getByText('b@example.com')).toBeInTheDocument();
+  });
+
+  it('links the player to a member and saves it in the update request', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.patch('/api/clubs/club-1/players/p1', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ ...player, userId: 'user-2' });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Table>
+        <TableBody>
+          <PlayerRow
+            clubId="club-1"
+            player={player}
+            isAdmin={true}
+            linkedMemberEmail={null}
+            linkableMembers={[
+              { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: 'x' },
+            ]}
+          />
+        </TableBody>
+      </Table>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /modifier/i }));
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+    await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+    // The row leaves edit mode on a successful save — the resulting display
+    // value comes from the parent's query cache, out of scope for this
+    // isolated PlayerRow test, so we only assert the request that was sent.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /enregistrer/i })).not.toBeInTheDocument(),
+    );
+    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
   });
 });

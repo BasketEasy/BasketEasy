@@ -71,7 +71,7 @@ export class ClubsController {
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN')
   createPlayer(@Param('clubId') clubId: string, @Body() dto: CreatePlayerDto): Promise<Player> {
-    return this.clubsService.createPlayer(clubId, dto.firstName, dto.lastName);
+    return this.clubsService.createPlayer(clubId, dto);
   }
 
   @Get(':clubId/players')

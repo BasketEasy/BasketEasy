@@ -33,4 +33,23 @@ describe('UpdatePlayerDto', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0].property).toBe('firstName');
   });
+
+  it('passes with a valid userId', async () => {
+    const dto = plainToInstance(UpdatePlayerDto, {
+      userId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it('passes with an explicit null userId (unlink)', async () => {
+    const dto = plainToInstance(UpdatePlayerDto, { userId: null });
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it('rejects a userId that is not a UUID', async () => {
+    const dto = plainToInstance(UpdatePlayerDto, { userId: 'not-a-uuid' });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].property).toBe('userId');
+  });
 });

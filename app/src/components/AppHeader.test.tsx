@@ -35,12 +35,13 @@ describe('AppHeader', () => {
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
-  it('lists each of the user’s clubs with links to their members and players pages', async () => {
+  it('lists each of the user’s clubs with a link to its roster page', async () => {
     mockSession();
     server.use(
       http.get('/api/clubs', () =>
         HttpResponse.json([{ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' }]),
       ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
     );
 
@@ -51,8 +52,8 @@ describe('AppHeader', () => {
     await user.click(screen.getByLabelText(/menu/i));
 
     expect(await screen.findByText('COC Basket')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /joueurs/i }));
+    await user.click(screen.getByRole('button', { name: /effectif/i }));
 
-    expect(await screen.findByRole('heading', { name: /joueurs/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
   });
 });

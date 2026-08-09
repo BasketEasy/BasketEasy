@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import type { UpdatePlayerRequest } from '@basketeasy/types/players';
 
 export class UpdatePlayerDto implements UpdatePlayerRequest {
@@ -20,4 +20,10 @@ export class UpdatePlayerDto implements UpdatePlayerRequest {
   @MinLength(1)
   @MaxLength(80)
   lastName?: string;
+
+  // null is a meaningful value here (unlink), so it's allowed through
+  // unvalidated; only a defined, non-null value is checked as a UUID.
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsUUID()
+  userId?: string | null;
 }
