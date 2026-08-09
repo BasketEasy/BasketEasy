@@ -16,7 +16,7 @@ Full diagrams (global, frontend, backend, ER model) are in [`docs/architecture.m
 
 - **Client:** React SPA (Vite), calling the API through a single `ApiClient` wrapper (`app/src/api/client.ts`). TanStack Query owns server state once domain pages land; Context owns local UI state (auth, multi-club switcher).
 - **API Gateway:** NestJS, REST, global `/api` prefix, guards + DTO validation pipes.
-- **Domain modules:** Auth (built — see below); Clubs/CTC, Teams/Players, Scheduling (créneaux + conflict detection), Scoresheet (AI-assisted capture), Payments (HelloAsso), Subvention, Volunteer/Role (planned, not yet built).
+- **Domain modules:** Auth (built — see below); Clubs/Players (built, `server/src/clubs`); Teams (built — see below); Scheduling (créneaux + conflict detection), Scoresheet (AI-assisted capture), Payments (HelloAsso), Subvention, Volunteer/Role (planned, not yet built).
 - **Async:** BullMQ (Redis-backed) for scoresheet OCR parsing and scheduled reminders.
 - **Data:** PostgreSQL (Prisma ORM) as primary store, Redis for cache + queue, Scaleway S3 for scoresheet photos.
 - **External:** LLM vision API (scoresheet OCR — provider TBD), HelloAsso (payments), Brevo (email).
@@ -65,6 +65,14 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - `ClubRolesGuard` + `@ClubRoles()` decorator gate club-scoped routes by the caller's `ClubMembership.role`.
 - `JWT_ACCESS_SECRET` env var is required — set in `docker-compose.yml`'s `server` service and `.env.example`.
 
+## Teams module
+
+`server/src/teams` (mounted at `clubs/:clubId/teams`) implements team CRUD, roster management, and multi-club (CTC/entente) ownership — a team can be linked to more than one club at once, per `docs/feature-set.md`'s P1 CTC requirement:
+
+- `Team` is joined to `Club` through `ClubTeam` (many-to-many). The club that created the team gets `isOwner: true`; only the owning club can add/remove partner clubs or delete the team (`ClubTeam.clubId_teamId` is the composite key used throughout `TeamsService` to re-verify a team actually belongs to the `:clubId` in the route before any mutation — the same defense-in-depth pattern as `ClubsService.findPlayerInClub`).
+- Roster entries (`TeamPlayer`) require the player's own club (`Player.clubId`) to be one of the team's linked clubs — enforced in `TeamsService.addTeamPlayer`, not the DB. Any admin of a linked club (owner or partner) can manage the shared roster.
+- `TeamPlayer`/`ClubTeam` rows cascade-delete at the DB level (`onDelete: Cascade`) when their `Team` or, for `TeamPlayer`, their `Player` is deleted — so deleting a player or disbanding a team never needs a manual cleanup transaction.
+
 ## What's deliberately not here yet
 
-No Clubs/CTC, Teams/Players, Scheduling, Scoresheet, Payments, Subvention, or Volunteer/Role domain modules; no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth as the first domain module — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Scheduling, Scoresheet, Payments, Subvention, or Volunteer/Role domain modules; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, and Teams as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

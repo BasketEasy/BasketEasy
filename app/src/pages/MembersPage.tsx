@@ -22,13 +22,16 @@ import type { ClubMember } from '@basketeasy/types/club-members';
 import { useClubMemberList } from '../clubs/useClubMemberList';
 import { useClubMemberRemove } from '../clubs/useClubMemberRemove';
 import { usePlayerList } from '../clubs/usePlayerList';
+import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
 import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
 import { PlayerRow } from '../clubs/PlayerRow';
+import { TeamCreateForm } from '../clubs/TeamCreateForm';
+import { TeamRow } from '../clubs/TeamRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
-type MembersTab = 'members' | 'players';
+type MembersTab = 'members' | 'players' | 'teams';
 
 function MemberRow({
   member,
@@ -88,7 +91,9 @@ function MemberRow({
 export function MembersPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab: MembersTab = searchParams.get('tab') === 'players' ? 'players' : 'members';
+  const tabParam = searchParams.get('tab');
+  const activeTab: MembersTab =
+    tabParam === 'players' ? 'players' : tabParam === 'teams' ? 'teams' : 'members';
 
   const isAdmin = useIsClubAdmin(clubId);
 
@@ -98,10 +103,12 @@ export function MembersPage() {
   const { data: players, isLoading: isLoadingPlayers } = usePlayerList(clubId!, {
     enabled: isAdmin,
   });
+  const { data: teams, isLoading: isLoadingTeams } = useTeamList(clubId!, { enabled: isAdmin });
   const { mutate: removeMember } = useClubMemberRemove(clubId!);
 
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
 
   const linkedUserIds = useMemo(
@@ -141,6 +148,7 @@ export function MembersPage() {
         <TabsList>
           <TabsTrigger value="members">Membres</TabsTrigger>
           <TabsTrigger value="players">Joueurs</TabsTrigger>
+          <TabsTrigger value="teams">Équipes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="members" className="flex flex-col gap-6">
@@ -236,6 +244,42 @@ export function MembersPage() {
                       (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
                     )}
                   />
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="teams" className="flex flex-col gap-6">
+          {isAdmin && (
+            <Dialog open={isAddTeamOpen} onOpenChange={setIsAddTeamOpen}>
+              <DialogTrigger asChild>
+                <Button className="self-start">Créer une équipe</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Créer une équipe</DialogTitle>
+                </DialogHeader>
+                <TeamCreateForm clubId={clubId!} onSuccess={() => setIsAddTeamOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {isLoadingTeams ? (
+            <p>Chargement...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nom</TableHead>
+                  <TableHead>Catégorie</TableHead>
+                  <TableHead>Genre</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teams?.map((team) => (
+                  <TeamRow key={team.id} clubId={clubId!} team={team} />
                 ))}
               </TableBody>
             </Table>

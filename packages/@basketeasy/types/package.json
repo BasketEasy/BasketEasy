@@ -23,6 +23,10 @@
     "./players": {
       "types": "./players.ts",
       "default": "./players.ts"
+    },
+    "./teams": {
+      "types": "./teams.ts",
+      "default": "./teams.ts"
     }
   },
   "scripts": {

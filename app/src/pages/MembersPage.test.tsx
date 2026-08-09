@@ -35,10 +35,11 @@ describe('MembersPage', () => {
     expect(screen.getAllByRole('button', { name: /retirer/i })).toHaveLength(2);
   });
 
-  it('redirects a non-admin (MEMBER role, or no membership at all) away from the page without calling the members/players endpoints', async () => {
+  it('redirects a non-admin (MEMBER role, or no membership at all) away from the page without calling the members/players/teams endpoints', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     let membersRequested = false;
     let playersRequested = false;
+    let teamsRequested = false;
     server.use(
       http.get('/api/clubs/club-1/members', () => {
         membersRequested = true;
@@ -48,6 +49,10 @@ describe('MembersPage', () => {
         playersRequested = true;
         return HttpResponse.json([]);
       }),
+      http.get('/api/clubs/club-1/teams', () => {
+        teamsRequested = true;
+        return HttpResponse.json([]);
+      }),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
@@ -55,6 +60,7 @@ describe('MembersPage', () => {
     expect(await screen.findByRole('heading', { name: /tableau de bord/i })).toBeInTheDocument();
     expect(membersRequested).toBe(false);
     expect(playersRequested).toBe(false);
+    expect(teamsRequested).toBe(false);
   });
 
   it('shows an error instead of silently doing nothing when removing the last admin fails', async () => {
@@ -223,6 +229,69 @@ describe('MembersPage', () => {
     expect(screen.getByRole('button', { name: /modifier/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /supprimer/i })).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('switches to the Équipes tab and shows the create-team form and a Gérer link for an ADMIN', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams', () =>
+        HttpResponse.json([
+          { id: 'team-1', name: 'U15 Garçons', category: 'U15', gender: 'MEN', createdAt: 'x' },
+        ]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole('tab', { name: /équipes/i }));
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /créer une équipe/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /gérer/i })).toBeInTheDocument();
+  });
+
+  it('opens the create-team form in a modal, and closes it after a successful submit', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json([])),
+      http.post('/api/clubs/club-1/teams', async ({ request }) => {
+        const body = (await request.json()) as { name: string; category: string; gender: string };
+        return HttpResponse.json({
+          id: 'team-1',
+          name: body.name,
+          category: body.category,
+          gender: body.gender,
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /équipes/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /équipes/i }));
+    await user.click(screen.getByRole('button', { name: /créer une équipe/i }));
+
+    await user.type(screen.getByLabelText(/nom de l'équipe/i), 'Équipe U15');
+    await user.click(screen.getByRole('combobox', { name: /^catégorie$/i }));
+    await user.click(await screen.findByRole('option', { name: 'U15' }));
+    await user.click(screen.getByRole('combobox', { name: /^genre$/i }));
+    await user.click(await screen.findByRole('option', { name: 'Masculin' }));
+    await user.click(screen.getByRole('button', { name: /créer l'équipe/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText(/nom de l'équipe/i)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Équipe U15')).toBeInTheDocument();
   });
 
   it('opens the add-player form in a modal, offering unlinked members, and shows the linked email once added', async () => {

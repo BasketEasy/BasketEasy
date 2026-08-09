@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ClubCreatePage } from './pages/ClubCreatePage';
 import { MembersPage } from './pages/MembersPage';
 import { AccountPage } from './pages/AccountPage';
+import { TeamDetailPage } from './pages/TeamDetailPage';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/account" element={<AccountPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />
           <Route path="/clubs/:clubId/members" element={<MembersPage />} />
+          <Route path="/clubs/:clubId/teams/:teamId" element={<TeamDetailPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
