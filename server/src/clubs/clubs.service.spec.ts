@@ -21,8 +21,10 @@ describe('ClubsService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
       delete: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -41,8 +43,10 @@ describe('ClubsService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
         delete: jest.fn(),
       },
+      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -134,12 +138,27 @@ describe('ClubsService', () => {
     it('removes a non-last-admin membership', async () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
       prisma.clubMembership.delete.mockResolvedValue({});
+      prisma.player.updateMany.mockResolvedValue({ count: 0 });
 
       await service.removeMember('club-1', 'user-2');
 
       expect(prisma.clubMembership.delete).toHaveBeenCalledWith({
         where: { userId_clubId: { userId: 'user-2', clubId: 'club-1' } },
       });
+    });
+
+    it('unlinks any player tied to the removed member, in the same transaction', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
+      prisma.clubMembership.delete.mockResolvedValue({});
+      prisma.player.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.removeMember('club-1', 'user-2');
+
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', userId: 'user-2' },
+        data: { userId: null },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 

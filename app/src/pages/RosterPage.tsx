@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@basketeasy/ui/dialog';
+import type { ClubMember } from '@basketeasy/types/club-members';
 import { useClubMemberList } from '../clubs/useClubMemberList';
 import { useClubMemberRemove } from '../clubs/useClubMemberRemove';
 import { usePlayerList } from '../clubs/usePlayerList';
@@ -28,6 +29,61 @@ import { PlayerRow } from '../clubs/PlayerRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
 type RosterTab = 'members' | 'players';
+
+function MemberRow({
+  member,
+  isAdmin,
+  linkedPlayerName,
+  onRemove,
+}: {
+  member: ClubMember;
+  isAdmin: boolean;
+  linkedPlayerName: string | null;
+  onRemove: (userId: string) => void;
+}) {
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  return (
+    <TableRow>
+      <TableCell>{member.email}</TableCell>
+      <TableCell>{member.role === 'ADMIN' ? 'Administrateur' : 'Membre'}</TableCell>
+      <TableCell>{linkedPlayerName ?? '—'}</TableCell>
+      {isAdmin && (
+        <TableCell>
+          {isConfirming ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted">
+                Fiche joueur liée : {linkedPlayerName}. Elle sera conservée, seul le lien avec ce
+                compte sera supprimé.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsConfirming(false);
+                    onRemove(member.userId);
+                  }}
+                >
+                  Confirmer
+                </Button>
+                <Button variant="ghost" onClick={() => setIsConfirming(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => (linkedPlayerName ? setIsConfirming(true) : onRemove(member.userId))}
+            >
+              Retirer
+            </Button>
+          )}
+        </TableCell>
+      )}
+    </TableRow>
+  );
+}
 
 export function RosterPage() {
   const { clubId } = useParams<{ clubId: string }>();
@@ -113,18 +169,13 @@ export function RosterPage() {
               </TableHeader>
               <TableBody>
                 {members?.map((member) => (
-                  <TableRow key={member.userId}>
-                    <TableCell>{member.email}</TableCell>
-                    <TableCell>{member.role === 'ADMIN' ? 'Administrateur' : 'Membre'}</TableCell>
-                    <TableCell>{linkedPlayerNameByUserId.get(member.userId) ?? '—'}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Button variant="outline" onClick={() => handleRemove(member.userId)}>
-                          Retirer
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                  <MemberRow
+                    key={member.userId}
+                    member={member}
+                    isAdmin={isAdmin}
+                    linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
+                    onRemove={handleRemove}
+                  />
                 ))}
               </TableBody>
             </Table>

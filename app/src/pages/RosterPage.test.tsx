@@ -79,6 +79,79 @@ describe('RosterPage', () => {
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
   });
 
+  it('shows a note and requires confirmation before removing a member linked to a player', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let removeCalled = false;
+    server.use(
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+        ]),
+      ),
+      http.get('/api/clubs/club-1/players', () =>
+        HttpResponse.json([
+          {
+            id: 'p1',
+            clubId: 'club-1',
+            firstName: 'Alex',
+            lastName: 'Dupont',
+            userId: 'user-2',
+            createdAt: 'x',
+          },
+        ]),
+      ),
+      http.delete('/api/clubs/club-1/members/user-2', () => {
+        removeCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+
+    await waitFor(() => expect(screen.getByText('b@example.com')).toBeInTheDocument());
+    expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
+
+    const retirerButtons = screen.getAllByRole('button', { name: /retirer/i });
+    await user.click(retirerButtons[1]); // b@example.com's row
+
+    expect(screen.getByText(/fiche joueur liée : alex dupont/i)).toBeInTheDocument();
+    expect(removeCalled).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: /confirmer/i }));
+
+    await waitFor(() => expect(removeCalled).toBe(true));
+  });
+
+  it('removes a member with no linked player immediately, without a confirmation step', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let removeCalled = false;
+    server.use(
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+        ]),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.delete('/api/clubs/club-1/members/user-2', () => {
+        removeCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/roster' });
+
+    await waitFor(() => expect(screen.getByText('b@example.com')).toBeInTheDocument());
+    const retirerButtons = screen.getAllByRole('button', { name: /retirer/i });
+    await user.click(retirerButtons[1]);
+
+    expect(screen.queryByRole('button', { name: /confirmer/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(removeCalled).toBe(true));
+  });
+
   it('opens the add-member form in a modal, and closes it after a successful submit', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(

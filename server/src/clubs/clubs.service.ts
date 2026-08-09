@@ -98,9 +98,18 @@ export class ClubsService {
       }
     }
 
-    await this.prisma.clubMembership.delete({
-      where: { userId_clubId: { userId, clubId } },
-    });
+    // Unlink (not delete) any player tied to this account — the account no
+    // longer has club access, but the roster entry and its history (stats,
+    // attendance) are independent of that and should survive.
+    await this.prisma.$transaction([
+      this.prisma.player.updateMany({
+        where: { clubId, userId },
+        data: { userId: null },
+      }),
+      this.prisma.clubMembership.delete({
+        where: { userId_clubId: { userId, clubId } },
+      }),
+    ]);
   }
 
   async listPlayers(clubId: string): Promise<Player[]> {
