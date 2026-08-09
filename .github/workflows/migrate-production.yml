@@ -36,5 +36,5 @@ jobs:
       - name: Run Prisma Migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
+          NEON_DIRECT_URL: ${{ secrets.NEON_DIRECT_URL }}
         run: pnpm --filter @basketeasy/server run prisma:migrate:deploy
