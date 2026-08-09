@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
-import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import { useAccount } from '../auth/useAccount';
 import { useAccountUpdate } from './useAccountUpdate';
 import { getAccountErrorMessage } from './accountErrorMessages';
@@ -20,13 +20,10 @@ type AccountFormValues = z.infer<typeof accountSchema>;
 export function AccountProfileForm() {
   const { user } = useAccount();
   const { mutate: updateAccount, isPending } = useAccountUpdate();
-  const [showSuccess, setShowSuccess] = useState(false);
   const {
     register,
     handleSubmit,
     reset,
-    setError,
-    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<AccountFormValues>({
     resolver: zodResolver(accountSchema),
@@ -51,7 +48,6 @@ export function AccountProfileForm() {
   }, [user, reset]);
 
   const onSubmit = (values: AccountFormValues) => {
-    setShowSuccess(false);
     updateAccount(
       {
         firstName: values.firstName,
@@ -62,11 +58,9 @@ export function AccountProfileForm() {
         avatarUrl: values.avatarUrl === '' ? null : values.avatarUrl,
       },
       {
-        onSuccess: () => {
-          clearErrors('root');
-          setShowSuccess(true);
-        },
-        onError: (err) => setError('root', { message: getAccountErrorMessage(err) }),
+        onSuccess: () => toast({ variant: 'success', description: 'Profil mis à jour.' }),
+        onError: (err) =>
+          toast({ variant: 'destructive', description: getAccountErrorMessage(err) }),
       },
     );
   };
@@ -79,18 +73,6 @@ export function AccountProfileForm() {
       }}
       className="flex flex-col gap-4"
     >
-      {errors.root?.message && (
-        <Alert variant="destructive">
-          <AlertDescription>{errors.root.message}</AlertDescription>
-        </Alert>
-      )}
-
-      {showSuccess && !errors.root?.message && (
-        <Alert>
-          <AlertDescription>Profil mis à jour.</AlertDescription>
-        </Alert>
-      )}
-
       <FormField
         label="Prénom"
         id="account-first-name"

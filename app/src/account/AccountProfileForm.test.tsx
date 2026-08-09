@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { AccountProfileForm } from './AccountProfileForm';
@@ -21,7 +22,14 @@ function renderLoggedIn(overrides: Partial<Record<string, unknown>> = {}) {
       }),
     ),
   );
-  return renderWithProviders(<AccountProfileForm />);
+  // The form fires toasts via the shared toast store; Toaster is what
+  // actually renders them, same as it's mounted once in App.tsx.
+  return renderWithProviders(
+    <>
+      <AccountProfileForm />
+      <Toaster />
+    </>,
+  );
 }
 
 describe('AccountProfileForm', () => {
@@ -66,7 +74,7 @@ describe('AccountProfileForm', () => {
         avatarUrl: 'https://example.com/avatar.png',
       }),
     );
-    expect(await screen.findByRole('alert')).toHaveTextContent(/mis à jour/i);
+    expect(await screen.findByRole('status')).toHaveTextContent(/mis à jour/i);
   });
 
   it('shows a French, submit-level error when the update fails', async () => {
