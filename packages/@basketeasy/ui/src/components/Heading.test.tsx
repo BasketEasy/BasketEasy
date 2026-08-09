@@ -18,6 +18,15 @@ describe('Heading', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveClass('text-4xl');
   });
 
+  it('supports the 2xl size for section-level headings', () => {
+    render(
+      <Heading as="h2" size="2xl">
+        Titre
+      </Heading>,
+    );
+    expect(screen.getByRole('heading', { level: 2 })).toHaveClass('text-2xl');
+  });
+
   it('allows overriding the visual size independently of the level', () => {
     render(
       <Heading as="h2" size="xl">

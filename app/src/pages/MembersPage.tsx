@@ -272,7 +272,7 @@ export function MembersPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="teams" className="flex flex-col gap-6">
+        <TabsContent value="teams" className="mt-4 flex flex-col gap-4">
           {isAdmin && (
             <Dialog open={isAddTeamOpen} onOpenChange={setIsAddTeamOpen}>
               <DialogTrigger asChild>
@@ -281,31 +281,38 @@ export function MembersPage() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Créer une équipe</DialogTitle>
+                  <DialogDescription>
+                    Créez une équipe du club, avec sa catégorie d'âge et son genre.
+                  </DialogDescription>
                 </DialogHeader>
                 <TeamCreateForm clubId={clubId!} onSuccess={() => setIsAddTeamOpen(false)} />
               </DialogContent>
             </Dialog>
           )}
 
-          {isLoadingTeams ? (
-            <Loader>Chargement...</Loader>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead>Genre</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {teams?.map((team) => (
-                  <TeamRow key={team.id} clubId={clubId!} team={team} />
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Card>
+            <CardContent className="pt-6">
+              {isLoadingTeams ? (
+                <Loader>Chargement...</Loader>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Catégorie</TableHead>
+                      <TableHead>Genre</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teams?.map((team) => (
+                      <TeamRow key={team.id} clubId={clubId!} team={team} />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </PageContainer>
