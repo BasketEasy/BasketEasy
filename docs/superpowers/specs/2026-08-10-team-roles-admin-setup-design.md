@@ -149,6 +149,21 @@ New/changed routes, all under `server/src/teams` except the events guard swap:
 | DELETE | `clubs/:clubId/teams/:teamId/admins/:userId`   | `TeamManagerGuard`        | new — revoke                     |
 | POST/PATCH/DELETE `.../events...` | (existing paths)          | `TeamManagerGuard`        | was `@ClubRoles('ADMIN')`        |
 
+**Why `listTeamAdmins` reads `ADMIN`+`MEMBER`, not `TeamManagerGuard` (considered and
+rejected):** the closest read-route precedent in this controller is `listTeamPlayers`/
+`listTeamClubs` (team-scoped, member-identifying data, `ADMIN`+`MEMBER`-visible), not
+`ClubsController.listMembers` (a whole club's roster, `ADMIN`-only) — `listTeamAdmins`
+exposes only the 1-2 admins of *this* team, not a club-wide member dump, so the narrower
+precedent applies. Restricting it to `TeamManagerGuard` was considered (it would tighten
+PII exposure) but rejected: a genuine `TeamAdmin` who isn't also a club `ADMIN` has no
+*local* signal (nothing in their JWT or `useAccount()` membership list) to know they're
+allowed to fetch it, unlike `useIsClubAdmin`, which reads purely local state. The frontend
+would have to fire the request speculatively and treat a 403 as "not a manager" — workable,
+but adds retry-storm risk and a slightly odd interaction for the exact code path that's
+supposed to let a `TeamAdmin` see their own peers. Given the low sensitivity of "who
+administers this specific team" in a small amateur-club context, the simpler, precedent-
+matching route stays.
+
 ## Shared types (`packages/@basketeasy/types`)
 
 - `teams.ts`: add `TeamMemberRole = 'COACH' | 'PLAYER'`; `TeamPlayer.role: TeamMemberRole`;
