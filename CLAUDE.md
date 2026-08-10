@@ -72,6 +72,8 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - `Team` is joined to `Club` through `ClubTeam` (many-to-many). The club that created the team gets `isOwner: true`; only the owning club can add/remove partner clubs or delete the team (`ClubTeam.clubId_teamId` is the composite key used throughout `TeamsService` to re-verify a team actually belongs to the `:clubId` in the route before any mutation — the same defense-in-depth pattern as `ClubsService.findPlayerInClub`).
 - Roster entries (`TeamPlayer`) require the player's own club (`Player.clubId`) to be one of the team's linked clubs — enforced in `TeamsService.addTeamPlayer`, not the DB. Any admin of a linked club (owner or partner) can manage the shared roster.
 - `TeamPlayer`/`ClubTeam` rows cascade-delete at the DB level (`onDelete: Cascade`) when their `Team` or, for `TeamPlayer`, their `Player` is deleted — so deleting a player or disbanding a team never needs a manual cleanup transaction.
+- `TeamPlayer.role: COACH | PLAYER` (default `PLAYER`) labels a roster entry; no role-specific permissions exist yet — a `COACH` isn't automatically a `TeamAdmin`.
+- `TeamAdmin` grants a `User` admin rights over one specific `Team` (roster, roster roles, events, team info edit) without club-wide `ClubRole.ADMIN`. The first `TeamAdmin` for a team must be created by a club `ADMIN` of a linked club; after that, existing `TeamAdmin`s can add/remove further ones too. Enforced by `TeamManagerGuard` (`server/src/auth/guards/team-manager.guard.ts`, club `ADMIN` of `:clubId` OR `TeamAdmin` of `:teamId`), which does **not** cover CTC ownership actions (delete team, add/remove partner club) — those stay owner-club-`ADMIN`-only via `assertTeamOwner`.
 
 ## Events module
 
