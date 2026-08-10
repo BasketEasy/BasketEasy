@@ -25,4 +25,9 @@ describe('Button', () => {
     render(<Button disabled>Désactivé</Button>);
     expect(screen.getByRole('button')).toBeDisabled();
   });
+
+  it('applies a 44x44 touch target for the icon size', () => {
+    render(<Button size="icon" aria-label="Menu" />);
+    expect(screen.getByRole('button')).toHaveClass('h-11', 'w-11');
+  });
 });

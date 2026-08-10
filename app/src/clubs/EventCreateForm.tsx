@@ -109,7 +109,7 @@ export function EventCreateForm({
         <Textarea id="event-notes" {...register('notes')} />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 py-1">
         <Controller
           control={control}
           name="isRecurring"

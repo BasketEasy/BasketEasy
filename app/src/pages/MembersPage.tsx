@@ -64,7 +64,7 @@ function MemberRow({
                 Fiche joueur liée : {linkedPlayerName}. Elle sera conservée, seul le lien avec ce
                 compte sera supprimé.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {

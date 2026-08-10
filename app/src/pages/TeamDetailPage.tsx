@@ -136,7 +136,7 @@ export function TeamDetailPage() {
             onValueChange={(value) => setGender(value as TeamGender)}
           />
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               disabled={isUpdating}
               onClick={() =>
@@ -157,7 +157,7 @@ export function TeamDetailPage() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <Heading as="h1" className="m-0">
               {team.name}
@@ -167,7 +167,7 @@ export function TeamDetailPage() {
             </p>
           </div>
           {isAdmin && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={startEditing}>
                 Modifier
               </Button>
@@ -188,7 +188,7 @@ export function TeamDetailPage() {
       )}
 
       <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Heading as="h2" size="2xl" className="m-0">
             Clubs partenaires (CTC)
           </Heading>
@@ -245,7 +245,7 @@ export function TeamDetailPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Heading as="h2" size="2xl" className="m-0">
             Effectif
           </Heading>
@@ -303,7 +303,7 @@ export function TeamDetailPage() {
       </section>
 
       <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Heading as="h2" size="2xl" className="m-0">
             Événements
           </Heading>

@@ -14,9 +14,10 @@ const buttonVariants = cva(
         destructive: 'bg-error text-cream hover:bg-error/90',
       },
       size: {
-        sm: 'h-8 px-3 text-sm',
-        default: 'h-10 px-4 text-sm',
+        sm: 'h-9 px-3 text-sm',
+        default: 'h-11 px-4 text-sm md:h-10',
         lg: 'h-12 px-6 text-base',
+        icon: 'h-11 w-11',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
