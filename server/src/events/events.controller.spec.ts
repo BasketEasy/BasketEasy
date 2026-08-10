@@ -3,6 +3,7 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 
 describe('EventsController', () => {
   let controller: EventsController;
@@ -28,6 +29,8 @@ describe('EventsController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ClubRolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(TeamManagerGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
