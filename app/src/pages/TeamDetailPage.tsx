@@ -173,13 +173,11 @@ export function TeamDetailPage() {
               {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
             </p>
           </div>
-          {(canManageTeam || (isAdmin && isOwner)) && (
+          {canManageTeam && (
             <div className="flex flex-wrap gap-2">
-              {canManageTeam && (
-                <Button variant="outline" onClick={startEditing}>
-                  Modifier
-                </Button>
-              )}
+              <Button variant="outline" onClick={startEditing}>
+                Modifier
+              </Button>
               {isAdmin && isOwner && (
                 <Button variant="outline" disabled={isDeleting} onClick={handleDelete}>
                   Supprimer

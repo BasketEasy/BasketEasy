@@ -39,10 +39,17 @@ export function TeamAdminAddForm({
         onSuccess?.();
       },
       onError: (err) => {
-        const message =
-          err instanceof ApiError && err.status === 404
-            ? 'Aucun compte avec cette adresse e-mail.'
-            : getClubErrorMessage(err);
+        // getClubErrorMessage's 409 copy is hardcoded to "already a club
+        // member" — wrong here, so this and the 404 case are handled
+        // directly from the server's own (already French) message instead.
+        let message: string;
+        if (err instanceof ApiError && err.status === 404) {
+          message = 'Aucun compte avec cette adresse e-mail.';
+        } else if (err instanceof ApiError && err.status === 409) {
+          message = err.message;
+        } else {
+          message = getClubErrorMessage(err);
+        }
         setError('root', { message });
       },
     });

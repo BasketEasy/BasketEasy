@@ -235,18 +235,21 @@ export class TeamsService {
       );
     }
 
-    const existing = await this.prisma.teamAdmin.findUnique({
-      where: { teamId_userId: { teamId, userId: user.id } },
-    });
-    if (existing) {
-      throw new ConflictException('Cet utilisateur est déjà administrateur de cette équipe');
+    try {
+      const teamAdmin = await this.prisma.teamAdmin.create({
+        data: { teamId, userId: user.id },
+        include: { user: true },
+      });
+      return this.toTeamAdmin(teamAdmin);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === UNIQUE_CONSTRAINT_VIOLATION
+      ) {
+        throw new ConflictException('Cet utilisateur est déjà administrateur de cette équipe');
+      }
+      throw err;
     }
-
-    const teamAdmin = await this.prisma.teamAdmin.create({
-      data: { teamId, userId: user.id },
-      include: { user: true },
-    });
-    return this.toTeamAdmin(teamAdmin);
   }
 
   async removeTeamAdmin(clubId: string, teamId: string, userId: string): Promise<void> {

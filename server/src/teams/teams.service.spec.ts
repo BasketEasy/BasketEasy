@@ -562,19 +562,22 @@ describe('TeamsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.user.findUnique.mockResolvedValue({ id: 'u2', email: 'a@b.com' });
       prisma.clubMembership.findFirst.mockResolvedValue({ id: 'm1' });
-      prisma.teamAdmin.findUnique.mockResolvedValue({ id: 'ta1' });
+      prisma.teamAdmin.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '6.19.3',
+        }),
+      );
 
       await expect(service.addTeamAdmin('club-1', 'team-1', 'a@b.com')).rejects.toThrow(
         ConflictException,
       );
-      expect(prisma.teamAdmin.create).not.toHaveBeenCalled();
     });
 
     it('addTeamAdmin creates the grant', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.user.findUnique.mockResolvedValue({ id: 'u2', email: 'a@b.com' });
       prisma.clubMembership.findFirst.mockResolvedValue({ id: 'm1' });
-      prisma.teamAdmin.findUnique.mockResolvedValue(null);
       prisma.teamAdmin.create.mockResolvedValue({
         userId: 'u2',
         teamId: 'team-1',
