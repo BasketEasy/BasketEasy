@@ -31,4 +31,8 @@ export const handlers = [
   // Default: no events for any team. TeamDetailPage always queries this;
   // event-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/events', () => HttpResponse.json([])),
+
+  // Default: no team admins for any team. TeamDetailPage always queries this;
+  // team-admin-focused tests override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/admins', () => HttpResponse.json([])),
 ];

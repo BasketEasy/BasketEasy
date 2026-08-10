@@ -102,7 +102,7 @@ same ordering requirement as `ClubRolesGuard`.
 
 It does **not** replace `ClubRolesGuard` everywhere — `ClubRolesGuard` still gates plain
 club-membership reads (`GET .../teams`, `GET .../teams/:teamId`) and the owner-only CTC
-routes keep `@ClubRoles('ADMIN')` unchanged (that check is "is ADMIN of *this specific*
+routes keep `@ClubRoles('ADMIN')` unchanged (that check is "is ADMIN of _this specific_
 club", which for CTC purposes must mean the owning club specifically — `TeamsService`'s
 existing `assertTeamOwner` already re-verifies that server-side regardless of guard).
 
@@ -138,25 +138,25 @@ club level, which is why that guard exists there and not here.
 
 New/changed routes, all under `server/src/teams` except the events guard swap:
 
-| Method | Path                                          | Guard                    | Notes                            |
-| ------ | ---------------------------------------------- | ------------------------- | --------------------------------- |
-| PATCH  | `clubs/:clubId/teams/:teamId`                  | `TeamManagerGuard`        | was `@ClubRoles('ADMIN')`        |
-| POST   | `clubs/:clubId/teams/:teamId/players`          | `TeamManagerGuard`        | was `@ClubRoles('ADMIN')`; body gains optional `role` |
-| PATCH  | `clubs/:clubId/teams/:teamId/players/:playerId`| `TeamManagerGuard`        | new — change a roster row's role |
-| DELETE | `clubs/:clubId/teams/:teamId/players/:playerId`| `TeamManagerGuard`        | was `@ClubRoles('ADMIN')`        |
-| GET    | `clubs/:clubId/teams/:teamId/admins`           | `@ClubRoles('ADMIN','MEMBER')` | new — list team admins      |
-| POST   | `clubs/:clubId/teams/:teamId/admins`           | `TeamManagerGuard`        | new — grant, body `{email}`      |
-| DELETE | `clubs/:clubId/teams/:teamId/admins/:userId`   | `TeamManagerGuard`        | new — revoke                     |
-| POST/PATCH/DELETE `.../events...` | (existing paths)          | `TeamManagerGuard`        | was `@ClubRoles('ADMIN')`        |
+| Method                            | Path                                            | Guard                          | Notes                                                 |
+| --------------------------------- | ----------------------------------------------- | ------------------------------ | ----------------------------------------------------- |
+| PATCH                             | `clubs/:clubId/teams/:teamId`                   | `TeamManagerGuard`             | was `@ClubRoles('ADMIN')`                             |
+| POST                              | `clubs/:clubId/teams/:teamId/players`           | `TeamManagerGuard`             | was `@ClubRoles('ADMIN')`; body gains optional `role` |
+| PATCH                             | `clubs/:clubId/teams/:teamId/players/:playerId` | `TeamManagerGuard`             | new — change a roster row's role                      |
+| DELETE                            | `clubs/:clubId/teams/:teamId/players/:playerId` | `TeamManagerGuard`             | was `@ClubRoles('ADMIN')`                             |
+| GET                               | `clubs/:clubId/teams/:teamId/admins`            | `@ClubRoles('ADMIN','MEMBER')` | new — list team admins                                |
+| POST                              | `clubs/:clubId/teams/:teamId/admins`            | `TeamManagerGuard`             | new — grant, body `{email}`                           |
+| DELETE                            | `clubs/:clubId/teams/:teamId/admins/:userId`    | `TeamManagerGuard`             | new — revoke                                          |
+| POST/PATCH/DELETE `.../events...` | (existing paths)                                | `TeamManagerGuard`             | was `@ClubRoles('ADMIN')`                             |
 
 **Why `listTeamAdmins` reads `ADMIN`+`MEMBER`, not `TeamManagerGuard` (considered and
 rejected):** the closest read-route precedent in this controller is `listTeamPlayers`/
 `listTeamClubs` (team-scoped, member-identifying data, `ADMIN`+`MEMBER`-visible), not
 `ClubsController.listMembers` (a whole club's roster, `ADMIN`-only) — `listTeamAdmins`
-exposes only the 1-2 admins of *this* team, not a club-wide member dump, so the narrower
+exposes only the 1-2 admins of _this_ team, not a club-wide member dump, so the narrower
 precedent applies. Restricting it to `TeamManagerGuard` was considered (it would tighten
 PII exposure) but rejected: a genuine `TeamAdmin` who isn't also a club `ADMIN` has no
-*local* signal (nothing in their JWT or `useAccount()` membership list) to know they're
+_local_ signal (nothing in their JWT or `useAccount()` membership list) to know they're
 allowed to fetch it, unlike `useIsClubAdmin`, which reads purely local state. The frontend
 would have to fire the request speculatively and treat a 403 as "not a manager" — workable,
 but adds retry-storm risk and a slightly odd interaction for the exact code path that's
@@ -168,7 +168,7 @@ matching route stays.
 
 - `teams.ts`: add `TeamMemberRole = 'COACH' | 'PLAYER'`; `TeamPlayer.role: TeamMemberRole`;
   `AddTeamPlayerRequest.role?: TeamMemberRole`; new `UpdateTeamPlayerRequest { role:
-  TeamMemberRole }`.
+TeamMemberRole }`.
 - new `team-admins.ts`: `TeamAdmin { userId, email, teamId, createdAt }`;
   `AddTeamAdminRequest { email: string }`.
 

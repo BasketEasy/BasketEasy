@@ -485,9 +485,9 @@ describe('TeamsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.teamPlayer.findUnique.mockResolvedValue(null);
 
-      await expect(
-        service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
     });
 

@@ -30,7 +30,9 @@ export function TeamAdminRow({
             variant="outline"
             disabled={isPending}
             onClick={() =>
-              removeTeamAdmin(admin.userId, { onError: (err) => setError(getClubErrorMessage(err)) })
+              removeTeamAdmin(admin.userId, {
+                onError: (err) => setError(getClubErrorMessage(err)),
+              })
             }
           >
             Retirer

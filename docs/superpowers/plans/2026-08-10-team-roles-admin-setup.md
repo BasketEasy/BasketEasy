@@ -402,9 +402,9 @@ describe('TeamManagerGuard', () => {
   });
 
   it('denies with ForbiddenException when there is no authenticated user', async () => {
-    await expect(
-      guard.canActivate(buildContext(undefined, 'club-1', 'team-1')),
-    ).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(buildContext(undefined, 'club-1', 'team-1'))).rejects.toThrow(
+      ForbiddenException,
+    );
     expect(prisma.clubMembership.findUnique).not.toHaveBeenCalled();
   });
 
@@ -595,9 +595,9 @@ describe('updateTeamPlayerRole', () => {
     prisma.clubTeam.findUnique.mockResolvedValue({ clubId: 'club-1', teamId: 'team-1' });
     prisma.teamPlayer.findUnique.mockResolvedValue(null);
 
-    await expect(
-      service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH'),
-    ).rejects.toThrow(NotFoundException);
+    await expect(service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH')).rejects.toThrow(
+      NotFoundException,
+    );
     expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
   });
 
@@ -628,7 +628,12 @@ describe('team admins', () => {
   it('lists team admins', async () => {
     prisma.clubTeam.findUnique.mockResolvedValue({ clubId: 'club-1', teamId: 'team-1' });
     prisma.teamAdmin.findMany.mockResolvedValue([
-      { userId: 'u1', teamId: 'team-1', createdAt: new Date('2026-01-01'), user: { email: 'a@b.com' } },
+      {
+        userId: 'u1',
+        teamId: 'team-1',
+        createdAt: new Date('2026-01-01'),
+        user: { email: 'a@b.com' },
+      },
     ]);
 
     const result = await service.listTeamAdmins('club-1', 'team-1');
@@ -1254,7 +1259,7 @@ git commit -m "feat(app): team-admin hooks and useIsTeamManager"
 - Create: `app/src/clubs/TeamAdminRow.tsx`
 
 - [ ] **Step 1: `TeamAdminAddForm.tsx`** (mirrors `ClubMemberAddForm.tsx` — email lookup, 404 →
-  friendly message)
+      friendly message)
 
 ```tsx
 import { useForm } from 'react-hook-form';
@@ -1372,7 +1377,9 @@ export function TeamAdminRow({
             variant="outline"
             disabled={isPending}
             onClick={() =>
-              removeTeamAdmin(admin.userId, { onError: (err) => setError(getClubErrorMessage(err)) })
+              removeTeamAdmin(admin.userId, {
+                onError: (err) => setError(getClubErrorMessage(err)),
+              })
             }
           >
             Retirer
@@ -1470,8 +1477,8 @@ And the submit handler passes `{ playerId: values.playerId, role: values.role }`
 just `{ playerId: values.playerId }`.
 
 - [ ] **Step 3: `TeamPlayerRow.tsx`** — show the role, add a role-change control, rename
-  `isAdmin` prop to `canManage` (semantics broadened: club admin OR team admin, computed by
-  the caller via `useIsTeamManager`)
+      `isAdmin` prop to `canManage` (semantics broadened: club admin OR team admin, computed by
+      the caller via `useIsTeamManager`)
 
 ```tsx
 import { useState } from 'react';
@@ -1551,10 +1558,10 @@ duplicates the new column header text but that's an accepted, common admin-table
 not a blocker), `value`/`onValueChange`/`disabled` all present and typed as expected.
 
 - [ ] **Step 4: `EventRow.tsx`** — rename the `isAdmin` prop to `canManage` (no behavior
-  change beyond the name — same two buttons, same condition)
+      change beyond the name — same two buttons, same condition)
 
 - [ ] **Step 5: `TeamDetailPage.tsx`** — add `canManageTeam`, wire the admins section, pass
-  `canManage` instead of `isAdmin` to `TeamPlayerRow`/`EventRow`/their add-dialogs
+      `canManage` instead of `isAdmin` to `TeamPlayerRow`/`EventRow`/their add-dialogs
 
 ```typescript
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
@@ -1600,8 +1607,8 @@ const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId
           <DialogHeader>
             <DialogTitle>Ajouter un administrateur d'équipe</DialogTitle>
             <DialogDescription>
-              Donnez à un membre du club la gestion de cette équipe (effectif, événements) sans
-              en faire un administrateur du club.
+              Donnez à un membre du club la gestion de cette équipe (effectif, événements) sans en
+              faire un administrateur du club.
             </DialogDescription>
           </DialogHeader>
           <TeamAdminAddForm
@@ -1665,10 +1672,10 @@ their own `userId` in the `GET .../admins` response — this is what actually ex
 `useIsTeamManager`'s non-club-admin branch.
 
 - [ ] **Step 7: `TeamPlayerRow.test.tsx`** — new, covering: role badge renders for
-  `canManage={false}`, role select renders and fires `useTeamPlayerRoleUpdate` for
-  `canManage={true}` (follow whichever RTL/MSW pattern `useTeamCreate.test.ts` or an existing
-  component test in `app/src/clubs`/`app/src/pages` already uses for hook-backed
-  interaction tests).
+      `canManage={false}`, role select renders and fires `useTeamPlayerRoleUpdate` for
+      `canManage={true}` (follow whichever RTL/MSW pattern `useTeamCreate.test.ts` or an existing
+      component test in `app/src/clubs`/`app/src/pages` already uses for hook-backed
+      interaction tests).
 
 - [ ] **Step 8: Run the frontend suite, then commit**
 
