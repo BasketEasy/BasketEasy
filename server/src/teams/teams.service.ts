@@ -5,8 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TeamCategory, TeamGender } from '@prisma/client';
+import { Prisma, TeamCategory, TeamGender, TeamMemberRole } from '@prisma/client';
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
+import type { TeamAdmin } from '@basketeasy/types/team-admins';
 import { PrismaService } from '../prisma/prisma.service';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -134,7 +135,12 @@ export class TeamsService {
     return teamPlayers.map((tp) => this.toTeamPlayer(tp));
   }
 
-  async addTeamPlayer(clubId: string, teamId: string, playerId: string): Promise<TeamPlayer> {
+  async addTeamPlayer(
+    clubId: string,
+    teamId: string,
+    playerId: string,
+    role: TeamMemberRole = 'PLAYER',
+  ): Promise<TeamPlayer> {
     await this.assertTeamInClub(clubId, teamId);
 
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
@@ -151,7 +157,7 @@ export class TeamsService {
 
     try {
       const teamPlayer = await this.prisma.teamPlayer.create({
-        data: { teamId, playerId },
+        data: { teamId, playerId, role },
         include: { player: true },
       });
       return this.toTeamPlayer(teamPlayer);
@@ -166,6 +172,29 @@ export class TeamsService {
     }
   }
 
+  async updateTeamPlayerRole(
+    clubId: string,
+    teamId: string,
+    playerId: string,
+    role: TeamMemberRole,
+  ): Promise<TeamPlayer> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const teamPlayer = await this.prisma.teamPlayer.findUnique({
+      where: { teamId_playerId: { teamId, playerId } },
+    });
+    if (!teamPlayer) {
+      throw new NotFoundException('Player not found on this team');
+    }
+
+    const updated = await this.prisma.teamPlayer.update({
+      where: { id: teamPlayer.id },
+      data: { role },
+      include: { player: true },
+    });
+    return this.toTeamPlayer(updated);
+  }
+
   async removeTeamPlayer(clubId: string, teamId: string, playerId: string): Promise<void> {
     await this.assertTeamInClub(clubId, teamId);
 
@@ -177,6 +206,60 @@ export class TeamsService {
     }
 
     await this.prisma.teamPlayer.delete({ where: { id: teamPlayer.id } });
+  }
+
+  async listTeamAdmins(clubId: string, teamId: string): Promise<TeamAdmin[]> {
+    await this.assertTeamInClub(clubId, teamId);
+    const teamAdmins = await this.prisma.teamAdmin.findMany({
+      where: { teamId },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return teamAdmins.map((ta) => this.toTeamAdmin(ta));
+  }
+
+  async addTeamAdmin(clubId: string, teamId: string, email: string): Promise<TeamAdmin> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('No account with that email');
+    }
+
+    const membership = await this.prisma.clubMembership.findFirst({
+      where: { userId: user.id, club: { clubTeams: { some: { teamId } } } },
+    });
+    if (!membership) {
+      throw new BadRequestException(
+        "L'utilisateur doit être membre d'un club associé à cette équipe",
+      );
+    }
+
+    const existing = await this.prisma.teamAdmin.findUnique({
+      where: { teamId_userId: { teamId, userId: user.id } },
+    });
+    if (existing) {
+      throw new ConflictException('Cet utilisateur est déjà administrateur de cette équipe');
+    }
+
+    const teamAdmin = await this.prisma.teamAdmin.create({
+      data: { teamId, userId: user.id },
+      include: { user: true },
+    });
+    return this.toTeamAdmin(teamAdmin);
+  }
+
+  async removeTeamAdmin(clubId: string, teamId: string, userId: string): Promise<void> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const teamAdmin = await this.prisma.teamAdmin.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!teamAdmin) {
+      throw new NotFoundException('Team admin not found');
+    }
+
+    await this.prisma.teamAdmin.delete({ where: { id: teamAdmin.id } });
   }
 
   private async assertTeamInClub(clubId: string, teamId: string): Promise<void> {
@@ -234,6 +317,7 @@ export class TeamsService {
     id: string;
     teamId: string;
     playerId: string;
+    role: TeamMemberRole;
     createdAt: Date;
     player: { firstName: string; lastName: string; clubId: string };
   }): TeamPlayer {
@@ -244,7 +328,22 @@ export class TeamsService {
       firstName: teamPlayer.player.firstName,
       lastName: teamPlayer.player.lastName,
       clubId: teamPlayer.player.clubId,
+      role: teamPlayer.role,
       createdAt: teamPlayer.createdAt.toISOString(),
+    };
+  }
+
+  private toTeamAdmin(teamAdmin: {
+    userId: string;
+    teamId: string;
+    createdAt: Date;
+    user: { email: string };
+  }): TeamAdmin {
+    return {
+      userId: teamAdmin.userId,
+      email: teamAdmin.user.email,
+      teamId: teamAdmin.teamId,
+      createdAt: teamAdmin.createdAt.toISOString(),
     };
   }
 }

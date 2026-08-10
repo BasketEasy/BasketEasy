@@ -6,11 +6,12 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ClubRolesGuard } from './guards/club-roles.guard';
+import { TeamManagerGuard } from './guards/team-manager.guard';
 
 @Module({
   imports: [PassportModule, JwtModule.register({})],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, ClubRolesGuard],
-  exports: [JwtAuthGuard, ClubRolesGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, ClubRolesGuard, TeamManagerGuard],
+  exports: [JwtAuthGuard, ClubRolesGuard, TeamManagerGuard],
 })
 export class AuthModule {}

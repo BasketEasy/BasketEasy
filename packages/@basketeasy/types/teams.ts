@@ -2,6 +2,8 @@ export type TeamCategory = 'U9' | 'U11' | 'U13' | 'U15' | 'U18' | 'U21' | 'SENIO
 
 export type TeamGender = 'MEN' | 'WOMEN';
 
+export type TeamMemberRole = 'COACH' | 'PLAYER';
+
 export interface Team {
   id: string;
   name: string;
@@ -41,9 +43,15 @@ export interface TeamPlayer {
   firstName: string;
   lastName: string;
   clubId: string;
+  role: TeamMemberRole;
   createdAt: string;
 }
 
 export interface AddTeamPlayerRequest {
   playerId: string;
+  role?: TeamMemberRole;
+}
+
+export interface UpdateTeamPlayerRequest {
+  role: TeamMemberRole;
 }
