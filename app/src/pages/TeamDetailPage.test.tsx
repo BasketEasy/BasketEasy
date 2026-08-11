@@ -52,6 +52,21 @@ async function goToTab(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
   await user.click(await screen.findByRole('tab', { name }));
 }
 
+// The Événements tab's agenda view (item 5a) filters to startsAt >= today,
+// so event fixtures for it must float relative to the actual clock instead
+// of a fixed calendar date — otherwise this suite would start failing the
+// moment "today" catches up to a hardcoded date.
+function futureIso(daysFromNow: number, hour = 18): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysFromNow);
+  date.setUTCHours(hour, 0, 0, 0);
+  return date.toISOString();
+}
+
+function futureDateTimeLocal(daysFromNow: number, hour = 18): string {
+  return futureIso(daysFromNow, hour).slice(0, 16);
+}
+
 describe('TeamDetailPage', () => {
   it('shows the team header above the tabs, and defaults to the Effectif tab as a card view', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
@@ -411,7 +426,7 @@ describe('TeamDetailPage', () => {
         id: 'event-1',
         teamId: 'team-1',
         type: 'TRAINING',
-        startsAt: '2026-01-05T18:00:00.000Z',
+        startsAt: futureIso(1),
         location: 'Gymnase A',
         notes: null,
         opponentName: null,
@@ -458,12 +473,69 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByText('Gymnase A')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /créer un événement/i }));
-    await user.type(screen.getByLabelText(/date et heure/i), '2026-01-06T18:00');
+    await user.type(screen.getByLabelText(/date et heure/i), futureDateTimeLocal(2));
     await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase B');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     await waitFor(() => expect(createCalled).toBe(true));
     expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
+  });
+
+  it('toggles the Événements tab between agenda view and table view, resetting the table filters on each switch', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    const events = [
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: futureIso(1),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        recurrenceId: null,
+        createdAt: 'x',
+      },
+    ];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(paginated(events));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /événements/i);
+
+    // Defaults to agenda view — no search input, no sortable table, but a
+    // day heading and the event's details render as a card.
+    expect(await screen.findByText('Gymnase A')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Date' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /basculer en vue liste/i }));
+
+    // Table view: the existing sortable/searchable/paginated table.
+    expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
+    expect(screen.getByText('Gymnase A')).toBeInTheDocument();
+    const searchInput = screen.getByLabelText('Rechercher un événement');
+    expect(searchInput).toHaveValue('');
+
+    await user.type(searchInput, 'gym');
+    await waitFor(() => expect(requestedSearches).toContain('gym'), { timeout: 2000 });
+
+    // Toggling back to agenda resets the search that was active in table view.
+    await user.click(screen.getByRole('button', { name: /basculer en vue agenda/i }));
+    expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
+    await waitFor(() => expect(requestedSearches[requestedSearches.length - 1]).toBe(''));
+    expect(screen.getByText('Gymnase A')).toBeInTheDocument();
   });
 
   it('toggles the Effectif tab between card view and table view, resetting search/sort/page on each switch', async () => {

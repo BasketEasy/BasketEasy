@@ -43,6 +43,7 @@ import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { TeamRosterCards } from '../clubs/TeamRosterCards';
 import { EventCreateForm } from '../clubs/EventCreateForm';
 import { EventRow } from '../clubs/EventRow';
+import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
@@ -168,6 +169,28 @@ export function TeamDetailPage() {
   const [eventsPage, setEventsPage] = useState(1);
   const [eventsPageSize, setEventsPageSize] = useState(DEFAULT_PAGE_SIZE);
   const isEventsFiltered = debouncedEventsSearch !== '' || eventsFrom !== '' || eventsTo !== '';
+  // Événements view mode — defaults to the day-grouped agenda view (item
+  // 5a). Toggling resets the table view's search/date-range/sort state,
+  // mirroring the Effectif tab's card/table toggle exactly.
+  const [eventsViewMode, setEventsViewMode] = useState<'agenda' | 'table'>('agenda');
+  const toggleEventsViewMode = () => {
+    setEventsSearch('');
+    setEventsFrom('');
+    setEventsTo('');
+    setEventsSortOrder('asc');
+    setEventsPage(1);
+    setEventsViewMode((mode) => (mode === 'agenda' ? 'table' : 'agenda'));
+  };
+  // Agenda fetch window: from the start of today onward, uncapped by an
+  // upper bound but capped at LINKING_PAGE_SIZE rows (a team's realistic
+  // near-term event count is well under that) — computed once per mount
+  // rather than every render, since it only needs to be "today," not "this
+  // exact instant."
+  const agendaFrom = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return start.toISOString();
+  }, []);
 
   const { data: teamClubsResult, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!, {
     search: debouncedTeamClubsSearch || undefined,
@@ -221,6 +244,18 @@ export function TeamDetailPage() {
     page: eventsPage,
     pageSize: eventsPageSize,
   });
+  // Backs the agenda view — unpaginated, sorted ascending, bounded to
+  // upcoming events only. Independent of the table view's own filters above,
+  // same as the roster tab's card-view fetch is independent of its table.
+  const { data: agendaEventsResult, isLoading: isLoadingAgendaEvents } = useEventList(
+    clubId!,
+    teamId!,
+    {
+      from: agendaFrom,
+      sortOrder: 'asc',
+      pageSize: LINKING_PAGE_SIZE,
+    },
+  );
 
   const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId!, teamId!);
   const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
@@ -244,6 +279,13 @@ export function TeamDetailPage() {
   const allTeamPlayers = useMemo(() => allTeamPlayersResult?.items ?? [], [allTeamPlayersResult]);
   const clubPlayers = useMemo(() => clubPlayersResult?.items ?? [], [clubPlayersResult]);
   const events = eventsResult?.items;
+  const agendaEvents = useMemo(() => agendaEventsResult?.items ?? [], [agendaEventsResult]);
+
+  // Same pattern as the roster tab: whichever fetch backs the active
+  // Événements view (agenda vs. table) sources its own loading/empty state.
+  const isLoadingEventsView = eventsViewMode === 'agenda' ? isLoadingAgendaEvents : isLoadingEvents;
+  const isEventsEmpty =
+    (eventsViewMode === 'agenda' ? agendaEventsResult?.total : eventsResult?.total) === 0;
 
   // The card view reads the full unfiltered roster, the table view reads the
   // paginated/filtered one — so "is the roster empty" (and its loading
@@ -674,86 +716,104 @@ export function TeamDetailPage() {
         </TabsContent>
 
         <TabsContent value="events" className="mt-4 flex flex-col gap-4">
-          {canManageTeam && (
-            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-              <DialogTrigger asChild>
-                <Button className="self-start">Créer un événement</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Créer un événement</DialogTitle>
-                  <DialogDescription>
-                    Planifiez un entraînement ou un rendez-vous pour cette équipe.
-                  </DialogDescription>
-                </DialogHeader>
-                <EventCreateForm
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  onSuccess={() => setIsAddEventOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-          )}
-
-          <div className="flex flex-wrap items-end gap-3">
-            <Input
-              aria-label="Rechercher un événement"
-              placeholder="Rechercher (lieu, notes)…"
-              value={eventsSearch}
-              onChange={(e) => {
-                setEventsSearch(e.target.value);
-                setEventsPage(1);
-              }}
-              className="max-w-xs"
-            />
-            <FormField
-              label="Du"
-              type="date"
-              value={eventsFrom}
-              onChange={(e) => {
-                setEventsFrom(e.target.value);
-                setEventsPage(1);
-              }}
-            />
-            <FormField
-              label="Au"
-              type="date"
-              value={eventsTo}
-              onChange={(e) => {
-                setEventsTo(e.target.value);
-                setEventsPage(1);
-              }}
-            />
-            <SelectField
-              label="Trier par"
-              containerClassName="w-56"
-              value={eventsSortOrder}
-              onValueChange={(value) => {
-                setEventsSortOrder(value as SortOrder);
-                setEventsPage(1);
-              }}
-              options={EVENT_SORT_OPTIONS}
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            {canManageTeam && (
+              <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+                <DialogTrigger asChild>
+                  <Button className="self-start">Créer un événement</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Créer un événement</DialogTitle>
+                    <DialogDescription>
+                      Planifiez un entraînement ou un rendez-vous pour cette équipe.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <EventCreateForm
+                    clubId={clubId!}
+                    teamId={teamId!}
+                    onSuccess={() => setIsAddEventOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+            <Button variant="outline" className="self-start" onClick={toggleEventsViewMode}>
+              {eventsViewMode === 'agenda' ? 'Basculer en vue liste' : 'Basculer en vue agenda'}
+            </Button>
           </div>
+
+          {eventsViewMode === 'table' && (
+            <div className="flex flex-wrap items-end gap-3">
+              <Input
+                aria-label="Rechercher un événement"
+                placeholder="Rechercher (lieu, notes)…"
+                value={eventsSearch}
+                onChange={(e) => {
+                  setEventsSearch(e.target.value);
+                  setEventsPage(1);
+                }}
+                className="max-w-xs"
+              />
+              <FormField
+                label="Du"
+                type="date"
+                value={eventsFrom}
+                onChange={(e) => {
+                  setEventsFrom(e.target.value);
+                  setEventsPage(1);
+                }}
+              />
+              <FormField
+                label="Au"
+                type="date"
+                value={eventsTo}
+                onChange={(e) => {
+                  setEventsTo(e.target.value);
+                  setEventsPage(1);
+                }}
+              />
+              <SelectField
+                label="Trier par"
+                containerClassName="w-56"
+                value={eventsSortOrder}
+                onValueChange={(value) => {
+                  setEventsSortOrder(value as SortOrder);
+                  setEventsPage(1);
+                }}
+                options={EVENT_SORT_OPTIONS}
+              />
+            </div>
+          )}
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingEvents ? (
+              {isLoadingEventsView ? (
                 <Loader>Chargement...</Loader>
-              ) : (eventsResult?.total ?? 0) === 0 ? (
+              ) : isEventsEmpty ? (
                 <EmptyState
                   icon={<CalendarIcon className="h-8 w-8 text-muted" />}
-                  title={isEventsFiltered ? 'Aucun résultat' : 'Aucun événement'}
+                  title={
+                    eventsViewMode === 'table' && isEventsFiltered
+                      ? 'Aucun résultat'
+                      : 'Aucun événement'
+                  }
                   description={
-                    isEventsFiltered
+                    eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun événement ne correspond à ces critères.'
                       : 'Planifiez un entraînement ou un match pour cette équipe.'
                   }
                   action={
-                    canManageTeam && !isEventsFiltered ? (
+                    canManageTeam && !(eventsViewMode === 'table' && isEventsFiltered) ? (
                       <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
                     ) : undefined
                   }
+                />
+              ) : eventsViewMode === 'agenda' ? (
+                <TeamEventsAgenda
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  events={agendaEvents}
+                  canManage={canManageTeam}
                 />
               ) : (
                 <>
