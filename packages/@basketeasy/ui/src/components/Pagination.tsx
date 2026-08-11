@@ -1,4 +1,7 @@
+import { useId } from 'react';
 import { Button } from './Button';
+import { Label } from './Label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './Select';
 import { cn } from '../lib/cn';
 
 export interface PaginationProps {
@@ -20,6 +23,7 @@ export function Pagination({
   onPageSizeChange,
   className,
 }: PaginationProps) {
+  const pageSizeId = useId();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, total);
@@ -35,21 +39,28 @@ export function Pagination({
 
       <div className="flex items-center gap-3">
         {onPageSizeChange && pageSizeOptions && (
-          <label className="flex items-center gap-2">
-            <span>Par page</span>
-            <select
-              aria-label="Éléments par page"
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="h-9 rounded-md border border-border bg-cream px-2 text-sm text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+          <div className="flex items-center gap-2">
+            <Label htmlFor={pageSizeId}>Par page</Label>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              {pageSizeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger
+                id={pageSizeId}
+                aria-label="Éléments par page"
+                className="h-9 w-20 md:h-9"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         <div className="flex items-center gap-2">

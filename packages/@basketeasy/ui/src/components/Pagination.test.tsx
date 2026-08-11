@@ -61,8 +61,8 @@ describe('Pagination', () => {
       />,
     );
 
-    const select = screen.getByLabelText('Éléments par page');
-    await user.selectOptions(select, '50');
+    await user.click(screen.getByRole('combobox', { name: 'Éléments par page' }));
+    await user.click(await screen.findByRole('option', { name: '50' }));
 
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });
@@ -70,6 +70,6 @@ describe('Pagination', () => {
   it('does not render a page-size select when onPageSizeChange is omitted', () => {
     render(<Pagination page={1} pageSize={25} total={100} onPageChange={vi.fn()} />);
 
-    expect(screen.queryByLabelText('Éléments par page')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Éléments par page' })).not.toBeInTheDocument();
   });
 });
