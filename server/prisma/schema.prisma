@@ -131,18 +131,30 @@ model TeamAdmin {
   @@index([userId])
 }
 
-// A single team-day event (training session for now — no RSVP/convocation
-// yet, see CLAUDE.md's Events module section for what's deferred).
+enum EventType {
+  TRAINING
+  MATCH
+}
+
+// A single team-day event — a training session or a match against an
+// opponent outside the club graph (opponentName is a label, not a relation;
+// see CLAUDE.md's Events module section). recurrenceId links every
+// occurrence created together in one recurring POST so they can be
+// edited/deleted as a group; null for a plain single event.
 model Event {
-  id        String   @id @default(uuid())
-  teamId    String
-  startsAt  DateTime
-  location  String
-  notes     String?
-  createdAt DateTime @default(now())
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  teamId       String
+  type         EventType @default(TRAINING)
+  startsAt     DateTime
+  location     String
+  notes        String?
+  opponentName String?
+  recurrenceId String?
+  createdAt    DateTime  @default(now())
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
+  @@index([recurrenceId])
 }
 
 enum ClubRole {

@@ -21,6 +21,7 @@ import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { ListEventsDto } from './dto/list-events.dto';
+import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -55,7 +56,7 @@ export class EventsController {
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateEventDto,
-  ): Promise<TeamEvent> {
+  ): Promise<TeamEvent[]> {
     return this.eventsService.updateEvent(clubId, teamId, eventId, dto);
   }
 
@@ -66,7 +67,8 @@ export class EventsController {
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
+    @Query() query: DeleteEventQueryDto,
   ): Promise<void> {
-    return this.eventsService.deleteEvent(clubId, teamId, eventId);
+    return this.eventsService.deleteEvent(clubId, teamId, eventId, query.scope);
   }
 }
