@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { AccountProvider } from './AccountContext';
+import { ActiveClubProvider } from './ActiveClubContext';
 import { ProtectedRoute } from './ProtectedRoute';
 
 function renderProtectedAt(initialPath: string) {
@@ -12,14 +13,16 @@ function renderProtectedAt(initialPath: string) {
   return render(
     <QueryClientProvider client={queryClient}>
       <AccountProvider>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Routes>
-            <Route path="/login" element={<div>Page de connexion</div>} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<div>Contenu protégé</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
+        <ActiveClubProvider>
+          <MemoryRouter initialEntries={[initialPath]}>
+            <Routes>
+              <Route path="/login" element={<div>Page de connexion</div>} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<div>Contenu protégé</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </ActiveClubProvider>
       </AccountProvider>
     </QueryClientProvider>,
   );

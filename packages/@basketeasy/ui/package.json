@@ -71,6 +71,10 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./dropdown-menu": {
+      "types": "./src/components/DropdownMenu.tsx",
+      "default": "./src/components/DropdownMenu.tsx"
+    },
     "./empty-state": {
       "types": "./src/components/EmptyState.tsx",
       "default": "./src/components/EmptyState.tsx"
@@ -148,6 +152,7 @@
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-tabs": "^1.1.0",

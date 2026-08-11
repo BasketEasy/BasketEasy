@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AccountProvider } from './auth/AccountContext';
+import { ActiveClubProvider } from './auth/ActiveClubContext';
 
 export function renderWithProviders(ui: ReactNode, { route = '/' }: { route?: string } = {}) {
   const queryClient = new QueryClient({
@@ -21,7 +22,9 @@ export function renderWithProviders(ui: ReactNode, { route = '/' }: { route?: st
   return render(
     <QueryClientProvider client={queryClient}>
       <AccountProvider>
-        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+        <ActiveClubProvider>
+          <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+        </ActiveClubProvider>
       </AccountProvider>
     </QueryClientProvider>,
   );
