@@ -26,11 +26,15 @@ export const handlers = [
   // Équipes tab), so most tests that don't care about teams rely on this
   // default rather than stubbing it individually; team-focused tests
   // override it with server.use(...).
-  http.get('/api/clubs/:clubId/teams', () => HttpResponse.json([])),
+  http.get('/api/clubs/:clubId/teams', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
 
   // Default: no events for any team. TeamDetailPage always queries this;
   // event-focused tests override it with server.use(...).
-  http.get('/api/clubs/:clubId/teams/:teamId/events', () => HttpResponse.json([])),
+  http.get('/api/clubs/:clubId/teams/:teamId/events', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
 
   // Default: no team admins for any team. TeamDetailPage always queries this;
   // team-admin-focused tests override it with server.use(...).

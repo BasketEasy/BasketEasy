@@ -156,6 +156,43 @@ describe('apiClient', () => {
     expect(result).toEqual({ id: 'p1', firstName: 'Updated' });
   });
 
+  it('get() serializes params into the query string, skipping undefined and empty values', async () => {
+    let receivedUrl = '';
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        receivedUrl = request.url;
+        return HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 });
+      }),
+    );
+
+    await apiClient.get('/clubs/club-1/members', {
+      search: 'dup',
+      page: 2,
+      pageSize: undefined,
+      role: '',
+    });
+
+    const url = new URL(receivedUrl);
+    expect(url.searchParams.get('search')).toBe('dup');
+    expect(url.searchParams.get('page')).toBe('2');
+    expect(url.searchParams.has('pageSize')).toBe(false);
+    expect(url.searchParams.has('role')).toBe(false);
+  });
+
+  it('get() with no params hits the bare path', async () => {
+    let receivedUrl = '';
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        receivedUrl = request.url;
+        return HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 });
+      }),
+    );
+
+    await apiClient.get('/clubs/club-1/members');
+
+    expect(receivedUrl.endsWith('/api/clubs/club-1/members')).toBe(true);
+  });
+
   it('ApiError carries the server-provided message from the response body', async () => {
     server.use(
       http.post('/api/auth/login', () =>

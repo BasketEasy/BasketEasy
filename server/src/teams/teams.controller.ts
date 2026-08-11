@@ -8,9 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
+import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { TeamAdmin } from '@basketeasy/types/team-admins';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
@@ -22,6 +24,9 @@ import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { AddTeamClubDto } from './dto/add-team-club.dto';
 import { AddTeamPlayerDto } from './dto/add-team-player.dto';
+import { ListTeamsDto } from './dto/list-teams.dto';
+import { ListTeamClubsDto } from './dto/list-team-clubs.dto';
+import { ListTeamPlayersDto } from './dto/list-team-players.dto';
 import { UpdateTeamPlayerDto } from './dto/update-team-player.dto';
 import { AddTeamAdminDto } from './dto/add-team-admin.dto';
 
@@ -40,8 +45,11 @@ export class TeamsController {
   @Get()
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
-  listTeams(@Param('clubId') clubId: string): Promise<Team[]> {
-    return this.teamsService.listTeams(clubId);
+  listTeams(
+    @Param('clubId') clubId: string,
+    @Query() query: ListTeamsDto,
+  ): Promise<PaginatedResult<Team>> {
+    return this.teamsService.listTeams(clubId, query);
   }
 
   @Get(':teamId')
@@ -75,8 +83,9 @@ export class TeamsController {
   listTeamClubs(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
-  ): Promise<TeamClubLink[]> {
-    return this.teamsService.listTeamClubs(clubId, teamId);
+    @Query() query: ListTeamClubsDto,
+  ): Promise<PaginatedResult<TeamClubLink>> {
+    return this.teamsService.listTeamClubs(clubId, teamId, query);
   }
 
   @Post(':teamId/clubs')
@@ -108,8 +117,9 @@ export class TeamsController {
   listTeamPlayers(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
-  ): Promise<TeamPlayer[]> {
-    return this.teamsService.listTeamPlayers(clubId, teamId);
+    @Query() query: ListTeamPlayersDto,
+  ): Promise<PaginatedResult<TeamPlayer>> {
+    return this.teamsService.listTeamPlayers(clubId, teamId, query);
   }
 
   @Post(':teamId/players')

@@ -15,17 +15,31 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
+function paginated<T>(
+  items: T[],
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
+  return {
+    items,
+    total: overrides.total ?? items.length,
+    page: overrides.page ?? 1,
+    pageSize: overrides.pageSize ?? 25,
+  };
+}
+
 describe('MembersPage', () => {
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
-          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+            { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
@@ -43,15 +57,15 @@ describe('MembersPage', () => {
     server.use(
       http.get('/api/clubs/club-1/members', () => {
         membersRequested = true;
-        return HttpResponse.json([]);
+        return HttpResponse.json(paginated([]));
       }),
       http.get('/api/clubs/club-1/players', () => {
         playersRequested = true;
-        return HttpResponse.json([]);
+        return HttpResponse.json(paginated([]));
       }),
       http.get('/api/clubs/club-1/teams', () => {
         teamsRequested = true;
-        return HttpResponse.json([]);
+        return HttpResponse.json(paginated([]));
       }),
     );
 
@@ -67,11 +81,13 @@ describe('MembersPage', () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.delete('/api/clubs/club-1/members/user-1', () =>
         HttpResponse.json({ message: 'Cannot remove the last admin of a club' }, { status: 400 }),
       ),
@@ -94,22 +110,26 @@ describe('MembersPage', () => {
     let removeCalled = false;
     server.use(
       http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
-          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+            { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+          ]),
+        ),
       ),
       http.get('/api/clubs/club-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'p1',
-            clubId: 'club-1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            userId: 'user-2',
-            createdAt: 'x',
-          },
-        ]),
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'p1',
+              clubId: 'club-1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              userId: 'user-2',
+              createdAt: 'x',
+            },
+          ]),
+        ),
       ),
       http.delete('/api/clubs/club-1/members/user-2', () => {
         removeCalled = true;
@@ -139,12 +159,14 @@ describe('MembersPage', () => {
     let removeCalled = false;
     server.use(
       http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
-          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+            { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.delete('/api/clubs/club-1/members/user-2', () => {
         removeCalled = true;
         return new HttpResponse(null, { status: 204 });
@@ -165,8 +187,8 @@ describe('MembersPage', () => {
   it('opens the add-member form in a modal, and closes it after a successful submit', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.post('/api/clubs/club-1/members', async ({ request }) => {
         const body = (await request.json()) as { email: string };
         return HttpResponse.json({
@@ -195,24 +217,107 @@ describe('MembersPage', () => {
     await waitFor(() =>
       expect(screen.queryByLabelText(/adresse e-mail du membre/i)).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('b@example.com')).toBeInTheDocument();
+  });
+
+  it('filters the members table by search text, debounced', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Rechercher un membre'), 'dup');
+
+    await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
+  });
+
+  it('filters the members table by role', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedRoles: (string | null)[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        const url = new URL(request.url);
+        requestedRoles.push(url.searchParams.get('role'));
+        return HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await user.click(screen.getByRole('combobox', { name: /^rôle$/i }));
+    await user.click(await screen.findByRole('option', { name: 'Administrateur' }));
+
+    await waitFor(() => expect(requestedRoles).toContain('ADMIN'));
+  });
+
+  it('paginates the members table', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedPages: (string | null)[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        const url = new URL(request.url);
+        requestedPages.push(url.searchParams.get('page'));
+        return HttpResponse.json(
+          paginated(
+            [{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }],
+            {
+              total: 60,
+            },
+          ),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
+
+    const nextButtons = screen.getAllByRole('button', { name: 'Suivant' });
+    await user.click(nextButtons[0]);
+
+    await waitFor(() => expect(requestedPages).toContain('2'));
   });
 
   it('switches to the Joueurs tab and shows the create-player form and row controls for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'p1',
-            clubId: 'club-1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            userId: null,
-            createdAt: 'x',
-          },
-        ]),
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'p1',
+              clubId: 'club-1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              userId: null,
+              createdAt: 'x',
+            },
+          ]),
+        ),
       ),
     );
 
@@ -234,12 +339,14 @@ describe('MembersPage', () => {
   it('switches to the Équipes tab and shows the create-team form and a Gérer link for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/teams', () =>
-        HttpResponse.json([
-          { id: 'team-1', name: 'U15 Garçons', category: 'U15', gender: 'MEN', createdAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { id: 'team-1', name: 'U15 Garçons', category: 'U15', gender: 'MEN', createdAt: 'x' },
+          ]),
+        ),
       ),
     );
 
@@ -259,9 +366,9 @@ describe('MembersPage', () => {
   it('opens the create-team form in a modal, and closes it after a successful submit', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/teams', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([]))),
       http.post('/api/clubs/club-1/teams', async ({ request }) => {
         const body = (await request.json()) as { name: string; category: string; gender: string };
         return HttpResponse.json({
@@ -291,18 +398,19 @@ describe('MembersPage', () => {
     await waitFor(() =>
       expect(screen.queryByLabelText(/nom de l'équipe/i)).not.toBeInTheDocument(),
     );
-    expect(screen.getByText('Équipe U15')).toBeInTheDocument();
   });
 
   it('opens the add-player form in a modal, offering unlinked members, and shows the linked email once added', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/members', () =>
-        HttpResponse.json([
-          { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.post('/api/clubs/club-1/players', async ({ request }) => {
         const body = (await request.json()) as {
           firstName: string;
@@ -334,7 +442,5 @@ describe('MembersPage', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
     await waitFor(() => expect(screen.queryByLabelText(/prénom/i)).not.toBeInTheDocument());
-    expect(screen.getByText('Alex')).toBeInTheDocument();
-    expect(screen.getByText('b@example.com')).toBeInTheDocument();
   });
 });

@@ -102,6 +102,10 @@
     "./loader": {
       "types": "./src/components/Loader.tsx",
       "default": "./src/components/Loader.tsx"
+    },
+    "./pagination": {
+      "types": "./src/components/Pagination.tsx",
+      "default": "./src/components/Pagination.tsx"
     }
   },
   "scripts": {

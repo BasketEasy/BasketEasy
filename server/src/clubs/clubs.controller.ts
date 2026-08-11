@@ -8,11 +8,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { Player } from '@basketeasy/types/players';
+import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
@@ -22,6 +24,8 @@ import { CreateClubDto } from './dto/create-club.dto';
 import { AddClubMemberDto } from './dto/add-club-member.dto';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
+import { ListClubMembersDto } from './dto/list-club-members.dto';
+import { ListPlayersDto } from './dto/list-players.dto';
 
 @Controller('clubs')
 @UseGuards(JwtAuthGuard)
@@ -55,8 +59,11 @@ export class ClubsController {
   @Get(':clubId/members')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN')
-  listMembers(@Param('clubId') clubId: string): Promise<ClubMember[]> {
-    return this.clubsService.listMembers(clubId);
+  listMembers(
+    @Param('clubId') clubId: string,
+    @Query() query: ListClubMembersDto,
+  ): Promise<PaginatedResult<ClubMember>> {
+    return this.clubsService.listMembers(clubId, query);
   }
 
   @Delete(':clubId/members/:userId')
@@ -77,8 +84,11 @@ export class ClubsController {
   @Get(':clubId/players')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN')
-  listPlayers(@Param('clubId') clubId: string): Promise<Player[]> {
-    return this.clubsService.listPlayers(clubId);
+  listPlayers(
+    @Param('clubId') clubId: string,
+    @Query() query: ListPlayersDto,
+  ): Promise<PaginatedResult<Player>> {
+    return this.clubsService.listPlayers(clubId, query);
   }
 
   @Patch(':clubId/players/:playerId')

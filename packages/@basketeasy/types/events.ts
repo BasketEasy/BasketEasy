@@ -1,3 +1,5 @@
+import type { PaginationParams, SortOrder } from './pagination';
+
 export interface TeamEvent {
   id: string;
   teamId: string;
@@ -27,4 +29,12 @@ export interface UpdateEventRequest {
   startsAt?: string;
   location?: string;
   notes?: string;
+}
+
+export interface ListEventsParams extends PaginationParams {
+  /** ISO 8601 date/datetime — filters startsAt >= from. */
+  from?: string;
+  /** ISO 8601 date/datetime — filters startsAt <= to. */
+  to?: string;
+  sortOrder?: SortOrder;
 }

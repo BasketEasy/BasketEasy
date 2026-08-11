@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('usePlayerCreate', () => {
-  it('posts to /clubs/:clubId/players and caches the new player in the players list', async () => {
+  it('posts to /clubs/:clubId/players and invalidates the players list cache on success', async () => {
     server.use(
       http.post('/api/clubs/club-1/players', async ({ request }) => {
         const body = (await request.json()) as { firstName: string; lastName: string };
@@ -30,13 +30,17 @@ describe('usePlayerCreate', () => {
     );
 
     const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['clubs', 'club-1', 'players', {}], {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 25,
+    });
     const { result } = renderHook(() => usePlayerCreate('club-1'), { wrapper });
 
     result.current.mutate({ firstName: 'A', lastName: 'B' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(queryClient.getQueryData(['clubs', 'club-1', 'players'])).toEqual([
-      { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: '2026-01-01' },
-    ]);
+    expect(queryClient.getQueryState(['clubs', 'club-1', 'players', {}])?.isInvalidated).toBe(true);
   });
 });

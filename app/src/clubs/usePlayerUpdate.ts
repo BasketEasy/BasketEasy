@@ -9,10 +9,8 @@ export function usePlayerUpdate(clubId: string) {
   return useMutation({
     mutationFn: ({ playerId, dto }: { playerId: string; dto: UpdatePlayerRequest }) =>
       apiClient.patch<Player>(`/clubs/${clubId}/players/${playerId}`, dto),
-    onSuccess: (player) => {
-      queryClient.setQueryData<Player[]>(clubPlayersQueryKey(clubId), (prev) =>
-        (prev ?? []).map((p) => (p.id === player.id ? player : p)),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubPlayersQueryKey(clubId) });
     },
   });
 }

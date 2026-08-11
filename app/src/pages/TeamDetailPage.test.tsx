@@ -15,6 +15,18 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
+function paginated<T>(
+  items: T[],
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
+  return {
+    items,
+    total: overrides.total ?? items.length,
+    page: overrides.page ?? 1,
+    pageSize: overrides.pageSize ?? 25,
+  };
+}
+
 const baseTeam = {
   id: 'team-1',
   name: 'U15 Garçons',
@@ -29,25 +41,27 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
       http.get('/api/clubs/club-1/teams/team-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'tp-1',
-            teamId: 'team-1',
-            playerId: 'p1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            clubId: 'club-1',
-            role: 'PLAYER',
-            createdAt: 'x',
-          },
-        ]),
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'tp-1',
+              teamId: 'team-1',
+              playerId: 'p1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              clubId: 'club-1',
+              role: 'PLAYER',
+              createdAt: 'x',
+            },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
@@ -69,12 +83,12 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.patch('/api/clubs/club-1/teams/team-1', async ({ request }) => {
         const body = (await request.json()) as { name: string; category: string; gender: string };
         return HttpResponse.json({ ...baseTeam, ...body });
@@ -99,12 +113,12 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
@@ -123,12 +137,12 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/teams/team-1/admins', () =>
         HttpResponse.json([
           { userId: 'user-1', email: 'a@b.com', teamId: 'team-1', createdAt: 'x' },
@@ -153,13 +167,15 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-2/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-2/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-          { clubId: 'club-2', clubName: 'Club B', isOwner: false, linkedAt: 'y' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
+            { clubId: 'club-2', clubName: 'Club B', isOwner: false, linkedAt: 'y' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-2/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-2/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-2/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-2/players', () => HttpResponse.json(paginated([]))),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-2/teams/team-1' });
@@ -173,23 +189,24 @@ describe('TeamDetailPage', () => {
 
   it('lets the owning club link a partner club (CTC)', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let teamClubs = [{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }];
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(paginated(teamClubs)),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.post('/api/clubs/club-1/teams/team-1/clubs', async ({ request }) => {
         const body = (await request.json()) as { clubId: string };
-        return HttpResponse.json({
+        const created = {
           clubId: body.clubId,
           clubName: 'Club B',
           isOwner: false,
           linkedAt: '2026-01-02',
-        });
+        };
+        teamClubs = [...teamClubs, created];
+        return HttpResponse.json(created);
       }),
     );
 
@@ -207,29 +224,34 @@ describe('TeamDetailPage', () => {
 
   it('adds a player from the current club to the roster', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let teamPlayers: unknown[] = [];
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(teamPlayers)),
+      ),
       http.get('/api/clubs/club-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'p1',
-            clubId: 'club-1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            userId: null,
-            createdAt: 'x',
-          },
-        ]),
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'p1',
+              clubId: 'club-1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              userId: null,
+              createdAt: 'x',
+            },
+          ]),
+        ),
       ),
       http.post('/api/clubs/club-1/teams/team-1/players', async ({ request }) => {
         const body = (await request.json()) as { playerId: string; role: string };
-        return HttpResponse.json({
+        const created = {
           id: 'tp-1',
           teamId: 'team-1',
           playerId: body.playerId,
@@ -238,7 +260,9 @@ describe('TeamDetailPage', () => {
           clubId: 'club-1',
           role: body.role,
           createdAt: '2026-01-01',
-        });
+        };
+        teamPlayers = [...teamPlayers, created];
+        return HttpResponse.json(created);
       }),
     );
 
@@ -257,41 +281,40 @@ describe('TeamDetailPage', () => {
 
   it('shows the team events and lets an admin create one', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let events = [
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        startsAt: '2026-01-05T18:00:00.000Z',
+        location: 'Gymnase A',
+        notes: null,
+        createdAt: 'x',
+      },
+    ];
     let createCalled = false;
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/teams/team-1/events', () =>
-        HttpResponse.json([
-          {
-            id: 'event-1',
-            teamId: 'team-1',
-            startsAt: '2026-01-05T18:00:00.000Z',
-            location: 'Gymnase A',
-            notes: null,
-            createdAt: 'x',
-          },
-        ]),
-      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated(events))),
       http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
         createCalled = true;
         const body = (await request.json()) as { startsAt: string; location: string };
-        return HttpResponse.json([
-          {
-            id: 'event-2',
-            teamId: 'team-1',
-            startsAt: body.startsAt,
-            location: body.location,
-            notes: null,
-            createdAt: 'x',
-          },
-        ]);
+        const created = {
+          id: 'event-2',
+          teamId: 'team-1',
+          startsAt: body.startsAt,
+          location: body.location,
+          notes: null,
+          createdAt: 'x',
+        };
+        events = [...events, created];
+        return HttpResponse.json([created]);
       }),
     );
 
@@ -309,19 +332,99 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
   });
 
+  it('filters the roster by search text, debounced', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(
+          paginated([
+            {
+              id: 'tp-1',
+              teamId: 'team-1',
+              playerId: 'p1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              clubId: 'club-1',
+              role: 'PLAYER',
+              createdAt: 'x',
+            },
+          ]),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
+    await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'dup');
+
+    await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
+  });
+
+  it('paginates the roster', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedPages: (string | null)[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        requestedPages.push(url.searchParams.get('page'));
+        return HttpResponse.json(
+          paginated(
+            [
+              {
+                id: 'tp-1',
+                teamId: 'team-1',
+                playerId: 'p1',
+                firstName: 'Alex',
+                lastName: 'Dupont',
+                clubId: 'club-1',
+                role: 'PLAYER',
+                createdAt: 'x',
+              },
+            ],
+            { total: 60 },
+          ),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
+    expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
+
+    // The Clubs partenaires section's own (disabled, total 0) "Suivant"
+    // button renders first in the DOM; the roster's is the second.
+    const nextButtons = screen.getAllByRole('button', { name: 'Suivant' });
+    await user.click(nextButtons[1]);
+
+    await waitFor(() => expect(requestedPages).toContain('2'));
+  });
+
   it('deletes the team and navigates back to the roster page', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     let deleteCalled = false;
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
       http.delete('/api/clubs/club-1/teams/team-1', () => {
         deleteCalled = true;
         return new HttpResponse(null, { status: 204 });

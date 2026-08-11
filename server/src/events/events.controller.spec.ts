@@ -37,12 +37,14 @@ describe('EventsController', () => {
     controller = module.get<EventsController>(EventsController);
   });
 
-  it('listEvents delegates clubId and teamId', async () => {
-    service.listEvents.mockResolvedValue([]);
+  it('listEvents delegates clubId, teamId, and the query params', async () => {
+    service.listEvents.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
 
-    await controller.listEvents('club-1', 'team-1');
+    const query = { sortOrder: 'desc' as const };
+    const result = await controller.listEvents('club-1', 'team-1', query);
 
-    expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1');
+    expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1', query);
+    expect(result.total).toBe(0);
   });
 
   it('createEvent delegates clubId, teamId, and the DTO', async () => {

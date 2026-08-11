@@ -11,9 +11,7 @@ export function useTeamUpdate(clubId: string, teamId: string) {
       apiClient.patch<Team>(`/clubs/${clubId}/teams/${teamId}`, dto),
     onSuccess: (team) => {
       queryClient.setQueryData<Team>(teamQueryKey(clubId, teamId), team);
-      queryClient.setQueryData<Team[]>(clubTeamsQueryKey(clubId), (prev) =>
-        (prev ?? []).map((t) => (t.id === team.id ? team : t)),
-      );
+      queryClient.invalidateQueries({ queryKey: clubTeamsQueryKey(clubId) });
     },
   });
 }

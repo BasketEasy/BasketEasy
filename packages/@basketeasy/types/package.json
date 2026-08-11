@@ -32,6 +32,10 @@
       "types": "./events.ts",
       "default": "./events.ts"
     },
+    "./pagination": {
+      "types": "./pagination.ts",
+      "default": "./pagination.ts"
+    },
     "./team-admins": {
       "types": "./team-admins.ts",
       "default": "./team-admins.ts"

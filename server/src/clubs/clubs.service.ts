@@ -6,9 +6,13 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Club } from '@basketeasy/types/clubs';
-import type { ClubMember } from '@basketeasy/types/club-members';
-import type { Player } from '@basketeasy/types/players';
+import type { ClubMember, ClubMemberSortBy } from '@basketeasy/types/club-members';
+import type { Player, PlayerSortBy } from '@basketeasy/types/players';
+import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolvePagination } from '../common/pagination';
+import { ListClubMembersDto } from './dto/list-club-members.dto';
+import { ListPlayersDto } from './dto/list-players.dto';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
@@ -69,20 +73,66 @@ export class ClubsService {
     };
   }
 
-  async listMembers(clubId: string): Promise<ClubMember[]> {
-    const memberships = await this.prisma.clubMembership.findMany({
-      where: { clubId },
-      include: { user: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    return memberships.map((m) => ({
-      userId: m.userId,
-      email: m.user.email,
-      firstName: m.user.firstName,
-      lastName: m.user.lastName,
-      role: m.role,
-      joinedAt: m.createdAt.toISOString(),
-    }));
+  async listMembers(
+    clubId: string,
+    query: ListClubMembersDto,
+  ): Promise<PaginatedResult<ClubMember>> {
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.ClubMembershipWhereInput = {
+      clubId,
+      ...(query.role ? { role: query.role } : {}),
+      ...(query.search
+        ? {
+            user: {
+              OR: [
+                { email: { contains: query.search, mode: 'insensitive' } },
+                { firstName: { contains: query.search, mode: 'insensitive' } },
+                { lastName: { contains: query.search, mode: 'insensitive' } },
+              ],
+            },
+          }
+        : {}),
+    };
+    const orderBy = this.membersOrderBy(query.sortBy, query.sortOrder);
+
+    const [memberships, total] = await Promise.all([
+      this.prisma.clubMembership.findMany({ where, include: { user: true }, orderBy, skip, take }),
+      this.prisma.clubMembership.count({ where }),
+    ]);
+
+    return { items: memberships.map((m) => this.toClubMember(m)), total, page, pageSize };
+  }
+
+  private membersOrderBy(
+    sortBy?: ClubMemberSortBy,
+    sortOrder?: SortOrder,
+  ): Prisma.ClubMembershipOrderByWithRelationInput[] {
+    const order = sortOrder ?? 'asc';
+    switch (sortBy) {
+      case 'email':
+        return [{ user: { email: order } }];
+      case 'joinedAt':
+        return [{ createdAt: order }];
+      case 'name':
+      default:
+        return [{ user: { lastName: order } }, { user: { firstName: order } }];
+    }
+  }
+
+  private toClubMember(membership: {
+    userId: string;
+    role: ClubMember['role'];
+    createdAt: Date;
+    user: { email: string; firstName: string | null; lastName: string | null };
+  }): ClubMember {
+    return {
+      userId: membership.userId,
+      email: membership.user.email,
+      firstName: membership.user.firstName,
+      lastName: membership.user.lastName,
+      role: membership.role,
+      joinedAt: membership.createdAt.toISOString(),
+    };
   }
 
   async removeMember(clubId: string, userId: string): Promise<void> {
@@ -116,12 +166,38 @@ export class ClubsService {
     ]);
   }
 
-  async listPlayers(clubId: string): Promise<Player[]> {
-    const players = await this.prisma.player.findMany({
-      where: { clubId },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
-    return players.map((p) => this.toPlayer(p));
+  async listPlayers(clubId: string, query: ListPlayersDto): Promise<PaginatedResult<Player>> {
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.PlayerWhereInput = {
+      clubId,
+      ...(query.search
+        ? {
+            OR: [
+              { firstName: { contains: query.search, mode: 'insensitive' } },
+              { lastName: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const orderBy = this.playersOrderBy(query.sortBy, query.sortOrder);
+
+    const [players, total] = await Promise.all([
+      this.prisma.player.findMany({ where, orderBy, skip, take }),
+      this.prisma.player.count({ where }),
+    ]);
+
+    return { items: players.map((p) => this.toPlayer(p)), total, page, pageSize };
+  }
+
+  private playersOrderBy(
+    sortBy?: PlayerSortBy,
+    sortOrder?: SortOrder,
+  ): Prisma.PlayerOrderByWithRelationInput[] {
+    const order = sortOrder ?? 'asc';
+    if (sortBy === 'createdAt') {
+      return [{ createdAt: order }];
+    }
+    return [{ lastName: order }, { firstName: order }];
   }
 
   async createPlayer(

@@ -8,11 +8,8 @@ export function useTeamCreate(clubId: string) {
 
   return useMutation({
     mutationFn: (dto: CreateTeamRequest) => apiClient.post<Team>(`/clubs/${clubId}/teams`, dto),
-    onSuccess: (team) => {
-      queryClient.setQueryData<Team[]>(clubTeamsQueryKey(clubId), (prev) => [
-        ...(prev ?? []),
-        team,
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubTeamsQueryKey(clubId) });
     },
   });
 }

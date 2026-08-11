@@ -8,9 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { TeamEvent } from '@basketeasy/types/events';
+import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -18,6 +20,7 @@ import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { ListEventsDto } from './dto/list-events.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -30,8 +33,9 @@ export class EventsController {
   listEvents(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
-  ): Promise<TeamEvent[]> {
-    return this.eventsService.listEvents(clubId, teamId);
+    @Query() query: ListEventsDto,
+  ): Promise<PaginatedResult<TeamEvent>> {
+    return this.eventsService.listEvents(clubId, teamId, query);
   }
 
   @Post()

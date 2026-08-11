@@ -13,6 +13,7 @@ describe('EventsService', () => {
       create: jest.Mock;
       update: jest.Mock;
       delete: jest.Mock;
+      count: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -26,6 +27,7 @@ describe('EventsService', () => {
         create: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -41,11 +43,11 @@ describe('EventsService', () => {
     it('throws NotFoundException when the team is not linked to the club', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue(null);
 
-      await expect(service.listEvents('club-1', 'team-1')).rejects.toThrow(NotFoundException);
+      await expect(service.listEvents('club-1', 'team-1', {})).rejects.toThrow(NotFoundException);
       expect(prisma.event.findMany).not.toHaveBeenCalled();
     });
 
-    it('lists events for the team ordered by start time', async () => {
+    it('lists events for the team ordered by start time by default', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findMany.mockResolvedValue([
         {
@@ -57,23 +59,87 @@ describe('EventsService', () => {
           createdAt: new Date('2026-01-01'),
         },
       ]);
+      prisma.event.count.mockResolvedValue(1);
 
-      const result = await service.listEvents('club-1', 'team-1');
+      const result = await service.listEvents('club-1', 'team-1', {});
 
       expect(prisma.event.findMany).toHaveBeenCalledWith({
         where: { teamId: 'team-1' },
         orderBy: { startsAt: 'asc' },
+        skip: 0,
+        take: 25,
       });
-      expect(result).toEqual([
-        {
-          id: 'event-1',
-          teamId: 'team-1',
-          startsAt: '2026-01-05T18:00:00.000Z',
-          location: 'Gymnase A',
-          notes: null,
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
-      ]);
+      expect(prisma.event.count).toHaveBeenCalledWith({ where: { teamId: 'team-1' } });
+      expect(result).toEqual({
+        items: [
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            notes: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+      });
+    });
+
+    it('filters by from/to date range', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([]);
+      prisma.event.count.mockResolvedValue(0);
+
+      await service.listEvents('club-1', 'team-1', {
+        from: '2026-01-01T00:00:00.000Z',
+        to: '2026-01-31T00:00:00.000Z',
+      });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            teamId: 'team-1',
+            startsAt: {
+              gte: new Date('2026-01-01T00:00:00.000Z'),
+              lte: new Date('2026-01-31T00:00:00.000Z'),
+            },
+          },
+        }),
+      );
+    });
+
+    it('filters by search on location or notes', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([]);
+      prisma.event.count.mockResolvedValue(0);
+
+      await service.listEvents('club-1', 'team-1', { search: 'gymnase' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            teamId: 'team-1',
+            OR: [
+              { location: { contains: 'gymnase', mode: 'insensitive' } },
+              { notes: { contains: 'gymnase', mode: 'insensitive' } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it('sorts descending when requested', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([]);
+      prisma.event.count.mockResolvedValue(0);
+
+      await service.listEvents('club-1', 'team-1', { sortOrder: 'desc' });
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { startsAt: 'desc' } }),
+      );
     });
   });
 

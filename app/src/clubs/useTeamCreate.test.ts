@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('useTeamCreate', () => {
-  it('posts to /clubs/:clubId/teams and caches the new team in the teams list', async () => {
+  it('posts to /clubs/:clubId/teams and invalidates the teams list cache on success', async () => {
     server.use(
       http.post('/api/clubs/club-1/teams', async ({ request }) => {
         const body = (await request.json()) as { name: string; category: string; gender: string };
@@ -30,13 +30,17 @@ describe('useTeamCreate', () => {
     );
 
     const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['clubs', 'club-1', 'teams', {}], {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 25,
+    });
     const { result } = renderHook(() => useTeamCreate('club-1'), { wrapper });
 
     result.current.mutate({ name: 'U15', category: 'U15', gender: 'MEN' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(queryClient.getQueryData(['clubs', 'club-1', 'teams'])).toEqual([
-      { id: 'team-1', name: 'U15', category: 'U15', gender: 'MEN', createdAt: '2026-01-01' },
-    ]);
+    expect(queryClient.getQueryState(['clubs', 'club-1', 'teams', {}])?.isInvalidated).toBe(true);
   });
 });

@@ -18,6 +18,7 @@ describe('TeamsService', () => {
       findUnique: jest.Mock;
       update: jest.Mock;
       delete: jest.Mock;
+      count: jest.Mock;
     };
     club: { findUnique: jest.Mock };
     clubTeam: {
@@ -25,6 +26,7 @@ describe('TeamsService', () => {
       findMany: jest.Mock;
       create: jest.Mock;
       delete: jest.Mock;
+      count: jest.Mock;
     };
     player: { findUnique: jest.Mock };
     teamPlayer: {
@@ -34,6 +36,7 @@ describe('TeamsService', () => {
       update: jest.Mock;
       delete: jest.Mock;
       deleteMany: jest.Mock;
+      count: jest.Mock;
     };
     user: { findUnique: jest.Mock };
     clubMembership: { findFirst: jest.Mock; findMany: jest.Mock };
@@ -55,6 +58,7 @@ describe('TeamsService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
       club: { findUnique: jest.fn() },
       clubTeam: {
@@ -62,6 +66,7 @@ describe('TeamsService', () => {
         findMany: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
       player: { findUnique: jest.fn() },
       teamPlayer: {
@@ -71,6 +76,7 @@ describe('TeamsService', () => {
         update: jest.fn(),
         delete: jest.fn(),
         deleteMany: jest.fn(),
+        count: jest.fn(),
       },
       user: { findUnique: jest.fn() },
       clubMembership: { findFirst: jest.fn(), findMany: jest.fn() },
@@ -126,7 +132,7 @@ describe('TeamsService', () => {
   });
 
   describe('listTeams', () => {
-    it('lists teams linked to the club', async () => {
+    it('lists teams linked to the club, ordered by name by default', async () => {
       prisma.team.findMany.mockResolvedValue([
         {
           id: 'team-1',
@@ -136,14 +142,161 @@ describe('TeamsService', () => {
           createdAt: new Date('2026-01-01'),
         },
       ]);
+      prisma.team.count.mockResolvedValue(1);
 
-      const result = await service.listTeams('club-1');
+      const result = await service.listTeams('club-1', {});
 
       expect(prisma.team.findMany).toHaveBeenCalledWith({
         where: { clubTeams: { some: { clubId: 'club-1' } } },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ name: 'asc' }],
+        skip: 0,
+        take: 25,
       });
-      expect(result).toHaveLength(1);
+      expect(prisma.team.count).toHaveBeenCalledWith({
+        where: { clubTeams: { some: { clubId: 'club-1' } } },
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result).toEqual(expect.objectContaining({ total: 1, page: 1, pageSize: 25 }));
+    });
+
+    it('filters by category and gender', async () => {
+      prisma.team.findMany.mockResolvedValue([]);
+      prisma.team.count.mockResolvedValue(0);
+
+      await service.listTeams('club-1', { category: 'U15', gender: 'MEN' });
+
+      const expectedWhere = {
+        clubTeams: { some: { clubId: 'club-1' } },
+        category: 'U15',
+        gender: 'MEN',
+      };
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(prisma.team.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('filters by search on team name', async () => {
+      prisma.team.findMany.mockResolvedValue([]);
+      prisma.team.count.mockResolvedValue(0);
+
+      await service.listTeams('club-1', { search: 'U15' });
+
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            clubTeams: { some: { clubId: 'club-1' } },
+            name: { contains: 'U15', mode: 'insensitive' },
+          },
+        }),
+      );
+    });
+
+    it('sorts by category', async () => {
+      prisma.team.findMany.mockResolvedValue([]);
+      prisma.team.count.mockResolvedValue(0);
+
+      await service.listTeams('club-1', { sortBy: 'category', sortOrder: 'desc' });
+
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ category: 'desc' }] }),
+      );
+    });
+
+    it('computes skip/take for page 2', async () => {
+      prisma.team.findMany.mockResolvedValue([]);
+      prisma.team.count.mockResolvedValue(0);
+
+      await service.listTeams('club-1', { page: 2, pageSize: 5 });
+
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 5, take: 5 }),
+      );
+    });
+  });
+
+  describe('listTeamClubs', () => {
+    it('throws NotFoundException when the team is not linked to the club', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue(null);
+
+      await expect(service.listTeamClubs('club-1', 'team-1', {})).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.clubTeam.findMany).not.toHaveBeenCalled();
+    });
+
+    it('always sorts the owner club first, regardless of sortBy', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.clubTeam.findMany.mockResolvedValue([]);
+      prisma.clubTeam.count.mockResolvedValue(0);
+
+      await service.listTeamClubs('club-1', 'team-1', { sortBy: 'linkedAt', sortOrder: 'desc' });
+
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ isOwner: 'desc' }, { createdAt: 'desc' }] }),
+      );
+    });
+
+    it('filters by partner club name search', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.clubTeam.findMany.mockResolvedValue([]);
+      prisma.clubTeam.count.mockResolvedValue(0);
+
+      await service.listTeamClubs('club-1', 'team-1', { search: 'coc' });
+
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            teamId: 'team-1',
+            club: { name: { contains: 'coc', mode: 'insensitive' } },
+          },
+        }),
+      );
+    });
+  });
+
+  describe('listTeamPlayers', () => {
+    it('throws NotFoundException when the team is not linked to the club', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue(null);
+
+      await expect(service.listTeamPlayers('club-1', 'team-1', {})).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.teamPlayer.findMany).not.toHaveBeenCalled();
+    });
+
+    it('filters by player name search', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.count.mockResolvedValue(0);
+
+      await service.listTeamPlayers('club-1', 'team-1', { search: 'al' });
+
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            teamId: 'team-1',
+            player: {
+              OR: [
+                { firstName: { contains: 'al', mode: 'insensitive' } },
+                { lastName: { contains: 'al', mode: 'insensitive' } },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    it('sorts by createdAt', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.count.mockResolvedValue(0);
+
+      await service.listTeamPlayers('club-1', 'team-1', { sortBy: 'createdAt' });
+
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ createdAt: 'asc' }] }),
+      );
     });
   });
 

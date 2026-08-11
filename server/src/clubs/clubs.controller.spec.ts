@@ -73,6 +73,26 @@ describe('ClubsController', () => {
     expect(result.userId).toBe('u2');
   });
 
+  it('listMembers delegates clubId and the query params', async () => {
+    service.listMembers.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
+
+    const query = { search: 'dup', role: 'ADMIN' as const };
+    const result = await controller.listMembers('club-1', query);
+
+    expect(service.listMembers).toHaveBeenCalledWith('club-1', query);
+    expect(result.total).toBe(0);
+  });
+
+  it('listPlayers delegates clubId and the query params', async () => {
+    service.listPlayers.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
+
+    const query = { sortBy: 'createdAt' as const };
+    const result = await controller.listPlayers('club-1', query);
+
+    expect(service.listPlayers).toHaveBeenCalledWith('club-1', query);
+    expect(result.total).toBe(0);
+  });
+
   it('removeMember delegates clubId and userId', async () => {
     service.removeMember.mockResolvedValue(undefined);
 
