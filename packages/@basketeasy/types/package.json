@@ -43,6 +43,10 @@
     "./my-teams": {
       "types": "./my-teams.ts",
       "default": "./my-teams.ts"
+    },
+    "./my-dashboard": {
+      "types": "./my-dashboard.ts",
+      "default": "./my-dashboard.ts"
     }
   },
   "scripts": {

@@ -78,7 +78,7 @@ describe('App routing', () => {
     await user.click(screen.getByRole('button', { name: /se connecter/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: /tableau de bord/i })).toBeInTheDocument(),
+      expect(screen.getByRole('heading', { name: /bonjour, alex/i })).toBeInTheDocument(),
     );
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
 

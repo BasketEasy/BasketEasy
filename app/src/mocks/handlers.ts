@@ -48,4 +48,8 @@ export const handlers = [
   // Default: no personal teams. MyTeamsPage always queries this; tests
   // exercising it override with server.use(...).
   http.get('/api/me/teams', () => HttpResponse.json([])),
+
+  // Default: empty dashboard summary. DashboardPage always queries this;
+  // dashboard-focused tests override it with server.use(...).
+  http.get('/api/me/dashboard', () => HttpResponse.json({ totalPlayers: 0, upcomingEvents: [] })),
 ];

@@ -1,3 +1,4 @@
+import type { GetDashboardParams } from '@basketeasy/types/my-dashboard';
 import type { ListClubMembersParams } from '@basketeasy/types/club-members';
 import type { ListPlayersParams } from '@basketeasy/types/players';
 import type { ListEventsParams } from '@basketeasy/types/events';
@@ -31,3 +32,5 @@ export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
 export const teamAdminCandidatesQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins', 'eligible'] as const;
 export const myTeamsQueryKey = ['me', 'teams'] as const;
+export const myDashboardQueryKey = (params?: GetDashboardParams) =>
+  ['me', 'dashboard', params ?? {}] as const;
