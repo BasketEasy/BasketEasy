@@ -5,11 +5,14 @@ import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { SelectField } from '@basketeasy/ui/select-field';
 import type { Player } from '@basketeasy/types/players';
+import type { TeamMemberRole } from '@basketeasy/types/teams';
 import { useTeamPlayerAdd } from './useTeamPlayerAdd';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { TEAM_MEMBER_ROLE_OPTIONS } from './teamLabels';
 
 const teamPlayerSchema = z.object({
   playerId: z.string().min(1, 'Joueur requis'),
+  role: z.enum(['COACH', 'PLAYER']),
 });
 
 type TeamPlayerFormValues = z.infer<typeof teamPlayerSchema>;
@@ -35,12 +38,12 @@ export function TeamPlayerAddForm({
     formState: { errors, isSubmitting },
   } = useForm<TeamPlayerFormValues>({
     resolver: zodResolver(teamPlayerSchema),
-    defaultValues: { playerId: '' },
+    defaultValues: { playerId: '', role: 'PLAYER' },
   });
 
   const onSubmit = (values: TeamPlayerFormValues) => {
     addTeamPlayer(
-      { playerId: values.playerId },
+      { playerId: values.playerId, role: values.role },
       {
         onSuccess: () => {
           reset();
@@ -80,6 +83,20 @@ export function TeamPlayerAddForm({
             onValueChange={field.onChange}
             placeholder="Choisir un joueur"
             error={errors.playerId?.message}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="role"
+        render={({ field }) => (
+          <SelectField
+            label="Rôle"
+            id="team-player-add-role-select"
+            options={TEAM_MEMBER_ROLE_OPTIONS}
+            value={field.value}
+            onValueChange={(value) => field.onChange(value as TeamMemberRole)}
           />
         )}
       />

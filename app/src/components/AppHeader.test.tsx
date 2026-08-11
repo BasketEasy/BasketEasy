@@ -89,6 +89,35 @@ describe('AppHeader', () => {
     expect(screen.queryByRole('button', { name: /effectif/i })).not.toBeInTheDocument();
   });
 
+  it('shows a Mes équipes link to a plain MEMBER (who has no Effectif entry) and it navigates to their teams', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          {
+            teamId: 'team-1',
+            teamName: 'U15',
+            category: 'U15',
+            gender: 'MEN',
+            clubId: 'club-1',
+            clubName: 'COC Basket',
+            isTeamAdmin: true,
+            rosterRole: null,
+          },
+        ]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /mes équipes/i }));
+
+    expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
+    expect(await screen.findByText('U15')).toBeInTheDocument();
+  });
+
   it('falls back to a burger menu on a narrow (mobile-width) screen', async () => {
     setViewportWidth(375);
     mockSession();

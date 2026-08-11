@@ -30,6 +30,8 @@ import { useTeamPlayerList } from '../clubs/useTeamPlayerList';
 import { usePlayerList } from '../clubs/usePlayerList';
 import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
+import { useIsTeamManager } from '../clubs/useIsTeamManager';
+import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
@@ -37,6 +39,8 @@ import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { EventCreateForm } from '../clubs/EventCreateForm';
 import { EventRow } from '../clubs/EventRow';
+import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
+import { TeamAdminRow } from '../clubs/TeamAdminRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import {
   TEAM_CATEGORY_OPTIONS,
@@ -100,6 +104,7 @@ export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
   const navigate = useNavigate();
   const isAdmin = useIsClubAdmin(clubId);
+  const canManageTeam = useIsTeamManager(clubId!, teamId!);
 
   const { data: team, isLoading: isLoadingTeam } = useTeamShow(clubId!, teamId!);
 
@@ -169,6 +174,8 @@ export function TeamDetailPage() {
     pageSize: eventsPageSize,
   });
 
+  const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId!, teamId!);
+
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
   const { mutate: deleteTeam, isPending: isDeleting } = useTeamDelete(clubId!);
 
@@ -181,6 +188,7 @@ export function TeamDetailPage() {
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
 
   const teamClubs = teamClubsResult?.items;
   const teamPlayers = teamPlayersResult?.items;
@@ -291,12 +299,12 @@ export function TeamDetailPage() {
               {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
             </p>
           </div>
-          {isAdmin && (
+          {canManageTeam && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={startEditing}>
                 Modifier
               </Button>
-              {isOwner && (
+              {isAdmin && isOwner && (
                 <Button variant="outline" disabled={isDeleting} onClick={handleDelete}>
                   Supprimer
                 </Button>
@@ -410,7 +418,7 @@ export function TeamDetailPage() {
           <Heading as="h2" size="2xl" className="m-0">
             Effectif
           </Heading>
-          {isAdmin && (
+          {canManageTeam && (
             <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">Ajouter un joueur</Button>
@@ -467,6 +475,7 @@ export function TeamDetailPage() {
                     <TableRow>
                       <TableHead>Prénom</TableHead>
                       <TableHead>Nom</TableHead>
+                      <TableHead>Rôle</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -477,7 +486,7 @@ export function TeamDetailPage() {
                         clubId={clubId!}
                         teamId={teamId!}
                         teamPlayer={teamPlayer}
-                        isAdmin={isAdmin}
+                        canManage={canManageTeam}
                       />
                     ))}
                   </TableBody>
@@ -504,7 +513,7 @@ export function TeamDetailPage() {
           <Heading as="h2" size="2xl" className="m-0">
             Événements
           </Heading>
-          {isAdmin && (
+          {canManageTeam && (
             <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">Créer un événement</Button>
@@ -589,7 +598,7 @@ export function TeamDetailPage() {
                         clubId={clubId!}
                         teamId={teamId!}
                         event={event}
-                        isAdmin={isAdmin}
+                        canManage={canManageTeam}
                       />
                     ))}
                   </TableBody>
@@ -606,6 +615,63 @@ export function TeamDetailPage() {
                   }}
                 />
               </>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Heading as="h2" size="2xl" className="m-0">
+            Administrateurs de l'équipe
+          </Heading>
+          {canManageTeam && (
+            <Dialog open={isAddAdminOpen} onOpenChange={setIsAddAdminOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Ajouter un administrateur</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Ajouter un administrateur d'équipe</DialogTitle>
+                  <DialogDescription>
+                    Donnez à un membre du club la gestion de cette équipe (effectif, événements)
+                    sans en faire un administrateur du club.
+                  </DialogDescription>
+                </DialogHeader>
+                <TeamAdminAddForm
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  onSuccess={() => setIsAddAdminOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            {isLoadingAdmins ? (
+              <Loader>Chargement...</Loader>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamAdmins?.map((admin) => (
+                    <TeamAdminRow
+                      key={admin.userId}
+                      clubId={clubId!}
+                      teamId={teamId!}
+                      admin={admin}
+                      canManage={canManageTeam}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
