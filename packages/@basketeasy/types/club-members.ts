@@ -1,3 +1,5 @@
+import type { PaginationParams, SortOrder } from './pagination';
+
 export type ClubRole = 'ADMIN' | 'MEMBER';
 
 export interface ClubMember {
@@ -11,4 +13,12 @@ export interface ClubMember {
 
 export interface AddClubMemberRequest {
   email: string;
+}
+
+export type ClubMemberSortBy = 'name' | 'email' | 'joinedAt';
+
+export interface ListClubMembersParams extends PaginationParams {
+  role?: ClubRole;
+  sortBy?: ClubMemberSortBy;
+  sortOrder?: SortOrder;
 }

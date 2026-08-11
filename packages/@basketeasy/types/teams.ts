@@ -1,3 +1,5 @@
+import type { PaginationParams, SortOrder } from './pagination';
+
 export type TeamCategory = 'U9' | 'U11' | 'U13' | 'U15' | 'U18' | 'U21' | 'SENIORS';
 
 export type TeamGender = 'MEN' | 'WOMEN';
@@ -46,4 +48,27 @@ export interface TeamPlayer {
 
 export interface AddTeamPlayerRequest {
   playerId: string;
+}
+
+export type TeamSortBy = 'name' | 'category' | 'createdAt';
+
+export interface ListTeamsParams extends PaginationParams {
+  category?: TeamCategory;
+  gender?: TeamGender;
+  sortBy?: TeamSortBy;
+  sortOrder?: SortOrder;
+}
+
+export type TeamClubSortBy = 'name' | 'linkedAt';
+
+export interface ListTeamClubsParams extends PaginationParams {
+  sortBy?: TeamClubSortBy;
+  sortOrder?: SortOrder;
+}
+
+export type TeamPlayerSortBy = 'name' | 'createdAt';
+
+export interface ListTeamPlayersParams extends PaginationParams {
+  sortBy?: TeamPlayerSortBy;
+  sortOrder?: SortOrder;
 }

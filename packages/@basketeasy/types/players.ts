@@ -1,3 +1,5 @@
+import type { PaginationParams, SortOrder } from './pagination';
+
 export interface Player {
   id: string;
   clubId: string;
@@ -19,4 +21,11 @@ export interface UpdatePlayerRequest {
   lastName?: string;
   /** Pass null to unlink, a member's userId to link, or omit to leave unchanged. */
   userId?: string | null;
+}
+
+export type PlayerSortBy = 'name' | 'createdAt';
+
+export interface ListPlayersParams extends PaginationParams {
+  sortBy?: PlayerSortBy;
+  sortOrder?: SortOrder;
 }
