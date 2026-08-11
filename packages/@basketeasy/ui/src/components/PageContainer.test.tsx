@@ -19,7 +19,7 @@ describe('PageContainer', () => {
 
   it('applies the lg size max-width by default', () => {
     render(<PageContainer>Contenu</PageContainer>);
-    expect(screen.getByRole('main')).toHaveClass('max-w-3xl');
+    expect(screen.getByRole('main')).toHaveClass('max-w-6xl');
   });
 
   it('applies the md size max-width', () => {
