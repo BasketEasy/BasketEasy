@@ -15,7 +15,10 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
-function paginated<T>(items: T[], overrides: Partial<{ total: number; page: number; pageSize: number }> = {}) {
+function paginated<T>(
+  items: T[],
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
   return {
     items,
     total: overrides.total ?? items.length,
@@ -79,7 +82,9 @@ describe('MembersPage', () => {
     server.use(
       http.get('/api/clubs/club-1/members', () =>
         HttpResponse.json(
-          paginated([{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }]),
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
         ),
       ),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
@@ -222,7 +227,9 @@ describe('MembersPage', () => {
         const url = new URL(request.url);
         requestedSearches.push(url.searchParams.get('search') ?? '');
         return HttpResponse.json(
-          paginated([{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }]),
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
         );
       }),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
@@ -245,7 +252,9 @@ describe('MembersPage', () => {
         const url = new URL(request.url);
         requestedRoles.push(url.searchParams.get('role'));
         return HttpResponse.json(
-          paginated([{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }]),
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
         );
       }),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
@@ -269,9 +278,12 @@ describe('MembersPage', () => {
         const url = new URL(request.url);
         requestedPages.push(url.searchParams.get('page'));
         return HttpResponse.json(
-          paginated([{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }], {
-            total: 60,
-          }),
+          paginated(
+            [{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }],
+            {
+              total: 60,
+            },
+          ),
         );
       }),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),

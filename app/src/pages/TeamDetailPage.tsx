@@ -60,8 +60,18 @@ const TEAM_CLUB_SORT_OPTIONS: {
 }[] = [
   { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
   { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
-  { value: 'linkedAt:desc', label: 'Association la plus récente', sortBy: 'linkedAt', sortOrder: 'desc' },
-  { value: 'linkedAt:asc', label: 'Association la plus ancienne', sortBy: 'linkedAt', sortOrder: 'asc' },
+  {
+    value: 'linkedAt:desc',
+    label: 'Association la plus récente',
+    sortBy: 'linkedAt',
+    sortOrder: 'desc',
+  },
+  {
+    value: 'linkedAt:asc',
+    label: 'Association la plus ancienne',
+    sortBy: 'linkedAt',
+    sortOrder: 'asc',
+  },
 ];
 
 const ROSTER_SORT_OPTIONS: {
@@ -72,7 +82,12 @@ const ROSTER_SORT_OPTIONS: {
 }[] = [
   { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
   { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
-  { value: 'createdAt:desc', label: 'Ajout le plus récent', sortBy: 'createdAt', sortOrder: 'desc' },
+  {
+    value: 'createdAt:desc',
+    label: 'Ajout le plus récent',
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  },
   { value: 'createdAt:asc', label: 'Ajout le plus ancien', sortBy: 'createdAt', sortOrder: 'asc' },
 ];
 
@@ -169,11 +184,12 @@ export function TeamDetailPage() {
 
   const teamClubs = teamClubsResult?.items;
   const teamPlayers = teamPlayersResult?.items;
-  const allTeamPlayers = allTeamPlayersResult?.items ?? [];
-  const clubPlayers = clubPlayersResult?.items ?? [];
+  const allTeamPlayers = useMemo(() => allTeamPlayersResult?.items ?? [], [allTeamPlayersResult]);
+  const clubPlayers = useMemo(() => clubPlayersResult?.items ?? [], [clubPlayersResult]);
   const events = eventsResult?.items;
 
-  const isOwner = (allTeamClubsResult?.items ?? []).find((c) => c.clubId === clubId)?.isOwner ?? false;
+  const isOwner =
+    (allTeamClubsResult?.items ?? []).find((c) => c.clubId === clubId)?.isOwner ?? false;
 
   const addablePlayers = useMemo(() => {
     const rosteredPlayerIds = new Set(allTeamPlayers.map((tp) => tp.playerId));

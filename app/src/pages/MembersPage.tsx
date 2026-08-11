@@ -42,10 +42,7 @@ import { PlayerRow } from '../clubs/PlayerRow';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { TeamRow } from '../clubs/TeamRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
-import {
-  TEAM_CATEGORY_OPTIONS,
-  TEAM_GENDER_OPTIONS,
-} from '../clubs/teamLabels';
+import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from '../clubs/teamLabels';
 
 type MembersTab = 'members' | 'players' | 'teams';
 
@@ -67,8 +64,18 @@ const MEMBER_SORT_OPTIONS: {
   { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
   { value: 'email:asc', label: 'E-mail (A → Z)', sortBy: 'email', sortOrder: 'asc' },
   { value: 'email:desc', label: 'E-mail (Z → A)', sortBy: 'email', sortOrder: 'desc' },
-  { value: 'joinedAt:desc', label: 'Adhésion la plus récente', sortBy: 'joinedAt', sortOrder: 'desc' },
-  { value: 'joinedAt:asc', label: 'Adhésion la plus ancienne', sortBy: 'joinedAt', sortOrder: 'asc' },
+  {
+    value: 'joinedAt:desc',
+    label: 'Adhésion la plus récente',
+    sortBy: 'joinedAt',
+    sortOrder: 'desc',
+  },
+  {
+    value: 'joinedAt:asc',
+    label: 'Adhésion la plus ancienne',
+    sortBy: 'joinedAt',
+    sortOrder: 'asc',
+  },
 ];
 
 const PLAYER_SORT_OPTIONS: {
@@ -79,7 +86,12 @@ const PLAYER_SORT_OPTIONS: {
 }[] = [
   { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
   { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
-  { value: 'createdAt:desc', label: 'Ajout le plus récent', sortBy: 'createdAt', sortOrder: 'desc' },
+  {
+    value: 'createdAt:desc',
+    label: 'Ajout le plus récent',
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  },
   { value: 'createdAt:asc', label: 'Ajout le plus ancien', sortBy: 'createdAt', sortOrder: 'asc' },
 ];
 
@@ -92,8 +104,18 @@ const TEAM_SORT_OPTIONS: {
   { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
   { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
   { value: 'category:asc', label: 'Catégorie (croissante)', sortBy: 'category', sortOrder: 'asc' },
-  { value: 'category:desc', label: 'Catégorie (décroissante)', sortBy: 'category', sortOrder: 'desc' },
-  { value: 'createdAt:desc', label: 'Création la plus récente', sortBy: 'createdAt', sortOrder: 'desc' },
+  {
+    value: 'category:desc',
+    label: 'Catégorie (décroissante)',
+    sortBy: 'category',
+    sortOrder: 'desc',
+  },
+  {
+    value: 'createdAt:desc',
+    label: 'Création la plus récente',
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  },
 ];
 
 const ALL_ROLES = 'ALL';
@@ -253,9 +275,9 @@ export function MembersPage() {
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
 
   const members = membersResult?.items;
-  const allMembers = allMembersResult?.items ?? [];
+  const allMembers = useMemo(() => allMembersResult?.items ?? [], [allMembersResult]);
   const players = playersResult?.items;
-  const allPlayers = allPlayersResult?.items ?? [];
+  const allPlayers = useMemo(() => allPlayersResult?.items ?? [], [allPlayersResult]);
   const teams = teamsResult?.items;
 
   const linkedUserIds = useMemo(
@@ -537,10 +559,7 @@ export function MembersPage() {
                 setTeamsCategory(value);
                 setTeamsPage(1);
               }}
-              options={[
-                { value: ALL_CATEGORIES, label: 'Toutes' },
-                ...TEAM_CATEGORY_OPTIONS,
-              ]}
+              options={[{ value: ALL_CATEGORIES, label: 'Toutes' }, ...TEAM_CATEGORY_OPTIONS]}
             />
             <SelectField
               label="Genre"

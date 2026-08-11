@@ -72,8 +72,12 @@ describe('ClubCreateForm', () => {
         const body = (await request.json()) as { name: string };
         return HttpResponse.json({ id: 'club-1', name: body.name, createdAt: '2026-01-01' });
       }),
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+      ),
+      http.get('/api/clubs/club-1/players', () =>
+        HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+      ),
     );
 
     const user = userEvent.setup();

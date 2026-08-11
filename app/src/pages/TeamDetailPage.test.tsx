@@ -15,7 +15,10 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
-function paginated<T>(items: T[], overrides: Partial<{ total: number; page: number; pageSize: number }> = {}) {
+function paginated<T>(
+  items: T[],
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
   return {
     items,
     total: overrides.total ?? items.length,
