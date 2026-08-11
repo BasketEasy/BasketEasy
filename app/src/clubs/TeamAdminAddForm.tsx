@@ -40,10 +40,18 @@ export function TeamAdminAddForm({
       },
       onError: (err) => {
         // getClubErrorMessage's 409 copy is hardcoded to "already a club
-        // member" — wrong here, so this and the 404 case are handled
-        // directly from the server's own (already French) message instead.
+        // member" — wrong here, so that case is handled directly from the
+        // server's own (already French) message instead. 404 needs the same
+        // care: TeamsService.addTeamAdmin returns a 404 both when the email
+        // has no account AND when the team itself isn't found (assertTeamInClub)
+        // — only the former gets the friendly copy below; anything else on
+        // 404 falls through to getClubErrorMessage's generic "not found".
         let message: string;
-        if (err instanceof ApiError && err.status === 404) {
+        if (
+          err instanceof ApiError &&
+          err.status === 404 &&
+          err.message === 'No account with that email'
+        ) {
           message = 'Aucun compte avec cette adresse e-mail.';
         } else if (err instanceof ApiError && err.status === 409) {
           message = err.message;

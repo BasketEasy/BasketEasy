@@ -52,6 +52,24 @@ describe('TeamAdminAddForm', () => {
     );
   });
 
+  it('shows a generic not-found message for a 404 that is not the missing-email case', async () => {
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/admins', () =>
+        HttpResponse.json({ message: 'Team not found' }, { status: 404 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<TeamAdminAddForm clubId="club-1" teamId="team-1" />);
+
+    await user.type(screen.getByLabelText(/adresse e-mail/i), 'a@b.com');
+    await user.click(screen.getByRole('button', { name: /ajouter/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/introuvable/i);
+    expect(alert).not.toHaveTextContent(/aucun compte/i);
+  });
+
   it('shows the server-provided message when already a team admin (409)', async () => {
     server.use(
       http.post('/api/clubs/club-1/teams/team-1/admins', () =>
