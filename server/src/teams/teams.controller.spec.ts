@@ -64,12 +64,34 @@ describe('TeamsController', () => {
     expect(result.id).toBe('team-1');
   });
 
-  it('listTeams delegates clubId', async () => {
-    service.listTeams.mockResolvedValue([]);
+  it('listTeams delegates clubId and the query params', async () => {
+    service.listTeams.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
 
-    await controller.listTeams('club-1');
+    const query = { category: 'U15' as const };
+    const result = await controller.listTeams('club-1', query);
 
-    expect(service.listTeams).toHaveBeenCalledWith('club-1');
+    expect(service.listTeams).toHaveBeenCalledWith('club-1', query);
+    expect(result.total).toBe(0);
+  });
+
+  it('listTeamClubs delegates clubId, teamId, and the query params', async () => {
+    service.listTeamClubs.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
+
+    const query = { search: 'coc' };
+    const result = await controller.listTeamClubs('club-1', 'team-1', query);
+
+    expect(service.listTeamClubs).toHaveBeenCalledWith('club-1', 'team-1', query);
+    expect(result.total).toBe(0);
+  });
+
+  it('listTeamPlayers delegates clubId, teamId, and the query params', async () => {
+    service.listTeamPlayers.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
+
+    const query = { sortBy: 'createdAt' as const };
+    const result = await controller.listTeamPlayers('club-1', 'team-1', query);
+
+    expect(service.listTeamPlayers).toHaveBeenCalledWith('club-1', 'team-1', query);
+    expect(result.total).toBe(0);
   });
 
   it('updateTeam delegates clubId, teamId, and the DTO', async () => {

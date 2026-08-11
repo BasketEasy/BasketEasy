@@ -6,8 +6,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TeamCategory, TeamGender } from '@prisma/client';
-import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
+import type {
+  Team,
+  TeamClubLink,
+  TeamClubSortBy,
+  TeamPlayer,
+  TeamPlayerSortBy,
+  TeamSortBy,
+} from '@basketeasy/types/teams';
+import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolvePagination } from '../common/pagination';
+import { ListTeamsDto } from './dto/list-teams.dto';
+import { ListTeamClubsDto } from './dto/list-team-clubs.dto';
+import { ListTeamPlayersDto } from './dto/list-team-players.dto';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
@@ -30,12 +42,38 @@ export class TeamsService {
     return this.toTeam(team);
   }
 
-  async listTeams(clubId: string): Promise<Team[]> {
-    const teams = await this.prisma.team.findMany({
-      where: { clubTeams: { some: { clubId } } },
-      orderBy: { createdAt: 'asc' },
-    });
-    return teams.map((t) => this.toTeam(t));
+  async listTeams(clubId: string, query: ListTeamsDto): Promise<PaginatedResult<Team>> {
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.TeamWhereInput = {
+      clubTeams: { some: { clubId } },
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.gender ? { gender: query.gender } : {}),
+      ...(query.search ? { name: { contains: query.search, mode: 'insensitive' } } : {}),
+    };
+    const orderBy = this.teamsOrderBy(query.sortBy, query.sortOrder);
+
+    const [teams, total] = await Promise.all([
+      this.prisma.team.findMany({ where, orderBy, skip, take }),
+      this.prisma.team.count({ where }),
+    ]);
+
+    return { items: teams.map((t) => this.toTeam(t)), total, page, pageSize };
+  }
+
+  private teamsOrderBy(
+    sortBy?: TeamSortBy,
+    sortOrder?: SortOrder,
+  ): Prisma.TeamOrderByWithRelationInput[] {
+    const order = sortOrder ?? 'asc';
+    switch (sortBy) {
+      case 'category':
+        return [{ category: order }];
+      case 'createdAt':
+        return [{ createdAt: order }];
+      case 'name':
+      default:
+        return [{ name: order }];
+    }
   }
 
   async getTeam(clubId: string, teamId: string): Promise<Team> {
@@ -63,14 +101,40 @@ export class TeamsService {
     await this.prisma.team.delete({ where: { id: teamId } });
   }
 
-  async listTeamClubs(clubId: string, teamId: string): Promise<TeamClubLink[]> {
+  async listTeamClubs(
+    clubId: string,
+    teamId: string,
+    query: ListTeamClubsDto,
+  ): Promise<PaginatedResult<TeamClubLink>> {
     await this.assertTeamInClub(clubId, teamId);
-    const clubTeams = await this.prisma.clubTeam.findMany({
-      where: { teamId },
-      include: { club: true },
-      orderBy: [{ isOwner: 'desc' }, { createdAt: 'asc' }],
-    });
-    return clubTeams.map((ct) => this.toTeamClubLink(ct));
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.ClubTeamWhereInput = {
+      teamId,
+      ...(query.search
+        ? { club: { name: { contains: query.search, mode: 'insensitive' } } }
+        : {}),
+    };
+    const orderBy = this.teamClubsOrderBy(query.sortBy, query.sortOrder);
+
+    const [clubTeams, total] = await Promise.all([
+      this.prisma.clubTeam.findMany({ where, include: { club: true }, orderBy, skip, take }),
+      this.prisma.clubTeam.count({ where }),
+    ]);
+
+    return { items: clubTeams.map((ct) => this.toTeamClubLink(ct)), total, page, pageSize };
+  }
+
+  // The owning club always sorts first — a structural fact about who can
+  // manage the CTC, not a sortable attribute — regardless of sortBy/sortOrder.
+  private teamClubsOrderBy(
+    sortBy?: TeamClubSortBy,
+    sortOrder?: SortOrder,
+  ): Prisma.ClubTeamOrderByWithRelationInput[] {
+    const order = sortOrder ?? 'asc';
+    if (sortBy === 'linkedAt') {
+      return [{ isOwner: 'desc' }, { createdAt: order }];
+    }
+    return [{ isOwner: 'desc' }, { club: { name: order } }];
   }
 
   async addTeamClub(clubId: string, teamId: string, partnerClubId: string): Promise<TeamClubLink> {
@@ -124,14 +188,45 @@ export class TeamsService {
     ]);
   }
 
-  async listTeamPlayers(clubId: string, teamId: string): Promise<TeamPlayer[]> {
+  async listTeamPlayers(
+    clubId: string,
+    teamId: string,
+    query: ListTeamPlayersDto,
+  ): Promise<PaginatedResult<TeamPlayer>> {
     await this.assertTeamInClub(clubId, teamId);
-    const teamPlayers = await this.prisma.teamPlayer.findMany({
-      where: { teamId },
-      include: { player: true },
-      orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
-    });
-    return teamPlayers.map((tp) => this.toTeamPlayer(tp));
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.TeamPlayerWhereInput = {
+      teamId,
+      ...(query.search
+        ? {
+            player: {
+              OR: [
+                { firstName: { contains: query.search, mode: 'insensitive' } },
+                { lastName: { contains: query.search, mode: 'insensitive' } },
+              ],
+            },
+          }
+        : {}),
+    };
+    const orderBy = this.teamPlayersOrderBy(query.sortBy, query.sortOrder);
+
+    const [teamPlayers, total] = await Promise.all([
+      this.prisma.teamPlayer.findMany({ where, include: { player: true }, orderBy, skip, take }),
+      this.prisma.teamPlayer.count({ where }),
+    ]);
+
+    return { items: teamPlayers.map((tp) => this.toTeamPlayer(tp)), total, page, pageSize };
+  }
+
+  private teamPlayersOrderBy(
+    sortBy?: TeamPlayerSortBy,
+    sortOrder?: SortOrder,
+  ): Prisma.TeamPlayerOrderByWithRelationInput[] {
+    const order = sortOrder ?? 'asc';
+    if (sortBy === 'createdAt') {
+      return [{ createdAt: order }];
+    }
+    return [{ player: { lastName: order } }, { player: { firstName: order } }];
   }
 
   async addTeamPlayer(clubId: string, teamId: string, playerId: string): Promise<TeamPlayer> {
