@@ -11,10 +11,8 @@ export function useTeamPlayerRoleUpdate(clubId: string, teamId: string) {
       apiClient.patch<TeamPlayer>(`/clubs/${clubId}/teams/${teamId}/players/${playerId}`, {
         role,
       }),
-    onSuccess: (teamPlayer) => {
-      queryClient.setQueryData<TeamPlayer[]>(teamPlayersQueryKey(clubId, teamId), (prev) =>
-        (prev ?? []).map((tp) => (tp.playerId === teamPlayer.playerId ? teamPlayer : tp)),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamPlayersQueryKey(clubId, teamId) });
     },
   });
 }
