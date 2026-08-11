@@ -42,6 +42,7 @@ describe('TeamDetailPage', () => {
             firstName: 'Alex',
             lastName: 'Dupont',
             clubId: 'club-1',
+            role: 'PLAYER',
             createdAt: 'x',
           },
         ]),
@@ -58,6 +59,9 @@ describe('TeamDetailPage', () => {
     expect(screen.getByText('Alex')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /associer un club/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ajouter un administrateur/i })).toBeInTheDocument();
+    // Roster row shows an editable role select for a manager, not a badge.
+    expect(screen.getByRole('combobox', { name: /^rôle$/i })).toBeInTheDocument();
   });
 
   it('lets an admin change the category and gender', async () => {
@@ -109,6 +113,39 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /ajouter un administrateur/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('lets a TeamAdmin who is not a club admin manage the roster and events', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json([
+          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
+        ]),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/admins', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', teamId: 'team-1', createdAt: 'x' },
+        ]),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    // Team-day management is available to this TeamAdmin...
+    expect(await screen.findByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /créer un événement/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /modifier/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ajouter un administrateur/i })).toBeInTheDocument();
+    // ...but CTC governance and team deletion stay owner-club-ADMIN-only.
+    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
   });
 
   it('does not let a non-owning (partner) club admin manage partner clubs or delete the team', async () => {
@@ -191,7 +228,7 @@ describe('TeamDetailPage', () => {
         ]),
       ),
       http.post('/api/clubs/club-1/teams/team-1/players', async ({ request }) => {
-        const body = (await request.json()) as { playerId: string };
+        const body = (await request.json()) as { playerId: string; role: string };
         return HttpResponse.json({
           id: 'tp-1',
           teamId: 'team-1',
@@ -199,6 +236,7 @@ describe('TeamDetailPage', () => {
           firstName: 'Alex',
           lastName: 'Dupont',
           clubId: 'club-1',
+          role: body.role,
           createdAt: '2026-01-01',
         });
       }),

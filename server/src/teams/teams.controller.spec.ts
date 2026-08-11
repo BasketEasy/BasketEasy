@@ -3,6 +3,7 @@ import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 
 describe('TeamsController', () => {
   let controller: TeamsController;
@@ -18,6 +19,10 @@ describe('TeamsController', () => {
     listTeamPlayers: jest.Mock;
     addTeamPlayer: jest.Mock;
     removeTeamPlayer: jest.Mock;
+    updateTeamPlayerRole: jest.Mock;
+    listTeamAdmins: jest.Mock;
+    addTeamAdmin: jest.Mock;
+    removeTeamAdmin: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -33,6 +38,10 @@ describe('TeamsController', () => {
       listTeamPlayers: jest.fn(),
       addTeamPlayer: jest.fn(),
       removeTeamPlayer: jest.fn(),
+      updateTeamPlayerRole: jest.fn(),
+      listTeamAdmins: jest.fn(),
+      addTeamAdmin: jest.fn(),
+      removeTeamAdmin: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -42,6 +51,8 @@ describe('TeamsController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ClubRolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(TeamManagerGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -130,7 +141,7 @@ describe('TeamsController', () => {
 
     const result = await controller.addTeamPlayer('club-1', 'team-1', { playerId: 'player-1' });
 
-    expect(service.addTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'player-1');
+    expect(service.addTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'player-1', undefined);
     expect(result.id).toBe('tp-1');
   });
 
@@ -140,5 +151,55 @@ describe('TeamsController', () => {
     await controller.removeTeamPlayer('club-1', 'team-1', 'player-1');
 
     expect(service.removeTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'player-1');
+  });
+
+  it('updateTeamPlayerRole delegates clubId, teamId, playerId, role', async () => {
+    service.updateTeamPlayerRole.mockResolvedValue({
+      id: 'tp1',
+      teamId: 'team-1',
+      playerId: 'p1',
+      role: 'COACH',
+      firstName: 'A',
+      lastName: 'B',
+      clubId: 'club-1',
+      createdAt: 'x',
+    });
+
+    const result = await controller.updateTeamPlayerRole('club-1', 'team-1', 'p1', {
+      role: 'COACH',
+    });
+
+    expect(service.updateTeamPlayerRole).toHaveBeenCalledWith('club-1', 'team-1', 'p1', 'COACH');
+    expect(result.role).toBe('COACH');
+  });
+
+  it('listTeamAdmins delegates clubId and teamId', async () => {
+    service.listTeamAdmins.mockResolvedValue([]);
+
+    await controller.listTeamAdmins('club-1', 'team-1');
+
+    expect(service.listTeamAdmins).toHaveBeenCalledWith('club-1', 'team-1');
+  });
+
+  it('addTeamAdmin delegates clubId, teamId, email', async () => {
+    service.addTeamAdmin.mockResolvedValue({
+      userId: 'u2',
+      email: 'a@b.com',
+      teamId: 'team-1',
+      createdAt: 'x',
+    });
+
+    const result = await controller.addTeamAdmin('club-1', 'team-1', { email: 'a@b.com' });
+
+    expect(service.addTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'a@b.com');
+    expect(result.userId).toBe('u2');
+  });
+
+  it('removeTeamAdmin delegates clubId, teamId, userId, and the current user id', async () => {
+    service.removeTeamAdmin.mockResolvedValue(undefined);
+
+    await controller.removeTeamAdmin({ id: 'u1', email: 'a@b.com' }, 'club-1', 'team-1', 'u2');
+
+    expect(service.removeTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'u2', 'u1');
   });
 });

@@ -5,8 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TeamCategory, TeamGender } from '@prisma/client';
+import { Prisma, TeamCategory, TeamGender, TeamMemberRole } from '@prisma/client';
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
+import type { TeamAdmin } from '@basketeasy/types/team-admins';
+import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { PrismaService } from '../prisma/prisma.service';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -134,7 +136,12 @@ export class TeamsService {
     return teamPlayers.map((tp) => this.toTeamPlayer(tp));
   }
 
-  async addTeamPlayer(clubId: string, teamId: string, playerId: string): Promise<TeamPlayer> {
+  async addTeamPlayer(
+    clubId: string,
+    teamId: string,
+    playerId: string,
+    role: TeamMemberRole = 'PLAYER',
+  ): Promise<TeamPlayer> {
     await this.assertTeamInClub(clubId, teamId);
 
     const player = await this.prisma.player.findUnique({ where: { id: playerId } });
@@ -151,7 +158,7 @@ export class TeamsService {
 
     try {
       const teamPlayer = await this.prisma.teamPlayer.create({
-        data: { teamId, playerId },
+        data: { teamId, playerId, role },
         include: { player: true },
       });
       return this.toTeamPlayer(teamPlayer);
@@ -166,6 +173,29 @@ export class TeamsService {
     }
   }
 
+  async updateTeamPlayerRole(
+    clubId: string,
+    teamId: string,
+    playerId: string,
+    role: TeamMemberRole,
+  ): Promise<TeamPlayer> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const teamPlayer = await this.prisma.teamPlayer.findUnique({
+      where: { teamId_playerId: { teamId, playerId } },
+    });
+    if (!teamPlayer) {
+      throw new NotFoundException('Player not found on this team');
+    }
+
+    const updated = await this.prisma.teamPlayer.update({
+      where: { id: teamPlayer.id },
+      data: { role },
+      include: { player: true },
+    });
+    return this.toTeamPlayer(updated);
+  }
+
   async removeTeamPlayer(clubId: string, teamId: string, playerId: string): Promise<void> {
     await this.assertTeamInClub(clubId, teamId);
 
@@ -177,6 +207,126 @@ export class TeamsService {
     }
 
     await this.prisma.teamPlayer.delete({ where: { id: teamPlayer.id } });
+  }
+
+  async listTeamAdmins(clubId: string, teamId: string): Promise<TeamAdmin[]> {
+    await this.assertTeamInClub(clubId, teamId);
+    const teamAdmins = await this.prisma.teamAdmin.findMany({
+      where: { teamId },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return teamAdmins.map((ta) => this.toTeamAdmin(ta));
+  }
+
+  async addTeamAdmin(clubId: string, teamId: string, email: string): Promise<TeamAdmin> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new NotFoundException('No account with that email');
+    }
+
+    const membership = await this.prisma.clubMembership.findFirst({
+      where: { userId: user.id, club: { clubTeams: { some: { teamId } } } },
+    });
+    if (!membership) {
+      throw new BadRequestException(
+        "L'utilisateur doit être membre d'un club associé à cette équipe",
+      );
+    }
+
+    try {
+      const teamAdmin = await this.prisma.teamAdmin.create({
+        data: { teamId, userId: user.id },
+        include: { user: true },
+      });
+      return this.toTeamAdmin(teamAdmin);
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === UNIQUE_CONSTRAINT_VIOLATION
+      ) {
+        throw new ConflictException('Cet utilisateur est déjà administrateur de cette équipe');
+      }
+      throw err;
+    }
+  }
+
+  async removeTeamAdmin(
+    clubId: string,
+    teamId: string,
+    userId: string,
+    requestingUserId: string,
+  ): Promise<void> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const teamAdmin = await this.prisma.teamAdmin.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+    });
+    if (!teamAdmin) {
+      throw new NotFoundException('Team admin not found');
+    }
+
+    // Only self-removal is blocked here, not "last admin" in general — a
+    // club ADMIN (or another TeamAdmin, once there is more than one) can
+    // always revoke the last grant, since club ADMINs remain a valid
+    // fallback authority for the team either way (see spec: "a team can
+    // safely have zero TeamAdmins"). This guard exists purely so the last
+    // TeamAdmin doesn't accidentally lock themselves out with no one else
+    // around to undo it.
+    if (userId === requestingUserId) {
+      const adminCount = await this.prisma.teamAdmin.count({ where: { teamId } });
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Vous êtes le dernier administrateur de cette équipe : demandez à un administrateur du club de vous retirer.',
+        );
+      }
+    }
+
+    await this.prisma.teamAdmin.delete({ where: { id: teamAdmin.id } });
+  }
+
+  async listTeamsForUser(userId: string): Promise<MyTeamSummary[]> {
+    const teamInclude = {
+      clubTeams: {
+        include: { club: true },
+        orderBy: [{ isOwner: 'desc' as const }, { createdAt: 'asc' as const }],
+      },
+    };
+
+    const [adminGrants, rosterEntries, memberships] = await Promise.all([
+      this.prisma.teamAdmin.findMany({
+        where: { userId },
+        include: { team: { include: teamInclude } },
+      }),
+      this.prisma.teamPlayer.findMany({
+        where: { player: { userId } },
+        include: { team: { include: teamInclude } },
+      }),
+      this.prisma.clubMembership.findMany({ where: { userId } }),
+    ]);
+
+    const memberClubIds = new Set(memberships.map((m) => m.clubId));
+    const summaries = new Map<string, MyTeamSummary>();
+
+    for (const grant of adminGrants) {
+      summaries.set(grant.teamId, this.toMyTeamSummary(grant.team, memberClubIds, true, null));
+    }
+
+    for (const entry of rosterEntries) {
+      const existing = summaries.get(entry.teamId);
+      if (existing) {
+        existing.rosterRole = entry.role;
+      } else {
+        summaries.set(
+          entry.teamId,
+          this.toMyTeamSummary(entry.team, memberClubIds, false, entry.role),
+        );
+      }
+    }
+
+    return Array.from(summaries.values()).sort((a, b) => a.teamName.localeCompare(b.teamName));
   }
 
   private async assertTeamInClub(clubId: string, teamId: string): Promise<void> {
@@ -234,6 +384,7 @@ export class TeamsService {
     id: string;
     teamId: string;
     playerId: string;
+    role: TeamMemberRole;
     createdAt: Date;
     player: { firstName: string; lastName: string; clubId: string };
   }): TeamPlayer {
@@ -244,7 +395,57 @@ export class TeamsService {
       firstName: teamPlayer.player.firstName,
       lastName: teamPlayer.player.lastName,
       clubId: teamPlayer.player.clubId,
+      role: teamPlayer.role,
       createdAt: teamPlayer.createdAt.toISOString(),
+    };
+  }
+
+  private toTeamAdmin(teamAdmin: {
+    userId: string;
+    teamId: string;
+    createdAt: Date;
+    user: { email: string };
+  }): TeamAdmin {
+    return {
+      userId: teamAdmin.userId,
+      email: teamAdmin.user.email,
+      teamId: teamAdmin.teamId,
+      createdAt: teamAdmin.createdAt.toISOString(),
+    };
+  }
+
+  private toMyTeamSummary(
+    team: {
+      id: string;
+      name: string;
+      category: TeamCategory;
+      gender: TeamGender;
+      clubTeams: { club: { id: string; name: string } }[];
+    },
+    memberClubIds: Set<string>,
+    isTeamAdmin: boolean,
+    rosterRole: TeamMemberRole | null,
+  ): MyTeamSummary {
+    // The navigation clubId must be one the caller actually belongs to —
+    // ClubRolesGuard on GET .../teams/:teamId checks ClubMembership at
+    // exactly that :clubId, so linking to a CTC team's owning club when the
+    // caller is only a member of the partner club would 403. Every
+    // TeamAdmin/TeamPlayer grant surfaced here was only created for a user
+    // already in one of the team's linked clubs, so a match always exists in
+    // practice; clubTeams is owner-first (see listTeamsForUser), so this
+    // still prefers the owning club whenever the caller belongs to it, and
+    // falls back to it defensively if no membership match is found at all.
+    const club =
+      team.clubTeams.find((ct) => memberClubIds.has(ct.club.id))?.club ?? team.clubTeams[0].club;
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      category: team.category,
+      gender: team.gender,
+      clubId: club.id,
+      clubName: club.name,
+      isTeamAdmin,
+      rosterRole,
     };
   }
 }

@@ -13,6 +13,7 @@ import {
 import type { TeamEvent } from '@basketeasy/types/events';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -34,8 +35,7 @@ export class EventsController {
   }
 
   @Post()
-  @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN')
+  @UseGuards(TeamManagerGuard)
   createEvent(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -45,8 +45,7 @@ export class EventsController {
   }
 
   @Patch(':eventId')
-  @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN')
+  @UseGuards(TeamManagerGuard)
   updateEvent(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -57,8 +56,7 @@ export class EventsController {
   }
 
   @Delete(':eventId')
-  @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN')
+  @UseGuards(TeamManagerGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteEvent(
     @Param('clubId') clubId: string,

@@ -1,4 +1,4 @@
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import type { TeamCategory, TeamGender, TeamMemberRole } from '@basketeasy/types/teams';
 
 export const TEAM_CATEGORY_OPTIONS: { value: TeamCategory; label: string }[] = [
   { value: 'U9', label: 'U9' },
@@ -24,4 +24,15 @@ export function teamCategoryLabel(category: TeamCategory): string {
 
 export function teamGenderLabel(gender: TeamGender): string {
   return genderLabels.get(gender) ?? gender;
+}
+
+export const TEAM_MEMBER_ROLE_OPTIONS: { value: TeamMemberRole; label: string }[] = [
+  { value: 'PLAYER', label: 'Joueur' },
+  { value: 'COACH', label: 'Entraîneur' },
+];
+
+const teamMemberRoleLabels = new Map(TEAM_MEMBER_ROLE_OPTIONS.map((o) => [o.value, o.label]));
+
+export function teamMemberRoleLabel(role: TeamMemberRole): string {
+  return teamMemberRoleLabels.get(role) ?? role;
 }

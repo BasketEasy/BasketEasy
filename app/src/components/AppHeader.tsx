@@ -60,6 +60,9 @@ export function AppHeader() {
       <Button variant="ghost" className="justify-start" onClick={() => go('/dashboard')}>
         Tableau de bord
       </Button>
+      <Button variant="ghost" className="justify-start" onClick={() => go('/my-teams')}>
+        Mes équipes
+      </Button>
       <Button variant="ghost" className="justify-start" onClick={() => go('/account')}>
         Mon profil
       </Button>

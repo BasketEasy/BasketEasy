@@ -31,6 +31,14 @@
     "./events": {
       "types": "./events.ts",
       "default": "./events.ts"
+    },
+    "./team-admins": {
+      "types": "./team-admins.ts",
+      "default": "./team-admins.ts"
+    },
+    "./my-teams": {
+      "types": "./my-teams.ts",
+      "default": "./my-teams.ts"
     }
   },
   "scripts": {

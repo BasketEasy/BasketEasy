@@ -14,12 +14,12 @@ export function EventRow({
   clubId,
   teamId,
   event,
-  isAdmin,
+  canManage,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
-  isAdmin: boolean;
+  canManage: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [startsAt, setStartsAt] = useState(toDatetimeLocalValue(event.startsAt));
@@ -101,7 +101,7 @@ export function EventRow({
       <TableCell>{event.notes ?? '—'}</TableCell>
       <TableCell className="flex flex-col gap-2">
         {error && <FieldError>{error}</FieldError>}
-        {isAdmin && (
+        {canManage && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={startEditing}>
               Modifier

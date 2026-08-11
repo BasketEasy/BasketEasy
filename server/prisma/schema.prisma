@@ -20,6 +20,7 @@ model User {
   memberships   ClubMembership[]
   refreshTokens RefreshToken[]
   linkedPlayers Player[]
+  teamAdmins    TeamAdmin[]
 }
 
 model Player {
@@ -61,6 +62,11 @@ enum TeamGender {
   WOMEN
 }
 
+enum TeamMemberRole {
+  COACH
+  PLAYER
+}
+
 model Team {
   id          String       @id @default(uuid())
   name        String
@@ -70,6 +76,7 @@ model Team {
   clubTeams   ClubTeam[]
   teamPlayers TeamPlayer[]
   events      Event[]
+  teamAdmins  TeamAdmin[]
 }
 
 // Join between Club and Team: a team can be linked to several clubs at once
@@ -94,15 +101,34 @@ model ClubTeam {
 // Cascades on both sides: deleting the team or the player should not be
 // blocked by leftover roster rows.
 model TeamPlayer {
-  id        String   @id @default(uuid())
+  id        String         @id @default(uuid())
   teamId    String
   playerId  String
-  createdAt DateTime @default(now())
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  role      TeamMemberRole @default(PLAYER)
+  createdAt DateTime       @default(now())
+  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player    Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, playerId])
   @@index([playerId])
+}
+
+// A user granted admin rights scoped to a single team (distinct from
+// club-level ClubRole.ADMIN). The first one for a team can only be created
+// by a club ADMIN of one of the team's linked clubs; once at least one
+// exists, any existing TeamAdmin can add/remove further ones for the same
+// team — club ADMINs keep the same power throughout, they don't lose it by
+// delegating. See docs/superpowers/specs/2026-08-10-team-roles-admin-setup-design.md.
+model TeamAdmin {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
 }
 
 // A single team-day event (training session for now — no RSVP/convocation

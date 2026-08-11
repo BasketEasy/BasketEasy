@@ -10,6 +10,7 @@ import { ClubCreatePage } from './pages/ClubCreatePage';
 import { MembersPage } from './pages/MembersPage';
 import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
+import { MyTeamsPage } from './pages/MyTeamsPage';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />
           <Route path="/clubs/:clubId/members" element={<MembersPage />} />
           <Route path="/clubs/:clubId/teams/:teamId" element={<TeamDetailPage />} />
