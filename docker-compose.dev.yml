@@ -51,6 +51,9 @@ services:
       NODE_ENV: development
       COOKIE_SECURE: 'false'
       DATABASE_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
+      # Neon (prod) needs a separate unpooled connection for migrations; the
+      # local postgres container has no pooling, so the two are just the same.
+      NEON_DIRECT_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-secret-change-me}
     ports:
