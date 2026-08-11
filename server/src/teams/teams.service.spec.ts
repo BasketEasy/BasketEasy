@@ -692,11 +692,11 @@ describe('TeamsService', () => {
       ]);
     });
 
-    it('addTeamAdmin throws NotFoundException when no user has that email', async () => {
+    it('addTeamAdmin throws NotFoundException when no user has that id', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.addTeamAdmin('club-1', 'team-1', 'nobody@example.com')).rejects.toThrow(
+      await expect(service.addTeamAdmin('club-1', 'team-1', 'nobody')).rejects.toThrow(
         NotFoundException,
       );
       expect(prisma.teamAdmin.create).not.toHaveBeenCalled();
@@ -707,7 +707,7 @@ describe('TeamsService', () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u2', email: 'a@b.com' });
       prisma.clubMembership.findFirst.mockResolvedValue(null);
 
-      await expect(service.addTeamAdmin('club-1', 'team-1', 'a@b.com')).rejects.toThrow(
+      await expect(service.addTeamAdmin('club-1', 'team-1', 'u2')).rejects.toThrow(
         BadRequestException,
       );
       expect(prisma.teamAdmin.create).not.toHaveBeenCalled();
@@ -724,7 +724,7 @@ describe('TeamsService', () => {
         }),
       );
 
-      await expect(service.addTeamAdmin('club-1', 'team-1', 'a@b.com')).rejects.toThrow(
+      await expect(service.addTeamAdmin('club-1', 'team-1', 'u2')).rejects.toThrow(
         ConflictException,
       );
     });
@@ -740,13 +740,45 @@ describe('TeamsService', () => {
         user: { email: 'a@b.com' },
       });
 
-      const result = await service.addTeamAdmin('club-1', 'team-1', 'a@b.com');
+      const result = await service.addTeamAdmin('club-1', 'team-1', 'u2');
 
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'u2' } });
       expect(prisma.teamAdmin.create).toHaveBeenCalledWith({
         data: { teamId: 'team-1', userId: 'u2' },
         include: { user: true },
       });
       expect(result.userId).toBe('u2');
+    });
+
+    it('listEligibleAdmins returns members of clubs linked to the team, deduped by user', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.clubMembership.findMany.mockResolvedValue([
+        {
+          userId: 'u1',
+          user: { email: 'a@b.com', firstName: 'A', lastName: 'B' },
+        },
+        {
+          userId: 'u2',
+          user: { email: 'c@d.com', firstName: 'C', lastName: 'D' },
+        },
+        // Same user, member of a second linked club (CTC) — must be deduped.
+        {
+          userId: 'u1',
+          user: { email: 'a@b.com', firstName: 'A', lastName: 'B' },
+        },
+      ]);
+
+      const result = await service.listEligibleAdmins('club-1', 'team-1');
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith({
+        where: { club: { clubTeams: { some: { teamId: 'team-1' } } } },
+        include: { user: true },
+        orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
+      });
+      expect(result).toEqual([
+        { userId: 'u1', email: 'a@b.com', firstName: 'A', lastName: 'B' },
+        { userId: 'u2', email: 'c@d.com', firstName: 'C', lastName: 'D' },
+      ]);
     });
 
     it('removeTeamAdmin throws NotFoundException when there is no such grant', async () => {

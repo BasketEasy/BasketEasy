@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
-import type { TeamAdmin } from '@basketeasy/types/team-admins';
+import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -164,6 +164,15 @@ export class TeamsController {
     return this.teamsService.listTeamAdmins(clubId, teamId);
   }
 
+  @Get(':teamId/admins/eligible')
+  @UseGuards(TeamManagerGuard)
+  listEligibleAdmins(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<TeamAdminCandidate[]> {
+    return this.teamsService.listEligibleAdmins(clubId, teamId);
+  }
+
   @Post(':teamId/admins')
   @UseGuards(TeamManagerGuard)
   addTeamAdmin(
@@ -171,7 +180,7 @@ export class TeamsController {
     @Param('teamId') teamId: string,
     @Body() dto: AddTeamAdminDto,
   ): Promise<TeamAdmin> {
-    return this.teamsService.addTeamAdmin(clubId, teamId, dto.email);
+    return this.teamsService.addTeamAdmin(clubId, teamId, dto.userId);
   }
 
   @Delete(':teamId/admins/:userId')

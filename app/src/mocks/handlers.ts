@@ -40,6 +40,11 @@ export const handlers = [
   // team-admin-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/admins', () => HttpResponse.json([])),
 
+  // Default: no eligible team-admin candidates. TeamDetailPage always queries
+  // this to populate the "Ajouter un administrateur" dropdown; team-admin-add
+  // focused tests override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/admins/eligible', () => HttpResponse.json([])),
+
   // Default: no personal teams. MyTeamsPage always queries this; tests
   // exercising it override with server.use(...).
   http.get('/api/me/teams', () => HttpResponse.json([])),
