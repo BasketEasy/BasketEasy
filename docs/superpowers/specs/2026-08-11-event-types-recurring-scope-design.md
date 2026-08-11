@@ -244,11 +244,23 @@ reopen the original cut, it fills in the one corner of it that was cheap and una
   of the app already treats time.
 - Frontend: `EventRow`'s edit action moved from an inline table-row edit into a `Dialog`-based
   `EventEditModal` (RHF + zod, mirroring `EventCreateForm`'s existing convention — see
-  CLAUDE.md's new "Modals vs. inline editing" guidance for why this one crossed the inline→modal
-  threshold while the delete-scope selector didn't). Selecting a non-`THIS` scope in that modal
-  swaps the datetime-local field for a time-only field and, on submit, calls the new `/time`
-  endpoint in addition to the regular field update (type/location/notes/opponent still broadcast
-  across scope via the existing `PATCH .../events/:eventId`, unchanged).
+  CLAUDE.md's new "Modals vs. inline editing" guidance). Selecting a non-`THIS` scope in that
+  modal swaps the datetime-local field for a time-only field and, on submit, calls the new
+  `/time` endpoint in addition to the regular field update (type/location/notes/opponent still
+  broadcast across scope via the existing `PATCH .../events/:eventId`, unchanged).
+
+## Addendum (loop 2): delete-scope selector moved into a confirmation modal
+
+`EventRow`'s "Supprimer" action also moved off the row: the delete-scope `SelectField` used to
+sit inline next to the button, but deleting is irreversible, so it's now inside a dedicated
+`EventDeleteModal` (trigger button + scope selector, shown only for a recurring event, +
+Annuler/Confirmer la suppression) rather than firing straight off an inline control. This is the
+destructive-confirmation case CLAUDE.md's "Modals vs. inline editing" guidance calls out
+separately from the multi-field-edit case: a modal is warranted here not because the choice is
+multi-field (it's one `SelectField`) but because the action it gates can't be undone — keeping
+the scope pick and the confirm step in one focused dialog prevents a scope selected a moment
+earlier from being applied by a stray click on "Supprimer". `useEventDelete` and the
+`DELETE .../events/:eventId?scope=` endpoint are unchanged; only where the scope is chosen moved.
 
 ## Testing
 

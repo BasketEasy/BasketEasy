@@ -59,9 +59,15 @@ describe('EventRow', () => {
     expect(screen.getByText('vs US Saint-Nazaire')).toBeInTheDocument();
   });
 
-  it('does not show a scope select for a non-recurring event', () => {
+  it('does not show a scope select in the delete confirmation for a non-recurring event', async () => {
+    const user = userEvent.setup();
     renderRow(trainingEvent, true);
 
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+
+    expect(
+      await screen.findByRole('heading', { name: /supprimer l.événement/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Appliquer à')).not.toBeInTheDocument();
   });
 
@@ -77,11 +83,12 @@ describe('EventRow', () => {
     const user = userEvent.setup();
     renderRow(recurringEvent, true);
 
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
     await user.click(screen.getByRole('combobox', { name: /appliquer à/i }));
     await user.click(
       await screen.findByRole('option', { name: /tous les événements de la série/i }),
     );
-    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    await user.click(screen.getByRole('button', { name: /confirmer la suppression/i }));
 
     await waitFor(() => expect(requestedUrl).toContain('?scope=ALL'));
   });
