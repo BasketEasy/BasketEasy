@@ -4,11 +4,7 @@ import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { apiClient } from '../api/client';
 import { teamPlayersQueryKey } from './queryKeys';
 
-export function useTeamPlayerList(
-  clubId: string,
-  teamId: string,
-  params?: ListTeamPlayersParams,
-) {
+export function useTeamPlayerList(clubId: string, teamId: string, params?: ListTeamPlayersParams) {
   return useQuery({
     queryKey: teamPlayersQueryKey(clubId, teamId, params),
     queryFn: () =>

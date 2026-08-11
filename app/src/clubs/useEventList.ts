@@ -8,10 +8,7 @@ export function useEventList(clubId: string, teamId: string, params?: ListEvents
   return useQuery({
     queryKey: teamEventsQueryKey(clubId, teamId, params),
     queryFn: () =>
-      apiClient.get<PaginatedResult<TeamEvent>>(
-        `/clubs/${clubId}/teams/${teamId}/events`,
-        params,
-      ),
+      apiClient.get<PaginatedResult<TeamEvent>>(`/clubs/${clubId}/teams/${teamId}/events`, params),
     placeholderData: keepPreviousData,
   });
 }

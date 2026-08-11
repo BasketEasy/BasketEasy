@@ -40,8 +40,6 @@ describe('useClubMemberAdd', () => {
     result.current.mutate({ email: 'a@b.com' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(
-      queryClient.getQueryState(['clubs', 'club-1', 'members', {}])?.isInvalidated,
-    ).toBe(true);
+    expect(queryClient.getQueryState(['clubs', 'club-1', 'members', {}])?.isInvalidated).toBe(true);
   });
 });

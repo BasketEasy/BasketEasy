@@ -41,8 +41,6 @@ describe('usePlayerCreate', () => {
     result.current.mutate({ firstName: 'A', lastName: 'B' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(
-      queryClient.getQueryState(['clubs', 'club-1', 'players', {}])?.isInvalidated,
-    ).toBe(true);
+    expect(queryClient.getQueryState(['clubs', 'club-1', 'players', {}])?.isInvalidated).toBe(true);
   });
 });
