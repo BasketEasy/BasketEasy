@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -167,10 +168,11 @@ export class TeamsController {
   @UseGuards(TeamManagerGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   removeTeamAdmin(
+    @CurrentUser() user: RequestUser,
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('userId') userId: string,
   ): Promise<void> {
-    return this.teamsService.removeTeamAdmin(clubId, teamId, userId);
+    return this.teamsService.removeTeamAdmin(clubId, teamId, userId, user.id);
   }
 }

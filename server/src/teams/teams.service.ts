@@ -253,7 +253,12 @@ export class TeamsService {
     }
   }
 
-  async removeTeamAdmin(clubId: string, teamId: string, userId: string): Promise<void> {
+  async removeTeamAdmin(
+    clubId: string,
+    teamId: string,
+    userId: string,
+    requestingUserId: string,
+  ): Promise<void> {
     await this.assertTeamInClub(clubId, teamId);
 
     const teamAdmin = await this.prisma.teamAdmin.findUnique({
@@ -261,6 +266,22 @@ export class TeamsService {
     });
     if (!teamAdmin) {
       throw new NotFoundException('Team admin not found');
+    }
+
+    // Only self-removal is blocked here, not "last admin" in general — a
+    // club ADMIN (or another TeamAdmin, once there is more than one) can
+    // always revoke the last grant, since club ADMINs remain a valid
+    // fallback authority for the team either way (see spec: "a team can
+    // safely have zero TeamAdmins"). This guard exists purely so the last
+    // TeamAdmin doesn't accidentally lock themselves out with no one else
+    // around to undo it.
+    if (userId === requestingUserId) {
+      const adminCount = await this.prisma.teamAdmin.count({ where: { teamId } });
+      if (adminCount <= 1) {
+        throw new BadRequestException(
+          'Vous êtes le dernier administrateur de cette équipe : demandez à un administrateur du club de vous retirer.',
+        );
+      }
     }
 
     await this.prisma.teamAdmin.delete({ where: { id: teamAdmin.id } });

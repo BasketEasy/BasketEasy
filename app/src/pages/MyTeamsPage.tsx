@@ -27,7 +27,7 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       <TableCell>
         {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
       </TableCell>
-      <TableCell className="flex flex-wrap gap-1">
+      <TableCell className="flex flex-wrap items-center gap-1">
         {team.isTeamAdmin && <Badge>Administrateur</Badge>}
         {team.rosterRole && (
           <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>

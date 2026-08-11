@@ -3,6 +3,7 @@ import { Button } from '@basketeasy/ui/button';
 import { FieldError } from '@basketeasy/ui/field-error';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamAdmin } from '@basketeasy/types/team-admins';
+import { ApiError } from '../api/client';
 import { useTeamAdminRemove } from './useTeamAdminRemove';
 import { getClubErrorMessage } from './clubErrorMessages';
 
@@ -31,7 +32,17 @@ export function TeamAdminRow({
             disabled={isPending}
             onClick={() =>
               removeTeamAdmin(admin.userId, {
-                onError: (err) => setError(getClubErrorMessage(err)),
+                onError: (err) => {
+                  // getClubErrorMessage's 400 copy ("informations invalides")
+                  // is wrong for the last-admin-self-removal case — the
+                  // server's own message is already the correct French
+                  // explanation, same reasoning as TeamAdminAddForm's 409.
+                  const message =
+                    err instanceof ApiError && err.status === 400
+                      ? err.message
+                      : getClubErrorMessage(err);
+                  setError(message);
+                },
               })
             }
           >

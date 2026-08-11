@@ -195,11 +195,11 @@ describe('TeamsController', () => {
     expect(result.userId).toBe('u2');
   });
 
-  it('removeTeamAdmin delegates clubId, teamId, userId', async () => {
+  it('removeTeamAdmin delegates clubId, teamId, userId, and the current user id', async () => {
     service.removeTeamAdmin.mockResolvedValue(undefined);
 
-    await controller.removeTeamAdmin('club-1', 'team-1', 'u2');
+    await controller.removeTeamAdmin({ id: 'u1', email: 'a@b.com' }, 'club-1', 'team-1', 'u2');
 
-    expect(service.removeTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'u2');
+    expect(service.removeTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'u2', 'u1');
   });
 });

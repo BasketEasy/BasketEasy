@@ -42,6 +42,7 @@ describe('TeamsService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       delete: jest.Mock;
+      count: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -78,6 +79,7 @@ describe('TeamsService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
@@ -598,17 +600,40 @@ describe('TeamsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.teamAdmin.findUnique.mockResolvedValue(null);
 
-      await expect(service.removeTeamAdmin('club-1', 'team-1', 'u2')).rejects.toThrow(
+      await expect(service.removeTeamAdmin('club-1', 'team-1', 'u2', 'u1')).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('removeTeamAdmin deletes the grant', async () => {
+    it('removeTeamAdmin deletes the grant when removed by someone else (e.g. a club ADMIN)', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.teamAdmin.findUnique.mockResolvedValue({ id: 'ta1', userId: 'u2', teamId: 'team-1' });
       prisma.teamAdmin.delete.mockResolvedValue({});
 
-      await service.removeTeamAdmin('club-1', 'team-1', 'u2');
+      await service.removeTeamAdmin('club-1', 'team-1', 'u2', 'u1');
+
+      expect(prisma.teamAdmin.delete).toHaveBeenCalledWith({ where: { id: 'ta1' } });
+      expect(prisma.teamAdmin.count).not.toHaveBeenCalled();
+    });
+
+    it('removeTeamAdmin throws BadRequestException when the last team admin removes themselves', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamAdmin.findUnique.mockResolvedValue({ id: 'ta1', userId: 'u2', teamId: 'team-1' });
+      prisma.teamAdmin.count.mockResolvedValue(1);
+
+      await expect(service.removeTeamAdmin('club-1', 'team-1', 'u2', 'u2')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.teamAdmin.delete).not.toHaveBeenCalled();
+    });
+
+    it('removeTeamAdmin allows self-removal when there is more than one team admin', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamAdmin.findUnique.mockResolvedValue({ id: 'ta1', userId: 'u2', teamId: 'team-1' });
+      prisma.teamAdmin.count.mockResolvedValue(2);
+      prisma.teamAdmin.delete.mockResolvedValue({});
+
+      await service.removeTeamAdmin('club-1', 'team-1', 'u2', 'u2');
 
       expect(prisma.teamAdmin.delete).toHaveBeenCalledWith({ where: { id: 'ta1' } });
     });
