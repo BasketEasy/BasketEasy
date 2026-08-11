@@ -1,0 +1,70 @@
+<svg viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg" font-family="Inter, Arial, sans-serif">
+  <rect width="1000" height="760" fill="#FAF5EF"/>
+  <rect x="0" y="0" width="1000" height="64" fill="#FFFFFF" stroke="#E4DACD"/>
+  <text x="24" y="40" font-size="22" font-weight="800" fill="#D4622A" font-family="Georgia, serif">BasketEasy</text>
+
+  <text x="24" y="106" font-size="20" font-weight="700" fill="#23201C" font-family="Georgia, serif">Calendrier — U15 Filles</text>
+  <rect x="700" y="86" width="120" height="30" rx="6" fill="#FFFFFF" stroke="#E4DACD"/>
+  <text x="716" y="106" font-size="12" fill="#23201C">Mois ▾</text>
+  <rect x="836" y="86" width="140" height="30" rx="6" fill="#D4622A"/>
+  <text x="856" y="106" font-size="12" fill="#FFFFFF">+ Événement</text>
+
+  <text x="24" y="140" font-size="15" font-weight="600" fill="#23201C">Août 2026</text>
+  <text x="900" y="140" font-size="13" fill="#1E5F74">‹ &#8202; ›</text>
+
+  <!-- calendar grid -->
+  <g font-size="11" fill="#6B645A">
+    <text x="60" y="164">LUN</text><text x="200" y="164">MAR</text><text x="340" y="164">MER</text>
+    <text x="480" y="164">JEU</text><text x="620" y="164">VEN</text><text x="760" y="164">SAM</text><text x="900" y="164">DIM</text>
+  </g>
+  <g stroke="#E4DACD" fill="#FFFFFF">
+    <!-- row 1 -->
+    <rect x="24" y="176" width="130" height="90" rx="4"/><rect x="164" y="176" width="130" height="90" rx="4"/>
+    <rect x="304" y="176" width="130" height="90" rx="4"/><rect x="444" y="176" width="130" height="90" rx="4" fill="#FBEEE6" stroke="#D4622A"/>
+    <rect x="584" y="176" width="130" height="90" rx="4"/><rect x="724" y="176" width="130" height="90" rx="4" fill="#EAF1EE" stroke="#1E5F74"/>
+    <rect x="864" y="176" width="112" height="90" rx="4"/>
+    <!-- row 2 -->
+    <rect x="24" y="270" width="130" height="90" rx="4"/><rect x="164" y="270" width="130" height="90" rx="4"/>
+    <rect x="304" y="270" width="130" height="90" rx="4"/><rect x="444" y="270" width="130" height="90" rx="4"/>
+    <rect x="584" y="270" width="130" height="90" rx="4"/><rect x="724" y="270" width="130" height="90" rx="4"/>
+    <rect x="864" y="270" width="112" height="90" rx="4"/>
+  </g>
+  <g font-size="11" fill="#8A8377">
+    <text x="32" y="192">10</text><text x="172" y="192">11</text><text x="312" y="192">12</text>
+    <text x="452" y="192" fill="#D4622A" font-weight="700">14</text><text x="592" y="192">15</text>
+    <text x="732" y="192" fill="#1E5F74" font-weight="700">16</text><text x="872" y="192">17</text>
+    <text x="32" y="286">18</text><text x="172" y="286">19</text><text x="312" y="286">20</text>
+    <text x="452" y="286">21</text><text x="592" y="286">22</text><text x="732" y="286">23</text><text x="872" y="286">24</text>
+  </g>
+  <!-- event chips on Thu 14 and Sat 16 -->
+  <rect x="450" y="204" width="118" height="20" rx="4" fill="#D4622A"/>
+  <text x="456" y="218" font-size="9" fill="#FFFFFF">18:00 Entraînement</text>
+  <rect x="730" y="204" width="118" height="20" rx="4" fill="#1E5F74"/>
+  <text x="736" y="218" font-size="9" fill="#FFFFFF">10:00 vs. Rezé</text>
+  <rect x="730" y="228" width="118" height="20" rx="4" fill="#1E5F74" opacity="0.6"/>
+  <text x="736" y="242" font-size="9" fill="#FFFFFF">Convocation: 12/15</text>
+
+  <!-- side list: agenda view for narrow screens -->
+  <text x="24" y="400" font-size="13" font-weight="700" fill="#23201C">Vue agenda (mobile / liste)</text>
+  <rect x="24" y="412" width="952" height="140" rx="8" fill="#FFFFFF" stroke="#E4DACD"/>
+  <g>
+    <rect x="40" y="426" width="4" height="44" fill="#D4622A"/>
+    <text x="56" y="442" font-size="12" font-weight="600" fill="#23201C">Jeu. 14 août — Entraînement</text>
+    <text x="56" y="460" font-size="11" fill="#6B645A">18:00 · Gymnase Bonnet · 15 convoquées</text>
+    <rect x="40" y="486" width="4" height="44" fill="#1E5F74"/>
+    <text x="56" y="502" font-size="12" font-weight="600" fill="#23201C">Sam. 16 août — Match vs. ES Rezé</text>
+    <text x="56" y="520" font-size="11" fill="#6B645A">10:00 · Salle Rezé Océane · 12/15 confirmées</text>
+  </g>
+
+  <!-- annotation -->
+  <g>
+    <rect x="24" y="576" width="952" height="160" rx="6" fill="#EAF1EE" stroke="#1E5F74" stroke-dasharray="4 3"/>
+    <text x="40" y="602" font-size="13" font-weight="700" fill="#1E5F74">What changed vs. today's Événements table</text>
+    <text x="40" y="626" font-size="12" fill="#23201C">Today: events render as table rows (Date / Lieu / Notes) with search + a From/To date filter — functional</text>
+    <text x="40" y="646" font-size="12" fill="#23201C">for finding one event by date, useless for answering "what do we have this week."</text>
+    <text x="40" y="670" font-size="12" fill="#23201C">Proposed: month grid on desktop, collapsing to the agenda-list pattern below 768px (reusing the mobile</text>
+    <text x="40" y="690" font-size="12" fill="#23201C">breakpoint AppHeader already has). Color today's/this-week's events; keep the existing search+date-range</text>
+    <text x="40" y="710" font-size="12" fill="#23201C">table reachable as a "Vue liste" toggle for admins doing bulk edits. Depends on the RSVP/convocation</text>
+    <text x="40" y="730" font-size="12" fill="#23201C">counts noted in CLAUDE.md's Events roadmap (items 1–2) to show the "12/15 confirmées" chip meaningfully.</text>
+  </g>
+</svg>
