@@ -18,6 +18,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **What ships:** A shared `EmptyState` component in `@basketeasy/ui`, dropped into the empty branch of every list view in the app: `MembersPage` (Membres/Joueurs/Équipes — 3 sites), `TeamDetailPage` (Clubs partenaires/Effectif/Événements/Administrateurs — 4 sites), and `MyTeamsPage` (1 site, currently a bare `<p>`, migrated to the shared component for consistency). Each instance gets a role-appropriate icon, one line of copy, and — where the viewer has permission to act — a primary CTA button that opens the page's existing "add" dialog (no new dialogs; empty state's CTA just triggers the same `Dialog`/`onOpenChange` state the page's own "+ Ajouter" button already wires up). Non-admins/non-managers viewing an empty list (e.g. a club `MEMBER` looking at an empty roster) get the icon + message only, no CTA.
 
 **Frontend changes:**
+
 - New: `packages/@basketeasy/ui/src/components/EmptyState.tsx` (+ `.test.tsx`, `.stories.tsx`), exported via a new `"./empty-state"` entry in `packages/@basketeasy/ui/package.json`'s `exports`. Composed entirely from existing `Card` + `Button` — no new Radix dependency.
 - Modify: `app/src/pages/MembersPage.tsx` (3 call sites, replacing the bare `Table`/`Pagination` fallthrough when `total === 0`), `app/src/pages/TeamDetailPage.tsx` (4 call sites), `app/src/pages/MyTeamsPage.tsx` (1 call site).
 - Each page decides its own icon/copy/CTA text (French copy per `CLAUDE.md`'s French-first convention) — `EmptyState` itself takes `icon`, `title`, `description`, and an optional `action` node as props, no page-specific logic baked into the shared component.
@@ -29,14 +30,16 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **S.** One small, well-bounded component; the rollout across 8 call sites is mechanical copy/paste-style wiring, not new logic.
 
 **Acceptance criteria:**
+
 - [ ] `EmptyState` exists in `@basketeasy/ui`, documented in Storybook, with a unit test covering the with-action and without-action variants.
 - [ ] All 8 identified empty-list call sites render it instead of a bare "Aucun résultat" or ad hoc `<p>`.
 - [ ] Non-admin/non-manager viewers see no CTA in a list they can't add to (verified per page's existing `isAdmin`/`canManageTeam` gating).
 - [ ] `Pagination`'s own "Aucun résultat" caption is either suppressed or intentionally left as a secondary indicator underneath the new empty state (decide during implementation, not both competing for attention).
 
 **Open questions/risks:**
+
 - `Pagination` still renders "Aucun résultat 0 sur 0" in its own caption regardless of what's above it in the empty branch — decide whether to hide `Pagination` entirely when `total === 0` (cleaner) or leave it (shows page-size controls consistently). Low risk either way, but worth a decision up front so all 8 sites are consistent.
-- Empty-state copy for a *filtered-to-empty* result (e.g. searched for a name with no matches) should differ from a *genuinely-empty* list (e.g. brand-new club, zero players ever added) — the CTA ("+ Ajouter un joueur") makes no sense mid-search. Each page needs to pass different copy/action based on whether a filter is active vs. the underlying list is truly empty; this is a small but real branch in each of the 8 call sites, not just a prop swap.
+- Empty-state copy for a _filtered-to-empty_ result (e.g. searched for a name with no matches) should differ from a _genuinely-empty_ list (e.g. brand-new club, zero players ever added) — the CTA ("+ Ajouter un joueur") makes no sense mid-search. Each page needs to pass different copy/action based on whether a filter is active vs. the underlying list is truly empty; this is a small but real branch in each of the 8 call sites, not just a prop swap.
 
 ---
 
@@ -45,6 +48,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **What ships:** `TeamDetailPage.tsx` (currently 690 lines, 4 stacked full sections) restructures into a `Tabs` shell mirroring `MembersPage`'s URL-driven pattern (`?tab=`, `useSearchParams`): **Effectif** (default) / **Clubs partenaires** / **Administrateurs**, plus a fourth tab that becomes item 5a's agenda view once that lands (until then, it stays the existing Événements table, just moved into a tab). The Effectif tab defaults to a grouped, avatar-chip card view — "JOUEUSES (n)" / "STAFF (n)" sections split on `TeamPlayer.role` (`PLAYER`/`COACH`, already present on every roster row), each player rendered as `Avatar`/`AvatarFallback` with initials + name — with a "Basculer en vue tableau" toggle that reveals the existing sortable/searchable/paginated `Table` unchanged. The Clubs partenaires and Administrateurs tabs keep their current table UI as-is (no card view proposed for those in the wireframe); the Administrateurs tab does **not** gain search/pagination as part of this item (see Open questions).
 
 **Frontend changes:**
+
 - Modify: `app/src/pages/TeamDetailPage.tsx` — wrap the 4 sections in `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` (already imported and proven in `MembersPage.tsx`); move the team header/edit/delete block above the tabs, unchanged.
 - New: a roster card view component (e.g. `app/src/clubs/TeamRosterCards.tsx`) rendering the grouped avatar-chip layout, reusing `Avatar`/`AvatarFallback`/`Card`/`Badge` from `@basketeasy/ui` — all already exist, confirmed via `packages/@basketeasy/ui/src/components/Avatar.tsx`. A small local `getInitials(firstName, lastName)` helper is needed (not a new primitive, just a string util) since `AvatarFallback` takes children, not a name prop.
 - The card view should fetch the **full** roster (all roles, not one paginated page) the same way `TeamDetailPage` already fetches `allTeamPlayers` for the "addable players" computation (`LINKING_PAGE_SIZE = 100`, already defined in the file) — team rosters are small enough that "who's on this team" should never itself be paginated; only the "power view" table toggle should stay paginated at `DEFAULT_PAGE_SIZE = 25`.
@@ -58,6 +62,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **L.** This is the largest single page in the app (690 lines) undergoing a real structural rewrite, plus a genuinely new composition (grouped avatar-chip roster view with a view-mode toggle whose state needs to persist sensibly — likely local `useState`, reset on tab change), plus a full test rewrite. Individually the pieces are simple (`Tabs`, `Avatar`, `Card` all exist), but the surface area touched is large.
 
 **Acceptance criteria:**
+
 - [ ] Four tabs (Effectif / Clubs partenaires / Administrateurs / Événements) replace the four stacked sections; tab state is reflected in the URL (`?tab=`) like `MembersPage`.
 - [ ] Effectif tab defaults to grouped card view (players split by role), with a working toggle to the existing table view; toggling preserves the current search/sort state of whichever view is active (or explicitly resets it — decide and document).
 - [ ] Reaching Administrateurs no longer requires scrolling past three other sections.
@@ -65,6 +70,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 - [ ] `TeamDetailPage.test.tsx` passes with tab-aware assertions; coverage for the new card view and the view-mode toggle is added.
 
 **Open questions/risks:**
+
 - **Administrateurs search/pagination parity (called out in 2.2) is explicitly deferred, not included.** `GET .../teams/:teamId/admins` returns a plain `TeamAdmin[]` (no `PaginatedResult`, no `ListTeamAdminsDto` — confirmed in `server/src/teams/teams.controller.ts` and `packages/@basketeasy/types/team-admins.ts`). Adding search/pagination there is a backend contract change, which would break this item's "restructuring, not new UI" framing. Given team-admin lists are realistically 1–3 people, recommend leaving this as a known, accepted inconsistency rather than scope-creeping this item — revisit only if real usage shows teams with large admin lists.
 - **Back-link destination, resolved via design review — confirmed intentional, not a mockup slip, but a real behavior change worth flagging as a v1 trade-off.** Today's hardcoded "← Retour à l'effectif" only makes sense for the persona who arrived via the club's Members page — it's wrong for anyone who arrived via `/my-teams` (the only nav path for a plain member or team-only admin, per `CLAUDE.md`). "← Mes équipes" is the simplest fix that works for every persona, but it does change behavior for club admins who currently expect to land back on Effectif. The more correct fix — a contextual back-link that returns to wherever the user actually came from (Members page vs. My Teams), e.g. via `location.state` or a `?from=` param — is out of scope for this item; ship the fixed "← Mes équipes" destination for v1 and track the contextual version as a small follow-up rather than blocking this item on it.
 - Card-view roster grouping only has two buckets today (`PLAYER`/`COACH` — `TeamMemberRole` enum). Fine for now, but per `CLAUDE.md`'s roadmap a future `type` field or additional roles could change the grouping; don't hardcode more structure into the card component than the current two-value enum needs.
@@ -78,6 +84,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Zero-admin-club state, resolved via design review:** no new mockup needed — mirror today's `AppHeader.tsx` guard (`adminClubs.length > 0`). The switcher (and the new "Effectif" nav item, which has no meaning without an active club) render only for a user administering ≥1 club. A zero-admin-club user sees neither; "Créer un club" stays exactly where it is today, a normal top-level nav link, unchanged by this item.
 
 **Frontend changes:**
+
 - **New primitive required — this is where the audit's "no new primitives needed" claim doesn't hold.** None of `Select`, `Dialog`, `Tabs` fit: the switcher needs a non-form trigger (a nav element, not `<select>`), heterogeneous content inside the panel (a labeled section, checkmarked rows, a divider, footer links that navigate rather than select a value), and hover/click-outside/Escape dismissal matching `Dialog`'s existing a11y quality. `@radix-ui/react-select` is semantically a form control and doesn't support that shape. `packages/@basketeasy/ui/package.json` has no `@radix-ui/react-dropdown-menu` or `@radix-ui/react-popover` installed today (checked directly — only `avatar`, `checkbox`, `dialog`, `label`, `select`, `tabs`, `toast`, `tooltip`). **Flag clearly:** this item needs a new `packages/@basketeasy/ui/src/components/DropdownMenu.tsx` wrapping a newly-added `@radix-ui/react-dropdown-menu` dependency (same family as the Radix primitives already used everywhere else, low integration risk, but it is new surface area, new stories/tests, and a new export entry — not a free reuse of an existing component the way `Tabs` was for item 2).
 - New: `app/src/auth/ActiveClubContext.tsx` (provider + `useActiveClub()` hook), mounted alongside `AccountProvider`.
 - New: extract the "which clubs does this user admin" computation currently inlined in `AppHeader.tsx:37-40` into a shared `app/src/clubs/useAdminClubs.ts` hook — both the switcher and, later, item 4's dashboard stat tiles consume it (see §0).
@@ -91,6 +98,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **M.** Bumped up from what the audit implied ("frontend-only, existing Context split") specifically because of the new `DropdownMenu` primitive + dependency addition; without that it would be S.
 
 **Acceptance criteria:**
+
 - [ ] `DropdownMenu` primitive exists in `@basketeasy/ui` with Storybook coverage and a11y basics (Escape to close, click-outside to close, focus returns to trigger) matching `Dialog`'s existing behavior.
 - [ ] `AppHeader` shows the switcher instead of the per-club button list for any user administering ≥1 club; header no longer wraps to multiple lines regardless of admin-club count.
 - [ ] Clicking the chip (name or caret) only opens/closes the switcher panel — it never navigates.
@@ -99,6 +107,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 - [ ] A user administering 0 clubs sees neither the switcher nor the "Effectif" nav item; "Créer un club" remains a top-level link, unchanged from today.
 
 **Open questions/risks:**
+
 - The mockup also shows a new circular avatar element ("JC" initials) at the far right of the nav that doesn't exist in today's `AppHeader` (today "Mon profil" is a text link, no avatar). Recommend explicitly scoping this item to the switcher only and treating the avatar/account-menu as a separate, unscoped idea — pulling it in silently doubles this item's surface area (new initials-from-account-name logic, new click behavior for "Mon profil" vs. a menu, etc.).
 - `proposed-nav-club-switcher.svg`'s annotation text should be corrected to match the resolved click behavior above (it currently implies a direct chip→Effectif link that was never drawn) — cosmetic doc fix, not a blocker on implementation.
 
@@ -109,6 +118,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **What ships:** `DashboardPage` replaces its current heading/email/logout/`HealthStatus` body with: a personalized greeting, 4 stat tiles ("Équipes gérées," "Événements — 7 prochains jours," "Joueurs au total," "Clubs administrés"), a "Cette semaine" agenda strip (next-7-days events across all the user's teams, with a "Voir le calendrier →" link), and team cards (one per team the user is part of, replacing the header button-list's "jump to a team" use case per the audit). `HealthStatus` moves behind a dev-only flag (env var or route), out of the default logged-in landing page.
 
 **Frontend changes:**
+
 - Modify: `app/src/pages/DashboardPage.tsx` — full rewrite of the body.
 - New: stat-tile composition (`Card`-based; no new `@basketeasy/ui` primitive needed — a plain `Card`/`CardContent` with a large number + label reads as a stat tile without a dedicated component). Team cards similarly compose `Card`/`Badge`/`Button`, all existing.
 - New: `app/src/clubs/useMyAgenda.ts` (or similar) calling the new backend endpoint below.
@@ -116,6 +126,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 - Gate `HealthStatus`: simplest option is a `VITE_SHOW_HEALTH_STATUS` env flag checked in `DashboardPage`, or move it to a new `/about` route (matches the audit's own suggestion) — recommend the route, since it keeps `DashboardPage` free of dev-only conditionals and gives the widget a permanent, bookmarkable home instead of an env-flag toggle nobody remembers exists.
 
 **Backend/types changes:** Yes — this is the one item in the top 4 that isn't frontend-only, confirming the audit's characterization.
+
 - **New types file** `packages/@basketeasy/types/my-dashboard.ts` (per `CLAUDE.md`'s "new file + matching `exports` entry" convention, not folded into `my-teams.ts` since it's a distinct response shape): `MyAgendaEvent { eventId, teamId, teamName, clubId, clubName, startsAt, location, notes }` and `MyDashboardSummary { upcomingEvents: MyAgendaEvent[]; totalPlayers: number }`. **"Joueurs au total" definition, resolved via design review:** club-scoped, not team-scoped — `COUNT(DISTINCT Player.id) WHERE Player.clubId IN (<admin's clubs>)`. Matches the tile's neighbors ("Équipes gérées," "Clubs administrés," both also admin-scoped) and needs no dedup logic beyond the `DISTINCT`, since `Player.clubId` is single-valued (a player belongs to exactly one club; CTC multi-club sharing happens at the `ClubTeam`/`TeamPlayer` level, not `Player`, so this query can't double-count).
 - **New endpoint** `GET /me/dashboard` (query params `from`/`to`, defaulting server-side to "now → +7 days" if omitted). Recommend a **new small module** (`server/src/dashboard/`) rather than bolting this onto `TeamsModule` or `EventsModule` — `CLAUDE.md`'s Events section explicitly notes `EventsService` re-verifies ownership itself "rather than importing across modules," i.e. the codebase's established convention is to avoid cross-module service injection; a dedicated `DashboardService` querying `PrismaService` directly for the cross-team/cross-club aggregate (teams via the same `TeamAdmin`/`TeamPlayer`-by-`userId` joins `TeamsService.listTeamsForUser` already does, events via `teamId IN (...)`, players via `clubId IN (...)` for admin clubs) fits that pattern better than reaching into `EventsService`/`TeamsService` internals.
 - Types-first order per `CLAUDE.md`: `packages/@basketeasy/types/my-dashboard.ts` → `server/src/dashboard/dto/get-dashboard.dto.ts` (query validation for `from`/`to`) → `DashboardController`/`DashboardService` → frontend `useMyAgenda`/`useDashboardSummary` hook → `DashboardPage`.
@@ -125,15 +136,17 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **M.** Frontend composition is straightforward (existing primitives only); backend is one new small module with one new endpoint and one new types file — not large, but it's real net-new backend work unlike items 1–3.
 
 **Acceptance criteria:**
+
 - [ ] `DashboardPage` shows 4 stat tiles with correct live counts (verified against seeded test data for a multi-team, multi-club test user); "Joueurs au total" specifically verified as a distinct club-scoped count (a player rostered on two teams within the same admin club counts once).
-- [ ] "Cette semaine" strip shows events across *all* of the user's teams (both team-admin and rostered-player teams), sorted by `startsAt`, for the next 7 days from today.
+- [ ] "Cette semaine" strip shows events across _all_ of the user's teams (both team-admin and rostered-player teams), sorted by `startsAt`, for the next 7 days from today.
 - [ ] Team cards link correctly to `TeamDetailPage` for each team the user is part of.
 - [ ] `HealthStatus` no longer renders on `/dashboard` by default; still reachable at its new home.
 - [ ] `GET /me/dashboard` is club/team-membership-scoped per-user (no cross-user data leakage) — covered by a `.spec.ts` analogous to `my-teams.controller.spec.ts`.
 
 **Open questions/risks:**
-- **Performance at CD44 scale is a non-issue for this specific query shape** — worth stating explicitly since the audit flags CD44's ~130 clubs as a general scale concern (rightly, for item 3's original per-club button list). This endpoint's query is scoped to *one user's* teams/clubs (typically 1–5 teams, 1–2 admin clubs), not all 130 CD44 clubs, so `Event`'s existing `@@index([teamId])` and `Player`'s existing `@@index([clubId])` are sufficient — no schema/index change needed for the dashboard aggregate itself. (A composite `Event` index on `(teamId, startsAt)` would be a reasonable future addition if a *calendar* feature later needs to scan a wider date range per team, but it's not blocking this item.)
-- Should the agenda strip show events from teams the user is only rostered on as a *player* (not admin/coach), or only teams they manage? The wireframe shows both "U15 Filles" and "U18 Garçons" without distinguishing the user's role on each — confirm this is intentional (agenda = "everything relevant to me," not "everything I manage").
+
+- **Performance at CD44 scale is a non-issue for this specific query shape** — worth stating explicitly since the audit flags CD44's ~130 clubs as a general scale concern (rightly, for item 3's original per-club button list). This endpoint's query is scoped to _one user's_ teams/clubs (typically 1–5 teams, 1–2 admin clubs), not all 130 CD44 clubs, so `Event`'s existing `@@index([teamId])` and `Player`'s existing `@@index([clubId])` are sufficient — no schema/index change needed for the dashboard aggregate itself. (A composite `Event` index on `(teamId, startsAt)` would be a reasonable future addition if a _calendar_ feature later needs to scan a wider date range per team, but it's not blocking this item.)
+- Should the agenda strip show events from teams the user is only rostered on as a _player_ (not admin/coach), or only teams they manage? The wireframe shows both "U15 Filles" and "U18 Garçons" without distinguishing the user's role on each — confirm this is intentional (agenda = "everything relevant to me," not "everything I manage").
 
 ---
 
@@ -144,6 +157,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **What's explicitly deferred to 5b (not scoped here):** The wireframe's month grid with per-day event chips, "Convocation: 12/15" attendance counts, and event-type color coding. All three depend on data that doesn't exist yet: RSVP status, convocation targeting, and the `type` field distinguishing training from match — all three are listed, in that order, as CLAUDE.md's explicit "next steps" for the Events module, none built yet. Building the grid now would ship a calendar full of visually-identical, unlabeled dots — exactly the audit's own reasoning for why this item should wait.
 
 **Frontend changes (5a):**
+
 - New: `app/src/clubs/TeamEventsAgenda.tsx` — day-grouped list view, reusing `Card` for each day group. No new `@basketeasy/ui` primitive.
 - Modify: the Événements tab content (inside `TeamDetailPage`, post-item-2) to default to the agenda view with a toggle to the existing table, mirroring item 2's roster card/table toggle pattern exactly — same interaction model, reduces the amount of genuinely new UX to learn.
 - Data: reuse `useEventList` unchanged — `ListEventsParams` already supports `from`/`to` (confirmed in `packages/@basketeasy/types/events.ts`), so the agenda view just calls it with a wider `pageSize` (the existing `LINKING_PAGE_SIZE = 100` pattern already used elsewhere in the same file) and a `from`/`to` window instead of paginating — a team's realistic weekly/monthly event count is well under 100.
@@ -155,6 +169,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **L** (for 5a as scoped). Even without a month grid, a day-grouped agenda view with correct date-boundary handling (timezone, "today" highlighting, empty-day suppression) and a responsive layout that also serves as the audit's proposed mobile pattern (2.6) for this specific table is real UI work, not a thin wrapper.
 
 **Acceptance criteria:**
+
 - [ ] Événements tab defaults to the agenda/list view, grouped by day, with a toggle to the existing table view (state/behavior parity with item 2's roster toggle).
 - [ ] Agenda view correctly shows a full week/month of events without pagination controls (bounded fetch via the `LINKING_PAGE_SIZE` pattern).
 - [ ] Empty days are not rendered (no "0 events" placeholder rows cluttering the list).
@@ -163,6 +178,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Resolved via design review:** agenda-only is confirmed as the actual v1 target, not an interim compromise — the month grid in `proposed-events-calendar.svg` was included to show the feature's end-state, not as a near-term build target. With today's event data (Date/Lieu/Notes only, no RSVP counts per `CLAUDE.md`'s roadmap), a grid would render mostly-empty cells with no meaningful chip content, reading as unfinished rather than intentional. No grid shell is scoped now; 5b builds the grid once convocation/RSVP data exists to fill it.
 
 **Open questions/risks:**
+
 - Recurring events (`CLAUDE.md`: series aren't linked by an id, each occurrence is an independent row) mean a day-grouped agenda naturally shows each occurrence correctly with zero special-casing — worth noting as a small validation that this approach doesn't need series-awareness the way a "collapse recurring events" UI would.
 
 ---
@@ -172,6 +188,7 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **What ships:** After items 1–5a land, the tables genuinely left uncollapsed on mobile are narrower in scope than the audit's framing suggests: item 2 converts TeamDetailPage's Effectif tab to cards by default and item 5a does the same for Événements, leaving Clubs partenaires (2 columns) and Administrateurs (2 columns) as the only remaining `TeamDetailPage` tables — both narrow enough that horizontal scroll on mobile is a minor annoyance, not a real usability problem. **The pages item 2 doesn't touch are where this item should actually focus:** `MembersPage`'s three tabs (Membres: 4 columns; Joueurs: 4 columns; Équipes: 4 columns) and `MyTeamsPage` (5 columns) — none of the 6 priority items restructure `MembersPage`, so it remains the widest, most mobile-hostile surface in the app after 1–5a ship. This item converts those specific tables to stacked card rows below the existing 768px breakpoint (matching `AppHeader`'s `DESKTOP_BREAKPOINT_PX`).
 
 **Frontend changes:**
+
 - Extract: `AppHeader.tsx`'s local, unexported `useIsDesktopViewport` hook (lines 12–24) into a shared `app/src/hooks/useIsDesktopViewport.ts` — currently only `AppHeader` can use it; this item needs the identical breakpoint logic in at least two more places.
 - New: page-specific card-row components for `MembersPage`'s 3 tabs and `MyTeamsPage` (e.g. `MemberCard`, `PlayerCard`, `TeamListingCard`, `MyTeamCard`) — per the audit's own stated approach (2.6's fix note: "sidestep the problem rather than requiring a separate responsive table component"), these are **not** a generic `Table` responsive mode added to `@basketeasy/ui`; each page swaps its `Table` for a card list below the breakpoint, same data, different presentation. `Card`/`Badge`/`Button` cover the composition, no new primitive.
 - Modify: `MembersPage.tsx` (3 tabs), `MyTeamsPage.tsx` — conditionally render table vs. card list based on the shared viewport hook, same pattern `AppHeader` already uses for its own burger-menu/inline-links split.
@@ -183,12 +200,14 @@ Everything below assumes items land in order 1→2→3→4→5a→6, with 5b out
 **Effort estimate:** **M.** Four distinct tables (3 `MembersPage` tabs + `MyTeamsPage`) each need their own card-row layout; mechanically similar to each other but each has different columns/actions to translate, plus the shared hook extraction and its own test coverage.
 
 **Acceptance criteria:**
+
 - [ ] Below 768px, `MembersPage`'s Membres/Joueurs/Équipes tabs and `MyTeamsPage` render as stacked cards, not horizontally-scrolling tables.
 - [ ] All existing per-row actions (remove member, edit team, "Voir" team detail, etc.) remain reachable from the card layout.
 - [ ] `useIsDesktopViewport` is a shared hook with its own test, consumed by `AppHeader` (refactored, not duplicated) and the newly-converted pages.
 - [ ] Desktop (≥768px) behavior is unchanged — tables remain tables above the breakpoint.
 
 **Open questions/risks:**
+
 - Confirm 768px remains the right single breakpoint for this — `AppHeader`'s comment (`AppHeader.tsx:9-11`) justifies it specifically for the burger-menu decision; reusing the same number for table-collapse is reasonable but worth a deliberate "yes, same breakpoint" decision rather than an accidental one from just importing the constant.
 - Re-scope this item's card list once items 1–5a actually ship — if either lands differently than planned (e.g. item 2's roster view doesn't ship a table toggle after all), the "what's left" analysis above needs re-checking before this item starts.
 
