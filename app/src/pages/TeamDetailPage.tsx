@@ -761,7 +761,9 @@ export function TeamDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Lieu</TableHead>
+                        <TableHead>Adversaire</TableHead>
                         <TableHead>Notes</TableHead>
                         <TableHead />
                       </TableRow>

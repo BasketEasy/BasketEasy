@@ -52,14 +52,21 @@ describe('EventsController', () => {
       {
         id: 'event-1',
         teamId: 'team-1',
+        type: 'TRAINING',
         startsAt: '2026-01-05T18:00:00.000Z',
         location: 'Gymnase A',
         notes: null,
+        opponentName: null,
+        recurrenceId: null,
         createdAt: 'x',
       },
     ]);
 
-    const dto = { startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' };
+    const dto = {
+      type: 'TRAINING' as const,
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'Gymnase A',
+    };
     const result = await controller.createEvent('club-1', 'team-1', dto);
 
     expect(service.createEvent).toHaveBeenCalledWith('club-1', 'team-1', dto);
@@ -67,14 +74,19 @@ describe('EventsController', () => {
   });
 
   it('updateEvent delegates clubId, teamId, eventId, and the DTO', async () => {
-    service.updateEvent.mockResolvedValue({
-      id: 'event-1',
-      teamId: 'team-1',
-      startsAt: '2026-01-05T18:00:00.000Z',
-      location: 'Gymnase B',
-      notes: null,
-      createdAt: 'x',
-    });
+    service.updateEvent.mockResolvedValue([
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: '2026-01-05T18:00:00.000Z',
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: null,
+        recurrenceId: null,
+        createdAt: 'x',
+      },
+    ]);
 
     const result = await controller.updateEvent('club-1', 'team-1', 'event-1', {
       location: 'Gymnase B',
@@ -83,14 +95,22 @@ describe('EventsController', () => {
     expect(service.updateEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', {
       location: 'Gymnase B',
     });
-    expect(result.location).toBe('Gymnase B');
+    expect(result[0].location).toBe('Gymnase B');
   });
 
-  it('deleteEvent delegates clubId, teamId, and eventId', async () => {
+  it('deleteEvent delegates clubId, teamId, eventId, and the scope query param', async () => {
     service.deleteEvent.mockResolvedValue(undefined);
 
-    await controller.deleteEvent('club-1', 'team-1', 'event-1');
+    await controller.deleteEvent('club-1', 'team-1', 'event-1', { scope: 'ALL' });
 
-    expect(service.deleteEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1');
+    expect(service.deleteEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'ALL');
+  });
+
+  it('deleteEvent passes undefined scope through when the query omits it', async () => {
+    service.deleteEvent.mockResolvedValue(undefined);
+
+    await controller.deleteEvent('club-1', 'team-1', 'event-1', {});
+
+    expect(service.deleteEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', undefined);
   });
 });

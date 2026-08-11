@@ -27,9 +27,12 @@ describe('EventCreateForm', () => {
           {
             id: 'event-1',
             teamId: 'team-1',
+            type: 'TRAINING',
             startsAt: body.startsAt,
             location: body.location,
             notes: null,
+            opponentName: null,
+            recurrenceId: null,
             createdAt: '2026-01-01',
           },
         ]);
@@ -102,6 +105,49 @@ describe('EventCreateForm', () => {
       startsAt: '2026-01-05T18:00:00.000Z',
       location: 'Gymnase A',
       recurrence: { frequency: 'WEEKLY', until: '2026-01-19T00:00:00.000Z' },
+    });
+  });
+
+  it('requires an opponent name and sends it when type is Match', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            type: 'MATCH',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: 'US Saint-Nazaire',
+            recurrenceId: null,
+            createdAt: '2026-01-01',
+          },
+        ]);
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<EventCreateForm clubId="club-1" teamId="team-1" />);
+
+    await user.click(screen.getByRole('combobox', { name: /^type$/i }));
+    await user.click(await screen.findByRole('option', { name: /^match$/i }));
+    await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
+    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    expect(await screen.findByText(/nom de l'adversaire requis/i)).toBeInTheDocument();
+    expect(capturedBody).toBeUndefined();
+
+    await user.type(screen.getByLabelText(/adversaire/i), 'US Saint-Nazaire');
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toMatchObject({
+      type: 'MATCH',
+      opponentName: 'US Saint-Nazaire',
     });
   });
 });

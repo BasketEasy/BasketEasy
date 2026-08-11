@@ -410,9 +410,12 @@ describe('TeamDetailPage', () => {
       {
         id: 'event-1',
         teamId: 'team-1',
+        type: 'TRAINING',
         startsAt: '2026-01-05T18:00:00.000Z',
         location: 'Gymnase A',
         notes: null,
+        opponentName: null,
+        recurrenceId: null,
         createdAt: 'x',
       },
     ];
@@ -433,9 +436,12 @@ describe('TeamDetailPage', () => {
         const created = {
           id: 'event-2',
           teamId: 'team-1',
+          type: 'TRAINING',
           startsAt: body.startsAt,
           location: body.location,
           notes: null,
+          opponentName: null,
+          recurrenceId: null,
           createdAt: 'x',
         };
         events = [...events, created];
