@@ -11,6 +11,7 @@ import { MembersPage } from './pages/MembersPage';
 import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
+import { AboutPage } from './pages/AboutPage';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />

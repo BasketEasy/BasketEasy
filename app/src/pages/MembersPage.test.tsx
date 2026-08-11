@@ -71,7 +71,7 @@ describe('MembersPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    expect(await screen.findByRole('heading', { name: /tableau de bord/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /bonjour/i })).toBeInTheDocument();
     expect(membersRequested).toBe(false);
     expect(playersRequested).toBe(false);
     expect(teamsRequested).toBe(false);
