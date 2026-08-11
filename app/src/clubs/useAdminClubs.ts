@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { Club } from '@basketeasy/types/clubs';
 import { useAccount } from '../auth/useAccount';
 import { useClubList } from './useClubList';
@@ -12,13 +13,22 @@ import { useClubList } from './useClubList';
  * No explicit loading signal: today's `AppHeader` did nothing special while
  * `useClubList()`/`useAccount()` were loading (an empty array just renders
  * nothing), so this hook matches that rather than adding one unasked-for.
+ *
+ * Memoized so consumers get a referentially stable array when the underlying
+ * membership/club data hasn't actually changed — `ActiveClubContext`'s
+ * default-selection effect depends on this return value by reference, and
+ * without memoizing, a background refetch (e.g. `refetchOnWindowFocus`) with
+ * unchanged data would re-run that effect on every such refetch.
  */
 export function useAdminClubs(): Club[] {
   const { user } = useAccount();
   const { data: clubs } = useClubList();
+  const memberships = user?.memberships;
 
-  const adminClubIds = new Set(
-    (user?.memberships ?? []).filter((m) => m.role === 'ADMIN').map((m) => m.clubId),
-  );
-  return (clubs ?? []).filter((club) => adminClubIds.has(club.id));
+  return useMemo(() => {
+    const adminClubIds = new Set(
+      (memberships ?? []).filter((m) => m.role === 'ADMIN').map((m) => m.clubId),
+    );
+    return (clubs ?? []).filter((club) => adminClubIds.has(club.id));
+  }, [clubs, memberships]);
 }

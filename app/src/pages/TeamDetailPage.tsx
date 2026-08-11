@@ -196,6 +196,14 @@ export function TeamDetailPage() {
   // Unfiltered, capped fetch backing the "already rostered" computation below
   // — also backs the Effectif tab's card view, which shows the full roster
   // rather than one paginated/filtered table page.
+  // TODO: LINKING_PAGE_SIZE (100) is also the server's MAX_PAGE_SIZE
+  // (server/src/common/pagination.ts), so a CTC/entente team's shared roster
+  // — this app's own headline multi-club use case — could exceed it and
+  // silently render only the first 100 players/coaches in the card view with
+  // no "and N more" indicator, unlike the table-view toggle, which stays
+  // correctly paginated. Not expected at current usage, but if/when it comes
+  // up, the card view needs either real pagination or an overflow indicator
+  // driven by `allTeamPlayersResult.total` vs. `allTeamPlayers.length`.
   const { data: allTeamPlayersResult, isLoading: isLoadingAllTeamPlayers } = useTeamPlayerList(
     clubId!,
     teamId!,

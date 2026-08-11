@@ -57,8 +57,9 @@ function RosterGroup({
 /**
  * Grouped, avatar-chip roster view — the Effectif tab's default. Reads the
  * full unfiltered roster (see TeamDetailPage's allTeamPlayers) rather than
- * one paginated table page: team rosters are small enough that "who's on
- * this team" should never itself be paginated.
+ * one paginated table page, capped at 100 players/coaches combined — see the
+ * TODO at that fetch's call site in TeamDetailPage.tsx for the known
+ * multi-club-roster edge case this doesn't yet handle.
  */
 export function TeamRosterCards({
   players,
