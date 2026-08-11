@@ -598,18 +598,19 @@ describe('EventsService', () => {
             createdAt: new Date('2026-01-01'),
           },
         ]);
-      prisma.event.update.mockImplementation(({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
-        Promise.resolve({
-          id: where.id,
-          teamId: 'team-1',
-          type: 'TRAINING',
-          startsAt: data.startsAt,
-          location: 'Gymnase A',
-          notes: null,
-          opponentName: null,
-          recurrenceId: 'series-1',
-          createdAt: new Date('2026-01-01'),
-        }),
+      prisma.event.update.mockImplementation(
+        ({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
+          Promise.resolve({
+            id: where.id,
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: data.startsAt,
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          }),
       );
 
       const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {
@@ -644,42 +645,45 @@ describe('EventsService', () => {
         opponentName: null,
         recurrenceId: 'series-1',
       });
-      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-2' }, { id: 'event-3' }]).mockResolvedValueOnce([
-        {
-          id: 'event-2',
-          teamId: 'team-1',
-          type: 'TRAINING',
-          startsAt: new Date('2026-01-12T18:00:00.000Z'),
-          location: 'Gymnase A',
-          notes: null,
-          opponentName: null,
-          recurrenceId: 'series-1',
-          createdAt: new Date('2026-01-01'),
-        },
-        {
-          id: 'event-3',
-          teamId: 'team-1',
-          type: 'TRAINING',
-          startsAt: new Date('2026-01-19T18:00:00.000Z'),
-          location: 'Gymnase A',
-          notes: null,
-          opponentName: null,
-          recurrenceId: 'series-1',
-          createdAt: new Date('2026-01-01'),
-        },
-      ]);
-      prisma.event.update.mockImplementation(({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
-        Promise.resolve({
-          id: where.id,
-          teamId: 'team-1',
-          type: 'TRAINING',
-          startsAt: data.startsAt,
-          location: 'Gymnase A',
-          notes: null,
-          opponentName: null,
-          recurrenceId: 'series-1',
-          createdAt: new Date('2026-01-01'),
-        }),
+      prisma.event.findMany
+        .mockResolvedValueOnce([{ id: 'event-2' }, { id: 'event-3' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'event-2',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-12T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+          {
+            id: 'event-3',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-19T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+        ]);
+      prisma.event.update.mockImplementation(
+        ({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
+          Promise.resolve({
+            id: where.id,
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: data.startsAt,
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          }),
       );
 
       const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {

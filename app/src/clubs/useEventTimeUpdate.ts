@@ -8,10 +8,7 @@ export function useEventTimeUpdate(clubId: string, teamId: string) {
 
   return useMutation({
     mutationFn: ({ eventId, dto }: { eventId: string; dto: UpdateEventTimeOfDayRequest }) =>
-      apiClient.patch<TeamEvent[]>(
-        `/clubs/${clubId}/teams/${teamId}/events/${eventId}/time`,
-        dto,
-      ),
+      apiClient.patch<TeamEvent[]>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}/time`, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });
     },

@@ -99,7 +99,9 @@ describe('EventRow', () => {
     renderRow(recurringEvent, true);
 
     await user.click(screen.getByRole('button', { name: /^modifier$/i }));
-    expect(await screen.findByRole('heading', { name: /modifier l.événement/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /modifier l.événement/i }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /enregistrer/i }));
 
     await waitFor(() => expect(capturedBody).toBeDefined());

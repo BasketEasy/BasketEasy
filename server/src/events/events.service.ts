@@ -213,7 +213,11 @@ export class EventsService {
     clubId: string,
     teamId: string,
     eventId: string,
-    data: { scope: Extract<EventUpdateScope, 'THIS_AND_FUTURE' | 'ALL'>; hour: number; minute: number },
+    data: {
+      scope: Extract<EventUpdateScope, 'THIS_AND_FUTURE' | 'ALL'>;
+      hour: number;
+      minute: number;
+    },
   ): Promise<TeamEvent[]> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     if (!event.recurrenceId) {
