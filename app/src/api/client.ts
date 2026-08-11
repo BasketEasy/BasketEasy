@@ -104,8 +104,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+type QueryParams = Record<string, string | number | boolean | undefined>;
+
+function buildQuery(params?: QueryParams): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value));
+    }
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
 export const apiClient = {
-  get: <T>(path: string) => request<T>(path, { method: 'GET' }),
+  get: <T>(path: string, params?: QueryParams) =>
+    request<T>(`${path}${buildQuery(params)}`, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: 'POST',
