@@ -52,6 +52,21 @@ export interface UpdateEventRequest {
   scope?: EventUpdateScope;
 }
 
+/**
+ * Bulk-changes the time-of-day (not the date) of every occurrence in scope,
+ * via PATCH .../events/:eventId/time — the narrower, date-preserving
+ * counterpart to the still-unsupported "shift a whole series to a new date"
+ * operation. `hour`/`minute` are UTC (0-23 / 0-59): the caller resolves the
+ * desired local wall-clock time against the anchor event's own date before
+ * sending, and the server applies that same UTC hour/minute to every row's
+ * existing date.
+ */
+export interface UpdateEventTimeOfDayRequest {
+  scope: Extract<EventUpdateScope, 'THIS_AND_FUTURE' | 'ALL'>;
+  hour: number;
+  minute: number;
+}
+
 export interface ListEventsParams extends PaginationParams {
   /** ISO 8601 date/datetime — filters startsAt >= from. */
   from?: string;

@@ -213,6 +213,43 @@ export interface UpdateEventRequest {
   `?scope=` query string (the `apiClient.delete` helper takes no params argument, so this is
   built inline the same way `EventRow` already builds its own URLs elsewhere in the module).
 
+## Addendum (loop 1): bulk hour-of-day update
+
+The "bulk date/time shifting" cut above is unchanged for full date+time replacement — that's
+still a separate, un-built feature for the reasons given (holiday-shifted occurrences,
+manually-moved mid-series occurrences, etc.). What's now built is a narrower operation a user
+asked for directly: bulk-changing just the **time-of-day** across a series while every
+occurrence keeps its own date. That's a strictly smaller problem than full date shifting —
+there's no "what if it lands on a holiday" question when the date never moves — so it doesn't
+reopen the original cut, it fills in the one corner of it that was cheap and unambiguous.
+
+- New endpoint `PATCH .../events/:eventId/time` (`EventsController.updateEventTime` →
+  `EventsService.updateEventTimeOfDay`), guarded the same as the sibling `PATCH`
+  (`TeamManagerGuard`). Body: `UpdateEventTimeOfDayRequest` — `scope: 'THIS_AND_FUTURE' | 'ALL'`
+  (no `'THIS'`; a single event doesn't need a bulk endpoint), `hour: number` (0-23),
+  `minute: number` (0-59), both UTC.
+- `updateEventTimeOfDay` reuses `assertEventInTeam` and the existing private `resolveScopeIds`
+  verbatim — same 400 for a non-recurring anchor event as `updateEvent`/`deleteEvent` already
+  throw. It does **not** touch `updateEvent`'s existing `scope !== 'THIS' && startsAt !== undefined`
+  guard; that guard still protects the full-replace path and this is a deliberately separate
+  method/route, not a relaxation of it.
+- No timezone table was added. `startsAt` is still a naive UTC-instant `TIMESTAMP(3)` with no
+  per-club/team zone anywhere in the schema, matching every other date in this app. The
+  frontend resolves the user's chosen local wall-clock time against the *anchor* event's own
+  calendar date (correct DST for that one reference point) and sends a single resulting UTC
+  `hour`/`minute`; the server applies that same pair to every row in scope via `setUTCHours`,
+  preserving each row's own date. Occurrences that fall on the other side of a DST transition
+  from the anchor can end up an hour off from the intended local wall-clock time — an accepted,
+  documented limitation rather than new timezone infrastructure, consistent with how the rest
+  of the app already treats time.
+- Frontend: `EventRow`'s edit action moved from an inline table-row edit into a `Dialog`-based
+  `EventEditModal` (RHF + zod, mirroring `EventCreateForm`'s existing convention — see
+  CLAUDE.md's new "Modals vs. inline editing" guidance for why this one crossed the inline→modal
+  threshold while the delete-scope selector didn't). Selecting a non-`THIS` scope in that modal
+  swaps the datetime-local field for a time-only field and, on submit, calls the new `/time`
+  endpoint in addition to the regular field update (type/location/notes/opponent still broadcast
+  across scope via the existing `PATCH .../events/:eventId`, unchanged).
+
 ## Testing
 
 Same split as the rest of the codebase: Jest `*.spec.ts` for `EventsService`/

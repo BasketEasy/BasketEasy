@@ -11,6 +11,7 @@ describe('EventsController', () => {
     listEvents: jest.Mock;
     createEvent: jest.Mock;
     updateEvent: jest.Mock;
+    updateEventTimeOfDay: jest.Mock;
     deleteEvent: jest.Mock;
   };
 
@@ -19,6 +20,7 @@ describe('EventsController', () => {
       listEvents: jest.fn(),
       createEvent: jest.fn(),
       updateEvent: jest.fn(),
+      updateEventTimeOfDay: jest.fn(),
       deleteEvent: jest.fn(),
     };
 
@@ -96,6 +98,28 @@ describe('EventsController', () => {
       location: 'Gymnase B',
     });
     expect(result[0].location).toBe('Gymnase B');
+  });
+
+  it('updateEventTime delegates clubId, teamId, eventId, and the DTO', async () => {
+    service.updateEventTimeOfDay.mockResolvedValue([
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: '2026-01-05T19:30:00.000Z',
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        recurrenceId: 'series-1',
+        createdAt: 'x',
+      },
+    ]);
+
+    const dto = { scope: 'ALL' as const, hour: 19, minute: 30 };
+    const result = await controller.updateEventTime('club-1', 'team-1', 'event-1', dto);
+
+    expect(service.updateEventTimeOfDay).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', dto);
+    expect(result[0].startsAt).toBe('2026-01-05T19:30:00.000Z');
   });
 
   it('deleteEvent delegates clubId, teamId, eventId, and the scope query param', async () => {
