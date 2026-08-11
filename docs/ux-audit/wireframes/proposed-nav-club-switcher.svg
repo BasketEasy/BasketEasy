@@ -24,13 +24,15 @@
   <rect x="220" y="258" width="200" height="30" rx="15" fill="#F1E9DD" stroke="#E4DACD"/>
   <text x="236" y="278" font-size="12" fill="#23201C">AS Basket Nantes ▾</text>
   <g font-size="11" fill="#23201C">
-    <text x="460" y="266">Tableau de bord</text><text x="580" y="266">Mes équipes</text><text x="670" y="266">Mon profil</text>
+    <text x="460" y="266">Tableau de bord</text><text x="565" y="266">Mes équipes</text><text x="650" y="266" font-weight="700" fill="#D4622A">Effectif</text><text x="720" y="266">Mon profil</text>
   </g>
   <circle cx="940" cy="272" r="16" fill="#1E5F74"/><text x="934" y="277" font-size="11" fill="#FFF">JC</text>
+  <rect x="638" y="252" width="76" height="26" rx="6" fill="none" stroke="#D4622A" stroke-dasharray="2 2"/>
+  <text x="638" y="248" font-size="9" fill="#D4622A">persistent link, not a switcher option</text>
 
   <!-- open dropdown state -->
   <rect x="220" y="288" width="260" height="180" rx="8" fill="#FFFFFF" stroke="#E4DACD" filter="drop-shadow(0 4px 8px rgba(0,0,0,0.12))"/>
-  <text x="234" y="308" font-size="10" fill="#8A8377">VOS CLUBS (ADMIN)</text>
+  <text x="234" y="308" font-size="10" fill="#8A8377">VOS CLUBS (ADMIN) — clic = changer le contexte</text>
   <rect x="222" y="316" width="256" height="34" fill="#FBEEE6"/>
   <text x="234" y="337" font-size="12" fill="#D4622A" font-weight="600">&#10003; AS Basket Nantes</text>
   <text x="234" y="373" font-size="12" fill="#23201C">ES Rezé</text>
@@ -39,9 +41,11 @@
   <text x="234" y="444" font-size="11" fill="#1E5F74">+ Créer un club</text>
   <text x="234" y="464" font-size="11" fill="#1E5F74">Gérer mes clubs &#8594;</text>
 
-  <rect x="24" y="496" width="952" height="100" rx="6" fill="#EAF1EE" stroke="#1E5F74" stroke-dasharray="4 3"/>
-  <text x="36" y="518" font-size="12" fill="#23201C">One switcher control replaces the N-club button list. Selecting a club sets it as the active context (stored</text>
-  <text x="36" y="538" font-size="12" fill="#23201C">client-side, e.g. in the existing auth Context) and "Effectif" always points at the currently selected club —</text>
-  <text x="36" y="558" font-size="12" fill="#23201C">O(1) header size regardless of how many clubs a user admins. Matches the "Context owns local UI state"</text>
-  <text x="36" y="578" font-size="12" fill="#23201C">split already called out for the multi-club switcher in docs/architecture.md's frontend summary.</text>
+  <rect x="24" y="496" width="952" height="115" rx="6" fill="#EAF1EE" stroke="#1E5F74" stroke-dasharray="4 3"/>
+  <text x="36" y="516" font-size="12" fill="#23201C">Two separate controls, not one overloaded one: (1) the chip is a pure open/close toggle — clicking anywhere</text>
+  <text x="36" y="536" font-size="12" fill="#23201C">on it opens the panel, nothing navigates; (2) clicking a club row only sets the active context (checkmark</text>
+  <text x="36" y="556" font-size="12" fill="#23201C">moves, panel closes) — it does not navigate either. Reaching a club's roster is a separate, persistent</text>
+  <text x="36" y="576" font-size="12" fill="#23201C">"Effectif" nav item (highlighted above) that always targets the currently active club — O(1) header size</text>
+  <text x="36" y="596" font-size="12" fill="#23201C">regardless of admin-club count. Zero-admin-club users: no switcher renders at all (mirrors today's</text>
+  <text x="36" y="609" font-size="10" fill="#6B645A">AppHeader.tsx `adminClubs.length > 0` guard) — "Créer un club" stays a normal top-level link either way.</text>
 </svg>
