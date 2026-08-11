@@ -8,6 +8,7 @@ import {
 import { Prisma, TeamCategory, TeamGender, TeamMemberRole } from '@prisma/client';
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
 import type { TeamAdmin } from '@basketeasy/types/team-admins';
+import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { PrismaService } from '../prisma/prisma.service';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -265,6 +266,48 @@ export class TeamsService {
     await this.prisma.teamAdmin.delete({ where: { id: teamAdmin.id } });
   }
 
+  async listTeamsForUser(userId: string): Promise<MyTeamSummary[]> {
+    const teamInclude = {
+      clubTeams: {
+        include: { club: true },
+        orderBy: [{ isOwner: 'desc' as const }, { createdAt: 'asc' as const }],
+      },
+    };
+
+    const [adminGrants, rosterEntries, memberships] = await Promise.all([
+      this.prisma.teamAdmin.findMany({
+        where: { userId },
+        include: { team: { include: teamInclude } },
+      }),
+      this.prisma.teamPlayer.findMany({
+        where: { player: { userId } },
+        include: { team: { include: teamInclude } },
+      }),
+      this.prisma.clubMembership.findMany({ where: { userId } }),
+    ]);
+
+    const memberClubIds = new Set(memberships.map((m) => m.clubId));
+    const summaries = new Map<string, MyTeamSummary>();
+
+    for (const grant of adminGrants) {
+      summaries.set(grant.teamId, this.toMyTeamSummary(grant.team, memberClubIds, true, null));
+    }
+
+    for (const entry of rosterEntries) {
+      const existing = summaries.get(entry.teamId);
+      if (existing) {
+        existing.rosterRole = entry.role;
+      } else {
+        summaries.set(
+          entry.teamId,
+          this.toMyTeamSummary(entry.team, memberClubIds, false, entry.role),
+        );
+      }
+    }
+
+    return Array.from(summaries.values()).sort((a, b) => a.teamName.localeCompare(b.teamName));
+  }
+
   private async assertTeamInClub(clubId: string, teamId: string): Promise<void> {
     const clubTeam = await this.prisma.clubTeam.findUnique({
       where: { clubId_teamId: { clubId, teamId } },
@@ -347,6 +390,41 @@ export class TeamsService {
       email: teamAdmin.user.email,
       teamId: teamAdmin.teamId,
       createdAt: teamAdmin.createdAt.toISOString(),
+    };
+  }
+
+  private toMyTeamSummary(
+    team: {
+      id: string;
+      name: string;
+      category: TeamCategory;
+      gender: TeamGender;
+      clubTeams: { club: { id: string; name: string } }[];
+    },
+    memberClubIds: Set<string>,
+    isTeamAdmin: boolean,
+    rosterRole: TeamMemberRole | null,
+  ): MyTeamSummary {
+    // The navigation clubId must be one the caller actually belongs to —
+    // ClubRolesGuard on GET .../teams/:teamId checks ClubMembership at
+    // exactly that :clubId, so linking to a CTC team's owning club when the
+    // caller is only a member of the partner club would 403. Every
+    // TeamAdmin/TeamPlayer grant surfaced here was only created for a user
+    // already in one of the team's linked clubs, so a match always exists in
+    // practice; clubTeams is owner-first (see listTeamsForUser), so this
+    // still prefers the owning club whenever the caller belongs to it, and
+    // falls back to it defensively if no membership match is found at all.
+    const club =
+      team.clubTeams.find((ct) => memberClubIds.has(ct.club.id))?.club ?? team.clubTeams[0].club;
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      category: team.category,
+      gender: team.gender,
+      clubId: club.id,
+      clubName: club.name,
+      isTeamAdmin,
+      rosterRole,
     };
   }
 }

@@ -35,4 +35,8 @@ export const handlers = [
   // Default: no team admins for any team. TeamDetailPage always queries this;
   // team-admin-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/admins', () => HttpResponse.json([])),
+
+  // Default: no personal teams. MyTeamsPage always queries this; tests
+  // exercising it override with server.use(...).
+  http.get('/api/me/teams', () => HttpResponse.json([])),
 ];

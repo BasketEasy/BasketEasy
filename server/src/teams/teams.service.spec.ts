@@ -36,7 +36,7 @@ describe('TeamsService', () => {
       deleteMany: jest.Mock;
     };
     user: { findUnique: jest.Mock };
-    clubMembership: { findFirst: jest.Mock };
+    clubMembership: { findFirst: jest.Mock; findMany: jest.Mock };
     teamAdmin: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -72,7 +72,7 @@ describe('TeamsService', () => {
         deleteMany: jest.fn(),
       },
       user: { findUnique: jest.fn() },
-      clubMembership: { findFirst: jest.fn() },
+      clubMembership: { findFirst: jest.fn(), findMany: jest.fn() },
       teamAdmin: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -611,6 +611,168 @@ describe('TeamsService', () => {
       await service.removeTeamAdmin('club-1', 'team-1', 'u2');
 
       expect(prisma.teamAdmin.delete).toHaveBeenCalledWith({ where: { id: 'ta1' } });
+    });
+  });
+
+  describe('listTeamsForUser', () => {
+    it('returns a team where the user is only a TeamAdmin', async () => {
+      prisma.teamAdmin.findMany.mockResolvedValue([
+        {
+          teamId: 'team-1',
+          team: {
+            id: 'team-1',
+            name: 'U15',
+            category: 'U15',
+            gender: 'MEN',
+            clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
+          },
+        },
+      ]);
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-1' }]);
+
+      const result = await service.listTeamsForUser('user-1');
+
+      expect(result).toEqual([
+        {
+          teamId: 'team-1',
+          teamName: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          clubId: 'club-1',
+          clubName: 'COC Basket',
+          isTeamAdmin: true,
+          rosterRole: null,
+        },
+      ]);
+    });
+
+    it('returns a team where the user is only rostered', async () => {
+      prisma.teamAdmin.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        {
+          teamId: 'team-1',
+          role: 'COACH',
+          team: {
+            id: 'team-1',
+            name: 'U15',
+            category: 'U15',
+            gender: 'MEN',
+            clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
+          },
+        },
+      ]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-1' }]);
+
+      const result = await service.listTeamsForUser('user-1');
+
+      expect(result).toEqual([
+        {
+          teamId: 'team-1',
+          teamName: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          clubId: 'club-1',
+          clubName: 'COC Basket',
+          isTeamAdmin: false,
+          rosterRole: 'COACH',
+        },
+      ]);
+    });
+
+    it('merges a team where the user is both a TeamAdmin and rostered', async () => {
+      const team = {
+        id: 'team-1',
+        name: 'U15',
+        category: 'U15',
+        gender: 'MEN',
+        clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
+      };
+      prisma.teamAdmin.findMany.mockResolvedValue([{ teamId: 'team-1', team }]);
+      prisma.teamPlayer.findMany.mockResolvedValue([{ teamId: 'team-1', role: 'PLAYER', team }]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-1' }]);
+
+      const result = await service.listTeamsForUser('user-1');
+
+      expect(result).toEqual([
+        {
+          teamId: 'team-1',
+          teamName: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          clubId: 'club-1',
+          clubName: 'COC Basket',
+          isTeamAdmin: true,
+          rosterRole: 'PLAYER',
+        },
+      ]);
+    });
+
+    it('sorts results by team name and queries by userId', async () => {
+      prisma.teamAdmin.findMany.mockResolvedValue([
+        {
+          teamId: 'team-2',
+          team: {
+            id: 'team-2',
+            name: 'U18',
+            category: 'U18',
+            gender: 'MEN',
+            clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
+          },
+        },
+        {
+          teamId: 'team-1',
+          team: {
+            id: 'team-1',
+            name: 'U11',
+            category: 'U11',
+            gender: 'MEN',
+            clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
+          },
+        },
+      ]);
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-1' }]);
+
+      const result = await service.listTeamsForUser('user-1');
+
+      expect(result.map((t) => t.teamName)).toEqual(['U11', 'U18']);
+      expect(prisma.teamAdmin.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'user-1' } }),
+      );
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { player: { userId: 'user-1' } } }),
+      );
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+    });
+
+    it('picks the linked club the user actually belongs to, not the owning club, for a CTC team', async () => {
+      // team-1 is owned by club-1 but the user is only a member of the
+      // partner club (club-2) — linking to club-1 would 403 them out.
+      prisma.teamAdmin.findMany.mockResolvedValue([
+        {
+          teamId: 'team-1',
+          team: {
+            id: 'team-1',
+            name: 'U15',
+            category: 'U15',
+            gender: 'MEN',
+            clubTeams: [
+              { club: { id: 'club-1', name: 'COC Basket' } },
+              { club: { id: 'club-2', name: 'Club B' } },
+            ],
+          },
+        },
+      ]);
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-2' }]);
+
+      const result = await service.listTeamsForUser('user-1');
+
+      expect(result[0].clubId).toBe('club-2');
+      expect(result[0].clubName).toBe('Club B');
     });
   });
 });
