@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import { screen } from '@testing-library/react';
+import type { TeamEvent } from '@basketeasy/types/events';
+import { renderWithProviders } from '../testUtils';
+import { TeamEventsAgenda } from './TeamEventsAgenda';
+
+const trainingEvent: TeamEvent = {
+  id: 'event-1',
+  teamId: 'team-1',
+  type: 'TRAINING',
+  startsAt: '2026-08-12T18:00:00.000Z',
+  location: 'Gymnase A',
+  notes: null,
+  opponentName: null,
+  recurrenceId: null,
+  createdAt: 'x',
+};
+
+const matchEventSameDay: TeamEvent = {
+  ...trainingEvent,
+  id: 'event-2',
+  type: 'MATCH',
+  startsAt: '2026-08-12T20:00:00.000Z',
+  opponentName: 'US Saint-Nazaire',
+};
+
+const eventNextDay: TeamEvent = {
+  ...trainingEvent,
+  id: 'event-3',
+  startsAt: '2026-08-13T18:00:00.000Z',
+};
+
+function renderAgenda(events: TeamEvent[], canManage: boolean) {
+  return renderWithProviders(
+    <TeamEventsAgenda clubId="club-1" teamId="team-1" events={events} canManage={canManage} />,
+  );
+}
+
+describe('TeamEventsAgenda', () => {
+  it('groups events by day, one heading per calendar day', () => {
+    renderAgenda([trainingEvent, matchEventSameDay, eventNextDay], false);
+
+    // Two distinct days across three events — one heading each, not three.
+    expect(screen.getByText(/12 août/i)).toBeInTheDocument();
+    expect(screen.getByText(/13 août/i)).toBeInTheDocument();
+  });
+
+  it('shows the type, time, location, and opponent for each event', () => {
+    renderAgenda([trainingEvent, matchEventSameDay], false);
+
+    expect(screen.getByText('Entraînement')).toBeInTheDocument();
+    expect(screen.getByText('18:00')).toBeInTheDocument();
+    expect(screen.getAllByText('Gymnase A')[0]).toBeInTheDocument();
+
+    expect(screen.getByText('Match')).toBeInTheDocument();
+    expect(screen.getByText('20:00')).toBeInTheDocument();
+    expect(screen.getByText(/vs US Saint-Nazaire/)).toBeInTheDocument();
+  });
+
+  it('hides edit/delete actions for a viewer who cannot manage the team', () => {
+    renderAgenda([trainingEvent], false);
+
+    expect(screen.queryByRole('button', { name: /^modifier$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows edit/delete actions for a manager', () => {
+    renderAgenda([trainingEvent], true);
+
+    expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
+  });
+});
