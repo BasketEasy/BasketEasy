@@ -21,6 +21,7 @@ describe('TeamsController', () => {
     removeTeamPlayer: jest.Mock;
     updateTeamPlayerRole: jest.Mock;
     listTeamAdmins: jest.Mock;
+    listEligibleAdmins: jest.Mock;
     addTeamAdmin: jest.Mock;
     removeTeamAdmin: jest.Mock;
   };
@@ -40,6 +41,7 @@ describe('TeamsController', () => {
       removeTeamPlayer: jest.fn(),
       updateTeamPlayerRole: jest.fn(),
       listTeamAdmins: jest.fn(),
+      listEligibleAdmins: jest.fn(),
       addTeamAdmin: jest.fn(),
       removeTeamAdmin: jest.fn(),
     };
@@ -203,7 +205,15 @@ describe('TeamsController', () => {
     expect(service.listTeamAdmins).toHaveBeenCalledWith('club-1', 'team-1');
   });
 
-  it('addTeamAdmin delegates clubId, teamId, email', async () => {
+  it('listEligibleAdmins delegates clubId and teamId', async () => {
+    service.listEligibleAdmins.mockResolvedValue([]);
+
+    await controller.listEligibleAdmins('club-1', 'team-1');
+
+    expect(service.listEligibleAdmins).toHaveBeenCalledWith('club-1', 'team-1');
+  });
+
+  it('addTeamAdmin delegates clubId, teamId, userId', async () => {
     service.addTeamAdmin.mockResolvedValue({
       userId: 'u2',
       email: 'a@b.com',
@@ -211,9 +221,9 @@ describe('TeamsController', () => {
       createdAt: 'x',
     });
 
-    const result = await controller.addTeamAdmin('club-1', 'team-1', { email: 'a@b.com' });
+    const result = await controller.addTeamAdmin('club-1', 'team-1', { userId: 'u2' });
 
-    expect(service.addTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'a@b.com');
+    expect(service.addTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'u2');
     expect(result.userId).toBe('u2');
   });
 

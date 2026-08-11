@@ -15,7 +15,7 @@ import type {
   TeamSortBy,
 } from '@basketeasy/types/teams';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
-import type { TeamAdmin } from '@basketeasy/types/team-admins';
+import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
@@ -312,12 +312,38 @@ export class TeamsService {
     return teamAdmins.map((ta) => this.toTeamAdmin(ta));
   }
 
-  async addTeamAdmin(clubId: string, teamId: string, email: string): Promise<TeamAdmin> {
+  async listEligibleAdmins(clubId: string, teamId: string): Promise<TeamAdminCandidate[]> {
     await this.assertTeamInClub(clubId, teamId);
 
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const memberships = await this.prisma.clubMembership.findMany({
+      where: { club: { clubTeams: { some: { teamId } } } },
+      include: { user: true },
+      orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
+    });
+
+    // A user can hold membership in more than one club linked to the same
+    // team (CTC), so dedupe by userId before handing back candidates.
+    const seen = new Set<string>();
+    const candidates: TeamAdminCandidate[] = [];
+    for (const membership of memberships) {
+      if (seen.has(membership.userId)) continue;
+      seen.add(membership.userId);
+      candidates.push({
+        userId: membership.userId,
+        email: membership.user.email,
+        firstName: membership.user.firstName,
+        lastName: membership.user.lastName,
+      });
+    }
+    return candidates;
+  }
+
+  async addTeamAdmin(clubId: string, teamId: string, userId: string): Promise<TeamAdmin> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException('No account with that email');
+      throw new NotFoundException('User not found');
     }
 
     const membership = await this.prisma.clubMembership.findFirst({

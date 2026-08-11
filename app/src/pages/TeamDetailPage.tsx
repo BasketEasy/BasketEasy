@@ -32,6 +32,7 @@ import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
+import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
@@ -175,6 +176,7 @@ export function TeamDetailPage() {
   });
 
   const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId!, teamId!);
+  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
 
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
   const { mutate: deleteTeam, isPending: isDeleting } = useTeamDelete(clubId!);
@@ -203,6 +205,11 @@ export function TeamDetailPage() {
     const rosteredPlayerIds = new Set(allTeamPlayers.map((tp) => tp.playerId));
     return clubPlayers.filter((p) => !rosteredPlayerIds.has(p.id));
   }, [clubPlayers, allTeamPlayers]);
+
+  const addableAdmins = useMemo(() => {
+    const adminUserIds = new Set((teamAdmins ?? []).map((admin) => admin.userId));
+    return (teamAdminCandidatesResult ?? []).filter((c) => !adminUserIds.has(c.userId));
+  }, [teamAdminCandidatesResult, teamAdmins]);
 
   const startEditing = () => {
     if (!team) return;
@@ -641,6 +648,7 @@ export function TeamDetailPage() {
                 <TeamAdminAddForm
                   clubId={clubId!}
                   teamId={teamId!}
+                  candidates={addableAdmins}
                   onSuccess={() => setIsAddAdminOpen(false)}
                 />
               </DialogContent>
