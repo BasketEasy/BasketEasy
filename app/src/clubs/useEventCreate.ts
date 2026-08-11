@@ -9,10 +9,8 @@ export function useEventCreate(clubId: string, teamId: string) {
   return useMutation({
     mutationFn: (dto: CreateEventRequest) =>
       apiClient.post<TeamEvent[]>(`/clubs/${clubId}/teams/${teamId}/events`, dto),
-    onSuccess: (createdEvents) => {
-      queryClient.setQueryData<TeamEvent[]>(teamEventsQueryKey(clubId, teamId), (prev) =>
-        [...(prev ?? []), ...createdEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });
     },
   });
 }

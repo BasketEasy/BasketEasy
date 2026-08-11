@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('useEventCreate', () => {
-  it('posts to /clubs/:clubId/teams/:teamId/events and caches the new event in the events list', async () => {
+  it('posts to /clubs/:clubId/teams/:teamId/events and invalidates the events list cache on success', async () => {
     server.use(
       http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
         const body = (await request.json()) as { startsAt: string; location: string };
@@ -33,20 +33,20 @@ describe('useEventCreate', () => {
     );
 
     const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['clubs', 'club-1', 'teams', 'team-1', 'events', {}], {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 25,
+    });
     const { result } = renderHook(() => useEventCreate('club-1', 'team-1'), { wrapper });
 
     result.current.mutate({ startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(queryClient.getQueryData(['clubs', 'club-1', 'teams', 'team-1', 'events'])).toEqual([
-      {
-        id: 'event-1',
-        teamId: 'team-1',
-        startsAt: '2026-01-05T18:00:00.000Z',
-        location: 'Gymnase A',
-        notes: null,
-        createdAt: '2026-01-01',
-      },
-    ]);
+    expect(
+      queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
+        ?.isInvalidated,
+    ).toBe(true);
   });
 });

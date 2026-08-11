@@ -9,11 +9,8 @@ export function useTeamClubAdd(clubId: string, teamId: string) {
   return useMutation({
     mutationFn: (dto: AddTeamClubRequest) =>
       apiClient.post<TeamClubLink>(`/clubs/${clubId}/teams/${teamId}/clubs`, dto),
-    onSuccess: (link) => {
-      queryClient.setQueryData<TeamClubLink[]>(teamClubsQueryKey(clubId, teamId), (prev) => [
-        ...(prev ?? []),
-        link,
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamClubsQueryKey(clubId, teamId) });
     },
   });
 }

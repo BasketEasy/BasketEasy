@@ -9,11 +9,8 @@ export function useTeamPlayerAdd(clubId: string, teamId: string) {
   return useMutation({
     mutationFn: (dto: AddTeamPlayerRequest) =>
       apiClient.post<TeamPlayer>(`/clubs/${clubId}/teams/${teamId}/players`, dto),
-    onSuccess: (teamPlayer) => {
-      queryClient.setQueryData<TeamPlayer[]>(teamPlayersQueryKey(clubId, teamId), (prev) => [
-        ...(prev ?? []),
-        teamPlayer,
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamPlayersQueryKey(clubId, teamId) });
     },
   });
 }

@@ -104,12 +104,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-type QueryParams = Record<string, string | number | boolean | undefined>;
-
-function buildQuery(params?: QueryParams): string {
+// Accepts any plain params object (e.g. one of the @basketeasy/types
+// `ListXParams` shapes) rather than a `Record<string, ...>` — interfaces
+// without an explicit index signature aren't assignable to an indexed type,
+// so the param type here is intentionally just `object`.
+function buildQuery(params?: object): string {
   if (!params) return '';
   const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
+  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
     if (value !== undefined && value !== '') {
       search.set(key, String(value));
     }
@@ -119,7 +121,7 @@ function buildQuery(params?: QueryParams): string {
 }
 
 export const apiClient = {
-  get: <T>(path: string, params?: QueryParams) =>
+  get: <T>(path: string, params?: object) =>
     request<T>(`${path}${buildQuery(params)}`, { method: 'GET' }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
