@@ -6,21 +6,30 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Checkbox } from '@basketeasy/ui/checkbox';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Label } from '@basketeasy/ui/label';
+import { SelectField } from '@basketeasy/ui/select-field';
 import { Textarea } from '@basketeasy/ui/textarea';
+import type { EventType } from '@basketeasy/types/events';
 import { useEventCreate } from './useEventCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { EVENT_TYPE_OPTIONS } from './eventLabels';
 
 const eventSchema = z
   .object({
+    type: z.enum(['TRAINING', 'MATCH']),
     startsAt: z.string().min(1, 'Date requise'),
     location: z.string().min(1, 'Lieu requis'),
     notes: z.string().optional(),
+    opponentName: z.string().optional(),
     isRecurring: z.boolean(),
     recurrenceUntil: z.string().optional(),
   })
   .refine((data) => !data.isRecurring || !!data.recurrenceUntil, {
     message: 'Date de fin requise pour un événement récurrent',
     path: ['recurrenceUntil'],
+  })
+  .refine((data) => data.type !== 'MATCH' || !!data.opponentName?.trim(), {
+    message: "Nom de l'adversaire requis pour un match",
+    path: ['opponentName'],
   });
 
 type EventFormValues = z.infer<typeof eventSchema>;
@@ -46,21 +55,26 @@ export function EventCreateForm({
   } = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
+      type: 'TRAINING',
       startsAt: '',
       location: '',
       notes: '',
+      opponentName: '',
       isRecurring: false,
       recurrenceUntil: '',
     },
   });
   const isRecurring = watch('isRecurring');
+  const type = watch('type');
 
   const onSubmit = (values: EventFormValues) => {
     createEvent(
       {
+        type: values.type,
         startsAt: new Date(values.startsAt).toISOString(),
         location: values.location,
         notes: values.notes || undefined,
+        opponentName: values.type === 'MATCH' ? values.opponentName : undefined,
         recurrence: values.isRecurring
           ? { frequency: 'WEEKLY', until: new Date(values.recurrenceUntil!).toISOString() }
           : undefined,
@@ -87,6 +101,29 @@ export function EventCreateForm({
         <Alert variant="destructive">
           <AlertDescription>{errors.root.message}</AlertDescription>
         </Alert>
+      )}
+
+      <Controller
+        control={control}
+        name="type"
+        render={({ field }) => (
+          <SelectField
+            label="Type"
+            id="event-type-select"
+            options={EVENT_TYPE_OPTIONS}
+            value={field.value}
+            onValueChange={(value) => field.onChange(value as EventType)}
+          />
+        )}
+      />
+
+      {type === 'MATCH' && (
+        <FormField
+          label="Adversaire"
+          id="event-opponent-name"
+          error={errors.opponentName?.message}
+          {...register('opponentName')}
+        />
       )}
 
       <FormField

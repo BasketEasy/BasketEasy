@@ -23,9 +23,12 @@ describe('useEventCreate', () => {
           {
             id: 'event-1',
             teamId: 'team-1',
+            type: 'TRAINING',
             startsAt: body.startsAt,
             location: body.location,
             notes: null,
+            opponentName: null,
+            recurrenceId: null,
             createdAt: '2026-01-01',
           },
         ]);
@@ -41,7 +44,11 @@ describe('useEventCreate', () => {
     });
     const { result } = renderHook(() => useEventCreate('club-1', 'team-1'), { wrapper });
 
-    result.current.mutate({ startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' });
+    result.current.mutate({
+      type: 'TRAINING',
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'Gymnase A',
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(
