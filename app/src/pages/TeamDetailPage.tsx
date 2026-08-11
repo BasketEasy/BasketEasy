@@ -19,6 +19,7 @@ import { Input } from '@basketeasy/ui/input';
 import { Loader } from '@basketeasy/ui/loader';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { EmptyState } from '@basketeasy/ui/empty-state';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
@@ -49,6 +50,10 @@ import {
   teamCategoryLabel,
   teamGenderLabel,
 } from '../clubs/teamLabels';
+import { BuildingIcon } from '@basketeasy/ui/icons/building';
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -117,6 +122,7 @@ export function TeamDetailPage() {
   const [teamClubsPageSize, setTeamClubsPageSize] = useState(DEFAULT_PAGE_SIZE);
   const teamClubsSortOption =
     TEAM_CLUB_SORT_OPTIONS.find((o) => o.value === teamClubsSort) ?? TEAM_CLUB_SORT_OPTIONS[0];
+  const isTeamClubsFiltered = debouncedTeamClubsSearch !== '';
 
   // Effectif (roster) filters
   const [rosterSearch, setRosterSearch] = useState('');
@@ -126,6 +132,7 @@ export function TeamDetailPage() {
   const [rosterPageSize, setRosterPageSize] = useState(DEFAULT_PAGE_SIZE);
   const rosterSortOption =
     ROSTER_SORT_OPTIONS.find((o) => o.value === rosterSort) ?? ROSTER_SORT_OPTIONS[0];
+  const isRosterFiltered = debouncedRosterSearch !== '';
 
   // Événements filters
   const [eventsSearch, setEventsSearch] = useState('');
@@ -135,6 +142,7 @@ export function TeamDetailPage() {
   const [eventsSortOrder, setEventsSortOrder] = useState<SortOrder>('asc');
   const [eventsPage, setEventsPage] = useState(1);
   const [eventsPageSize, setEventsPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const isEventsFiltered = debouncedEventsSearch !== '' || eventsFrom !== '' || eventsTo !== '';
 
   const { data: teamClubsResult, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!, {
     search: debouncedTeamClubsSearch || undefined,
@@ -382,6 +390,21 @@ export function TeamDetailPage() {
           <CardContent className="pt-6 flex flex-col gap-4">
             {isLoadingClubs ? (
               <Loader>Chargement...</Loader>
+            ) : (teamClubsResult?.total ?? 0) === 0 ? (
+              <EmptyState
+                icon={<BuildingIcon className="h-8 w-8 text-muted" />}
+                title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
+                description={
+                  isTeamClubsFiltered
+                    ? 'Aucun club partenaire ne correspond à votre recherche.'
+                    : 'Associez un club partenaire pour gérer une équipe CTC à effectif partagé.'
+                }
+                action={
+                  isAdmin && isOwner && !isTeamClubsFiltered ? (
+                    <Button onClick={() => setIsAddClubOpen(true)}>Associer un club</Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <>
                 <Table>
@@ -475,6 +498,21 @@ export function TeamDetailPage() {
           <CardContent className="pt-6 flex flex-col gap-4">
             {isLoadingPlayers ? (
               <Loader>Chargement...</Loader>
+            ) : (teamPlayersResult?.total ?? 0) === 0 ? (
+              <EmptyState
+                icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
+                description={
+                  isRosterFiltered
+                    ? "Aucun joueur de l'effectif ne correspond à votre recherche."
+                    : "Ajoutez un joueur du club à l'effectif de cette équipe."
+                }
+                action={
+                  canManageTeam && !isRosterFiltered ? (
+                    <Button onClick={() => setIsAddPlayerOpen(true)}>Ajouter un joueur</Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <>
                 <Table>
@@ -587,6 +625,21 @@ export function TeamDetailPage() {
           <CardContent className="pt-6 flex flex-col gap-4">
             {isLoadingEvents ? (
               <Loader>Chargement...</Loader>
+            ) : (eventsResult?.total ?? 0) === 0 ? (
+              <EmptyState
+                icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+                title={isEventsFiltered ? 'Aucun résultat' : 'Aucun événement'}
+                description={
+                  isEventsFiltered
+                    ? 'Aucun événement ne correspond à ces critères.'
+                    : 'Planifiez un entraînement ou un match pour cette équipe.'
+                }
+                action={
+                  canManageTeam && !isEventsFiltered ? (
+                    <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <>
                 <Table>
@@ -660,6 +713,19 @@ export function TeamDetailPage() {
           <CardContent className="pt-6">
             {isLoadingAdmins ? (
               <Loader>Chargement...</Loader>
+            ) : (teamAdmins?.length ?? 0) === 0 ? (
+              <EmptyState
+                icon={<ShieldIcon className="h-8 w-8 text-muted" />}
+                title="Aucun administrateur d'équipe"
+                description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
+                action={
+                  canManageTeam ? (
+                    <Button onClick={() => setIsAddAdminOpen(true)}>
+                      Ajouter un administrateur
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <Table>
                 <TableHeader>

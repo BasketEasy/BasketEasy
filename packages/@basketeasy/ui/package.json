@@ -71,6 +71,30 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./empty-state": {
+      "types": "./src/components/EmptyState.tsx",
+      "default": "./src/components/EmptyState.tsx"
+    },
+    "./icons/users": {
+      "types": "./src/components/icons/UsersIcon.tsx",
+      "default": "./src/components/icons/UsersIcon.tsx"
+    },
+    "./icons/trophy": {
+      "types": "./src/components/icons/TrophyIcon.tsx",
+      "default": "./src/components/icons/TrophyIcon.tsx"
+    },
+    "./icons/building": {
+      "types": "./src/components/icons/BuildingIcon.tsx",
+      "default": "./src/components/icons/BuildingIcon.tsx"
+    },
+    "./icons/calendar": {
+      "types": "./src/components/icons/CalendarIcon.tsx",
+      "default": "./src/components/icons/CalendarIcon.tsx"
+    },
+    "./icons/shield": {
+      "types": "./src/components/icons/ShieldIcon.tsx",
+      "default": "./src/components/icons/ShieldIcon.tsx"
+    },
     "./tooltip": {
       "types": "./src/components/Tooltip.tsx",
       "default": "./src/components/Tooltip.tsx"

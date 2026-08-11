@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
+import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
 import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
@@ -16,6 +17,7 @@ import {
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 
 function MyTeamRow({ team }: { team: MyTeamSummary }) {
   const navigate = useNavigate();
@@ -80,7 +82,11 @@ export function MyTeamsPage() {
               </TableBody>
             </Table>
           ) : (
-            <p className="text-muted">Vous n'êtes membre d'aucune équipe pour le moment.</p>
+            <EmptyState
+              icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+              title="Aucune équipe pour le moment"
+              description="Vous n'êtes membre d'aucune équipe pour le moment."
+            />
           )}
         </CardContent>
       </Card>

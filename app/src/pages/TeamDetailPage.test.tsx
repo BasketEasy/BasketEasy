@@ -62,6 +62,13 @@ describe('TeamDetailPage', () => {
         ),
       ),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      // Non-empty, so this section renders its table rather than the empty
+      // state (which would add a second "Ajouter un administrateur" button).
+      http.get('/api/clubs/club-1/teams/team-1/admins', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', teamId: 'team-1', createdAt: 'x' },
+        ]),
+      ),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
@@ -141,7 +148,29 @@ describe('TeamDetailPage', () => {
           paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
         ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      // Non-empty roster, so this section renders its table rather than the
+      // empty state (which would add a second "Ajouter un joueur" button
+      // sharing the same accessible name as the section header's own).
+      // Events/admins stay empty/non-empty via the defaults below — their
+      // row components add their own "Modifier"/"Supprimer" buttons once
+      // populated, which would collide with the team-edit/-delete buttons
+      // asserted below, so leave events on the default empty handler.
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'tp-1',
+              teamId: 'team-1',
+              playerId: 'p1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              clubId: 'club-1',
+              role: 'PLAYER',
+              createdAt: 'x',
+            },
+          ]),
+        ),
+      ),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/teams/team-1/admins', () =>
         HttpResponse.json([
@@ -154,12 +183,48 @@ describe('TeamDetailPage', () => {
 
     // Team-day management is available to this TeamAdmin...
     expect(await screen.findByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /créer un événement/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /modifier/i })).toBeInTheDocument();
+    // Événements is empty, so the header button and the empty state's CTA
+    // both render — either opens the same "Créer un événement" dialog.
+    expect(screen.getAllByRole('button', { name: /créer un événement/i }).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ajouter un administrateur/i })).toBeInTheDocument();
     // ...but CTC governance and team deletion stay owner-club-ADMIN-only.
     expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows an empty state on all four sections when the team has nothing yet', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/admins', () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText('Aucun club partenaire')).toBeInTheDocument();
+    expect(screen.getByText('Effectif vide')).toBeInTheDocument();
+    expect(screen.getByText('Aucun événement')).toBeInTheDocument();
+    expect(screen.getByText("Aucun administrateur d'équipe")).toBeInTheDocument();
+
+    // Clubs partenaires: with no linked clubs at all, this club can't be
+    // confirmed as the CTC owner, so isOwner is false and neither the
+    // header button nor the empty state's CTA render.
+    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
+
+    // Effectif / Événements / Administrateurs: this club ADMIN can manage
+    // the team, so each section shows both its header button and the empty
+    // state's own CTA — two buttons sharing the same accessible name, both
+    // wired to the same dialog-open state.
+    expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /créer un événement/i })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /ajouter un administrateur/i })).toHaveLength(2);
   });
 
   it('does not let a non-owning (partner) club admin manage partner clubs or delete the team', async () => {
@@ -174,7 +239,24 @@ describe('TeamDetailPage', () => {
           ]),
         ),
       ),
-      http.get('/api/clubs/club-2/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      // Non-empty, so the roster renders its table rather than the empty
+      // state (which would add a second "Ajouter un joueur" button).
+      http.get('/api/clubs/club-2/teams/team-1/players', () =>
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'tp-1',
+              teamId: 'team-1',
+              playerId: 'p1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              clubId: 'club-2',
+              role: 'PLAYER',
+              createdAt: 'x',
+            },
+          ]),
+        ),
+      ),
       http.get('/api/clubs/club-2/players', () => HttpResponse.json(paginated([]))),
     );
 
@@ -270,7 +352,9 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /ajouter un joueur/i }));
+    // The roster starts empty, so the header button and the empty state's
+    // CTA both render — either opens the same "Ajouter un joueur" dialog.
+    await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
 
     await user.click(screen.getByRole('combobox', { name: /joueur/i }));
     await user.click(await screen.findByRole('option', { name: 'Alex Dupont' }));
@@ -368,6 +452,48 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
   });
 
+  it('shows a filtered empty state (no add CTA) when the roster search matches no one', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        return HttpResponse.json(
+          paginated(
+            search
+              ? []
+              : [
+                  {
+                    id: 'tp-1',
+                    teamId: 'team-1',
+                    playerId: 'p1',
+                    firstName: 'Alex',
+                    lastName: 'Dupont',
+                    clubId: 'club-1',
+                    role: 'PLAYER',
+                    createdAt: 'x',
+                  },
+                ],
+          ),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
+    await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'zzz');
+
+    expect(await screen.findByText('Aucun résultat')).toBeInTheDocument();
+    // Only the section header's own button remains — the empty state's CTA
+    // is suppressed while a search filter is active.
+    expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(1);
+  });
+
   it('paginates the roster', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     const requestedPages: (string | null)[] = [];
@@ -404,10 +530,11 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
     expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
 
-    // The Clubs partenaires section's own (disabled, total 0) "Suivant"
-    // button renders first in the DOM; the roster's is the second.
+    // The Clubs partenaires section is empty (total 0), so its Pagination is
+    // suppressed entirely — only the roster's "Suivant" button renders.
     const nextButtons = screen.getAllByRole('button', { name: 'Suivant' });
-    await user.click(nextButtons[1]);
+    expect(nextButtons).toHaveLength(1);
+    await user.click(nextButtons[0]);
 
     await waitFor(() => expect(requestedPages).toContain('2'));
   });
