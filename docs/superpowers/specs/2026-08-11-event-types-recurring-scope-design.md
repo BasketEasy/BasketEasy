@@ -235,7 +235,7 @@ reopen the original cut, it fills in the one corner of it that was cheap and una
   method/route, not a relaxation of it.
 - No timezone table was added. `startsAt` is still a naive UTC-instant `TIMESTAMP(3)` with no
   per-club/team zone anywhere in the schema, matching every other date in this app. The
-  frontend resolves the user's chosen local wall-clock time against the *anchor* event's own
+  frontend resolves the user's chosen local wall-clock time against the _anchor_ event's own
   calendar date (correct DST for that one reference point) and sends a single resulting UTC
   `hour`/`minute`; the server applies that same pair to every row in scope via `setUTCHours`,
   preserving each row's own date. Occurrences that fall on the other side of a DST transition
