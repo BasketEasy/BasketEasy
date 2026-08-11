@@ -110,9 +110,7 @@ export class TeamsService {
     const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
     const where: Prisma.ClubTeamWhereInput = {
       teamId,
-      ...(query.search
-        ? { club: { name: { contains: query.search, mode: 'insensitive' } } }
-        : {}),
+      ...(query.search ? { club: { name: { contains: query.search, mode: 'insensitive' } } } : {}),
     };
     const orderBy = this.teamClubsOrderBy(query.sortBy, query.sortOrder);
 

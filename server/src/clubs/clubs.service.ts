@@ -73,7 +73,10 @@ export class ClubsService {
     };
   }
 
-  async listMembers(clubId: string, query: ListClubMembersDto): Promise<PaginatedResult<ClubMember>> {
+  async listMembers(
+    clubId: string,
+    query: ListClubMembersDto,
+  ): Promise<PaginatedResult<ClubMember>> {
     const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
     const where: Prisma.ClubMembershipWhereInput = {
       clubId,

@@ -1,6 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { EventRecurrenceRequest, TeamEvent } from '@basketeasy/types/events';
+import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolvePagination } from '../common/pagination';
+import { ListEventsDto } from './dto/list-events.dto';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
@@ -11,13 +15,40 @@ const MAX_RECURRING_OCCURRENCES = 104;
 export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listEvents(clubId: string, teamId: string): Promise<TeamEvent[]> {
+  async listEvents(
+    clubId: string,
+    teamId: string,
+    query: ListEventsDto,
+  ): Promise<PaginatedResult<TeamEvent>> {
     await this.assertTeamInClub(clubId, teamId);
-    const events = await this.prisma.event.findMany({
-      where: { teamId },
-      orderBy: { startsAt: 'asc' },
-    });
-    return events.map((e) => this.toTeamEvent(e));
+    const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
+    const where: Prisma.EventWhereInput = {
+      teamId,
+      ...(query.from || query.to
+        ? {
+            startsAt: {
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          }
+        : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { location: { contains: query.search, mode: 'insensitive' } },
+              { notes: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const orderBy: Prisma.EventOrderByWithRelationInput = { startsAt: query.sortOrder ?? 'asc' };
+
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({ where, orderBy, skip, take }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    return { items: events.map((e) => this.toTeamEvent(e)), total, page, pageSize };
   }
 
   async createEvent(

@@ -72,18 +72,18 @@ server-side regardless of what the client requests (`server/src/common/paginatio
 
 ## Per-resource filters and sort fields
 
-| Resource | Search matches | Extra filter(s) | `sortBy` options (default) | `sortOrder` default |
-| --- | --- | --- | --- | --- |
-| Club members | member email, first name, last name | `role` (`ADMIN`\|`MEMBER`) | `name` (default), `email`, `joinedAt` | `asc` |
-| Players | first name, last name | — | `name` (default), `createdAt` | `asc` |
-| Teams | team name | `category`, `gender` | `name` (default), `category`, `createdAt` | `asc` |
-| Team-clubs (CTC partners) | partner club name | — | `name` (default), `linkedAt` | `asc` |
-| Team roster (team players) | player first/last name | — | `name` (default), `createdAt` | `asc` |
-| Events | location, notes | `from`/`to` (ISO date range on `startsAt`) | (`startsAt` always — no `sortBy` param, just `sortOrder`) | `asc` |
+| Resource                   | Search matches                      | Extra filter(s)                            | `sortBy` options (default)                                | `sortOrder` default |
+| -------------------------- | ----------------------------------- | ------------------------------------------ | --------------------------------------------------------- | ------------------- |
+| Club members               | member email, first name, last name | `role` (`ADMIN`\|`MEMBER`)                 | `name` (default), `email`, `joinedAt`                     | `asc`               |
+| Players                    | first name, last name               | —                                          | `name` (default), `createdAt`                             | `asc`               |
+| Teams                      | team name                           | `category`, `gender`                       | `name` (default), `category`, `createdAt`                 | `asc`               |
+| Team-clubs (CTC partners)  | partner club name                   | —                                          | `name` (default), `linkedAt`                              | `asc`               |
+| Team roster (team players) | player first/last name              | —                                          | `name` (default), `createdAt`                             | `asc`               |
+| Events                     | location, notes                     | `from`/`to` (ISO date range on `startsAt`) | (`startsAt` always — no `sortBy` param, just `sortOrder`) | `asc`               |
 
 `name` sort always means "the human-readable label a user reads top-to-bottom" — last name then
 first name for people, plain name for teams/clubs — matching each resource's existing default
-`orderBy` (so the *default* list view is unchanged; only searching/filtering/paging are new).
+`orderBy` (so the _default_ list view is unchanged; only searching/filtering/paging are new).
 Team-clubs keeps its existing "owner club always first" behavior as the primary sort key
 regardless of `sortBy`, since that's a structural fact about the row (who can manage the CTC),
 not a sortable attribute — `sortBy=name`/`linkedAt` only orders the partner clubs after it.

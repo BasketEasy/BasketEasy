@@ -281,7 +281,7 @@ docs/frontend-stack.md                               # modify — mutation cache
       `search` as `user: { OR: [email, firstName, lastName].map(contains-insensitive) }`; build
       `orderBy` via a small private switch (`email` → `user.email`; `joinedAt` → `createdAt`;
       default `name` → `[user.lastName, user.firstName]`); `Promise.all([findMany({..., skip,
-      take}), count({where})])`; return `{ items, total, page, pageSize }`. Extract the existing
+    take}), count({where})])`; return `{ items, total, page, pageSize }`. Extract the existing
       inline membership→`ClubMember` mapping into a `toClubMember` private method (currently
       duplicated between `addMember` and `listMembers` — keep `addMember`'s inline shape as-is,
       it doesn't paginate).
@@ -428,6 +428,7 @@ file as Task 5), `teams.service.spec.ts`, `teams.controller.ts`, `teams.controll
   Apply the same shape to `clubPlayersQueryKey`, `clubTeamsQueryKey`, `teamClubsQueryKey`,
   `teamPlayersQueryKey`, `teamEventsQueryKey`. `clubsQueryKey`, `clubQueryKey`, `teamQueryKey`
   (single-record, non-paginated) are untouched.
+
 - [ ] Commit: `feat(app): thread pagination/filter params into list query keys`
 
 ---
@@ -529,10 +530,10 @@ colocated tests, e.g. `useClubMemberAdd.test.ts`).
       simplest: one combined `SelectField` with options like "Nom (A→Z)"/"Nom (Z→A)" mapping to
       `sortBy`+`sortOrder` pairs, matching how `SelectField` is used elsewhere in this file),
       `Pagination` footer under the table. Pass `{ search: debouncedSearch, role, sortBy,
-      sortOrder, page, pageSize }` to `useClubMemberList`.
+    sortOrder, page, pageSize }` to `useClubMemberList`.
 - [ ] **Joueurs tab:** search `Input`, sort `SelectField` (Nom/Date de création), `Pagination`
       footer. Note: `linkedUserIds`/`emailByUserId`/`linkedPlayerNameByUserId` (computed from
-      `members`/`players`) now only see the *current page's* members/players — acceptable per
+      `members`/`players`) now only see the _current page's_ members/players — acceptable per
       spec (these are cross-references for the visible table rows, not the picker `<select>`s,
       which use the separate unfiltered high-`pageSize` fetch from Task 13).
 - [ ] **Équipes tab:** search `Input`, category `SelectField` (reuse `TEAM_CATEGORY_OPTIONS` from
@@ -540,7 +541,7 @@ colocated tests, e.g. `useClubMemberAdd.test.ts`).
       "Tous"), sort `SelectField`, `Pagination` footer.
 - [ ] Update `MembersPage.test.tsx`: every `HttpResponse.json([...])` stub for `/members`,
       `/players`, `/teams` becomes `HttpResponse.json({ items: [...], total: N, page: 1,
-      pageSize: 25 })`. Add new tests: typing in the members search box eventually (after
+    pageSize: 25 })`. Add new tests: typing in the members search box eventually (after
       debounce/`waitFor`) requests with `?search=...`; selecting a role filters; clicking "next"
       on a 2-page result set requests `page=2`.
 - [ ] Run: `pnpm --filter @basketeasy/app test -- MembersPage.test.tsx`

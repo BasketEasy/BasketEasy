@@ -1,5 +1,9 @@
 import { IsIn, IsOptional } from 'class-validator';
-import type { ClubMemberSortBy, ClubRole, ListClubMembersParams } from '@basketeasy/types/club-members';
+import type {
+  ClubMemberSortBy,
+  ClubRole,
+  ListClubMembersParams,
+} from '@basketeasy/types/club-members';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
