@@ -20,7 +20,12 @@ describe('MyTeamsPage', () => {
   it('shows an empty state when the user is part of no team', async () => {
     renderWithProviders(<MyTeamsPage />);
 
-    expect(await screen.findByText(/aucune équipe/i)).toBeInTheDocument();
+    expect(await screen.findByText('Aucune équipe pour le moment')).toBeInTheDocument();
+    expect(
+      screen.getByText("Vous n'êtes membre d'aucune équipe pour le moment."),
+    ).toBeInTheDocument();
+    // Read-only view — no "add" action of its own, so no CTA button.
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('lists teams with the club, category, and the role badges that apply', async () => {

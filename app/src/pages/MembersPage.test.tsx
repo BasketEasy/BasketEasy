@@ -203,12 +203,16 @@ describe('MembersPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
-    );
+    // The list is empty, so both the header's "+ Ajouter" button and the
+    // empty state's CTA render — they open the same controlled Dialog.
+    expect(await screen.findByText('Aucun membre pour le moment')).toBeInTheDocument();
+    const addButtons = screen.getAllByRole('button', { name: /ajouter un membre/i });
+    expect(addButtons).toHaveLength(2);
     expect(screen.queryByLabelText(/adresse e-mail du membre/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /ajouter un membre/i }));
+    // Click the empty state's own CTA (the second button) to confirm it
+    // wires up to the same dialog-open state as the page's main button.
+    await user.click(addButtons[1]);
     expect(screen.getByRole('heading', { name: /ajouter un membre/i })).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/adresse e-mail du membre/i), 'b@example.com');
@@ -242,6 +246,36 @@ describe('MembersPage', () => {
     await user.type(screen.getByLabelText('Rechercher un membre'), 'dup');
 
     await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
+  });
+
+  it('shows a filtered empty state (no add CTA) when a search matches no member', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', ({ request }) => {
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        return HttpResponse.json(
+          paginated(
+            search
+              ? []
+              : [{ userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' }],
+          ),
+        );
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await user.type(screen.getByLabelText('Rechercher un membre'), 'zzz');
+
+    expect(await screen.findByText('Aucun résultat')).toBeInTheDocument();
+    // Only the header's own button remains — the empty state's CTA is
+    // suppressed while a search filter is active (a bad query, not a
+    // genuinely empty club, so "+ Ajouter" wouldn't fix it).
+    expect(screen.getAllByRole('button', { name: /ajouter un membre/i })).toHaveLength(1);
   });
 
   it('filters the members table by role', async () => {
@@ -324,8 +358,12 @@ describe('MembersPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
+    // Membres tab is empty, so its header button and empty-state CTA both
+    // render with the same accessible name — just wait for either.
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
+      expect(screen.getAllByRole('button', { name: /ajouter un membre/i }).length).toBeGreaterThan(
+        0,
+      ),
     );
     await user.click(screen.getByRole('tab', { name: /joueurs/i }));
 
@@ -353,8 +391,12 @@ describe('MembersPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
+    // Membres tab is empty, so its header button and empty-state CTA both
+    // render with the same accessible name — just wait for either.
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /ajouter un membre/i })).toBeInTheDocument(),
+      expect(screen.getAllByRole('button', { name: /ajouter un membre/i }).length).toBeGreaterThan(
+        0,
+      ),
     );
     await user.click(screen.getByRole('tab', { name: /équipes/i }));
 
@@ -386,7 +428,9 @@ describe('MembersPage', () => {
 
     await waitFor(() => expect(screen.getByRole('tab', { name: /équipes/i })).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /équipes/i }));
-    await user.click(screen.getByRole('button', { name: /créer une équipe/i }));
+    // The list is (and stays, until submit) empty, so the header button and
+    // the empty state's CTA both render — either opens the same dialog.
+    await user.click(screen.getAllByRole('button', { name: /créer une équipe/i })[0]);
 
     await user.type(screen.getByLabelText(/nom de l'équipe/i), 'Équipe U15');
     await user.click(screen.getByRole('combobox', { name: /^catégorie$/i }));
@@ -398,6 +442,28 @@ describe('MembersPage', () => {
     await waitFor(() =>
       expect(screen.queryByLabelText(/nom de l'équipe/i)).not.toBeInTheDocument(),
     );
+  });
+
+  it('shows an empty state with an add CTA on all three tabs when genuinely empty', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(await screen.findByText('Aucun membre pour le moment')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /joueurs/i }));
+    expect(await screen.findByText('Aucun joueur pour le moment')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(2);
+
+    await user.click(screen.getByRole('tab', { name: /équipes/i }));
+    expect(await screen.findByText('Aucune équipe pour le moment')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /créer une équipe/i })).toHaveLength(2);
   });
 
   it('opens the add-player form in a modal, offering unlinked members, and shows the linked email once added', async () => {
@@ -433,7 +499,10 @@ describe('MembersPage', () => {
 
     await waitFor(() => expect(screen.getByRole('tab', { name: /joueurs/i })).toBeInTheDocument());
     await user.click(screen.getByRole('tab', { name: /joueurs/i }));
-    await user.click(await screen.findByRole('button', { name: /ajouter un joueur/i }));
+    // The roster is empty, so the header button and the empty state's CTA
+    // both render — either opens the same "Ajouter un joueur" dialog.
+    const addPlayerButtons = await screen.findAllByRole('button', { name: /ajouter un joueur/i });
+    await user.click(addPlayerButtons[0]);
 
     await user.type(screen.getByLabelText(/prénom/i), 'Alex');
     await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');

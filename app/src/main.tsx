@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { AccountProvider } from './auth/AccountContext';
+import { ActiveClubProvider } from './auth/ActiveClubContext';
 import App from './App';
 import './index.css';
 
@@ -12,9 +13,11 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AccountProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <ActiveClubProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ActiveClubProvider>
       </AccountProvider>
     </QueryClientProvider>
   </React.StrictMode>,

@@ -71,6 +71,34 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./dropdown-menu": {
+      "types": "./src/components/DropdownMenu.tsx",
+      "default": "./src/components/DropdownMenu.tsx"
+    },
+    "./empty-state": {
+      "types": "./src/components/EmptyState.tsx",
+      "default": "./src/components/EmptyState.tsx"
+    },
+    "./icons/users": {
+      "types": "./src/components/icons/UsersIcon.tsx",
+      "default": "./src/components/icons/UsersIcon.tsx"
+    },
+    "./icons/trophy": {
+      "types": "./src/components/icons/TrophyIcon.tsx",
+      "default": "./src/components/icons/TrophyIcon.tsx"
+    },
+    "./icons/building": {
+      "types": "./src/components/icons/BuildingIcon.tsx",
+      "default": "./src/components/icons/BuildingIcon.tsx"
+    },
+    "./icons/calendar": {
+      "types": "./src/components/icons/CalendarIcon.tsx",
+      "default": "./src/components/icons/CalendarIcon.tsx"
+    },
+    "./icons/shield": {
+      "types": "./src/components/icons/ShieldIcon.tsx",
+      "default": "./src/components/icons/ShieldIcon.tsx"
+    },
     "./tooltip": {
       "types": "./src/components/Tooltip.tsx",
       "default": "./src/components/Tooltip.tsx"
@@ -124,6 +152,7 @@
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-tabs": "^1.1.0",

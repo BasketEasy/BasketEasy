@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
@@ -19,6 +20,7 @@ import { Input } from '@basketeasy/ui/input';
 import { Loader } from '@basketeasy/ui/loader';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { EmptyState } from '@basketeasy/ui/empty-state';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
@@ -38,6 +40,7 @@ import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
+import { TeamRosterCards } from '../clubs/TeamRosterCards';
 import { EventCreateForm } from '../clubs/EventCreateForm';
 import { EventRow } from '../clubs/EventRow';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
@@ -49,6 +52,10 @@ import {
   teamCategoryLabel,
   teamGenderLabel,
 } from '../clubs/teamLabels';
+import { BuildingIcon } from '@basketeasy/ui/icons/building';
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -101,9 +108,21 @@ const EVENT_SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: 'desc', label: 'Plus lointain d’abord' },
 ];
 
+type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'events';
+
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab: TeamDetailTab =
+    tabParam === 'clubs'
+      ? 'clubs'
+      : tabParam === 'admins'
+        ? 'admins'
+        : tabParam === 'events'
+          ? 'events'
+          : 'roster';
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
 
@@ -117,6 +136,7 @@ export function TeamDetailPage() {
   const [teamClubsPageSize, setTeamClubsPageSize] = useState(DEFAULT_PAGE_SIZE);
   const teamClubsSortOption =
     TEAM_CLUB_SORT_OPTIONS.find((o) => o.value === teamClubsSort) ?? TEAM_CLUB_SORT_OPTIONS[0];
+  const isTeamClubsFiltered = debouncedTeamClubsSearch !== '';
 
   // Effectif (roster) filters
   const [rosterSearch, setRosterSearch] = useState('');
@@ -126,6 +146,18 @@ export function TeamDetailPage() {
   const [rosterPageSize, setRosterPageSize] = useState(DEFAULT_PAGE_SIZE);
   const rosterSortOption =
     ROSTER_SORT_OPTIONS.find((o) => o.value === rosterSort) ?? ROSTER_SORT_OPTIONS[0];
+  const isRosterFiltered = debouncedRosterSearch !== '';
+  // Effectif view mode — defaults to the grouped card view. Toggling resets
+  // the table view's search/sort/page state rather than preserving it: a
+  // search typed in table view silently filtering the card view's grouping
+  // (or vice versa) would be more confusing than just starting fresh.
+  const [rosterViewMode, setRosterViewMode] = useState<'cards' | 'table'>('cards');
+  const toggleRosterViewMode = () => {
+    setRosterSearch('');
+    setRosterSort(ROSTER_SORT_OPTIONS[0].value);
+    setRosterPage(1);
+    setRosterViewMode((mode) => (mode === 'cards' ? 'table' : 'cards'));
+  };
 
   // Événements filters
   const [eventsSearch, setEventsSearch] = useState('');
@@ -135,6 +167,7 @@ export function TeamDetailPage() {
   const [eventsSortOrder, setEventsSortOrder] = useState<SortOrder>('asc');
   const [eventsPage, setEventsPage] = useState(1);
   const [eventsPageSize, setEventsPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const isEventsFiltered = debouncedEventsSearch !== '' || eventsFrom !== '' || eventsTo !== '';
 
   const { data: teamClubsResult, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!, {
     search: debouncedTeamClubsSearch || undefined,
@@ -160,10 +193,24 @@ export function TeamDetailPage() {
       pageSize: rosterPageSize,
     },
   );
-  // Unfiltered, capped fetch backing the "already rostered" computation below.
-  const { data: allTeamPlayersResult } = useTeamPlayerList(clubId!, teamId!, {
-    pageSize: LINKING_PAGE_SIZE,
-  });
+  // Unfiltered, capped fetch backing the "already rostered" computation below
+  // — also backs the Effectif tab's card view, which shows the full roster
+  // rather than one paginated/filtered table page.
+  // TODO: LINKING_PAGE_SIZE (100) is also the server's MAX_PAGE_SIZE
+  // (server/src/common/pagination.ts), so a CTC/entente team's shared roster
+  // — this app's own headline multi-club use case — could exceed it and
+  // silently render only the first 100 players/coaches in the card view with
+  // no "and N more" indicator, unlike the table-view toggle, which stays
+  // correctly paginated. Not expected at current usage, but if/when it comes
+  // up, the card view needs either real pagination or an overflow indicator
+  // driven by `allTeamPlayersResult.total` vs. `allTeamPlayers.length`.
+  const { data: allTeamPlayersResult, isLoading: isLoadingAllTeamPlayers } = useTeamPlayerList(
+    clubId!,
+    teamId!,
+    {
+      pageSize: LINKING_PAGE_SIZE,
+    },
+  );
   const { data: clubPlayersResult } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
 
   const { data: eventsResult, isLoading: isLoadingEvents } = useEventList(clubId!, teamId!, {
@@ -197,6 +244,15 @@ export function TeamDetailPage() {
   const allTeamPlayers = useMemo(() => allTeamPlayersResult?.items ?? [], [allTeamPlayersResult]);
   const clubPlayers = useMemo(() => clubPlayersResult?.items ?? [], [clubPlayersResult]);
   const events = eventsResult?.items;
+
+  // The card view reads the full unfiltered roster, the table view reads the
+  // paginated/filtered one — so "is the roster empty" (and its loading
+  // state) is sourced from whichever fetch backs the active view, letting
+  // both views share a single EmptyState/Loader branch instead of each
+  // duplicating that logic.
+  const isLoadingRoster = rosterViewMode === 'cards' ? isLoadingAllTeamPlayers : isLoadingPlayers;
+  const isRosterEmpty =
+    (rosterViewMode === 'cards' ? allTeamPlayersResult?.total : teamPlayersResult?.total) === 0;
 
   const isOwner =
     (allTeamClubsResult?.items ?? []).find((c) => c.clubId === clubId)?.isOwner ?? false;
@@ -238,12 +294,8 @@ export function TeamDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <Button
-        variant="ghost"
-        className="self-start"
-        onClick={() => navigate(`/clubs/${clubId}/members?tab=teams`)}
-      >
-        ← Retour à l'effectif
+      <Button variant="ghost" className="self-start" onClick={() => navigate('/my-teams')}>
+        ← Mes équipes
       </Button>
 
       {isEditing ? (
@@ -327,15 +379,136 @@ export function TeamDetailPage() {
         </Alert>
       )}
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading as="h2" size="2xl" className="m-0">
-            Clubs partenaires (CTC)
-          </Heading>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+      >
+        <TabsList>
+          <TabsTrigger value="roster">Effectif</TabsTrigger>
+          <TabsTrigger value="clubs">Clubs partenaires</TabsTrigger>
+          <TabsTrigger value="admins">Administrateurs</TabsTrigger>
+          <TabsTrigger value="events">Événements</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="roster" className="mt-4 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {canManageTeam && (
+              <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+                <DialogTrigger asChild>
+                  <Button className="self-start">Ajouter un joueur</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Ajouter un joueur à l'effectif</DialogTitle>
+                    <DialogDescription>
+                      Ajoutez un joueur du club à l'effectif de cette équipe.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <TeamPlayerAddForm
+                    clubId={clubId!}
+                    teamId={teamId!}
+                    addablePlayers={addablePlayers}
+                    onSuccess={() => setIsAddPlayerOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+            <Button variant="outline" className="self-start" onClick={toggleRosterViewMode}>
+              {rosterViewMode === 'cards' ? 'Basculer en vue tableau' : 'Basculer en vue cartes'}
+            </Button>
+          </div>
+
+          {rosterViewMode === 'table' && (
+            <div className="flex flex-wrap items-end gap-3">
+              <Input
+                aria-label="Rechercher un joueur de l'effectif"
+                placeholder="Rechercher un joueur…"
+                value={rosterSearch}
+                onChange={(e) => {
+                  setRosterSearch(e.target.value);
+                  setRosterPage(1);
+                }}
+                className="max-w-xs"
+              />
+              <SelectField
+                label="Trier par"
+                containerClassName="w-56"
+                value={rosterSort}
+                onValueChange={(value) => {
+                  setRosterSort(value);
+                  setRosterPage(1);
+                }}
+                options={ROSTER_SORT_OPTIONS}
+              />
+            </div>
+          )}
+
+          <Card>
+            <CardContent className="pt-6 flex flex-col gap-4">
+              {isLoadingRoster ? (
+                <Loader>Chargement...</Loader>
+              ) : isRosterEmpty ? (
+                <EmptyState
+                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
+                  description={
+                    isRosterFiltered
+                      ? "Aucun joueur de l'effectif ne correspond à votre recherche."
+                      : "Ajoutez un joueur du club à l'effectif de cette équipe."
+                  }
+                  action={
+                    canManageTeam && !isRosterFiltered ? (
+                      <Button onClick={() => setIsAddPlayerOpen(true)}>Ajouter un joueur</Button>
+                    ) : undefined
+                  }
+                />
+              ) : rosterViewMode === 'cards' ? (
+                <TeamRosterCards players={allTeamPlayers} teamGender={team.gender} />
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Prénom</TableHead>
+                        <TableHead>Nom</TableHead>
+                        <TableHead>Rôle</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamPlayers?.map((teamPlayer) => (
+                        <TeamPlayerRow
+                          key={teamPlayer.id}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          teamPlayer={teamPlayer}
+                          canManage={canManageTeam}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <Pagination
+                    page={teamPlayersResult?.page ?? 1}
+                    pageSize={teamPlayersResult?.pageSize ?? rosterPageSize}
+                    total={teamPlayersResult?.total ?? 0}
+                    onPageChange={setRosterPage}
+                    pageSizeOptions={PAGE_SIZE_OPTIONS}
+                    onPageSizeChange={(size) => {
+                      setRosterPageSize(size);
+                      setRosterPage(1);
+                    }}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clubs" className="mt-4 flex flex-col gap-4">
           {isAdmin && isOwner && (
             <Dialog open={isAddClubOpen} onOpenChange={setIsAddClubOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">Associer un club</Button>
+                <Button className="self-start">Associer un club</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -353,289 +526,92 @@ export function TeamDetailPage() {
               </DialogContent>
             </Dialog>
           )}
-        </div>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <Input
-            aria-label="Rechercher un club partenaire"
-            placeholder="Rechercher un club…"
-            value={teamClubsSearch}
-            onChange={(e) => {
-              setTeamClubsSearch(e.target.value);
-              setTeamClubsPage(1);
-            }}
-            className="max-w-xs"
-          />
-          <SelectField
-            label="Trier par"
-            containerClassName="w-56"
-            value={teamClubsSort}
-            onValueChange={(value) => {
-              setTeamClubsSort(value);
-              setTeamClubsPage(1);
-            }}
-            options={TEAM_CLUB_SORT_OPTIONS}
-          />
-        </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <Input
+              aria-label="Rechercher un club partenaire"
+              placeholder="Rechercher un club…"
+              value={teamClubsSearch}
+              onChange={(e) => {
+                setTeamClubsSearch(e.target.value);
+                setTeamClubsPage(1);
+              }}
+              className="max-w-xs"
+            />
+            <SelectField
+              label="Trier par"
+              containerClassName="w-56"
+              value={teamClubsSort}
+              onValueChange={(value) => {
+                setTeamClubsSort(value);
+                setTeamClubsPage(1);
+              }}
+              options={TEAM_CLUB_SORT_OPTIONS}
+            />
+          </div>
 
-        <Card>
-          <CardContent className="pt-6 flex flex-col gap-4">
-            {isLoadingClubs ? (
-              <Loader>Chargement...</Loader>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Club</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {teamClubs?.map((link) => (
-                      <TeamClubRow
-                        key={link.clubId}
-                        clubId={clubId!}
-                        teamId={teamId!}
-                        link={link}
-                        canManage={isAdmin && isOwner}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-                <Pagination
-                  page={teamClubsResult?.page ?? 1}
-                  pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
-                  total={teamClubsResult?.total ?? 0}
-                  onPageChange={setTeamClubsPage}
-                  pageSizeOptions={PAGE_SIZE_OPTIONS}
-                  onPageSizeChange={(size) => {
-                    setTeamClubsPageSize(size);
-                    setTeamClubsPage(1);
-                  }}
+          <Card>
+            <CardContent className="pt-6 flex flex-col gap-4">
+              {isLoadingClubs ? (
+                <Loader>Chargement...</Loader>
+              ) : (teamClubsResult?.total ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<BuildingIcon className="h-8 w-8 text-muted" />}
+                  title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
+                  description={
+                    isTeamClubsFiltered
+                      ? 'Aucun club partenaire ne correspond à votre recherche.'
+                      : 'Associez un club partenaire pour gérer une équipe CTC à effectif partagé.'
+                  }
+                  action={
+                    isAdmin && isOwner && !isTeamClubsFiltered ? (
+                      <Button onClick={() => setIsAddClubOpen(true)}>Associer un club</Button>
+                    ) : undefined
+                  }
                 />
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Club</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamClubs?.map((link) => (
+                        <TeamClubRow
+                          key={link.clubId}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          link={link}
+                          canManage={isAdmin && isOwner}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <Pagination
+                    page={teamClubsResult?.page ?? 1}
+                    pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
+                    total={teamClubsResult?.total ?? 0}
+                    onPageChange={setTeamClubsPage}
+                    pageSizeOptions={PAGE_SIZE_OPTIONS}
+                    onPageSizeChange={(size) => {
+                      setTeamClubsPageSize(size);
+                      setTeamClubsPage(1);
+                    }}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading as="h2" size="2xl" className="m-0">
-            Effectif
-          </Heading>
-          {canManageTeam && (
-            <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">Ajouter un joueur</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Ajouter un joueur à l'effectif</DialogTitle>
-                  <DialogDescription>
-                    Ajoutez un joueur du club à l'effectif de cette équipe.
-                  </DialogDescription>
-                </DialogHeader>
-                <TeamPlayerAddForm
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  addablePlayers={addablePlayers}
-                  onSuccess={() => setIsAddPlayerOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <Input
-            aria-label="Rechercher un joueur de l'effectif"
-            placeholder="Rechercher un joueur…"
-            value={rosterSearch}
-            onChange={(e) => {
-              setRosterSearch(e.target.value);
-              setRosterPage(1);
-            }}
-            className="max-w-xs"
-          />
-          <SelectField
-            label="Trier par"
-            containerClassName="w-56"
-            value={rosterSort}
-            onValueChange={(value) => {
-              setRosterSort(value);
-              setRosterPage(1);
-            }}
-            options={ROSTER_SORT_OPTIONS}
-          />
-        </div>
-
-        <Card>
-          <CardContent className="pt-6 flex flex-col gap-4">
-            {isLoadingPlayers ? (
-              <Loader>Chargement...</Loader>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Prénom</TableHead>
-                      <TableHead>Nom</TableHead>
-                      <TableHead>Rôle</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {teamPlayers?.map((teamPlayer) => (
-                      <TeamPlayerRow
-                        key={teamPlayer.id}
-                        clubId={clubId!}
-                        teamId={teamId!}
-                        teamPlayer={teamPlayer}
-                        canManage={canManageTeam}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-                <Pagination
-                  page={teamPlayersResult?.page ?? 1}
-                  pageSize={teamPlayersResult?.pageSize ?? rosterPageSize}
-                  total={teamPlayersResult?.total ?? 0}
-                  onPageChange={setRosterPage}
-                  pageSizeOptions={PAGE_SIZE_OPTIONS}
-                  onPageSizeChange={(size) => {
-                    setRosterPageSize(size);
-                    setRosterPage(1);
-                  }}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading as="h2" size="2xl" className="m-0">
-            Événements
-          </Heading>
-          {canManageTeam && (
-            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">Créer un événement</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Créer un événement</DialogTitle>
-                  <DialogDescription>
-                    Planifiez un entraînement ou un rendez-vous pour cette équipe.
-                  </DialogDescription>
-                </DialogHeader>
-                <EventCreateForm
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  onSuccess={() => setIsAddEventOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <Input
-            aria-label="Rechercher un événement"
-            placeholder="Rechercher (lieu, notes)…"
-            value={eventsSearch}
-            onChange={(e) => {
-              setEventsSearch(e.target.value);
-              setEventsPage(1);
-            }}
-            className="max-w-xs"
-          />
-          <FormField
-            label="Du"
-            type="date"
-            value={eventsFrom}
-            onChange={(e) => {
-              setEventsFrom(e.target.value);
-              setEventsPage(1);
-            }}
-          />
-          <FormField
-            label="Au"
-            type="date"
-            value={eventsTo}
-            onChange={(e) => {
-              setEventsTo(e.target.value);
-              setEventsPage(1);
-            }}
-          />
-          <SelectField
-            label="Trier par"
-            containerClassName="w-56"
-            value={eventsSortOrder}
-            onValueChange={(value) => {
-              setEventsSortOrder(value as SortOrder);
-              setEventsPage(1);
-            }}
-            options={EVENT_SORT_OPTIONS}
-          />
-        </div>
-
-        <Card>
-          <CardContent className="pt-6 flex flex-col gap-4">
-            {isLoadingEvents ? (
-              <Loader>Chargement...</Loader>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Lieu</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {events?.map((event) => (
-                      <EventRow
-                        key={event.id}
-                        clubId={clubId!}
-                        teamId={teamId!}
-                        event={event}
-                        canManage={canManageTeam}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-                <Pagination
-                  page={eventsResult?.page ?? 1}
-                  pageSize={eventsResult?.pageSize ?? eventsPageSize}
-                  total={eventsResult?.total ?? 0}
-                  onPageChange={setEventsPage}
-                  pageSizeOptions={PAGE_SIZE_OPTIONS}
-                  onPageSizeChange={(size) => {
-                    setEventsPageSize(size);
-                    setEventsPage(1);
-                  }}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <Heading as="h2" size="2xl" className="m-0">
-            Administrateurs de l'équipe
-          </Heading>
+        <TabsContent value="admins" className="mt-4 flex flex-col gap-4">
           {canManageTeam && (
             <Dialog open={isAddAdminOpen} onOpenChange={setIsAddAdminOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline">Ajouter un administrateur</Button>
+                <Button className="self-start">Ajouter un administrateur</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -654,36 +630,171 @@ export function TeamDetailPage() {
               </DialogContent>
             </Dialog>
           )}
-        </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            {isLoadingAdmins ? (
-              <Loader>Chargement...</Loader>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teamAdmins?.map((admin) => (
-                    <TeamAdminRow
-                      key={admin.userId}
-                      clubId={clubId!}
-                      teamId={teamId!}
-                      admin={admin}
-                      canManage={canManageTeam}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+          <Card>
+            <CardContent className="pt-6">
+              {isLoadingAdmins ? (
+                <Loader>Chargement...</Loader>
+              ) : (teamAdmins?.length ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<ShieldIcon className="h-8 w-8 text-muted" />}
+                  title="Aucun administrateur d'équipe"
+                  description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
+                  action={
+                    canManageTeam ? (
+                      <Button onClick={() => setIsAddAdminOpen(true)}>
+                        Ajouter un administrateur
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {teamAdmins?.map((admin) => (
+                      <TeamAdminRow
+                        key={admin.userId}
+                        clubId={clubId!}
+                        teamId={teamId!}
+                        admin={admin}
+                        canManage={canManageTeam}
+                      />
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="events" className="mt-4 flex flex-col gap-4">
+          {canManageTeam && (
+            <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
+              <DialogTrigger asChild>
+                <Button className="self-start">Créer un événement</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Créer un événement</DialogTitle>
+                  <DialogDescription>
+                    Planifiez un entraînement ou un rendez-vous pour cette équipe.
+                  </DialogDescription>
+                </DialogHeader>
+                <EventCreateForm
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  onSuccess={() => setIsAddEventOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          <div className="flex flex-wrap items-end gap-3">
+            <Input
+              aria-label="Rechercher un événement"
+              placeholder="Rechercher (lieu, notes)…"
+              value={eventsSearch}
+              onChange={(e) => {
+                setEventsSearch(e.target.value);
+                setEventsPage(1);
+              }}
+              className="max-w-xs"
+            />
+            <FormField
+              label="Du"
+              type="date"
+              value={eventsFrom}
+              onChange={(e) => {
+                setEventsFrom(e.target.value);
+                setEventsPage(1);
+              }}
+            />
+            <FormField
+              label="Au"
+              type="date"
+              value={eventsTo}
+              onChange={(e) => {
+                setEventsTo(e.target.value);
+                setEventsPage(1);
+              }}
+            />
+            <SelectField
+              label="Trier par"
+              containerClassName="w-56"
+              value={eventsSortOrder}
+              onValueChange={(value) => {
+                setEventsSortOrder(value as SortOrder);
+                setEventsPage(1);
+              }}
+              options={EVENT_SORT_OPTIONS}
+            />
+          </div>
+
+          <Card>
+            <CardContent className="pt-6 flex flex-col gap-4">
+              {isLoadingEvents ? (
+                <Loader>Chargement...</Loader>
+              ) : (eventsResult?.total ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+                  title={isEventsFiltered ? 'Aucun résultat' : 'Aucun événement'}
+                  description={
+                    isEventsFiltered
+                      ? 'Aucun événement ne correspond à ces critères.'
+                      : 'Planifiez un entraînement ou un match pour cette équipe.'
+                  }
+                  action={
+                    canManageTeam && !isEventsFiltered ? (
+                      <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Lieu</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {events?.map((event) => (
+                        <EventRow
+                          key={event.id}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          event={event}
+                          canManage={canManageTeam}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <Pagination
+                    page={eventsResult?.page ?? 1}
+                    pageSize={eventsResult?.pageSize ?? eventsPageSize}
+                    total={eventsResult?.total ?? 0}
+                    onPageChange={setEventsPage}
+                    pageSizeOptions={PAGE_SIZE_OPTIONS}
+                    onPageSizeChange={(size) => {
+                      setEventsPageSize(size);
+                      setEventsPage(1);
+                    }}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   );
 }

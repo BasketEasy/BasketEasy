@@ -18,6 +18,7 @@ import { Loader } from '@basketeasy/ui/loader';
 import { Input } from '@basketeasy/ui/input';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Pagination } from '@basketeasy/ui/pagination';
+import { EmptyState } from '@basketeasy/ui/empty-state';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,8 @@ import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { TeamRow } from '../clubs/TeamRow';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from '../clubs/teamLabels';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
 
 type MembersTab = 'members' | 'players' | 'teams';
 
@@ -195,6 +198,7 @@ export function MembersPage() {
   const [membersPageSize, setMembersPageSize] = useState(DEFAULT_PAGE_SIZE);
   const membersSortOption =
     MEMBER_SORT_OPTIONS.find((o) => o.value === membersSort) ?? MEMBER_SORT_OPTIONS[0];
+  const isMembersFiltered = debouncedMembersSearch !== '' || membersRole !== ALL_ROLES;
 
   // Joueurs tab filters
   const [playersSearch, setPlayersSearch] = useState('');
@@ -204,6 +208,7 @@ export function MembersPage() {
   const [playersPageSize, setPlayersPageSize] = useState(DEFAULT_PAGE_SIZE);
   const playersSortOption =
     PLAYER_SORT_OPTIONS.find((o) => o.value === playersSort) ?? PLAYER_SORT_OPTIONS[0];
+  const isPlayersFiltered = debouncedPlayersSearch !== '';
 
   // Équipes tab filters
   const [teamsSearch, setTeamsSearch] = useState('');
@@ -215,6 +220,8 @@ export function MembersPage() {
   const [teamsPageSize, setTeamsPageSize] = useState(DEFAULT_PAGE_SIZE);
   const teamsSortOption =
     TEAM_SORT_OPTIONS.find((o) => o.value === teamsSort) ?? TEAM_SORT_OPTIONS[0];
+  const isTeamsFiltered =
+    debouncedTeamsSearch !== '' || teamsCategory !== ALL_CATEGORIES || teamsGender !== ALL_GENDERS;
 
   const { data: membersResult, isLoading: isLoadingMembers } = useClubMemberList(
     clubId!,
@@ -387,6 +394,21 @@ export function MembersPage() {
             <CardContent className="pt-6 flex flex-col gap-4">
               {isLoadingMembers ? (
                 <Loader>Chargement...</Loader>
+              ) : (membersResult?.total ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  title={isMembersFiltered ? 'Aucun résultat' : 'Aucun membre pour le moment'}
+                  description={
+                    isMembersFiltered
+                      ? 'Aucun membre ne correspond à votre recherche.'
+                      : 'Invitez les personnes qui gèrent le club à rejoindre BasketEasy.'
+                  }
+                  action={
+                    isAdmin && !isMembersFiltered ? (
+                      <Button onClick={() => setIsAddMemberOpen(true)}>Ajouter un membre</Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <>
                   <Table>
@@ -477,6 +499,21 @@ export function MembersPage() {
             <CardContent className="pt-6 flex flex-col gap-4">
               {isLoadingPlayers ? (
                 <Loader>Chargement...</Loader>
+              ) : (playersResult?.total ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  title={isPlayersFiltered ? 'Aucun résultat' : 'Aucun joueur pour le moment'}
+                  description={
+                    isPlayersFiltered
+                      ? 'Aucun joueur ne correspond à votre recherche.'
+                      : 'Ajoutez les joueurs du club pour composer vos équipes.'
+                  }
+                  action={
+                    isAdmin && !isPlayersFiltered ? (
+                      <Button onClick={() => setIsAddPlayerOpen(true)}>Ajouter un joueur</Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <>
                   <Table>
@@ -587,6 +624,21 @@ export function MembersPage() {
             <CardContent className="pt-6 flex flex-col gap-4">
               {isLoadingTeams ? (
                 <Loader>Chargement...</Loader>
+              ) : (teamsResult?.total ?? 0) === 0 ? (
+                <EmptyState
+                  icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+                  title={isTeamsFiltered ? 'Aucun résultat' : 'Aucune équipe pour le moment'}
+                  description={
+                    isTeamsFiltered
+                      ? 'Aucune équipe ne correspond à ces critères.'
+                      : 'Créez votre première équipe pour commencer à organiser entraînements et matchs.'
+                  }
+                  action={
+                    isAdmin && !isTeamsFiltered ? (
+                      <Button onClick={() => setIsAddTeamOpen(true)}>Créer une équipe</Button>
+                    ) : undefined
+                  }
+                />
               ) : (
                 <>
                   <Table>

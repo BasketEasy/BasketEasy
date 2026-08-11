@@ -6,17 +6,17 @@ Date: 2026-08-11. Scope: `app/` (React + Vite frontend), all pages currently shi
 
 ### Route map
 
-| Path | Page | Guard |
-|---|---|---|
-| `/` | `LandingPage` | public |
-| `/login`, `/register` | `LoginPage`, `RegisterPage` | `PublicOnlyRoute` (redirects logged-in users away) |
-| `/dashboard` | `DashboardPage` | `ProtectedRoute` |
-| `/account` | `AccountPage` | `ProtectedRoute` |
-| `/my-teams` | `MyTeamsPage` | `ProtectedRoute` |
-| `/clubs/new` | `ClubCreatePage` | `ProtectedRoute` |
-| `/clubs/:clubId/members` | `MembersPage` | `ProtectedRoute` + in-component club-admin check (non-admins bounce to `/dashboard`) |
-| `/clubs/:clubId/teams/:teamId` | `TeamDetailPage` | `ProtectedRoute`; page loads for any authed user, mutation UI hidden by `useIsClubAdmin`/`useIsTeamManager` |
-| `*` | — | redirects to `/`, no dedicated 404 page |
+| Path                           | Page                        | Guard                                                                                                       |
+| ------------------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `/`                            | `LandingPage`               | public                                                                                                      |
+| `/login`, `/register`          | `LoginPage`, `RegisterPage` | `PublicOnlyRoute` (redirects logged-in users away)                                                          |
+| `/dashboard`                   | `DashboardPage`             | `ProtectedRoute`                                                                                            |
+| `/account`                     | `AccountPage`               | `ProtectedRoute`                                                                                            |
+| `/my-teams`                    | `MyTeamsPage`               | `ProtectedRoute`                                                                                            |
+| `/clubs/new`                   | `ClubCreatePage`            | `ProtectedRoute`                                                                                            |
+| `/clubs/:clubId/members`       | `MembersPage`               | `ProtectedRoute` + in-component club-admin check (non-admins bounce to `/dashboard`)                        |
+| `/clubs/:clubId/teams/:teamId` | `TeamDetailPage`            | `ProtectedRoute`; page loads for any authed user, mutation UI hidden by `useIsClubAdmin`/`useIsTeamManager` |
+| `*`                            | —                           | redirects to `/`, no dedicated 404 page                                                                     |
 
 (`app/src/App.tsx`, `app/src/auth/ProtectedRoute.tsx`, `app/src/auth/PublicOnlyRoute.tsx`)
 
@@ -65,7 +65,7 @@ See [`current-team-detail.svg`](./wireframes/current-team-detail.svg) for what t
 
 ### 2.3 No empty states — 7+ list views just show blank rows
 
-Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune équipe pour le moment."). Every other table — Membres/Joueurs/Équipes tabs on `MembersPage`, and all four sections on `TeamDetailPage` — falls back to `Pagination`'s terse "Aucun résultat" caption with nothing else. For BasketEasy's actual early-adopter persona (a volunteer setting up a brand-new club), the very first thing they see in most of these tables *is* the empty state — and it gives them no next step.
+Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune équipe pour le moment."). Every other table — Membres/Joueurs/Équipes tabs on `MembersPage`, and all four sections on `TeamDetailPage` — falls back to `Pagination`'s terse "Aucun résultat" caption with nothing else. For BasketEasy's actual early-adopter persona (a volunteer setting up a brand-new club), the very first thing they see in most of these tables _is_ the empty state — and it gives them no next step.
 
 **Fix:** a shared `EmptyState` component (icon + message + primary CTA button, composed from existing `Card`/`Button`) dropped into each table's empty branch. See [`proposed-empty-state.svg`](./wireframes/proposed-empty-state.svg).
 
@@ -97,16 +97,16 @@ Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune 
 
 ## 3. Proposed mockups
 
-All wireframes are in [`./wireframes/`](./wireframes/), SVG (render directly in GitHub/most Markdown viewers, or open in a browser). Each proposed file is annotated in-image with the reasoning and what existing `@basketeasy/ui` components it reuses — none of these require new design-system primitives, they're new *compositions* of `Card`, `Table`, `Tabs`, `Badge`, `Button`, `Pagination`, which already exist and are already styled to the brand tokens (`docs/brand.md`).
+All wireframes are in [`./wireframes/`](./wireframes/), SVG (render directly in GitHub/most Markdown viewers, or open in a browser). Each proposed file is annotated in-image with the reasoning and what existing `@basketeasy/ui` components it reuses — none of these require new design-system primitives, they're new _compositions_ of `Card`, `Table`, `Tabs`, `Badge`, `Button`, `Pagination`, which already exist and are already styled to the brand tokens (`docs/brand.md`).
 
-| File | Addresses |
-|---|---|
-| [`current-team-detail.svg`](./wireframes/current-team-detail.svg) | Baseline: today's `TeamDetailPage`, annotated with problems (2.1, 2.2, 2.3) |
-| [`proposed-dashboard.svg`](./wireframes/proposed-dashboard.svg) | 2.5 (empty dashboard), partially 2.4 |
-| [`proposed-team-detail-tabs.svg`](./wireframes/proposed-team-detail-tabs.svg) | 2.1, 2.2 |
-| [`proposed-events-calendar.svg`](./wireframes/proposed-events-calendar.svg) | 2.1 (events specifically), 2.6 (mobile agenda collapse) |
-| [`proposed-nav-club-switcher.svg`](./wireframes/proposed-nav-club-switcher.svg) | 2.4 |
-| [`proposed-empty-state.svg`](./wireframes/proposed-empty-state.svg) | 2.3 |
+| File                                                                            | Addresses                                                                   |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`current-team-detail.svg`](./wireframes/current-team-detail.svg)               | Baseline: today's `TeamDetailPage`, annotated with problems (2.1, 2.2, 2.3) |
+| [`proposed-dashboard.svg`](./wireframes/proposed-dashboard.svg)                 | 2.5 (empty dashboard), partially 2.4                                        |
+| [`proposed-team-detail-tabs.svg`](./wireframes/proposed-team-detail-tabs.svg)   | 2.1, 2.2                                                                    |
+| [`proposed-events-calendar.svg`](./wireframes/proposed-events-calendar.svg)     | 2.1 (events specifically), 2.6 (mobile agenda collapse)                     |
+| [`proposed-nav-club-switcher.svg`](./wireframes/proposed-nav-club-switcher.svg) | 2.4                                                                         |
+| [`proposed-empty-state.svg`](./wireframes/proposed-empty-state.svg)             | 2.3                                                                         |
 
 ## 4. Suggested priority order
 
