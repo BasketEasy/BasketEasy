@@ -512,6 +512,202 @@ describe('EventsService', () => {
     });
   });
 
+  describe('updateEventTimeOfDay', () => {
+    it('throws NotFoundException when the event does not belong to the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
+
+      await expect(
+        service.updateEventTimeOfDay('club-1', 'team-1', 'event-1', {
+          scope: 'ALL',
+          hour: 19,
+          minute: 30,
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on a non-recurring event', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        opponentName: null,
+        recurrenceId: null,
+      });
+
+      await expect(
+        service.updateEventTimeOfDay('club-1', 'team-1', 'event-1', {
+          scope: 'ALL',
+          hour: 19,
+          minute: 30,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.findMany).not.toHaveBeenCalled();
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('scope ALL applies the given UTC hour/minute to every row in the series, keeping each date unchanged', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-2',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-12T18:00:00.000Z'),
+        opponentName: null,
+        recurrenceId: 'series-1',
+      });
+      // First findMany resolves the scope ids (resolveScopeIds), second
+      // fetches the full rows for those ids.
+      prisma.event.findMany
+        .mockResolvedValueOnce([{ id: 'event-1' }, { id: 'event-2' }, { id: 'event-3' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'event-1',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-05T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+          {
+            id: 'event-2',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-12T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+          {
+            id: 'event-3',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-19T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+        ]);
+      prisma.event.update.mockImplementation(
+        ({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
+          Promise.resolve({
+            id: where.id,
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: data.startsAt,
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          }),
+      );
+
+      const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {
+        scope: 'ALL',
+        hour: 19,
+        minute: 30,
+      });
+
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(1, {
+        where: { teamId: 'team-1', recurrenceId: 'series-1' },
+        select: { id: true },
+      });
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(2, {
+        where: { id: { in: ['event-1', 'event-2', 'event-3'] } },
+      });
+      expect(prisma.event.update).toHaveBeenCalledTimes(3);
+      expect(result).toHaveLength(3);
+      expect(result.map((e) => e.startsAt)).toEqual([
+        '2026-01-05T19:30:00.000Z',
+        '2026-01-12T19:30:00.000Z',
+        '2026-01-19T19:30:00.000Z',
+      ]);
+    });
+
+    it('scope THIS_AND_FUTURE narrows to this event and later same-series occurrences only', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-2',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-12T18:00:00.000Z'),
+        opponentName: null,
+        recurrenceId: 'series-1',
+      });
+      prisma.event.findMany
+        .mockResolvedValueOnce([{ id: 'event-2' }, { id: 'event-3' }])
+        .mockResolvedValueOnce([
+          {
+            id: 'event-2',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-12T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+          {
+            id: 'event-3',
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: new Date('2026-01-19T18:00:00.000Z'),
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          },
+        ]);
+      prisma.event.update.mockImplementation(
+        ({ where, data }: { where: { id: string }; data: { startsAt: Date } }) =>
+          Promise.resolve({
+            id: where.id,
+            teamId: 'team-1',
+            type: 'TRAINING',
+            startsAt: data.startsAt,
+            location: 'Gymnase A',
+            notes: null,
+            opponentName: null,
+            recurrenceId: 'series-1',
+            createdAt: new Date('2026-01-01'),
+          }),
+      );
+
+      const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {
+        scope: 'THIS_AND_FUTURE',
+        hour: 20,
+        minute: 0,
+      });
+
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          teamId: 'team-1',
+          recurrenceId: 'series-1',
+          startsAt: { gte: new Date('2026-01-12T18:00:00.000Z') },
+        },
+        select: { id: true },
+      });
+      expect(prisma.event.update).toHaveBeenCalledTimes(2);
+      expect(result.map((e) => e.startsAt)).toEqual([
+        '2026-01-12T20:00:00.000Z',
+        '2026-01-19T20:00:00.000Z',
+      ]);
+    });
+  });
+
   describe('deleteEvent', () => {
     it('throws NotFoundException when the event does not belong to the team', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });

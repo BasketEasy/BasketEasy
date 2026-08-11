@@ -204,6 +204,39 @@ export class EventsService {
     await this.prisma.event.deleteMany({ where: { id: { in: ids } } });
   }
 
+  // Bulk-changes only hour/minute across a series, leaving each occurrence's
+  // own date untouched — the narrower counterpart to updateEvent's full
+  // startsAt replace (which stays THIS-only). hour/minute are UTC by
+  // contract with the frontend; see UpdateEventTimeOfDayRequest's JSDoc in
+  // @basketeasy/types/events for the full rationale.
+  async updateEventTimeOfDay(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    data: {
+      scope: Extract<EventUpdateScope, 'THIS_AND_FUTURE' | 'ALL'>;
+      hour: number;
+      minute: number;
+    },
+  ): Promise<TeamEvent[]> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (!event.recurrenceId) {
+      throw new BadRequestException("Cet événement ne fait pas partie d'une série récurrente");
+    }
+
+    const ids = await this.resolveScopeIds(teamId, event, data.scope);
+    const rows = await this.prisma.event.findMany({ where: { id: { in: ids } } });
+
+    const updated = await this.prisma.$transaction(
+      rows.map((row) => {
+        const startsAt = new Date(row.startsAt);
+        startsAt.setUTCHours(data.hour, data.minute, 0, 0);
+        return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
+      }),
+    );
+    return updated.map((e) => this.toTeamEvent(e));
+  }
+
   // Resolves the set of event ids a THIS_AND_FUTURE/ALL scope applies to:
   // every row sharing the target event's recurrenceId, additionally bounded
   // to startsAt >= the target's own startsAt for THIS_AND_FUTURE.

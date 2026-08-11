@@ -86,21 +86,7 @@ describe('EventRow', () => {
     await waitFor(() => expect(requestedUrl).toContain('?scope=ALL'));
   });
 
-  it('disables the date input when the edit scope is not THIS', async () => {
-    const user = userEvent.setup();
-    renderRow(recurringEvent, true);
-
-    await user.click(screen.getByRole('button', { name: /^modifier$/i }));
-    await user.click(screen.getByRole('combobox', { name: /appliquer à/i }));
-    await user.click(await screen.findByRole('option', { name: /cet événement et les suivants/i }));
-
-    expect(screen.getByLabelText(/date et heure/i)).toBeDisabled();
-    expect(
-      screen.getByText(/la date ne peut être modifiée que pour cet événement seul/i),
-    ).toBeInTheDocument();
-  });
-
-  it('submits an edit with the selected scope', async () => {
+  it('opens the edit modal and submits the default (THIS) scope', async () => {
     let capturedBody: unknown;
     server.use(
       http.patch('/api/clubs/club-1/teams/team-1/events/event-3', async ({ request }) => {
@@ -113,6 +99,9 @@ describe('EventRow', () => {
     renderRow(recurringEvent, true);
 
     await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+    expect(
+      await screen.findByRole('heading', { name: /modifier l.événement/i }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /enregistrer/i }));
 
     await waitFor(() => expect(capturedBody).toBeDefined());

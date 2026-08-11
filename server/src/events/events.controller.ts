@@ -20,6 +20,7 @@ import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { UpdateEventTimeDto } from './dto/update-event-time.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 
@@ -58,6 +59,17 @@ export class EventsController {
     @Body() dto: UpdateEventDto,
   ): Promise<TeamEvent[]> {
     return this.eventsService.updateEvent(clubId, teamId, eventId, dto);
+  }
+
+  @Patch(':eventId/time')
+  @UseGuards(TeamManagerGuard)
+  updateEventTime(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: UpdateEventTimeDto,
+  ): Promise<TeamEvent[]> {
+    return this.eventsService.updateEventTimeOfDay(clubId, teamId, eventId, dto);
   }
 
   @Delete(':eventId')
