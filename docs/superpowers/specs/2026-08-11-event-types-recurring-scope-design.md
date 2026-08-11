@@ -46,7 +46,7 @@ label, not a `Team`/`Club` relation.
 - A fourth "all events from today" scope keyed off wall-clock time. The task prompt that
   seeded this spec mentions it as an example; it's dropped in favor of `THIS_AND_FUTURE`,
   which already gives that exact result when the user acts on the next upcoming occurrence
-  (the common case) and additionally works from *any* occurrence in the series, not just
+  (the common case) and additionally works from _any_ occurrence in the series, not just
   "today". A `now()`-anchored scope would behave differently depending purely on when the
   request happens to be processed rather than which row the user is looking at — a strictly
   worse, less predictable version of the same feature.
@@ -138,12 +138,12 @@ correctly 400s (see below) rather than silently doing nothing.
 
 ## API surface
 
-| Method | Path                       | Guard             | Notes                                                                     |
-| ------ | --------------------------- | ------------------ | -------------------------------------------------------------------------- |
-| POST   | `.../events`                | `TeamManagerGuard` | body gains required `type`, optional `opponentName` (required if MATCH)   |
-| PATCH  | `.../events/:eventId`       | `TeamManagerGuard` | body gains optional `type`, `opponentName`, `scope`; **now returns `TeamEvent[]`** |
-| DELETE | `.../events/:eventId`       | `TeamManagerGuard` | gains optional `?scope=` query param                                      |
-| GET    | `.../events`                | `ClubRoles('ADMIN','MEMBER')` | response items gain `type`, `opponentName`, `recurrenceId` — unchanged otherwise |
+| Method | Path                  | Guard                         | Notes                                                                              |
+| ------ | --------------------- | ----------------------------- | ---------------------------------------------------------------------------------- |
+| POST   | `.../events`          | `TeamManagerGuard`            | body gains required `type`, optional `opponentName` (required if MATCH)            |
+| PATCH  | `.../events/:eventId` | `TeamManagerGuard`            | body gains optional `type`, `opponentName`, `scope`; **now returns `TeamEvent[]`** |
+| DELETE | `.../events/:eventId` | `TeamManagerGuard`            | gains optional `?scope=` query param                                               |
+| GET    | `.../events`          | `ClubRoles('ADMIN','MEMBER')` | response items gain `type`, `opponentName`, `recurrenceId` — unchanged otherwise   |
 
 ## Shared types (`packages/@basketeasy/types/events.ts`)
 
