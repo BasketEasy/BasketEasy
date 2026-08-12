@@ -1,14 +1,21 @@
+import type Lenis from 'lenis';
 import { Button } from '@basketeasy/ui/button';
 import { Heading } from '@basketeasy/ui/heading';
 import { HeroCanvas } from './HeroCanvas';
 import { useHeroCapability } from './useHeroCapability';
+import { useLenis } from './LenisContext';
 
-function scrollToSection(id: string) {
+function scrollToSection(id: string, lenis: Lenis | null) {
+  if (lenis) {
+    lenis.scrollTo(`#${id}`);
+    return;
+  }
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 }
 
 export function Hero() {
   const capability = useHeroCapability();
+  const lenis = useLenis();
 
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden bg-court text-cream">
@@ -36,14 +43,14 @@ export function Hero() {
           pas pour les DSI.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <Button size="lg" onClick={() => scrollToSection('demo')}>
+          <Button size="lg" onClick={() => scrollToSection('demo', lenis)}>
             Tester la démo live
           </Button>
           <Button
             size="lg"
             variant="outline"
             className="border-cream text-cream hover:bg-cream/10"
-            onClick={() => scrollToSection('ctc-comparison')}
+            onClick={() => scrollToSection('ctc-comparison', lenis)}
           >
             En savoir plus
           </Button>

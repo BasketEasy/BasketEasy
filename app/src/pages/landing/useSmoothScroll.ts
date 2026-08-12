@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Lenis from 'lenis';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 export function useSmoothScroll() {
+  const [lenis, setLenis] = useState<Lenis | null>(null);
+
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') {
       return;
@@ -10,18 +14,26 @@ export function useSmoothScroll() {
       return;
     }
 
-    const lenis = new Lenis();
-    let frameId: number;
+    gsap.registerPlugin(ScrollTrigger);
 
-    function raf(time: number) {
-      lenis.raf(time);
-      frameId = requestAnimationFrame(raf);
+    const lenisInstance = new Lenis();
+
+    function onTick(time: number) {
+      lenisInstance.raf(time * 1000);
     }
-    frameId = requestAnimationFrame(raf);
+
+    lenisInstance.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(onTick);
+    gsap.ticker.lagSmoothing(0);
+
+    setLenis(lenisInstance);
 
     return () => {
-      cancelAnimationFrame(frameId);
-      lenis.destroy();
+      gsap.ticker.remove(onTick);
+      lenisInstance.destroy();
+      setLenis(null);
     };
   }, []);
+
+  return lenis;
 }
