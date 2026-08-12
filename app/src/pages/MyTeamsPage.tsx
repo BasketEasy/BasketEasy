@@ -1,11 +1,22 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@basketeasy/ui/dialog';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
 import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { SelectField } from '@basketeasy/ui/select-field';
 import {
   Table,
   TableBody,
@@ -15,7 +26,10 @@ import {
   TableRow,
 } from '@basketeasy/ui/table';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
+import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
+import { myTeamsQueryKey } from '../clubs/queryKeys';
+import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 
@@ -49,6 +63,12 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
 
 export function MyTeamsPage() {
   const { data: teams, isLoading } = useMyTeamList();
+  const adminClubs = useAdminClubs();
+  const queryClient = useQueryClient();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedClubId, setSelectedClubId] = useState<string | undefined>(undefined);
+
+  const clubId = selectedClubId ?? adminClubs[0]?.id;
 
   return (
     <PageContainer size="lg">
@@ -59,6 +79,51 @@ export function MyTeamsPage() {
         Les équipes que vous administrez ou dans lesquelles vous êtes inscrit·e comme joueur ou
         entraîneur.
       </p>
+
+      {adminClubs.length > 0 && (
+        <Dialog
+          open={isCreateOpen}
+          onOpenChange={(open) => {
+            setIsCreateOpen(open);
+            if (!open) setSelectedClubId(undefined);
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="self-start">Créer une équipe</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Créer une équipe</DialogTitle>
+              <DialogDescription>
+                Créez une équipe pour un des clubs que vous administrez, avec sa catégorie d'âge
+                et son genre.
+              </DialogDescription>
+            </DialogHeader>
+
+            {adminClubs.length > 1 && (
+              <SelectField
+                label="Club"
+                id="team-create-club-select"
+                options={adminClubs.map((club) => ({ value: club.id, label: club.name }))}
+                value={clubId}
+                onValueChange={setSelectedClubId}
+              />
+            )}
+
+            {clubId && (
+              <TeamCreateForm
+                key={clubId}
+                clubId={clubId}
+                onSuccess={() => {
+                  void queryClient.invalidateQueries({ queryKey: myTeamsQueryKey });
+                  setIsCreateOpen(false);
+                  setSelectedClubId(undefined);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       <Card>
         <CardContent className="pt-6">
