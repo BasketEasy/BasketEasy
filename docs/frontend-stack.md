@@ -80,3 +80,4 @@ pnpm workspace: `app` + `packages/@basketeasy/ui` (once created) + `packages/@ba
 ## Open decisions
 
 - Whether Context alone stays sufficient as more features (scheduling, payments, dashboards) land, or a store becomes worth it later — revisit if prop-drilling/context nesting gets painful.
+- The landing page (`app/src/pages/landing/`) is the first and only place using `three`/`@react-three/fiber`/`@react-three/drei`, `gsap`, `lenis`, and `framer-motion` — added for the V2 marketing page's WebGL hero and scroll animations. Not adopted app-wide; re-evaluate if a second page wants scroll/3D animation before assuming this is the project's animation stack.
