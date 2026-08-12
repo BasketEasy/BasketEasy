@@ -8,9 +8,7 @@ export function useHeroCapability(): 'full' | 'static' {
   useEffect(() => {
     const lowConcurrency = (navigator.hardwareConcurrency ?? 8) <= 4;
     const narrowViewport = window.innerWidth < 768;
-    setCapability(
-      prefersReducedMotion || lowConcurrency || narrowViewport ? 'static' : 'full',
-    );
+    setCapability(prefersReducedMotion || lowConcurrency || narrowViewport ? 'static' : 'full');
   }, [prefersReducedMotion]);
 
   return capability;

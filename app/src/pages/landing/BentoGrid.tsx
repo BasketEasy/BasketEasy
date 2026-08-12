@@ -12,18 +12,13 @@ export function BentoGrid() {
       <div className="mx-auto max-w-5xl px-6">
         <div className="grid gap-6 md:grid-cols-2">
           {BENTO_FEATURES.map((feature, index) => (
-            <Card
-              key={feature.title}
-              className={`border-white/10 bg-card ${SPAN_BY_INDEX[index]}`}
-            >
+            <Card key={feature.title} className={`border-white/10 bg-card ${SPAN_BY_INDEX[index]}`}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="text-cream">{feature.title}</CardTitle>
                   {feature.badge && <Badge variant="secondary">{feature.badge}</Badge>}
                 </div>
-                <CardDescription className="text-stone-400">
-                  {feature.description}
-                </CardDescription>
+                <CardDescription className="text-stone-400">{feature.description}</CardDescription>
               </CardHeader>
             </Card>
           ))}

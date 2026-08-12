@@ -23,11 +23,13 @@
 ## Task 1: Dependencies, Tailwind tokens, stack doc
 
 **Files:**
+
 - Modify: `app/package.json`
 - Modify: `packages/@basketeasy/ui/tailwind-preset.cjs`
 - Modify: `docs/frontend-stack.md`
 
 **Interfaces:**
+
 - Produces: Tailwind color tokens `court` (`#12100E`), `card` (`#1D1A17`), `orange-glow` (`#E8743B`) available as `bg-court`, `text-court`, `bg-card`, etc. in `app/`.
 
 - [ ] **Step 1: Add the new dependencies to `app/package.json`**
@@ -86,10 +88,12 @@ git commit -m "chore(app): add landing page V2 dependencies and design tokens"
 ## Task 2: Landing page copy & sample data
 
 **Files:**
+
 - Create: `app/src/pages/landing/data.ts`
 - Test: `app/src/pages/landing/data.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface FeatureCopy { title: string; description: string; badge?: string }`
   - `const BENTO_FEATURES: FeatureCopy[]` (length 4)
@@ -198,10 +202,12 @@ git commit -m "feat(app): add landing page V2 copy and sample sandbox data"
 ## Task 3: `usePrefersReducedMotion` hook
 
 **Files:**
+
 - Create: `app/src/pages/landing/usePrefersReducedMotion.ts`
 - Test: `app/src/pages/landing/usePrefersReducedMotion.test.ts`
 
 **Interfaces:**
+
 - Produces: `usePrefersReducedMotion(): boolean` — `true` by default and whenever `window.matchMedia` is unavailable (jsdom) or reports `(prefers-reduced-motion: reduce)` matches; `false` only once `matchMedia` confirms it doesn't match.
 - Consumed by: Task 4 (`useHeroCapability`), Task 11 (`CTCComparison`).
 
@@ -296,10 +302,12 @@ git commit -m "feat(app): add usePrefersReducedMotion hook for landing page anim
 ## Task 4: `useHeroCapability` hook
 
 **Files:**
+
 - Create: `app/src/pages/landing/useHeroCapability.ts`
 - Test: `app/src/pages/landing/useHeroCapability.test.ts`
 
 **Interfaces:**
+
 - Consumes: `usePrefersReducedMotion()` from Task 3.
 - Produces: `useHeroCapability(): 'full' | 'static'` — `'static'` until an effect confirms the browser can handle the WebGL hero (not reduced-motion, `navigator.hardwareConcurrency > 4`, viewport `>= 768px`).
 - Consumed by: Task 10 (`Hero`).
@@ -371,9 +379,7 @@ export function useHeroCapability(): 'full' | 'static' {
   useEffect(() => {
     const lowConcurrency = (navigator.hardwareConcurrency ?? 8) <= 4;
     const narrowViewport = window.innerWidth < 768;
-    setCapability(
-      prefersReducedMotion || lowConcurrency || narrowViewport ? 'static' : 'full',
-    );
+    setCapability(prefersReducedMotion || lowConcurrency || narrowViewport ? 'static' : 'full');
   }, [prefersReducedMotion]);
 
   return capability;
@@ -397,10 +403,12 @@ git commit -m "feat(app): add useHeroCapability hook for WebGL hero mobile fallb
 ## Task 5: `Navbar` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/Navbar.tsx`
 - Test: `app/src/pages/landing/Navbar.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useAccount()` from `app/src/auth/useAccount.ts` (existing).
 - Produces: `export function Navbar(): JSX.Element` — fixed dark glassmorphic bar, no props.
 
@@ -547,10 +555,12 @@ git commit -m "feat(app): add landing page V2 Navbar"
 ## Task 6: `Footer` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/Footer.tsx`
 - Test: `app/src/pages/landing/Footer.test.tsx`
 
 **Interfaces:**
+
 - Produces: `export function Footer(): JSX.Element`, no props.
 
 - [ ] **Step 1: Write the failing test**
@@ -662,10 +672,12 @@ git commit -m "feat(app): add landing page V2 Footer"
 ## Task 7: `PresenceSandbox` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/PresenceSandbox.tsx`
 - Test: `app/src/pages/landing/PresenceSandbox.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `SANDBOX_ROSTER`, `RosterPlayer` from Task 2's `./data`.
 - Produces: `export function PresenceSandbox(): JSX.Element`, section `id="demo"` (scroll target for Hero's "Tester la démo live" button, Task 10).
 
@@ -820,10 +832,12 @@ git commit -m "feat(app): add landing page V2 presence sandbox demo"
 ## Task 8: `BentoGrid` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/BentoGrid.tsx`
 - Test: `app/src/pages/landing/BentoGrid.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `BENTO_FEATURES` from Task 2's `./data`.
 - Produces: `export function BentoGrid(): JSX.Element`, no props.
 
@@ -920,9 +934,11 @@ git commit -m "feat(app): add landing page V2 bento feature grid"
 ## Task 9: `HeroCanvas` component (WebGL, untested)
 
 **Files:**
+
 - Create: `app/src/pages/landing/HeroCanvas.tsx`
 
 **Interfaces:**
+
 - Produces: `export function HeroCanvas(): JSX.Element` — an R3F `<Canvas>` with a basketball mesh reacting to pointer position.
 - Consumed by: Task 10 (`Hero`), which mocks this module in its own tests.
 
@@ -985,10 +1001,12 @@ git commit -m "feat(app): add WebGL basketball hero canvas"
 ## Task 10: `Hero` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/Hero.tsx`
 - Test: `app/src/pages/landing/Hero.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `useHeroCapability()` from Task 4, `HeroCanvas` from Task 9 (mocked in tests).
 - Produces: `export function Hero(): JSX.Element`, no props. Renders headline/subhead, a "Tester la démo live" button that scrolls to `#demo` (Task 7), and an "En savoir plus" button that scrolls to `#ctc-comparison` (Task 11).
 
@@ -1134,10 +1152,12 @@ git commit -m "feat(app): add landing page V2 hero section"
 ## Task 11: `CTCComparison` component
 
 **Files:**
+
 - Create: `app/src/pages/landing/CTCComparison.tsx`
 - Test: `app/src/pages/landing/CTCComparison.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `usePrefersReducedMotion()` from Task 3.
 - Produces: `export function CTCComparison(): JSX.Element`, section `id="ctc-comparison"` (Hero's "En savoir plus" scroll target).
 
@@ -1304,9 +1324,11 @@ git commit -m "feat(app): add landing page V2 CTC comparison section"
 ## Task 12: `useSmoothScroll` hook
 
 **Files:**
+
 - Create: `app/src/pages/landing/useSmoothScroll.ts`
 
 **Interfaces:**
+
 - Produces: `useSmoothScroll(): void` — mounts a Lenis smooth-scroll instance for as long as the consuming component is mounted; no-ops under `prefers-reduced-motion` or when `matchMedia` is unavailable (jsdom).
 - Consumed by: Task 13 (`LandingPage`).
 
@@ -1362,6 +1384,7 @@ git commit -m "feat(app): add Lenis smooth-scroll hook for landing page"
 ## Task 13: Compose `LandingPage`, wire routing, remove the old page
 
 **Files:**
+
 - Create: `app/src/pages/landing/LandingPage.tsx`
 - Create: `app/src/pages/landing/LandingPage.test.tsx`
 - Modify: `app/src/App.tsx:5` (import path) and `App.tsx:20` (unchanged usage — `<LandingPage />` still renders at `/`)
@@ -1369,6 +1392,7 @@ git commit -m "feat(app): add Lenis smooth-scroll hook for landing page"
 - Delete: `app/src/pages/LandingPage.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `Navbar` (Task 5), `Hero` (Task 10), `CTCComparison` (Task 11), `BentoGrid` (Task 8), `PresenceSandbox` (Task 7), `Footer` (Task 6), `useSmoothScroll` (Task 12).
 - Produces: `export function LandingPage(): JSX.Element`, no props — same component name and route (`/`) as the file it replaces.
 
@@ -1555,6 +1579,7 @@ Expected: `tsc -b && vite build` completes with no errors (this both type-checks
 - [ ] **Step 5: Manual browser verification**
 
 Start the dev server and visually confirm, per the design doc's "Key Performance & Quality Criteria":
+
 - The hero renders the WebGL basketball on a desktop-width viewport and reacts to mouse movement.
 - Resizing to a mobile width (or enabling "prefers reduced motion" in devtools) swaps the hero to the static gradient fallback — no canvas, no console WebGL errors.
 - Scrolling through the CTC comparison section pins and wipes as described (desktop, no reduced-motion).

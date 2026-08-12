@@ -17,10 +17,7 @@ export function Navbar() {
         <div className="flex flex-wrap items-center gap-3">
           {!isLoading &&
             (user ? (
-              <Button
-                className="shrink-0 whitespace-nowrap"
-                onClick={() => navigate('/dashboard')}
-              >
+              <Button className="shrink-0 whitespace-nowrap" onClick={() => navigate('/dashboard')}>
                 Mon espace
               </Button>
             ) : (
