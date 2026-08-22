@@ -10,25 +10,7 @@ import {
 } from '@basketeasy/ui/dropdown-menu';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useActiveClub } from '../auth/useActiveClub';
-
-const DESKTOP_BREAKPOINT_PX = 768;
-
-// A burger menu is a mobile pattern — on a wide screen it just hides
-// navigation the user expects to see at a glance, so above the breakpoint
-// the same links render inline instead of behind a toggle.
-function useIsDesktopViewport(): boolean {
-  const [isDesktop, setIsDesktop] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT_PX,
-  );
-
-  useEffect(() => {
-    const handleResize = () => setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT_PX);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  return isDesktop;
-}
+import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 
 /**
  * Nav for every protected page — mounted once in ProtectedRoute so it's
