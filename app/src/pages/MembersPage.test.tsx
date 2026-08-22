@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -27,7 +27,22 @@ function paginated<T>(
   };
 }
 
+// jsdom's default innerWidth (1024) lands above the desktop breakpoint, so
+// every other test in this file exercises the table path for free; only the
+// mobile-card tests below need to override it.
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: width,
+  });
+}
+
 describe('MembersPage', () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -511,5 +526,130 @@ describe('MembersPage', () => {
     await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
 
     await waitFor(() => expect(screen.queryByLabelText(/prénom/i)).not.toBeInTheDocument());
+  });
+
+  it('renders the Membres tab as cards (not a table) below the desktop breakpoint, with remove still working', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let removeCalled = false;
+    server.use(
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+          ]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.delete('/api/clubs/club-1/members/user-1', () => {
+        removeCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /retirer/i }));
+    await waitFor(() => expect(removeCalled).toBe(true));
+  });
+
+  it('renders the Joueurs tab as cards below the desktop breakpoint, with inline edit still working', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let capturedBody: unknown;
+    server.use(
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () =>
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'p1',
+              clubId: 'club-1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              userId: null,
+              createdAt: 'x',
+            },
+          ]),
+        ),
+      ),
+      http.patch('/api/clubs/club-1/players/p1', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Alexandre',
+          lastName: 'Dupont',
+          userId: null,
+          createdAt: 'x',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /joueurs/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /joueurs/i }));
+
+    await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /modifier/i }));
+    const firstNameInput = screen.getByLabelText('Prénom');
+    await user.clear(firstNameInput);
+    await user.type(firstNameInput, 'Alexandre');
+    await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+    // The card leaves edit mode on a successful save — same "assert the
+    // request, not the refreshed display" scope as PlayerRow.test.tsx, since
+    // the display value comes from the page's query cache.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /enregistrer/i })).not.toBeInTheDocument(),
+    );
+    expect(capturedBody).toEqual({ firstName: 'Alexandre', lastName: 'Dupont', userId: null });
+  });
+
+  it('renders the Équipes tab as cards below the desktop breakpoint, with Gérer still navigating', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams', () =>
+        HttpResponse.json(
+          paginated([
+            { id: 'team-1', name: 'U15 Garçons', category: 'U15', gender: 'MEN', createdAt: 'x' },
+          ]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1', () =>
+        HttpResponse.json({
+          id: 'team-1',
+          name: 'U15 Garçons',
+          category: 'U15',
+          gender: 'MEN',
+          createdAt: 'x',
+        }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /équipes/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: /équipes/i }));
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /gérer/i }));
+    expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

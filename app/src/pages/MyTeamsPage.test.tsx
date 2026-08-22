@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -16,7 +16,19 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   );
 }
 
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: width,
+  });
+}
+
 describe('MyTeamsPage', () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
   it('shows an empty state when the user is part of no team', async () => {
     renderWithProviders(<MyTeamsPage />);
 
@@ -105,6 +117,48 @@ describe('MyTeamsPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /voir/i }));
 
+    expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
+  });
+
+  it('renders cards instead of a table below the desktop breakpoint, with Voir still navigating', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          {
+            teamId: 'team-1',
+            teamName: 'U15 Garçons',
+            category: 'U15',
+            gender: 'MEN',
+            clubId: 'club-1',
+            clubName: 'COC Basket',
+            isTeamAdmin: true,
+            rosterRole: null,
+          },
+        ]),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1', () =>
+        HttpResponse.json({
+          id: 'team-1',
+          name: 'U15 Garçons',
+          category: 'U15',
+          gender: 'MEN',
+          createdAt: 'x',
+        }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/my-teams' });
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /voir/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

@@ -28,6 +28,7 @@ import {
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
+import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { myTeamsQueryKey } from '../clubs/queryKeys';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
@@ -61,9 +62,37 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
   );
 }
 
+/** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
+function MyTeamCard({ team }: { team: MyTeamSummary }) {
+  const navigate = useNavigate();
+
+  return (
+    <Card className="flex flex-col gap-2 p-3">
+      <span className="font-medium text-charcoal">{team.teamName}</span>
+      <span className="text-sm text-muted">
+        {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
+      </span>
+      <div className="flex flex-wrap items-center gap-1">
+        {team.isTeamAdmin && <Badge>Administrateur</Badge>}
+        {team.rosterRole && (
+          <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
+        )}
+      </div>
+      <Button
+        variant="outline"
+        className="self-start"
+        onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
+      >
+        Voir
+      </Button>
+    </Card>
+  );
+}
+
 export function MyTeamsPage() {
   const { data: teams, isLoading } = useMyTeamList();
   const adminClubs = useAdminClubs();
+  const isDesktop = useIsDesktopViewport();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | undefined>(undefined);
@@ -95,8 +124,8 @@ export function MyTeamsPage() {
             <DialogHeader>
               <DialogTitle>Créer une équipe</DialogTitle>
               <DialogDescription>
-                Créez une équipe pour un des clubs que vous administrez, avec sa catégorie d'âge
-                et son genre.
+                Créez une équipe pour un des clubs que vous administrez, avec sa catégorie d'âge et
+                son genre.
               </DialogDescription>
             </DialogHeader>
 
@@ -130,22 +159,30 @@ export function MyTeamsPage() {
           {isLoading ? (
             <Loader>Chargement...</Loader>
           ) : teams && teams.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Équipe</TableHead>
-                  <TableHead>Club</TableHead>
-                  <TableHead>Catégorie</TableHead>
-                  <TableHead>Votre rôle</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            isDesktop ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Équipe</TableHead>
+                    <TableHead>Club</TableHead>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead>Votre rôle</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teams.map((team) => (
+                    <MyTeamRow key={team.teamId} team={team} />
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col gap-3">
                 {teams.map((team) => (
-                  <MyTeamRow key={team.teamId} team={team} />
+                  <MyTeamCard key={team.teamId} team={team} />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            )
           ) : (
             <EmptyState
               icon={<TrophyIcon className="h-8 w-8 text-muted" />}
