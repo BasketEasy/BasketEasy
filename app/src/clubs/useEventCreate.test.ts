@@ -30,6 +30,7 @@ describe('useEventCreate', () => {
             opponentName: null,
             recurrenceId: null,
             createdAt: '2026-01-01',
+            myRsvpStatus: null,
           },
         ]);
       }),

@@ -18,6 +18,7 @@ const trainingEvent: TeamEvent = {
   opponentName: null,
   recurrenceId: null,
   createdAt: 'x',
+  myRsvpStatus: null,
 };
 
 const recurringEvent: TeamEvent = {
