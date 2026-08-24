@@ -33,3 +33,6 @@ docker-compose.override.yml
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Superpowers brainstorming companion
+.superpowers/

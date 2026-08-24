@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { server } from './mocks/server';
 import { renderWithProviders } from './testUtils';
 import App from './App';
+
+vi.mock('./pages/landing/HeroCanvas', () => ({
+  HeroCanvas: () => <div data-testid="hero-canvas-stub" />,
+}));
 
 describe('App routing', () => {
   it('renders the landing page at /', () => {
