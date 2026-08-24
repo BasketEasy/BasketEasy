@@ -32,6 +32,7 @@ describe('useEventTimeUpdate', () => {
             recurrenceId: 'series-1',
             createdAt: '2026-01-01',
             myRsvpStatus: null,
+            myConvocation: false,
           },
         ]);
       }),

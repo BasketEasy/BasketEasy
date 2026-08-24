@@ -15,6 +15,7 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myConvocation: false,
 };
 
 const matchEventSameDay: TeamEvent = {
