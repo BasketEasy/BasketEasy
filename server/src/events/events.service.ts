@@ -394,7 +394,9 @@ export class EventsService {
       ),
     ]);
 
-    return this.listEventConvocations(clubId, teamId, eventId, userId);
+    // No re-assertEventInTeam here — already verified above in this same
+    // call, unlike listEventConvocations's own public entry point.
+    return this.fetchConvocationRoster(teamId, eventId, userId);
   }
 
   // Full roster (not just convoked players) so a manager sees who they
@@ -406,6 +408,14 @@ export class EventsService {
     userId: string,
   ): Promise<EventConvocationRosterEntry[]> {
     await this.assertEventInTeam(clubId, teamId, eventId);
+    return this.fetchConvocationRoster(teamId, eventId, userId);
+  }
+
+  private async fetchConvocationRoster(
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<EventConvocationRosterEntry[]> {
     const roster = await this.prisma.teamPlayer.findMany({
       where: { teamId },
       include: { player: true, convocations: { where: { eventId } } },

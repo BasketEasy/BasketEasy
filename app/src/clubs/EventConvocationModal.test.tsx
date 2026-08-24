@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { EventConvocationRosterEntry } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
+import { eventConvocationsQueryKey } from './queryKeys';
 import { EventConvocationModal } from './EventConvocationModal';
 
 const roster: EventConvocationRosterEntry[] = [
@@ -109,5 +111,36 @@ describe('EventConvocationModal', () => {
 
     await waitFor(() => expect(capturedBody).toBeDefined());
     expect(capturedBody).toEqual({ teamPlayerIds: [] });
+  });
+
+  it('keeps an unsaved toggle when the roster query refetches in the background', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json(roster),
+      ),
+    );
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EventConvocationModal clubId="club-1" teamId="team-1" eventId="event-1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /gérer la convocation/i }));
+    await screen.findByLabelText(/lea bernard/i);
+
+    // Uncheck the pre-convoked player — an in-progress, unsaved edit.
+    await user.click(screen.getByLabelText(/lea bernard/i));
+    expect(screen.getByLabelText(/lea bernard/i)).not.toBeChecked();
+
+    // A background refetch (e.g. window refocus) resolves with the same
+    // still-unsaved server state — it must not clobber the pending toggle.
+    await queryClient.refetchQueries({
+      queryKey: eventConvocationsQueryKey('club-1', 'team-1', 'event-1'),
+    });
+
+    expect(screen.getByLabelText(/lea bernard/i)).not.toBeChecked();
   });
 });

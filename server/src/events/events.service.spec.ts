@@ -1177,6 +1177,16 @@ describe('EventsService', () => {
         create: { eventId: 'event-1', teamPlayerId: 'tp-2' },
         update: {},
       });
+      // assertEventInTeam is verified once up front, not re-run via the
+      // roster re-fetch at the end (would otherwise double the clubTeam/
+      // event lookups on every write).
+      expect(prisma.clubTeam.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith({
+        where: { teamId: 'team-1' },
+        include: { player: true, convocations: { where: { eventId: 'event-1' } } },
+        orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
+      });
     });
 
     it('clears every convocation for the event when given an empty list, without checking the roster', async () => {

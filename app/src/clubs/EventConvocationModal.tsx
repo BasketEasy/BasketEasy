@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Checkbox } from '@basketeasy/ui/checkbox';
 import { FieldError } from '@basketeasy/ui/field-error';
@@ -36,13 +36,19 @@ export function EventConvocationModal({
   const [error, setError] = useState<string | null>(null);
   const { data: roster } = useEventConvocations(clubId, teamId, eventId, open);
   const { mutate: setConvocations, isPending } = useEventConvocationsSet(clubId, teamId);
+  // Seeds the checked set once per dialog open, not on every background
+  // refetch of the roster query (e.g. window refocus) — otherwise an
+  // in-progress, unsaved toggle would silently get overwritten mid-edit.
+  const hasSeededRef = useRef(false);
 
-  // Re-sync the checked set from the fetched roster every time it (re)loads
-  // while the dialog is open, so a stale selection from a previous open
-  // never leaks into the next one.
   useEffect(() => {
-    if (open && roster) {
+    if (!open) {
+      hasSeededRef.current = false;
+      return;
+    }
+    if (roster && !hasSeededRef.current) {
       setSelected(new Set(roster.filter((r) => r.convoked).map((r) => r.teamPlayerId)));
+      hasSeededRef.current = true;
     }
   }, [open, roster]);
 
