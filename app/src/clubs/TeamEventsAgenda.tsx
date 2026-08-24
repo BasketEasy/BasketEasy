@@ -9,6 +9,8 @@ import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
 import { EventRsvpBreakdown } from './EventRsvpBreakdown';
+import { EventConvocationModal } from './EventConvocationModal';
+import { EventConvocationBreakdown } from './EventConvocationBreakdown';
 
 function AgendaEventCard({
   clubId,
@@ -34,6 +36,7 @@ function AgendaEventCard({
             <Badge variant={event.type === 'MATCH' ? 'secondary' : 'outline'}>
               {eventTypeLabel(event.type)}
             </Badge>
+            {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
           </div>
           <span className="text-sm text-muted">
             {event.location}
@@ -51,12 +54,14 @@ function AgendaEventCard({
               onOpenChange={setIsEditOpen}
             />
             <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
+            <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
           </div>
         )}
       </div>
       <div className="flex flex-col gap-2.5 border-t border-border pt-3">
         {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
         <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+        <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
       </div>
     </Card>
   );
