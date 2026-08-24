@@ -47,12 +47,10 @@ export function EventRsvpControl({
   clubId,
   teamId,
   event,
-  fullWidth,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
-  fullWidth?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const { mutate: setRsvp, isPending: isSetting } = useEventRsvpSet(clubId, teamId);
@@ -73,22 +71,24 @@ export function EventRsvpControl({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div
-        className={`inline-flex overflow-hidden rounded-md border border-border bg-cream ${
-          fullWidth ? 'w-full' : 'w-fit'
-        }`}
-      >
+      {/* Icon-only below the desktop breakpoint — a fixed icon+label width
+          per segment can exceed a narrow card/screen (see the mobile agenda
+          card) however the segments share space; icon-only guarantees the
+          control never overflows regardless of card width. The label stays
+          the accessible name (aria-label) even when visually hidden. */}
+      <div className="flex w-fit overflow-hidden rounded-md border border-border bg-cream">
         {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
           const active = event.myRsvpStatus === option.value;
           return (
             <button
               key={option.value}
               type="button"
+              aria-label={option.label}
               disabled={isPending}
               onClick={() => select(option.value)}
-              className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3.5 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 ${
-                fullWidth ? 'flex-1' : ''
-              } ${index > 0 ? 'border-l border-border' : ''} ${
+              className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 md:px-3.5 ${
+                index > 0 ? 'border-l border-border' : ''
+              } ${
                 active
                   ? ACTIVE_CLASSES[option.value]
                   : 'bg-transparent text-muted hover:bg-border/40'
@@ -102,7 +102,7 @@ export function EventRsvpControl({
               >
                 {ICONS[option.value]}
               </svg>
-              {option.label}
+              <span className="hidden md:inline">{option.label}</span>
             </button>
           );
         })}
