@@ -4,6 +4,9 @@ import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import type { RequestUser } from '../auth/decorators/current-user.decorator';
+
+const user: RequestUser = { id: 'user-1', email: 'coach@example.com' };
 
 describe('EventsController', () => {
   let controller: EventsController;
@@ -13,6 +16,9 @@ describe('EventsController', () => {
     updateEvent: jest.Mock;
     updateEventTimeOfDay: jest.Mock;
     deleteEvent: jest.Mock;
+    setMyRsvp: jest.Mock;
+    clearMyRsvp: jest.Mock;
+    listEventRsvps: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -22,6 +28,9 @@ describe('EventsController', () => {
       updateEvent: jest.fn(),
       updateEventTimeOfDay: jest.fn(),
       deleteEvent: jest.fn(),
+      setMyRsvp: jest.fn(),
+      clearMyRsvp: jest.fn(),
+      listEventRsvps: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -39,17 +48,17 @@ describe('EventsController', () => {
     controller = module.get<EventsController>(EventsController);
   });
 
-  it('listEvents delegates clubId, teamId, and the query params', async () => {
+  it('listEvents delegates clubId, teamId, the query params, and the caller id', async () => {
     service.listEvents.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 25 });
 
     const query = { sortOrder: 'desc' as const };
-    const result = await controller.listEvents('club-1', 'team-1', query);
+    const result = await controller.listEvents('club-1', 'team-1', query, user);
 
-    expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1', query);
+    expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1', query, 'user-1');
     expect(result.total).toBe(0);
   });
 
-  it('createEvent delegates clubId, teamId, and the DTO', async () => {
+  it('createEvent delegates clubId, teamId, the DTO, and the caller id', async () => {
     service.createEvent.mockResolvedValue([
       {
         id: 'event-1',
@@ -61,6 +70,7 @@ describe('EventsController', () => {
         opponentName: null,
         recurrenceId: null,
         createdAt: 'x',
+        myRsvpStatus: null,
       },
     ]);
 
@@ -69,13 +79,13 @@ describe('EventsController', () => {
       startsAt: '2026-01-05T18:00:00.000Z',
       location: 'Gymnase A',
     };
-    const result = await controller.createEvent('club-1', 'team-1', dto);
+    const result = await controller.createEvent('club-1', 'team-1', dto, user);
 
-    expect(service.createEvent).toHaveBeenCalledWith('club-1', 'team-1', dto);
+    expect(service.createEvent).toHaveBeenCalledWith('club-1', 'team-1', dto, 'user-1');
     expect(result[0].id).toBe('event-1');
   });
 
-  it('updateEvent delegates clubId, teamId, eventId, and the DTO', async () => {
+  it('updateEvent delegates clubId, teamId, eventId, the DTO, and the caller id', async () => {
     service.updateEvent.mockResolvedValue([
       {
         id: 'event-1',
@@ -87,20 +97,29 @@ describe('EventsController', () => {
         opponentName: null,
         recurrenceId: null,
         createdAt: 'x',
+        myRsvpStatus: null,
       },
     ]);
 
-    const result = await controller.updateEvent('club-1', 'team-1', 'event-1', {
-      location: 'Gymnase B',
-    });
+    const result = await controller.updateEvent(
+      'club-1',
+      'team-1',
+      'event-1',
+      { location: 'Gymnase B' },
+      user,
+    );
 
-    expect(service.updateEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', {
-      location: 'Gymnase B',
-    });
+    expect(service.updateEvent).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      { location: 'Gymnase B' },
+      'user-1',
+    );
     expect(result[0].location).toBe('Gymnase B');
   });
 
-  it('updateEventTime delegates clubId, teamId, eventId, and the DTO', async () => {
+  it('updateEventTime delegates clubId, teamId, eventId, the DTO, and the caller id', async () => {
     service.updateEventTimeOfDay.mockResolvedValue([
       {
         id: 'event-1',
@@ -112,13 +131,20 @@ describe('EventsController', () => {
         opponentName: null,
         recurrenceId: 'series-1',
         createdAt: 'x',
+        myRsvpStatus: null,
       },
     ]);
 
     const dto = { scope: 'ALL' as const, hour: 19, minute: 30 };
-    const result = await controller.updateEventTime('club-1', 'team-1', 'event-1', dto);
+    const result = await controller.updateEventTime('club-1', 'team-1', 'event-1', dto, user);
 
-    expect(service.updateEventTimeOfDay).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', dto);
+    expect(service.updateEventTimeOfDay).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      dto,
+      'user-1',
+    );
     expect(result[0].startsAt).toBe('2026-01-05T19:30:00.000Z');
   });
 
@@ -136,5 +162,77 @@ describe('EventsController', () => {
     await controller.deleteEvent('club-1', 'team-1', 'event-1', {});
 
     expect(service.deleteEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', undefined);
+  });
+
+  it('setMyRsvp delegates clubId, teamId, eventId, the caller id, and the status', async () => {
+    service.setMyRsvp.mockResolvedValue({
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      recurrenceId: null,
+      createdAt: 'x',
+      myRsvpStatus: 'GOING',
+    });
+
+    const result = await controller.setMyRsvp(
+      'club-1',
+      'team-1',
+      'event-1',
+      { status: 'GOING' },
+      user,
+    );
+
+    expect(service.setMyRsvp).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'GOING',
+    );
+    expect(result.myRsvpStatus).toBe('GOING');
+  });
+
+  it('clearMyRsvp delegates clubId, teamId, eventId, and the caller id', async () => {
+    service.clearMyRsvp.mockResolvedValue({
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      recurrenceId: null,
+      createdAt: 'x',
+      myRsvpStatus: null,
+    });
+
+    const result = await controller.clearMyRsvp('club-1', 'team-1', 'event-1', user);
+
+    expect(service.clearMyRsvp).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(result.myRsvpStatus).toBeNull();
+  });
+
+  it('listEventRsvps delegates clubId, teamId, eventId, and the caller id', async () => {
+    service.listEventRsvps.mockResolvedValue([
+      {
+        teamPlayerId: 'tp-1',
+        playerId: 'player-1',
+        firstName: 'Lea',
+        lastName: 'Bernard',
+        role: 'PLAYER',
+        status: 'GOING',
+        respondedAt: 'x',
+        isMe: true,
+      },
+    ]);
+
+    const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', user);
+
+    expect(service.listEventRsvps).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(result[0].isMe).toBe(true);
   });
 });
