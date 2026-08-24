@@ -101,14 +101,15 @@ model ClubTeam {
 // Cascades on both sides: deleting the team or the player should not be
 // blocked by leftover roster rows.
 model TeamPlayer {
-  id        String         @id @default(uuid())
-  teamId    String
-  playerId  String
-  role      TeamMemberRole @default(PLAYER)
-  createdAt DateTime       @default(now())
-  team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player    Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  rsvps     EventRsvp[]
+  id           String             @id @default(uuid())
+  teamId       String
+  playerId     String
+  role         TeamMemberRole     @default(PLAYER)
+  createdAt    DateTime           @default(now())
+  team         Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player       Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  rsvps        EventRsvp[]
+  convocations EventConvocation[]
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -143,17 +144,18 @@ enum EventType {
 // occurrence created together in one recurring POST so they can be
 // edited/deleted as a group; null for a plain single event.
 model Event {
-  id           String      @id @default(uuid())
+  id           String             @id @default(uuid())
   teamId       String
-  type         EventType   @default(TRAINING)
+  type         EventType          @default(TRAINING)
   startsAt     DateTime
   location     String
   notes        String?
   opponentName String?
   recurrenceId String?
-  createdAt    DateTime    @default(now())
-  team         Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  team         Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps        EventRsvp[]
+  convocations EventConvocation[]
 
   @@index([teamId])
   @@index([recurrenceId])
@@ -178,6 +180,24 @@ model EventRsvp {
   respondedAt  DateTime        @default(now())
   event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, teamPlayerId])
+  @@index([eventId])
+}
+
+// A team manager's call-up of a specific roster member for one event —
+// "convoked" is true iff a row exists, the same "no row = no signal"
+// convention EventRsvp already established. Keyed on TeamPlayer (the roster
+// slot), not Player, for the same reason RSVP is: scoped to the team the
+// event belongs to. Independent of EventRsvp — setting a convocation never
+// reads or writes RSVP state, and vice versa.
+model EventConvocation {
+  id           String     @id @default(uuid())
+  eventId      String
+  teamPlayerId String
+  convokedAt   DateTime   @default(now())
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer   TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, teamPlayerId])
   @@index([eventId])

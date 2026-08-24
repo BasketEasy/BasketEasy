@@ -27,6 +27,8 @@ export interface TeamEvent {
   createdAt: string;
   /** The caller's own RSVP status for this event; null if unset or not rostered on the team. */
   myRsvpStatus: EventRsvpStatus | null;
+  /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
+  myConvocation: boolean;
 }
 
 export type EventRecurrenceFrequency = 'WEEKLY';
@@ -95,6 +97,25 @@ export interface EventRsvpRosterEntry {
   /** Null when this roster member hasn't responded yet. */
   status: EventRsvpStatus | null;
   respondedAt: string | null;
+  /** True when this roster row belongs to the requesting user. */
+  isMe: boolean;
+}
+
+export interface SetEventConvocationsRequest {
+  /** Full replacement list of convoked TeamPlayer ids; empty array clears the call-up list. */
+  teamPlayerIds: string[];
+}
+
+/** One roster member's call-up status for a single event, via GET/PATCH .../events/:eventId/convocations. */
+export interface EventConvocationRosterEntry {
+  teamPlayerId: string;
+  playerId: string;
+  firstName: string;
+  lastName: string;
+  role: TeamMemberRole;
+  convoked: boolean;
+  /** Null when not convoked. */
+  convokedAt: string | null;
   /** True when this roster row belongs to the requesting user. */
   isMe: boolean;
 }

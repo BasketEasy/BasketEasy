@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate } from './eventDateFormat';
@@ -7,6 +8,8 @@ import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
 import { EventRsvpBreakdown } from './EventRsvpBreakdown';
+import { EventConvocationModal } from './EventConvocationModal';
+import { EventConvocationBreakdown } from './EventConvocationBreakdown';
 
 export function EventRow({
   clubId,
@@ -32,8 +35,10 @@ export function EventRow({
       <TableCell>{event.notes ?? '—'}</TableCell>
       <TableCell className="min-w-[280px]">
         <div className="flex flex-col gap-2.5">
+          {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+          <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
         </div>
       </TableCell>
       <TableCell>
@@ -47,6 +52,7 @@ export function EventRow({
               onOpenChange={setIsEditOpen}
             />
             <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
+            <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
           </div>
         )}
       </TableCell>

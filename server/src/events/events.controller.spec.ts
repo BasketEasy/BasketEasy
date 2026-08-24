@@ -19,6 +19,8 @@ describe('EventsController', () => {
     setMyRsvp: jest.Mock;
     clearMyRsvp: jest.Mock;
     listEventRsvps: jest.Mock;
+    setEventConvocations: jest.Mock;
+    listEventConvocations: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -31,6 +33,8 @@ describe('EventsController', () => {
       setMyRsvp: jest.fn(),
       clearMyRsvp: jest.fn(),
       listEventRsvps: jest.fn(),
+      setEventConvocations: jest.fn(),
+      listEventConvocations: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -233,6 +237,63 @@ describe('EventsController', () => {
     const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', user);
 
     expect(service.listEventRsvps).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(result[0].isMe).toBe(true);
+  });
+
+  it('setEventConvocations delegates clubId, teamId, eventId, the ids, and the caller id', async () => {
+    service.setEventConvocations.mockResolvedValue([
+      {
+        teamPlayerId: 'tp-1',
+        playerId: 'player-1',
+        firstName: 'Lea',
+        lastName: 'Bernard',
+        role: 'PLAYER',
+        convoked: true,
+        convokedAt: 'x',
+        isMe: true,
+      },
+    ]);
+
+    const result = await controller.setEventConvocations(
+      'club-1',
+      'team-1',
+      'event-1',
+      { teamPlayerIds: ['tp-1'] },
+      user,
+    );
+
+    expect(service.setEventConvocations).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      ['tp-1'],
+      'user-1',
+    );
+    expect(result[0].convoked).toBe(true);
+  });
+
+  it('listEventConvocations delegates clubId, teamId, eventId, and the caller id', async () => {
+    service.listEventConvocations.mockResolvedValue([
+      {
+        teamPlayerId: 'tp-1',
+        playerId: 'player-1',
+        firstName: 'Lea',
+        lastName: 'Bernard',
+        role: 'PLAYER',
+        convoked: false,
+        convokedAt: null,
+        isMe: true,
+      },
+    ]);
+
+    const result = await controller.listEventConvocations('club-1', 'team-1', 'event-1', user);
+
+    expect(service.listEventConvocations).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+    );
     expect(result[0].isMe).toBe(true);
   });
 });

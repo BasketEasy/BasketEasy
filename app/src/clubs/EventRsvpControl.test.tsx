@@ -18,6 +18,7 @@ const baseEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myConvocation: false,
 };
 
 describe('EventRsvpControl', () => {

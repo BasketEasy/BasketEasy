@@ -15,6 +15,7 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myConvocation: false,
 };
 
 const matchEventSameDay: TeamEvent = {
@@ -89,5 +90,27 @@ describe('TeamEventsAgenda', () => {
     renderAgenda([trainingEvent], false, true);
 
     expect(screen.getByRole('button', { name: /présent/i })).toBeInTheDocument();
+  });
+
+  it('hides the convocation manage button for a viewer who cannot manage the team, and shows the breakdown always', () => {
+    renderAgenda([trainingEvent], false);
+
+    expect(screen.queryByRole('button', { name: /gérer la convocation/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /voir la convocation/i })).toBeInTheDocument();
+  });
+
+  it('shows the convocation manage button for a manager', () => {
+    renderAgenda([trainingEvent], true);
+
+    expect(screen.getByRole('button', { name: /gérer la convocation/i })).toBeInTheDocument();
+  });
+
+  it('shows the "Convoqué" badge only when the viewer is rostered and convoked', () => {
+    renderAgenda([trainingEvent], false, false);
+    expect(screen.queryByText('Convoqué')).not.toBeInTheDocument();
+
+    const convokedEvent: TeamEvent = { ...trainingEvent, myConvocation: true };
+    renderAgenda([convokedEvent], false, true);
+    expect(screen.getByText('Convoqué')).toBeInTheDocument();
   });
 });

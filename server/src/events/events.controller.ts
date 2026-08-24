@@ -11,7 +11,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { EventRsvpRosterEntry, TeamEvent } from '@basketeasy/types/events';
+import type {
+  EventConvocationRosterEntry,
+  EventRsvpRosterEntry,
+  TeamEvent,
+} from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
@@ -25,6 +29,7 @@ import { UpdateEventTimeDto } from './dto/update-event-time.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
+import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -125,5 +130,35 @@ export class EventsController {
     @CurrentUser() user: RequestUser,
   ): Promise<EventRsvpRosterEntry[]> {
     return this.eventsService.listEventRsvps(clubId, teamId, eventId, user.id);
+  }
+
+  @Patch(':eventId/convocations')
+  @UseGuards(TeamManagerGuard)
+  setEventConvocations(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: SetEventConvocationsDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventConvocationRosterEntry[]> {
+    return this.eventsService.setEventConvocations(
+      clubId,
+      teamId,
+      eventId,
+      dto.teamPlayerIds,
+      user.id,
+    );
+  }
+
+  @Get(':eventId/convocations')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  listEventConvocations(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventConvocationRosterEntry[]> {
+    return this.eventsService.listEventConvocations(clubId, teamId, eventId, user.id);
   }
 }
