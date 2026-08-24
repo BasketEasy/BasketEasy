@@ -159,34 +159,47 @@ async listEventConvocations(
 ```
 
 `listEvents`/`createEvent`/`updateEvent`/`updateEventTimeOfDay`/`getEventForUser` each gain a
-second bounded lookup alongside `resolveMyRsvpStatuses`, run in parallel with it:
+convocation lookup alongside their existing RSVP one. Rather than two independent private methods
+each doing their own `findMyTeamPlayer` call (which would double that lookup for every one of
+these call sites), `resolveMyRsvpStatuses` is folded into a combined `resolveMyEventState` that
+fetches the caller's `TeamPlayer` once and resolves both concerns off it in parallel:
 
 ```typescript
-// Same shape as resolveMyRsvpStatuses: two queries regardless of how many
-// event ids are passed, never one query per event.
-private async resolveMyConvocationStatuses(
+// One shared findMyTeamPlayer lookup plus one findMany per concern — at
+// most three queries total regardless of how many event ids are passed,
+// never one query per event (see RSVP spec's Scope: no per-event aggregate
+// embedded in TeamEvent) and never a duplicate teamPlayer lookup for the
+// two concerns.
+private async resolveMyEventState(
   teamId: string,
   userId: string,
   eventIds: string[],
-): Promise<Set<string>> {
+): Promise<{ rsvpStatuses: Map<string, EventRsvpStatus>; convokedEventIds: Set<string> }> {
   if (eventIds.length === 0) {
-    return new Set();
+    return { rsvpStatuses: new Map(), convokedEventIds: new Set() };
   }
   const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
   if (!teamPlayer) {
-    return new Set();
+    return { rsvpStatuses: new Map(), convokedEventIds: new Set() };
   }
-  const convocations = await this.prisma.eventConvocation.findMany({
-    where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
-  });
-  return new Set(convocations.map((c) => c.eventId));
+  const [rsvps, convocations] = await Promise.all([
+    this.prisma.eventRsvp.findMany({
+      where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
+    }),
+    this.prisma.eventConvocation.findMany({
+      where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
+    }),
+  ]);
+  return {
+    rsvpStatuses: new Map(rsvps.map((r) => [r.eventId, r.status])),
+    convokedEventIds: new Set(convocations.map((c) => c.eventId)),
+  };
 }
 ```
 
-`toTeamEvent` gains a third parameter, `myConvocation: boolean`. Every existing call site that
-already resolves `myRsvpStatus` resolves `myConvocation` alongside it (`Promise.all` of the two
-lookups on the same `eventIds` batch) and threads both through — no new query-count class beyond
-what RSVP already introduced, just one more bounded lookup per call.
+`toTeamEvent` gains a third parameter, `myConvocation: boolean`. Every call site that already
+called `resolveMyRsvpStatuses` now calls `resolveMyEventState` once and threads both fields
+through `toTeamEvent` — no new query-count class beyond what RSVP already introduced.
 
 ## API surface
 

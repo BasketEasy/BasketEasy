@@ -32,8 +32,9 @@ hand-written to match Prisma's generated style instead of `prisma migrate dev`; 
   never an incremental add/remove) — don't add per-player add/remove endpoints.
 - Convocation never reads or writes `EventRsvp` state, and vice versa — the two are independent;
   don't couple them in this slice. See spec's Scope.
-- `myConvocation` must be resolved via `resolveMyConvocationStatuses` (≤2 queries per call), run
-  alongside `resolveMyRsvpStatuses`, never one query per event.
+- `myConvocation` must be resolved via the combined `resolveMyEventState` helper (≤3 queries per
+  call: one shared `findMyTeamPlayer` plus one `findMany` per concern), not a second independent
+  `findMyTeamPlayer` lookup — never one query per event.
 
 ---
 
@@ -206,15 +207,16 @@ git commit -m "feat(server): DTO for setting an event's convocation list"
   - `listEventConvocations` returns one entry per roster member (not just convoked ones),
     `convoked: false`/`convokedAt: null` for anyone not called up, and `isMe: true` only for the
     entry matching the caller's own `userId`.
-  - `resolveMyConvocationStatuses` (exercised indirectly via `listEvents`) issues at most two
-    Prisma calls regardless of how many events are in the result page.
+  - `resolveMyEventState` (exercised indirectly via `listEvents`) issues at most one
+    `teamPlayer.findFirst` and one `findMany` per concern, regardless of how many events are in
+    the result page.
 - [ ] **Step 3: Run tests, confirm they fail** (`pnpm --filter @basketeasy/server test -- events.service.spec.ts`).
 - [ ] **Step 4: Implement**, per the spec's "Service logic" section:
-  - `resolveMyConvocationStatuses(teamId, userId, eventIds)` private helper (two queries,
-    returns a `Set<eventId>`).
+  - Fold `resolveMyRsvpStatuses` into a combined `resolveMyEventState(teamId, userId, eventIds)`
+    private helper that fetches the caller's `TeamPlayer` once and resolves both `EventRsvp` and
+    `EventConvocation` off it in parallel, returning `{ rsvpStatuses, convokedEventIds }`.
   - `toTeamEvent(event, myRsvpStatus, myConvocation)` — add the `myConvocation` param, threaded
-    from each call site's own `resolveMyConvocationStatuses` lookup, resolved via `Promise.all`
-    alongside the existing `resolveMyRsvpStatuses` call at each site (`listEvents`, `createEvent`,
+    from each call site's single `resolveMyEventState` call (`listEvents`, `createEvent`,
     `updateEvent`, `updateEventTimeOfDay`, `getEventForUser`).
   - `setEventConvocations`/`listEventConvocations` exactly as in the spec.
 - [ ] **Step 5: Run tests, confirm pass, then commit:**

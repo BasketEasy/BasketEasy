@@ -16,8 +16,9 @@ describe('EventsService', () => {
       deleteMany: jest.Mock;
       count: jest.Mock;
     };
-    teamPlayer: { findFirst: jest.Mock; findMany: jest.Mock };
+    teamPlayer: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     eventRsvp: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    eventConvocation: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -33,15 +34,21 @@ describe('EventsService', () => {
         deleteMany: jest.fn(),
         count: jest.fn(),
       },
-      teamPlayer: { findFirst: jest.fn(), findMany: jest.fn() },
+      teamPlayer: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
       eventRsvp: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+      eventConvocation: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
-    // resolveMyRsvpStatuses short-circuits to an empty map and every
-    // returned TeamEvent's myRsvpStatus is null, unless a test overrides
-    // this to exercise the rostered-caller path.
+    // resolveMyRsvpStatuses/resolveMyConvocationStatuses short-circuit to an
+    // empty map/set and every returned TeamEvent's myRsvpStatus is null and
+    // myConvocation is false, unless a test overrides this to exercise the
+    // rostered-caller path.
     prisma.teamPlayer.findFirst.mockResolvedValue(null);
+    // Defaults for whichever of the two a rostered-caller test doesn't
+    // itself care about, so tests only need to mock the one they exercise.
+    prisma.eventRsvp.findMany.mockResolvedValue([]);
+    prisma.eventConvocation.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [EventsService, { provide: PrismaService, useValue: prisma }],
@@ -99,6 +106,7 @@ describe('EventsService', () => {
             recurrenceId: null,
             createdAt: '2026-01-01T00:00:00.000Z',
             myRsvpStatus: null,
+            myConvocation: false,
           },
         ],
         total: 1,
@@ -107,7 +115,7 @@ describe('EventsService', () => {
       });
     });
 
-    it('resolves the caller RSVP status in at most two extra queries, regardless of page size', async () => {
+    it('resolves the caller RSVP status and convocation flag in a bounded number of queries, regardless of page size', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findMany.mockResolvedValue([
         {
@@ -136,16 +144,26 @@ describe('EventsService', () => {
       prisma.event.count.mockResolvedValue(2);
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
       prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+      prisma.eventConvocation.findMany.mockResolvedValue([{ eventId: 'event-1' }]);
 
       const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
 
+      // One shared findMyTeamPlayer lookup, plus one findMany per concern —
+      // never one query per event and never a duplicate teamPlayer lookup
+      // for the two concerns.
       expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
       expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
       expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
         where: { teamPlayerId: 'tp-1', eventId: { in: ['event-1', 'event-2'] } },
       });
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledWith({
+        where: { teamPlayerId: 'tp-1', eventId: { in: ['event-1', 'event-2'] } },
+      });
       expect(result.items[0].myRsvpStatus).toBe('GOING');
+      expect(result.items[0].myConvocation).toBe(true);
       expect(result.items[1].myRsvpStatus).toBeNull();
+      expect(result.items[1].myConvocation).toBe(false);
     });
 
     it('filters by from/to date range', async () => {
@@ -1094,6 +1112,141 @@ describe('EventsService', () => {
           role: 'COACH',
           status: null,
           respondedAt: null,
+          isMe: false,
+        },
+      ]);
+    });
+  });
+
+  describe('setEventConvocations', () => {
+    const existingEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      recurrenceId: null,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+    });
+
+    it('throws NotFoundException when the event does not belong to the team', async () => {
+      prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
+
+      await expect(
+        service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1'], 'user-1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when a teamPlayerId is not on the team roster', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(1);
+
+      await expect(
+        service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('convokes exactly the given teamPlayerIds, deleting every other convocation for the event', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1');
+
+      expect(prisma.teamPlayer.count).toHaveBeenCalledWith({
+        where: { id: { in: ['tp-1', 'tp-2'] }, teamId: 'team-1' },
+      });
+      expect(prisma.eventConvocation.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: 'event-1', teamPlayerId: { notIn: ['tp-1', 'tp-2'] } },
+      });
+      expect(prisma.eventConvocation.upsert).toHaveBeenCalledTimes(2);
+      expect(prisma.eventConvocation.upsert).toHaveBeenNthCalledWith(1, {
+        where: { eventId_teamPlayerId: { eventId: 'event-1', teamPlayerId: 'tp-1' } },
+        create: { eventId: 'event-1', teamPlayerId: 'tp-1' },
+        update: {},
+      });
+      expect(prisma.eventConvocation.upsert).toHaveBeenNthCalledWith(2, {
+        where: { eventId_teamPlayerId: { eventId: 'event-1', teamPlayerId: 'tp-2' } },
+        create: { eventId: 'event-1', teamPlayerId: 'tp-2' },
+        update: {},
+      });
+    });
+
+    it('clears every convocation for the event when given an empty list, without checking the roster', async () => {
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', [], 'user-1');
+
+      expect(prisma.teamPlayer.count).not.toHaveBeenCalled();
+      expect(prisma.eventConvocation.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: 'event-1', teamPlayerId: { notIn: [] } },
+      });
+      expect(prisma.eventConvocation.upsert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listEventConvocations', () => {
+    it('returns one entry per roster member, false/null for anyone not convoked, and isMe for the caller', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        {
+          id: 'tp-1',
+          playerId: 'player-1',
+          role: 'PLAYER',
+          player: { firstName: 'Lea', lastName: 'Bernard', userId: 'user-1' },
+          convocations: [{ convokedAt: new Date('2026-01-02') }],
+        },
+        {
+          id: 'tp-2',
+          playerId: 'player-2',
+          role: 'COACH',
+          player: { firstName: 'Nathan', lastName: 'Hubert', userId: 'user-2' },
+          convocations: [],
+        },
+      ]);
+
+      const result = await service.listEventConvocations('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith({
+        where: { teamId: 'team-1' },
+        include: { player: true, convocations: { where: { eventId: 'event-1' } } },
+        orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
+      });
+      expect(result).toEqual([
+        {
+          teamPlayerId: 'tp-1',
+          playerId: 'player-1',
+          firstName: 'Lea',
+          lastName: 'Bernard',
+          role: 'PLAYER',
+          convoked: true,
+          convokedAt: '2026-01-02T00:00:00.000Z',
+          isMe: true,
+        },
+        {
+          teamPlayerId: 'tp-2',
+          playerId: 'player-2',
+          firstName: 'Nathan',
+          lastName: 'Hubert',
+          role: 'COACH',
+          convoked: false,
+          convokedAt: null,
           isMe: false,
         },
       ]);
