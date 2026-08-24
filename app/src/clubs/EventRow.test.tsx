@@ -151,13 +151,13 @@ describe('EventRow', () => {
     expect(screen.getByRole('button', { name: /gérer la convocation/i })).toBeInTheDocument();
   });
 
-  it('shows the "Convoqué" badge only when the viewer is rostered and convoked', () => {
+  it('shows the "Convoqué par le coach" badge only when the viewer is rostered and convoked', () => {
     renderRow(trainingEvent, false, false);
-    expect(screen.queryByText('Convoqué')).not.toBeInTheDocument();
+    expect(screen.queryByText('Convoqué par le coach')).not.toBeInTheDocument();
 
     const convokedEvent: TeamEvent = { ...trainingEvent, myConvocation: true };
     renderRow(convokedEvent, false, true);
-    expect(screen.getByText('Convoqué')).toBeInTheDocument();
+    expect(screen.getByText('Convoqué par le coach')).toBeInTheDocument();
   });
 
   it('shows an "Importé" badge next to the type for an imported event, never for a manual one', () => {

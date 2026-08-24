@@ -295,6 +295,13 @@ export class EventsService {
   // TeamPlayer's status, resolved from player.userId — never an arbitrary
   // teamPlayerId from the request. Mirrors assertEventInTeam's re-verify
   // pattern rather than trusting the route params alone.
+  //
+  // The resulting myRsvpStatus is already known from the write itself (it's
+  // exactly `status`), and the event row doesn't change from the write —
+  // so this only needs one extra read (the caller's convocation flag)
+  // rather than re-validating the event and re-resolving the caller's
+  // TeamPlayer a second time through a shared helper, which used to turn a
+  // single RSVP write into ~9 DB round trips.
   async setMyRsvp(
     clubId: string,
     teamId: string,
@@ -302,7 +309,7 @@ export class EventsService {
     userId: string,
     status: EventRsvpStatus,
   ): Promise<TeamEvent> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
     if (!teamPlayer) {
       throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
@@ -312,16 +319,19 @@ export class EventsService {
       create: { eventId, teamPlayerId: teamPlayer.id, status, respondedAt: new Date() },
       update: { status, respondedAt: new Date() },
     });
-    return this.getEventForUser(clubId, teamId, eventId, userId);
+    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
+    return this.toTeamEvent(event, status, myConvocation);
   }
 
+  // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
+  // known to be null after a clear, no need to re-read it.
   async clearMyRsvp(
     clubId: string,
     teamId: string,
     eventId: string,
     userId: string,
   ): Promise<TeamEvent> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
     if (!teamPlayer) {
       throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
@@ -329,7 +339,8 @@ export class EventsService {
     await this.prisma.eventRsvp.deleteMany({
       where: { eventId, teamPlayerId: teamPlayer.id },
     });
-    return this.getEventForUser(clubId, teamId, eventId, userId);
+    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
+    return this.toTeamEvent(event, null, myConvocation);
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
@@ -439,21 +450,11 @@ export class EventsService {
     return this.prisma.teamPlayer.findFirst({ where: { teamId, player: { userId } } });
   }
 
-  private async getEventForUser(
-    clubId: string,
-    teamId: string,
-    eventId: string,
-    userId: string,
-  ): Promise<TeamEvent> {
-    const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
-      eventId,
-    ]);
-    return this.toTeamEvent(
-      event,
-      rsvpStatuses.get(eventId) ?? null,
-      convokedEventIds.has(eventId),
-    );
+  private async isConvoked(eventId: string, teamPlayerId: string): Promise<boolean> {
+    const convocation = await this.prisma.eventConvocation.findUnique({
+      where: { eventId_teamPlayerId: { eventId, teamPlayerId } },
+    });
+    return convocation !== null;
   }
 
   // Resolves the acting user's own RSVP status and convocation flag for a

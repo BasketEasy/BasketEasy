@@ -49,7 +49,30 @@ export function EventRow({
       <TableCell>{event.notes ?? '—'}</TableCell>
       <TableCell className="min-w-[280px]">
         <div className="flex flex-col gap-2.5">
-          {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
+          {isRostered && event.myConvocation && (
+            // outline variant (not the orange/success-coded default) plus an
+            // explicit "par le coach" and clipboard icon — a filled badge in
+            // the brand's primary color, sitting right above the RSVP
+            // control, previously read too easily as "attendance confirmed"
+            // rather than "the coach picked you," a different, independent
+            // signal (see EventConvocationBreakdown's matching icon).
+            <Badge variant="outline" className="w-fit gap-1">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3 w-3 shrink-0"
+              >
+                <rect x="6" y="4" width="12" height="17" rx="1.5" />
+                <path d="M9 4V3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V4" />
+                <path d="M9 11.5l2 2 4-4.5" />
+              </svg>
+              Convoqué par le coach
+            </Badge>
+          )}
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
