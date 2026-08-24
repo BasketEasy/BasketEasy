@@ -1,6 +1,10 @@
 import type { PaginationParams, SortOrder } from './pagination';
+import type { TeamMemberRole } from './teams';
 
 export type EventType = 'TRAINING' | 'MATCH';
+
+/** A rostered team member's self-reported attendance status for one event. */
+export type EventRsvpStatus = 'GOING' | 'NOT_GOING' | 'MAYBE';
 
 /**
  * Scopes a PATCH/DELETE to one occurrence of a recurring series ('THIS',
@@ -21,6 +25,8 @@ export interface TeamEvent {
   /** Shared by every occurrence created in the same recurring POST; null for a single event. */
   recurrenceId: string | null;
   createdAt: string;
+  /** The caller's own RSVP status for this event; null if unset or not rostered on the team. */
+  myRsvpStatus: EventRsvpStatus | null;
 }
 
 export type EventRecurrenceFrequency = 'WEEKLY';
@@ -73,4 +79,22 @@ export interface ListEventsParams extends PaginationParams {
   /** ISO 8601 date/datetime — filters startsAt <= to. */
   to?: string;
   sortOrder?: SortOrder;
+}
+
+export interface SetEventRsvpRequest {
+  status: EventRsvpStatus;
+}
+
+/** One roster member's RSVP status for a single event, via GET .../events/:eventId/rsvps. */
+export interface EventRsvpRosterEntry {
+  teamPlayerId: string;
+  playerId: string;
+  firstName: string;
+  lastName: string;
+  role: TeamMemberRole;
+  /** Null when this roster member hasn't responded yet. */
+  status: EventRsvpStatus | null;
+  respondedAt: string | null;
+  /** True when this roster row belongs to the requesting user. */
+  isMe: boolean;
 }
