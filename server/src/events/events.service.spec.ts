@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,6 +16,8 @@ describe('EventsService', () => {
       deleteMany: jest.Mock;
       count: jest.Mock;
     };
+    teamPlayer: { findFirst: jest.Mock; findMany: jest.Mock };
+    eventRsvp: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -31,8 +33,15 @@ describe('EventsService', () => {
         deleteMany: jest.fn(),
         count: jest.fn(),
       },
+      teamPlayer: { findFirst: jest.fn(), findMany: jest.fn() },
+      eventRsvp: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
+    // Default: the caller has no roster row on the team, so
+    // resolveMyRsvpStatuses short-circuits to an empty map and every
+    // returned TeamEvent's myRsvpStatus is null, unless a test overrides
+    // this to exercise the rostered-caller path.
+    prisma.teamPlayer.findFirst.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [EventsService, { provide: PrismaService, useValue: prisma }],
@@ -45,7 +54,9 @@ describe('EventsService', () => {
     it('throws NotFoundException when the team is not linked to the club', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue(null);
 
-      await expect(service.listEvents('club-1', 'team-1', {})).rejects.toThrow(NotFoundException);
+      await expect(service.listEvents('club-1', 'team-1', {}, 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
       expect(prisma.event.findMany).not.toHaveBeenCalled();
     });
 
@@ -66,7 +77,7 @@ describe('EventsService', () => {
       ]);
       prisma.event.count.mockResolvedValue(1);
 
-      const result = await service.listEvents('club-1', 'team-1', {});
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
 
       expect(prisma.event.findMany).toHaveBeenCalledWith({
         where: { teamId: 'team-1' },
@@ -87,6 +98,7 @@ describe('EventsService', () => {
             opponentName: null,
             recurrenceId: null,
             createdAt: '2026-01-01T00:00:00.000Z',
+            myRsvpStatus: null,
           },
         ],
         total: 1,
@@ -95,15 +107,61 @@ describe('EventsService', () => {
       });
     });
 
+    it('resolves the caller RSVP status in at most two extra queries, regardless of page size', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([
+        {
+          id: 'event-1',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-05T18:00:00.000Z'),
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: null,
+          recurrenceId: null,
+          createdAt: new Date('2026-01-01'),
+        },
+        {
+          id: 'event-2',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-12T18:00:00.000Z'),
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: null,
+          recurrenceId: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.event.count.mockResolvedValue(2);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
+        where: { teamPlayerId: 'tp-1', eventId: { in: ['event-1', 'event-2'] } },
+      });
+      expect(result.items[0].myRsvpStatus).toBe('GOING');
+      expect(result.items[1].myRsvpStatus).toBeNull();
+    });
+
     it('filters by from/to date range', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findMany.mockResolvedValue([]);
       prisma.event.count.mockResolvedValue(0);
 
-      await service.listEvents('club-1', 'team-1', {
-        from: '2026-01-01T00:00:00.000Z',
-        to: '2026-01-31T00:00:00.000Z',
-      });
+      await service.listEvents(
+        'club-1',
+        'team-1',
+        {
+          from: '2026-01-01T00:00:00.000Z',
+          to: '2026-01-31T00:00:00.000Z',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -123,7 +181,7 @@ describe('EventsService', () => {
       prisma.event.findMany.mockResolvedValue([]);
       prisma.event.count.mockResolvedValue(0);
 
-      await service.listEvents('club-1', 'team-1', { search: 'gymnase' });
+      await service.listEvents('club-1', 'team-1', { search: 'gymnase' }, 'user-1');
 
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -143,7 +201,7 @@ describe('EventsService', () => {
       prisma.event.findMany.mockResolvedValue([]);
       prisma.event.count.mockResolvedValue(0);
 
-      await service.listEvents('club-1', 'team-1', { sortOrder: 'desc' });
+      await service.listEvents('club-1', 'team-1', { sortOrder: 'desc' }, 'user-1');
 
       expect(prisma.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: { startsAt: 'desc' } }),
@@ -156,11 +214,16 @@ describe('EventsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.createEvent('club-1', 'team-1', {
-          type: 'TRAINING',
-          startsAt: '2026-01-05T18:00:00.000Z',
-          location: 'Gymnase A',
-        }),
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'TRAINING',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
@@ -169,11 +232,16 @@ describe('EventsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
       await expect(
-        service.createEvent('club-1', 'team-1', {
-          type: 'MATCH',
-          startsAt: '2026-01-05T18:00:00.000Z',
-          location: 'Gymnase A',
-        }),
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'MATCH',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
@@ -192,11 +260,16 @@ describe('EventsService', () => {
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.createEvent('club-1', 'team-1', {
-        type: 'TRAINING',
-        startsAt: '2026-01-05T18:00:00.000Z',
-        location: 'Gymnase A',
-      });
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.create).toHaveBeenCalledTimes(1);
       expect(prisma.event.create).toHaveBeenCalledWith({
@@ -229,12 +302,17 @@ describe('EventsService', () => {
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.createEvent('club-1', 'team-1', {
-        type: 'MATCH',
-        startsAt: '2026-01-05T18:00:00.000Z',
-        location: 'Gymnase A',
-        opponentName: 'US Saint-Nazaire',
-      });
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'MATCH',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+          opponentName: 'US Saint-Nazaire',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ opponentName: 'US Saint-Nazaire' }),
@@ -262,12 +340,17 @@ describe('EventsService', () => {
         },
       );
 
-      const result = await service.createEvent('club-1', 'team-1', {
-        type: 'TRAINING',
-        startsAt: '2026-01-05T18:00:00.000Z',
-        location: 'Gymnase A',
-        recurrence: { frequency: 'WEEKLY', until: '2026-01-19T18:00:00.000Z' },
-      });
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+          recurrence: { frequency: 'WEEKLY', until: '2026-01-19T18:00:00.000Z' },
+        },
+        'user-1',
+      );
 
       expect(prisma.event.create).toHaveBeenCalledTimes(3);
       expect(result.map((e) => e.startsAt)).toEqual([
@@ -284,12 +367,17 @@ describe('EventsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
       await expect(
-        service.createEvent('club-1', 'team-1', {
-          type: 'TRAINING',
-          startsAt: '2026-01-05T18:00:00.000Z',
-          location: 'Gymnase A',
-          recurrence: { frequency: 'WEEKLY', until: '2026-01-01T18:00:00.000Z' },
-        }),
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'TRAINING',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            recurrence: { frequency: 'WEEKLY', until: '2026-01-01T18:00:00.000Z' },
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
@@ -301,7 +389,7 @@ describe('EventsService', () => {
       prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
 
       await expect(
-        service.updateEvent('club-1', 'team-1', 'event-1', { location: 'Gymnase B' }),
+        service.updateEvent('club-1', 'team-1', 'event-1', { location: 'Gymnase B' }, 'user-1'),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
@@ -328,9 +416,15 @@ describe('EventsService', () => {
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.updateEvent('club-1', 'team-1', 'event-1', {
-        location: 'Gymnase B',
-      });
+      const result = await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        {
+          location: 'Gymnase B',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
@@ -352,10 +446,16 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.updateEvent('club-1', 'team-1', 'event-1', {
-          location: 'Gymnase B',
-          scope: 'THIS_AND_FUTURE',
-        }),
+        service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            location: 'Gymnase B',
+            scope: 'THIS_AND_FUTURE',
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
@@ -372,10 +472,16 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.updateEvent('club-1', 'team-1', 'event-1', {
-          startsAt: '2026-01-06T18:00:00.000Z',
-          scope: 'ALL',
-        }),
+        service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            startsAt: '2026-01-06T18:00:00.000Z',
+            scope: 'ALL',
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
       expect(prisma.event.findMany).not.toHaveBeenCalled();
@@ -393,7 +499,7 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.updateEvent('club-1', 'team-1', 'event-1', { type: 'MATCH' }),
+        service.updateEvent('club-1', 'team-1', 'event-1', { type: 'MATCH' }, 'user-1'),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
@@ -420,7 +526,7 @@ describe('EventsService', () => {
         createdAt: new Date('2026-01-01'),
       });
 
-      await service.updateEvent('club-1', 'team-1', 'event-1', { type: 'TRAINING' });
+      await service.updateEvent('club-1', 'team-1', 'event-1', { type: 'TRAINING' }, 'user-1');
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
@@ -453,10 +559,16 @@ describe('EventsService', () => {
         }),
       );
 
-      const result = await service.updateEvent('club-1', 'team-1', 'event-2', {
-        location: 'Gymnase B',
-        scope: 'THIS_AND_FUTURE',
-      });
+      const result = await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-2',
+        {
+          location: 'Gymnase B',
+          scope: 'THIS_AND_FUTURE',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.findMany).toHaveBeenCalledWith({
         where: {
@@ -499,10 +611,16 @@ describe('EventsService', () => {
         }),
       );
 
-      const result = await service.updateEvent('club-1', 'team-1', 'event-2', {
-        location: 'Gymnase B',
-        scope: 'ALL',
-      });
+      const result = await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-2',
+        {
+          location: 'Gymnase B',
+          scope: 'ALL',
+        },
+        'user-1',
+      );
 
       expect(prisma.event.findMany).toHaveBeenCalledWith({
         where: { teamId: 'team-1', recurrenceId: 'series-1' },
@@ -518,11 +636,17 @@ describe('EventsService', () => {
       prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
 
       await expect(
-        service.updateEventTimeOfDay('club-1', 'team-1', 'event-1', {
-          scope: 'ALL',
-          hour: 19,
-          minute: 30,
-        }),
+        service.updateEventTimeOfDay(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            scope: 'ALL',
+            hour: 19,
+            minute: 30,
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(NotFoundException);
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
@@ -539,11 +663,17 @@ describe('EventsService', () => {
       });
 
       await expect(
-        service.updateEventTimeOfDay('club-1', 'team-1', 'event-1', {
-          scope: 'ALL',
-          hour: 19,
-          minute: 30,
-        }),
+        service.updateEventTimeOfDay(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            scope: 'ALL',
+            hour: 19,
+            minute: 30,
+          },
+          'user-1',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.event.findMany).not.toHaveBeenCalled();
       expect(prisma.event.update).not.toHaveBeenCalled();
@@ -613,11 +743,17 @@ describe('EventsService', () => {
           }),
       );
 
-      const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {
-        scope: 'ALL',
-        hour: 19,
-        minute: 30,
-      });
+      const result = await service.updateEventTimeOfDay(
+        'club-1',
+        'team-1',
+        'event-2',
+        {
+          scope: 'ALL',
+          hour: 19,
+          minute: 30,
+        },
+        'user-1',
+      );
 
       expect(prisma.event.findMany).toHaveBeenNthCalledWith(1, {
         where: { teamId: 'team-1', recurrenceId: 'series-1' },
@@ -686,11 +822,17 @@ describe('EventsService', () => {
           }),
       );
 
-      const result = await service.updateEventTimeOfDay('club-1', 'team-1', 'event-2', {
-        scope: 'THIS_AND_FUTURE',
-        hour: 20,
-        minute: 0,
-      });
+      const result = await service.updateEventTimeOfDay(
+        'club-1',
+        'team-1',
+        'event-2',
+        {
+          scope: 'THIS_AND_FUTURE',
+          hour: 20,
+          minute: 0,
+        },
+        'user-1',
+      );
 
       expect(prisma.event.findMany).toHaveBeenNthCalledWith(1, {
         where: {
@@ -797,6 +939,164 @@ describe('EventsService', () => {
       expect(prisma.event.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['event-1', 'event-2', 'event-3'] } },
       });
+    });
+  });
+
+  describe('setMyRsvp', () => {
+    const existingEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      recurrenceId: null,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    it('throws NotFoundException when the event does not belong to the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
+
+      await expect(
+        service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING'),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.eventRsvp.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller has no roster row on the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventRsvp.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts the caller own TeamPlayer RSVP and returns the event with myRsvpStatus set', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+
+      const result = await service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING');
+
+      expect(prisma.eventRsvp.upsert).toHaveBeenCalledWith({
+        where: { eventId_teamPlayerId: { eventId: 'event-1', teamPlayerId: 'tp-1' } },
+        create: {
+          eventId: 'event-1',
+          teamPlayerId: 'tp-1',
+          status: 'GOING',
+          respondedAt: expect.any(Date),
+        },
+        update: { status: 'GOING', respondedAt: expect.any(Date) },
+      });
+      expect(result.myRsvpStatus).toBe('GOING');
+    });
+  });
+
+  describe('clearMyRsvp', () => {
+    const existingEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      recurrenceId: null,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    it('throws ForbiddenException when the caller has no roster row on the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+
+      await expect(service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.eventRsvp.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('deletes the caller own TeamPlayer RSVP row and returns the event with myRsvpStatus null', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.findMany.mockResolvedValue([]);
+
+      const result = await service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.eventRsvp.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: 'event-1', teamPlayerId: 'tp-1' },
+      });
+      expect(result.myRsvpStatus).toBeNull();
+    });
+  });
+
+  describe('listEventRsvps', () => {
+    it('returns one entry per roster member, null status for anyone who has not responded, and isMe for the caller', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        {
+          id: 'tp-1',
+          playerId: 'player-1',
+          role: 'PLAYER',
+          player: { firstName: 'Lea', lastName: 'Bernard', userId: 'user-1' },
+          rsvps: [{ status: 'GOING', respondedAt: new Date('2026-01-02') }],
+        },
+        {
+          id: 'tp-2',
+          playerId: 'player-2',
+          role: 'COACH',
+          player: { firstName: 'Nathan', lastName: 'Hubert', userId: 'user-2' },
+          rsvps: [],
+        },
+      ]);
+
+      const result = await service.listEventRsvps('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith({
+        where: { teamId: 'team-1' },
+        include: { player: true, rsvps: { where: { eventId: 'event-1' } } },
+        orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
+      });
+      expect(result).toEqual([
+        {
+          teamPlayerId: 'tp-1',
+          playerId: 'player-1',
+          firstName: 'Lea',
+          lastName: 'Bernard',
+          role: 'PLAYER',
+          status: 'GOING',
+          respondedAt: '2026-01-02T00:00:00.000Z',
+          isMe: true,
+        },
+        {
+          teamPlayerId: 'tp-2',
+          playerId: 'player-2',
+          firstName: 'Nathan',
+          lastName: 'Hubert',
+          role: 'COACH',
+          status: null,
+          respondedAt: null,
+          isMe: false,
+        },
+      ]);
     });
   });
 });

@@ -18,6 +18,7 @@ const trainingEvent: TeamEvent = {
   opponentName: null,
   recurrenceId: null,
   createdAt: 'x',
+  myRsvpStatus: null,
 };
 
 const matchEvent: TeamEvent = {
@@ -33,11 +34,17 @@ const recurringEvent: TeamEvent = {
   recurrenceId: 'series-1',
 };
 
-function renderRow(event: TeamEvent, canManage: boolean) {
+function renderRow(event: TeamEvent, canManage: boolean, isRostered = false) {
   return renderWithProviders(
     <Table>
       <TableBody>
-        <EventRow clubId="club-1" teamId="team-1" event={event} canManage={canManage} />
+        <EventRow
+          clubId="club-1"
+          teamId="team-1"
+          event={event}
+          canManage={canManage}
+          isRostered={isRostered}
+        />
       </TableBody>
     </Table>,
   );
@@ -113,5 +120,18 @@ describe('EventRow', () => {
 
     await waitFor(() => expect(capturedBody).toBeDefined());
     expect(capturedBody).toMatchObject({ type: 'TRAINING', scope: 'THIS' });
+  });
+
+  it('shows the RSVP control only when the viewer is rostered on the team, and the breakdown always', () => {
+    renderRow(trainingEvent, false, false);
+
+    expect(screen.queryByRole('button', { name: /présent/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /voir les réponses/i })).toBeInTheDocument();
+  });
+
+  it('shows the RSVP control when the viewer is rostered on the team', () => {
+    renderRow(trainingEvent, false, true);
+
+    expect(screen.getByRole('button', { name: /présent/i })).toBeInTheDocument();
   });
 });

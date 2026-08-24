@@ -5,17 +5,21 @@ import { formatEventDate } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
+import { EventRsvpControl } from './EventRsvpControl';
+import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 
 export function EventRow({
   clubId,
   teamId,
   event,
   canManage,
+  isRostered,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   canManage: boolean;
+  isRostered: boolean;
 }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -26,6 +30,12 @@ export function EventRow({
       <TableCell>{event.location}</TableCell>
       <TableCell>{event.type === 'MATCH' ? `vs ${event.opponentName}` : '—'}</TableCell>
       <TableCell>{event.notes ?? '—'}</TableCell>
+      <TableCell className="min-w-[280px]">
+        <div className="flex flex-col gap-2.5">
+          {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
+          <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+        </div>
+      </TableCell>
       <TableCell>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">

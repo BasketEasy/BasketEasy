@@ -33,6 +33,7 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
+import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
@@ -126,6 +127,12 @@ export function TeamDetailPage() {
           : 'roster';
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  // Whether the viewer themselves has a roster row on this team (as PLAYER
+  // or COACH) — gates the RSVP control, independent of canManageTeam: a
+  // club admin who isn't personally rostered can manage the event but has
+  // nothing to RSVP for, and vice versa for a rostered non-admin.
+  const { data: myTeams } = useMyTeamList();
+  const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
 
   const { data: team, isLoading: isLoadingTeam } = useTeamShow(clubId!, teamId!);
 
@@ -814,6 +821,7 @@ export function TeamDetailPage() {
                   teamId={teamId!}
                   events={agendaEvents}
                   canManage={canManageTeam}
+                  isRostered={isRostered}
                 />
               ) : (
                 <>
@@ -825,6 +833,7 @@ export function TeamDetailPage() {
                         <TableHead>Lieu</TableHead>
                         <TableHead>Adversaire</TableHead>
                         <TableHead>Notes</TableHead>
+                        <TableHead>Réponse</TableHead>
                         <TableHead />
                       </TableRow>
                     </TableHeader>
@@ -836,6 +845,7 @@ export function TeamDetailPage() {
                           teamId={teamId!}
                           event={event}
                           canManage={canManageTeam}
+                          isRostered={isRostered}
                         />
                       ))}
                     </TableBody>

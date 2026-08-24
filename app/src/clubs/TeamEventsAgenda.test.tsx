@@ -14,6 +14,7 @@ const trainingEvent: TeamEvent = {
   opponentName: null,
   recurrenceId: null,
   createdAt: 'x',
+  myRsvpStatus: null,
 };
 
 const matchEventSameDay: TeamEvent = {
@@ -30,9 +31,15 @@ const eventNextDay: TeamEvent = {
   startsAt: '2026-08-13T18:00:00.000Z',
 };
 
-function renderAgenda(events: TeamEvent[], canManage: boolean) {
+function renderAgenda(events: TeamEvent[], canManage: boolean, isRostered = false) {
   return renderWithProviders(
-    <TeamEventsAgenda clubId="club-1" teamId="team-1" events={events} canManage={canManage} />,
+    <TeamEventsAgenda
+      clubId="club-1"
+      teamId="team-1"
+      events={events}
+      canManage={canManage}
+      isRostered={isRostered}
+    />,
   );
 }
 
@@ -69,5 +76,18 @@ describe('TeamEventsAgenda', () => {
 
     expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
+  });
+
+  it('shows the RSVP control only when the viewer is rostered on the team, and the breakdown always', () => {
+    renderAgenda([trainingEvent], false, false);
+
+    expect(screen.queryByRole('button', { name: /présent/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /voir les réponses/i })).toBeInTheDocument();
+  });
+
+  it('shows the RSVP control when the viewer is rostered on the team', () => {
+    renderAgenda([trainingEvent], false, true);
+
+    expect(screen.getByRole('button', { name: /présent/i })).toBeInTheDocument();
   });
 });

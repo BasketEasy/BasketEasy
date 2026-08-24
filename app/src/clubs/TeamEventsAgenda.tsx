@@ -7,47 +7,57 @@ import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateForma
 import { eventTypeLabel } from './eventLabels';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
+import { EventRsvpControl } from './EventRsvpControl';
+import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 
 function AgendaEventCard({
   clubId,
   teamId,
   event,
   canManage,
+  isRostered,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   canManage: boolean;
+  isRostered: boolean;
 }) {
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   return (
-    <Card className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-charcoal">{formatEventTime(event.startsAt)}</span>
-          <Badge variant={event.type === 'MATCH' ? 'secondary' : 'outline'}>
-            {eventTypeLabel(event.type)}
-          </Badge>
+    <Card className="flex flex-col gap-3 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-charcoal">{formatEventTime(event.startsAt)}</span>
+            <Badge variant={event.type === 'MATCH' ? 'secondary' : 'outline'}>
+              {eventTypeLabel(event.type)}
+            </Badge>
+          </div>
+          <span className="text-sm text-muted">
+            {event.location}
+            {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}
+          </span>
+          {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
         </div>
-        <span className="text-sm text-muted">
-          {event.location}
-          {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}
-        </span>
-        {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
+        {canManage && (
+          <div className="flex flex-wrap items-center gap-2">
+            <EventEditModal
+              clubId={clubId}
+              teamId={teamId}
+              event={event}
+              open={isEditOpen}
+              onOpenChange={setIsEditOpen}
+            />
+            <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
+          </div>
+        )}
       </div>
-      {canManage && (
-        <div className="flex flex-wrap items-center gap-2">
-          <EventEditModal
-            clubId={clubId}
-            teamId={teamId}
-            event={event}
-            open={isEditOpen}
-            onOpenChange={setIsEditOpen}
-          />
-          <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
-        </div>
-      )}
+      <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+        {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
+        <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+      </div>
     </Card>
   );
 }
@@ -65,11 +75,13 @@ export function TeamEventsAgenda({
   teamId,
   events,
   canManage,
+  isRostered,
 }: {
   clubId: string;
   teamId: string;
   events: TeamEvent[];
   canManage: boolean;
+  isRostered: boolean;
 }) {
   const groups = new Map<string, TeamEvent[]>();
   for (const event of events) {
@@ -97,6 +109,7 @@ export function TeamEventsAgenda({
                 teamId={teamId}
                 event={event}
                 canManage={canManage}
+                isRostered={isRostered}
               />
             ))}
           </div>

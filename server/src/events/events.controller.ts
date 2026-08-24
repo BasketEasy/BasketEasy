@@ -11,18 +11,20 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { TeamEvent } from '@basketeasy/types/events';
+import type { EventRsvpRosterEntry, TeamEvent } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { UpdateEventTimeDto } from './dto/update-event-time.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
+import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -36,8 +38,9 @@ export class EventsController {
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Query() query: ListEventsDto,
+    @CurrentUser() user: RequestUser,
   ): Promise<PaginatedResult<TeamEvent>> {
-    return this.eventsService.listEvents(clubId, teamId, query);
+    return this.eventsService.listEvents(clubId, teamId, query, user.id);
   }
 
   @Post()
@@ -46,8 +49,9 @@ export class EventsController {
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Body() dto: CreateEventDto,
+    @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent[]> {
-    return this.eventsService.createEvent(clubId, teamId, dto);
+    return this.eventsService.createEvent(clubId, teamId, dto, user.id);
   }
 
   @Patch(':eventId')
@@ -57,8 +61,9 @@ export class EventsController {
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateEventDto,
+    @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent[]> {
-    return this.eventsService.updateEvent(clubId, teamId, eventId, dto);
+    return this.eventsService.updateEvent(clubId, teamId, eventId, dto, user.id);
   }
 
   @Patch(':eventId/time')
@@ -68,8 +73,9 @@ export class EventsController {
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateEventTimeDto,
+    @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent[]> {
-    return this.eventsService.updateEventTimeOfDay(clubId, teamId, eventId, dto);
+    return this.eventsService.updateEventTimeOfDay(clubId, teamId, eventId, dto, user.id);
   }
 
   @Delete(':eventId')
@@ -82,5 +88,42 @@ export class EventsController {
     @Query() query: DeleteEventQueryDto,
   ): Promise<void> {
     return this.eventsService.deleteEvent(clubId, teamId, eventId, query.scope);
+  }
+
+  @Patch(':eventId/rsvp')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  setMyRsvp(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: SetEventRsvpDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.setMyRsvp(clubId, teamId, eventId, user.id, dto.status);
+  }
+
+  @Delete(':eventId/rsvp')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  clearMyRsvp(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.clearMyRsvp(clubId, teamId, eventId, user.id);
+  }
+
+  @Get(':eventId/rsvps')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  listEventRsvps(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventRsvpRosterEntry[]> {
+    return this.eventsService.listEventRsvps(clubId, teamId, eventId, user.id);
   }
 }

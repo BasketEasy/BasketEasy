@@ -108,6 +108,7 @@ model TeamPlayer {
   createdAt DateTime       @default(now())
   team      Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
   player    Player         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  rsvps     EventRsvp[]
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -142,19 +143,44 @@ enum EventType {
 // occurrence created together in one recurring POST so they can be
 // edited/deleted as a group; null for a plain single event.
 model Event {
-  id           String    @id @default(uuid())
+  id           String      @id @default(uuid())
   teamId       String
-  type         EventType @default(TRAINING)
+  type         EventType   @default(TRAINING)
   startsAt     DateTime
   location     String
   notes        String?
   opponentName String?
   recurrenceId String?
-  createdAt    DateTime  @default(now())
-  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  team         Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rsvps        EventRsvp[]
 
   @@index([teamId])
   @@index([recurrenceId])
+}
+
+enum EventRsvpStatus {
+  GOING
+  NOT_GOING
+  MAYBE
+}
+
+// A roster member's self-reported attendance status for one event. Keyed on
+// TeamPlayer (the roster slot), not Player directly, so a status is scoped
+// to the team the event belongs to. No row means "no response yet" —
+// left implicit rather than a fourth enum value, same as recurrenceId: null
+// meaning "not part of a series" elsewhere in this schema.
+model EventRsvp {
+  id           String          @id @default(uuid())
+  eventId      String
+  teamPlayerId String
+  status       EventRsvpStatus
+  respondedAt  DateTime        @default(now())
+  event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, teamPlayerId])
+  @@index([eventId])
 }
 
 enum ClubRole {

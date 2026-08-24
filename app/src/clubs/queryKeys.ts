@@ -27,6 +27,8 @@ export const teamPlayersQueryKey = (
 ) => ['clubs', clubId, 'teams', teamId, 'players', params ?? {}] as const;
 export const teamEventsQueryKey = (clubId: string, teamId: string, params?: ListEventsParams) =>
   ['clubs', clubId, 'teams', teamId, 'events', params ?? {}] as const;
+export const eventRsvpsQueryKey = (clubId: string, teamId: string, eventId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'rsvps'] as const;
 export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins'] as const;
 export const teamAdminCandidatesQueryKey = (clubId: string, teamId: string) =>

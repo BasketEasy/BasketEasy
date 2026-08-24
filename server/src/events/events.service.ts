@@ -1,7 +1,17 @@
 import { randomUUID } from 'crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EventType, Prisma } from '@prisma/client';
-import type { EventRecurrenceRequest, EventUpdateScope, TeamEvent } from '@basketeasy/types/events';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { EventRsvpStatus, EventType, Prisma } from '@prisma/client';
+import type {
+  EventRecurrenceRequest,
+  EventRsvpRosterEntry,
+  EventUpdateScope,
+  TeamEvent,
+} from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
@@ -32,6 +42,7 @@ export class EventsService {
     clubId: string,
     teamId: string,
     query: ListEventsDto,
+    userId: string,
   ): Promise<PaginatedResult<TeamEvent>> {
     await this.assertTeamInClub(clubId, teamId);
     const { skip, take, page, pageSize } = resolvePagination(query.page, query.pageSize);
@@ -61,7 +72,17 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
-    return { items: events.map((e) => this.toTeamEvent(e)), total, page, pageSize };
+    const myStatuses = await this.resolveMyRsvpStatuses(
+      teamId,
+      userId,
+      events.map((e) => e.id),
+    );
+    return {
+      items: events.map((e) => this.toTeamEvent(e, myStatuses.get(e.id) ?? null)),
+      total,
+      page,
+      pageSize,
+    };
   }
 
   async createEvent(
@@ -75,6 +96,7 @@ export class EventsService {
       opponentName?: string;
       recurrence?: EventRecurrenceRequest;
     },
+    userId: string,
   ): Promise<TeamEvent[]> {
     await this.assertTeamInClub(clubId, teamId);
     if (data.type === EventType.MATCH && !data.opponentName) {
@@ -103,7 +125,12 @@ export class EventsService {
         }),
       ),
     );
-    return events.map((e) => this.toTeamEvent(e));
+    const myStatuses = await this.resolveMyRsvpStatuses(
+      teamId,
+      userId,
+      events.map((e) => e.id),
+    );
+    return events.map((e) => this.toTeamEvent(e, myStatuses.get(e.id) ?? null));
   }
 
   // A recurring create is materialized as one independent Event row per
@@ -146,6 +173,7 @@ export class EventsService {
       opponentName?: string;
       scope?: EventUpdateScope;
     },
+    userId: string,
   ): Promise<TeamEvent[]> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const scope = data.scope ?? 'THIS';
@@ -185,7 +213,12 @@ export class EventsService {
     const updated = await this.prisma.$transaction(
       ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
     );
-    return updated.map((e) => this.toTeamEvent(e));
+    const myStatuses = await this.resolveMyRsvpStatuses(
+      teamId,
+      userId,
+      updated.map((e) => e.id),
+    );
+    return updated.map((e) => this.toTeamEvent(e, myStatuses.get(e.id) ?? null));
   }
 
   async deleteEvent(
@@ -218,6 +251,7 @@ export class EventsService {
       hour: number;
       minute: number;
     },
+    userId: string,
   ): Promise<TeamEvent[]> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     if (!event.recurrenceId) {
@@ -234,7 +268,116 @@ export class EventsService {
         return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
       }),
     );
-    return updated.map((e) => this.toTeamEvent(e));
+    const myStatuses = await this.resolveMyRsvpStatuses(
+      teamId,
+      userId,
+      updated.map((e) => e.id),
+    );
+    return updated.map((e) => this.toTeamEvent(e, myStatuses.get(e.id) ?? null));
+  }
+
+  // Self-service only: the caller can only ever set/clear their own
+  // TeamPlayer's status, resolved from player.userId — never an arbitrary
+  // teamPlayerId from the request. Mirrors assertEventInTeam's re-verify
+  // pattern rather than trusting the route params alone.
+  async setMyRsvp(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    status: EventRsvpStatus,
+  ): Promise<TeamEvent> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!teamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    await this.prisma.eventRsvp.upsert({
+      where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
+      create: { eventId, teamPlayerId: teamPlayer.id, status, respondedAt: new Date() },
+      update: { status, respondedAt: new Date() },
+    });
+    return this.getEventForUser(clubId, teamId, eventId, userId);
+  }
+
+  async clearMyRsvp(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<TeamEvent> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!teamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    await this.prisma.eventRsvp.deleteMany({
+      where: { eventId, teamPlayerId: teamPlayer.id },
+    });
+    return this.getEventForUser(clubId, teamId, eventId, userId);
+  }
+
+  // Full roster (not just responders) so managers/teammates see who hasn't
+  // answered yet, not only who has.
+  async listEventRsvps(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<EventRsvpRosterEntry[]> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const roster = await this.prisma.teamPlayer.findMany({
+      where: { teamId },
+      include: { player: true, rsvps: { where: { eventId } } },
+      orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
+    });
+    return roster.map((tp) => ({
+      teamPlayerId: tp.id,
+      playerId: tp.playerId,
+      firstName: tp.player.firstName,
+      lastName: tp.player.lastName,
+      role: tp.role,
+      status: tp.rsvps[0]?.status ?? null,
+      respondedAt: tp.rsvps[0]?.respondedAt.toISOString() ?? null,
+      isMe: tp.player.userId === userId,
+    }));
+  }
+
+  private async findMyTeamPlayer(teamId: string, userId: string) {
+    return this.prisma.teamPlayer.findFirst({ where: { teamId, player: { userId } } });
+  }
+
+  private async getEventForUser(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    const myStatuses = await this.resolveMyRsvpStatuses(teamId, userId, [eventId]);
+    return this.toTeamEvent(event, myStatuses.get(eventId) ?? null);
+  }
+
+  // Resolves the acting user's own RSVP status for a bounded set of events
+  // on one team, in at most two queries regardless of how many event ids
+  // are passed — never one query per event (see spec's Scope: no per-event
+  // aggregate embedded in TeamEvent).
+  private async resolveMyRsvpStatuses(
+    teamId: string,
+    userId: string,
+    eventIds: string[],
+  ): Promise<Map<string, EventRsvpStatus>> {
+    if (eventIds.length === 0) {
+      return new Map();
+    }
+    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!teamPlayer) {
+      return new Map();
+    }
+    const rsvps = await this.prisma.eventRsvp.findMany({
+      where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
+    });
+    return new Map(rsvps.map((r) => [r.eventId, r.status]));
   }
 
   // Resolves the set of event ids a THIS_AND_FUTURE/ALL scope applies to:
@@ -283,7 +426,7 @@ export class EventsService {
     return event;
   }
 
-  private toTeamEvent(event: EventRow): TeamEvent {
+  private toTeamEvent(event: EventRow, myRsvpStatus: EventRsvpStatus | null): TeamEvent {
     return {
       id: event.id,
       teamId: event.teamId,
@@ -294,6 +437,7 @@ export class EventsService {
       opponentName: event.opponentName,
       recurrenceId: event.recurrenceId,
       createdAt: event.createdAt.toISOString(),
+      myRsvpStatus,
     };
   }
 }
