@@ -282,10 +282,10 @@ git commit -m "feat(app): convocation query key and hooks"
       convocation" toggle button showing a "N convoqué(s)" count derived from the fetched roster;
       while open, calls `useEventConvocations(clubId, teamId, eventId, isOpen)` and renders each
       entry (name, role badge, convoked/not indicator), bolding the `isMe` row.
-- [ ] `EventConvocationModal.tsx` — takes `clubId`, `teamId`, `eventId`, `roster:
-      EventConvocationRosterEntry[]` (or fetches its own via `useEventConvocations` gated on the
-      dialog's own `open` state, matching `EventEditModal`'s controlled-dialog pattern): a
-      `Dialog` listing every roster row as a `Checkbox` (`@basketeasy/ui/checkbox`) + name + role
+- [ ] `EventConvocationModal.tsx` — takes `clubId`, `teamId`, `eventId`, fetching its own roster
+      via `useEventConvocations` gated on the dialog's own `open` state, matching
+      `EventEditModal`'s controlled-dialog pattern: a `Dialog` listing every roster row as a
+      `Checkbox` (`@basketeasy/ui/checkbox`) + name + role
       badge, local state seeded from each row's `convoked` flag on open (re-synced via the same
       `useEffect`-on-`open` pattern `EventEditModal` uses), and a "Enregistrer" submit button
       calling `useEventConvocationsSet` with the checked `teamPlayerId`s. No `Dialog`-in-`Dialog`

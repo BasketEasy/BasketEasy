@@ -203,10 +203,10 @@ through `toTeamEvent` — no new query-count class beyond what RSVP already intr
 
 ## API surface
 
-| Method | Path                             | Guard                                     | Notes                                                                     |
-| ------ | --------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------- |
-| PATCH  | `.../events/:eventId/convocations` | `TeamManagerGuard`                        | body `{ teamPlayerIds: string[] }`; full replace; returns roster breakdown |
-| GET    | `.../events/:eventId/convocations` | `ClubRoles('ADMIN','MEMBER')`             | full roster breakdown for that event                                      |
+| Method | Path                               | Guard                         | Notes                                                                      |
+| ------ | ---------------------------------- | ----------------------------- | -------------------------------------------------------------------------- |
+| PATCH  | `.../events/:eventId/convocations` | `TeamManagerGuard`            | body `{ teamPlayerIds: string[] }`; full replace; returns roster breakdown |
+| GET    | `.../events/:eventId/convocations` | `ClubRoles('ADMIN','MEMBER')` | full roster breakdown for that event                                       |
 
 `GET .../events`, `POST .../events`, `PATCH .../events/:eventId`, `PATCH .../events/:eventId/time`
 response items all gain `myConvocation` — no guard changes on those four routes.
