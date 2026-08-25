@@ -142,6 +142,10 @@
     "./skeleton": {
       "types": "./src/components/Skeleton.tsx",
       "default": "./src/components/Skeleton.tsx"
+    },
+    "./section-heading": {
+      "types": "./src/components/SectionHeading.tsx",
+      "default": "./src/components/SectionHeading.tsx"
     }
   },
   "scripts": {

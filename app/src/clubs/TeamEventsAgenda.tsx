@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
-import { Heading } from '@basketeasy/ui/heading';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
@@ -103,9 +103,7 @@ export function TeamEventsAgenda({
     <div className="flex flex-col gap-6">
       {Array.from(groups.entries()).map(([key, dayEvents]) => (
         <section key={key} className="flex flex-col gap-3">
-          <Heading as="h3" size="xl" className="m-0 uppercase tracking-wide text-muted">
-            {formatDayHeading(dayEvents[0].startsAt)}
-          </Heading>
+          <SectionHeading>{formatDayHeading(dayEvents[0].startsAt)}</SectionHeading>
           <div className="flex flex-col gap-2">
             {dayEvents.map((event) => (
               <AgendaEventCard
