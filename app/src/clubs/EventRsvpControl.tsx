@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { cn } from '@basketeasy/ui/cn';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { focusRing } from '@basketeasy/ui/focus-ring';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { EventRsvpStatus, TeamEvent } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
 import { useEventRsvpSet } from './useEventRsvpSet';
@@ -54,20 +54,22 @@ export function EventRsvpControl({
   teamId: string;
   event: TeamEvent;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: setRsvp, isPending: isSetting } = useEventRsvpSet(clubId, teamId);
   const { mutate: clearRsvp, isPending: isClearing } = useEventRsvpClear(clubId, teamId);
   const isPending = isSetting || isClearing;
 
+  // No success toast here: the segmented control's own highlighted state is
+  // the feedback, and RSVP is a frequent, low-stakes action — a toast on
+  // every click would be noise. A failure still needs a toast, though,
+  // since nothing else in the UI would otherwise reveal that the click
+  // didn't stick.
   const select = (status: EventRsvpStatus) => {
-    setError(null);
+    const onError = (err: unknown) =>
+      toast({ variant: 'destructive', description: getClubErrorMessage(err) });
     if (event.myRsvpStatus === status) {
-      clearRsvp({ eventId: event.id }, { onError: (err) => setError(getClubErrorMessage(err)) });
+      clearRsvp({ eventId: event.id }, { onError });
     } else {
-      setRsvp(
-        { eventId: event.id, status },
-        { onError: (err) => setError(getClubErrorMessage(err)) },
-      );
+      setRsvp({ eventId: event.id, status }, { onError });
     }
   };
 
@@ -116,7 +118,6 @@ export function EventRsvpControl({
           );
         })}
       </div>
-      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Button } from '@basketeasy/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { Team, TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import { useTeamUpdate } from './useTeamUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -88,7 +89,10 @@ export function TeamEditModal({
               updateTeam(
                 { name, category, gender },
                 {
-                  onSuccess: () => onOpenChange(false),
+                  onSuccess: () => {
+                    toast({ variant: 'success', title: 'Équipe modifiée' });
+                    onOpenChange(false);
+                  },
                   onError: (err) => setEditError(getClubErrorMessage(err)),
                 },
               )

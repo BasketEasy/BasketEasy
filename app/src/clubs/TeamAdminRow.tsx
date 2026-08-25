@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamAdmin } from '@basketeasy/types/team-admins';
 import { ApiError } from '../api/client';
 import { useTeamAdminRemove } from './useTeamAdminRemove';
@@ -18,20 +17,19 @@ export function TeamAdminRow({
   admin: TeamAdmin;
   canManage: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: removeTeamAdmin, isPending } = useTeamAdminRemove(clubId, teamId);
 
   return (
     <TableRow>
       <TableCell>{admin.email}</TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && <FieldError>{error}</FieldError>}
         {canManage && (
           <Button
             variant="outline"
             loading={isPending}
             onClick={() =>
               removeTeamAdmin(admin.userId, {
+                onSuccess: () => toast({ variant: 'success', title: 'Administrateur retiré' }),
                 onError: (err) => {
                   // getClubErrorMessage's 400 copy ("informations invalides")
                   // is wrong for the last-admin-self-removal case — the
@@ -41,7 +39,7 @@ export function TeamAdminRow({
                     err instanceof ApiError && err.status === 400
                       ? err.message
                       : getClubErrorMessage(err);
-                  setError(message);
+                  toast({ variant: 'destructive', description: message });
                 },
               })
             }

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import { useTeamClubAdd } from './useTeamClubAdd';
 import { getClubErrorMessage } from './clubErrorMessages';
 
@@ -39,6 +40,7 @@ export function TeamClubAddForm({
       { clubId: values.clubId },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Club partenaire associé' });
           reset();
           onSuccess?.();
         },

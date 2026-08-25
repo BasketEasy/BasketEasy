@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -105,7 +106,12 @@ describe('EventRsvpControl', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />);
+    renderWithProviders(
+      <>
+        <EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />
+        <Toaster />
+      </>,
+    );
 
     await user.click(screen.getByRole('button', { name: /absent/i }));
 

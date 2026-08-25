@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { SelectField } from '@basketeasy/ui/select-field';
 import {
   Dialog,
@@ -10,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@basketeasy/ui/dialog';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { EventUpdateScope, TeamEvent } from '@basketeasy/types/events';
 import { useEventDelete } from './useEventDelete';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -26,7 +26,6 @@ export function EventDeleteModal({
 }) {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<EventUpdateScope>('THIS');
-  const [error, setError] = useState<string | null>(null);
   const { mutate: deleteEvent, isPending } = useEventDelete(clubId, teamId);
 
   const isRecurring = event.recurrenceId !== null;
@@ -34,11 +33,10 @@ export function EventDeleteModal({
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (next) {
-      // Reset to a fresh THIS/no-error state every time the dialog reopens,
-      // so a scope picked (or an error hit) on a previous open never leaks
-      // into the next confirmation.
+      // Reset to a fresh THIS scope every time the dialog reopens, so a
+      // scope picked on a previous open never leaks into the next
+      // confirmation.
       setScope('THIS');
-      setError(null);
     }
   };
 
@@ -53,7 +51,6 @@ export function EventDeleteModal({
           <DialogDescription>Cette action est irréversible.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          {error && <FieldError>{error}</FieldError>}
           {isRecurring && (
             <SelectField
               label="Appliquer à"
@@ -74,8 +71,12 @@ export function EventDeleteModal({
                 deleteEvent(
                   { eventId: event.id, scope },
                   {
-                    onSuccess: () => setOpen(false),
-                    onError: (err) => setError(getClubErrorMessage(err)),
+                    onSuccess: () => {
+                      toast({ variant: 'success', title: 'Événement supprimé' });
+                      setOpen(false);
+                    },
+                    onError: (err) =>
+                      toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
                   },
                 )
               }

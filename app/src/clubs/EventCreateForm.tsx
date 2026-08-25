@@ -8,6 +8,7 @@ import { FormField } from '@basketeasy/ui/form-field';
 import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Textarea } from '@basketeasy/ui/textarea';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { EventType } from '@basketeasy/types/events';
 import { useEventCreate } from './useEventCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -81,6 +82,7 @@ export function EventCreateForm({
       },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Événement créé' });
           reset();
           onSuccess?.();
         },

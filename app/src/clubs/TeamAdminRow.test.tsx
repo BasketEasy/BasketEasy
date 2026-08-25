@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Table, TableBody } from '@basketeasy/ui/table';
+import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { TeamAdminRow } from './TeamAdminRow';
@@ -11,11 +12,14 @@ const admin = { userId: 'u2', email: 'a@b.com', teamId: 'team-1', createdAt: 'x'
 
 function renderRow(canManage: boolean) {
   return renderWithProviders(
-    <Table>
-      <TableBody>
-        <TeamAdminRow clubId="club-1" teamId="team-1" admin={admin} canManage={canManage} />
-      </TableBody>
-    </Table>,
+    <>
+      <Table>
+        <TableBody>
+          <TeamAdminRow clubId="club-1" teamId="team-1" admin={admin} canManage={canManage} />
+        </TableBody>
+      </Table>
+      <Toaster />
+    </>,
   );
 }
 

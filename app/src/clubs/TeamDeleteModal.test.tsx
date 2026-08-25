@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { TeamDeleteModal } from './TeamDeleteModal';
@@ -73,7 +74,12 @@ describe('TeamDeleteModal', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<TeamDeleteModal clubId="c1" teamId="t1" teamName="U15 Filles" />);
+    renderWithProviders(
+      <>
+        <TeamDeleteModal clubId="c1" teamId="t1" teamName="U15 Filles" />
+        <Toaster />
+      </>,
+    );
 
     await user.click(screen.getByRole('button', { name: 'Supprimer' }));
     await user.type(screen.getByLabelText(/Saisissez/), 'U15 Filles');

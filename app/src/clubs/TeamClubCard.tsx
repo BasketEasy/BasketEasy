@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
-import { FieldError } from '@basketeasy/ui/field-error';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamClubLink } from '@basketeasy/types/teams';
 import { useTeamClubRemove } from './useTeamClubRemove';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -20,7 +19,6 @@ export function TeamClubCard({
   /** Only the owning club can remove partner clubs. */
   canManage: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: removeTeamClub, isPending } = useTeamClubRemove(clubId, teamId);
 
   return (
@@ -29,14 +27,17 @@ export function TeamClubCard({
         <span className="font-medium text-charcoal">{link.clubName}</span>
         {link.isOwner && <Badge variant="secondary">Propriétaire</Badge>}
       </div>
-      {error && <FieldError>{error}</FieldError>}
       {canManage && !link.isOwner && (
         <Button
           variant="outline"
           className="self-start"
           loading={isPending}
           onClick={() =>
-            removeTeamClub(link.clubId, { onError: (err) => setError(getClubErrorMessage(err)) })
+            removeTeamClub(link.clubId, {
+              onSuccess: () => toast({ variant: 'success', title: 'Club partenaire retiré' }),
+              onError: (err) =>
+                toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+            })
           }
         >
           Retirer

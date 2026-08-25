@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamClubLink } from '@basketeasy/types/teams';
 import { useTeamClubRemove } from './useTeamClubRemove';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -19,7 +18,6 @@ export function TeamClubRow({
   /** Only the owning club can remove partner clubs. */
   canManage: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: removeTeamClub, isPending } = useTeamClubRemove(clubId, teamId);
 
   return (
@@ -33,13 +31,16 @@ export function TeamClubRow({
         )}
       </TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && <FieldError>{error}</FieldError>}
         {canManage && !link.isOwner && (
           <Button
             variant="outline"
             loading={isPending}
             onClick={() =>
-              removeTeamClub(link.clubId, { onError: (err) => setError(getClubErrorMessage(err)) })
+              removeTeamClub(link.clubId, {
+                onSuccess: () => toast({ variant: 'success', title: 'Club partenaire retiré' }),
+                onError: (err) =>
+                  toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+              })
             }
           >
             Retirer
