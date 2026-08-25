@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -6,8 +6,8 @@ import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { LoginForm } from './LoginForm';
 
-function renderLoginForm(onSwitchToRegister = vi.fn()) {
-  return renderWithProviders(<LoginForm onSwitchToRegister={onSwitchToRegister} />);
+function renderLoginForm() {
+  return renderWithProviders(<LoginForm />);
 }
 
 describe('LoginForm', () => {
@@ -89,13 +89,12 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/incorrect/i);
   });
 
-  it('calls onSwitchToRegister when the toggle link is clicked', async () => {
-    const onSwitchToRegister = vi.fn();
-    const user = userEvent.setup();
-    renderLoginForm(onSwitchToRegister);
+  it('links to the register page', () => {
+    renderLoginForm();
 
-    await user.click(screen.getByRole('button', { name: /créer un compte/i }));
-
-    expect(onSwitchToRegister).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('link', { name: /créer un compte/i })).toHaveAttribute(
+      'href',
+      '/register',
+    );
   });
 });

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { Player } from '@basketeasy/types/players';
 import type { TeamMemberRole } from '@basketeasy/types/teams';
 import { useTeamPlayerAdd } from './useTeamPlayerAdd';
@@ -46,6 +47,7 @@ export function TeamPlayerAddForm({
       { playerId: values.playerId, role: values.role },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Joueur ajouté à l’effectif' });
           reset();
           onSuccess?.();
         },
@@ -101,7 +103,11 @@ export function TeamPlayerAddForm({
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending || addablePlayers.length === 0}>
+      <Button
+        type="submit"
+        disabled={addablePlayers.length === 0}
+        loading={isSubmitting || isPending}
+      >
         Ajouter à l'effectif
       </Button>
     </form>

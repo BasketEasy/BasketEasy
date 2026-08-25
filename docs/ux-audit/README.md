@@ -22,7 +22,7 @@ Date: 2026-08-11. Scope: `app/` (React + Vite frontend), all pages currently shi
 
 ### Navigation
 
-[`AppHeader`](../../app/src/components/AppHeader.tsx) is mounted once by `ProtectedRoute`, so every protected page gets the same nav: Tableau de bord · Mes équipes · Mon profil · Créer un club, plus one "Effectif" button **per club the user administers**, appended inline. `LandingPage` rolls its own separate header (duplicated brand/CTA logic, not shared with `AppHeader`).
+[`AppHeader`](../../app/src/components/AppHeader.tsx) is mounted once by `ProtectedRoute`, so every protected page gets the same nav: Tableau de bord · Mes équipes · Mon profil · Créer un club, plus one "Effectif" button **per club the user administers**, appended inline. `LandingPage` uses its own [`PublicHeader`](../../app/src/components/PublicHeader.tsx) (brand mark plus Se connecter/Créer un compte or Mon espace) instead of `AppHeader`, since it must handle the logged-out case `AppHeader` never sees.
 
 There is no club switcher, no breadcrumbs, and only one hardcoded "back" link (`TeamDetailPage` → its owning club's Members page). `/my-teams` is the only nav-reachable path into a team for a plain club member or a team-only admin — a deliberate design per `CLAUDE.md`, but it means that persona has a much thinner navigation surface than a club admin.
 
@@ -92,7 +92,7 @@ Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune 
 - **No app-wide error boundary.** A render-time exception has no fallback UI beyond React's default white screen. Worth adding regardless of the mockup work above.
 - **Toast system exists but is unused.** `Toast`/`Toaster` (`@basketeasy/ui`) is mounted globally (`App.tsx:37`) but mutations (delete team, remove member, etc.) surface errors via inline `Alert` + local state instead. Not wrong, but pick one pattern — right now the app has two error-surfacing conventions with no visible rule for which applies where.
 - **Blank flash during auth resolution.** `ProtectedRoute`/`PublicOnlyRoute` render `null` while checking auth state — no skeleton/spinner, just a blank page for a beat.
-- **`LandingPage` duplicates header/CTA logic** instead of sharing it with `AppHeader` — low risk today, but a maintenance trap once the header changes (e.g. the club-switcher proposal in 2.4) and the landing page's copy silently diverges.
+- ~~**`LandingPage` duplicates header/CTA logic** instead of sharing it with `AppHeader`~~ — fixed: the marketing header now lives in `app/src/components/PublicHeader.tsx`, shared by `LandingPage` and any future public route.
 - **No 404 page** — unmatched routes redirect straight to `/`, which is fine for a small app but hides genuinely broken links (e.g. an old bookmark to a deleted team) behind a silent redirect instead of a clear "not found."
 
 ## 3. Proposed mockups

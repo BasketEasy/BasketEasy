@@ -42,11 +42,12 @@ describe('App routing', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
   });
 
-  it('unknown routes redirect back to the landing page', () => {
-    renderWithProviders(<App />, { route: '/nope' });
+  it('renders a 404 in place, rather than redirecting to the landing page, for an unknown route', () => {
+    renderWithProviders(<App />, { route: '/pas-une-page' });
+    expect(screen.getByRole('heading', { name: /page introuvable/i })).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
-    ).toBeInTheDocument();
+      screen.queryByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
+    ).not.toBeInTheDocument();
   });
 
   it('logging in from /login lands on the dashboard, and logging out returns to /login', async () => {
@@ -82,7 +83,8 @@ describe('App routing', () => {
     );
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
+    await user.click(screen.getByRole('button', { name: /mon compte/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /se déconnecter/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),

@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Label } from '@basketeasy/ui/label';
 import {
@@ -15,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@basketeasy/ui/select';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { usePlayerUpdate } from './usePlayerUpdate';
@@ -56,7 +56,6 @@ export function PlayerCard({
   linkableMembers: ClubMember[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { mutate: updatePlayer, isPending: isUpdating } = usePlayerUpdate(clubId);
   const { mutate: deletePlayer, isPending: isDeleting } = usePlayerDelete(clubId);
   const {
@@ -92,7 +91,10 @@ export function PlayerCard({
         },
       },
       {
-        onSuccess: () => setIsEditing(false),
+        onSuccess: () => {
+          toast({ variant: 'success', title: 'Joueur modifié' });
+          setIsEditing(false);
+        },
         onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
       },
     );
@@ -154,7 +156,7 @@ export function PlayerCard({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={isSubmitting || isUpdating}>
+            <Button type="submit" loading={isSubmitting || isUpdating}>
               Enregistrer
             </Button>
             <Button type="button" variant="ghost" onClick={cancelEditing}>
@@ -172,7 +174,6 @@ export function PlayerCard({
         {player.firstName} {player.lastName}
       </span>
       <span className="text-sm text-muted">Compte lié : {linkedMemberEmail ?? '—'}</span>
-      {deleteError && <FieldError>{deleteError}</FieldError>}
       {isAdmin && (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={startEditing}>
@@ -180,10 +181,12 @@ export function PlayerCard({
           </Button>
           <Button
             variant="outline"
-            disabled={isDeleting}
+            loading={isDeleting}
             onClick={() =>
               deletePlayer(player.id, {
-                onError: (err) => setDeleteError(getClubErrorMessage(err)),
+                onSuccess: () => toast({ variant: 'success', title: 'Joueur supprimé' }),
+                onError: (err) =>
+                  toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
               })
             }
           >

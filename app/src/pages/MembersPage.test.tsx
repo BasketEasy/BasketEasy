@@ -43,6 +43,23 @@ describe('MembersPage', () => {
     setViewportWidth(1024);
   });
 
+  it('names the club in the roster page heading', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Effectif · ASB Rezé' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -64,7 +81,7 @@ describe('MembersPage', () => {
     expect(screen.getAllByRole('button', { name: /retirer/i })).toHaveLength(2);
   });
 
-  it('redirects a non-admin (MEMBER role, or no membership at all) away from the page without calling the members/players/teams endpoints', async () => {
+  it('shows a 403 page for a non-admin (MEMBER role, or no membership at all) without calling the members/players/teams endpoints', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     let membersRequested = false;
     let playersRequested = false;
@@ -86,7 +103,7 @@ describe('MembersPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    expect(await screen.findByRole('heading', { name: /bonjour/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /accès non autorisé/i })).toBeInTheDocument();
     expect(membersRequested).toBe(false);
     expect(playersRequested).toBe(false);
     expect(teamsRequested).toBe(false);
@@ -417,7 +434,7 @@ describe('MembersPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /créer une équipe/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /gérer/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /gérer/i })).toBeInTheDocument();
   });
 
   it('opens the create-team form in a modal, and closes it after a successful submit', async () => {
@@ -649,7 +666,7 @@ describe('MembersPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /gérer/i }));
+    await user.click(screen.getByRole('link', { name: /gérer/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

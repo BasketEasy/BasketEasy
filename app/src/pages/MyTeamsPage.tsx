@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -14,9 +14,10 @@ import {
 } from '@basketeasy/ui/dialog';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
-import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -35,8 +36,6 @@ import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../club
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 
 function MyTeamRow({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <TableRow>
       <TableCell>{team.teamName}</TableCell>
@@ -51,11 +50,13 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
         )}
       </TableCell>
       <TableCell>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-        >
-          Voir
+        <Button asChild variant="outline">
+          <Link
+            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+            state={{ origin: { from: 'my-teams' } }}
+          >
+            Voir
+          </Link>
         </Button>
       </TableCell>
     </TableRow>
@@ -64,8 +65,6 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
 
 /** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
 function MyTeamCard({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <Card className="flex flex-col gap-2 p-3">
       <span className="font-medium text-charcoal">{team.teamName}</span>
@@ -78,19 +77,20 @@ function MyTeamCard({ team }: { team: MyTeamSummary }) {
           <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
         )}
       </div>
-      <Button
-        variant="outline"
-        className="self-start"
-        onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-      >
-        Voir
+      <Button asChild variant="outline" className="self-start">
+        <Link
+          to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+          state={{ origin: { from: 'my-teams' } }}
+        >
+          Voir
+        </Link>
       </Button>
     </Card>
   );
 }
 
 export function MyTeamsPage() {
-  const { data: teams, isLoading } = useMyTeamList();
+  const { data: teams, isLoading, isError, refetch, isRefetching } = useMyTeamList();
   const adminClubs = useAdminClubs();
   const isDesktop = useIsDesktopViewport();
   const queryClient = useQueryClient();
@@ -156,8 +156,10 @@ export function MyTeamsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <Loader>Chargement...</Loader>
+          {isError ? (
+            <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />
+          ) : isLoading ? (
+            <SkeletonList rows={3} />
           ) : teams && teams.length > 0 ? (
             isDesktop ? (
               <Table>

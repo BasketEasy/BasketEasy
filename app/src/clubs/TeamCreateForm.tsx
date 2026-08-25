@@ -5,6 +5,7 @@ import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import { useTeamCreate } from './useTeamCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -39,6 +40,7 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
       { name: values.name, category: values.category, gender: values.gender },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Équipe créée' });
           reset();
           onSuccess?.();
         },
@@ -100,7 +102,7 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Créer l'équipe
       </Button>
     </form>

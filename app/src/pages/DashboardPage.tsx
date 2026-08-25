@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
-import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -14,7 +15,6 @@ import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAccount } from '../auth/useAccount';
-import { useLogout } from '../auth/mutations';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useMyAgenda } from '../clubs/useMyAgenda';
@@ -36,25 +36,21 @@ function StatTile({ icon, label, value }: { icon: ReactNode; label: string; valu
 }
 
 function AgendaRow({ event }: { event: MyAgendaEvent }) {
-  const navigate = useNavigate();
-
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`)}
+    <Link
+      to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
+      state={{ origin: { from: 'dashboard' } }}
       className="flex w-full flex-col gap-1 rounded-md border border-border p-3 text-left transition hover:border-orange"
     >
       <span className="font-semibold text-charcoal">{event.teamName}</span>
       <span className="text-sm text-muted">
         {formatEventDate(event.startsAt)} · {event.location}
       </span>
-    </button>
+    </Link>
   );
 }
 
 function TeamCard({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 pt-6">
@@ -65,11 +61,13 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
         <p className="text-sm text-muted">
           {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
         </p>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-        >
-          Voir l&apos;équipe
+        <Button asChild variant="outline">
+          <Link
+            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+            state={{ origin: { from: 'dashboard' } }}
+          >
+            Voir l&apos;équipe
+          </Link>
         </Button>
       </CardContent>
     </Card>
@@ -78,10 +76,21 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
 
 export function DashboardPage() {
   const { user } = useAccount();
-  const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const { data: teams } = useMyTeamList();
+  const {
+    data: teams,
+    isLoading: isTeamsLoading,
+    isError: isTeamsError,
+    refetch: refetchTeams,
+    isRefetching: isTeamsRefetching,
+  } = useMyTeamList();
   const adminClubs = useAdminClubs();
-  const { data: dashboard, isLoading: isDashboardLoading } = useMyAgenda();
+  const {
+    data: dashboard,
+    isLoading: isDashboardLoading,
+    isError: isDashboardError,
+    refetch: refetchDashboard,
+    isRefetching: isDashboardRefetching,
+  } = useMyAgenda();
 
   const managedTeamCount = teams?.filter((team) => team.isTeamAdmin).length ?? 0;
   const upcomingEvents = dashboard?.upcomingEvents ?? [];
@@ -96,9 +105,6 @@ export function DashboardPage() {
           </Heading>
           {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
         </div>
-        <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
-          Se déconnecter
-        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -132,8 +138,10 @@ export function DashboardPage() {
           </Link>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {isDashboardLoading ? (
-            <Loader>Chargement…</Loader>
+          {isDashboardError ? (
+            <QueryError onRetry={() => refetchDashboard()} isRetrying={isDashboardRefetching} />
+          ) : isDashboardLoading ? (
+            <SkeletonList rows={3} />
           ) : upcomingEvents.length > 0 ? (
             upcomingEvents.map((event) => <AgendaRow key={event.eventId} event={event} />)
           ) : (
@@ -150,7 +158,11 @@ export function DashboardPage() {
         <Heading as="h2" className="mb-3">
           Mes équipes
         </Heading>
-        {teams && teams.length > 0 ? (
+        {isTeamsError ? (
+          <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
+        ) : isTeamsLoading ? (
+          <SkeletonList rows={3} variant="card" />
+        ) : teams && teams.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((team) => (
               <TeamCard key={team.teamId} team={team} />

@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import App from '../App';
+import { AppHeader } from './AppHeader';
 
 function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[] = []) {
   server.use(
@@ -74,7 +75,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
     expect(screen.queryByLabelText(/menu/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /créer un club/i }));
+    await user.click(screen.getByRole('link', { name: /créer un club/i }));
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
@@ -109,7 +110,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
 
     // Still on the dashboard — the chip never navigates.
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
   });
 
   it('closes the switcher panel on Escape without navigating', async () => {
@@ -129,7 +130,7 @@ describe('AppHeader', () => {
 
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
   });
 
   it('lists each admin club in the switcher panel with a checkmark on the active one, and clicking a row only switches the active club (no navigation, panel closes)', async () => {
@@ -166,7 +167,7 @@ describe('AppHeader', () => {
 
     // Panel closes and doesn't navigate — still on the dashboard.
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
 
     // Checkmark moved: the chip now shows the newly active club.
     expect(await screen.findByRole('button', { name: /es nantes/i })).toBeInTheDocument();
@@ -185,9 +186,9 @@ describe('AppHeader', () => {
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^effectif$/i }));
+    await user.click(screen.getByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
     expect(await screen.findByText('member-club1@x.com')).toBeInTheDocument();
   });
 
@@ -215,9 +216,9 @@ describe('AppHeader', () => {
     await user.click(await screen.findByRole('button', { name: /coc basket/i }));
     await user.click(screen.getByRole('menuitem', { name: /es nantes/i }));
 
-    await user.click(await screen.findByRole('button', { name: /^effectif$/i }));
+    await user.click(await screen.findByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
     expect(await screen.findByText('member-club2@x.com')).toBeInTheDocument();
     expect(screen.queryByText('member-club1@x.com')).not.toBeInTheDocument();
   });
@@ -234,8 +235,8 @@ describe('AppHeader', () => {
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /effectif/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /créer un club/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /effectif/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
   });
 
   it('shows a Mes équipes link to a plain MEMBER (who has no Effectif entry) and it navigates to their teams', async () => {
@@ -261,7 +262,7 @@ describe('AppHeader', () => {
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /mes équipes/i }));
+    await user.click(screen.getByRole('link', { name: /mes équipes/i }));
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
     expect(await screen.findByText('U15')).toBeInTheDocument();
@@ -288,7 +289,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     await screen.findByRole('button', { name: /coc basket/i });
 
-    expect(screen.getAllByRole('button', { name: /^effectif$/i })).toHaveLength(1);
+    expect(screen.getAllByRole('link', { name: /^effectif$/i })).toHaveLength(1);
   });
 
   it('falls back to a burger menu on a narrow (mobile-width) screen', async () => {
@@ -299,11 +300,24 @@ describe('AppHeader', () => {
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
-    expect(screen.queryByRole('button', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText(/menu/i));
 
-    await user.click(screen.getByRole('button', { name: /créer un club/i }));
+    await user.click(screen.getByRole('link', { name: /créer un club/i }));
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
+  });
+
+  it('offers the account menu inside the mobile panel', async () => {
+    setViewportWidth(375);
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+
+    await user.click(screen.getByLabelText(/menu/i));
+
+    expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
   });
 
   it('closes the mobile menu when the backdrop behind it is clicked', async () => {
@@ -315,11 +329,11 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
     await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('button', { name: /créer un club/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
 
     await user.click(screen.getByTestId('mobile-menu-backdrop'));
 
-    expect(screen.queryByRole('button', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
     expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
   });
 
@@ -332,10 +346,33 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
     await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('button', { name: /créer un club/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
 
-    expect(screen.queryByRole('button', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
+  });
+
+  it('renders navigation as links, not buttons', () => {
+    renderWithProviders(<AppHeader />);
+    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toHaveAttribute(
+      'href',
+      '/dashboard',
+    );
+  });
+
+  it('marks the current page for assistive tech', () => {
+    renderWithProviders(<AppHeader />, { route: '/my-teams' });
+    expect(screen.getByRole('link', { name: 'Mes équipes' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('offers logout from any page via the account menu', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AppHeader />, { route: '/account' });
+    await user.click(screen.getByRole('button', { name: /Mon compte/ }));
+    expect(await screen.findByRole('menuitem', { name: 'Se déconnecter' })).toBeInTheDocument();
   });
 });

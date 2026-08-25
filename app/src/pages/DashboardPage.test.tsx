@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -139,7 +138,33 @@ describe('DashboardPage', () => {
     renderLoggedIn();
 
     await waitFor(() => expect(screen.getByText('U15 Filles')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /voir l.équipe/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /voir l.équipe/i })).toBeInTheDocument();
+  });
+
+  it('makes agenda rows openable in a new tab', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [
+            {
+              eventId: 'event-1',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              startsAt: '2026-08-12T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+            },
+          ],
+        }),
+      ),
+    );
+    renderLoggedIn();
+
+    const row = await screen.findByRole('link', { name: /U15 Filles/ });
+    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1?tab=events');
   });
 
   it('shows an empty state when the user has no teams', async () => {
@@ -148,16 +173,5 @@ describe('DashboardPage', () => {
     await waitFor(() =>
       expect(screen.getByText('Aucune équipe pour le moment')).toBeInTheDocument(),
     );
-  });
-
-  it('logs out when "Se déconnecter" is clicked', async () => {
-    server.use(http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })));
-    const user = userEvent.setup();
-    renderLoggedIn();
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
-
-    await waitFor(() => expect(screen.queryByText('a@b.com')).not.toBeInTheDocument());
   });
 });

@@ -21,4 +21,20 @@ describe('Tabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Calendrier' }));
     expect(screen.getByText('Prochains matchs')).toBeInTheDocument();
   });
+
+  it('gives every trigger a visible focus ring', () => {
+    render(
+      <Tabs defaultValue="a">
+        <TabsList>
+          <TabsTrigger value="a">Effectif</TabsTrigger>
+        </TabsList>
+        <TabsContent value="a">Contenu</TabsContent>
+      </Tabs>,
+    );
+    expect(screen.getByRole('tab', { name: 'Effectif' })).toHaveClass(
+      'focus-visible:ring-2',
+      'focus-visible:ring-orange',
+      'focus-visible:ring-offset-surface',
+    );
+  });
 });

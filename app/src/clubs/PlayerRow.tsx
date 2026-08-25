@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@basketeasy/ui/select';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { usePlayerUpdate } from './usePlayerUpdate';
@@ -85,7 +86,7 @@ export function PlayerRow({
           {error && <FieldError>{error}</FieldError>}
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={isUpdating}
+              loading={isUpdating}
               onClick={() =>
                 updatePlayer(
                   {
@@ -93,7 +94,10 @@ export function PlayerRow({
                     dto: { firstName, lastName, userId: userId === UNLINKED ? null : userId },
                   },
                   {
-                    onSuccess: () => setIsEditing(false),
+                    onSuccess: () => {
+                      toast({ variant: 'success', title: 'Joueur modifié' });
+                      setIsEditing(false);
+                    },
                     onError: (err) => setError(getClubErrorMessage(err)),
                   },
                 )
@@ -116,7 +120,6 @@ export function PlayerRow({
       <TableCell>{player.lastName}</TableCell>
       <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && <FieldError>{error}</FieldError>}
         {isAdmin && (
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={startEditing}>
@@ -124,9 +127,13 @@ export function PlayerRow({
             </Button>
             <Button
               variant="outline"
-              disabled={isDeleting}
+              loading={isDeleting}
               onClick={() =>
-                deletePlayer(player.id, { onError: (err) => setError(getClubErrorMessage(err)) })
+                deletePlayer(player.id, {
+                  onSuccess: () => toast({ variant: 'success', title: 'Joueur supprimé' }),
+                  onError: (err) =>
+                    toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+                })
               }
             >
               Supprimer

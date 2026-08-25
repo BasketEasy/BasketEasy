@@ -1,9 +1,8 @@
-import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { FieldError } from '@basketeasy/ui/field-error';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
 import { useTeamPlayerRemove } from './useTeamPlayerRemove';
 import { useTeamPlayerRoleUpdate } from './useTeamPlayerRoleUpdate';
@@ -21,7 +20,6 @@ export function TeamPlayerRow({
   teamPlayer: TeamPlayer;
   canManage: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: removeTeamPlayer, isPending: isRemoving } = useTeamPlayerRemove(clubId, teamId);
   const { mutate: updateRole, isPending: isUpdatingRole } = useTeamPlayerRoleUpdate(clubId, teamId);
 
@@ -38,9 +36,17 @@ export function TeamPlayerRow({
             value={teamPlayer.role}
             disabled={isUpdatingRole}
             onValueChange={(value) =>
+              // No success toast: the select's own updated value is the
+              // feedback for this single-field, high-frequency change (see
+              // CLAUDE.md's "Modals vs. inline editing"). A failure still
+              // needs one, since otherwise the select silently reverting
+              // wouldn't explain why.
               updateRole(
                 { playerId: teamPlayer.playerId, role: value as TeamMemberRole },
-                { onError: (err) => setError(getClubErrorMessage(err)) },
+                {
+                  onError: (err) =>
+                    toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+                },
               )
             }
           />
@@ -49,14 +55,16 @@ export function TeamPlayerRow({
         )}
       </TableCell>
       <TableCell className="flex flex-col gap-2">
-        {error && <FieldError>{error}</FieldError>}
         {canManage && (
           <Button
             variant="outline"
-            disabled={isRemoving}
+            loading={isRemoving}
             onClick={() =>
               removeTeamPlayer(teamPlayer.playerId, {
-                onError: (err) => setError(getClubErrorMessage(err)),
+                onSuccess: () =>
+                  toast({ variant: 'success', title: 'Joueur retiré de l’effectif' }),
+                onError: (err) =>
+                  toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
               })
             }
           >

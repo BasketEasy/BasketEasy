@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -22,6 +23,24 @@ const baseEvent: TeamEvent = {
 };
 
 describe('EventRsvpControl', () => {
+  it('exposes the selected response to assistive tech, not just by colour', () => {
+    renderWithProviders(
+      <EventRsvpControl
+        clubId="club-1"
+        teamId="team-1"
+        event={{ ...baseEvent, myRsvpStatus: 'GOING' }}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Ma réponse' });
+    expect(
+      within(group).getByRole('button', { name: 'Présent', pressed: true }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole('button', { name: 'Absent', pressed: false }),
+    ).toBeInTheDocument();
+  });
+
   it('highlights the current status as pressed', () => {
     renderWithProviders(
       <EventRsvpControl
@@ -31,8 +50,12 @@ describe('EventRsvpControl', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /présent/i })).toHaveClass('bg-success');
-    expect(screen.getByRole('button', { name: /absent/i })).not.toHaveClass('bg-error');
+    expect(screen.getByRole('button', { name: /présent/i, pressed: true })).toHaveClass(
+      'bg-success',
+    );
+    expect(screen.getByRole('button', { name: /absent/i, pressed: false })).not.toHaveClass(
+      'bg-error',
+    );
   });
 
   it('sets a new status when a different option is clicked', async () => {
@@ -83,7 +106,12 @@ describe('EventRsvpControl', () => {
     );
 
     const user = userEvent.setup();
-    renderWithProviders(<EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />);
+    renderWithProviders(
+      <>
+        <EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />
+        <Toaster />
+      </>,
+    );
 
     await user.click(screen.getByRole('button', { name: /absent/i }));
 

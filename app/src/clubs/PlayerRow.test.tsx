@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Table, TableBody } from '@basketeasy/ui/table';
+import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { PlayerRow } from './PlayerRow';
@@ -18,17 +19,20 @@ const player = {
 
 function renderRow(isAdmin = true) {
   return renderWithProviders(
-    <Table>
-      <TableBody>
-        <PlayerRow
-          clubId="club-1"
-          player={player}
-          isAdmin={isAdmin}
-          linkedMemberEmail={null}
-          linkableMembers={[]}
-        />
-      </TableBody>
-    </Table>,
+    <>
+      <Table>
+        <TableBody>
+          <PlayerRow
+            clubId="club-1"
+            player={player}
+            isAdmin={isAdmin}
+            linkedMemberEmail={null}
+            linkableMembers={[]}
+          />
+        </TableBody>
+      </Table>
+      <Toaster />
+    </>,
   );
 }
 

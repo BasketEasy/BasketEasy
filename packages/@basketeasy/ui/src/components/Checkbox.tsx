@@ -2,6 +2,7 @@ import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'reac
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from './icons/Check';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const Checkbox = forwardRef<
   ElementRef<typeof CheckboxPrimitive.Root>,
@@ -10,7 +11,8 @@ export const Checkbox = forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'peer h-5 w-5 shrink-0 rounded-sm border border-border ring-offset-cream focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-orange data-[state=checked]:text-cream',
+      'peer h-5 w-5 shrink-0 rounded-sm border border-border disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-orange data-[state=checked]:text-cream',
+      focusRing,
       className,
     )}
     {...props}

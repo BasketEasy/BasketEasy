@@ -6,9 +6,11 @@ import {
 } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
+export const DialogClose = DialogPrimitive.Close;
 
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
@@ -24,7 +26,7 @@ export const DialogContent = forwardRef<
         // landscape, or the on-screen keyboard eating into the visual
         // viewport. dvh (not vh) tracks that shrunk viewport so the cap
         // actually accounts for the keyboard, not just the layout viewport.
-        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-cream p-6 shadow-lg',
+        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg',
         className,
       )}
       {...props}
@@ -32,7 +34,10 @@ export const DialogContent = forwardRef<
       {children}
       <DialogPrimitive.Close
         aria-label="Fermer"
-        className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-xl text-charcoal/60 hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+        className={cn(
+          'absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-xl text-charcoal/60 hover:text-charcoal',
+          focusRing,
+        )}
       >
         ×
       </DialogPrimitive.Close>

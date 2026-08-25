@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
-import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
@@ -17,16 +16,17 @@ import {
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
-import { Loader } from '@basketeasy/ui/loader';
+import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
+import { useBackLink } from '../clubs/backLink';
 import { useTeamShow } from '../clubs/useTeamShow';
-import { useTeamUpdate } from '../clubs/useTeamUpdate';
-import { useTeamDelete } from '../clubs/useTeamDelete';
+import { TeamDeleteModal } from '../clubs/TeamDeleteModal';
 import { useTeamClubList } from '../clubs/useTeamClubList';
 import { useTeamPlayerList } from '../clubs/useTeamPlayerList';
 import { usePlayerList } from '../clubs/usePlayerList';
@@ -39,6 +39,7 @@ import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
+import { TeamClubCard } from '../clubs/TeamClubCard';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { TeamRosterCards } from '../clubs/TeamRosterCards';
@@ -47,16 +48,13 @@ import { EventRow } from '../clubs/EventRow';
 import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
-import { getClubErrorMessage } from '../clubs/clubErrorMessages';
-import {
-  TEAM_CATEGORY_OPTIONS,
-  TEAM_GENDER_OPTIONS,
-  teamCategoryLabel,
-  teamGenderLabel,
-} from '../clubs/teamLabels';
+import { TeamAdminCard } from '../clubs/TeamAdminCard';
+import { TeamEditModal } from '../clubs/TeamEditModal';
+import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
@@ -114,7 +112,6 @@ type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'events';
 
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: TeamDetailTab =
@@ -127,6 +124,8 @@ export function TeamDetailPage() {
           : 'roster';
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  const backLink = useBackLink();
+  const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -134,7 +133,12 @@ export function TeamDetailPage() {
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
 
-  const { data: team, isLoading: isLoadingTeam } = useTeamShow(clubId!, teamId!);
+  const {
+    data: team,
+    isLoading: isLoadingTeam,
+    isError: isTeamError,
+    refetch: refetchTeam,
+  } = useTeamShow(clubId!, teamId!);
 
   // Clubs partenaires (CTC) filters
   const [teamClubsSearch, setTeamClubsSearch] = useState('');
@@ -199,7 +203,13 @@ export function TeamDetailPage() {
     return start.toISOString();
   }, []);
 
-  const { data: teamClubsResult, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!, {
+  const {
+    data: teamClubsResult,
+    isLoading: isLoadingClubs,
+    isError: isClubsError,
+    refetch: refetchClubs,
+    isRefetching: isClubsRefetching,
+  } = useTeamClubList(clubId!, teamId!, {
     search: debouncedTeamClubsSearch || undefined,
     sortBy: teamClubsSortOption.sortBy,
     sortOrder: teamClubsSortOption.sortOrder,
@@ -212,17 +222,19 @@ export function TeamDetailPage() {
     pageSize: LINKING_PAGE_SIZE,
   });
 
-  const { data: teamPlayersResult, isLoading: isLoadingPlayers } = useTeamPlayerList(
-    clubId!,
-    teamId!,
-    {
-      search: debouncedRosterSearch || undefined,
-      sortBy: rosterSortOption.sortBy,
-      sortOrder: rosterSortOption.sortOrder,
-      page: rosterPage,
-      pageSize: rosterPageSize,
-    },
-  );
+  const {
+    data: teamPlayersResult,
+    isLoading: isLoadingPlayers,
+    isError: isPlayersError,
+    refetch: refetchPlayers,
+    isRefetching: isPlayersRefetching,
+  } = useTeamPlayerList(clubId!, teamId!, {
+    search: debouncedRosterSearch || undefined,
+    sortBy: rosterSortOption.sortBy,
+    sortOrder: rosterSortOption.sortOrder,
+    page: rosterPage,
+    pageSize: rosterPageSize,
+  });
   // Unfiltered, capped fetch backing the "already rostered" computation below
   // — also backs the Effectif tab's card view, which shows the full roster
   // rather than one paginated/filtered table page.
@@ -234,16 +246,24 @@ export function TeamDetailPage() {
   // correctly paginated. Not expected at current usage, but if/when it comes
   // up, the card view needs either real pagination or an overflow indicator
   // driven by `allTeamPlayersResult.total` vs. `allTeamPlayers.length`.
-  const { data: allTeamPlayersResult, isLoading: isLoadingAllTeamPlayers } = useTeamPlayerList(
-    clubId!,
-    teamId!,
-    {
-      pageSize: LINKING_PAGE_SIZE,
-    },
-  );
+  const {
+    data: allTeamPlayersResult,
+    isLoading: isLoadingAllTeamPlayers,
+    isError: isAllTeamPlayersError,
+    refetch: refetchAllTeamPlayers,
+    isRefetching: isAllTeamPlayersRefetching,
+  } = useTeamPlayerList(clubId!, teamId!, {
+    pageSize: LINKING_PAGE_SIZE,
+  });
   const { data: clubPlayersResult } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
 
-  const { data: eventsResult, isLoading: isLoadingEvents } = useEventList(clubId!, teamId!, {
+  const {
+    data: eventsResult,
+    isLoading: isLoadingEvents,
+    isError: isEventsError,
+    refetch: refetchEvents,
+    isRefetching: isEventsRefetching,
+  } = useEventList(clubId!, teamId!, {
     search: debouncedEventsSearch || undefined,
     from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
     to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
@@ -254,28 +274,28 @@ export function TeamDetailPage() {
   // Backs the agenda view — unpaginated, sorted ascending, bounded to
   // upcoming events only. Independent of the table view's own filters above,
   // same as the roster tab's card-view fetch is independent of its table.
-  const { data: agendaEventsResult, isLoading: isLoadingAgendaEvents } = useEventList(
-    clubId!,
-    teamId!,
-    {
-      from: agendaFrom,
-      sortOrder: 'asc',
-      pageSize: LINKING_PAGE_SIZE,
-    },
-  );
+  const {
+    data: agendaEventsResult,
+    isLoading: isLoadingAgendaEvents,
+    isError: isAgendaEventsError,
+    refetch: refetchAgendaEvents,
+    isRefetching: isAgendaEventsRefetching,
+  } = useEventList(clubId!, teamId!, {
+    from: agendaFrom,
+    sortOrder: 'asc',
+    pageSize: LINKING_PAGE_SIZE,
+  });
 
-  const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId!, teamId!);
+  const {
+    data: teamAdmins,
+    isLoading: isLoadingAdmins,
+    isError: isAdminsError,
+    refetch: refetchAdmins,
+    isRefetching: isAdminsRefetching,
+  } = useTeamAdminList(clubId!, teamId!);
   const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
 
-  const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
-  const { mutate: deleteTeam, isPending: isDeleting } = useTeamDelete(clubId!);
-
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<TeamCategory>('U9');
-  const [gender, setGender] = useState<TeamGender>('MEN');
-  const [editError, setEditError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -291,15 +311,23 @@ export function TeamDetailPage() {
   // Same pattern as the roster tab: whichever fetch backs the active
   // Événements view (agenda vs. table) sources its own loading/empty state.
   const isLoadingEventsView = eventsViewMode === 'agenda' ? isLoadingAgendaEvents : isLoadingEvents;
+  const isEventsViewError = eventsViewMode === 'agenda' ? isAgendaEventsError : isEventsError;
+  const isEventsViewRefetching =
+    eventsViewMode === 'agenda' ? isAgendaEventsRefetching : isEventsRefetching;
+  const refetchEventsView = eventsViewMode === 'agenda' ? refetchAgendaEvents : refetchEvents;
   const isEventsEmpty =
     (eventsViewMode === 'agenda' ? agendaEventsResult?.total : eventsResult?.total) === 0;
 
   // The card view reads the full unfiltered roster, the table view reads the
   // paginated/filtered one — so "is the roster empty" (and its loading
   // state) is sourced from whichever fetch backs the active view, letting
-  // both views share a single EmptyState/Loader branch instead of each
+  // both views share a single error/loading/empty branch instead of each
   // duplicating that logic.
   const isLoadingRoster = rosterViewMode === 'cards' ? isLoadingAllTeamPlayers : isLoadingPlayers;
+  const isRosterError = rosterViewMode === 'cards' ? isAllTeamPlayersError : isPlayersError;
+  const isRosterRefetching =
+    rosterViewMode === 'cards' ? isAllTeamPlayersRefetching : isPlayersRefetching;
+  const refetchRoster = rosterViewMode === 'cards' ? refetchAllTeamPlayers : refetchPlayers;
   const isRosterEmpty =
     (rosterViewMode === 'cards' ? allTeamPlayersResult?.total : teamPlayersResult?.total) === 0;
 
@@ -316,121 +344,92 @@ export function TeamDetailPage() {
     return (teamAdminCandidatesResult ?? []).filter((c) => !adminUserIds.has(c.userId));
   }, [teamAdminCandidatesResult, teamAdmins]);
 
-  const startEditing = () => {
-    if (!team) return;
-    setName(team.name);
-    setCategory(team.category);
-    setGender(team.gender);
-    setEditError(null);
-    setIsEditing(true);
-  };
-
-  const handleDelete = () => {
-    setDeleteError(null);
-    deleteTeam(teamId!, {
-      onSuccess: () => navigate(`/clubs/${clubId}/members?tab=teams`),
-      onError: (err) => setDeleteError(getClubErrorMessage(err)),
-    });
-  };
-
-  if (isLoadingTeam || !team) {
+  if (isTeamError) {
     return (
       <PageContainer size="lg">
-        <Loader>Chargement...</Loader>
+        <QueryError onRetry={() => refetchTeam()} />
+      </PageContainer>
+    );
+  }
+
+  if (isLoadingTeam) {
+    return (
+      <PageContainer size="lg">
+        <SkeletonList rows={4} variant="card" />
+      </PageContainer>
+    );
+  }
+
+  if (!team) {
+    return (
+      <PageContainer size="lg">
+        <EmptyState
+          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+          title="Équipe introuvable"
+          description="Cette équipe n’existe plus ou a été supprimée."
+          action={
+            <Button asChild>
+              <Link to="/my-teams">Mes équipes</Link>
+            </Button>
+          }
+        />
       </PageContainer>
     );
   }
 
   return (
     <PageContainer size="lg">
-      <Button variant="ghost" className="self-start" onClick={() => navigate('/my-teams')}>
-        ← Mes équipes
+      <Button asChild variant="ghost" className="self-start">
+        <Link to={backLink.to}>{backLink.label}</Link>
       </Button>
 
-      {isEditing ? (
-        <div className="flex flex-col gap-4">
-          {editError && (
-            <Alert variant="destructive">
-              <AlertDescription>{editError}</AlertDescription>
-            </Alert>
-          )}
-          <FormField
-            label="Nom de l'équipe"
-            id="team-edit-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <SelectField
-            label="Catégorie"
-            id="team-edit-category-select"
-            options={TEAM_CATEGORY_OPTIONS}
-            value={category}
-            onValueChange={(value) => setCategory(value as TeamCategory)}
-          />
-
-          <SelectField
-            label="Genre"
-            id="team-edit-gender-select"
-            options={TEAM_GENDER_OPTIONS}
-            value={gender}
-            onValueChange={(value) => setGender(value as TeamGender)}
-          />
-
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <Heading as="h1" className="m-0">
+            {team.name}
+          </Heading>
+          <p className="mt-1 text-muted">
+            {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
+          </p>
+        </div>
+        {canManageTeam && (
           <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={isUpdating}
-              onClick={() =>
-                updateTeam(
-                  { name, category, gender },
-                  {
-                    onSuccess: () => setIsEditing(false),
-                    onError: (err) => setEditError(getClubErrorMessage(err)),
-                  },
-                )
-              }
-            >
-              Enregistrer
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              Modifier
             </Button>
-            <Button variant="ghost" onClick={() => setIsEditing(false)}>
-              Annuler
-            </Button>
+            {isAdmin && isOwner && (
+              <TeamDeleteModal
+                clubId={clubId!}
+                teamId={teamId!}
+                teamName={team.name}
+                playerCount={allTeamPlayers.length}
+                eventCount={eventsResult?.total ?? 0}
+              />
+            )}
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Heading as="h1" className="m-0">
-              {team.name}
-            </Heading>
-            <p className="mt-1 text-muted">
-              {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-            </p>
-          </div>
-          {canManageTeam && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={startEditing}>
-                Modifier
-              </Button>
-              {isAdmin && isOwner && (
-                <Button variant="outline" disabled={isDeleting} onClick={handleDelete}>
-                  Supprimer
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      {deleteError && (
-        <Alert variant="destructive">
-          <AlertDescription>{deleteError}</AlertDescription>
-        </Alert>
-      )}
+      <TeamEditModal
+        clubId={clubId!}
+        teamId={teamId!}
+        team={team}
+        open={isEditing}
+        onOpenChange={setIsEditing}
+      />
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+        onValueChange={(value) =>
+          setSearchParams(
+            (previous) => {
+              const next = new URLSearchParams(previous);
+              next.set('tab', value);
+              return next;
+            },
+            { replace: true },
+          )
+        }
       >
         <TabsList>
           <TabsTrigger value="roster">Effectif</TabsTrigger>
@@ -494,8 +493,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingRoster ? (
-                <Loader>Chargement...</Loader>
+              {isRosterError ? (
+                <QueryError onRetry={() => refetchRoster()} isRetrying={isRosterRefetching} />
+              ) : isLoadingRoster ? (
+                <SkeletonList rows={3} />
               ) : isRosterEmpty ? (
                 <EmptyState
                   icon={<UsersIcon className="h-8 w-8 text-muted" />}
@@ -601,8 +602,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingClubs ? (
-                <Loader>Chargement...</Loader>
+              {isClubsError ? (
+                <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
+              ) : isLoadingClubs ? (
+                <SkeletonList rows={3} />
               ) : (teamClubsResult?.total ?? 0) === 0 ? (
                 <EmptyState
                   icon={<BuildingIcon className="h-8 w-8 text-muted" />}
@@ -620,16 +623,30 @@ export function TeamDetailPage() {
                 />
               ) : (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Club</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  {isDesktop ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Club</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teamClubs?.map((link) => (
+                          <TeamClubRow
+                            key={link.clubId}
+                            clubId={clubId!}
+                            teamId={teamId!}
+                            link={link}
+                            canManage={isAdmin && isOwner}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col gap-3">
                       {teamClubs?.map((link) => (
-                        <TeamClubRow
+                        <TeamClubCard
                           key={link.clubId}
                           clubId={clubId!}
                           teamId={teamId!}
@@ -637,8 +654,8 @@ export function TeamDetailPage() {
                           canManage={isAdmin && isOwner}
                         />
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  )}
                   <Pagination
                     page={teamClubsResult?.page ?? 1}
                     pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
@@ -682,8 +699,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6">
-              {isLoadingAdmins ? (
-                <Loader>Chargement...</Loader>
+              {isAdminsError ? (
+                <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
+              ) : isLoadingAdmins ? (
+                <SkeletonList rows={3} />
               ) : (teamAdmins?.length ?? 0) === 0 ? (
                 <EmptyState
                   icon={<ShieldIcon className="h-8 w-8 text-muted" />}
@@ -697,7 +716,7 @@ export function TeamDetailPage() {
                     ) : undefined
                   }
                 />
-              ) : (
+              ) : isDesktop ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -717,6 +736,18 @@ export function TeamDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {teamAdmins?.map((admin) => (
+                    <TeamAdminCard
+                      key={admin.userId}
+                      clubId={clubId!}
+                      teamId={teamId!}
+                      admin={admin}
+                      canManage={canManageTeam}
+                    />
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -794,8 +825,13 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingEventsView ? (
-                <Loader>Chargement...</Loader>
+              {isEventsViewError ? (
+                <QueryError
+                  onRetry={() => refetchEventsView()}
+                  isRetrying={isEventsViewRefetching}
+                />
+              ) : isLoadingEventsView ? (
+                <SkeletonList rows={3} />
               ) : isEventsEmpty ? (
                 <EmptyState
                   icon={<CalendarIcon className="h-8 w-8 text-muted" />}

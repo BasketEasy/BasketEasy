@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -28,7 +29,12 @@ const recurringEvent: TeamEvent = {
 };
 
 function renderModal(event: TeamEvent) {
-  return renderWithProviders(<EventDeleteModal clubId="club-1" teamId="team-1" event={event} />);
+  return renderWithProviders(
+    <>
+      <EventDeleteModal clubId="club-1" teamId="team-1" event={event} />
+      <Toaster />
+    </>,
+  );
 }
 
 describe('EventDeleteModal', () => {

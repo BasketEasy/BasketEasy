@@ -30,4 +30,30 @@ describe('Button', () => {
     render(<Button size="icon" aria-label="Menu" />);
     expect(screen.getByRole('button')).toHaveClass('h-11', 'w-11');
   });
+
+  it('shows a spinner and stays labelled while loading', () => {
+    render(<Button loading>Enregistrer</Button>);
+    const button = screen.getByRole('button', { name: /Enregistrer/ });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('gives the ghost variant a hover state distinct from the page', () => {
+    render(<Button variant="ghost">Mes équipes</Button>);
+    expect(screen.getByRole('button')).toHaveClass('hover:bg-blue-green-tint');
+  });
+
+  it('renders as its child element when asChild is set', () => {
+    render(
+      <Button asChild variant="outline">
+        <a href="/mes-equipes">Mes équipes</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Mes équipes' });
+    expect(link).toHaveAttribute('href', '/mes-equipes');
+    expect(link).toHaveClass('border-border-strong');
+    expect(link).not.toHaveAttribute('type');
+    expect(link).not.toHaveAttribute('aria-busy');
+  });
 });

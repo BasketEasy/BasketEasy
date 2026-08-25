@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamAdminCandidate } from '@basketeasy/types/team-admins';
 import { ApiError } from '../api/client';
 import { useTeamAdminAdd } from './useTeamAdminAdd';
@@ -47,6 +48,7 @@ export function TeamAdminAddForm({
   const onSubmit = (values: TeamAdminFormValues) => {
     addTeamAdmin(values, {
       onSuccess: () => {
+        toast({ variant: 'success', title: 'Administrateur ajouté' });
         reset();
         onSuccess?.();
       },
@@ -95,7 +97,7 @@ export function TeamAdminAddForm({
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending || candidates.length === 0}>
+      <Button type="submit" disabled={candidates.length === 0} loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

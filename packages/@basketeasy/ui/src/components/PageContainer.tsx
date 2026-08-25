@@ -23,6 +23,7 @@ export const PageContainer = forwardRef<HTMLElement, PageContainerProps>(
   ({ className, size, centered, ...props }, ref) => (
     <main
       ref={ref}
+      id="contenu"
       className={cn(pageContainerVariants({ size, centered }), className)}
       {...props}
     />

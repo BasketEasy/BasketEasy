@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@basketeasy/ui/select';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { usePlayerCreate } from './usePlayerCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -59,6 +60,7 @@ export function PlayerCreateForm({
       },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Joueur ajouté' });
           reset();
           onSuccess?.();
         },
@@ -133,7 +135,7 @@ export function PlayerCreateForm({
         />
       </div>
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

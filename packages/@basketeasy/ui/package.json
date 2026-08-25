@@ -9,6 +9,10 @@
       "types": "./src/lib/cn.ts",
       "default": "./src/lib/cn.ts"
     },
+    "./focus-ring": {
+      "types": "./src/lib/focusRing.ts",
+      "default": "./src/lib/focusRing.ts"
+    },
     "./tailwind-preset": "./tailwind-preset.cjs",
     "./styles/globals.css": "./src/styles/globals.css",
     "./button": {
@@ -71,6 +75,10 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./confirm-dialog": {
+      "types": "./src/components/ConfirmDialog.tsx",
+      "default": "./src/components/ConfirmDialog.tsx"
+    },
     "./dropdown-menu": {
       "types": "./src/components/DropdownMenu.tsx",
       "default": "./src/components/DropdownMenu.tsx"
@@ -78,6 +86,10 @@
     "./empty-state": {
       "types": "./src/components/EmptyState.tsx",
       "default": "./src/components/EmptyState.tsx"
+    },
+    "./query-error": {
+      "types": "./src/components/QueryError.tsx",
+      "default": "./src/components/QueryError.tsx"
     },
     "./icons/users": {
       "types": "./src/components/icons/UsersIcon.tsx",
@@ -134,6 +146,14 @@
     "./pagination": {
       "types": "./src/components/Pagination.tsx",
       "default": "./src/components/Pagination.tsx"
+    },
+    "./skeleton": {
+      "types": "./src/components/Skeleton.tsx",
+      "default": "./src/components/Skeleton.tsx"
+    },
+    "./section-heading": {
+      "types": "./src/components/SectionHeading.tsx",
+      "default": "./src/components/SectionHeading.tsx"
     }
   },
   "scripts": {
@@ -155,6 +175,7 @@
     "@radix-ui/react-dropdown-menu": "^2.1.1",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-slot": "^1.3.3",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",

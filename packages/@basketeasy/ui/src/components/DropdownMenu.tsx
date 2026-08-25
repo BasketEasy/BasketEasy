@@ -1,9 +1,17 @@
 import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'react';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
-export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+
+export const DropdownMenuTrigger = forwardRef<
+  ElementRef<typeof DropdownMenuPrimitive.Trigger>,
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <DropdownMenuPrimitive.Trigger ref={ref} className={cn(focusRing, className)} {...props} />
+));
+DropdownMenuTrigger.displayName = 'DropdownMenuTrigger';
 
 export const DropdownMenuContent = forwardRef<
   ElementRef<typeof DropdownMenuPrimitive.Content>,
@@ -14,7 +22,7 @@ export const DropdownMenuContent = forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-[14rem] rounded-md border border-border bg-cream p-1 shadow-lg',
+        'z-50 min-w-[14rem] rounded-md border border-border bg-surface p-1 shadow-lg',
         className,
       )}
       {...props}
@@ -43,6 +51,7 @@ export const DropdownMenuItem = forwardRef<
     ref={ref}
     className={cn(
       'relative flex min-h-11 cursor-default select-none items-center gap-2 rounded-sm px-3 py-2 text-sm text-charcoal outline-none data-[highlighted]:bg-orange-text data-[highlighted]:text-cream md:min-h-9',
+      focusRing,
       className,
     )}
     {...props}

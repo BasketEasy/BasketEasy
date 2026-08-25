@@ -1,6 +1,7 @@
 import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const Select = SelectPrimitive.Root;
 export const SelectValue = SelectPrimitive.Value;
@@ -12,7 +13,8 @@ export const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-11 w-full items-center justify-between rounded-md border border-border bg-cream px-3 py-2 text-base text-charcoal focus:outline-none focus:ring-2 focus:ring-orange disabled:cursor-not-allowed disabled:opacity-50 md:h-10 md:text-sm',
+      'flex h-11 w-full items-center justify-between rounded-md border border-border bg-surface-2 px-3 py-2 text-base text-charcoal disabled:cursor-not-allowed disabled:opacity-50 md:h-10 md:text-sm',
+      focusRing,
       className,
     )}
     {...props}
@@ -29,7 +31,7 @@ export const SelectContent = forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
-      className={cn('z-50 rounded-md border border-border bg-cream shadow-md', className)}
+      className={cn('z-50 rounded-md border border-border bg-surface shadow-md', className)}
       {...props}
     >
       <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
@@ -46,6 +48,7 @@ export const SelectItem = forwardRef<
     ref={ref}
     className={cn(
       'relative flex min-h-11 cursor-default select-none items-center rounded-sm px-3 py-2 text-base text-charcoal outline-none data-[highlighted]:bg-orange-text data-[highlighted]:text-cream md:min-h-0 md:text-sm',
+      focusRing,
       className,
     )}
     {...props}

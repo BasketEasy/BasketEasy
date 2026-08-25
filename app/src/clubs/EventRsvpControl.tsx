@@ -1,5 +1,7 @@
-import { useState, type ReactNode } from 'react';
-import { FieldError } from '@basketeasy/ui/field-error';
+import { type ReactNode } from 'react';
+import { cn } from '@basketeasy/ui/cn';
+import { focusRing } from '@basketeasy/ui/focus-ring';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { EventRsvpStatus, TeamEvent } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
 import { useEventRsvpSet } from './useEventRsvpSet';
@@ -52,20 +54,22 @@ export function EventRsvpControl({
   teamId: string;
   event: TeamEvent;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const { mutate: setRsvp, isPending: isSetting } = useEventRsvpSet(clubId, teamId);
   const { mutate: clearRsvp, isPending: isClearing } = useEventRsvpClear(clubId, teamId);
   const isPending = isSetting || isClearing;
 
+  // No success toast here: the segmented control's own highlighted state is
+  // the feedback, and RSVP is a frequent, low-stakes action — a toast on
+  // every click would be noise. A failure still needs a toast, though,
+  // since nothing else in the UI would otherwise reveal that the click
+  // didn't stick.
   const select = (status: EventRsvpStatus) => {
-    setError(null);
+    const onError = (err: unknown) =>
+      toast({ variant: 'destructive', description: getClubErrorMessage(err) });
     if (event.myRsvpStatus === status) {
-      clearRsvp({ eventId: event.id }, { onError: (err) => setError(getClubErrorMessage(err)) });
+      clearRsvp({ eventId: event.id }, { onError });
     } else {
-      setRsvp(
-        { eventId: event.id, status },
-        { onError: (err) => setError(getClubErrorMessage(err)) },
-      );
+      setRsvp({ eventId: event.id, status }, { onError });
     }
   };
 
@@ -76,23 +80,30 @@ export function EventRsvpControl({
           card) however the segments share space; icon-only guarantees the
           control never overflows regardless of card width. The label stays
           the accessible name (aria-label) even when visually hidden. */}
-      <div className="flex w-fit overflow-hidden rounded-md border border-border bg-cream">
+      <div
+        role="group"
+        aria-label="Ma réponse"
+        className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
+      >
         {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
           const active = event.myRsvpStatus === option.value;
           return (
             <button
               key={option.value}
               type="button"
+              aria-pressed={active}
               aria-label={option.label}
               disabled={isPending}
               onClick={() => select(option.value)}
-              className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 md:px-3.5 ${
-                index > 0 ? 'border-l border-border' : ''
-              } ${
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
+                'disabled:pointer-events-none disabled:opacity-50',
+                focusRing,
+                index > 0 && 'border-l border-border-strong',
                 active
-                  ? ACTIVE_CLASSES[option.value]
-                  : 'bg-transparent text-muted hover:bg-border/40'
-              }`}
+                  ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
+                  : 'bg-surface text-muted hover:bg-sunk',
+              )}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -107,7 +118,6 @@ export function EventRsvpControl({
           );
         })}
       </div>
-      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }

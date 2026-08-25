@@ -15,6 +15,7 @@ import { FormField } from '@basketeasy/ui/form-field';
 import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Textarea } from '@basketeasy/ui/textarea';
+import { toast } from '@basketeasy/ui/toast-store';
 import type { EventType, EventUpdateScope, TeamEvent } from '@basketeasy/types/events';
 import { useEventUpdate } from './useEventUpdate';
 import { useEventTimeUpdate } from './useEventTimeUpdate';
@@ -135,6 +136,7 @@ export function EventEditModal({
         });
       }
 
+      toast({ variant: 'success', title: 'Événement modifié' });
       onOpenChange(false);
     } catch (err) {
       setError('root', { message: getClubErrorMessage(err) });
@@ -238,7 +240,7 @@ export function EventEditModal({
             <Textarea id={`event-${event.id}-edit-notes`} {...register('notes')} />
           </div>
 
-          <Button type="submit" disabled={isSubmitting || isUpdating || isUpdatingTime}>
+          <Button type="submit" loading={isSubmitting || isUpdating || isUpdatingTime}>
             Enregistrer
           </Button>
         </form>

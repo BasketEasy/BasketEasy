@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import { useClubCreate } from './useClubCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 
@@ -36,7 +37,10 @@ export function ClubCreateForm() {
       // /dashboard. Deferring the navigation by one macrotask lets the
       // already-scheduled cache notification run first, so useIsClubAdmin
       // sees the new membership on MembersPage's first render.
-      onSuccess: (club) => setTimeout(() => navigate(`/clubs/${club.id}/members`), 0),
+      onSuccess: (club) => {
+        toast({ variant: 'success', title: 'Club créé' });
+        setTimeout(() => navigate(`/clubs/${club.id}/members`), 0);
+      },
       onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
     });
   };
@@ -67,7 +71,7 @@ export function ClubCreateForm() {
             {...register('name')}
           />
 
-          <Button type="submit" disabled={isSubmitting || isPending}>
+          <Button type="submit" loading={isSubmitting || isPending}>
             Créer le club
           </Button>
         </form>

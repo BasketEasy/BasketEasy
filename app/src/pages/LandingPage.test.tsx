@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -36,6 +36,18 @@ describe('LandingPage', () => {
     expect(screen.getByText(/BasketEasy centralise calendriers/)).toBeInTheDocument();
   });
 
+  it('presents shipped features without a "Bientôt" badge', () => {
+    renderLandingPage();
+    const shipped = screen.getByRole('heading', { name: 'Calendrier & convocations' });
+    expect(within(shipped.closest('article')!).queryByText('Bientôt')).not.toBeInTheDocument();
+  });
+
+  it('still marks unbuilt features as upcoming', () => {
+    renderLandingPage();
+    const upcoming = screen.getByRole('heading', { name: 'Cotisations en ligne' });
+    expect(within(upcoming.closest('article')!).getByText('Bientôt')).toBeInTheDocument();
+  });
+
   it('renders the RGPD footer line', () => {
     renderLandingPage();
     expect(screen.getByText('Données hébergées en France · RGPD')).toBeInTheDocument();
@@ -46,10 +58,10 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /créer un compte/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /créer un compte/i }).length).toBeGreaterThan(0),
     );
 
-    await user.click(screen.getAllByRole('button', { name: /créer un compte/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /créer un compte/i })[0]);
     expect(screen.getByText('Page de création de compte')).toBeInTheDocument();
   });
 
@@ -58,10 +70,10 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /se connecter/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /se connecter/i }).length).toBeGreaterThan(0),
     );
 
-    await user.click(screen.getAllByRole('button', { name: /se connecter/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /se connecter/i })[0]);
     expect(screen.getByText('Page de connexion')).toBeInTheDocument();
   });
 
@@ -77,11 +89,11 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /mon espace/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /mon espace/i }).length).toBeGreaterThan(0),
     );
-    expect(screen.queryByRole('button', { name: /se connecter/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /se connecter/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('button', { name: /mon espace/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /mon espace/i })[0]);
     expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
   });
 });

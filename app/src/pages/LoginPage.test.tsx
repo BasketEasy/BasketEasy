@@ -32,7 +32,7 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderLoginPage();
 
-    await user.click(screen.getByRole('button', { name: /créer un compte/i }));
+    await user.click(screen.getByRole('link', { name: /créer un compte/i }));
 
     expect(screen.getByText('Page de création de compte')).toBeInTheDocument();
   });

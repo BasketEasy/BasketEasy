@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
-import { Heading } from '@basketeasy/ui/heading';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamGender, TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
@@ -30,9 +30,7 @@ function RosterGroup({
 
   return (
     <section className="flex flex-col gap-3">
-      <Heading as="h3" size="xl" className="m-0 uppercase tracking-wide text-muted">
-        {GROUP_LABEL[role](teamGender)} ({players.length})
-      </Heading>
+      <SectionHeading count={players.length}>{GROUP_LABEL[role](teamGender)}</SectionHeading>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {players.map((player) => (
           <Card key={player.id} className="flex items-center gap-3 p-3">
