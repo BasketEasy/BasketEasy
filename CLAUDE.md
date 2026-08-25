@@ -63,6 +63,29 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - **Query branches:** every query consumer branches `error → loading → empty → data`, in that order. An error must never fall through to an `EmptyState` — that tells the user their data doesn't exist when it merely failed to load.
 - The `?tab=` `TabsTrigger`s in `MembersPage`/`TeamDetailPage` are the documented exception to "every URL-changing control is a link" — `role="tab"` is the correct ARIA and `replace: true` means no history entry.
 
+## Design direction — Parquet
+
+The app has one committed visual direction, **Parquet**: the club gym as material — warm layered neutrals, court-line rules, real elevation. It evolves `docs/brand.md` rather than replacing it; no brand colour value changed when it landed. Design decisions record and rationale: [`docs/superpowers/specs/2026-08-25-frontend-parquet-revamp-design.md`](./docs/superpowers/specs/2026-08-25-frontend-parquet-revamp-design.md).
+
+**Every token lives in one file** — `packages/@basketeasy/ui/tailwind-preset.cjs`. That file is the only place a literal colour, shadow or letter-spacing value may appear in either package. If a value you need isn't there, **add it there and give it a name**; do not reach for an arbitrary Tailwind value (`bg-[#…]`, `shadow-[inset_…]`, `tracking-[0.13em]`, `h-[76px]`). Six of those slipped in during the revamp and every one was caught and tokenised — `nav-active`, `segment-active`, `wide-caps`, `section` all exist because of it.
+
+- **Surfaces** — the four-step ladder, per the Working conventions bullet above. The rule that makes it work: nothing shares a background with its parent. Before Parquet, `body`, `Card`, `Dialog` and `Input` were all the same `#FAF5EF`, which is why the UI read as flat and unfinished.
+- **Colour weight** — orange (`orange` / `orange-text` / `orange-hover` / `orange-tint`) is the **rare, sharp** accent: primary action, active nav state, convocation. Blue-green (`blue-green` / `-2` / `-tint`) carries **structure**: rules, avatars, section accents, the event time block. Using them at equal weight is what made neither read as the brand colour before.
+- **Elevation** — `shadow-sm`/`md`/`lg` are overridden to warm-tinted values, so existing `shadow-*` classes get the right feel for free. Two named extras: `nav-active` (the active-nav underline) and `segment-active` (the pressed inset on a segmented control).
+- **Type** — `font-heading` is Big Shoulders Display (700–800), `font-sans` is Atkinson Hyperlegible (400–700), chosen for legibility in a dim gym on a small screen. Global `h1,h2,h3` sets `line-height: 0.94`. Use the `.tabular` utility on any digits that line up in a column — times, dates, counts, scores.
+- **Signature elements** — the **court-line rule** (`SectionHeading` from `@basketeasy/ui/section-heading`: uppercase label plus a 2px blue-green rule at 20% filling the remaining width); the **time block** on event cards (solid `bg-blue-green` for a `MATCH`, bordered `bg-surface-2` for a `TRAINING`, time in Big Shoulders with tabular numerals); the **active nav** treatment (`bg-orange-tint` + `shadow-nav-active`).
+
+### Rules that keep it coherent
+
+Beyond the Working conventions above, four traps this direction has already fallen into once each — check for them when extending:
+
+1. **`cream` is legacy.** It's an alias of `surface-2` kept so old call sites compile. Writing `bg-cream` in new code silently puts an element one step below where you meant, and `hover:bg-cream` on a page that is no longer cream is a hover that does nothing — the original defect the revamp existed to fix, which was reintroduced on the landing page's main CTA in the final task.
+2. **A new component is not exempt from the token rules.** `SectionHeading` shipped with an arbitrary `tracking-` value in the same branch that added a `letterSpacing` block to the preset.
+3. **A shared surface needs the token applied everywhere, not just where it was first raised.** `SelectContent`, the mobile nav panel and both `<header>` elements each needed `bg-surface` and each was missed by the task that introduced the ladder, because no task owned "apply it to the header".
+4. **Rewriting a file means re-checking its query branches and its focus states.** Three query consumers lost their error branch simply because a later task rewrote files that an earlier task had already fixed.
+
+**When a spec, plan or instruction conflicts with these constraints, the constraint wins** — raise the conflict rather than transcribing the snippet. That is how all six arbitrary values, a Radix `Slot` crash and a nested `<main>` were caught during the revamp.
+
 ## Auth module
 
 `server/src/auth` implements register/login/refresh/logout/me over a minimal `Club`/`ClubMembership` schema (`server/prisma/schema.prisma`):
