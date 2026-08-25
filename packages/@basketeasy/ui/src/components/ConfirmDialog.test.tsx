@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Button } from './Button';
@@ -72,6 +72,31 @@ describe('ConfirmDialog', () => {
     const confirm = screen.getByRole('button', { name: /Supprimer définitivement/ });
     await user.type(screen.getByLabelText(/Saisissez/), '  U15 Filles  ');
     expect(confirm).toBeEnabled();
+  });
+
+  it('clears the typed confirmation when the dialog is closed and reopened', async () => {
+    const user = userEvent.setup();
+    render(
+      <ConfirmDialog
+        trigger={<Button>Supprimer</Button>}
+        title="Supprimer l’équipe ?"
+        description="Cette action est irréversible."
+        confirmLabel="Supprimer définitivement"
+        confirmWord="U15 Filles"
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.type(screen.getByLabelText(/Saisissez/), 'U15 Filles');
+    expect(screen.getByRole('button', { name: /Supprimer définitivement/ })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: 'Annuler' }));
+    await waitFor(() => expect(screen.queryByLabelText(/Saisissez/)).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    expect(screen.getByLabelText(/Saisissez/)).toHaveValue('');
+    expect(screen.getByRole('button', { name: /Supprimer définitivement/ })).toBeDisabled();
   });
 
   it('shows the error message when provided', async () => {

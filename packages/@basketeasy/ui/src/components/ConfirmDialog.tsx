@@ -3,6 +3,7 @@ import { Alert, AlertDescription } from './Alert';
 import { Button } from './Button';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -46,8 +47,20 @@ export function ConfirmDialog({
   const [typed, setTyped] = useState('');
   const canConfirm = confirmWord === undefined || typed.trim() === confirmWord;
 
+  // Whenever the dialog transitions to closed — via Annuler, the X button,
+  // Escape, an overlay click, or a controlled caller flipping `open` to
+  // false after a successful onConfirm — clear the typed confirmation too.
+  // Otherwise a user who types the confirm word, cancels, and reopens finds
+  // the confirm button already enabled, defeating the type-to-confirm gate.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setTyped('');
+    }
+    onOpenChange?.(next);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -69,9 +82,9 @@ export function ConfirmDialog({
             </Alert>
           )}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange?.(false)}>
-              Annuler
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Annuler</Button>
+            </DialogClose>
             <Button
               variant="destructive"
               disabled={!canConfirm}
