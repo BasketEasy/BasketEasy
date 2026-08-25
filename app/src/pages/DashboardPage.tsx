@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
@@ -36,25 +36,20 @@ function StatTile({ icon, label, value }: { icon: ReactNode; label: string; valu
 }
 
 function AgendaRow({ event }: { event: MyAgendaEvent }) {
-  const navigate = useNavigate();
-
   return (
-    <button
-      type="button"
-      onClick={() => navigate(`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`)}
+    <Link
+      to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
       className="flex w-full flex-col gap-1 rounded-md border border-border p-3 text-left transition hover:border-orange"
     >
       <span className="font-semibold text-charcoal">{event.teamName}</span>
       <span className="text-sm text-muted">
         {formatEventDate(event.startsAt)} · {event.location}
       </span>
-    </button>
+    </Link>
   );
 }
 
 function TeamCard({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 pt-6">
@@ -65,11 +60,8 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
         <p className="text-sm text-muted">
           {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
         </p>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-        >
-          Voir l&apos;équipe
+        <Button asChild variant="outline">
+          <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir l&apos;équipe</Link>
         </Button>
       </CardContent>
     </Card>

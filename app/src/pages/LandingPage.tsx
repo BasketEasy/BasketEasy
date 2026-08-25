@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/card';
 import { Badge } from '@basketeasy/ui/badge';
@@ -71,7 +71,6 @@ const HIGHLIGHTS = [
 ];
 
 export function LandingPage() {
-  const navigate = useNavigate();
   const { user, isLoading } = useAccount();
 
   return (
@@ -82,26 +81,16 @@ export function LandingPage() {
           <div className="flex flex-wrap items-center gap-3">
             {!isLoading &&
               (user ? (
-                <Button
-                  className="shrink-0 whitespace-nowrap"
-                  onClick={() => navigate('/dashboard')}
-                >
-                  Mon espace
+                <Button asChild className="shrink-0 whitespace-nowrap">
+                  <Link to="/dashboard">Mon espace</Link>
                 </Button>
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => navigate('/login')}
-                  >
-                    Se connecter
+                  <Button asChild variant="ghost" className="shrink-0 whitespace-nowrap">
+                    <Link to="/login">Se connecter</Link>
                   </Button>
-                  <Button
-                    className="shrink-0 whitespace-nowrap"
-                    onClick={() => navigate('/register')}
-                  >
-                    Créer un compte
+                  <Button asChild className="shrink-0 whitespace-nowrap">
+                    <Link to="/register">Créer un compte</Link>
                   </Button>
                 </>
               ))}
@@ -121,16 +110,16 @@ export function LandingPage() {
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             {!isLoading && user ? (
-              <Button size="lg" onClick={() => navigate('/dashboard')}>
-                Aller à mon espace
+              <Button asChild size="lg">
+                <Link to="/dashboard">Aller à mon espace</Link>
               </Button>
             ) : (
               <>
-                <Button size="lg" onClick={() => navigate('/register')}>
-                  Créer un compte gratuitement
+                <Button asChild size="lg">
+                  <Link to="/register">Créer un compte gratuitement</Link>
                 </Button>
-                <Button size="lg" variant="outline" onClick={() => navigate('/login')}>
-                  Se connecter
+                <Button asChild size="lg" variant="outline">
+                  <Link to="/login">Se connecter</Link>
                 </Button>
               </>
             )}

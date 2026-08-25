@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
@@ -116,7 +116,6 @@ type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'events';
 
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const activeTab: TeamDetailTab =
@@ -385,7 +384,11 @@ export function TeamDetailPage() {
           icon={<TrophyIcon className="h-8 w-8 text-muted" />}
           title="Équipe introuvable"
           description="Cette équipe n’existe plus ou a été supprimée."
-          action={<Button onClick={() => navigate('/my-teams')}>Mes équipes</Button>}
+          action={
+            <Button asChild>
+              <Link to="/my-teams">Mes équipes</Link>
+            </Button>
+          }
         />
       </PageContainer>
     );
@@ -393,8 +396,8 @@ export function TeamDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <Button variant="ghost" className="self-start" onClick={() => navigate('/my-teams')}>
-        ← Mes équipes
+      <Button asChild variant="ghost" className="self-start">
+        <Link to="/my-teams">← Mes équipes</Link>
       </Button>
 
       {isEditing ? (

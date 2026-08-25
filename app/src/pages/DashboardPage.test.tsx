@@ -138,7 +138,33 @@ describe('DashboardPage', () => {
     renderLoggedIn();
 
     await waitFor(() => expect(screen.getByText('U15 Filles')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /voir l.équipe/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /voir l.équipe/i })).toBeInTheDocument();
+  });
+
+  it('makes agenda rows openable in a new tab', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [
+            {
+              eventId: 'event-1',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              startsAt: '2026-08-12T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+            },
+          ],
+        }),
+      ),
+    );
+    renderLoggedIn();
+
+    const row = await screen.findByRole('link', { name: /U15 Filles/ });
+    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1?tab=events');
   });
 
   it('shows an empty state when the user has no teams', async () => {

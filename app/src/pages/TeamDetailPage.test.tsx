@@ -741,7 +741,7 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /retour à l'effectif/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^← mes équipes$/i }));
+    await user.click(screen.getByRole('link', { name: /^← mes équipes$/i }));
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
   });

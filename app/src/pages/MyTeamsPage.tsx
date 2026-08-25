@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -36,8 +36,6 @@ import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../club
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 
 function MyTeamRow({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <TableRow>
       <TableCell>{team.teamName}</TableCell>
@@ -52,11 +50,8 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
         )}
       </TableCell>
       <TableCell>
-        <Button
-          variant="outline"
-          onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-        >
-          Voir
+        <Button asChild variant="outline">
+          <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir</Link>
         </Button>
       </TableCell>
     </TableRow>
@@ -65,8 +60,6 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
 
 /** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
 function MyTeamCard({ team }: { team: MyTeamSummary }) {
-  const navigate = useNavigate();
-
   return (
     <Card className="flex flex-col gap-2 p-3">
       <span className="font-medium text-charcoal">{team.teamName}</span>
@@ -79,12 +72,8 @@ function MyTeamCard({ team }: { team: MyTeamSummary }) {
           <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
         )}
       </div>
-      <Button
-        variant="outline"
-        className="self-start"
-        onClick={() => navigate(`/clubs/${team.clubId}/teams/${team.teamId}`)}
-      >
-        Voir
+      <Button asChild variant="outline" className="self-start">
+        <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir</Link>
       </Button>
     </Card>
   );

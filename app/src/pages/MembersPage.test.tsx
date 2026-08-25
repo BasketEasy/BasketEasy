@@ -417,7 +417,7 @@ describe('MembersPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /créer une équipe/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /gérer/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /gérer/i })).toBeInTheDocument();
   });
 
   it('opens the create-team form in a modal, and closes it after a successful submit', async () => {
@@ -649,7 +649,7 @@ describe('MembersPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /gérer/i }));
+    await user.click(screen.getByRole('link', { name: /gérer/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

@@ -124,7 +124,7 @@ describe('MyTeamsPage', () => {
     renderWithProviders(<App />, { route: '/my-teams' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /voir/i }));
+    await user.click(screen.getByRole('link', { name: /voir/i }));
 
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
@@ -167,7 +167,7 @@ describe('MyTeamsPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /voir/i }));
+    await user.click(screen.getByRole('link', { name: /voir/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

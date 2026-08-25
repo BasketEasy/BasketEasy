@@ -46,10 +46,10 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /créer un compte/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /créer un compte/i }).length).toBeGreaterThan(0),
     );
 
-    await user.click(screen.getAllByRole('button', { name: /créer un compte/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /créer un compte/i })[0]);
     expect(screen.getByText('Page de création de compte')).toBeInTheDocument();
   });
 
@@ -58,10 +58,10 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /se connecter/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /se connecter/i }).length).toBeGreaterThan(0),
     );
 
-    await user.click(screen.getAllByRole('button', { name: /se connecter/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /se connecter/i })[0]);
     expect(screen.getByText('Page de connexion')).toBeInTheDocument();
   });
 
@@ -77,11 +77,11 @@ describe('LandingPage', () => {
     renderLandingPage();
 
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /mon espace/i }).length).toBeGreaterThan(0),
+      expect(screen.getAllByRole('link', { name: /mon espace/i }).length).toBeGreaterThan(0),
     );
-    expect(screen.queryByRole('button', { name: /se connecter/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /se connecter/i })).not.toBeInTheDocument();
 
-    await user.click(screen.getAllByRole('button', { name: /mon espace/i })[0]);
+    await user.click(screen.getAllByRole('link', { name: /mon espace/i })[0]);
     expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
   });
 });
