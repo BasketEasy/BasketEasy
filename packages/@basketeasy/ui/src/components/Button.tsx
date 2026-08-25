@@ -45,28 +45,30 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     // asChild renders a <Link> (or any single child) with button styling, so
     // navigation stays a real anchor instead of a button with an onClick.
-    // The button-only attributes are omitted in that mode.
-    const Comp = asChild ? Slot : 'button';
-    const buttonOnly = asChild
-      ? {}
-      : {
-          type: props.type ?? 'button',
-          disabled: disabled || loading,
-          'aria-busy': loading || undefined,
-        };
+    // Branched (rather than a shared Comp) because Slot requires exactly one
+    // React element child — a `{loading && …}` sibling next to `children`,
+    // even when it collapses to `false`, still counts as a second child and
+    // makes Slot throw at runtime.
+    if (asChild) {
+      return (
+        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
+          {children}
+        </Slot>
+      );
+    }
 
     return (
-      <Comp
+      <button
         ref={ref}
+        type={props.type ?? 'button'}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
         className={cn(buttonVariants({ variant, size }), className)}
-        {...buttonOnly}
         {...props}
       >
-        {loading && !asChild && (
-          <Spinner className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
-        )}
+        {loading && <Spinner className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />}
         {children}
-      </Comp>
+      </button>
     );
   },
 );

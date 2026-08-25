@@ -43,4 +43,17 @@ describe('Button', () => {
     render(<Button variant="ghost">Mes équipes</Button>);
     expect(screen.getByRole('button')).toHaveClass('hover:bg-blue-green-tint');
   });
+
+  it('renders as its child element when asChild is set', () => {
+    render(
+      <Button asChild variant="outline">
+        <a href="/mes-equipes">Mes équipes</a>
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Mes équipes' });
+    expect(link).toHaveAttribute('href', '/mes-equipes');
+    expect(link).toHaveClass('border-border-strong');
+    expect(link).not.toHaveAttribute('type');
+    expect(link).not.toHaveAttribute('aria-busy');
+  });
 });
