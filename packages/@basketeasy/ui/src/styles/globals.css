@@ -2,10 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Big Shoulders needs tighter leading than Barlow Condensed did. */
 h1,
 h2,
 h3 {
-  font-family: 'Barlow Condensed', sans-serif;
+  font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  line-height: 0.94;
+  letter-spacing: -0.005em;
+}
+
+/* Times, dates, counts and scores must hold their column. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }

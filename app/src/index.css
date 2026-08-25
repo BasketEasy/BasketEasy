@@ -5,7 +5,7 @@
 }
 
 body {
-  @apply bg-cream text-charcoal;
+  @apply bg-ground text-charcoal;
   margin: 0;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
 }

@@ -17,4 +17,9 @@ describe('Card', () => {
     expect(screen.getByText('Club de Loire-Atlantique')).toBeInTheDocument();
     expect(screen.getByText('42 licenciés')).toBeInTheDocument();
   });
+
+  it('sits on the elevated surface, not the page ground', () => {
+    render(<Card data-testid="card">Contenu</Card>);
+    expect(screen.getByTestId('card')).toHaveClass('bg-surface');
+  });
 });

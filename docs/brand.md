@@ -22,15 +22,26 @@ Launch market: Loire-Atlantique (CD44), ~130 affiliated clubs, ~28,000 licensed 
 
 ## Visual system
 
-| Token                | Value     | Use                                      |
-| -------------------- | --------- | ---------------------------------------- |
-| Orange primaire      | `#D4622A` | primary brand color, CTAs, active states |
-| Bleu-vert secondaire | `#1E5F74` | secondary accent, links, info states     |
-| Crème (fond)         | `#FAF5EF` | background                               |
-| Charbon (texte)      | `#23201C` | primary text                             |
+| Token                | Value     | Use                                              |
+| -------------------- | --------- | ------------------------------------------------ |
+| Orange primaire      | `#D4622A` | primary brand color, CTAs, active states         |
+| Bleu-vert secondaire | `#1E5F74` | secondary accent, links, info states             |
+| Crème                | `#FAF5EF` | elevated-content surface (see `surface-2` below) |
+| Charbon (texte)      | `#23201C` | primary text                                     |
 
-- **Titrage (headings):** Barlow Condensed, weight 700–800
-- **Texte (body):** Inter, weight 400–600
+- **Titrage (headings):** Big Shoulders Display, weight 700–800
+- **Texte (body):** Atkinson Hyperlegible, weight 400–700
 - **Logomark:** a basketball rendered as a circle with crosshair seams inside a rounded-square orange tile — reads at both app-icon and favicon sizes.
+
+### Surface ladder
+
+`Crème #FAF5EF` is no longer the page background — it's `surface-2`, one step up from the page itself. The page background is `ground`, a step darker, so elevated content (cards, dialogs, inputs) reads as sitting on top of the page rather than blending into it.
+
+| Token       | Value     | Use                                                                              |
+| ----------- | --------- | -------------------------------------------------------------------------------- |
+| `sunk`      | `#E9DDCA` | recessed areas (e.g. pressed/inset states)                                       |
+| `ground`    | `#EFE4D4` | page background                                                                  |
+| `surface-2` | `#FAF5EF` | inputs and other content nested inside a `surface` block (same value as `cream`) |
+| `surface`   | `#FFFCF7` | elevated primitives: Card, Dialog, DropdownMenu content                          |
 
 These tokens should be wired into `packages/@basketeasy/ui`'s Tailwind theme as the design system matures (see `docs/frontend-stack.md` — shadcn/ui primitives, fully restylable).

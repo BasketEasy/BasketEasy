@@ -24,7 +24,7 @@ export const DialogContent = forwardRef<
         // landscape, or the on-screen keyboard eating into the visual
         // viewport. dvh (not vh) tracks that shrunk viewport so the cap
         // actually accounts for the keyboard, not just the layout viewport.
-        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-cream p-6 shadow-lg',
+        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg',
         className,
       )}
       {...props}
