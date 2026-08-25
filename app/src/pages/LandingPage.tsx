@@ -96,7 +96,7 @@ export function LandingPage() {
               Moins de tableurs, plus de terrain.
             </Heading>
             <p className="max-w-xl text-lg text-muted">
-              BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
+              BasketEasy centralise calendriers, convocations et présences pour les clubs de basket
               amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les
               bénévoles, pas pour les DSI.
             </p>
