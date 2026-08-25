@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { Link } from 'react-router-dom';
 import { useLogin } from './mutations';
 import { getAuthErrorMessage } from './errorMessages';
 
@@ -15,7 +16,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
+export function LoginForm() {
   const { mutate: login, isPending } = useLogin();
   const {
     register,
@@ -71,8 +72,8 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
             Se connecter
           </Button>
 
-          <Button type="button" variant="ghost" onClick={onSwitchToRegister}>
-            Créer un compte
+          <Button asChild type="button" variant="ghost">
+            <Link to="/register">Créer un compte</Link>
           </Button>
         </form>
       </CardContent>

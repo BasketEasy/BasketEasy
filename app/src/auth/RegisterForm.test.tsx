@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -6,8 +6,8 @@ import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { RegisterForm } from './RegisterForm';
 
-function renderRegisterForm(onSwitchToLogin = vi.fn()) {
-  return renderWithProviders(<RegisterForm onSwitchToLogin={onSwitchToLogin} />);
+function renderRegisterForm() {
+  return renderWithProviders(<RegisterForm />);
 }
 
 describe('RegisterForm', () => {
@@ -71,13 +71,12 @@ describe('RegisterForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/déjà utilisée/i);
   });
 
-  it('calls onSwitchToLogin when the toggle link is clicked', async () => {
-    const onSwitchToLogin = vi.fn();
-    const user = userEvent.setup();
-    renderRegisterForm(onSwitchToLogin);
+  it('links to the login page', () => {
+    renderRegisterForm();
 
-    await user.click(screen.getByRole('button', { name: /j'ai déjà un compte/i }));
-
-    expect(onSwitchToLogin).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('link', { name: /j'ai déjà un compte/i })).toHaveAttribute(
+      'href',
+      '/login',
+    );
   });
 });
