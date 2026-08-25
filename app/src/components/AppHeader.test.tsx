@@ -110,7 +110,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
 
     // Still on the dashboard — the chip never navigates.
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
   });
 
   it('closes the switcher panel on Escape without navigating', async () => {
@@ -130,7 +130,7 @@ describe('AppHeader', () => {
 
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
   });
 
   it('lists each admin club in the switcher panel with a checkmark on the active one, and clicking a row only switches the active club (no navigation, panel closes)', async () => {
@@ -167,7 +167,7 @@ describe('AppHeader', () => {
 
     // Panel closes and doesn't navigate — still on the dashboard.
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /effectif du club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
 
     // Checkmark moved: the chip now shows the newly active club.
     expect(await screen.findByRole('button', { name: /es nantes/i })).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     await user.click(screen.getByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
     expect(await screen.findByText('member-club1@x.com')).toBeInTheDocument();
   });
 
@@ -218,7 +218,7 @@ describe('AppHeader', () => {
 
     await user.click(await screen.findByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
     expect(await screen.findByText('member-club2@x.com')).toBeInTheDocument();
     expect(screen.queryByText('member-club1@x.com')).not.toBeInTheDocument();
   });

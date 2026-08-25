@@ -43,6 +43,23 @@ describe('MembersPage', () => {
     setViewportWidth(1024);
   });
 
+  it('names the club in the roster page heading', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Effectif · ASB Rezé' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(

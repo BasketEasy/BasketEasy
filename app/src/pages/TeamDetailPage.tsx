@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
-import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
@@ -17,17 +16,16 @@ import {
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
+import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { useBackLink } from '../clubs/backLink';
 import { useTeamShow } from '../clubs/useTeamShow';
-import { useTeamUpdate } from '../clubs/useTeamUpdate';
 import { TeamDeleteModal } from '../clubs/TeamDeleteModal';
 import { useTeamClubList } from '../clubs/useTeamClubList';
 import { useTeamPlayerList } from '../clubs/useTeamPlayerList';
@@ -41,6 +39,7 @@ import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
+import { TeamClubCard } from '../clubs/TeamClubCard';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { TeamRosterCards } from '../clubs/TeamRosterCards';
@@ -49,13 +48,9 @@ import { EventRow } from '../clubs/EventRow';
 import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
-import { getClubErrorMessage } from '../clubs/clubErrorMessages';
-import {
-  TEAM_CATEGORY_OPTIONS,
-  TEAM_GENDER_OPTIONS,
-  teamCategoryLabel,
-  teamGenderLabel,
-} from '../clubs/teamLabels';
+import { TeamAdminCard } from '../clubs/TeamAdminCard';
+import { TeamEditModal } from '../clubs/TeamEditModal';
+import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ShieldIcon } from '@basketeasy/ui/icons/shield';
@@ -130,6 +125,7 @@ export function TeamDetailPage() {
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
   const backLink = useBackLink();
+  const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -299,13 +295,7 @@ export function TeamDetailPage() {
   } = useTeamAdminList(clubId!, teamId!);
   const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
 
-  const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
-
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<TeamCategory>('U9');
-  const [gender, setGender] = useState<TeamGender>('MEN');
-  const [editError, setEditError] = useState<string | null>(null);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -354,15 +344,6 @@ export function TeamDetailPage() {
     return (teamAdminCandidatesResult ?? []).filter((c) => !adminUserIds.has(c.userId));
   }, [teamAdminCandidatesResult, teamAdmins]);
 
-  const startEditing = () => {
-    if (!team) return;
-    setName(team.name);
-    setCategory(team.category);
-    setGender(team.gender);
-    setEditError(null);
-    setIsEditing(true);
-  };
-
   if (isTeamError) {
     return (
       <PageContainer size="lg">
@@ -402,88 +383,53 @@ export function TeamDetailPage() {
         <Link to={backLink.to}>{backLink.label}</Link>
       </Button>
 
-      {isEditing ? (
-        <div className="flex flex-col gap-4">
-          {editError && (
-            <Alert variant="destructive">
-              <AlertDescription>{editError}</AlertDescription>
-            </Alert>
-          )}
-          <FormField
-            label="Nom de l'équipe"
-            id="team-edit-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <SelectField
-            label="Catégorie"
-            id="team-edit-category-select"
-            options={TEAM_CATEGORY_OPTIONS}
-            value={category}
-            onValueChange={(value) => setCategory(value as TeamCategory)}
-          />
-
-          <SelectField
-            label="Genre"
-            id="team-edit-gender-select"
-            options={TEAM_GENDER_OPTIONS}
-            value={gender}
-            onValueChange={(value) => setGender(value as TeamGender)}
-          />
-
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <Heading as="h1" className="m-0">
+            {team.name}
+          </Heading>
+          <p className="mt-1 text-muted">
+            {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
+          </p>
+        </div>
+        {canManageTeam && (
           <div className="flex flex-wrap gap-2">
-            <Button
-              loading={isUpdating}
-              onClick={() =>
-                updateTeam(
-                  { name, category, gender },
-                  {
-                    onSuccess: () => setIsEditing(false),
-                    onError: (err) => setEditError(getClubErrorMessage(err)),
-                  },
-                )
-              }
-            >
-              Enregistrer
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              Modifier
             </Button>
-            <Button variant="ghost" onClick={() => setIsEditing(false)}>
-              Annuler
-            </Button>
+            {isAdmin && isOwner && (
+              <TeamDeleteModal
+                clubId={clubId!}
+                teamId={teamId!}
+                teamName={team.name}
+                playerCount={allTeamPlayers.length}
+                eventCount={eventsResult?.total ?? 0}
+              />
+            )}
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Heading as="h1" className="m-0">
-              {team.name}
-            </Heading>
-            <p className="mt-1 text-muted">
-              {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-            </p>
-          </div>
-          {canManageTeam && (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={startEditing}>
-                Modifier
-              </Button>
-              {isAdmin && isOwner && (
-                <TeamDeleteModal
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  teamName={team.name}
-                  playerCount={allTeamPlayers.length}
-                  eventCount={eventsResult?.total ?? 0}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
+
+      <TeamEditModal
+        clubId={clubId!}
+        teamId={teamId!}
+        team={team}
+        open={isEditing}
+        onOpenChange={setIsEditing}
+      />
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+        onValueChange={(value) =>
+          setSearchParams(
+            (previous) => {
+              const next = new URLSearchParams(previous);
+              next.set('tab', value);
+              return next;
+            },
+            { replace: true },
+          )
+        }
       >
         <TabsList>
           <TabsTrigger value="roster">Effectif</TabsTrigger>
@@ -677,16 +623,30 @@ export function TeamDetailPage() {
                 />
               ) : (
                 <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Club</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  {isDesktop ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Club</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teamClubs?.map((link) => (
+                          <TeamClubRow
+                            key={link.clubId}
+                            clubId={clubId!}
+                            teamId={teamId!}
+                            link={link}
+                            canManage={isAdmin && isOwner}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col gap-3">
                       {teamClubs?.map((link) => (
-                        <TeamClubRow
+                        <TeamClubCard
                           key={link.clubId}
                           clubId={clubId!}
                           teamId={teamId!}
@@ -694,8 +654,8 @@ export function TeamDetailPage() {
                           canManage={isAdmin && isOwner}
                         />
                       ))}
-                    </TableBody>
-                  </Table>
+                    </div>
+                  )}
                   <Pagination
                     page={teamClubsResult?.page ?? 1}
                     pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
@@ -756,7 +716,7 @@ export function TeamDetailPage() {
                     ) : undefined
                   }
                 />
-              ) : (
+              ) : isDesktop ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -776,6 +736,18 @@ export function TeamDetailPage() {
                     ))}
                   </TableBody>
                 </Table>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {teamAdmins?.map((admin) => (
+                    <TeamAdminCard
+                      key={admin.userId}
+                      clubId={clubId!}
+                      teamId={teamId!}
+                      admin={admin}
+                      canManage={canManageTeam}
+                    />
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

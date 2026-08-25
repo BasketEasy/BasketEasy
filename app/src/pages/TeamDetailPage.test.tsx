@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import App from '../App';
+
+// jsdom's default innerWidth (1024) lands above the desktop breakpoint, so
+// every other test in this file exercises the table path for free; only the
+// mobile-card test below needs to override it.
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: width,
+  });
+}
 
 function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]) {
   server.use(
@@ -68,6 +79,30 @@ function futureDateTimeLocal(daysFromNow: number, hour = 18): string {
 }
 
 describe('TeamDetailPage', () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
+  it('collapses the Clubs partenaires table to cards below the desktop breakpoint', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
+
+    expect(await screen.findByText('COC Basket')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
   it('shows the team header above the tabs, and defaults to the Effectif tab as a card view', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -695,6 +730,9 @@ describe('TeamDetailPage', () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     let deleteCalled = false;
     server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'COC Basket', createdAt: 'x' }),
+      ),
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
         HttpResponse.json(
@@ -721,7 +759,9 @@ describe('TeamDetailPage', () => {
     await user.click(screen.getByRole('button', { name: /supprimer définitivement/i }));
 
     await waitFor(() => expect(deleteCalled).toBe(true));
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /effectif · coc basket/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows a "← Mes équipes" back link that navigates to /my-teams', async () => {

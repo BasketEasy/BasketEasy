@@ -94,7 +94,7 @@ export function EventConvocationModal({
         <div className="flex flex-col gap-4">
           {error && <FieldError>{error}</FieldError>}
           {!roster ? (
-            <Loader>Chargement...</Loader>
+            <Loader>Chargement…</Loader>
           ) : (
             <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">
               {roster.map((entry) => {

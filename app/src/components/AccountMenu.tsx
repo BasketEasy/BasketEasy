@@ -36,6 +36,9 @@ export function AccountMenu() {
         <DropdownMenuItem asChild>
           <Link to="/account">Mon profil</Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/about">À propos</Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={isPending} onSelect={() => logout()}>
           Se déconnecter

@@ -22,6 +22,13 @@ export const handlers = [
   // this with server.use(...).
   http.get('/api/clubs', () => HttpResponse.json([])),
 
+  // Default: an unnamed club. MembersPage always queries this for its
+  // "Effectif · {club name}" heading; club-name-focused tests override it
+  // with server.use(...).
+  http.get('/api/clubs/:clubId', ({ params }) =>
+    HttpResponse.json({ id: params.clubId, name: '', createdAt: 'x' }),
+  ),
+
   // Default: no teams for any club. RosterPage always queries this (its
   // Équipes tab), so most tests that don't care about teams rely on this
   // default rather than stubbing it individually; team-focused tests

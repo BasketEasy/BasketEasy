@@ -37,6 +37,7 @@ import { useClubMemberRemove } from '../clubs/useClubMemberRemove';
 import { usePlayerList } from '../clubs/usePlayerList';
 import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
+import { useClubShow } from '../clubs/useClubShow';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
@@ -240,6 +241,7 @@ export function MembersPage() {
 
   const isAdmin = useIsClubAdmin(clubId);
   const isDesktop = useIsDesktopViewport();
+  const { data: club } = useClubShow(clubId!);
 
   // Membres tab filters
   const [membersSearch, setMembersSearch] = useState('');
@@ -386,7 +388,7 @@ export function MembersPage() {
   return (
     <PageContainer size="lg">
       <Heading as="h1" className="m-0">
-        Effectif du club
+        Effectif · {club?.name ?? '…'}
       </Heading>
 
       {removeError && (
@@ -397,7 +399,16 @@ export function MembersPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setSearchParams({ tab: value }, { replace: true })}
+        onValueChange={(value) =>
+          setSearchParams(
+            (previous) => {
+              const next = new URLSearchParams(previous);
+              next.set('tab', value);
+              return next;
+            },
+            { replace: true },
+          )
+        }
       >
         <TabsList>
           <TabsTrigger value="members">Membres</TabsTrigger>
