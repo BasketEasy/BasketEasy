@@ -27,7 +27,7 @@ export function SkeletonList({
           data-testid="skeleton-row"
           className={cn(
             'flex items-center gap-3 rounded-md border border-border bg-surface p-3',
-            variant === 'card' && 'h-[76px]',
+            variant === 'card' && 'h-20',
           )}
         >
           <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
