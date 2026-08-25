@@ -29,6 +29,15 @@ describe('MyTeamsPage', () => {
     setViewportWidth(1024);
   });
 
+  it('reports a failed load instead of claiming the user has no teams', async () => {
+    server.use(
+      http.get('/api/me/teams', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+    );
+    renderWithProviders(<MyTeamsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chargement impossible');
+    expect(screen.queryByText('Aucune équipe pour le moment')).not.toBeInTheDocument();
+  });
+
   it('shows an empty state when the user is part of no team', async () => {
     renderWithProviders(<MyTeamsPage />);
 

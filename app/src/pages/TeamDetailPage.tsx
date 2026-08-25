@@ -17,10 +17,11 @@ import {
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
-import { Loader } from '@basketeasy/ui/loader';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
@@ -57,6 +58,7 @@ import {
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
@@ -134,7 +136,12 @@ export function TeamDetailPage() {
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
 
-  const { data: team, isLoading: isLoadingTeam } = useTeamShow(clubId!, teamId!);
+  const {
+    data: team,
+    isLoading: isLoadingTeam,
+    isError: isTeamError,
+    refetch: refetchTeam,
+  } = useTeamShow(clubId!, teamId!);
 
   // Clubs partenaires (CTC) filters
   const [teamClubsSearch, setTeamClubsSearch] = useState('');
@@ -199,7 +206,13 @@ export function TeamDetailPage() {
     return start.toISOString();
   }, []);
 
-  const { data: teamClubsResult, isLoading: isLoadingClubs } = useTeamClubList(clubId!, teamId!, {
+  const {
+    data: teamClubsResult,
+    isLoading: isLoadingClubs,
+    isError: isClubsError,
+    refetch: refetchClubs,
+    isRefetching: isClubsRefetching,
+  } = useTeamClubList(clubId!, teamId!, {
     search: debouncedTeamClubsSearch || undefined,
     sortBy: teamClubsSortOption.sortBy,
     sortOrder: teamClubsSortOption.sortOrder,
@@ -212,17 +225,19 @@ export function TeamDetailPage() {
     pageSize: LINKING_PAGE_SIZE,
   });
 
-  const { data: teamPlayersResult, isLoading: isLoadingPlayers } = useTeamPlayerList(
-    clubId!,
-    teamId!,
-    {
-      search: debouncedRosterSearch || undefined,
-      sortBy: rosterSortOption.sortBy,
-      sortOrder: rosterSortOption.sortOrder,
-      page: rosterPage,
-      pageSize: rosterPageSize,
-    },
-  );
+  const {
+    data: teamPlayersResult,
+    isLoading: isLoadingPlayers,
+    isError: isPlayersError,
+    refetch: refetchPlayers,
+    isRefetching: isPlayersRefetching,
+  } = useTeamPlayerList(clubId!, teamId!, {
+    search: debouncedRosterSearch || undefined,
+    sortBy: rosterSortOption.sortBy,
+    sortOrder: rosterSortOption.sortOrder,
+    page: rosterPage,
+    pageSize: rosterPageSize,
+  });
   // Unfiltered, capped fetch backing the "already rostered" computation below
   // — also backs the Effectif tab's card view, which shows the full roster
   // rather than one paginated/filtered table page.
@@ -234,16 +249,24 @@ export function TeamDetailPage() {
   // correctly paginated. Not expected at current usage, but if/when it comes
   // up, the card view needs either real pagination or an overflow indicator
   // driven by `allTeamPlayersResult.total` vs. `allTeamPlayers.length`.
-  const { data: allTeamPlayersResult, isLoading: isLoadingAllTeamPlayers } = useTeamPlayerList(
-    clubId!,
-    teamId!,
-    {
-      pageSize: LINKING_PAGE_SIZE,
-    },
-  );
+  const {
+    data: allTeamPlayersResult,
+    isLoading: isLoadingAllTeamPlayers,
+    isError: isAllTeamPlayersError,
+    refetch: refetchAllTeamPlayers,
+    isRefetching: isAllTeamPlayersRefetching,
+  } = useTeamPlayerList(clubId!, teamId!, {
+    pageSize: LINKING_PAGE_SIZE,
+  });
   const { data: clubPlayersResult } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
 
-  const { data: eventsResult, isLoading: isLoadingEvents } = useEventList(clubId!, teamId!, {
+  const {
+    data: eventsResult,
+    isLoading: isLoadingEvents,
+    isError: isEventsError,
+    refetch: refetchEvents,
+    isRefetching: isEventsRefetching,
+  } = useEventList(clubId!, teamId!, {
     search: debouncedEventsSearch || undefined,
     from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
     to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
@@ -254,17 +277,25 @@ export function TeamDetailPage() {
   // Backs the agenda view — unpaginated, sorted ascending, bounded to
   // upcoming events only. Independent of the table view's own filters above,
   // same as the roster tab's card-view fetch is independent of its table.
-  const { data: agendaEventsResult, isLoading: isLoadingAgendaEvents } = useEventList(
-    clubId!,
-    teamId!,
-    {
-      from: agendaFrom,
-      sortOrder: 'asc',
-      pageSize: LINKING_PAGE_SIZE,
-    },
-  );
+  const {
+    data: agendaEventsResult,
+    isLoading: isLoadingAgendaEvents,
+    isError: isAgendaEventsError,
+    refetch: refetchAgendaEvents,
+    isRefetching: isAgendaEventsRefetching,
+  } = useEventList(clubId!, teamId!, {
+    from: agendaFrom,
+    sortOrder: 'asc',
+    pageSize: LINKING_PAGE_SIZE,
+  });
 
-  const { data: teamAdmins, isLoading: isLoadingAdmins } = useTeamAdminList(clubId!, teamId!);
+  const {
+    data: teamAdmins,
+    isLoading: isLoadingAdmins,
+    isError: isAdminsError,
+    refetch: refetchAdmins,
+    isRefetching: isAdminsRefetching,
+  } = useTeamAdminList(clubId!, teamId!);
   const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
 
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
@@ -291,15 +322,23 @@ export function TeamDetailPage() {
   // Same pattern as the roster tab: whichever fetch backs the active
   // Événements view (agenda vs. table) sources its own loading/empty state.
   const isLoadingEventsView = eventsViewMode === 'agenda' ? isLoadingAgendaEvents : isLoadingEvents;
+  const isEventsViewError = eventsViewMode === 'agenda' ? isAgendaEventsError : isEventsError;
+  const isEventsViewRefetching =
+    eventsViewMode === 'agenda' ? isAgendaEventsRefetching : isEventsRefetching;
+  const refetchEventsView = eventsViewMode === 'agenda' ? refetchAgendaEvents : refetchEvents;
   const isEventsEmpty =
     (eventsViewMode === 'agenda' ? agendaEventsResult?.total : eventsResult?.total) === 0;
 
   // The card view reads the full unfiltered roster, the table view reads the
   // paginated/filtered one — so "is the roster empty" (and its loading
   // state) is sourced from whichever fetch backs the active view, letting
-  // both views share a single EmptyState/Loader branch instead of each
+  // both views share a single error/loading/empty branch instead of each
   // duplicating that logic.
   const isLoadingRoster = rosterViewMode === 'cards' ? isLoadingAllTeamPlayers : isLoadingPlayers;
+  const isRosterError = rosterViewMode === 'cards' ? isAllTeamPlayersError : isPlayersError;
+  const isRosterRefetching =
+    rosterViewMode === 'cards' ? isAllTeamPlayersRefetching : isPlayersRefetching;
+  const refetchRoster = rosterViewMode === 'cards' ? refetchAllTeamPlayers : refetchPlayers;
   const isRosterEmpty =
     (rosterViewMode === 'cards' ? allTeamPlayersResult?.total : teamPlayersResult?.total) === 0;
 
@@ -333,10 +372,31 @@ export function TeamDetailPage() {
     });
   };
 
-  if (isLoadingTeam || !team) {
+  if (isTeamError) {
     return (
       <PageContainer size="lg">
-        <Loader>Chargement...</Loader>
+        <QueryError onRetry={() => refetchTeam()} />
+      </PageContainer>
+    );
+  }
+
+  if (isLoadingTeam) {
+    return (
+      <PageContainer size="lg">
+        <SkeletonList rows={4} variant="card" />
+      </PageContainer>
+    );
+  }
+
+  if (!team) {
+    return (
+      <PageContainer size="lg">
+        <EmptyState
+          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+          title="Équipe introuvable"
+          description="Cette équipe n’existe plus ou a été supprimée."
+          action={<Button onClick={() => navigate('/my-teams')}>Mes équipes</Button>}
+        />
       </PageContainer>
     );
   }
@@ -494,8 +554,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingRoster ? (
-                <Loader>Chargement...</Loader>
+              {isRosterError ? (
+                <QueryError onRetry={() => refetchRoster()} isRetrying={isRosterRefetching} />
+              ) : isLoadingRoster ? (
+                <SkeletonList rows={3} />
               ) : isRosterEmpty ? (
                 <EmptyState
                   icon={<UsersIcon className="h-8 w-8 text-muted" />}
@@ -601,8 +663,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingClubs ? (
-                <Loader>Chargement...</Loader>
+              {isClubsError ? (
+                <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
+              ) : isLoadingClubs ? (
+                <SkeletonList rows={3} />
               ) : (teamClubsResult?.total ?? 0) === 0 ? (
                 <EmptyState
                   icon={<BuildingIcon className="h-8 w-8 text-muted" />}
@@ -682,8 +746,10 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6">
-              {isLoadingAdmins ? (
-                <Loader>Chargement...</Loader>
+              {isAdminsError ? (
+                <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
+              ) : isLoadingAdmins ? (
+                <SkeletonList rows={3} />
               ) : (teamAdmins?.length ?? 0) === 0 ? (
                 <EmptyState
                   icon={<ShieldIcon className="h-8 w-8 text-muted" />}
@@ -794,8 +860,13 @@ export function TeamDetailPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingEventsView ? (
-                <Loader>Chargement...</Loader>
+              {isEventsViewError ? (
+                <QueryError
+                  onRetry={() => refetchEventsView()}
+                  isRetrying={isEventsViewRefetching}
+                />
+              ) : isLoadingEventsView ? (
+                <SkeletonList rows={3} />
               ) : isEventsEmpty ? (
                 <EmptyState
                   icon={<CalendarIcon className="h-8 w-8 text-muted" />}

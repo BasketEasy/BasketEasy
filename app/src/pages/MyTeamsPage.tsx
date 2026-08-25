@@ -14,9 +14,10 @@ import {
 } from '@basketeasy/ui/dialog';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
-import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -90,7 +91,7 @@ function MyTeamCard({ team }: { team: MyTeamSummary }) {
 }
 
 export function MyTeamsPage() {
-  const { data: teams, isLoading } = useMyTeamList();
+  const { data: teams, isLoading, isError, refetch, isRefetching } = useMyTeamList();
   const adminClubs = useAdminClubs();
   const isDesktop = useIsDesktopViewport();
   const queryClient = useQueryClient();
@@ -156,8 +157,10 @@ export function MyTeamsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <Loader>Chargement...</Loader>
+          {isError ? (
+            <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />
+          ) : isLoading ? (
+            <SkeletonList rows={3} />
           ) : teams && teams.length > 0 ? (
             isDesktop ? (
               <Table>

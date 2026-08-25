@@ -83,6 +83,10 @@
       "types": "./src/components/EmptyState.tsx",
       "default": "./src/components/EmptyState.tsx"
     },
+    "./query-error": {
+      "types": "./src/components/QueryError.tsx",
+      "default": "./src/components/QueryError.tsx"
+    },
     "./icons/users": {
       "types": "./src/components/icons/UsersIcon.tsx",
       "default": "./src/components/icons/UsersIcon.tsx"

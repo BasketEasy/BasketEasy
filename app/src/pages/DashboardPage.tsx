@@ -5,8 +5,9 @@ import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
-import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -79,9 +80,21 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
 export function DashboardPage() {
   const { user } = useAccount();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const { data: teams } = useMyTeamList();
+  const {
+    data: teams,
+    isLoading: isTeamsLoading,
+    isError: isTeamsError,
+    refetch: refetchTeams,
+    isRefetching: isTeamsRefetching,
+  } = useMyTeamList();
   const adminClubs = useAdminClubs();
-  const { data: dashboard, isLoading: isDashboardLoading } = useMyAgenda();
+  const {
+    data: dashboard,
+    isLoading: isDashboardLoading,
+    isError: isDashboardError,
+    refetch: refetchDashboard,
+    isRefetching: isDashboardRefetching,
+  } = useMyAgenda();
 
   const managedTeamCount = teams?.filter((team) => team.isTeamAdmin).length ?? 0;
   const upcomingEvents = dashboard?.upcomingEvents ?? [];
@@ -132,8 +145,10 @@ export function DashboardPage() {
           </Link>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          {isDashboardLoading ? (
-            <Loader>Chargement…</Loader>
+          {isDashboardError ? (
+            <QueryError onRetry={() => refetchDashboard()} isRetrying={isDashboardRefetching} />
+          ) : isDashboardLoading ? (
+            <SkeletonList rows={3} />
           ) : upcomingEvents.length > 0 ? (
             upcomingEvents.map((event) => <AgendaRow key={event.eventId} event={event} />)
           ) : (
@@ -150,7 +165,11 @@ export function DashboardPage() {
         <Heading as="h2" className="mb-3">
           Mes équipes
         </Heading>
-        {teams && teams.length > 0 ? (
+        {isTeamsError ? (
+          <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
+        ) : isTeamsLoading ? (
+          <SkeletonList rows={3} variant="card" />
+        ) : teams && teams.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((team) => (
               <TeamCard key={team.teamId} team={team} />

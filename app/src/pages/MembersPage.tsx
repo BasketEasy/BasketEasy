@@ -14,11 +14,12 @@ import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { Heading } from '@basketeasy/ui/heading';
-import { Loader } from '@basketeasy/ui/loader';
 import { Input } from '@basketeasy/ui/input';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { EmptyState } from '@basketeasy/ui/empty-state';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { SkeletonList } from '@basketeasy/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -273,7 +274,13 @@ export function MembersPage() {
   const isTeamsFiltered =
     debouncedTeamsSearch !== '' || teamsCategory !== ALL_CATEGORIES || teamsGender !== ALL_GENDERS;
 
-  const { data: membersResult, isLoading: isLoadingMembers } = useClubMemberList(
+  const {
+    data: membersResult,
+    isLoading: isLoadingMembers,
+    isError: isMembersError,
+    refetch: refetchMembers,
+    isRefetching: isMembersRefetching,
+  } = useClubMemberList(
     clubId!,
     {
       search: debouncedMembersSearch || undefined,
@@ -292,7 +299,13 @@ export function MembersPage() {
     { enabled: isAdmin },
   );
 
-  const { data: playersResult, isLoading: isLoadingPlayers } = usePlayerList(
+  const {
+    data: playersResult,
+    isLoading: isLoadingPlayers,
+    isError: isPlayersError,
+    refetch: refetchPlayers,
+    isRefetching: isPlayersRefetching,
+  } = usePlayerList(
     clubId!,
     {
       search: debouncedPlayersSearch || undefined,
@@ -310,7 +323,13 @@ export function MembersPage() {
     { enabled: isAdmin },
   );
 
-  const { data: teamsResult, isLoading: isLoadingTeams } = useTeamList(
+  const {
+    data: teamsResult,
+    isLoading: isLoadingTeams,
+    isError: isTeamsError,
+    refetch: refetchTeams,
+    isRefetching: isTeamsRefetching,
+  } = useTeamList(
     clubId!,
     {
       search: debouncedTeamsSearch || undefined,
@@ -442,8 +461,10 @@ export function MembersPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingMembers ? (
-                <Loader>Chargement...</Loader>
+              {isMembersError ? (
+                <QueryError onRetry={() => refetchMembers()} isRetrying={isMembersRefetching} />
+              ) : isLoadingMembers ? (
+                <SkeletonList rows={3} />
               ) : (membersResult?.total ?? 0) === 0 ? (
                 <EmptyState
                   icon={<UsersIcon className="h-8 w-8 text-muted" />}
@@ -561,8 +582,10 @@ export function MembersPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingPlayers ? (
-                <Loader>Chargement...</Loader>
+              {isPlayersError ? (
+                <QueryError onRetry={() => refetchPlayers()} isRetrying={isPlayersRefetching} />
+              ) : isLoadingPlayers ? (
+                <SkeletonList rows={3} />
               ) : (playersResult?.total ?? 0) === 0 ? (
                 <EmptyState
                   icon={<UsersIcon className="h-8 w-8 text-muted" />}
@@ -705,8 +728,10 @@ export function MembersPage() {
 
           <Card>
             <CardContent className="pt-6 flex flex-col gap-4">
-              {isLoadingTeams ? (
-                <Loader>Chargement...</Loader>
+              {isTeamsError ? (
+                <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
+              ) : isLoadingTeams ? (
+                <SkeletonList rows={3} />
               ) : (teamsResult?.total ?? 0) === 0 ? (
                 <EmptyState
                   icon={<TrophyIcon className="h-8 w-8 text-muted" />}
