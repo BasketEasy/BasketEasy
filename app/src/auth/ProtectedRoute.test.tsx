@@ -50,6 +50,23 @@ describe('ProtectedRoute', () => {
     await waitFor(() => expect(screen.getByText('Contenu protégé')).toBeInTheDocument());
   });
 
+  it("renders the skip link's #contenu target on every protected page, so it never points at nothing", async () => {
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+      ),
+    );
+
+    renderProtectedAt('/dashboard');
+
+    await waitFor(() => expect(screen.getByText('Contenu protégé')).toBeInTheDocument());
+
+    const skipLink = screen.getByRole('link', { name: /aller au contenu/i });
+    expect(skipLink).toHaveAttribute('href', '#contenu');
+    expect(document.querySelector('#contenu')).toBeInTheDocument();
+  });
+
   it('keeps the app shell on screen while the session resolves', () => {
     // Hold the session request pending on purpose — the default MSW
     // handler resolves /api/auth/refresh with a 401 immediately, which

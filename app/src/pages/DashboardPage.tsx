@@ -99,7 +99,7 @@ export function DashboardPage() {
   const greetingName = user?.firstName ?? user?.email;
 
   return (
-    <PageContainer id="contenu" size="lg">
+    <PageContainer size="lg">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <Heading as="h1" className="m-0">

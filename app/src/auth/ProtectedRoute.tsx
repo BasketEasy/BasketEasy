@@ -20,7 +20,16 @@ export function ProtectedRoute() {
   return (
     <>
       <AppHeader />
-      <Outlet />
+      {/* A plain div, not <main> — every protected page already renders its
+          own <main> via PageContainer (packages/@basketeasy/ui/src/components/PageContainer.tsx),
+          so a <main> here would nest a second <main> landmark inside the
+          first on every route, which is invalid HTML and confusing to
+          assistive tech. This div exists solely to give the skip link a
+          single, un-droppable id="contenu" target that lives above the
+          per-page Outlet instead of on each page individually. */}
+      <div id="contenu">
+        <Outlet />
+      </div>
     </>
   );
 }
