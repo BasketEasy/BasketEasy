@@ -1,5 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { Toaster } from '@basketeasy/ui/toaster';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { PublicOnlyRoute } from './auth/PublicOnlyRoute';
 import { LandingPage } from './pages/LandingPage';
@@ -12,10 +13,11 @@ import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
 import { AboutPage } from './pages/AboutPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
   return (
-    <>
+    <AppErrorBoundary>
       <Routes>
         <Route path="/" element={<LandingPage />} />
 
@@ -32,11 +34,12 @@ export default function App() {
           <Route path="/clubs/new" element={<ClubCreatePage />} />
           <Route path="/clubs/:clubId/members" element={<MembersPage />} />
           <Route path="/clubs/:clubId/teams/:teamId" element={<TeamDetailPage />} />
+          <Route path="/clubs/*" element={<NotFoundPage />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster />
-    </>
+    </AppErrorBoundary>
   );
 }

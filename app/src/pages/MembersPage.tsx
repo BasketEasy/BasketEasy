@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -50,6 +50,7 @@ import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { ForbiddenPage } from './ForbiddenPage';
 
 type MembersTab = 'members' | 'players' | 'teams';
 
@@ -379,7 +380,7 @@ export function MembersPage() {
   };
 
   if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <ForbiddenPage />;
   }
 
   return (

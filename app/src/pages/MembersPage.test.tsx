@@ -64,7 +64,7 @@ describe('MembersPage', () => {
     expect(screen.getAllByRole('button', { name: /retirer/i })).toHaveLength(2);
   });
 
-  it('redirects a non-admin (MEMBER role, or no membership at all) away from the page without calling the members/players/teams endpoints', async () => {
+  it('shows a 403 page for a non-admin (MEMBER role, or no membership at all) without calling the members/players/teams endpoints', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     let membersRequested = false;
     let playersRequested = false;
@@ -86,7 +86,7 @@ describe('MembersPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    expect(await screen.findByRole('heading', { name: /bonjour/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /accès non autorisé/i })).toBeInTheDocument();
     expect(membersRequested).toBe(false);
     expect(playersRequested).toBe(false);
     expect(teamsRequested).toBe(false);
