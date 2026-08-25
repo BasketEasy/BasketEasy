@@ -29,7 +29,7 @@ export const SelectContent = forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
-      className={cn('z-50 rounded-md border border-border bg-cream shadow-md', className)}
+      className={cn('z-50 rounded-md border border-border bg-surface shadow-md', className)}
       {...props}
     >
       <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
