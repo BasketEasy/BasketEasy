@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
+import { Skeleton } from '@basketeasy/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,11 +13,46 @@ import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 
+interface AppHeaderProps {
+  /**
+   * True while ProtectedRoute is still waiting on the session request. No
+   * session means no club/account data exists yet, so this branch must not
+   * read useAdminClubs/useActiveClub/useAccount — it renders the brand plus
+   * skeleton nav placeholders and nothing interactive (no switcher, no
+   * burger, no account controls), since none of those controls would have
+   * anything real to act on yet.
+   *
+   * Kept as a structurally separate early return (not a condition threaded
+   * through the JSX below) so a later rewrite of this component's nav
+   * (Task 10) can't silently drop this branch.
+   */
+  isResolving?: boolean;
+}
+
 /**
  * Nav for every protected page — mounted once in ProtectedRoute so it's
  * guaranteed a logged-in user, rather than re-checking that here.
  */
-export function AppHeader() {
+export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
+  if (isResolving) {
+    return (
+      <header className="border-b border-border">
+        <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
+          <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </nav>
+      </header>
+    );
+  }
+
+  return <AppHeaderResolved />;
+}
+
+function AppHeaderResolved() {
   const [isOpen, setIsOpen] = useState(false);
   const isDesktop = useIsDesktopViewport();
   const navigate = useNavigate();

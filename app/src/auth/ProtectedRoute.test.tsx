@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
+import { renderWithProviders } from '../testUtils';
 import { AccountProvider } from './AccountContext';
 import { ActiveClubProvider } from './ActiveClubContext';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -47,5 +48,17 @@ describe('ProtectedRoute', () => {
     renderProtectedAt('/dashboard');
 
     await waitFor(() => expect(screen.getByText('Contenu protégé')).toBeInTheDocument());
+  });
+
+  it('keeps the app shell on screen while the session resolves', () => {
+    // Hold the session request pending on purpose — the default MSW
+    // handler resolves /api/auth/refresh with a 401 immediately, which
+    // would settle isLoading before this assertion runs and defeat the
+    // point of the test.
+    server.use(http.post('/api/auth/refresh', () => new Promise(() => {})));
+
+    renderWithProviders(<ProtectedRoute />, { route: '/dashboard' });
+
+    expect(screen.getByText('BasketEasy')).toBeInTheDocument();
   });
 });
