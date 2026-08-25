@@ -3,165 +3,221 @@ import { Button } from '@basketeasy/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/card';
 import { Badge } from '@basketeasy/ui/badge';
 import { Heading } from '@basketeasy/ui/heading';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { BuildingIcon } from '@basketeasy/ui/icons/building';
+import { PublicHeader } from '../components/PublicHeader';
 import { useAccount } from '../auth/useAccount';
 
-// Copy sourced from docs/brand.md (headline/subhead/footer) and
-// docs/feature-set.md (P0/P1 highlights) — see CLAUDE.md's "What BasketEasy
-// is" for why these are the ones called out first. Every card below is
-// badged 'Bientôt' because only the Auth module is built so far (see
-// CLAUDE.md's "What's deliberately not here yet") — nothing here is live
-// functionality yet, and the copy shouldn't imply otherwise.
-const FEATURES: { title: string; description: string; badge?: string }[] = [
+// Copy sourced from docs/brand.md (headline/subhead/footer) — see
+// CLAUDE.md's Events and Teams module sections for what actually ships
+// today. SHIPPED carries no badge; UPCOMING keeps "Bientôt" for what's
+// listed under CLAUDE.md's "What's deliberately not here yet".
+const SHIPPED: { title: string; description: string }[] = [
   {
     title: 'Calendrier & convocations',
     description:
-      "Un agenda partagé pour l'équipe, des convocations envoyées en un clic et un suivi des réponses en temps réel.",
-    badge: 'Bientôt',
+      'Un agenda partagé par équipe, des convocations envoyées en un clic et un suivi des réponses (présent, absent, incertain) en temps réel.',
   },
   {
-    title: 'Paiement à la HelloAsso',
+    title: 'Présences suivies',
     description:
-      'Collecte des cotisations sans frais cachés, adaptée aux habitudes de paiement des clubs amateurs français.',
-    badge: 'Bientôt',
-  },
-  {
-    title: 'Hébergement France · RGPD',
-    description:
-      'Toutes les données, y compris celles des mineurs, restent hébergées en France et conformes au RGPD par défaut.',
-    badge: 'Bientôt',
+      'Chaque joueur confirme sa présence en un clin d’œil, sans relance manuelle par SMS ou tableur.',
   },
   {
     title: 'Équipes multi-clubs (CTC)',
     description:
-      'Une équipe peut réunir plusieurs clubs : partagez effectifs, encadrants et accès sans ressaisir les informations.',
-    badge: 'Bientôt',
+      'Une équipe peut réunir plusieurs clubs : effectif, encadrants et accès partagés, sans ressaisir les informations.',
+  },
+];
+
+const UPCOMING: { title: string; description: string }[] = [
+  {
+    title: 'Cotisations en ligne',
+    description:
+      'Collecte des cotisations sans frais cachés, adaptée aux habitudes de paiement des clubs amateurs français.',
   },
   {
     title: 'Créneaux & conflits',
     description:
       'Visibilité sur les créneaux de gymnase utilisés par vos équipes, avec alerte automatique en cas de chevauchement.',
-    badge: 'Bientôt',
   },
   {
     title: 'Feuille de marque par IA',
     description:
-      'Téléversez une photo ou un scan de la feuille de marque officielle en fin de match : les statistiques et le temps de jeu sont extraits automatiquement.',
-    badge: 'Bientôt',
+      'Téléversez une photo de la feuille de marque officielle en fin de match : statistiques et temps de jeu sont extraits automatiquement.',
   },
 ];
 
-const HIGHLIGHTS = [
-  {
-    title: 'Calendrier partagé',
-    description:
-      "Toute l'équipe voit les prochains entraînements et matchs au même endroit, à jour en permanence.",
-    badge: 'Bientôt',
-  },
-  {
-    title: 'Résultats centralisés',
-    description: 'Les résultats de chaque match sont enregistrés et consultables par tous.',
-    badge: 'Bientôt',
-  },
-  {
-    title: 'Présences suivies',
-    description:
-      "Confirmations de présence en un clin d'œil, sans relance manuelle par SMS ou tableur.",
-    badge: 'Bientôt',
-  },
-];
+function HeroAgendaMock() {
+  return (
+    <Card className="w-full max-w-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <div className="flex items-center gap-2 text-muted">
+          <CalendarIcon className="h-4 w-4" aria-hidden="true" />
+          <span className="text-sm">Cette semaine · U15 Garçons</span>
+        </div>
+      </CardHeader>
+      <div className="flex flex-col gap-2 px-6 pb-6">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-charcoal">Entraînement</span>
+            <span className="text-sm text-muted">Mardi 19h · Gymnase Jean-Moulin</span>
+          </div>
+          <Badge variant="secondary">12 convoqués</Badge>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-charcoal">Match vs. ES Rezé</span>
+            <span className="text-sm text-muted">Samedi 15h · Salle des sports</span>
+          </div>
+          <Badge variant="secondary">9 présents</Badge>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 export function LandingPage() {
   const { user, isLoading } = useAccount();
 
   return (
-    <div className="flex min-h-screen flex-col bg-cream text-charcoal">
-      <header className="border-b border-border">
-        <nav className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 py-4">
-          <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
-          <div className="flex flex-wrap items-center gap-3">
-            {!isLoading &&
-              (user ? (
-                <Button asChild className="shrink-0 whitespace-nowrap">
-                  <Link to="/dashboard">Mon espace</Link>
+    <div className="flex min-h-screen flex-col bg-ground text-charcoal">
+      <PublicHeader />
+
+      <main className="flex-1">
+        <section className="mx-auto grid max-w-5xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:py-24">
+          <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
+            <Badge variant="outline" className="w-fit">
+              Pensé pour les CTC
+            </Badge>
+            <Heading as="h1" size="5xl">
+              Moins de tableurs, plus de terrain.
+            </Heading>
+            <p className="max-w-xl text-lg text-muted">
+              BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
+              amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les
+              bénévoles, pas pour les DSI.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 md:justify-start">
+              {!isLoading && user ? (
+                <Button asChild size="lg">
+                  <Link to="/dashboard">Aller à mon espace</Link>
                 </Button>
               ) : (
                 <>
-                  <Button asChild variant="ghost" className="shrink-0 whitespace-nowrap">
+                  <Button asChild size="lg">
+                    <Link to="/register">Créer un compte gratuitement</Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline">
                     <Link to="/login">Se connecter</Link>
                   </Button>
-                  <Button asChild className="shrink-0 whitespace-nowrap">
-                    <Link to="/register">Créer un compte</Link>
-                  </Button>
                 </>
-              ))}
+              )}
+            </div>
           </div>
-        </nav>
-      </header>
-
-      <main className="flex-1">
-        <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center">
-          <Heading as="h1" size="5xl">
-            Moins de tableurs, plus de terrain.
-          </Heading>
-          <p className="max-w-xl text-lg text-muted">
-            BasketEasy centralise calendriers, résultats et présences pour les clubs de basket
-            amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les bénévoles,
-            pas pour les DSI.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {!isLoading && user ? (
-              <Button asChild size="lg">
-                <Link to="/dashboard">Aller à mon espace</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild size="lg">
-                  <Link to="/register">Créer un compte gratuitement</Link>
-                </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link to="/login">Se connecter</Link>
-                </Button>
-              </>
-            )}
+          <div className="flex justify-center md:justify-end">
+            <HeroAgendaMock />
           </div>
-          <p className="text-sm text-muted">
-            BasketEasy est en cours de construction — créez un compte pour être informé du
-            lancement.
-          </p>
         </section>
 
-        <section className="border-y border-border">
-          <div className="mx-auto grid max-w-5xl gap-8 px-6 py-16 md:grid-cols-3">
-            {HIGHLIGHTS.map((item) => (
-              <div key={item.title} className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Heading as="h2" size="xl">
-                    {item.title}
-                  </Heading>
-                  <Badge variant="secondary">{item.badge}</Badge>
-                </div>
-                <p className="text-sm text-muted">{item.description}</p>
+        <section className="border-y border-border bg-surface-2">
+          <div className="mx-auto max-w-5xl px-6 py-12">
+            <SectionHeading as="h2" className="mb-6">
+              Le marché visé
+            </SectionHeading>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="flex items-center gap-3">
+                <BuildingIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
+                <p className="text-sm text-muted">
+                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
+                    ~130
+                  </span>{' '}
+                  clubs affiliés en Loire-Atlantique (CD44), premier marché visé.
+                </p>
               </div>
-            ))}
+              <div className="flex items-center gap-3">
+                <UsersIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
+                <p className="text-sm text-muted">
+                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
+                    ~28 000
+                  </span>{' '}
+                  licenciés dans ce même département.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-5xl px-6 py-16">
-          <Heading as="h2" className="mb-8 text-center">
-            Ce que BasketEasy simplifie pour votre club
-          </Heading>
-          <div className="grid gap-6 md:grid-cols-3">
-            {FEATURES.map((feature) => (
-              <Card key={feature.title}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
+          <SectionHeading as="h2" className="mb-8">
+            Ce qui fonctionne aujourd&apos;hui
+          </SectionHeading>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            {SHIPPED.map((feature) => (
+              <article key={feature.title}>
+                <Card>
+                  <CardHeader>
                     <CardTitle>{feature.title}</CardTitle>
-                    {feature.badge && <Badge variant="secondary">{feature.badge}</Badge>}
-                  </div>
-                  <CardDescription>{feature.description}</CardDescription>
-                </CardHeader>
-              </Card>
+                    <CardDescription>{feature.description}</CardDescription>
+                  </CardHeader>
+                </Card>
+              </article>
             ))}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-5xl px-6 pb-16">
+          <div className="rounded-lg border border-dashed border-border-strong p-6 md:p-8">
+            <SectionHeading as="h2" className="mb-8">
+              La suite
+            </SectionHeading>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+              {UPCOMING.map((feature) => (
+                <article key={feature.title}>
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle>{feature.title}</CardTitle>
+                        <Badge variant="secondary">Bientôt</Badge>
+                      </div>
+                      <CardDescription>{feature.description}</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-blue-green text-cream">
+          <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-16 text-center">
+            <Heading as="h2" size="3xl" className="text-cream">
+              Prêt à simplifier la gestion de votre équipe ?
+            </Heading>
+            <p className="max-w-xl text-blue-green-tint">
+              Créez un compte gratuitement et invitez votre équipe en quelques minutes.
+            </p>
+            {!isLoading && user ? (
+              <Button
+                asChild
+                size="lg"
+                variant="secondary"
+                className="bg-cream text-blue-green hover:bg-surface-2"
+              >
+                <Link to="/dashboard">Aller à mon espace</Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                size="lg"
+                variant="secondary"
+                className="bg-cream text-blue-green hover:bg-surface-2"
+              >
+                <Link to="/register">Créer un compte gratuitement</Link>
+              </Button>
+            )}
           </div>
         </section>
       </main>

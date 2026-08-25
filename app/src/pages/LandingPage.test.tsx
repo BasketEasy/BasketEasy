@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -34,6 +34,18 @@ describe('LandingPage', () => {
       screen.getByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
     ).toBeInTheDocument();
     expect(screen.getByText(/BasketEasy centralise calendriers/)).toBeInTheDocument();
+  });
+
+  it('presents shipped features without a "Bientôt" badge', () => {
+    renderLandingPage();
+    const shipped = screen.getByRole('heading', { name: 'Calendrier & convocations' });
+    expect(within(shipped.closest('article')!).queryByText('Bientôt')).not.toBeInTheDocument();
+  });
+
+  it('still marks unbuilt features as upcoming', () => {
+    renderLandingPage();
+    const upcoming = screen.getByRole('heading', { name: 'Cotisations en ligne' });
+    expect(within(upcoming.closest('article')!).getByText('Bientôt')).toBeInTheDocument();
   });
 
   it('renders the RGPD footer line', () => {
