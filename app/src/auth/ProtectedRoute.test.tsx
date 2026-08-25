@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
+import { PageContainer } from '@basketeasy/ui/page-container';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { AccountProvider } from './AccountContext';
@@ -19,7 +20,7 @@ function renderProtectedAt(initialPath: string) {
             <Routes>
               <Route path="/login" element={<div>Page de connexion</div>} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<div>Contenu protégé</div>} />
+                <Route path="/dashboard" element={<PageContainer>Contenu protégé</PageContainer>} />
               </Route>
             </Routes>
           </MemoryRouter>
