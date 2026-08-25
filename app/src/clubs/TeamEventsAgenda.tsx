@@ -41,7 +41,7 @@ function AgendaEventCard({
         <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
           {formatEventTime(event.startsAt)}
         </span>
-        <span className="font-heading text-xs font-bold uppercase tracking-[0.13em] opacity-80">
+        <span className="font-heading text-xs font-bold uppercase tracking-wide-caps opacity-80">
           {eventTypeLabel(event.type)}
         </span>
       </div>

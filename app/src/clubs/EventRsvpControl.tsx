@@ -79,7 +79,7 @@ export function EventRsvpControl({
           control never overflows regardless of card width. The label stays
           the accessible name (aria-label) even when visually hidden. */}
       <div
-        role="radiogroup"
+        role="group"
         aria-label="Ma réponse"
         className="flex w-fit overflow-hidden rounded-md border border-border bg-cream"
       >
@@ -89,8 +89,7 @@ export function EventRsvpControl({
             <button
               key={option.value}
               type="button"
-              role="radio"
-              aria-checked={active}
+              aria-pressed={active}
               aria-label={option.label}
               disabled={isPending}
               onClick={() => select(option.value)}

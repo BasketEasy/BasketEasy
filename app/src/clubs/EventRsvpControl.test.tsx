@@ -31,9 +31,13 @@ describe('EventRsvpControl', () => {
       />,
     );
 
-    const group = screen.getByRole('radiogroup', { name: 'Ma réponse' });
-    expect(within(group).getByRole('radio', { name: 'Présent' })).toBeChecked();
-    expect(within(group).getByRole('radio', { name: 'Absent' })).not.toBeChecked();
+    const group = screen.getByRole('group', { name: 'Ma réponse' });
+    expect(
+      within(group).getByRole('button', { name: 'Présent', pressed: true }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole('button', { name: 'Absent', pressed: false }),
+    ).toBeInTheDocument();
   });
 
   it('highlights the current status as pressed', () => {
@@ -45,8 +49,12 @@ describe('EventRsvpControl', () => {
       />,
     );
 
-    expect(screen.getByRole('radio', { name: /présent/i })).toHaveClass('bg-success');
-    expect(screen.getByRole('radio', { name: /absent/i })).not.toHaveClass('bg-error');
+    expect(screen.getByRole('button', { name: /présent/i, pressed: true })).toHaveClass(
+      'bg-success',
+    );
+    expect(screen.getByRole('button', { name: /absent/i, pressed: false })).not.toHaveClass(
+      'bg-error',
+    );
   });
 
   it('sets a new status when a different option is clicked', async () => {
@@ -61,7 +69,7 @@ describe('EventRsvpControl', () => {
     const user = userEvent.setup();
     renderWithProviders(<EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />);
 
-    await user.click(screen.getByRole('radio', { name: /présent/i }));
+    await user.click(screen.getByRole('button', { name: /présent/i }));
 
     await waitFor(() => expect(requestBody).toEqual({ status: 'GOING' }));
   });
@@ -84,7 +92,7 @@ describe('EventRsvpControl', () => {
       />,
     );
 
-    await user.click(screen.getByRole('radio', { name: /incertain/i }));
+    await user.click(screen.getByRole('button', { name: /incertain/i }));
 
     await waitFor(() => expect(cleared).toBe(true));
   });
@@ -99,7 +107,7 @@ describe('EventRsvpControl', () => {
     const user = userEvent.setup();
     renderWithProviders(<EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />);
 
-    await user.click(screen.getByRole('radio', { name: /absent/i }));
+    await user.click(screen.getByRole('button', { name: /absent/i }));
 
     expect(await screen.findByText(/une erreur est survenue/i)).toBeInTheDocument();
   });

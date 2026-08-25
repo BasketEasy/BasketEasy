@@ -48,6 +48,9 @@ module.exports = {
         'nav-active': 'inset 0 -2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
       },
+      letterSpacing: {
+        'wide-caps': '0.13em',
+      },
     },
   },
 };

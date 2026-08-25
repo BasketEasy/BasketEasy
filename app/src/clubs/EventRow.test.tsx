@@ -126,14 +126,14 @@ describe('EventRow', () => {
   it('shows the RSVP control only when the viewer is rostered on the team, and the breakdown always', () => {
     renderRow(trainingEvent, false, false);
 
-    expect(screen.queryByRole('radio', { name: /présent/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /présent/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /voir les réponses/i })).toBeInTheDocument();
   });
 
   it('shows the RSVP control when the viewer is rostered on the team', () => {
     renderRow(trainingEvent, false, true);
 
-    expect(screen.getByRole('radio', { name: /présent/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /présent/i })).toBeInTheDocument();
   });
 
   it('hides the convocation manage button for a viewer who cannot manage the team, and shows the breakdown always', () => {
