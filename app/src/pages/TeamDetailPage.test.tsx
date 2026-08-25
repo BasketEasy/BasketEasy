@@ -715,6 +715,10 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    // Deletion is now gated behind typing the team name to confirm — a
+    // single click no longer suffices (see Task 9 of the Parquet revamp).
+    await user.type(await screen.findByLabelText(/Saisissez/), 'U15 Garçons');
+    await user.click(screen.getByRole('button', { name: /supprimer définitivement/i }));
 
     await waitFor(() => expect(deleteCalled).toBe(true));
     expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();

@@ -75,6 +75,10 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./confirm-dialog": {
+      "types": "./src/components/ConfirmDialog.tsx",
+      "default": "./src/components/ConfirmDialog.tsx"
+    },
     "./dropdown-menu": {
       "types": "./src/components/DropdownMenu.tsx",
       "default": "./src/components/DropdownMenu.tsx"

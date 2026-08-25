@@ -27,7 +27,7 @@ import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { useTeamShow } from '../clubs/useTeamShow';
 import { useTeamUpdate } from '../clubs/useTeamUpdate';
-import { useTeamDelete } from '../clubs/useTeamDelete';
+import { TeamDeleteModal } from '../clubs/TeamDeleteModal';
 import { useTeamClubList } from '../clubs/useTeamClubList';
 import { useTeamPlayerList } from '../clubs/useTeamPlayerList';
 import { usePlayerList } from '../clubs/usePlayerList';
@@ -299,14 +299,12 @@ export function TeamDetailPage() {
   const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
 
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId!, teamId!);
-  const { mutate: deleteTeam, isPending: isDeleting } = useTeamDelete(clubId!);
 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
   const [category, setCategory] = useState<TeamCategory>('U9');
   const [gender, setGender] = useState<TeamGender>('MEN');
   const [editError, setEditError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -362,14 +360,6 @@ export function TeamDetailPage() {
     setGender(team.gender);
     setEditError(null);
     setIsEditing(true);
-  };
-
-  const handleDelete = () => {
-    setDeleteError(null);
-    deleteTeam(teamId!, {
-      onSuccess: () => navigate(`/clubs/${clubId}/members?tab=teams`),
-      onError: (err) => setDeleteError(getClubErrorMessage(err)),
-    });
   };
 
   if (isTeamError) {
@@ -473,19 +463,17 @@ export function TeamDetailPage() {
                 Modifier
               </Button>
               {isAdmin && isOwner && (
-                <Button variant="outline" loading={isDeleting} onClick={handleDelete}>
-                  Supprimer
-                </Button>
+                <TeamDeleteModal
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  teamName={team.name}
+                  playerCount={allTeamPlayers.length}
+                  eventCount={eventsResult?.total ?? 0}
+                />
               )}
             </div>
           )}
         </div>
-      )}
-
-      {deleteError && (
-        <Alert variant="destructive">
-          <AlertDescription>{deleteError}</AlertDescription>
-        </Alert>
       )}
 
       <Tabs
