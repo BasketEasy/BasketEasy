@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
+import { cn } from '@basketeasy/ui/cn';
 import { FieldError } from '@basketeasy/ui/field-error';
+import { focusRing } from '@basketeasy/ui/focus-ring';
 import type { EventRsvpStatus, TeamEvent } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
 import { useEventRsvpSet } from './useEventRsvpSet';
@@ -76,23 +78,31 @@ export function EventRsvpControl({
           card) however the segments share space; icon-only guarantees the
           control never overflows regardless of card width. The label stays
           the accessible name (aria-label) even when visually hidden. */}
-      <div className="flex w-fit overflow-hidden rounded-md border border-border bg-cream">
+      <div
+        role="radiogroup"
+        aria-label="Ma réponse"
+        className="flex w-fit overflow-hidden rounded-md border border-border bg-cream"
+      >
         {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
           const active = event.myRsvpStatus === option.value;
           return (
             <button
               key={option.value}
               type="button"
+              role="radio"
+              aria-checked={active}
               aria-label={option.label}
               disabled={isPending}
               onClick={() => select(option.value)}
-              className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50 md:px-3.5 ${
-                index > 0 ? 'border-l border-border' : ''
-              } ${
+              className={cn(
+                'flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
+                'disabled:pointer-events-none disabled:opacity-50',
+                focusRing,
+                index > 0 && 'border-l border-border-strong',
                 active
-                  ? ACTIVE_CLASSES[option.value]
-                  : 'bg-transparent text-muted hover:bg-border/40'
-              }`}
+                  ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
+                  : 'bg-surface text-muted hover:bg-sunk',
+              )}
             >
               <svg
                 viewBox="0 0 24 24"

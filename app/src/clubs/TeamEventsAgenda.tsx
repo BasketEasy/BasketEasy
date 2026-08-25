@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
+import { cn } from '@basketeasy/ui/cn';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
@@ -28,40 +29,55 @@ function AgendaEventCard({
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   return (
-    <Card className="flex flex-col gap-3 p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-charcoal">{formatEventTime(event.startsAt)}</span>
-            <Badge variant={event.type === 'MATCH' ? 'secondary' : 'outline'}>
-              {eventTypeLabel(event.type)}
-            </Badge>
-            {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
-          </div>
-          <span className="text-sm text-muted">
-            {event.location}
-            {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}
-          </span>
-          {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
-            <EventEditModal
-              clubId={clubId}
-              teamId={teamId}
-              event={event}
-              open={isEditOpen}
-              onOpenChange={setIsEditOpen}
-            />
-            <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
-            <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
-          </div>
+    <Card className="flex flex-row overflow-hidden p-0">
+      <div
+        className={cn(
+          'flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 py-4 sm:w-24',
+          event.type === 'MATCH'
+            ? 'bg-blue-green text-cream'
+            : 'border-r border-border bg-surface-2 text-charcoal',
         )}
+      >
+        <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
+          {formatEventTime(event.startsAt)}
+        </span>
+        <span className="font-heading text-xs font-bold uppercase tracking-[0.13em] opacity-80">
+          {eventTypeLabel(event.type)}
+        </span>
       </div>
-      <div className="flex flex-col gap-2.5 border-t border-border pt-3">
-        {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
-        <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
-        <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+      <div className="flex min-w-0 flex-grow flex-col gap-3.5 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            {isRostered && event.myConvocation && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge>Convoqué</Badge>
+              </div>
+            )}
+            <span className="text-sm text-muted">
+              {event.location}
+              {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}
+            </span>
+            {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
+          </div>
+          {canManage && (
+            <div className="flex flex-wrap items-center gap-2">
+              <EventEditModal
+                clubId={clubId}
+                teamId={teamId}
+                event={event}
+                open={isEditOpen}
+                onOpenChange={setIsEditOpen}
+              />
+              <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
+              <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+          {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
+          <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+          <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+        </div>
       </div>
     </Card>
   );

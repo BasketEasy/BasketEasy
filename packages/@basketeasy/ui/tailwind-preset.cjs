@@ -46,6 +46,7 @@ module.exports = {
         md: '0 2px 6px rgba(59, 42, 24, 0.08), 0 1px 2px rgba(59, 42, 24, 0.05)',
         lg: '0 10px 28px rgba(59, 42, 24, 0.11), 0 2px 6px rgba(59, 42, 24, 0.06)',
         'nav-active': 'inset 0 -2px 0 #D4622A',
+        'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
       },
     },
   },
