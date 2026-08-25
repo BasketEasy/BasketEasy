@@ -74,8 +74,7 @@ function HeaderLink({
           buttonVariants({ variant: 'ghost' }),
           'justify-start no-underline',
           // The active treatment: orange tint plus the court-line underline.
-          isActive &&
-            'bg-orange-tint text-orange-text shadow-[inset_0_-2px_0_theme(colors.orange.DEFAULT)]',
+          isActive && 'bg-orange-tint text-orange-text shadow-nav-active',
         )
       }
     >

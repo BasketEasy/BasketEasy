@@ -307,6 +307,19 @@ describe('AppHeader', () => {
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
+  it('offers the account menu inside the mobile panel', async () => {
+    setViewportWidth(375);
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+
+    await user.click(screen.getByLabelText(/menu/i));
+
+    expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
+  });
+
   it('closes the mobile menu when the backdrop behind it is clicked', async () => {
     setViewportWidth(375);
     mockSession();
