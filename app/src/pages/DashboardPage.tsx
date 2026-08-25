@@ -15,7 +15,6 @@ import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAccount } from '../auth/useAccount';
-import { useLogout } from '../auth/mutations';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useMyAgenda } from '../clubs/useMyAgenda';
@@ -79,7 +78,6 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
 
 export function DashboardPage() {
   const { user } = useAccount();
-  const { mutate: logout, isPending: isLoggingOut } = useLogout();
   const {
     data: teams,
     isLoading: isTeamsLoading,
@@ -101,7 +99,7 @@ export function DashboardPage() {
   const greetingName = user?.firstName ?? user?.email;
 
   return (
-    <PageContainer size="lg">
+    <PageContainer id="contenu" size="lg">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <Heading as="h1" className="m-0">
@@ -109,9 +107,6 @@ export function DashboardPage() {
           </Heading>
           {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
         </div>
-        <Button variant="outline" loading={isLoggingOut} onClick={() => logout()}>
-          Se déconnecter
-        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

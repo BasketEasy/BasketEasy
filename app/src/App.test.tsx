@@ -83,7 +83,8 @@ describe('App routing', () => {
     );
     expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
+    await user.click(screen.getByRole('button', { name: /mon compte/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /se déconnecter/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),

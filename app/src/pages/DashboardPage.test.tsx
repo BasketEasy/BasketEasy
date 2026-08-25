@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -148,16 +147,5 @@ describe('DashboardPage', () => {
     await waitFor(() =>
       expect(screen.getByText('Aucune équipe pour le moment')).toBeInTheDocument(),
     );
-  });
-
-  it('logs out when "Se déconnecter" is clicked', async () => {
-    server.use(http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })));
-    const user = userEvent.setup();
-    renderLoggedIn();
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /se déconnecter/i }));
-
-    await waitFor(() => expect(screen.queryByText('a@b.com')).not.toBeInTheDocument());
   });
 });
