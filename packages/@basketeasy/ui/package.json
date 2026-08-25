@@ -138,6 +138,10 @@
     "./pagination": {
       "types": "./src/components/Pagination.tsx",
       "default": "./src/components/Pagination.tsx"
+    },
+    "./skeleton": {
+      "types": "./src/components/Skeleton.tsx",
+      "default": "./src/components/Skeleton.tsx"
     }
   },
   "scripts": {
