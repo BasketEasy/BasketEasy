@@ -2,6 +2,7 @@ import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'reac
 import * as ToastPrimitive from '@radix-ui/react-toast';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const ToastProvider = ToastPrimitive.Provider;
 
@@ -74,7 +75,8 @@ export const ToastClose = forwardRef<
     ref={ref}
     aria-label="Fermer"
     className={cn(
-      '-mr-2 -mt-2 ml-auto flex h-11 w-11 shrink-0 items-center justify-center text-lg text-current/60 hover:text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange',
+      '-mr-2 -mt-2 ml-auto flex h-11 w-11 shrink-0 items-center justify-center text-lg text-current/60 hover:text-current',
+      focusRing,
       className,
     )}
     {...props}

@@ -14,7 +14,7 @@ export function PublicHeader() {
   const { user, isLoading } = useAccount();
 
   return (
-    <header className="border-b border-border">
+    <header className="border-b border-border bg-surface">
       <nav className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 py-4">
         <Link
           to={user ? '/dashboard' : '/'}

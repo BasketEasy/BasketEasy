@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Button, buttonVariants } from '@basketeasy/ui/button';
 import { Skeleton } from '@basketeasy/ui/skeleton';
 import {
@@ -85,6 +85,7 @@ function HeaderLink({
 
 function AppHeaderResolved() {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
   const isDesktop = useIsDesktopViewport();
   const { user } = useAccount();
   const adminClubs = useAdminClubs();
@@ -100,6 +101,14 @@ function AppHeaderResolved() {
   // go()'s setIsOpen(false) + navigate. Harmless on desktop, where isOpen is
   // never true to begin with.
   const closeMenu = () => setIsOpen(false);
+
+  // Belt-and-suspenders close on any navigation, including AccountMenu's own
+  // <Link> items (which have no closeMenu hook of their own) and browser
+  // back/forward — without this, navigating from the account menu on mobile
+  // leaves the panel and backdrop stuck over the new page.
+  useEffect(() => {
+    setIsOpen(false);
+  }, [location.pathname]);
 
   // Escape mirrors the backdrop-click dismissal below, so keyboard users get
   // the same way out of the mobile menu as mouse/touch users.
@@ -162,7 +171,7 @@ function AppHeaderResolved() {
   );
 
   return (
-    <header className="relative border-b border-border">
+    <header className="relative border-b border-border bg-surface">
       <a
         href="#contenu"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:shadow-lg"
@@ -225,7 +234,7 @@ function AppHeaderResolved() {
             data-testid="mobile-menu-backdrop"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-6 top-full z-10 flex w-64 flex-col gap-1 rounded-md border border-border bg-cream p-2 shadow-lg">
+          <div className="absolute right-6 top-full z-10 flex w-64 flex-col gap-1 rounded-md border border-border bg-surface p-2 shadow-lg">
             {switcher && <div className="pb-1">{switcher}</div>}
             {links}
             <AccountMenu />

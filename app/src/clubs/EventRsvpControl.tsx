@@ -83,7 +83,7 @@ export function EventRsvpControl({
       <div
         role="group"
         aria-label="Ma réponse"
-        className="flex w-fit overflow-hidden rounded-md border border-border bg-cream"
+        className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
       >
         {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
           const active = event.myRsvpStatus === option.value;

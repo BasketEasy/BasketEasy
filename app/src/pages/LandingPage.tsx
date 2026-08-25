@@ -199,25 +199,16 @@ export function LandingPage() {
             <p className="max-w-xl text-blue-green-tint">
               Créez un compte gratuitement et invitez votre équipe en quelques minutes.
             </p>
-            {!isLoading && user ? (
-              <Button
-                asChild
-                size="lg"
-                variant="secondary"
-                className="bg-cream text-blue-green hover:bg-surface-2"
-              >
-                <Link to="/dashboard">Aller à mon espace</Link>
-              </Button>
-            ) : (
-              <Button
-                asChild
-                size="lg"
-                variant="secondary"
-                className="bg-cream text-blue-green hover:bg-surface-2"
-              >
-                <Link to="/register">Créer un compte gratuitement</Link>
-              </Button>
-            )}
+            <Button
+              asChild
+              size="lg"
+              variant="secondary"
+              className="bg-surface text-blue-green hover:bg-sunk"
+            >
+              <Link to={!isLoading && user ? '/dashboard' : '/register'}>
+                {!isLoading && user ? 'Aller à mon espace' : 'Créer un compte gratuitement'}
+              </Link>
+            </Button>
           </div>
         </section>
       </main>

@@ -1,6 +1,8 @@
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Button } from '@basketeasy/ui/button';
 import { cn } from '@basketeasy/ui/cn';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { meterWidthClass } from './meterWidthClass';
 
 export interface EventRosterEntry {
   id: string;
@@ -11,32 +13,6 @@ export interface EventRosterEntry {
   statusLabel: string;
   statusClassName: string;
   filled: boolean;
-}
-
-/**
- * Rounds `value / max` to the nearest quarter and maps it to one of a fixed
- * set of Tailwind width classes. The classes must appear as complete literal
- * strings here (not built by interpolation) so Tailwind's scanner can see
- * them — an interpolated class would silently ship an unstyled meter.
- */
-export function meterWidthClass(value: number, max: number): string {
-  if (max <= 0) {
-    return 'w-0';
-  }
-  const ratio = Math.min(1, Math.max(0, value / max));
-  const quarter = Math.round(ratio * 4);
-  switch (quarter) {
-    case 0:
-      return 'w-0';
-    case 1:
-      return 'w-1/4';
-    case 2:
-      return 'w-1/2';
-    case 3:
-      return 'w-3/4';
-    default:
-      return 'w-full';
-  }
 }
 
 function initialsOf(firstName: string, lastName: string): string {
@@ -89,6 +65,8 @@ export function EventRosterBreakdown({
   meterClassName,
   isOpen,
   onToggle,
+  isError = false,
+  onRetry,
 }: {
   entries: EventRosterEntry[];
   openLabel: string;
@@ -99,6 +77,8 @@ export function EventRosterBreakdown({
   meterClassName?: string;
   isOpen: boolean;
   onToggle: () => void;
+  isError?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className="flex flex-col items-start gap-2.5">
@@ -130,8 +110,13 @@ export function EventRosterBreakdown({
           <span className="tabular text-xs font-semibold text-muted">{summary}</span>
         </div>
       )}
-      {isOpen && entries.length > 0 && (
-        <div className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-cream shadow-sm">
+      {isOpen && isError && (
+        <div className="w-full max-w-md">
+          <QueryError onRetry={onRetry} />
+        </div>
+      )}
+      {isOpen && !isError && entries.length > 0 && (
+        <div className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-surface-2 shadow-sm">
           {entries.map((entry) => (
             <RosterRow key={entry.id} entry={entry} />
           ))}

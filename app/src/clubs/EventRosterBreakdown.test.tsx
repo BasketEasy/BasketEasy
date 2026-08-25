@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { EventRosterBreakdown, meterWidthClass } from './EventRosterBreakdown';
+import userEvent from '@testing-library/user-event';
+import { EventRosterBreakdown } from './EventRosterBreakdown';
+import { meterWidthClass } from './meterWidthClass';
 
 describe('EventRosterBreakdown', () => {
   it('shows a filled dot and a text label for every roster entry', () => {
@@ -16,7 +18,7 @@ describe('EventRosterBreakdown', () => {
             id: '1',
             firstName: 'Léa',
             lastName: 'Moreau',
-            role: 'PLAYER',
+            role: 'Joueur',
             statusLabel: 'Présente',
             statusClassName: 'text-success',
             filled: true,
@@ -28,17 +30,22 @@ describe('EventRosterBreakdown', () => {
     expect(screen.getByText('Léa Moreau')).toBeInTheDocument();
   });
 
-  it('shows the closed label and toggles on click', () => {
+  it('shows the closed label and toggles on click', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
     render(
       <EventRosterBreakdown
         isOpen={false}
-        onToggle={() => {}}
+        onToggle={onToggle}
         openLabel="Masquer les réponses"
         closedLabel="Voir les réponses"
         entries={[]}
       />,
     );
-    expect(screen.getByRole('button', { name: /voir les réponses/i })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: /voir les réponses/i });
+    expect(button).toBeInTheDocument();
+    await user.click(button);
+    expect(onToggle).toHaveBeenCalledOnce();
   });
 });
 

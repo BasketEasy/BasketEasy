@@ -50,6 +50,7 @@ module.exports = {
       },
       letterSpacing: {
         'wide-caps': '0.13em',
+        section: '0.11em',
       },
     },
   },

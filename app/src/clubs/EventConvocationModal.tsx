@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@basketeasy/ui/dialog';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { toast } from '@basketeasy/ui/toast-store';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventConvocations } from './useEventConvocations';
@@ -33,7 +34,7 @@ export function EventConvocationModal({
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const { data: roster } = useEventConvocations(clubId, teamId, eventId, open);
+  const { data: roster, isError, refetch } = useEventConvocations(clubId, teamId, eventId, open);
   const { mutate: setConvocations, isPending } = useEventConvocationsSet(clubId, teamId);
   // Seeds the checked set once per dialog open, not on every background
   // refetch of the roster query (e.g. window refocus) — otherwise an
@@ -86,7 +87,9 @@ export function EventConvocationModal({
           <DialogTitle>Gérer la convocation</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-4">
-          {!roster ? (
+          {isError ? (
+            <QueryError onRetry={() => refetch()} />
+          ) : !roster ? (
             <Loader>Chargement…</Loader>
           ) : (
             <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">

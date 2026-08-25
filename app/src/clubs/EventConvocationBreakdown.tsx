@@ -20,13 +20,15 @@ export function EventConvocationBreakdown({
   defaultOpen?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { data: roster } = useEventConvocations(clubId, teamId, eventId, isOpen);
+  const { data: roster, isError, refetch } = useEventConvocations(clubId, teamId, eventId, isOpen);
   const convokedCount = roster?.filter((r) => r.convoked).length ?? 0;
 
   return (
     <EventRosterBreakdown
       isOpen={isOpen}
       onToggle={() => setIsOpen((open) => !open)}
+      isError={isError}
+      onRetry={() => refetch()}
       openLabel="Masquer la convocation"
       closedLabel="Voir la convocation"
       summary={roster ? `${convokedCount}/${roster.length} convoqués` : undefined}

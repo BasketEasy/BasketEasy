@@ -29,13 +29,15 @@ export function EventRsvpBreakdown({
   defaultOpen?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { data: roster } = useEventRsvps(clubId, teamId, eventId, isOpen);
+  const { data: roster, isError, refetch } = useEventRsvps(clubId, teamId, eventId, isOpen);
   const confirmedCount = roster?.filter((r) => r.status === 'GOING').length ?? 0;
 
   return (
     <EventRosterBreakdown
       isOpen={isOpen}
       onToggle={() => setIsOpen((open) => !open)}
+      isError={isError}
+      onRetry={() => refetch()}
       openLabel="Masquer les réponses"
       closedLabel="Voir les réponses"
       summary={roster ? `${confirmedCount}/${roster.length} confirmés` : undefined}

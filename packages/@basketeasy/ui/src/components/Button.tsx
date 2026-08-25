@@ -40,7 +40,17 @@ export interface ButtonProps
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, loading = false, asChild = false, disabled, children, ...props },
+    {
+      className,
+      variant,
+      size,
+      loading = false,
+      asChild = false,
+      disabled,
+      children,
+      type = 'button',
+      ...props
+    },
     ref,
   ) => {
     // asChild renders a <Link> (or any single child) with button styling, so
@@ -50,6 +60,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // even when it collapses to `false`, still counts as a second child and
     // makes Slot throw at runtime.
     if (asChild) {
+      if (process.env.NODE_ENV !== 'production' && (loading || disabled)) {
+        console.warn(
+          'Button: `loading` and `disabled` have no effect with `asChild`; render a disabled button instead of a link.',
+        );
+      }
       return (
         <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
           {children}
@@ -60,11 +75,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        type={props.type ?? 'button'}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         className={cn(buttonVariants({ variant, size }), className)}
         {...props}
+        type={type}
       >
         {loading && <Spinner className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />}
         {children}

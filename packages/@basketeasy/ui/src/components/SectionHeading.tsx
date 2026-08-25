@@ -14,7 +14,7 @@ export function SectionHeading({
 }) {
   return (
     <div className={cn('flex items-center gap-3.5', className)}>
-      <Tag className="m-0 font-heading text-xl font-bold uppercase tracking-[0.11em] text-muted">
+      <Tag className="m-0 font-heading text-xl font-bold uppercase tracking-section text-muted">
         {children}
         {count !== undefined && ` (${count})`}
       </Tag>
