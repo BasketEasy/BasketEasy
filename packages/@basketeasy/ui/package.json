@@ -9,6 +9,10 @@
       "types": "./src/lib/cn.ts",
       "default": "./src/lib/cn.ts"
     },
+    "./focus-ring": {
+      "types": "./src/lib/focusRing.ts",
+      "default": "./src/lib/focusRing.ts"
+    },
     "./tailwind-preset": "./tailwind-preset.cjs",
     "./styles/globals.css": "./src/styles/globals.css",
     "./button": {

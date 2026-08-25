@@ -1,6 +1,7 @@
 import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const Tabs = TabsPrimitive.Root;
 
@@ -24,6 +25,7 @@ export const TabsTrigger = forwardRef<
     ref={ref}
     className={cn(
       'inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-sm px-3 py-2 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-cream data-[state=active]:text-orange-text data-[state=active]:shadow-sm md:py-1.5',
+      focusRing,
       className,
     )}
     {...props}

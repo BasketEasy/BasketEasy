@@ -6,6 +6,7 @@ import {
 } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -32,7 +33,10 @@ export const DialogContent = forwardRef<
       {children}
       <DialogPrimitive.Close
         aria-label="Fermer"
-        className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-xl text-charcoal/60 hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange"
+        className={cn(
+          'absolute right-2 top-2 flex h-11 w-11 items-center justify-center text-xl text-charcoal/60 hover:text-charcoal',
+          focusRing,
+        )}
       >
         ×
       </DialogPrimitive.Close>
