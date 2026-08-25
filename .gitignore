@@ -33,3 +33,7 @@ docker-compose.override.yml
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Agent scratch
+.superpowers/
+.design/
