@@ -39,6 +39,7 @@ function AgendaRow({ event }: { event: MyAgendaEvent }) {
   return (
     <Link
       to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
+      state={{ origin: { from: 'dashboard' } }}
       className="flex w-full flex-col gap-1 rounded-md border border-border p-3 text-left transition hover:border-orange"
     >
       <span className="font-semibold text-charcoal">{event.teamName}</span>
@@ -61,7 +62,12 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
           {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
         </p>
         <Button asChild variant="outline">
-          <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir l&apos;équipe</Link>
+          <Link
+            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+            state={{ origin: { from: 'dashboard' } }}
+          >
+            Voir l&apos;équipe
+          </Link>
         </Button>
       </CardContent>
     </Card>

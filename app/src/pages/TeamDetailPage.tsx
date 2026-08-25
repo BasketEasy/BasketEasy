@@ -25,6 +25,7 @@ import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
+import { useBackLink } from '../clubs/backLink';
 import { useTeamShow } from '../clubs/useTeamShow';
 import { useTeamUpdate } from '../clubs/useTeamUpdate';
 import { TeamDeleteModal } from '../clubs/TeamDeleteModal';
@@ -128,6 +129,7 @@ export function TeamDetailPage() {
           : 'roster';
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  const backLink = useBackLink();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -397,7 +399,7 @@ export function TeamDetailPage() {
   return (
     <PageContainer size="lg">
       <Button asChild variant="ghost" className="self-start">
-        <Link to="/my-teams">← Mes équipes</Link>
+        <Link to={backLink.to}>{backLink.label}</Link>
       </Button>
 
       {isEditing ? (

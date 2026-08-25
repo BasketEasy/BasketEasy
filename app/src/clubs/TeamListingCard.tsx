@@ -15,7 +15,12 @@ export function TeamListingCard({ clubId, team }: { clubId: string; team: Team }
         <Badge variant="outline">{teamGenderLabel(team.gender)}</Badge>
       </div>
       <Button asChild variant="outline" className="self-start">
-        <Link to={`/clubs/${clubId}/teams/${team.id}`}>Gérer</Link>
+        <Link
+          to={`/clubs/${clubId}/teams/${team.id}`}
+          state={{ origin: { from: 'members', clubId } }}
+        >
+          Gérer
+        </Link>
       </Button>
     </Card>
   );

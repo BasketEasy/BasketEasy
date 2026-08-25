@@ -51,7 +51,12 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       </TableCell>
       <TableCell>
         <Button asChild variant="outline">
-          <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir</Link>
+          <Link
+            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+            state={{ origin: { from: 'my-teams' } }}
+          >
+            Voir
+          </Link>
         </Button>
       </TableCell>
     </TableRow>
@@ -73,7 +78,12 @@ function MyTeamCard({ team }: { team: MyTeamSummary }) {
         )}
       </div>
       <Button asChild variant="outline" className="self-start">
-        <Link to={`/clubs/${team.clubId}/teams/${team.teamId}`}>Voir</Link>
+        <Link
+          to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+          state={{ origin: { from: 'my-teams' } }}
+        >
+          Voir
+        </Link>
       </Button>
     </Card>
   );

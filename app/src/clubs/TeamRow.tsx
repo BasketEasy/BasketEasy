@@ -12,7 +12,12 @@ export function TeamRow({ clubId, team }: { clubId: string; team: Team }) {
       <TableCell>{teamGenderLabel(team.gender)}</TableCell>
       <TableCell>
         <Button asChild variant="outline">
-          <Link to={`/clubs/${clubId}/teams/${team.id}`}>Gérer</Link>
+          <Link
+            to={`/clubs/${clubId}/teams/${team.id}`}
+            state={{ origin: { from: 'members', clubId } }}
+          >
+            Gérer
+          </Link>
         </Button>
       </TableCell>
     </TableRow>
