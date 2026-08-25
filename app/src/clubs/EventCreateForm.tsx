@@ -171,7 +171,7 @@ export function EventCreateForm({
         />
       )}
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Créer l'événement
       </Button>
     </form>

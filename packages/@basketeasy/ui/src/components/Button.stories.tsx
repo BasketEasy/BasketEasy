@@ -17,3 +17,15 @@ export const Disabled: Story = { args: { children: 'Indisponible', disabled: tru
 export const Icon: Story = {
   args: { children: '☰', size: 'icon', variant: 'ghost', 'aria-label': 'Menu' },
 };
+export const Loading: Story = { args: { children: 'Enregistrement…', loading: true } };
+export const AllVariants: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-3 bg-ground p-6">
+      <Button variant="default">Valider</Button>
+      <Button variant="secondary">Annuler</Button>
+      <Button variant="outline">Voir plus</Button>
+      <Button variant="ghost">Fermer</Button>
+      <Button variant="destructive">Supprimer</Button>
+    </div>
+  ),
+};

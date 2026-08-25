@@ -96,7 +96,7 @@ export function DashboardPage() {
           </Heading>
           {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
         </div>
-        <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
+        <Button variant="outline" loading={isLoggingOut} onClick={() => logout()}>
           Se déconnecter
         </Button>
       </div>

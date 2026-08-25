@@ -238,7 +238,7 @@ export function EventEditModal({
             <Textarea id={`event-${event.id}-edit-notes`} {...register('notes')} />
           </div>
 
-          <Button type="submit" disabled={isSubmitting || isUpdating || isUpdatingTime}>
+          <Button type="submit" loading={isSubmitting || isUpdating || isUpdatingTime}>
             Enregistrer
           </Button>
         </form>

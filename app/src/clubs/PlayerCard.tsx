@@ -154,7 +154,7 @@ export function PlayerCard({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={isSubmitting || isUpdating}>
+            <Button type="submit" loading={isSubmitting || isUpdating}>
               Enregistrer
             </Button>
             <Button type="button" variant="ghost" onClick={cancelEditing}>
@@ -180,7 +180,7 @@ export function PlayerCard({
           </Button>
           <Button
             variant="outline"
-            disabled={isDeleting}
+            loading={isDeleting}
             onClick={() =>
               deletePlayer(player.id, {
                 onError: (err) => setDeleteError(getClubErrorMessage(err)),

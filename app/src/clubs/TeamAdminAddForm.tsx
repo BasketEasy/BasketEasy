@@ -95,7 +95,7 @@ export function TeamAdminAddForm({
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending || candidates.length === 0}>
+      <Button type="submit" disabled={candidates.length === 0} loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

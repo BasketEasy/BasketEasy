@@ -100,7 +100,7 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Créer l'équipe
       </Button>
     </form>

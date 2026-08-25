@@ -29,7 +29,7 @@ export function TeamAdminRow({
         {canManage && (
           <Button
             variant="outline"
-            disabled={isPending}
+            loading={isPending}
             onClick={() =>
               removeTeamAdmin(admin.userId, {
                 onError: (err) => {

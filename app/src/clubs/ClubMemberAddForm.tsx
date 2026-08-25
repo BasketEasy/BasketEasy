@@ -68,7 +68,7 @@ export function ClubMemberAddForm({
         {...register('email')}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

@@ -379,7 +379,7 @@ export function TeamDetailPage() {
 
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={isUpdating}
+              loading={isUpdating}
               onClick={() =>
                 updateTeam(
                   { name, category, gender },
@@ -413,7 +413,7 @@ export function TeamDetailPage() {
                 Modifier
               </Button>
               {isAdmin && isOwner && (
-                <Button variant="outline" disabled={isDeleting} onClick={handleDelete}>
+                <Button variant="outline" loading={isDeleting} onClick={handleDelete}>
                   Supprimer
                 </Button>
               )}

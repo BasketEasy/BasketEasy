@@ -53,7 +53,7 @@ export function TeamPlayerRow({
         {canManage && (
           <Button
             variant="outline"
-            disabled={isRemoving}
+            loading={isRemoving}
             onClick={() =>
               removeTeamPlayer(teamPlayer.playerId, {
                 onError: (err) => setError(getClubErrorMessage(err)),

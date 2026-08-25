@@ -101,7 +101,11 @@ export function TeamPlayerAddForm({
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending || addablePlayers.length === 0}>
+      <Button
+        type="submit"
+        disabled={addablePlayers.length === 0}
+        loading={isSubmitting || isPending}
+      >
         Ajouter à l'effectif
       </Button>
     </form>

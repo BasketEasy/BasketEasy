@@ -67,7 +67,7 @@ export function RegisterForm({ onSwitchToLogin }: { onSwitchToLogin: () => void 
             {...registerField('password')}
           />
 
-          <Button type="submit" disabled={isSubmitting || isPending}>
+          <Button type="submit" loading={isSubmitting || isPending}>
             Créer un compte
           </Button>
 

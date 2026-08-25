@@ -73,7 +73,7 @@ export function TeamClubAddForm({
         {...register('clubId')}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Associer
       </Button>
     </form>

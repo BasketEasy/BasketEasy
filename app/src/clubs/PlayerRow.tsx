@@ -85,7 +85,7 @@ export function PlayerRow({
           {error && <FieldError>{error}</FieldError>}
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={isUpdating}
+              loading={isUpdating}
               onClick={() =>
                 updatePlayer(
                   {
@@ -124,7 +124,7 @@ export function PlayerRow({
             </Button>
             <Button
               variant="outline"
-              disabled={isDeleting}
+              loading={isDeleting}
               onClick={() =>
                 deletePlayer(player.id, { onError: (err) => setError(getClubErrorMessage(err)) })
               }

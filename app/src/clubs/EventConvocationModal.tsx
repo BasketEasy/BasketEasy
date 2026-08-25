@@ -117,7 +117,7 @@ export function EventConvocationModal({
               })}
             </div>
           )}
-          <Button onClick={handleSubmit} disabled={isPending || !roster}>
+          <Button onClick={handleSubmit} disabled={!roster} loading={isPending}>
             Enregistrer
           </Button>
         </div>

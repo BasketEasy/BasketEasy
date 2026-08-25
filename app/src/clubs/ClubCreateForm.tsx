@@ -67,7 +67,7 @@ export function ClubCreateForm() {
             {...register('name')}
           />
 
-          <Button type="submit" disabled={isSubmitting || isPending}>
+          <Button type="submit" loading={isSubmitting || isPending}>
             Créer le club
           </Button>
         </form>

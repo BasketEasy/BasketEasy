@@ -69,7 +69,7 @@ export function EventDeleteModal({
             </Button>
             <Button
               variant="outline"
-              disabled={isPending}
+              loading={isPending}
               onClick={() =>
                 deleteEvent(
                   { eventId: event.id, scope },

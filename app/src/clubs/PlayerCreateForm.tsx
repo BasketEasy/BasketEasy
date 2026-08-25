@@ -133,7 +133,7 @@ export function PlayerCreateForm({
         />
       </div>
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

@@ -67,7 +67,7 @@ export function LoginForm({ onSwitchToRegister }: { onSwitchToRegister: () => vo
             {...register('password')}
           />
 
-          <Button type="submit" disabled={isSubmitting || isPending}>
+          <Button type="submit" loading={isSubmitting || isPending}>
             Se connecter
           </Button>
 

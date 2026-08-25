@@ -37,7 +37,7 @@ export function TeamClubRow({
         {canManage && !link.isOwner && (
           <Button
             variant="outline"
-            disabled={isPending}
+            loading={isPending}
             onClick={() =>
               removeTeamClub(link.clubId, { onError: (err) => setError(getClubErrorMessage(err)) })
             }
