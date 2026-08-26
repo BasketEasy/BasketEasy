@@ -14,6 +14,7 @@ describe('ClubsController', () => {
     listMembers: jest.Mock;
     removeMember: jest.Mock;
     createPlayer: jest.Mock;
+    importPlayers: jest.Mock;
     listPlayers: jest.Mock;
     updatePlayer: jest.Mock;
     deletePlayer: jest.Mock;
@@ -30,6 +31,7 @@ describe('ClubsController', () => {
       listMembers: jest.fn(),
       removeMember: jest.fn(),
       createPlayer: jest.fn(),
+      importPlayers: jest.fn(),
       listPlayers: jest.fn(),
       updatePlayer: jest.fn(),
       deletePlayer: jest.fn(),
@@ -148,6 +150,16 @@ describe('ClubsController', () => {
 
     expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto);
     expect(result.id).toBe('p1');
+  });
+
+  it('importPlayers delegates clubId and the row list', async () => {
+    service.importPlayers.mockResolvedValue({ created: 2, updated: 1, conflicts: 0 });
+
+    const rows = [{ firstName: 'A', lastName: 'B' }];
+    const result = await controller.importPlayers('club-1', { rows });
+
+    expect(service.importPlayers).toHaveBeenCalledWith('club-1', rows);
+    expect(result).toEqual({ created: 2, updated: 1, conflicts: 0 });
   });
 
   it('updatePlayer delegates clubId, playerId, and the DTO', async () => {

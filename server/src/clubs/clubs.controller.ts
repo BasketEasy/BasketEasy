@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
-import type { Player } from '@basketeasy/types/players';
+import type { ImportPlayersResult, Player } from '@basketeasy/types/players';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
@@ -23,6 +23,7 @@ import { ClubsService } from './clubs.service';
 import { CreateClubDto } from './dto/create-club.dto';
 import { AddClubMemberDto } from './dto/add-club-member.dto';
 import { CreatePlayerDto } from './dto/create-player.dto';
+import { ImportPlayersDto } from './dto/import-players.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
@@ -95,6 +96,16 @@ export class ClubsController {
   @ClubRoles('ADMIN')
   createPlayer(@Param('clubId') clubId: string, @Body() dto: CreatePlayerDto): Promise<Player> {
     return this.clubsService.createPlayer(clubId, dto);
+  }
+
+  @Post(':clubId/players/import')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  importPlayers(
+    @Param('clubId') clubId: string,
+    @Body() dto: ImportPlayersDto,
+  ): Promise<ImportPlayersResult> {
+    return this.clubsService.importPlayers(clubId, dto.rows);
   }
 
   @Get(':clubId/players')
