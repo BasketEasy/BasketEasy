@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TeamCategory, TeamGender, TeamMemberRole } from '@prisma/client';
+import { Prisma, TeamCategory, Gender, TeamMemberRole } from '@prisma/client';
 import type {
   Team,
   TeamClubLink,
@@ -46,7 +46,7 @@ export class TeamsService {
 
   async createTeam(
     clubId: string,
-    data: { name: string; category: TeamCategory; gender: TeamGender; ffbbTeamUrl?: string },
+    data: { name: string; category: TeamCategory; gender: Gender; ffbbTeamUrl?: string },
   ): Promise<Team> {
     const link = data.ffbbTeamUrl ? await this.validateFfbbLink(data.ffbbTeamUrl) : null;
 
@@ -194,7 +194,7 @@ export class TeamsService {
   async updateTeam(
     clubId: string,
     teamId: string,
-    data: { name?: string; category?: TeamCategory; gender?: TeamGender },
+    data: { name?: string; category?: TeamCategory; gender?: Gender },
   ): Promise<Team> {
     await this.assertTeamInClub(clubId, teamId);
     const team = await this.prisma.team.update({ where: { id: teamId }, data });
@@ -577,7 +577,7 @@ export class TeamsService {
     id: string;
     name: string;
     category: TeamCategory;
-    gender: TeamGender;
+    gender: Gender;
     createdAt: Date;
   }): Team {
     return {
@@ -642,7 +642,7 @@ export class TeamsService {
       id: string;
       name: string;
       category: TeamCategory;
-      gender: TeamGender;
+      gender: Gender;
       clubTeams: { club: { id: string; name: string } }[];
     },
     memberClubIds: Set<string>,
