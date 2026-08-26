@@ -362,7 +362,8 @@ plain optional text inputs, each inline within its existing create/edit
 form (per `CLAUDE.md`'s inline-vs-modal rule: a single optional field is
 not a focused enough action to warrant a `Dialog`):
 
-**Club creation form** (`CreateClubForm`, app side) gains one optional,
+**Club creation form** (`ClubCreateForm`, app side — the codebase's actual
+component name; this doc previously said `CreateClubForm`) gains one optional,
 skippable text field, "Code club FFBB", under a collapsed "Lier ce club à
 la FFBB" section. No live validation — the field accepts whatever the admin
 types and stores it as-is (see Scope: there's no lookup to check it
@@ -396,6 +397,260 @@ one. Removing a link doesn't touch previously-imported `Event` rows (same
 "unlink is non-destructive to history" rule the single-link version already
 had) — only the "Importer" action stops pulling from that engagement going
 forward.
+
+## UI/UX implementation design
+
+Concrete screen-by-screen detail for the section above — component choices,
+copy, states, and file mapping, worked out against the app's actual Parquet
+tokens (`packages/@basketeasy/ui/tailwind-preset.cjs`) and existing patterns
+(`TeamDetailPage.tsx`, `MembersPage.tsx`, `TeamPlayerRow.tsx`) rather than
+described abstractly, so an implementer isn't guessing at placement or
+copy. A rendered mockup of every state below was produced and reviewed as
+an artifact during this design pass; this section is its content, folded
+into the spec so it travels with the rest of the plan.
+
+### Club — FFBB link
+
+No "club settings" page exists in the codebase yet — `MembersPage` is the
+only club-scoped page with a header. **Decision:** the FFBB link block
+lives in `MembersPage`'s header, directly under the club name, the same
+placement logic the spec already uses for team links in `TeamDetailPage`'s
+"team info area" — no new page gets created for one optional field.
+
+- **`ClubCreateForm`**: the "Lier ce club à la FFBB" section is a collapsed
+  disclosure (closed by default — most clubs create their fiche before
+  they know their FFBB code, so a field most people leave blank shouldn't
+  lengthen the primary form). Expanded, it shows one `FormField`, label
+  "Code club FFBB", placeholder `pdl0044190`, helper text under the input:
+  *"Le code affiché dans l'URL du club sur competitions.ffbb.com. Non
+  vérifié automatiquement — facultatif."* That helper text is load-bearing,
+  not decoration: every other field in this app validates as you go, so
+  without an explicit "non vérifié" the admin will assume a typo would be
+  caught and won't double-check it themselves.
+- **`MembersPage` header, once a code is set**: a small inline row — an
+  outline "FFBB" `Badge`, the stored code in monospace, and a "Modifier le
+  lien" `Button variant="outline"`. No invented display label (see Data
+  model: there's no source for one). "Modifier" re-opens the same inline
+  field; removing the code is a plain `DELETE` behind a `Button`, no
+  `Dialog` — same non-destructive-inline precedent as `TeamPlayerRow`'s
+  "Retirer" (removing a roster entry also gets no confirm step), and
+  correct here too since unlinking never cascades. On success: `toast({
+  variant: 'success', title: 'Lien FFBB retiré' })`.
+- New hook: `useClubFfbbLink(clubId)` (get/set/unset), mirroring
+  `useTeamPlayerRoleUpdate`'s shape.
+
+### Team creation — FFBB link field
+
+`TeamCreateForm` gains one `FormField`, label "Lien FFBB de l'équipe
+(facultatif)", placeholder the **full real URL shape** from the spec
+(`https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/200000005346381`)
+so an admin comparing it against what they copied can tell at a glance
+they have the right shape, not just an id. Helper text: *"Collez l'URL
+complète de la page de l'équipe sur competitions.ffbb.com — un identifiant
+seul ne suffit pas."*
+
+Unlike the club code, this field's submit does a **live server-side
+fetch** (`FfbbProvider.getMatchesForEngagement`) before the team is
+created, which can take a couple of seconds — that needs its own signal,
+not just the form's generic submit spinner:
+
+- **Pending**: the submit `Button` goes `loading` (existing `Button`
+  behavior — spinner + `aria-busy`, already used this way in
+  `TeamPlayerRow`), and the helper text under the field swaps to *"⏳
+  Vérification du lien auprès de la FFBB…"* — the field itself is
+  disabled meanwhile so the two states can't drift out of sync.
+- **Error — bad shape** (`parseEngagementRef` returns `null`, no network
+  call needed): `FieldError` — *"Ce lien ne correspond pas au format
+  attendu. Copiez l'URL complète depuis la page de l'équipe sur
+  competitions.ffbb.com (elle contient « /ligues/…/comites/…/clubs/…/equipes/… »)
+  — un identifiant seul ne suffit pas."* Names the single most likely
+  mistake for this exact product (pasting the bare id) because the
+  research section above confirmed that's exactly the wrong assumption
+  loop 0 shipped with.
+- **Error — unreachable** (valid shape, `FfbbPageFormatError`/`404` from
+  the live fetch): a **different** `FieldError` — *"Impossible de
+  vérifier ce lien auprès de la FFBB pour le moment. Vérifiez l'URL ou
+  réessayez plus tard."* Kept distinct from the shape error on purpose:
+  the backend already distinguishes "bad URL" from "couldn't reach FFBB"
+  in its error message (see Backend section), and collapsing both into one
+  generic "Erreur" on the frontend would throw that distinction away.
+
+### Team detail page — "Compétitions FFBB liées"
+
+Lives where the spec puts it: in `TeamDetailPage`'s info area, between the
+category/gender subtitle and the `<Tabs>` block — not a fifth tab. Header
+is a `SectionHeading` ("Compétitions FFBB liées (n)"), matching the
+court-line-rule treatment used everywhere else in the app.
+
+- **Empty state** (no links yet): no full-width `EmptyState` card — this is
+  a sub-section of a header, not a tab, so a single muted line is enough:
+  *"Aucune compétition FFBB liée pour l'instant."* If the team has zero
+  links **and** the viewer can't manage the team, the whole section is
+  omitted rather than shown empty — there's nothing to see and nothing to
+  do.
+- **Populated state**: each `TeamFfbbLink` renders as a pill/`chip` (not a
+  table row — labels are short, e.g. "Seniors M D3", and 1–3 links don't
+  need columns), `bg-surface-2`/`border-border`, with a small round "×"
+  remove button at the end (only when `canManageTeam`). Below the chip
+  row, one more inline `Input` + `Button` ("Ajouter") pair, the same
+  add-row component reused from creation — build it once
+  (`TeamFfbbLinkAddRow` or similar) and share it between `TeamCreateForm`
+  and this section rather than duplicating the validation/error-copy
+  logic.
+- **Remove**: a plain inline button, no `Dialog` — removing a link never
+  touches previously-imported `Event` rows (per Scope), so it's exactly
+  the "reversible, low-risk" case `CLAUDE.md`'s inline-vs-modal rule
+  carves out.
+- **Import button** ("Importer le calendrier FFBB", `Button
+  variant="secondary"` — blue-green, a meaningful-but-not-primary action,
+  distinct from the primary-orange creation CTAs elsewhere on the page)
+  sits next to the `SectionHeading`, visible once `ffbbLinks.length > 0`.
+  Placed here rather than in the Événements tab toolbar because it's
+  closest to what feeds it (the links); its *effect* is invalidated data
+  in the Événements tab, which the `toast()` outcome — not local UI state
+  — is what closes that loop for the user (consistent with `CLAUDE.md`'s
+  "outcome of a completed mutation" rule for `toast()`).
+
+**Flagged inconsistency, needs a decision before implementation:** the
+"Club & team linking UX" section above says a link with no cached label
+falls back to showing "the raw URL." But the shared type this loop
+finalized (`packages/@basketeasy/types/ffbb.ts`) only exposes
+`TeamFfbbLink { id: string; ffbbEngagementLabel: string | null }` — no URL
+or ref reaches the frontend at all (deliberately, per that section: "an
+internal lookup key for the backend, not something the frontend ever
+needs to read or display"). Those two statements conflict. Two ways to
+resolve it, neither built yet:
+
+1. **Neutral text fallback** — render `"Compétition liée"` (no id, no
+   URL) when `ffbbEngagementLabel` is `null`. Needs no schema/type change,
+   so it's the default assumed by the mockups in this section.
+2. **Widen the shared type** to carry a displayable fragment (not
+   necessarily the full internal `ffbbEngagementRef`) for this one case.
+
+Pick (1) unless someone confirms `ffbbEngagementLabel: null` will be
+common enough in practice to justify widening the contract for it.
+
+### Import outcomes (`toast()`)
+
+Three shapes, driven directly off `FfbbImportResult` — don't collapse them
+into one generic message:
+
+| Result | Toast |
+| --- | --- |
+| `created`/`updated` > 0 | variant `success`, title **"Calendrier importé"**, description **"{created} créés, {updated} mis à jour, {unchanged} inchangés."** |
+| all zero (nothing changed) | variant `success`, title **"Calendrier à jour"**, description **"Aucun changement — tous les matchs étaient déjà importés."** (phrased positively — echoing "0 créés, 0 mis à jour" would read as a failure) |
+| one linked engagement's fetch fails | variant `destructive`, title **"Échec de l'import"**, description **"Impossible de récupérer les matchs pour « {competition label} ». {Rien / the other competition} n'a pas été touché — réessayez plus tard."** — must say explicitly that nothing was touched, since `FfbbImportService` aborts the *whole* import on one link's failure (see Backend) rather than partially importing; without that line the admin can't tell partial-abort from partial-success. |
+
+### Calendar display — imported & time-TBD treatment
+
+Two independent signals to add to both renderings (`EventRow`'s table and
+the agenda card in `TeamEventsAgenda`), neither ever color-only:
+
+- **Provenance** (`isImported: boolean`): a `Badge variant="outline"`
+  reading **"Importé"**, next to the event type. `outline` specifically —
+  not `default` (orange) or `secondary` (blue-green) — because
+  `CLAUDE.md`'s colour-weight rule reserves those two for action-accent
+  and structure; a provenance tag is neither, so it takes the neutral
+  variant, same as `TeamPlayerRow`'s read-only role `Badge`.
+- **Time-TBD** (`timeConfirmed: false`, i.e. FFBB's `00:00:00` placeholder):
+  a second `Badge variant="outline"` reading **"Heure à confirmer"**, plus
+  a distinct treatment on the agenda card's time-block (the app's signature
+  element — solid `bg-blue-green` for a `MATCH`). The block keeps its solid
+  blue-green fill (it's still a confirmed match on a confirmed date) but
+  replaces the `HH:MM` numeral with the words **"à confirmer"** plus a
+  small clock glyph — never render "00:00" as if it were a real kickoff
+  time, which is precisely the bug this design exists to prevent (see
+  research section). In the table view, the badge sits directly under the
+  date cell (date only, no time) rather than widening the row.
+- A manually-created `TRAINING` event carries neither badge, ever
+  (`externalId: null`, always `isImported: false`).
+
+### Copy reference (FR)
+
+All strings introduced above, collected once so implementation doesn't
+drift into near-duplicate phrasing across components:
+
+| Context | Text |
+| --- | --- |
+| Club disclosure trigger | Lier ce club à la FFBB |
+| Club field label | Code club FFBB |
+| Club field helper | Le code affiché dans l'URL du club sur competitions.ffbb.com. Non vérifié automatiquement — facultatif. |
+| Club link edit/remove buttons | Modifier le lien / Supprimer le lien |
+| Club unlink toast | Lien FFBB retiré |
+| Team field label (creation) | Lien FFBB de l'équipe (facultatif) |
+| Team field helper | Collez l'URL complète de la page de l'équipe sur competitions.ffbb.com — un identifiant seul ne suffit pas. |
+| Team field helper, pending | Vérification du lien auprès de la FFBB… |
+| Team field error — bad shape | Ce lien ne correspond pas au format attendu. Copiez l'URL complète depuis la page de l'équipe sur competitions.ffbb.com — un identifiant seul ne suffit pas. |
+| Team field error — unreachable | Impossible de vérifier ce lien auprès de la FFBB pour le moment. Vérifiez l'URL ou réessayez plus tard. |
+| Team detail section heading | Compétitions FFBB liées (n) |
+| Team detail empty state | Aucune compétition FFBB liée pour l'instant. |
+| Add-link button | Ajouter |
+| Remove-chip aria-label | Retirer le lien vers « {label} » |
+| Missing-label fallback | Compétition liée |
+| Import button | Importer le calendrier FFBB |
+| Import toast — success | Calendrier importé — {created} créés, {updated} mis à jour, {unchanged} inchangés. |
+| Import toast — no-op | Calendrier à jour — Aucun changement, tous les matchs étaient déjà importés. |
+| Import toast — failure | Échec de l'import — Impossible de récupérer les matchs pour « {competition} ». … n'a pas été touché — réessayez plus tard. |
+| Provenance badge | Importé |
+| Time-TBD badge | Heure à confirmer |
+| Time-block TBD label | à confirmer |
+| Missing venue | Lieu non communiqué |
+
+### States matrix
+
+| Field / action | States | Component |
+| --- | --- | --- |
+| Club FFBB code | empty → filled. Never an error state. | `FormField` inside a disclosure |
+| Team FFBB link (create) | empty → verifying (`Button loading`) → success (submit proceeds) / bad-shape error / unreachable error | `FormField` + `Button loading` |
+| Add link (team detail) | same as above, in an isolated inline row | `Input` + `FieldError` + `Button` |
+| Remove link (club or team) | idle → pending (`Button loading`) → success toast / error toast | inline `Button`, no `Dialog` |
+| Import | hidden (0 links) → idle → pending (`loading`, re-click disabled) → success / no-op / failure toast | `Button variant="secondary"` + `toast()` |
+| Imported event | `isImported: true` → badge; `timeConfirmed: false` → second badge + adapted time-block | two `Badge variant="outline"` |
+
+### Accessibility
+
+- The club-link disclosure exposes `aria-expanded` on its trigger and
+  `aria-controls` pointing at the panel; focus stays on the trigger after
+  toggling rather than jumping into the field.
+- Every chip's remove button gets `aria-label="Retirer le lien vers «
+  {label} »"` — never a bare "×", same precedent `ToastClose` already sets
+  (`aria-label="Fermer"`).
+- Field errors route through the existing `FormField`/`FieldError`
+  components, which already set `role="alert"` and `aria-describedby` —
+  no new accessibility wiring needed there.
+- The import button's `loading` state gets `aria-busy` for free from the
+  existing `Button` component.
+- "Importé" and "Heure à confirmer" are always visible text in a `Badge`,
+  never a color-only dot or border.
+- Every new interactive element (disclosure trigger, chip remove button)
+  composes `focusRing` from `@basketeasy/ui/focus-ring`, per `CLAUDE.md`.
+
+### Responsive
+
+- The chip list wraps (`flex-wrap`), never forces horizontal scroll.
+- The add-link row (`Input` + `Button`) stacks vertically under ~640px
+  instead of compressing side by side.
+- The import button drops to its own line under the section heading on
+  narrow viewports rather than crowding it — same behavior
+  `ViewModeToggle` already has next to "Créer un événement."
+  the "Heure à confirmer" badge wraps under the date cell in the table
+  view rather than widening the row.
+
+### Implementation file map
+
+File names verified against the actual codebase (not the slightly
+different names used in prose elsewhere in this spec):
+
+| Screen | File | Change |
+| --- | --- | --- |
+| Club creation | `app/src/clubs/ClubCreateForm.tsx` | + disclosure "Code club FFBB," unvalidated field |
+| Club fiche | `app/src/pages/MembersPage.tsx` | + FFBB link block in the header, new `useClubFfbbLink` |
+| Team creation | `app/src/clubs/TeamCreateForm.tsx` | + "Lien FFBB" field, `FieldError` on 400 |
+| Team detail | `app/src/pages/TeamDetailPage.tsx` | + "Compétitions FFBB liées" section + import button, in the header area before `<Tabs>` |
+| Link list + add row | `app/src/clubs/TeamFfbbLinkList.tsx` (new) | chips + add row, shared verbatim between creation and team detail |
+| Queries | `app/src/clubs/useTeamFfbbLinks.ts`, `useFfbbLinkAdd.ts`, `useFfbbLinkRemove.ts`, `useFfbbImport.ts`, `useClubFfbbLink.ts` (new) | mirror the shape of existing `useTeamClubList`/`useTeamPlayerRemove` hooks |
+| Event row | `app/src/clubs/EventRow.tsx` | + "Importé" / "Heure à confirmer" `Badge`s next to the type cell |
+| Agenda card | `app/src/clubs/TeamEventsAgenda.tsx` | + time-TBD variant of the time-block |
 
 ## Backend
 
@@ -513,9 +768,9 @@ display (the frontend only lists, adds, and removes links by `id`).
 ## Frontend
 
 - No picker components or search hooks this loop — cut along with the
-  pickers (see Scope). `CreateClubForm`/club settings gain one plain
+  pickers (see Scope). `ClubCreateForm`/club settings gain one plain
   optional text `Input` ("Code club FFBB") under a collapsed section.
-  `CreateTeamForm` gains one plain optional text `Input` ("Lien FFBB de
+  `TeamCreateForm` gains one plain optional text `Input` ("Lien FFBB de
   l'équipe") with help text stating a full URL is required, plus its own
   `FieldError` surfaced from the `400` a bad/unresolvable URL returns —
   inline validation feedback bound to that field, per `CLAUDE.md`'s
@@ -647,3 +902,15 @@ still-open ones plus confirmed two of the original three:
    should be surfaced in the UI (a small link under the list vs. a more
    visible affordance) — a product-polish question, not a data-model one,
    worth revisiting once real usage data exists.
+9. **New — missing-label fallback contradicts the shared type.** The Club
+   & team linking UX section's original prose says a `TeamFfbbLink` with no
+   cached label falls back to showing "the raw URL" in the UI. But the
+   finalized shared type (`packages/@basketeasy/types/ffbb.ts`) only
+   exposes `{ id, ffbbEngagementLabel }` — no URL ever reaches the
+   frontend, by design (see Shared types: "an internal lookup key for the
+   backend, not something the frontend ever needs to read or display").
+   Caught during the UI/UX implementation design pass (see that section's
+   "Team detail page" subsection); default resolution assumed there is a
+   neutral text fallback ("Compétition liée") requiring no type change —
+   confirm that's acceptable, or widen the shared type, before building
+   the team-detail links list.
