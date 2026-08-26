@@ -67,6 +67,7 @@ describe('DashboardPage', () => {
               teamName: 'U15 Filles',
               clubId: 'club-1',
               clubName: 'COC Basket',
+              type: 'MATCH',
               startsAt: '2026-08-12T18:00:00.000Z',
               location: 'Gymnase A',
               notes: null,
@@ -96,6 +97,7 @@ describe('DashboardPage', () => {
               teamName: 'U15 Filles',
               clubId: 'club-1',
               clubName: 'COC Basket',
+              type: 'MATCH',
               startsAt: '2026-08-12T18:00:00.000Z',
               location: 'Gymnase A',
               notes: null,
@@ -108,6 +110,7 @@ describe('DashboardPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Filles')).toBeInTheDocument());
     expect(screen.getByText(/Gymnase A/)).toBeInTheDocument();
+    expect(screen.getByText('Match')).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no events in the next 7 days', async () => {
@@ -153,6 +156,7 @@ describe('DashboardPage', () => {
               teamName: 'U15 Filles',
               clubId: 'club-1',
               clubName: 'COC Basket',
+              type: 'MATCH',
               startsAt: '2026-08-12T18:00:00.000Z',
               location: 'Gymnase A',
               notes: null,

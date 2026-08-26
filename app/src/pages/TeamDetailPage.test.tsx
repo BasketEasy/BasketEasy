@@ -555,11 +555,18 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Date' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /basculer en vue liste/i }));
+    const agendaOption = screen.getByRole('button', { name: 'Agenda' });
+    const listOption = screen.getByRole('button', { name: 'Liste' });
+    expect(agendaOption).toHaveAttribute('aria-pressed', 'true');
+    expect(listOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(listOption);
 
     // Table view: the existing sortable/searchable/paginated table.
     expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
     expect(screen.getByText('Gymnase A')).toBeInTheDocument();
+    expect(listOption).toHaveAttribute('aria-pressed', 'true');
+    expect(agendaOption).toHaveAttribute('aria-pressed', 'false');
     const searchInput = screen.getByLabelText('Rechercher un événement');
     expect(searchInput).toHaveValue('');
 
@@ -567,7 +574,7 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(requestedSearches).toContain('gym'), { timeout: 2000 });
 
     // Toggling back to agenda resets the search that was active in table view.
-    await user.click(screen.getByRole('button', { name: /basculer en vue agenda/i }));
+    await user.click(agendaOption);
     expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
     await waitFor(() => expect(requestedSearches[requestedSearches.length - 1]).toBe(''));
     expect(screen.getByText('Gymnase A')).toBeInTheDocument();
@@ -595,11 +602,18 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByLabelText("Rechercher un joueur de l'effectif")).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Prénom' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /basculer en vue tableau/i }));
+    const cardsOption = screen.getByRole('button', { name: 'Cartes' });
+    const tableOption = screen.getByRole('button', { name: 'Tableau' });
+    expect(cardsOption).toHaveAttribute('aria-pressed', 'true');
+    expect(tableOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(tableOption);
 
     // Table view: the existing sortable/searchable table is revealed.
     expect(screen.getByRole('columnheader', { name: 'Prénom' })).toBeInTheDocument();
     expect(screen.getByText('Alex')).toBeInTheDocument();
+    expect(tableOption).toHaveAttribute('aria-pressed', 'true');
+    expect(cardsOption).toHaveAttribute('aria-pressed', 'false');
     const searchInput = screen.getByLabelText("Rechercher un joueur de l'effectif");
     expect(searchInput).toHaveValue('');
 
@@ -607,7 +621,7 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
 
     // Toggling back to cards resets the search that was active in table view.
-    await user.click(screen.getByRole('button', { name: /basculer en vue cartes/i }));
+    await user.click(cardsOption);
     expect(screen.queryByLabelText("Rechercher un joueur de l'effectif")).not.toBeInTheDocument();
     await waitFor(() => expect(requestedSearches[requestedSearches.length - 1]).toBe(''));
     expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
@@ -668,7 +682,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /basculer en vue tableau/i }));
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
     await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'dup');
 
     await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
@@ -691,7 +705,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /basculer en vue tableau/i }));
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
     await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'zzz');
 
     expect(await screen.findByText('Aucun résultat')).toBeInTheDocument();
@@ -718,7 +732,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /basculer en vue tableau/i }));
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
 
     expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Suivant' }));

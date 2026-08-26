@@ -102,7 +102,7 @@ export function PlayerCard({
 
   if (isEditing) {
     return (
-      <Card className="p-3">
+      <Card className="bg-surface-2 p-3">
         <form
           noValidate
           onSubmit={(e) => {
@@ -169,7 +169,7 @@ export function PlayerCard({
   }
 
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
       <span className="font-medium text-charcoal">
         {player.firstName} {player.lastName}
       </span>

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { EventType } from '@basketeasy/types/events';
 import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -75,6 +76,7 @@ export class DashboardService {
     event: {
       id: string;
       teamId: string;
+      type: EventType;
       startsAt: Date;
       location: string;
       notes: string | null;
@@ -94,6 +96,7 @@ export class DashboardService {
       teamName: event.team.name,
       clubId: club.id,
       clubName: club.name,
+      type: event.type,
       startsAt: event.startsAt.toISOString(),
       location: event.location,
       notes: event.notes,

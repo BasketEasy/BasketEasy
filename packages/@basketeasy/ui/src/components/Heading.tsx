@@ -5,6 +5,7 @@ import { cn } from '../lib/cn';
 const headingVariants = cva('', {
   variants: {
     size: {
+      '6xl': 'text-6xl',
       '5xl': 'text-5xl',
       '4xl': 'text-4xl',
       '3xl': 'text-3xl',

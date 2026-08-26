@@ -21,7 +21,7 @@ export function TeamAdminCard({
   const { mutate: removeTeamAdmin, isPending } = useTeamAdminRemove(clubId, teamId);
 
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
       <span className="font-medium text-charcoal">{admin.email}</span>
       {canManage && (
         <Button

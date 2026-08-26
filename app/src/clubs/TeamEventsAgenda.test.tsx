@@ -56,7 +56,9 @@ describe('TeamEventsAgenda', () => {
   it('shows the type, time, location, and opponent for each event', () => {
     renderAgenda([trainingEvent, matchEventSameDay], false);
 
-    expect(screen.getByText('Entraînement')).toBeInTheDocument();
+    // Abbreviated in the agenda card's narrow time-block column — the full
+    // "Entraînement" is used everywhere else (table view, dropdowns).
+    expect(screen.getByText('Entraîn.')).toBeInTheDocument();
     expect(screen.getByText('18:00')).toBeInTheDocument();
     expect(screen.getAllByText('Gymnase A')[0]).toBeInTheDocument();
 

@@ -5,7 +5,7 @@ import { cn } from '@basketeasy/ui/cn';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
-import { eventTypeLabel } from './eventLabels';
+import { eventTypeShortLabel } from './eventLabels';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
@@ -41,8 +41,8 @@ function AgendaEventCard({
         <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
           {formatEventTime(event.startsAt)}
         </span>
-        <span className="font-heading text-xs font-bold uppercase tracking-wide-caps opacity-80">
-          {eventTypeLabel(event.type)}
+        <span className="min-w-0 max-w-full truncate font-heading text-xs font-bold uppercase tracking-wide-caps opacity-80">
+          {eventTypeShortLabel(event.type)}
         </span>
       </div>
       <div className="flex min-w-0 flex-grow flex-col gap-3.5 p-4">

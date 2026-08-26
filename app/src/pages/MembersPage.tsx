@@ -216,7 +216,7 @@ function MemberCard({
   onRemove: (userId: string) => void;
 }) {
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
       <span className="font-medium text-charcoal">{member.email}</span>
       <span className="text-sm text-muted">
         {member.role === 'ADMIN' ? 'Administrateur' : 'Membre'} · Fiche joueur liée :{' '}

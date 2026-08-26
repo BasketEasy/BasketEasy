@@ -1,3 +1,5 @@
+import type { EventType } from './events';
+
 /** An upcoming event across every team the caller manages or is rostered on. */
 export interface MyAgendaEvent {
   eventId: string;
@@ -5,6 +7,7 @@ export interface MyAgendaEvent {
   teamName: string;
   clubId: string;
   clubName: string;
+  type: EventType;
   startsAt: string;
   location: string;
   notes: string | null;

@@ -20,6 +20,7 @@ import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { formatEventDate } from '../clubs/eventDateFormat';
+import { eventTypeLabel } from '../clubs/eventLabels';
 
 function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
@@ -40,9 +41,14 @@ function AgendaRow({ event }: { event: MyAgendaEvent }) {
     <Link
       to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
       state={{ origin: { from: 'dashboard' } }}
-      className="flex w-full flex-col gap-1 rounded-md border border-border p-3 text-left transition hover:border-orange"
+      className="flex w-full flex-col gap-1 rounded-md border border-border bg-surface-2 p-3 text-left transition hover:border-orange"
     >
-      <span className="font-semibold text-charcoal">{event.teamName}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-charcoal">{event.teamName}</span>
+        <Badge variant={event.type === 'MATCH' ? 'default' : 'secondary'}>
+          {eventTypeLabel(event.type)}
+        </Badge>
+      </div>
       <span className="text-sm text-muted">
         {formatEventDate(event.startsAt)} · {event.location}
       </span>
