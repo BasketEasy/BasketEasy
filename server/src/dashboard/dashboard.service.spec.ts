@@ -10,6 +10,8 @@ describe('DashboardService', () => {
     teamPlayer: { findMany: jest.Mock };
     player: { count: jest.Mock };
     event: { findMany: jest.Mock };
+    eventRsvp: { findMany: jest.Mock };
+    eventConvocation: { findMany: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -19,6 +21,8 @@ describe('DashboardService', () => {
       teamPlayer: { findMany: jest.fn() },
       player: { count: jest.fn() },
       event: { findMany: jest.fn() },
+      eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
+      eventConvocation: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -64,7 +68,10 @@ describe('DashboardService', () => {
     mockEmptyMemberships();
     prisma.clubMembership.findMany.mockResolvedValue([{ clubId: 'club-1' }]);
     prisma.teamAdmin.findMany.mockResolvedValue([{ teamId: 'team-1' }]);
-    prisma.teamPlayer.findMany.mockResolvedValue([{ teamId: 'team-1' }, { teamId: 'team-2' }]);
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      { id: 'tp-1', teamId: 'team-1' },
+      { id: 'tp-2', teamId: 'team-2' },
+    ]);
     prisma.event.findMany.mockResolvedValue([
       {
         id: 'event-1',
@@ -73,6 +80,7 @@ describe('DashboardService', () => {
         startsAt: new Date('2026-08-12T18:00:00.000Z'),
         location: 'Gymnase A',
         notes: null,
+        opponentName: 'Les Aigles',
         team: {
           name: 'U15 Filles',
           clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
@@ -98,7 +106,49 @@ describe('DashboardService', () => {
         startsAt: '2026-08-12T18:00:00.000Z',
         location: 'Gymnase A',
         notes: null,
+        opponentName: 'Les Aigles',
+        myRsvpStatus: null,
+        myConvocation: false,
       },
+    ]);
+  });
+
+  it("resolves the caller's own RSVP status and convocation flag from their TeamPlayer rows", async () => {
+    mockEmptyMemberships();
+    prisma.teamPlayer.findMany.mockResolvedValue([{ id: 'tp-1', teamId: 'team-1' }]);
+    prisma.event.findMany.mockResolvedValue([
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-08-12T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        team: { name: 'U15 Filles', clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }] },
+      },
+      {
+        id: 'event-2',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-08-13T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: 'Les Aigles',
+        team: { name: 'U15 Filles', clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }] },
+      },
+    ]);
+    prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+    prisma.eventConvocation.findMany.mockResolvedValue([{ eventId: 'event-2' }]);
+
+    const result = await service.getDashboard('user-1');
+
+    expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
+      where: { teamPlayerId: { in: ['tp-1'] }, eventId: { in: ['event-1', 'event-2'] } },
+    });
+    expect(result.upcomingEvents).toEqual([
+      expect.objectContaining({ eventId: 'event-1', myRsvpStatus: 'GOING', myConvocation: false }),
+      expect.objectContaining({ eventId: 'event-2', myRsvpStatus: null, myConvocation: true }),
     ]);
   });
 

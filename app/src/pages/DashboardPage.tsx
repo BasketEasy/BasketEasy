@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
+import { cn } from '@basketeasy/ui/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
@@ -18,9 +19,10 @@ import { useAccount } from '../auth/useAccount';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useMyAgenda } from '../clubs/useMyAgenda';
-import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
+import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { formatEventDate } from '../clubs/eventDateFormat';
 import { eventTypeLabel } from '../clubs/eventLabels';
+import { eventRsvpStatusLabel } from '../clubs/eventRsvpLabels';
 
 function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
@@ -36,7 +38,7 @@ function StatTile({ icon, label, value }: { icon: ReactNode; label: string; valu
   );
 }
 
-function AgendaRow({ event }: { event: MyAgendaEvent }) {
+function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: boolean }) {
   return (
     <Link
       to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
@@ -48,10 +50,22 @@ function AgendaRow({ event }: { event: MyAgendaEvent }) {
         <Badge variant={event.type === 'MATCH' ? 'default' : 'secondary'}>
           {eventTypeLabel(event.type)}
         </Badge>
+        {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
       </div>
       <span className="text-sm text-muted">
         {formatEventDate(event.startsAt)} · {event.location}
+        {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
       </span>
+      {isRostered && (
+        <span
+          className={cn(
+            'text-sm font-semibold',
+            event.myRsvpStatus ? 'text-muted' : 'text-orange-text',
+          )}
+        >
+          Ma réponse : {eventRsvpStatusLabel(event.myRsvpStatus)}
+        </span>
+      )}
     </Link>
   );
 }
@@ -62,7 +76,12 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
       <CardContent className="flex flex-col gap-2 pt-6">
         <div className="flex items-center justify-between gap-2">
           <span className="font-heading text-lg font-bold text-charcoal">{team.teamName}</span>
-          {team.isTeamAdmin && <Badge>Administrateur</Badge>}
+          <div className="flex flex-wrap items-center gap-2">
+            {team.rosterRole && (
+              <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
+            )}
+            {team.isTeamAdmin && <Badge>Administrateur</Badge>}
+          </div>
         </div>
         <p className="text-sm text-muted">
           {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
@@ -101,6 +120,18 @@ export function DashboardPage() {
   const managedTeamCount = teams?.filter((team) => team.isTeamAdmin).length ?? 0;
   const upcomingEvents = dashboard?.upcomingEvents ?? [];
   const greetingName = user?.firstName ?? user?.email;
+  // A plain rostered player (no club-admin rights, no TeamAdmin grant
+  // anywhere) sees a leaner, agenda-first set of tiles instead of the
+  // manager-oriented ones, which would only ever read 0 for them.
+  const hasManageRights = managedTeamCount > 0 || adminClubs.length > 0;
+  const rosterRoleByTeamId = useMemo(
+    () => new Map((teams ?? []).map((team) => [team.teamId, team.rosterRole])),
+    [teams],
+  );
+  const isRostered = (teamId: string) => rosterRoleByTeamId.get(teamId) != null;
+  const awaitingResponseCount = upcomingEvents.filter(
+    (event) => isRostered(event.teamId) && event.myRsvpStatus === null,
+  ).length;
 
   return (
     <PageContainer size="lg">
@@ -114,26 +145,43 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile
-          icon={<TrophyIcon className="h-4 w-4" />}
-          label="Équipes gérées"
-          value={managedTeamCount}
-        />
-        <StatTile
-          icon={<CalendarIcon className="h-4 w-4" />}
-          label="Événements — 7 prochains jours"
-          value={upcomingEvents.length}
-        />
-        <StatTile
-          icon={<UsersIcon className="h-4 w-4" />}
-          label="Joueurs au total"
-          value={dashboard?.totalPlayers ?? 0}
-        />
-        <StatTile
-          icon={<BuildingIcon className="h-4 w-4" />}
-          label="Clubs administrés"
-          value={adminClubs.length}
-        />
+        {hasManageRights ? (
+          <>
+            <StatTile
+              icon={<TrophyIcon className="h-4 w-4" />}
+              label="Équipes gérées"
+              value={managedTeamCount}
+            />
+            <StatTile
+              icon={<CalendarIcon className="h-4 w-4" />}
+              label="Événements — 7 prochains jours"
+              value={upcomingEvents.length}
+            />
+            <StatTile
+              icon={<UsersIcon className="h-4 w-4" />}
+              label="Joueurs au total"
+              value={dashboard?.totalPlayers ?? 0}
+            />
+            <StatTile
+              icon={<BuildingIcon className="h-4 w-4" />}
+              label="Clubs administrés"
+              value={adminClubs.length}
+            />
+          </>
+        ) : (
+          <>
+            <StatTile
+              icon={<CalendarIcon className="h-4 w-4" />}
+              label="Événements — 7 prochains jours"
+              value={upcomingEvents.length}
+            />
+            <StatTile
+              icon={<CalendarIcon className="h-4 w-4" />}
+              label="En attente de réponse"
+              value={awaitingResponseCount}
+            />
+          </>
+        )}
       </div>
 
       <Card>
@@ -149,7 +197,9 @@ export function DashboardPage() {
           ) : isDashboardLoading ? (
             <SkeletonList rows={3} />
           ) : upcomingEvents.length > 0 ? (
-            upcomingEvents.map((event) => <AgendaRow key={event.eventId} event={event} />)
+            upcomingEvents.map((event) => (
+              <AgendaRow key={event.eventId} event={event} isRostered={isRostered(event.teamId)} />
+            ))
           ) : (
             <EmptyState
               icon={<CalendarIcon className="h-8 w-8 text-muted" />}

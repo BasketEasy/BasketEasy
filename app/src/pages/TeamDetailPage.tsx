@@ -172,16 +172,23 @@ export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab: TeamDetailTab =
-    tabParam === 'clubs'
-      ? 'clubs'
-      : tabParam === 'admins'
-        ? 'admins'
-        : tabParam === 'events'
-          ? 'events'
-          : 'roster';
   const isAdmin = useIsClubAdmin(clubId);
   const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  const requestedTab: TeamDetailTab =
+    tabParam === 'roster'
+      ? 'roster'
+      : tabParam === 'clubs'
+        ? 'clubs'
+        : tabParam === 'admins'
+          ? 'admins'
+          : 'events';
+  // Clubs partenaires/Administrateurs are management-only tabs, hidden from
+  // a rostered player with no manage rights — fall back to Événements (the
+  // default for everyone) rather than rendering a tab that isn't in the list.
+  const activeTab: TeamDetailTab =
+    !canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')
+      ? 'events'
+      : requestedTab;
   const backLink = useBackLink();
   const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
@@ -496,18 +503,22 @@ export function TeamDetailPage() {
               {allTeamPlayers.length}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="clubs" className="gap-2">
-            Clubs partenaires
-            <Badge variant="outline" aria-hidden="true">
-              {teamClubsResult?.total ?? 0}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="admins" className="gap-2">
-            Administrateurs
-            <Badge variant="outline" aria-hidden="true">
-              {teamAdmins?.length ?? 0}
-            </Badge>
-          </TabsTrigger>
+          {canManageTeam && (
+            <TabsTrigger value="clubs" className="gap-2">
+              Clubs partenaires
+              <Badge variant="outline" aria-hidden="true">
+                {teamClubsResult?.total ?? 0}
+              </Badge>
+            </TabsTrigger>
+          )}
+          {canManageTeam && (
+            <TabsTrigger value="admins" className="gap-2">
+              Administrateurs
+              <Badge variant="outline" aria-hidden="true">
+                {teamAdmins?.length ?? 0}
+              </Badge>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="events" className="gap-2">
             Événements
             <Badge variant="outline" aria-hidden="true">
@@ -638,86 +649,100 @@ export function TeamDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="clubs" className="mt-4 flex flex-col gap-4">
-          {isAdmin && isOwner && (
-            <Dialog open={isAddClubOpen} onOpenChange={setIsAddClubOpen}>
-              <DialogTrigger asChild>
-                <Button className="self-start">Associer un club</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Associer un club partenaire</DialogTitle>
-                  <DialogDescription>
-                    Ajoutez un club partenaire à cette équipe CTC pour partager son effectif et son
-                    encadrement.
-                  </DialogDescription>
-                </DialogHeader>
-                <TeamClubAddForm
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  onSuccess={() => setIsAddClubOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-          )}
+        {canManageTeam && (
+          <TabsContent value="clubs" className="mt-4 flex flex-col gap-4">
+            {isAdmin && isOwner && (
+              <Dialog open={isAddClubOpen} onOpenChange={setIsAddClubOpen}>
+                <DialogTrigger asChild>
+                  <Button className="self-start">Associer un club</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Associer un club partenaire</DialogTitle>
+                    <DialogDescription>
+                      Ajoutez un club partenaire à cette équipe CTC pour partager son effectif et
+                      son encadrement.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <TeamClubAddForm
+                    clubId={clubId!}
+                    teamId={teamId!}
+                    onSuccess={() => setIsAddClubOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
 
-          <div className="flex flex-wrap items-end gap-3">
-            <Input
-              aria-label="Rechercher un club partenaire"
-              placeholder="Rechercher un club…"
-              value={teamClubsSearch}
-              onChange={(e) => {
-                setTeamClubsSearch(e.target.value);
-                setTeamClubsPage(1);
-              }}
-              className="max-w-xs"
-            />
-            <SelectField
-              label="Trier par"
-              containerClassName="w-56"
-              value={teamClubsSort}
-              onValueChange={(value) => {
-                setTeamClubsSort(value);
-                setTeamClubsPage(1);
-              }}
-              options={TEAM_CLUB_SORT_OPTIONS}
-            />
-          </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <Input
+                aria-label="Rechercher un club partenaire"
+                placeholder="Rechercher un club…"
+                value={teamClubsSearch}
+                onChange={(e) => {
+                  setTeamClubsSearch(e.target.value);
+                  setTeamClubsPage(1);
+                }}
+                className="max-w-xs"
+              />
+              <SelectField
+                label="Trier par"
+                containerClassName="w-56"
+                value={teamClubsSort}
+                onValueChange={(value) => {
+                  setTeamClubsSort(value);
+                  setTeamClubsPage(1);
+                }}
+                options={TEAM_CLUB_SORT_OPTIONS}
+              />
+            </div>
 
-          <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
-              {isClubsError ? (
-                <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
-              ) : isLoadingClubs ? (
-                <SkeletonList rows={3} />
-              ) : (teamClubsResult?.total ?? 0) === 0 ? (
-                <EmptyState
-                  icon={<BuildingIcon className="h-8 w-8 text-muted" />}
-                  title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
-                  description={
-                    isTeamClubsFiltered
-                      ? 'Aucun club partenaire ne correspond à votre recherche.'
-                      : 'Associez un club partenaire pour gérer une équipe CTC à effectif partagé.'
-                  }
-                  action={
-                    isAdmin && isOwner && !isTeamClubsFiltered ? (
-                      <Button onClick={() => setIsAddClubOpen(true)}>Associer un club</Button>
-                    ) : undefined
-                  }
-                />
-              ) : (
-                <>
-                  {isDesktop ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Club</TableHead>
-                          <TableHead />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+            <Card>
+              <CardContent className="pt-6 flex flex-col gap-4">
+                {isClubsError ? (
+                  <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
+                ) : isLoadingClubs ? (
+                  <SkeletonList rows={3} />
+                ) : (teamClubsResult?.total ?? 0) === 0 ? (
+                  <EmptyState
+                    icon={<BuildingIcon className="h-8 w-8 text-muted" />}
+                    title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
+                    description={
+                      isTeamClubsFiltered
+                        ? 'Aucun club partenaire ne correspond à votre recherche.'
+                        : 'Associez un club partenaire pour gérer une équipe CTC à effectif partagé.'
+                    }
+                    action={
+                      isAdmin && isOwner && !isTeamClubsFiltered ? (
+                        <Button onClick={() => setIsAddClubOpen(true)}>Associer un club</Button>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  <>
+                    {isDesktop ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Club</TableHead>
+                            <TableHead />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {teamClubs?.map((link) => (
+                            <TeamClubRow
+                              key={link.clubId}
+                              clubId={clubId!}
+                              teamId={teamId!}
+                              link={link}
+                              canManage={isAdmin && isOwner}
+                            />
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <div className="flex flex-col gap-3">
                         {teamClubs?.map((link) => (
-                          <TeamClubRow
+                          <TeamClubCard
                             key={link.clubId}
                             clubId={clubId!}
                             teamId={teamId!}
@@ -725,40 +750,28 @@ export function TeamDetailPage() {
                             canManage={isAdmin && isOwner}
                           />
                         ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {teamClubs?.map((link) => (
-                        <TeamClubCard
-                          key={link.clubId}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          link={link}
-                          canManage={isAdmin && isOwner}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <Pagination
-                    page={teamClubsResult?.page ?? 1}
-                    pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
-                    total={teamClubsResult?.total ?? 0}
-                    onPageChange={setTeamClubsPage}
-                    pageSizeOptions={PAGE_SIZE_OPTIONS}
-                    onPageSizeChange={(size) => {
-                      setTeamClubsPageSize(size);
-                      setTeamClubsPage(1);
-                    }}
-                  />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                      </div>
+                    )}
+                    <Pagination
+                      page={teamClubsResult?.page ?? 1}
+                      pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
+                      total={teamClubsResult?.total ?? 0}
+                      onPageChange={setTeamClubsPage}
+                      pageSizeOptions={PAGE_SIZE_OPTIONS}
+                      onPageSizeChange={(size) => {
+                        setTeamClubsPageSize(size);
+                        setTeamClubsPage(1);
+                      }}
+                    />
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="admins" className="mt-4 flex flex-col gap-4">
-          {canManageTeam && (
+        {canManageTeam && (
+          <TabsContent value="admins" className="mt-4 flex flex-col gap-4">
             <Dialog open={isAddAdminOpen} onOpenChange={setIsAddAdminOpen}>
               <DialogTrigger asChild>
                 <Button className="self-start">Ajouter un administrateur</Button>
@@ -779,38 +792,48 @@ export function TeamDetailPage() {
                 />
               </DialogContent>
             </Dialog>
-          )}
 
-          <Card>
-            <CardContent className="pt-6">
-              {isAdminsError ? (
-                <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
-              ) : isLoadingAdmins ? (
-                <SkeletonList rows={3} />
-              ) : (teamAdmins?.length ?? 0) === 0 ? (
-                <EmptyState
-                  icon={<ShieldIcon className="h-8 w-8 text-muted" />}
-                  title="Aucun administrateur d'équipe"
-                  description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
-                  action={
-                    canManageTeam ? (
+            <Card>
+              <CardContent className="pt-6">
+                {isAdminsError ? (
+                  <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
+                ) : isLoadingAdmins ? (
+                  <SkeletonList rows={3} />
+                ) : (teamAdmins?.length ?? 0) === 0 ? (
+                  <EmptyState
+                    icon={<ShieldIcon className="h-8 w-8 text-muted" />}
+                    title="Aucun administrateur d'équipe"
+                    description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
+                    action={
                       <Button onClick={() => setIsAddAdminOpen(true)}>
                         Ajouter un administrateur
                       </Button>
-                    ) : undefined
-                  }
-                />
-              ) : isDesktop ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>E-mail</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                    }
+                  />
+                ) : isDesktop ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>E-mail</TableHead>
+                        <TableHead />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teamAdmins?.map((admin) => (
+                        <TeamAdminRow
+                          key={admin.userId}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          admin={admin}
+                          canManage={canManageTeam}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex flex-col gap-3">
                     {teamAdmins?.map((admin) => (
-                      <TeamAdminRow
+                      <TeamAdminCard
                         key={admin.userId}
                         clubId={clubId!}
                         teamId={teamId!}
@@ -818,24 +841,12 @@ export function TeamDetailPage() {
                         canManage={canManageTeam}
                       />
                     ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {teamAdmins?.map((admin) => (
-                    <TeamAdminCard
-                      key={admin.userId}
-                      clubId={clubId!}
-                      teamId={teamId!}
-                      admin={admin}
-                      canManage={canManageTeam}
-                    />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="events" className="mt-4 flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">

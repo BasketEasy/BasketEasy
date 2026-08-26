@@ -1,4 +1,4 @@
-import type { EventType } from './events';
+import type { EventRsvpStatus, EventType } from './events';
 
 /** An upcoming event across every team the caller manages or is rostered on. */
 export interface MyAgendaEvent {
@@ -11,6 +11,12 @@ export interface MyAgendaEvent {
   startsAt: string;
   location: string;
   notes: string | null;
+  /** Opponent's name for a MATCH event; null for TRAINING. */
+  opponentName: string | null;
+  /** The caller's own RSVP status for this event; null if unset or not rostered on the team. */
+  myRsvpStatus: EventRsvpStatus | null;
+  /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
+  myConvocation: boolean;
 }
 
 export interface MyDashboardSummary {
