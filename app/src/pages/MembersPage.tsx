@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -551,25 +551,30 @@ export function MembersPage() {
 
         <TabsContent value="players" className="mt-4 flex flex-col gap-4">
           {isAdmin && (
-            <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
-              <DialogTrigger asChild>
-                <Button className="self-start">Ajouter un joueur</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Ajouter un joueur</DialogTitle>
-                  <DialogDescription>
-                    Créez une fiche joueur pour le club, avec un lien optionnel vers un compte
-                    membre existant.
-                  </DialogDescription>
-                </DialogHeader>
-                <PlayerCreateForm
-                  clubId={clubId!}
-                  linkableMembers={allMembers.filter((m) => !linkedUserIds.has(m.userId))}
-                  onSuccess={() => setIsAddPlayerOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
+            <div className="flex flex-wrap gap-2">
+              <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+                <DialogTrigger asChild>
+                  <Button className="self-start">Ajouter un joueur</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Ajouter un joueur</DialogTitle>
+                    <DialogDescription>
+                      Créez une fiche joueur pour le club, avec un lien optionnel vers un compte
+                      membre existant.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <PlayerCreateForm
+                    clubId={clubId!}
+                    linkableMembers={allMembers.filter((m) => !linkedUserIds.has(m.userId))}
+                    onSuccess={() => setIsAddPlayerOpen(false)}
+                  />
+                </DialogContent>
+              </Dialog>
+              <Button asChild variant="outline">
+                <Link to={`/clubs/${clubId}/import-players`}>Importer les licenciés</Link>
+              </Button>
+            </div>
           )}
 
           <div className="flex flex-wrap items-end gap-3">
