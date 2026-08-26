@@ -129,7 +129,7 @@ joueur" action on the club roster page, visible only to club `ADMIN`s
 2. **Map columns** — a form pairing each target field to a detected
    source column, pre-guessed by matching the research doc's known
    French labels (`Nom`, `Prénom`, `N° national`, `N° licence`, `Date
-   de naissance`, `Sexe`, `Type lic.`) against the uploaded header
+de naissance`, `Sexe`, `Type lic.`) against the uploaded header
    row, always overridable via a select per field. Only `firstName`
    and `lastName` are required mappings; every other field can be
    left unmapped. A live preview of the first few raw rows sits next
@@ -153,7 +153,7 @@ joueur" action on the club roster page, visible only to club `ADMIN`s
      **different** club (a transfer — this import never reassigns a
      player's club). Shown with the other club's name, excluded from
      commit.
-   - **Update**: `nationalId` matches an existing `Player` at *this*
+   - **Update**: `nationalId` matches an existing `Player` at _this_
      club, OR (when `nationalId` is unmapped/blank on the row)
      `firstName + lastName + birthDate` matches an existing player
      at this club exactly. Every mapped field on the row overwrites
