@@ -3,7 +3,11 @@ import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Loader } from '@basketeasy/ui/loader';
 import { cn } from '@basketeasy/ui/cn';
-import { parseSpreadsheet, SpreadsheetParseError, type ParsedSpreadsheet } from './parseSpreadsheet';
+import {
+  parseSpreadsheet,
+  SpreadsheetParseError,
+  type ParsedSpreadsheet,
+} from './parseSpreadsheet';
 
 const ACCEPTED_EXTENSIONS = ['.csv', '.xls', '.xlsx'];
 
@@ -49,8 +53,8 @@ export function PlayerImportUploadStep({
         Importer le fichier
       </h2>
       <p className="text-sm text-muted">
-        Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx
-        listant vos licenciés.
+        Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx listant
+        vos licenciés.
       </p>
 
       {error && (

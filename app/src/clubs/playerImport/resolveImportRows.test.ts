@@ -47,12 +47,7 @@ describe('resolveImportRows', () => {
   });
 
   it('skips a row missing firstName or lastName', () => {
-    const [{ action }] = resolveImportRows(
-      [['', 'Dupont', '', '', 'C1']],
-      MAPPING,
-      [],
-      CLUB_ID,
-    );
+    const [{ action }] = resolveImportRows([['', 'Dupont', '', '', 'C1']], MAPPING, [], CLUB_ID);
     expect(action).toEqual({ type: 'skip', reason: 'missing-name' });
   });
 

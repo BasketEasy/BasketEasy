@@ -16,7 +16,11 @@ export interface ResolvedImportRow {
   action: ImportRowAction;
 }
 
-function cell(raw: string[], mapping: Partial<Record<ImportTargetField, number>>, field: ImportTargetField): string {
+function cell(
+  raw: string[],
+  mapping: Partial<Record<ImportTargetField, number>>,
+  field: ImportTargetField,
+): string {
   const index = mapping[field];
   if (index === undefined) return '';
   return (raw[index] ?? '').trim();

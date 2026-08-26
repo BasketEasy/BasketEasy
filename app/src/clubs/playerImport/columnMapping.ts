@@ -7,7 +7,11 @@ export type ImportTargetField =
   | 'gender'
   | 'licenseType';
 
-export const IMPORT_TARGET_FIELDS: { field: ImportTargetField; label: string; required: boolean }[] = [
+export const IMPORT_TARGET_FIELDS: {
+  field: ImportTargetField;
+  label: string;
+  required: boolean;
+}[] = [
   { field: 'firstName', label: 'Prénom', required: true },
   { field: 'lastName', label: 'Nom', required: true },
   { field: 'nationalId', label: 'N° national', required: false },
@@ -31,11 +35,7 @@ const KNOWN_LABELS: Record<ImportTargetField, string[]> = {
 };
 
 function normalize(header: string): string {
-  return header
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim();
+  return header.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
 export function guessColumnMapping(headers: string[]): Partial<Record<ImportTargetField, number>> {

@@ -3,7 +3,15 @@ import { guessColumnMapping } from './columnMapping';
 
 describe('guessColumnMapping', () => {
   it('matches known FBI French labels case-insensitively', () => {
-    const headers = ['N° national', 'N° licence', 'Nom', 'Prénom', 'Sexe', 'Date de naissance', 'Type lic.'];
+    const headers = [
+      'N° national',
+      'N° licence',
+      'Nom',
+      'Prénom',
+      'Sexe',
+      'Date de naissance',
+      'Type lic.',
+    ];
     const mapping = guessColumnMapping(headers);
 
     expect(mapping).toEqual({

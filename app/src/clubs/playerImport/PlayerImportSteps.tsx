@@ -33,7 +33,9 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
               >
                 {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
               </span>
-              <span className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}>
+              <span
+                className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}
+              >
                 {label}
                 {isCurrent && <span className="sr-only"> (étape actuelle)</span>}
               </span>

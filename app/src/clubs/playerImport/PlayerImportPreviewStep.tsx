@@ -4,7 +4,14 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@basketeasy/ui/table';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { useIsDesktopViewport } from '../../hooks/useIsDesktopViewport';
@@ -127,8 +134,8 @@ export function PlayerImportPreviewStep({
       {committable === 0 && (
         <Alert variant="destructive">
           <AlertDescription>
-            Aucune ligne ne sera importée avec le mappage actuel. Revenez à l&apos;étape
-            précédente pour l&apos;ajuster, ou vérifiez les conflits ci-dessous.
+            Aucune ligne ne sera importée avec le mappage actuel. Revenez à l&apos;étape précédente
+            pour l&apos;ajuster, ou vérifiez les conflits ci-dessous.
           </AlertDescription>
         </Alert>
       )}
@@ -175,11 +182,16 @@ export function PlayerImportPreviewStep({
                 <TableCell>{row.firstName || '—'}</TableCell>
                 <TableCell>{row.lastName || '—'}</TableCell>
                 <TableCell>
-                  <Badge variant={badgeVariant(action.type)} className={badgeClassName(action.type)}>
+                  <Badge
+                    variant={badgeVariant(action.type)}
+                    className={badgeClassName(action.type)}
+                  >
                     {ACTION_LABEL[action.type]}
                   </Badge>
                   {action.type === 'conflict' && (
-                    <span className="ml-2 text-xs text-muted">déjà licencié dans un autre club</span>
+                    <span className="ml-2 text-xs text-muted">
+                      déjà licencié dans un autre club
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
@@ -210,7 +222,12 @@ export function PlayerImportPreviewStep({
         <Button type="button" variant="outline" disabled={isSubmitting} onClick={onBack}>
           Retour
         </Button>
-        <Button type="button" disabled={committable === 0} loading={isSubmitting} onClick={onConfirm}>
+        <Button
+          type="button"
+          disabled={committable === 0}
+          loading={isSubmitting}
+          onClick={onConfirm}
+        >
           Importer {committable} joueur{committable !== 1 ? 's' : ''}
         </Button>
       </div>

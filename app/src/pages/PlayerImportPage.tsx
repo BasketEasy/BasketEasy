@@ -19,7 +19,11 @@ import { resolveImportRows } from '../clubs/playerImport/resolveImportRows';
 type Step =
   | { name: 'upload' }
   | { name: 'map'; parsed: ParsedSpreadsheet }
-  | { name: 'preview'; parsed: ParsedSpreadsheet; mapping: Partial<Record<ImportTargetField, number>> };
+  | {
+      name: 'preview';
+      parsed: ParsedSpreadsheet;
+      mapping: Partial<Record<ImportTargetField, number>>;
+    };
 
 const STEP_INDEX: Record<Step['name'], 0 | 1 | 2> = { upload: 0, map: 1, preview: 2 };
 

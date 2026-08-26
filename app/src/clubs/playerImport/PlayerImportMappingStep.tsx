@@ -1,8 +1,21 @@
 import { useState, type RefObject } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@basketeasy/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@basketeasy/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@basketeasy/ui/table';
 import type { ParsedSpreadsheet } from './parseSpreadsheet';
 import { IMPORT_TARGET_FIELDS, guessColumnMapping, type ImportTargetField } from './columnMapping';
 
@@ -33,7 +46,9 @@ export function PlayerImportMappingStep({
   onBack: () => void;
   onConfirm: (mapping: Partial<Record<ImportTargetField, number>>) => void;
 }) {
-  const [mapping, setMapping] = useState(() => initialMapping ?? guessColumnMapping(parsed.headers));
+  const [mapping, setMapping] = useState(
+    () => initialMapping ?? guessColumnMapping(parsed.headers),
+  );
 
   const columnOptions = parsed.headers.map((header, index) => ({
     value: String(index),
@@ -111,7 +126,9 @@ export function PlayerImportMappingStep({
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-sm text-muted">{sampleValues(parsed, columnIndex)}</TableCell>
+                  <TableCell className="text-sm text-muted">
+                    {sampleValues(parsed, columnIndex)}
+                  </TableCell>
                 </TableRow>
               );
             })}
