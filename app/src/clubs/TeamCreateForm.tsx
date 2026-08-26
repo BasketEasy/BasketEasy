@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import type { TeamCategory, Gender } from '@basketeasy/types/teams';
 import { useTeamCreate } from './useTeamCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
@@ -109,7 +109,7 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
             id="team-gender-select"
             options={TEAM_GENDER_OPTIONS}
             value={field.value}
-            onValueChange={(value) => field.onChange(value as TeamGender)}
+            onValueChange={(value) => field.onChange(value as Gender)}
             placeholder="Choisir un genre"
             error={errors.gender?.message}
           />

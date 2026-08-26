@@ -30,7 +30,7 @@ import {
 } from '@basketeasy/ui/dialog';
 import type { ClubMember, ClubMemberSortBy } from '@basketeasy/types/club-members';
 import type { PlayerSortBy } from '@basketeasy/types/players';
-import type { TeamCategory, TeamGender, TeamSortBy } from '@basketeasy/types/teams';
+import type { TeamCategory, Gender, TeamSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { useClubMemberList } from '../clubs/useClubMemberList';
 import { useClubMemberRemove } from '../clubs/useClubMemberRemove';
@@ -338,7 +338,7 @@ export function MembersPage() {
     {
       search: debouncedTeamsSearch || undefined,
       category: teamsCategory === ALL_CATEGORIES ? undefined : (teamsCategory as TeamCategory),
-      gender: teamsGender === ALL_GENDERS ? undefined : (teamsGender as TeamGender),
+      gender: teamsGender === ALL_GENDERS ? undefined : (teamsGender as Gender),
       sortBy: teamsSortOption.sortBy,
       sortOrder: teamsSortOption.sortOrder,
       page: teamsPage,

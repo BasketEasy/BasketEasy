@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@basketeasy/ui
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { Team, TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import type { Team, TeamCategory, Gender } from '@basketeasy/types/teams';
 import { useTeamUpdate } from './useTeamUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
@@ -33,7 +33,7 @@ export function TeamEditModal({
   const { mutate: updateTeam, isPending: isUpdating } = useTeamUpdate(clubId, teamId);
   const [name, setName] = useState(team.name);
   const [category, setCategory] = useState<TeamCategory>(team.category);
-  const [gender, setGender] = useState<TeamGender>(team.gender);
+  const [gender, setGender] = useState<Gender>(team.gender);
   const [editError, setEditError] = useState<string | null>(null);
 
   // Re-sync the form's fields every time the dialog opens, so stale values
@@ -80,7 +80,7 @@ export function TeamEditModal({
             id="team-edit-gender-select"
             options={TEAM_GENDER_OPTIONS}
             value={gender}
-            onValueChange={(value) => setGender(value as TeamGender)}
+            onValueChange={(value) => setGender(value as Gender)}
           />
 
           <Button

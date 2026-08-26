@@ -2,7 +2,7 @@ import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
-import type { TeamGender, TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
+import type { Gender, TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
 
@@ -12,7 +12,7 @@ import { teamMemberRoleLabel } from './teamLabels';
 // team, "Joueurs" otherwise (MEN or any future value). Roster grouping only
 // has two buckets today (TeamMemberRole: PLAYER/COACH) — don't hardcode
 // more structure into this component than that two-value enum needs.
-const GROUP_LABEL: Record<TeamMemberRole, (teamGender: TeamGender) => string> = {
+const GROUP_LABEL: Record<TeamMemberRole, (teamGender: Gender) => string> = {
   PLAYER: (teamGender) => (teamGender === 'WOMEN' ? 'Joueuses' : 'Joueurs'),
   COACH: () => 'Staff',
 };
@@ -23,7 +23,7 @@ function RosterGroup({
   players,
 }: {
   role: TeamMemberRole;
-  teamGender: TeamGender;
+  teamGender: Gender;
   players: TeamPlayer[];
 }) {
   if (players.length === 0) return null;
@@ -64,7 +64,7 @@ export function TeamRosterCards({
   teamGender,
 }: {
   players: TeamPlayer[];
-  teamGender: TeamGender;
+  teamGender: Gender;
 }) {
   const playerRows = players.filter((p) => p.role === 'PLAYER');
   const coachRows = players.filter((p) => p.role === 'COACH');

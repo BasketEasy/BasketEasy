@@ -14,6 +14,11 @@ const player = {
   firstName: 'Alex',
   lastName: 'Dupont',
   userId: null,
+  nationalId: null,
+  licenseNumber: null,
+  birthDate: null,
+  gender: null,
+  licenseType: null,
   createdAt: 'x',
 };
 
