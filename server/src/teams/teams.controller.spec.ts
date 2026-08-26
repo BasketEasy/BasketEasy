@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
+import { FfbbImportService } from '../ffbb/ffbb-import.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -24,7 +25,11 @@ describe('TeamsController', () => {
     listEligibleAdmins: jest.Mock;
     addTeamAdmin: jest.Mock;
     removeTeamAdmin: jest.Mock;
+    listFfbbLinks: jest.Mock;
+    addFfbbLink: jest.Mock;
+    removeFfbbLink: jest.Mock;
   };
+  let ffbbImportService: { importSchedule: jest.Mock };
 
   beforeEach(async () => {
     service = {
@@ -44,11 +49,18 @@ describe('TeamsController', () => {
       listEligibleAdmins: jest.fn(),
       addTeamAdmin: jest.fn(),
       removeTeamAdmin: jest.fn(),
+      listFfbbLinks: jest.fn(),
+      addFfbbLink: jest.fn(),
+      removeFfbbLink: jest.fn(),
     };
+    ffbbImportService = { importSchedule: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TeamsController],
-      providers: [{ provide: TeamsService, useValue: service }],
+      providers: [
+        { provide: TeamsService, useValue: service },
+        { provide: FfbbImportService, useValue: ffbbImportService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -233,5 +245,49 @@ describe('TeamsController', () => {
     await controller.removeTeamAdmin({ id: 'u1', email: 'a@b.com' }, 'club-1', 'team-1', 'u2');
 
     expect(service.removeTeamAdmin).toHaveBeenCalledWith('club-1', 'team-1', 'u2', 'u1');
+  });
+
+  it('listFfbbLinks delegates clubId and teamId', async () => {
+    service.listFfbbLinks.mockResolvedValue([
+      { id: 'link-1', ffbbEngagementLabel: 'Seniors M D3' },
+    ]);
+
+    const result = await controller.listFfbbLinks('club-1', 'team-1');
+
+    expect(service.listFfbbLinks).toHaveBeenCalledWith('club-1', 'team-1');
+    expect(result).toHaveLength(1);
+  });
+
+  it('addFfbbLink delegates clubId, teamId, and the pasted URL', async () => {
+    service.addFfbbLink.mockResolvedValue({ id: 'link-1', ffbbEngagementLabel: null });
+
+    const result = await controller.addFfbbLink('club-1', 'team-1', {
+      ffbbTeamUrl:
+        'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+    });
+
+    expect(service.addFfbbLink).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+    );
+    expect(result.id).toBe('link-1');
+  });
+
+  it('removeFfbbLink delegates clubId, teamId, and linkId', async () => {
+    service.removeFfbbLink.mockResolvedValue(undefined);
+
+    await controller.removeFfbbLink('club-1', 'team-1', 'link-1');
+
+    expect(service.removeFfbbLink).toHaveBeenCalledWith('club-1', 'team-1', 'link-1');
+  });
+
+  it('importFfbbSchedule delegates clubId and teamId to the import service', async () => {
+    ffbbImportService.importSchedule.mockResolvedValue({ created: 8, updated: 2, unchanged: 1 });
+
+    const result = await controller.importFfbbSchedule('club-1', 'team-1');
+
+    expect(ffbbImportService.importSchedule).toHaveBeenCalledWith('club-1', 'team-1');
+    expect(result.created).toBe(8);
   });
 });

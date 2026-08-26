@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('ClubsService', () => {
   let service: ClubsService;
   let prisma: {
-    club: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
+    club: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     clubMembership: {
       findUnique: jest.Mock;
       findMany: jest.Mock;
@@ -30,7 +30,7 @@ describe('ClubsService', () => {
 
   beforeEach(async () => {
     prisma = {
-      club: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
+      club: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       clubMembership: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -63,22 +63,124 @@ describe('ClubsService', () => {
       prisma.club.create.mockResolvedValue({
         id: 'club-1',
         name: 'COC Basket',
+        ffbbClubCode: null,
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.createClub('user-1', 'COC Basket');
+      const result = await service.createClub('user-1', { name: 'COC Basket' });
 
       expect(prisma.club.create).toHaveBeenCalledWith({
         data: {
           name: 'COC Basket',
+          ffbbClubCode: null,
           memberships: { create: { userId: 'user-1', role: 'ADMIN' } },
         },
       });
       expect(result).toEqual({
         id: 'club-1',
         name: 'COC Basket',
+        ffbbClubCode: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+
+    it('persists an optional FFBB club code unvalidated', async () => {
+      prisma.club.create.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC Basket',
+        ffbbClubCode: 'pdl0044190',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createClub('user-1', {
+        name: 'COC Basket',
+        ffbbClubCode: 'pdl0044190',
+      });
+
+      expect(prisma.club.create).toHaveBeenCalledWith({
+        data: {
+          name: 'COC Basket',
+          ffbbClubCode: 'pdl0044190',
+          memberships: { create: { userId: 'user-1', role: 'ADMIN' } },
+        },
+      });
+      expect(result.ffbbClubCode).toBe('pdl0044190');
+    });
+
+    it('rejects a duplicate FFBB club code with a conflict', async () => {
+      prisma.club.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(
+        service.createClub('user-1', { name: 'COC Basket', ffbbClubCode: 'pdl0044190' }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('setFfbbLink', () => {
+    it('updates the club with the given code', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC',
+        ffbbClubCode: 'pdl0044190',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.setFfbbLink('club-1', 'pdl0044190');
+
+      expect(prisma.club.update).toHaveBeenCalledWith({
+        where: { id: 'club-1' },
+        data: { ffbbClubCode: 'pdl0044190' },
+      });
+      expect(result.ffbbClubCode).toBe('pdl0044190');
+    });
+
+    it('404s when the club does not exist', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(service.setFfbbLink('missing', 'pdl0044190')).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a code already used by another club', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(service.setFfbbLink('club-1', 'pdl0044190')).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('removeFfbbLink', () => {
+    it('clears the club code', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC',
+        ffbbClubCode: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      await service.removeFfbbLink('club-1');
+
+      expect(prisma.club.update).toHaveBeenCalledWith({
+        where: { id: 'club-1' },
+        data: { ffbbClubCode: null },
+      });
+    });
+
+    it('404s when the club does not exist', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(service.removeFfbbLink('missing')).rejects.toThrow(NotFoundException);
     });
   });
 

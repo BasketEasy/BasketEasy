@@ -18,6 +18,8 @@ export interface CreateTeamRequest {
   name: string;
   category: TeamCategory;
   gender: TeamGender;
+  /** Optional full competitions.ffbb.com/.../equipes/<id> URL — creates the team's first FfbbLink, validated on submit. */
+  ffbbTeamUrl?: string;
 }
 
 export interface UpdateTeamRequest {

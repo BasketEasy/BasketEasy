@@ -8,6 +8,13 @@ export function formatEventDate(isoDate: string): string {
   return displayFormatter.format(new Date(isoDate));
 }
 
+const dateOnlyFormatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+
+/** Formats an ISO date string's date only, e.g. "5 janv. 2026" — used when the time-of-day isn't confirmed yet (never render FFBB's 00:00:00 placeholder as if it were a real kickoff time). */
+export function formatEventDateOnly(isoDate: string): string {
+  return dateOnlyFormatter.format(new Date(isoDate));
+}
+
 const dayHeadingFormatter = new Intl.DateTimeFormat('fr-FR', {
   weekday: 'long',
   day: 'numeric',

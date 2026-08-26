@@ -17,6 +17,8 @@ describe('ClubsController', () => {
     listPlayers: jest.Mock;
     updatePlayer: jest.Mock;
     deletePlayer: jest.Mock;
+    setFfbbLink: jest.Mock;
+    removeFfbbLink: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -31,6 +33,8 @@ describe('ClubsController', () => {
       listPlayers: jest.fn(),
       updatePlayer: jest.fn(),
       deletePlayer: jest.fn(),
+      setFfbbLink: jest.fn(),
+      removeFfbbLink: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -50,13 +54,41 @@ describe('ClubsController', () => {
     controller = module.get<ClubsController>(ClubsController);
   });
 
-  it('createClub delegates to the service with the current user id', async () => {
-    service.createClub.mockResolvedValue({ id: 'club-1', name: 'COC', createdAt: 'x' });
+  it('createClub delegates to the service with the current user id and the DTO', async () => {
+    service.createClub.mockResolvedValue({
+      id: 'club-1',
+      name: 'COC',
+      ffbbClubCode: null,
+      createdAt: 'x',
+    });
 
-    const result = await controller.createClub({ id: 'user-1', email: 'a@b.com' }, { name: 'COC' });
+    const dto = { name: 'COC' };
+    const result = await controller.createClub({ id: 'user-1', email: 'a@b.com' }, dto);
 
-    expect(service.createClub).toHaveBeenCalledWith('user-1', 'COC');
+    expect(service.createClub).toHaveBeenCalledWith('user-1', dto);
     expect(result.id).toBe('club-1');
+  });
+
+  it('setFfbbLink delegates clubId and the code', async () => {
+    service.setFfbbLink.mockResolvedValue({
+      id: 'club-1',
+      name: 'COC',
+      ffbbClubCode: 'pdl0044190',
+      createdAt: 'x',
+    });
+
+    const result = await controller.setFfbbLink('club-1', { ffbbClubCode: 'pdl0044190' });
+
+    expect(service.setFfbbLink).toHaveBeenCalledWith('club-1', 'pdl0044190');
+    expect(result.ffbbClubCode).toBe('pdl0044190');
+  });
+
+  it('removeFfbbLink delegates clubId', async () => {
+    service.removeFfbbLink.mockResolvedValue(undefined);
+
+    await controller.removeFfbbLink('club-1');
+
+    expect(service.removeFfbbLink).toHaveBeenCalledWith('club-1');
   });
 
   it('addMember delegates clubId and email', async () => {

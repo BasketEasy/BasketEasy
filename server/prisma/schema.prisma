@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("NEON_DIRECT_URL")
 }
 
@@ -39,12 +39,13 @@ model Player {
 }
 
 model Club {
-  id          String           @id @default(uuid())
-  name        String
-  createdAt   DateTime         @default(now())
-  memberships ClubMembership[]
-  players     Player[]
-  clubTeams   ClubTeam[]
+  id           String           @id @default(uuid())
+  name         String
+  ffbbClubCode String?          @unique
+  createdAt    DateTime         @default(now())
+  memberships  ClubMembership[]
+  players      Player[]
+  clubTeams    ClubTeam[]
 }
 
 enum TeamCategory {
@@ -68,15 +69,36 @@ enum TeamMemberRole {
 }
 
 model Team {
-  id          String       @id @default(uuid())
+  id          String         @id @default(uuid())
   name        String
   category    TeamCategory
   gender      TeamGender
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime       @default(now())
   clubTeams   ClubTeam[]
   teamPlayers TeamPlayer[]
   events      Event[]
   teamAdmins  TeamAdmin[]
+  ffbbLinks   TeamFfbbLink[]
+}
+
+// One club's entry of one team into one FFBB competition for one season
+// (an "engagement" in FFBB's own vocabulary). A team can hold zero, one, or
+// several links — e.g. a championship plus a departmental cup in the same
+// season — so this is its own row rather than a scalar on Team. ffbbEngagementRef
+// is unique globally (not per-team): one FFBB engagement maps to at most one
+// BasketEasy team. ffbbEngagementLabel is a display-name snapshot taken once
+// at link time (e.g. "Seniors M D3") from the validated page fetch — a link is
+// removed and re-added rather than edited, so there's no "stale after relink"
+// case. Cascade-deletes with its Team, same convention as TeamPlayer/ClubTeam.
+model TeamFfbbLink {
+  id                  String   @id @default(uuid())
+  teamId              String
+  ffbbEngagementRef   String   @unique
+  ffbbEngagementLabel String?
+  createdAt           DateTime @default(now())
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
 }
 
 // Join between Club and Team: a team can be linked to several clubs at once
@@ -144,19 +166,30 @@ enum EventType {
 // occurrence created together in one recurring POST so they can be
 // edited/deleted as a group; null for a plain single event.
 model Event {
-  id           String             @id @default(uuid())
-  teamId       String
-  type         EventType          @default(TRAINING)
-  startsAt     DateTime
-  location     String
-  notes        String?
-  opponentName String?
-  recurrenceId String?
-  createdAt    DateTime           @default(now())
-  team         Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  rsvps        EventRsvp[]
-  convocations EventConvocation[]
+  id            String             @id @default(uuid())
+  teamId        String
+  type          EventType          @default(TRAINING)
+  startsAt      DateTime
+  location      String
+  notes         String?
+  opponentName  String?
+  recurrenceId  String?
+  // The FFBB match id for an imported event, null for a manually-created one.
+  // Postgres treats each NULL as distinct, so plain events never collide on
+  // the compound unique below — same convention recurrenceId: null already
+  // uses. isImported is derived from this (externalId !== null) rather than
+  // stored separately.
+  externalId    String?
+  // False when FFBB's fetched kickoff time was its 00:00:00 "not yet
+  // confirmed" placeholder. Defaults true so every manually-created event is
+  // unaffected; only the FFBB import path ever sets it false.
+  timeConfirmed Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  team          Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rsvps         EventRsvp[]
+  convocations  EventConvocation[]
 
+  @@unique([teamId, externalId])
   @@index([teamId])
   @@index([recurrenceId])
 }

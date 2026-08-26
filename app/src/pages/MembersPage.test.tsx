@@ -60,6 +60,27 @@ describe('MembersPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the FFBB link block for an admin, with the stored code once set', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({
+          id: 'club-1',
+          name: 'ASB Rezé',
+          ffbbClubCode: 'pdl0044190',
+          createdAt: 'x',
+        }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(await screen.findByText('pdl0044190')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /modifier le lien/i })).toBeInTheDocument();
+  });
+
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(

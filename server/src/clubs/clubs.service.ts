@@ -20,14 +20,19 @@ const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 export class ClubsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createClub(userId: string, name: string): Promise<Club> {
-    const club = await this.prisma.club.create({
-      data: {
-        name,
-        memberships: { create: { userId, role: 'ADMIN' } },
-      },
-    });
-    return this.toClub(club);
+  async createClub(userId: string, data: { name: string; ffbbClubCode?: string }): Promise<Club> {
+    try {
+      const club = await this.prisma.club.create({
+        data: {
+          name: data.name,
+          ffbbClubCode: data.ffbbClubCode ?? null,
+          memberships: { create: { userId, role: 'ADMIN' } },
+        },
+      });
+      return this.toClub(club);
+    } catch (err) {
+      throw this.toFfbbClubCodeError(err);
+    }
   }
 
   async listClubsForUser(userId: string): Promise<Club[]> {
@@ -44,6 +49,40 @@ export class ClubsService {
       throw new NotFoundException('Club not found');
     }
     return this.toClub(club);
+  }
+
+  // ffbbClubCode is stored unvalidated — no working lookup exists to
+  // confirm a code is real (see docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md).
+  async setFfbbLink(clubId: string, ffbbClubCode: string): Promise<Club> {
+    await this.assertClubExists(clubId);
+    try {
+      const club = await this.prisma.club.update({ where: { id: clubId }, data: { ffbbClubCode } });
+      return this.toClub(club);
+    } catch (err) {
+      throw this.toFfbbClubCodeError(err);
+    }
+  }
+
+  async removeFfbbLink(clubId: string): Promise<void> {
+    await this.assertClubExists(clubId);
+    await this.prisma.club.update({ where: { id: clubId }, data: { ffbbClubCode: null } });
+  }
+
+  private async assertClubExists(clubId: string): Promise<void> {
+    const club = await this.prisma.club.findUnique({ where: { id: clubId } });
+    if (!club) {
+      throw new NotFoundException('Club not found');
+    }
+  }
+
+  private toFfbbClubCodeError(err: unknown): unknown {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === UNIQUE_CONSTRAINT_VIOLATION
+    ) {
+      return new ConflictException('Ce code club FFBB est déjà utilisé par un autre club');
+    }
+    return err;
   }
 
   async addMember(clubId: string, email: string): Promise<ClubMember> {
@@ -283,7 +322,17 @@ export class ClubsService {
     };
   }
 
-  private toClub(club: { id: string; name: string; createdAt: Date }): Club {
-    return { id: club.id, name: club.name, createdAt: club.createdAt.toISOString() };
+  private toClub(club: {
+    id: string;
+    name: string;
+    ffbbClubCode: string | null;
+    createdAt: Date;
+  }): Club {
+    return {
+      id: club.id,
+      name: club.name,
+      ffbbClubCode: club.ffbbClubCode,
+      createdAt: club.createdAt.toISOString(),
+    };
   }
 }

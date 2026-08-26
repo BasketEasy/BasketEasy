@@ -15,6 +15,8 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  isImported: false,
+  timeConfirmed: true,
   myConvocation: false,
 };
 
@@ -114,5 +116,23 @@ describe('TeamEventsAgenda', () => {
     const convokedEvent: TeamEvent = { ...trainingEvent, myConvocation: true };
     renderAgenda([convokedEvent], false, true);
     expect(screen.getByText('Convoqué')).toBeInTheDocument();
+  });
+
+  it('shows an "Importé" badge for an imported event, never for a manual one', () => {
+    renderAgenda([trainingEvent], false);
+    expect(screen.queryByText('Importé')).not.toBeInTheDocument();
+
+    const importedEvent: TeamEvent = { ...matchEventSameDay, isImported: true };
+    renderAgenda([importedEvent], false);
+    expect(screen.getByText('Importé')).toBeInTheDocument();
+  });
+
+  it('replaces the time-block numeral with "à confirmer" and shows the badge when the kickoff is unconfirmed, keeping the solid MATCH fill', () => {
+    const tbdEvent: TeamEvent = { ...matchEventSameDay, isImported: true, timeConfirmed: false };
+    renderAgenda([tbdEvent], false);
+
+    expect(screen.getByText('à confirmer')).toBeInTheDocument();
+    expect(screen.getByText('Heure à confirmer')).toBeInTheDocument();
+    expect(screen.queryByText('20:00')).not.toBeInTheDocument();
   });
 });

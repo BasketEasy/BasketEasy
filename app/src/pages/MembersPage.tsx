@@ -38,6 +38,7 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useClubShow } from '../clubs/useClubShow';
+import { ClubFfbbLinkControl } from '../clubs/ClubFfbbLinkControl';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
@@ -390,6 +391,8 @@ export function MembersPage() {
       <Heading as="h1" className="m-0">
         Effectif · {club?.name ?? '…'}
       </Heading>
+
+      {isAdmin && club && <ClubFfbbLinkControl clubId={clubId!} club={club} />}
 
       {removeError && (
         <Alert variant="destructive">

@@ -19,6 +19,8 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  isImported: false,
+  timeConfirmed: true,
   myConvocation: false,
 };
 

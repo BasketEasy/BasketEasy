@@ -38,9 +38,15 @@ function AgendaEventCard({
             : 'border-r border-border bg-surface-2 text-charcoal',
         )}
       >
-        <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
-          {formatEventTime(event.startsAt)}
-        </span>
+        {event.timeConfirmed ? (
+          <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
+            {formatEventTime(event.startsAt)}
+          </span>
+        ) : (
+          <span className="font-heading text-sm font-extrabold uppercase leading-none tracking-wide-caps">
+            à confirmer
+          </span>
+        )}
         <span className="min-w-0 max-w-full truncate font-heading text-xs font-bold uppercase tracking-wide-caps opacity-80">
           {eventTypeShortLabel(event.type)}
         </span>
@@ -48,11 +54,13 @@ function AgendaEventCard({
       <div className="flex min-w-0 flex-grow flex-col gap-3.5 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            {isRostered && event.myConvocation && (
+            {(isRostered && event.myConvocation) || event.isImported || !event.timeConfirmed ? (
               <div className="flex flex-wrap items-center gap-2">
-                <Badge>Convoqué</Badge>
+                {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
+                {event.isImported && <Badge variant="outline">Importé</Badge>}
+                {!event.timeConfirmed && <Badge variant="outline">Heure à confirmer</Badge>}
               </div>
-            )}
+            ) : null}
             <span className="text-sm text-muted">
               {event.location}
               {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}

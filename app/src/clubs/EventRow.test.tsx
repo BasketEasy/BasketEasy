@@ -19,6 +19,8 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  isImported: false,
+  timeConfirmed: true,
   myConvocation: false,
 };
 
@@ -156,5 +158,22 @@ describe('EventRow', () => {
     const convokedEvent: TeamEvent = { ...trainingEvent, myConvocation: true };
     renderRow(convokedEvent, false, true);
     expect(screen.getByText('Convoqué')).toBeInTheDocument();
+  });
+
+  it('shows an "Importé" badge next to the type for an imported event, never for a manual one', () => {
+    renderRow(trainingEvent, false);
+    expect(screen.queryByText('Importé')).not.toBeInTheDocument();
+
+    const importedEvent: TeamEvent = { ...matchEvent, isImported: true };
+    renderRow(importedEvent, false);
+    expect(screen.getByText('Importé')).toBeInTheDocument();
+  });
+
+  it('shows the date only plus a "Heure à confirmer" badge, never the raw time, when the kickoff is unconfirmed', () => {
+    const tbdEvent: TeamEvent = { ...matchEvent, isImported: true, timeConfirmed: false };
+    renderRow(tbdEvent, false);
+
+    expect(screen.getByText('Heure à confirmer')).toBeInTheDocument();
+    expect(screen.queryByText('00:00')).not.toBeInTheDocument();
   });
 });

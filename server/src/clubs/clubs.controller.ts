@@ -26,6 +26,7 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
+import { LinkFfbbClubDto } from './dto/link-ffbb-club.dto';
 
 @Controller('clubs')
 @UseGuards(JwtAuthGuard)
@@ -34,7 +35,7 @@ export class ClubsController {
 
   @Post()
   createClub(@CurrentUser() user: RequestUser, @Body() dto: CreateClubDto): Promise<Club> {
-    return this.clubsService.createClub(user.id, dto.name);
+    return this.clubsService.createClub(user.id, dto);
   }
 
   @Get()
@@ -47,6 +48,21 @@ export class ClubsController {
   @ClubRoles('ADMIN', 'MEMBER')
   getClub(@Param('clubId') clubId: string): Promise<Club> {
     return this.clubsService.getClub(clubId);
+  }
+
+  @Patch(':clubId/ffbb-link')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  setFfbbLink(@Param('clubId') clubId: string, @Body() dto: LinkFfbbClubDto): Promise<Club> {
+    return this.clubsService.setFfbbLink(clubId, dto.ffbbClubCode);
+  }
+
+  @Delete(':clubId/ffbb-link')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeFfbbLink(@Param('clubId') clubId: string): Promise<void> {
+    return this.clubsService.removeFfbbLink(clubId);
   }
 
   @Post(':clubId/members')

@@ -53,6 +53,7 @@ import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
 import { TeamAdminCard } from '../clubs/TeamAdminCard';
 import { TeamEditModal } from '../clubs/TeamEditModal';
+import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
@@ -482,6 +483,8 @@ export function TeamDetailPage() {
         open={isEditing}
         onOpenChange={setIsEditing}
       />
+
+      <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={canManageTeam} />
 
       <Tabs
         value={activeTab}

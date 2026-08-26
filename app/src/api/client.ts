@@ -11,6 +11,11 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    // Optional machine-readable discriminator some endpoints attach to their
+    // error body (e.g. FfbbLinkErrorCode) so a caller can bind the error to a
+    // specific field instead of a generic message. Undefined for every
+    // endpoint that doesn't set one.
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -47,6 +52,7 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     let message = `Request to ${path} failed with status ${res.status}`;
+    let code: string | undefined;
     try {
       const body: unknown = await res.clone().json();
       if (body && typeof body === 'object' && 'message' in body) {
@@ -57,11 +63,19 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
           message = bodyMessage.join(', ');
         }
       }
+      if (
+        body &&
+        typeof body === 'object' &&
+        'code' in body &&
+        typeof (body as { code: unknown }).code === 'string'
+      ) {
+        code = (body as { code: string }).code;
+      }
     } catch {
       // Response body wasn't JSON (or had no body) — fall back to the
       // generic status-based message above.
     }
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, code);
   }
 
   if (res.status === 204) {
