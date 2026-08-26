@@ -73,14 +73,21 @@ gets a `403` from the CDN edge on every path, including `/`, while
 https://competitions.ffbb.com`, and a real browser `User-Agent` gets past the
 WAF for `GET /items/configuration` and `GET /server/info` (`200`, and
 `/items/configuration`'s response matches the third-party docs' `key_dh`/
-`key_ms` token shape exactly). `GET /items/organisme` — the actual
-club-search collection — still returned `403` with those same headers; it
-likely also needs the `key_dh` value sent as the Directus bearer token, which
-this session didn't get to confirm before its own tooling started blocking
-further requests to the host (probably reading repeated calls against a
-WAF-blocked target as scraping-like). So: the auth bootstrap step is now
-empirically confirmed, but the "search clubs" / "list a club's engagements"
-calls this loop adds are still unverified — see Open questions.
+`key_ms` token shape exactly). **Follow-up test (2026-08-26, same day):**
+sending that `key_dh` value as `Authorization: Bearer <key_dh>` (also tried
+as an `access_token` query param) against `/items/organismes`,
+`/items/rencontres`, and `/collections` all cleared the WAF — the response is
+now real Directus JSON, not the CDN's HTML page — but every one comes back
+`403` with `"You don't have permission to access collection ... or it does
+not exist."`. In other words, `key_dh` is a genuine, working Directus static
+token, just not one whose role includes read access to the data collections
+this spec needs. The website almost certainly gets its match/club data
+through its own Next.js server (server-side, using a privileged token never
+sent to the browser) rather than the browser calling `api.ffbb.com` directly
+with `key_dh` — which would explain why `competitions.ffbb.com` renders real
+data while `key_dh` itself can't read `organismes`/`rencontres`. This closes
+out the "is `key_dh` the missing piece" question with a clear **no** — see
+Open questions.
 
 - **Auth:** tokens are obtained automatically and publicly — the site itself
   fetches a bearer token from `GET /items/configuration` (a Directus
@@ -446,18 +453,37 @@ export interface FfbbImportResult {
    loop 0.
 4. **New this loop — whether club search and "a club's engagements" are
    real, usable, comité-scoped queries against `api.ffbb.com`/Meilisearch**
-   (not just inferred from third-party client docs). Partially de-risked
-   2026-08-26: the auth bootstrap (`GET /items/configuration` behind the WAF,
-   with `Referer`/`Origin`/browser `User-Agent` set) is now confirmed working
-   and returns real tokens. Still unconfirmed: whether sending the returned
-   `key_dh` as a Directus bearer token unlocks `/items/organisme` (it didn't
-   unlock with headers alone) and, if so, whether the Meilisearch-backed
-   search and an `organisme`'s `engagements[]` behave as the third-party docs
-   describe. Needs a follow-up check from an environment that can complete a
-   few more request/response round trips against the host than this session
-   could. If `listClubEngagements` turns out to be unreliable or missing, the
-   team-creation picker degrades to "manual input only," which is exactly
-   loop 0's original design — no rework needed, just don't ship the picker.
+   (not just inferred from third-party client docs). **Resolved 2026-08-26,
+   negative result:** the auth bootstrap (`GET /items/configuration` behind
+   the WAF, with `Referer`/`Origin`/browser `User-Agent` set) works and
+   returns real tokens, but the `key_dh` token it returns does **not** carry
+   read access to `organismes` or `rencontres` — confirmed by sending it as
+   both an `Authorization: Bearer` header and an `access_token` query param
+   against `/items/organismes`, `/items/rencontres`, and `/collections`, all
+   three returning Directus's own `403 FORBIDDEN "You don't have permission
+   to access collection..."` (a real permissions error from the backend, not
+   the WAF's block page — so the request reached Directus fine, it's just
+   the wrong role). `key_dh` is best understood as a public "site identity"
+   token scoped to `configuration`/`assets` only; `competitions.ffbb.com`
+   most likely fetches match/club data server-side (Next.js), with a
+   privileged token that's never sent to the browser and so isn't
+   discoverable this way. **Conclusion: don't build `searchClubs`/
+   `listClubEngagements` against a client-reachable Directus token — there
+   isn't one with the right permissions.** This cuts **both** pickers this
+   loop added on top of loop 0 — the club-creation ligue → comité →
+   club-search picker (see Club & team linking UX below) and the
+   team-creation engagement picker — not just the team-side one. Ship the
+   manual-entry fallback (club code / engagement id-or-URL) as the *only*
+   path for both, from day one, exactly as the "degrades to manual input"
+   plan already allowed for. Note `getRencontresForEngagement` (the `rencontres`
+   query, loop 0's original scope) is **not** independently verified either —
+   it's inferred from the same third-party docs as `organismes` was, and
+   `/items/rencontres` 403'd with `key_dh` in this same test — so it needs
+   its own real-token check before implementation too (see open questions 1–3
+   above, still open). If a future session finds a legitimately public
+   read-scoped token (e.g. by inspecting `competitions.ffbb.com`'s own
+   server-rendered network calls rather than guessing at `key_dh`), all three
+   — club search, engagement listing, and match import — can be revisited.
 5. **Whether a club code's ligue/comité prefix convention is universal.**
    Doesn't block this design (we never rely on it), but would let us
    validate that a picked club actually belongs to the selected comité
