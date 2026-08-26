@@ -36,7 +36,7 @@ FFBB organizes competition data in four levels, all visible in a
 | Ligue | `pdl` (Pays de la Loire) | Region | Not modeled — appears only as part of the pasted team URL, never selected or stored on its own (see research findings on the club/engagement picker being cut) |
 | Comité | `0044` (Loire-Atlantique / CD44) | Department | Not modeled — same as ligue |
 | Organisme | `pdl0044190` | A club | `Club.ffbbClubCode` |
-| Engagement | `200000005346381` | One club's entry of one specific team into one competition for one season | `Team.ffbbEngagementId` |
+| Engagement | `200000005346381` | One club's entry of one specific team into one competition for one season | `TeamFfbbLink.ffbbEngagementRef` |
 
 Two things worth being explicit about, since they shape the data model
 below:
@@ -44,10 +44,9 @@ below:
 - **A club can have several engagements** (one per team it fields, and in
   principle more than one per team if that team plays more than one
   competition — e.g. championship + a cup — in the same season). BasketEasy
-  only needs *one* engagement per `Team` — the one whose calendar we import
-  — so `Team.ffbbEngagementId` is deliberately singular, not a list. If a
-  team plays two competitions and a club wants both imported, that's future
-  scope (see Open questions), not this spec.
+  models this directly: a `Team` can hold any number of linked engagements
+  via `TeamFfbbLink` (see Data model and Scope's "Multiple competitions per
+  team") — not capped at one.
 - **The organisme code's structure (ligue+comité+suffix) is not something
   BasketEasy should rely on.** It looks composed from the one example URL
   we have, but nothing confirms that holds for every club in every ligue, or
@@ -109,7 +108,8 @@ what was actually tested (2026-08-26):
    doesn't, and there's currently no fix for that beyond "the admin must
    copy the full URL from FFBB's site."
 
-**Rencontre (match) field mapping, corrected from the real payload above:**
+**Match field mapping (FFBB calls this a "rencontre" in its own payload;
+`FfbbMatch` is our name for it), corrected from the real payload above:**
 `id` (stable external id, confirmed unique across a 10-fixture sample — not
 sequential per team, drawn from a shared pool across the whole competition);
 `date_rencontre` (ISO 8601, **no timezone offset** — `2026-09-20T00:00:00` —
@@ -120,7 +120,8 @@ still unconfirmed, see Open questions); team names live nested at
 `idEngagementEquipe1.nom`/`idEngagementEquipe2.nom` (**not** top-level
 `nomEquipe1`/`nomEquipe2` as originally assumed from third-party docs) —
 `idEngagementEquipe1`/`2` is still the correct home/away resolution
-mechanism (compare `.id` to our stored `ffbbEngagementId`). **Time-of-day
+mechanism (compare `.id` to the numeric id trailing our stored
+`TeamFfbbLink.ffbbEngagementRef`). **Time-of-day
 caveat, new finding:** 9 of the 10 sampled fixtures have `T00:00:00` and one
 has a real time (`T14:00:00`) — `00:00:00` is FFBB's placeholder for "date
 confirmed, kickoff time not yet set," not a literal midnight match. Import
@@ -140,8 +141,8 @@ played or near-term match can be sampled (see Open questions).
   already knowing the full FFBB URL. Both pickers this loop's "Extend..."
   revision added (club-creation ligue→comité→club-search, team-creation
   engagement picker) are removed from scope — see Scope and Club & team
-  linking UX below. `Club.ffbbClubCode`/`Team.ffbbEngagementId` stay as
-  manually-pasted, opaque values.
+  linking UX below. `Club.ffbbClubCode`/`TeamFfbbLink.ffbbEngagementRef`
+  stay as manually-pasted, opaque values.
 - **No documented rate limits or terms of use, and no documented page
   contract either** — the RSC payload shape is an accident of how Next.js
   renders, not a published format, so it's more brittle than even the REST
@@ -164,10 +165,13 @@ That boundary is a single interface, `server/src/ffbb/ffbb-provider.ts`.
 `listClubEngagements` are removed; there's no working implementation behind
 them (see research above), and per this codebase's convention, an interface
 method with no viable implementation is dead weight, not a placeholder to
-keep around for later:
+keep around for later. **Also renamed to drop the French terms that leaked
+in from FFBB's own field names** (`rencontre` is FFBB's word for a match,
+not ours to reuse for our own type — same discipline this codebase already
+applies to its own domain vocabulary):
 
 ```typescript
-export interface FfbbRencontre {
+export interface FfbbMatch {
   id: string;
   startsAt: string; // ISO 8601, no offset — see research notes on 00:00:00-as-TBD
   timeConfirmed: boolean; // false when startsAt's time-of-day is FFBB's 00:00:00 placeholder
@@ -178,16 +182,21 @@ export interface FfbbRencontre {
 }
 
 export interface FfbbProvider {
-  /** Matches for one engagement, already normalized (home/away, opponent resolved). */
-  getRencontresForEngagement(engagementId: string): Promise<FfbbRencontre[]>;
   /**
-   * Validates and extracts the engagement id from a pasted
-   * competitions.ffbb.com team URL. Returns null if the URL doesn't match
-   * the expected shape. Bare ids are NOT accepted — a bare id can't be
-   * resolved to a fetchable page without knowing its ligue/comité/club
-   * prefix, and there's no lookup for that (see research above).
+   * Validates a pasted competitions.ffbb.com team URL, and if it matches
+   * the expected `ligues/<x>/comites/<y>/clubs/<z>/equipes/<id>` shape,
+   * returns that full path string — NOT the bare trailing id. The full
+   * path is what `getMatchesForEngagement` below needs to actually
+   * re-fetch the page; a bare id alone doesn't resolve (see research
+   * above). Returns null if the URL doesn't match.
    */
   parseEngagementRef(url: string): string | null;
+  /**
+   * Matches for one engagement, already normalized (home/away resolved,
+   * opponent named). `engagementRef` is the full path string returned by
+   * `parseEngagementRef` — not a bare id.
+   */
+  getMatchesForEngagement(engagementRef: string): Promise<FfbbMatch[]>;
 }
 ```
 
@@ -213,18 +222,23 @@ flipped from "call a REST API" to "scrape a rendered page" — only
   lookup exists to confirm a code is real; see research above). No
   `Club.ffbbClubLabel` — there's no source to fetch a display label from
   either, so showing one back to the admin would mean inventing it.
-- **Team creation/editing:** an optional FFBB link, a single manually-pasted
-  full `competitions.ffbb.com/.../equipes/<id>` URL (not a bare id — see
-  research above) — stored as `Team.ffbbEngagementId` + cached
-  `Team.ffbbEngagementLabel`. **This one is validated**, unlike the club
-  code: submitting it triggers `FfbbProvider.getRencontresForEngagement`,
-  and a `404`/parse failure rejects the link before it's stored — a
-  materially better check than loop 0's original plan had, since it's a
-  real fetch against the live page, not just a URL-shape regex.
-- A manual "Importer le calendrier FFBB" action, available once a team is
-  linked, that pulls every rencontre for that engagement id and
-  creates/updates one `MATCH` `Event` per rencontre, idempotently (re-running
-  never duplicates a match).
+- **Team creation/editing:** an optional FFBB link, a manually-pasted full
+  `competitions.ffbb.com/.../equipes/<id>` URL (not a bare id — see research
+  above). **A team can hold more than one link** — see "Multiple
+  competitions per team" below, this loop's resolution of what was
+  previously an open question. Each link is stored as its own
+  `TeamFfbbLink` row (see Data model), not a single scalar field on `Team`.
+  **Each link is validated**, unlike the club code: submitting it triggers
+  `FfbbProvider.getMatchesForEngagement`, and a `404`/parse failure rejects
+  the link before it's stored — a materially better check than loop 0's
+  original plan had, since it's a real fetch against the live page, not
+  just a URL-shape regex.
+- A manual "Importer le calendrier FFBB" action, available once a team has
+  at least one link, that pulls every match for **every one of the team's
+  linked engagements** and creates/updates one `MATCH` `Event` per match,
+  idempotently (re-running never duplicates a match, and matches from
+  different engagements never collide — see "Multiple competitions per
+  team" below).
 - Re-running the import after FFBB updates a match's date/time/venue updates
   the existing `Event` **in place** (same `id`), so `EventRsvp`/
   `EventConvocation` rows tied to that event survive a schedule change
@@ -232,6 +246,27 @@ flipped from "call a REST API" to "scrape a rendered page" — only
 - Imported events are visibly distinct from manually-created ones, and
   manually-entered `notes` on an imported event are never overwritten by a
   re-sync.
+
+### Multiple competitions per team
+
+**Resolved this revision** (previously Open question 8, "assumed away"):
+a real team can be entered in more than one FFBB competition in the same
+season (e.g. a regular championship plus a departmental cup) — the
+hierarchy section above already documented this as possible, but the
+original data model only allowed one `Team.ffbbEngagementId`. That's now
+fixed: `Team` can hold any number of FFBB links (see `TeamFfbbLink` in Data
+model), each independently added, removed, and imported.
+
+This works cleanly with the rest of the design without further changes,
+because of two things already established: `Event.externalId` is keyed
+`@@unique([teamId, externalId])`, and a match's `id` is drawn from a shared
+pool across the whole competition (confirmed distinct across a 10-fixture
+sample, see research above) — not scoped per engagement. So importing two
+linked engagements for the same team just means two sets of
+`getMatchesForEngagement` calls feeding the same upsert loop; there's no
+realistic collision between a league match and a cup match's `id`, and
+nothing about the upsert key needs to change to accommodate more than one
+source per team.
 
 **Out of scope (explicitly deferred, don't build speculatively):**
 
@@ -242,9 +277,6 @@ flipped from "call a REST API" to "scrape a rendered page" — only
   re-touching already-played matches on re-sync.
 - **Detecting/handling matches removed from the FFBB feed.** v1 never
   deletes an `Event` it previously imported.
-- **A team playing more than one competition/engagement at once.** One
-  `Team` ↔ one `ffbbEngagementId`; if that turns out to matter, it's a
-  follow-up (see Open questions).
 - **Importing training sessions.** FFBB only publishes competitive matches.
 - **Any club/engagement search or lookup UI** (ligue/comité pickers,
   club-search, "a club's engagements" dropdown). Cut this loop — see the
@@ -266,8 +298,16 @@ model Club {
 
 model Team {
   // ...existing fields...
-  ffbbEngagementId    String? @unique
+  ffbbLinks TeamFfbbLink[]
+}
+
+model TeamFfbbLink {
+  id                  String @id @default(cuid())
+  team                Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId              String
+  ffbbEngagementRef   String @unique
   ffbbEngagementLabel String?
+  createdAt           DateTime @default(now())
 }
 
 model Event {
@@ -276,31 +316,42 @@ model Event {
 }
 ```
 
-- `Club.ffbbClubCode` / `Team.ffbbEngagementId`: opaque identifiers exactly
-  as FFBB gives them — never parsed, decomposed, or recomposed anywhere in
-  the app (see Abstraction section). `@unique` on both: one FFBB club maps
-  to at most one BasketEasy club, one FFBB engagement to at most one
-  BasketEasy team.
+- `Club.ffbbClubCode`: an opaque identifier exactly as FFBB gives it — never
+  parsed, decomposed, or recomposed anywhere in the app (see Abstraction
+  section). `@unique`: one FFBB club maps to at most one BasketEasy club.
+- **`TeamFfbbLink` replaces the loop-1 `Team.ffbbEngagementId` scalar** — a
+  team can have zero, one, or several links (see Scope: "Multiple
+  competitions per team"), one row per linked FFBB engagement, cascade-
+  deleting with its `Team` (same convention as `TeamPlayer`/`ClubTeam`).
+  `ffbbEngagementRef` (renamed from `ffbbEngagementId` — it stores the full
+  `ligues/.../equipes/<id>` path, not a bare numeric id; see Abstraction
+  section on why the full path is what's actually needed) is `@unique`
+  **globally**, not per-team: one FFBB engagement maps to at most one
+  BasketEasy team, same invariant as before, just enforced at the row level
+  instead of the column level now that there can be multiple rows per team.
 - **No `Club.ffbbClubLabel`.** Removed from this loop's original plan — there
   is no working lookup that returns a club display name to snapshot (see
   research above), so a label field would either sit permanently empty or
   have to be typed by the admin, which isn't a "label," it's just the club's
   own name typed twice.
-- `Team.ffbbEngagementLabel`: a display-name snapshot taken at link time
-  (e.g. "Seniors M D3", read off the validated page fetch at link time — see
-  Scope), so the UI can show what a team is linked to without an extra FFBB
-  round-trip on every page load. Refreshed whenever the link is (re-)set;
-  allowed to go stale between relinks — it's a label, not a source of truth
-  (the id is).
+- `TeamFfbbLink.ffbbEngagementLabel`: a display-name snapshot taken at link
+  time (e.g. "Seniors M D3", read off the validated page fetch — see
+  Scope), so the UI can show what each link is without an extra FFBB
+  round-trip on every page load. Set once at link creation; a link is
+  deleted and re-added rather than edited, so there's no "stale after
+  relink" case to handle for this field.
 - Deliberately **no `Club.ffbbLigueCode`/`ffbbComiteCode` columns.** Ligue
   and comité were only ever going to be UI-only filters for a club-search
   picker that's now cut (see Club & team linking UX below); there's nothing
   left that would read these columns.
-- `Event.externalId`: unchanged from loop 0 — the FFBB `rencontre.id` for an
+- `Event.externalId`: unchanged from loop 0 — the FFBB match id for an
   imported match, `null` for manually-created events (Postgres treats each
   `NULL` as distinct, so plain events never collide — the same convention
   `recurrenceId: null` already uses elsewhere in this schema).
-  `@@unique([teamId, externalId])` makes the import upsert idempotent.
+  `@@unique([teamId, externalId])` makes the import upsert idempotent —
+  still correct with multiple `TeamFfbbLink`s per team, since match ids are
+  drawn from a shared pool across the whole competition, not scoped per
+  engagement (see Scope: "Multiple competitions per team").
 
 ## Club & team linking UX
 
@@ -319,17 +370,32 @@ against). Skippable entirely (a club works today with no FFBB link); editable
 later from the club's settings via `PATCH clubs/:clubId/ffbb-link`, `DELETE`
 to unlink.
 
-**Team creation form** gains the same kind of optional section, one field:
-"Lien de l'équipe sur competitions.ffbb.com", accepting a **full pasted
-URL only** (e.g. `https://competitions.ffbb.com/ligues/pdl/comites/0044/
-clubs/pdl0044190/equipes/200000005346381`) — not a bare id, since a bare id
-can't be resolved (see research above; the field's placeholder/help text
-should say so explicitly, since "paste the id" was the more obvious ask
-before this was tested). Unlike the club code, this one **is validated on
-submit**: the backend calls `FfbbProvider.getRencontresForEngagement` against
-the parsed id before persisting the link, and a `404` or unparseable page
-rejects the submission with a clear error rather than silently storing a
-dead link.
+**Team creation form** gains one field, "Lien de l'équipe sur
+competitions.ffbb.com", accepting a **full pasted URL only** (e.g.
+`https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/
+equipes/200000005346381`) — not a bare id, since a bare id can't be resolved
+(see research above; the field's placeholder/help text should say so
+explicitly, since "paste the id" was the more obvious ask before this was
+tested). This creates the team's **first** `TeamFfbbLink`; creation stays a
+single optional field, not a whole list-management widget, since pasting
+more than one URL into a create form is an awkward first-run flow — most
+teams need exactly one link at creation time anyway (see Scope: multiple
+links is the exception, not the common case). It's validated on submit like
+every link: the backend calls `FfbbProvider.getMatchesForEngagement` against
+the parsed URL before persisting, and a `404` or unparseable page rejects
+the submission with a clear error rather than silently storing a dead link.
+
+**Team detail page** (`TeamDetailPage`, team info area) gains a small
+"Compétitions FFBB liées" section — not a `Dialog` (an inline list plus a
+one-field add row, same inline-controls case as the roster-role `SelectField`
+in `TeamPlayerRow`, per `CLAUDE.md`'s inline-vs-modal rule): each linked
+engagement shown as a row (its cached label, or the raw URL if the label is
+unavailable) with a remove control, plus one more "paste a URL" input below
+the list to add another link, validated the same way as the creation-time
+one. Removing a link doesn't touch previously-imported `Event` rows (same
+"unlink is non-destructive to history" rule the single-link version already
+had) — only the "Importer" action stops pulling from that engagement going
+forward.
 
 ## Backend
 
@@ -340,61 +406,74 @@ Module renamed from the loop-0 `server/src/ffbb-import` to `server/src/ffbb`
 - **`ffbb-page-scrape.provider.ts`** — the only FFBB-contract-aware file
   (renamed from the originally-planned `directus-ffbb.provider.ts` — no
   Directus REST call survives in this design, see research above):
-  - `getRencontresForEngagement(engagementId)`: needs the full team-page URL,
-    not just the id (see `parseEngagementRef` below) — fetches it with native
-    `fetch` (Node 20+, no new HTTP dependency, no auth headers needed), then
-    extracts the RSC JSON payload. Extraction is a targeted regex/string scan
-    for the `"data":[...]` array holding rencontre objects inside the
-    `self.__next_f.push(...)` chunks, then `JSON.parse` per object — not a
-    full HTML/AST parser, since the payload is JSON-shaped, not markup. Maps
-    `date_rencontre` + `00:00:00`-detection into `startsAt`/`timeConfirmed`,
-    `idEngagementEquipe1`/`2` into `isHome`/`opponentLabel` (compare `.id` to
-    the requested `engagementId`), `joue` into `played`, leaves `location`
-    `null` (see research notes — no venue field found yet). Any fetch
-    failure, unexpected status, or extraction/parse failure throws one typed
-    `FfbbPageFormatError` rather than propagating a partial/garbage result —
-    this is the file that eats a future FFBB frontend redeploy breaking the
-    RSC shape, so it fails loud and in one place instead of silently
-    importing wrong data.
+  - `getMatchesForEngagement(engagementRef)`: `engagementRef` is the full
+    team-page path/URL (see `parseEngagementRef` below), not a bare id —
+    fetches it with native `fetch` (Node 20+, no new HTTP dependency, no
+    auth headers needed), then extracts the RSC JSON payload. Extraction is
+    a targeted regex/string scan for the `"data":[...]` array holding match
+    objects inside the `self.__next_f.push(...)` chunks, then `JSON.parse`
+    per object — not a full HTML/AST parser, since the payload is
+    JSON-shaped, not markup. Maps FFBB's `date_rencontre` +
+    `00:00:00`-detection into `startsAt`/`timeConfirmed`, FFBB's
+    `idEngagementEquipe1`/`2` into `isHome`/`opponentLabel` (compare `.id`
+    to the numeric id trailing `engagementRef`), FFBB's `joue` into
+    `played`, leaves `location` `null` (see research notes — no venue field
+    found yet). Any fetch failure, unexpected status, or extraction/parse
+    failure throws one typed `FfbbPageFormatError` rather than propagating a
+    partial/garbage result — this is the file that eats a future FFBB
+    frontend redeploy breaking the RSC shape, so it fails loud and in one
+    place instead of silently importing wrong data.
   - `parseEngagementRef(url)`: validates the pasted string matches
     `ligues/<x>/comites/<y>/clubs/<z>/equipes/<id>` (via regex on the full
     URL, not just checking for a trailing id) and returns the full path
-    (needed by `getRencontresForEngagement` above), or `null` if it doesn't
+    (this is the value stored as `TeamFfbbLink.ffbbEngagementRef` and passed
+    back into `getMatchesForEngagement` above), or `null` if it doesn't
     match. Bare ids return `null` — see research above on why they can't be
     resolved.
   - `FFBB_BASE_URL` env var, default `https://competitions.ffbb.com`.
-- **`FfbbImportService`** — unchanged from loop 0: `importSchedule(clubId,
-  teamId)` fetches via `FfbbProvider.getRencontresForEngagement`, upserts
-  `Event` rows keyed on `(teamId, externalId)`, skips already-`played`
-  matches on re-sync, never touches `notes`. `timeConfirmed: false` on the
-  fetched rencontre should surface on the created/updated `Event` in some
-  form the frontend can flag (exact field TBD at implementation — could be
-  as simple as not setting a time component at all, pending Open questions
-  on the date/timezone shape).
+- **`FfbbImportService`**: `importSchedule(clubId, teamId)` now loads
+  **every** `TeamFfbbLink` for the team, calls
+  `FfbbProvider.getMatchesForEngagement` once per link, and upserts `Event`
+  rows across the combined result keyed on `(teamId, externalId)` — a
+  `400` if the team has zero links, otherwise it never partially fails one
+  link and skips the rest silently: one link's `FfbbPageFormatError`
+  aborts the whole import with a clear "which engagement failed" message,
+  rather than importing half the team's matches and silently dropping the
+  other competition (see Scope: "Multiple competitions per team" on why
+  match ids from different links can't collide). Otherwise unchanged from
+  loop 0: skips already-`played` matches on re-sync, never touches `notes`.
+  `timeConfirmed: false` on a fetched match should surface on the
+  created/updated `Event` in some form the frontend can flag (exact field
+  TBD at implementation, pending Open questions on the date/timezone
+  shape).
 - **`ClubsService.createClub`/`updateFfbbLink`**: thin, no validation call —
   just persists `ffbbClubCode` as typed (see Scope: unvalidated by design,
   not by oversight).
-- **`TeamsService.createTeam`/`updateFfbbLink`**: parses the pasted URL via
-  `FfbbProvider.parseEngagementRef`, `400`s if it doesn't match; then calls
-  `getRencontresForEngagement` once to confirm the link actually resolves
-  and to read a label (competition name) for `ffbbEngagementLabel`, `400`s
-  on `FfbbPageFormatError` with a message distinguishing "bad URL" from
-  "couldn't reach FFBB" for the admin.
+- **`TeamsService.createTeam`** (first link, optional) /
+  **`addFfbbLink`/`removeFfbbLink`** (subsequent links, from the team detail
+  page): each add parses the pasted URL via `FfbbProvider.parseEngagementRef`,
+  `400`s if it doesn't match; then calls `getMatchesForEngagement` once to
+  confirm the link actually resolves and to read a label (competition name)
+  for `TeamFfbbLink.ffbbEngagementLabel`, `400`s on `FfbbPageFormatError`
+  with a message distinguishing "bad URL" from "couldn't reach FFBB" for
+  the admin. `removeFfbbLink` deletes the one `TeamFfbbLink` row; other
+  links on the same team are untouched.
 
 No `FfbbLookupController` — there's nothing left for it to serve now that
 club search and engagement listing are cut (see Scope).
 
 ## API surface
 
-| Method | Path                                       | Guard               | Notes                                                              |
-| ------ | -------------------------------------------- | -------------------- | -------------------------------------------------------------------- |
-| POST   | `clubs`                                      | `JwtAuthGuard`       | `CreateClubDto` gains optional `ffbbClubCode`, stored unvalidated   |
-| PATCH  | `clubs/:clubId/ffbb-link`                    | `ClubRoles('ADMIN')` | body `{ ffbbClubCode: string }`; stores unvalidated                 |
-| DELETE | `clubs/:clubId/ffbb-link`                    | `ClubRoles('ADMIN')` | unlinks (teams under this club keep their own links untouched)      |
-| POST   | `clubs/:clubId/teams`                        | `ClubRoles('ADMIN')` | `CreateTeamDto` gains optional `ffbbTeamUrl`; validated on submit    |
-| PATCH  | `clubs/:clubId/teams/:teamId/ffbb-link`      | `TeamManagerGuard`   | body `{ ffbbTeamUrl: string }`; parsed + validated via a live fetch |
-| DELETE | `clubs/:clubId/teams/:teamId/ffbb-link`      | `TeamManagerGuard`   | unlinks; does not touch previously-imported events                  |
-| POST   | `clubs/:clubId/teams/:teamId/ffbb-import`    | `TeamManagerGuard`   | `400` if unlinked; returns `FfbbImportResult`                       |
+| Method | Path                                              | Guard               | Notes                                                                |
+| ------ | ---------------------------------------------------| -------------------- | --------------------------------------------------------------------- |
+| POST   | `clubs`                                           | `JwtAuthGuard`       | `CreateClubDto` gains optional `ffbbClubCode`, stored unvalidated     |
+| PATCH  | `clubs/:clubId/ffbb-link`                         | `ClubRoles('ADMIN')` | body `{ ffbbClubCode: string }`; stores unvalidated                   |
+| DELETE | `clubs/:clubId/ffbb-link`                         | `ClubRoles('ADMIN')` | unlinks (teams under this club keep their own links untouched)        |
+| POST   | `clubs/:clubId/teams`                             | `ClubRoles('ADMIN')` | `CreateTeamDto` gains optional `ffbbTeamUrl`; creates the first link, validated on submit |
+| GET    | `clubs/:clubId/teams/:teamId/ffbb-links`          | `JwtAuthGuard`       | `TeamFfbbLink[]` for the team                                         |
+| POST   | `clubs/:clubId/teams/:teamId/ffbb-links`          | `TeamManagerGuard`   | body `{ ffbbTeamUrl: string }`; parsed + validated via a live fetch, adds one link |
+| DELETE | `clubs/:clubId/teams/:teamId/ffbb-links/:linkId`  | `TeamManagerGuard`   | removes one link; does not touch previously-imported events           |
+| POST   | `clubs/:clubId/teams/:teamId/ffbb-import`         | `TeamManagerGuard`   | `400` if the team has no links; imports every linked engagement; returns `FfbbImportResult` |
 
 ## Shared types (`packages/@basketeasy/types/ffbb.ts`)
 
@@ -405,6 +484,11 @@ export interface LinkFfbbClubRequest {
 
 export interface LinkFfbbTeamRequest {
   ffbbTeamUrl: string; // full competitions.ffbb.com equipes/<id> URL — bare ids are rejected server-side
+}
+
+export interface TeamFfbbLink {
+  id: string;
+  ffbbEngagementLabel: string | null;
 }
 
 export interface FfbbImportResult {
@@ -418,7 +502,11 @@ export interface FfbbImportResult {
 loop's original plan along with the pickers they backed (see Scope). `Club`
 (`packages/@basketeasy/types/clubs.ts`) gains `ffbbClubCode: string | null`
 only (no label — see Data model). `Team` (`.../teams.ts`) gains
-`ffbbEngagementId: string | null` and `ffbbEngagementLabel: string | null`.
+`ffbbLinks: TeamFfbbLink[]` (replacing the loop-1 scalar
+`ffbbEngagementId`/`ffbbEngagementLabel` fields — see Data model). Deliberately
+no `ffbbEngagementRef` on the shared `TeamFfbbLink` type: it's an internal
+lookup key for the backend, not something the frontend ever needs to read or
+display (the frontend only lists, adds, and removes links by `id`).
 `CreateClubRequest` gains `ffbbClubCode?: string`; `CreateTeamRequest` gains
 `ffbbTeamUrl?: string`.
 
@@ -427,15 +515,22 @@ only (no label — see Data model). `Team` (`.../teams.ts`) gains
 - No picker components or search hooks this loop — cut along with the
   pickers (see Scope). `CreateClubForm`/club settings gain one plain
   optional text `Input` ("Code club FFBB") under a collapsed section.
-  `CreateTeamForm`/`TeamDetailPage`'s team info area gain one plain optional
-  text `Input` ("Lien FFBB de l'équipe") with help text stating a full URL
-  is required, plus its own `FieldError` surfaced from the `400` a bad/
-  unresolvable URL returns — inline validation feedback bound to that field,
-  per `CLAUDE.md`'s `FieldError`-vs-`toast()` rule (this is a validation
-  error tied to one input, not a completed-mutation outcome).
-- Import action (`TeamDetailPage`, visible once linked): a button, outcome
-  (`created`/`updated`/`unchanged` counts, or a friendly error) surfaced via
-  `toast()`, per `CLAUDE.md`'s "outcome of a completed mutation" rule.
+  `CreateTeamForm` gains one plain optional text `Input` ("Lien FFBB de
+  l'équipe") with help text stating a full URL is required, plus its own
+  `FieldError` surfaced from the `400` a bad/unresolvable URL returns —
+  inline validation feedback bound to that field, per `CLAUDE.md`'s
+  `FieldError`-vs-`toast()` rule (this is a validation error tied to one
+  input, not a completed-mutation outcome).
+- `TeamDetailPage`'s team info area gains a small "Compétitions FFBB liées"
+  list (see Club & team linking UX above) — a `useTeamFfbbLinks` query hook,
+  an add row (same `Input` + `FieldError` pattern as creation) and a remove
+  control per row, both plain inline controls, no `Dialog` (removing a link
+  is reversible — it doesn't touch imported events — so it doesn't need a
+  confirm step the way, say, `EventDeleteModal`'s irreversible delete does).
+- Import action (`TeamDetailPage`, visible once the team has at least one
+  link): a button, outcome (`created`/`updated`/`unchanged` counts, or a
+  friendly error naming which linked competition failed if one did) surfaced
+  via `toast()`, per `CLAUDE.md`'s "outcome of a completed mutation" rule.
 - `EventRow`/`AgendaEventCard`: a small badge on events where the API
   indicates FFBB origin (expose as `isImported: boolean` on `TeamEvent`
   rather than the raw `externalId`), plus a distinct "heure à confirmer"
@@ -457,15 +552,24 @@ only (no label — see Data model). `Team` (`.../teams.ts`) gains
   RSVPs/convocations survive; existing played match → unchanged even if
   fields differ; manual event with `externalId: null` never touched;
   opponent/home-away resolution for both engagement-1 and engagement-2
-  cases) plus a new case for `timeConfirmed: false` propagating correctly.
+  cases) plus new cases for `timeConfirmed: false` propagating correctly and
+  for multiple links: two linked engagements both contributing events to
+  the same team with no id collision, and one link's provider error aborting
+  the whole import with a message naming the failing link rather than
+  silently importing the other link's matches.
 - `ClubsService`: `ffbb-link` set/unlink persists the code unvalidated (no
   rejection case — there's nothing to reject against).
-- `TeamsService`: `ffbb-link` set rejects a bare id and a URL that doesn't
+- `TeamsService`: `addFfbbLink` rejects a bare id and a URL that doesn't
   resolve (mocked `FfbbPageFormatError`/404 from the provider), accepts and
-  persists a resolving URL plus its label.
-- Vitest/RTL: the updated create/edit forms — submitting a bad team URL
-  shows the field-level error, submitting a good one succeeds; no picker
-  component tests (none exist this loop).
+  persists a resolving URL plus its label, and allows a second link on the
+  same team (the case that didn't work before this revision);
+  `removeFfbbLink` deletes only the targeted link, leaving the team's other
+  links untouched.
+- Vitest/RTL: the updated create form (submitting a bad team URL shows the
+  field-level error, submitting a good one succeeds) and the new team-detail
+  links list (empty state, add succeeds, add fails with field error, remove
+  succeeds, multiple links render as multiple rows); no picker component
+  tests (none exist this loop).
 
 ## Open questions (resolve before/at implementation start)
 
@@ -502,7 +606,7 @@ still-open ones plus confirmed two of the original three:
    observed (and none is documented). Needs a real example, which requires
    either waiting for one to occur on a tracked team or finding one
    elsewhere in the current season's data.
-3. **Whether `rencontre.id` is stable across a season — partially
+3. **Whether a match's `id` is stable across a season — partially
    confirmed.** The 10 sampled ids were confirmed distinct within one team's
    fixture list and drawn from a shared, non-team-sequential pool across the
    competition (a good sign for stability as an external key). Not yet
@@ -513,7 +617,7 @@ still-open ones plus confirmed two of the original three:
    the team-page fixture list or the one per-match detail page checked
    (an unplayed match ~3 weeks out). Might appear closer to matchday, might
    live under a different field name, or might not be scraped at all in
-   this design's page-fetch approach. `FfbbRencontre.location` should be
+   this design's page-fetch approach. `FfbbMatch.location` should be
    assumed `null` until this is checked against a near-term or already-
    played match.
 5. **New — played-match (`joue: true`) field shape, unresolved.** All 10
@@ -531,8 +635,15 @@ still-open ones plus confirmed two of the original three:
    Unchanged — doesn't block this design (we never rely on it), and now
    moot for the cut club-search picker; would only matter again if that
    picker is revisited.
-8. **Whether a team can legitimately need more than one active
-   `ffbbEngagementId`** (multi-competition case from the hierarchy section).
-   Unchanged — if real clubs hit this often, `Team.ffbbEngagementId` being
-   singular is the wrong shape; worth checking against a couple of real
-   CD44 teams' FFBB pages before general rollout.
+8. **Whether a team can legitimately need more than one active FFBB
+   link — resolved, built this revision.** Previously deferred as "assumed
+   away"; now built rather than assumed, since the hierarchy section already
+   established it's a real case (championship + cup in the same season) and
+   there's no good reason to make a team pick just one. See Scope
+   ("Multiple competitions per team") and Data model (`TeamFfbbLink`
+   replacing the old singular `Team.ffbbEngagementId`). What's still
+   genuinely open: whether real CD44 teams hit this often enough in
+   practice to matter for how prominently the "add another link" control
+   should be surfaced in the UI (a small link under the list vs. a more
+   visible affordance) — a product-polish question, not a data-model one,
+   worth revisiting once real usage data exists.
