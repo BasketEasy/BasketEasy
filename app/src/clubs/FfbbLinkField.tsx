@@ -1,4 +1,7 @@
-import { FormField } from '@basketeasy/ui/form-field';
+import { type ReactNode } from 'react';
+import { Label } from '@basketeasy/ui/label';
+import { Input } from '@basketeasy/ui/input';
+import { FieldError } from '@basketeasy/ui/field-error';
 import { cn } from '@basketeasy/ui/cn';
 
 const FFBB_TEAM_URL_PLACEHOLDER =
@@ -13,7 +16,10 @@ const FFBB_TEAM_URL_PENDING = 'Vérification du lien auprès de la FFBB…';
  * field and TeamFfbbLinkList's isolated add-row, per the design spec's
  * "same FfbbLinkAddRow reused in both places, not a reimplementation."
  * Each embedding context owns its own submit button and mutation state;
- * this component only renders the field itself.
+ * this component only renders the field itself, plus an optional inline
+ * `action` (TeamFfbbLinkList's "Ajouter" button) rendered in the same row
+ * as the input — so an adjacent button lines up with the input box itself,
+ * not with the label sitting above it.
  */
 export function FfbbLinkField({
   id,
@@ -21,26 +27,40 @@ export function FfbbLinkField({
   onChange,
   error,
   pending,
+  action,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   error?: string;
   pending?: boolean;
+  action?: ReactNode;
 }) {
+  const helpId = `${id}-help`;
+  const errorId = `${id}-error`;
+
   return (
     <div>
-      <FormField
-        label="Lien FFBB de l'équipe (facultatif)"
-        id={id}
-        placeholder={FFBB_TEAM_URL_PLACEHOLDER}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={pending}
-        error={error}
-      />
-      {!error && (
-        <p className={cn('mt-1.5 text-xs', pending ? 'text-blue-green' : 'text-muted')}>
+      <Label htmlFor={id}>Lien FFBB de l'équipe (facultatif)</Label>
+      <div className="mt-1.5 flex items-center gap-2">
+        <Input
+          id={id}
+          placeholder={FFBB_TEAM_URL_PLACEHOLDER}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={pending}
+          aria-invalid={!!error}
+          aria-describedby={error ? errorId : helpId}
+          className="flex-1"
+        />
+        {action}
+      </div>
+      {error ? (
+        <FieldError id={errorId} className="mt-1.5">
+          {error}
+        </FieldError>
+      ) : (
+        <p id={helpId} className={cn('mt-1.5 text-xs', pending ? 'text-blue-green' : 'text-muted')}>
           {pending ? FFBB_TEAM_URL_PENDING : FFBB_TEAM_URL_HELP}
         </p>
       )}

@@ -4,6 +4,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { toast } from '@basketeasy/ui/toast-store';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { cn } from '@basketeasy/ui/cn';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import type { FfbbImportResult } from '@basketeasy/types/ffbb';
 import { useTeamFfbbLinks } from './useTeamFfbbLinks';
 import { useFfbbLinkAdd } from './useFfbbLinkAdd';
@@ -115,8 +116,9 @@ export function TeamFfbbLinkList({
             return (
               <span
                 key={link.id}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-3.5 pr-1.5 text-sm text-charcoal"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-3 pr-1.5 text-sm text-charcoal shadow-sm"
               >
+                <TrophyIcon className="h-3.5 w-3.5 shrink-0 text-blue-green" aria-hidden="true" />
                 {label}
                 {canManage && (
                   <button
@@ -125,7 +127,7 @@ export function TeamFfbbLinkList({
                     disabled={removingId === link.id}
                     onClick={() => handleRemove(link.id)}
                     className={cn(
-                      'flex h-5 w-5 items-center justify-center rounded-full bg-sunk text-xs leading-none text-muted',
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sunk text-xs leading-none text-muted transition-colors hover:bg-error-tint hover:text-error disabled:cursor-not-allowed disabled:opacity-50',
                       focusRing,
                     )}
                   >
@@ -139,19 +141,19 @@ export function TeamFfbbLinkList({
       )}
 
       {canManage && (
-        <div className="flex flex-wrap items-start gap-2">
-          <div className="max-w-[420px] flex-1">
-            <FfbbLinkField
-              id="team-ffbb-link-add"
-              value={newUrl}
-              onChange={setNewUrl}
-              error={addError}
-              pending={isAdding}
-            />
-          </div>
-          <Button variant="outline" loading={isAdding} onClick={handleAdd}>
-            Ajouter
-          </Button>
+        <div className="max-w-md">
+          <FfbbLinkField
+            id="team-ffbb-link-add"
+            value={newUrl}
+            onChange={setNewUrl}
+            error={addError}
+            pending={isAdding}
+            action={
+              <Button variant="outline" loading={isAdding} onClick={handleAdd} className="shrink-0">
+                Ajouter
+              </Button>
+            }
+          />
         </div>
       )}
     </div>
