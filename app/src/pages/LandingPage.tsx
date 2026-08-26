@@ -7,6 +7,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { PublicHeader } from '../components/PublicHeader';
 import { useAccount } from '../auth/useAccount';
 
@@ -14,21 +15,24 @@ import { useAccount } from '../auth/useAccount';
 // CLAUDE.md's Events and Teams module sections for what actually ships
 // today. SHIPPED carries no badge; UPCOMING keeps "Bientôt" for what's
 // listed under CLAUDE.md's "What's deliberately not here yet".
-const SHIPPED: { title: string; description: string }[] = [
+const SHIPPED: { title: string; description: string; icon: typeof CalendarIcon }[] = [
   {
     title: 'Calendrier & convocations',
     description:
       'Un agenda partagé par équipe, des convocations envoyées en un clic et un suivi des réponses (présent, absent, incertain) en temps réel.',
+    icon: CalendarIcon,
   },
   {
     title: 'Présences suivies',
     description:
       'Chaque joueur confirme sa présence en un clin d’œil, sans relance manuelle par SMS ou tableur.',
+    icon: UsersIcon,
   },
   {
     title: 'Équipes multi-clubs (CTC)',
     description:
       'Une équipe peut réunir plusieurs clubs : effectif, encadrants et accès partagés, sans ressaisir les informations.',
+    icon: BuildingIcon,
   },
 ];
 
@@ -89,10 +93,10 @@ export function LandingPage() {
       <main className="flex-1">
         <section className="mx-auto grid max-w-5xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:py-24">
           <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
-            <Badge variant="outline" className="w-fit">
+            <Badge variant="secondary" className="w-fit">
               Pensé pour les CTC
             </Badge>
-            <Heading as="h1" size="5xl">
+            <Heading as="h1" size="6xl">
               Moins de tableurs, plus de terrain.
             </Heading>
             <p className="max-w-xl text-lg text-muted">
@@ -127,7 +131,7 @@ export function LandingPage() {
             <SectionHeading as="h2" className="mb-6">
               Le marché visé
             </SectionHeading>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="flex items-center gap-3">
                 <BuildingIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
                 <p className="text-sm text-muted">
@@ -146,6 +150,15 @@ export function LandingPage() {
                   licenciés dans ce même département.
                 </p>
               </div>
+              <div className="flex items-center gap-3">
+                <TrophyIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
+                <p className="text-sm text-muted">
+                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
+                    0 €
+                  </span>{' '}
+                  pour créer votre club et inviter votre première équipe.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -159,6 +172,7 @@ export function LandingPage() {
               <article key={feature.title}>
                 <Card>
                   <CardHeader>
+                    <feature.icon className="h-6 w-6 text-blue-green" aria-hidden="true" />
                     <CardTitle>{feature.title}</CardTitle>
                     <CardDescription>{feature.description}</CardDescription>
                   </CardHeader>
@@ -192,13 +206,15 @@ export function LandingPage() {
         </section>
 
         <section className="bg-blue-green text-cream">
-          <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 py-16 text-center">
-            <Heading as="h2" size="3xl" className="text-cream">
-              Prêt à simplifier la gestion de votre équipe ?
-            </Heading>
-            <p className="max-w-xl text-blue-green-tint">
-              Créez un compte gratuitement et invitez votre équipe en quelques minutes.
-            </p>
+          <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 py-16 text-center md:flex-row md:items-center md:justify-between md:text-left">
+            <div className="flex flex-col items-center gap-4 text-center md:items-start md:text-left">
+              <Heading as="h2" size="3xl" className="text-cream">
+                Prêt à simplifier la gestion de votre équipe ?
+              </Heading>
+              <p className="max-w-xl text-blue-green-tint">
+                Créez un compte gratuitement et invitez votre équipe en quelques minutes.
+              </p>
+            </div>
             <Button
               asChild
               size="lg"

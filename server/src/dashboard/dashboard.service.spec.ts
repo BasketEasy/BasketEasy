@@ -69,6 +69,7 @@ describe('DashboardService', () => {
       {
         id: 'event-1',
         teamId: 'team-1',
+        type: 'MATCH',
         startsAt: new Date('2026-08-12T18:00:00.000Z'),
         location: 'Gymnase A',
         notes: null,
@@ -93,6 +94,7 @@ describe('DashboardService', () => {
         teamName: 'U15 Filles',
         clubId: 'club-1',
         clubName: 'COC Basket',
+        type: 'MATCH',
         startsAt: '2026-08-12T18:00:00.000Z',
         location: 'Gymnase A',
         notes: null,
@@ -128,6 +130,7 @@ describe('DashboardService', () => {
       {
         id: 'event-1',
         teamId: 'team-1',
+        type: 'TRAINING',
         startsAt: new Date('2026-08-12T18:00:00.000Z'),
         location: 'Gymnase A',
         notes: null,
