@@ -31,12 +31,12 @@ FFBB organizes competition data in four levels, all visible in a
 `competitions.ffbb.com` team URL —
 `ligues/pdl/comites/0044/clubs/pdl0044190/equipes/200000005346381`:
 
-| Level | Example | What it is | Maps to |
-| --- | --- | --- | --- |
-| Ligue | `pdl` (Pays de la Loire) | Region | Not modeled — appears only as part of the pasted team URL, never selected or stored on its own (see research findings on the club/engagement picker being cut) |
-| Comité | `0044` (Loire-Atlantique / CD44) | Department | Not modeled — same as ligue |
-| Organisme | `pdl0044190` | A club | `Club.ffbbClubCode` |
-| Engagement | `200000005346381` | One club's entry of one specific team into one competition for one season | `TeamFfbbLink.ffbbEngagementRef` |
+| Level      | Example                          | What it is                                                                | Maps to                                                                                                                                                        |
+| ---------- | -------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ligue      | `pdl` (Pays de la Loire)         | Region                                                                    | Not modeled — appears only as part of the pasted team URL, never selected or stored on its own (see research findings on the club/engagement picker being cut) |
+| Comité     | `0044` (Loire-Atlantique / CD44) | Department                                                                | Not modeled — same as ligue                                                                                                                                    |
+| Organisme  | `pdl0044190`                     | A club                                                                    | `Club.ffbbClubCode`                                                                                                                                            |
+| Engagement | `200000005346381`                | One club's entry of one specific team into one competition for one season | `TeamFfbbLink.ffbbEngagementRef`                                                                                                                               |
 
 Two things worth being explicit about, since they shape the data model
 below:
@@ -64,7 +64,7 @@ that REST API directly. **That assumption is now empirically closed out —
 negative — and replaced with a different, verified strategy.** Timeline of
 what was actually tested (2026-08-26):
 
-1. This sandbox's egress is *not* blocked — `api.ffbb.com`/
+1. This sandbox's egress is _not_ blocked — `api.ffbb.com`/
    `competitions.ffbb.com` resolve and respond normally over the network.
 2. `api.ffbb.com` sits behind a Bunny CDN WAF: a plain request with no
    `Referer`/`Origin`/browser `User-Agent` gets a `403` from the CDN edge on
@@ -75,7 +75,7 @@ what was actually tested (2026-08-26):
    `Authorization: Bearer <key_dh>` (and as an `access_token` query param)
    against `/items/organismes`, `/items/rencontres`, and `/collections` all
    clear the WAF but come back with Directus's own `403 FORBIDDEN "You don't
-   have permission to access collection..."` — a real permissions error from
+have permission to access collection..."` — a real permissions error from
    the backend, not the WAF. `key_dh` is scoped to `configuration`/`assets`
    only. **Conclusion: there is no client-reachable Directus token with read
    access to club or match data. Don't build against `api.ffbb.com` REST
@@ -464,16 +464,16 @@ club search and engagement listing are cut (see Scope).
 
 ## API surface
 
-| Method | Path                                              | Guard               | Notes                                                                |
-| ------ | ---------------------------------------------------| -------------------- | --------------------------------------------------------------------- |
-| POST   | `clubs`                                           | `JwtAuthGuard`       | `CreateClubDto` gains optional `ffbbClubCode`, stored unvalidated     |
-| PATCH  | `clubs/:clubId/ffbb-link`                         | `ClubRoles('ADMIN')` | body `{ ffbbClubCode: string }`; stores unvalidated                   |
-| DELETE | `clubs/:clubId/ffbb-link`                         | `ClubRoles('ADMIN')` | unlinks (teams under this club keep their own links untouched)        |
-| POST   | `clubs/:clubId/teams`                             | `ClubRoles('ADMIN')` | `CreateTeamDto` gains optional `ffbbTeamUrl`; creates the first link, validated on submit |
-| GET    | `clubs/:clubId/teams/:teamId/ffbb-links`          | `JwtAuthGuard`       | `TeamFfbbLink[]` for the team                                         |
-| POST   | `clubs/:clubId/teams/:teamId/ffbb-links`          | `TeamManagerGuard`   | body `{ ffbbTeamUrl: string }`; parsed + validated via a live fetch, adds one link |
-| DELETE | `clubs/:clubId/teams/:teamId/ffbb-links/:linkId`  | `TeamManagerGuard`   | removes one link; does not touch previously-imported events           |
-| POST   | `clubs/:clubId/teams/:teamId/ffbb-import`         | `TeamManagerGuard`   | `400` if the team has no links; imports every linked engagement; returns `FfbbImportResult` |
+| Method | Path                                             | Guard                | Notes                                                                                       |
+| ------ | ------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------- |
+| POST   | `clubs`                                          | `JwtAuthGuard`       | `CreateClubDto` gains optional `ffbbClubCode`, stored unvalidated                           |
+| PATCH  | `clubs/:clubId/ffbb-link`                        | `ClubRoles('ADMIN')` | body `{ ffbbClubCode: string }`; stores unvalidated                                         |
+| DELETE | `clubs/:clubId/ffbb-link`                        | `ClubRoles('ADMIN')` | unlinks (teams under this club keep their own links untouched)                              |
+| POST   | `clubs/:clubId/teams`                            | `ClubRoles('ADMIN')` | `CreateTeamDto` gains optional `ffbbTeamUrl`; creates the first link, validated on submit   |
+| GET    | `clubs/:clubId/teams/:teamId/ffbb-links`         | `JwtAuthGuard`       | `TeamFfbbLink[]` for the team                                                               |
+| POST   | `clubs/:clubId/teams/:teamId/ffbb-links`         | `TeamManagerGuard`   | body `{ ffbbTeamUrl: string }`; parsed + validated via a live fetch, adds one link          |
+| DELETE | `clubs/:clubId/teams/:teamId/ffbb-links/:linkId` | `TeamManagerGuard`   | removes one link; does not touch previously-imported events                                 |
+| POST   | `clubs/:clubId/teams/:teamId/ffbb-import`        | `TeamManagerGuard`   | `400` if the team has no links; imports every linked engagement; returns `FfbbImportResult` |
 
 ## Shared types (`packages/@basketeasy/types/ffbb.ts`)
 
@@ -610,7 +610,7 @@ still-open ones plus confirmed two of the original three:
    confirmed.** The 10 sampled ids were confirmed distinct within one team's
    fixture list and drawn from a shared, non-team-sequential pool across the
    competition (a good sign for stability as an external key). Not yet
-   confirmed: that the *same* id is returned for the *same* match on a later
+   confirmed: that the _same_ id is returned for the _same_ match on a later
    re-fetch (only fetched once per fixture so far) — needed before trusting
    it as the upsert key in `@@unique([teamId, externalId])`.
 4. **New — venue (`salle`) field location, unresolved.** Not found in either

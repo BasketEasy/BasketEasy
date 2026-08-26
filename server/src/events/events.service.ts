@@ -32,6 +32,8 @@ type EventRow = {
   notes: string | null;
   opponentName: string | null;
   recurrenceId: string | null;
+  externalId: string | null;
+  timeConfirmed: boolean;
   createdAt: Date;
 };
 
@@ -546,6 +548,8 @@ export class EventsService {
       opponentName: event.opponentName,
       recurrenceId: event.recurrenceId,
       createdAt: event.createdAt.toISOString(),
+      isImported: event.externalId !== null,
+      timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
       myConvocation,
     };

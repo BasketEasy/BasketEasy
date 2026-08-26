@@ -14,11 +14,13 @@ import {
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
+import type { FfbbImportResult, TeamFfbbLink } from '@basketeasy/types/ffbb';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
+import { FfbbImportService } from '../ffbb/ffbb-import.service';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -29,11 +31,15 @@ import { ListTeamClubsDto } from './dto/list-team-clubs.dto';
 import { ListTeamPlayersDto } from './dto/list-team-players.dto';
 import { UpdateTeamPlayerDto } from './dto/update-team-player.dto';
 import { AddTeamAdminDto } from './dto/add-team-admin.dto';
+import { AddFfbbLinkDto } from './dto/add-ffbb-link.dto';
 
 @Controller('clubs/:clubId/teams')
 @UseGuards(JwtAuthGuard)
 export class TeamsController {
-  constructor(private readonly teamsService: TeamsService) {}
+  constructor(
+    private readonly teamsService: TeamsService,
+    private readonly ffbbImportService: FfbbImportService,
+  ) {}
 
   @Post()
   @UseGuards(ClubRolesGuard)
@@ -152,6 +158,46 @@ export class TeamsController {
     @Param('playerId') playerId: string,
   ): Promise<void> {
     return this.teamsService.removeTeamPlayer(clubId, teamId, playerId);
+  }
+
+  @Get(':teamId/ffbb-links')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  listFfbbLinks(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<TeamFfbbLink[]> {
+    return this.teamsService.listFfbbLinks(clubId, teamId);
+  }
+
+  @Post(':teamId/ffbb-links')
+  @UseGuards(TeamManagerGuard)
+  addFfbbLink(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Body() dto: AddFfbbLinkDto,
+  ): Promise<TeamFfbbLink> {
+    return this.teamsService.addFfbbLink(clubId, teamId, dto.ffbbTeamUrl);
+  }
+
+  @Delete(':teamId/ffbb-links/:linkId')
+  @UseGuards(TeamManagerGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeFfbbLink(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('linkId') linkId: string,
+  ): Promise<void> {
+    return this.teamsService.removeFfbbLink(clubId, teamId, linkId);
+  }
+
+  @Post(':teamId/ffbb-import')
+  @UseGuards(TeamManagerGuard)
+  importFfbbSchedule(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<FfbbImportResult> {
+    return this.ffbbImportService.importSchedule(clubId, teamId);
   }
 
   @Get(':teamId/admins')

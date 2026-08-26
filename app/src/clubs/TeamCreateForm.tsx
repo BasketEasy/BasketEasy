@@ -10,6 +10,8 @@ import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
 import { useTeamCreate } from './useTeamCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
+import { FfbbLinkField } from './FfbbLinkField';
+import { isFfbbLinkError } from './ffbbLinkErrors';
 
 const teamSchema = z.object({
   name: z.string().min(1, "Nom de l'équipe requis"),
@@ -17,6 +19,7 @@ const teamSchema = z.object({
     error: 'Catégorie requise',
   }),
   gender: z.enum(['MEN', 'WOMEN'], { error: 'Genre requis' }),
+  ffbbTeamUrl: z.string().optional(),
 });
 
 type TeamFormValues = z.infer<typeof teamSchema>;
@@ -32,19 +35,30 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
     formState: { errors, isSubmitting },
   } = useForm<TeamFormValues>({
     resolver: zodResolver(teamSchema),
-    defaultValues: { name: '', category: undefined, gender: undefined },
+    defaultValues: { name: '', category: undefined, gender: undefined, ffbbTeamUrl: '' },
   });
 
   const onSubmit = (values: TeamFormValues) => {
     createTeam(
-      { name: values.name, category: values.category, gender: values.gender },
+      {
+        name: values.name,
+        category: values.category,
+        gender: values.gender,
+        ffbbTeamUrl: values.ffbbTeamUrl?.trim() || undefined,
+      },
       {
         onSuccess: () => {
           toast({ variant: 'success', title: 'Équipe créée' });
           reset();
           onSuccess?.();
         },
-        onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
+        onError: (err) => {
+          if (isFfbbLinkError(err)) {
+            setError('ffbbTeamUrl', { message: err.message });
+            return;
+          }
+          setError('root', { message: getClubErrorMessage(err) });
+        },
       },
     );
   };
@@ -98,6 +112,20 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
             onValueChange={(value) => field.onChange(value as TeamGender)}
             placeholder="Choisir un genre"
             error={errors.gender?.message}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="ffbbTeamUrl"
+        render={({ field }) => (
+          <FfbbLinkField
+            id="team-ffbb-url"
+            value={field.value ?? ''}
+            onChange={field.onChange}
+            error={errors.ffbbTeamUrl?.message}
+            pending={isSubmitting || isPending}
           />
         )}
       />

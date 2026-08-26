@@ -29,6 +29,10 @@ export interface TeamEvent {
   myRsvpStatus: EventRsvpStatus | null;
   /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
   myConvocation: boolean;
+  /** True for an event created by the FFBB calendar import, false for a manually-created one. */
+  isImported: boolean;
+  /** False when FFBB's kickoff time was still its "not yet confirmed" placeholder; always true for a manual event. */
+  timeConfirmed: boolean;
 }
 
 export type EventRecurrenceFrequency = 'WEEKLY';

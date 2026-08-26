@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,31 +18,134 @@ import type {
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
+import type { TeamFfbbLink as TeamFfbbLinkDto } from '@basketeasy/types/ffbb';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
+import { FFBB_PROVIDER, FfbbProvider } from '../ffbb/ffbb-provider';
 import { ListTeamsDto } from './dto/list-teams.dto';
 import { ListTeamClubsDto } from './dto/list-team-clubs.dto';
 import { ListTeamPlayersDto } from './dto/list-team-players.dto';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
+// Exact copy from docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md's
+// "Copy reference (FR)" table — the single source both TeamCreateForm and
+// TeamFfbbLinkList's add-row render verbatim via ApiError.message, so the
+// two entry points can't drift into near-duplicate phrasing.
+const FFBB_LINK_BAD_SHAPE_MESSAGE =
+  "Ce lien ne correspond pas au format attendu. Copiez l'URL complète depuis la page de l'équipe sur competitions.ffbb.com — un identifiant seul ne suffit pas.";
+const FFBB_LINK_UNREACHABLE_MESSAGE =
+  "Impossible de vérifier ce lien auprès de la FFBB pour le moment. Vérifiez l'URL ou réessayez plus tard.";
+
 @Injectable()
 export class TeamsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
+  ) {}
 
   async createTeam(
     clubId: string,
-    data: { name: string; category: TeamCategory; gender: TeamGender },
+    data: { name: string; category: TeamCategory; gender: TeamGender; ffbbTeamUrl?: string },
   ): Promise<Team> {
-    const team = await this.prisma.team.create({
-      data: {
-        name: data.name,
-        category: data.category,
-        gender: data.gender,
-        clubTeams: { create: { clubId, isOwner: true } },
-      },
+    const link = data.ffbbTeamUrl ? await this.validateFfbbLink(data.ffbbTeamUrl) : null;
+
+    try {
+      const team = await this.prisma.team.create({
+        data: {
+          name: data.name,
+          category: data.category,
+          gender: data.gender,
+          clubTeams: { create: { clubId, isOwner: true } },
+          ...(link
+            ? {
+                ffbbLinks: {
+                  create: {
+                    ffbbEngagementRef: link.ref,
+                    ffbbEngagementLabel: link.competitionLabel,
+                  },
+                },
+              }
+            : {}),
+        },
+      });
+      return this.toTeam(team);
+    } catch (err) {
+      throw this.toFfbbLinkConflictError(err);
+    }
+  }
+
+  /** Validates a pasted FFBB team URL: parses its shape, then confirms it actually resolves via a live fetch. Throws a field-bindable error (FfbbLinkErrorCode) on either failure. */
+  private async validateFfbbLink(
+    ffbbTeamUrl: string,
+  ): Promise<{ ref: string; competitionLabel: string | null }> {
+    const ref = this.ffbbProvider.parseEngagementRef(ffbbTeamUrl);
+    if (!ref) {
+      throw new BadRequestException({
+        message: FFBB_LINK_BAD_SHAPE_MESSAGE,
+        code: 'FFBB_LINK_INVALID',
+      });
+    }
+    try {
+      const { competitionLabel } = await this.ffbbProvider.getMatchesForEngagement(ref);
+      return { ref, competitionLabel };
+    } catch {
+      throw new BadRequestException({
+        message: FFBB_LINK_UNREACHABLE_MESSAGE,
+        code: 'FFBB_LINK_UNREACHABLE',
+      });
+    }
+  }
+
+  private toFfbbLinkConflictError(err: unknown): unknown {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === UNIQUE_CONSTRAINT_VIOLATION
+    ) {
+      return new ConflictException('Cette compétition FFBB est déjà liée à une autre équipe');
+    }
+    return err;
+  }
+
+  async listFfbbLinks(clubId: string, teamId: string): Promise<TeamFfbbLinkDto[]> {
+    await this.assertTeamInClub(clubId, teamId);
+    const links = await this.prisma.teamFfbbLink.findMany({
+      where: { teamId },
+      orderBy: { createdAt: 'asc' },
     });
-    return this.toTeam(team);
+    return links.map((link) => this.toTeamFfbbLink(link));
+  }
+
+  async addFfbbLink(clubId: string, teamId: string, ffbbTeamUrl: string): Promise<TeamFfbbLinkDto> {
+    await this.assertTeamInClub(clubId, teamId);
+    const link = await this.validateFfbbLink(ffbbTeamUrl);
+
+    try {
+      const created = await this.prisma.teamFfbbLink.create({
+        data: { teamId, ffbbEngagementRef: link.ref, ffbbEngagementLabel: link.competitionLabel },
+      });
+      return this.toTeamFfbbLink(created);
+    } catch (err) {
+      throw this.toFfbbLinkConflictError(err);
+    }
+  }
+
+  async removeFfbbLink(clubId: string, teamId: string, linkId: string): Promise<void> {
+    await this.assertTeamInClub(clubId, teamId);
+
+    const link = await this.prisma.teamFfbbLink.findUnique({ where: { id: linkId } });
+    if (!link || link.teamId !== teamId) {
+      throw new NotFoundException('FFBB link not found on this team');
+    }
+
+    await this.prisma.teamFfbbLink.delete({ where: { id: linkId } });
+  }
+
+  private toTeamFfbbLink(link: {
+    id: string;
+    ffbbEngagementLabel: string | null;
+  }): TeamFfbbLinkDto {
+    return { id: link.id, ffbbEngagementLabel: link.ffbbEngagementLabel };
   }
 
   async listTeams(clubId: string, query: ListTeamsDto): Promise<PaginatedResult<Team>> {

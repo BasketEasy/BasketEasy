@@ -79,6 +79,8 @@ describe('EventsService', () => {
           notes: null,
           opponentName: null,
           recurrenceId: null,
+          externalId: null,
+          timeConfirmed: true,
           createdAt: new Date('2026-01-01'),
         },
       ]);
@@ -105,6 +107,8 @@ describe('EventsService', () => {
             opponentName: null,
             recurrenceId: null,
             createdAt: '2026-01-01T00:00:00.000Z',
+            isImported: false,
+            timeConfirmed: true,
             myRsvpStatus: null,
             myConvocation: false,
           },
@@ -113,6 +117,31 @@ describe('EventsService', () => {
         page: 1,
         pageSize: 25,
       });
+    });
+
+    it('marks an event with an externalId as imported and surfaces timeConfirmed:false for a TBD kickoff', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([
+        {
+          id: 'event-1',
+          teamId: 'team-1',
+          type: 'MATCH',
+          startsAt: new Date('2026-09-20T00:00:00.000Z'),
+          location: 'Lieu non communiqué',
+          notes: null,
+          opponentName: 'Nantes Sully Basket',
+          recurrenceId: null,
+          externalId: 'ffbb-match-1',
+          timeConfirmed: false,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.event.count.mockResolvedValue(1);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(result.items[0].isImported).toBe(true);
+      expect(result.items[0].timeConfirmed).toBe(false);
     });
 
     it('resolves the caller RSVP status and convocation flag in a bounded number of queries, regardless of page size', async () => {

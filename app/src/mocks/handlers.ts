@@ -26,7 +26,7 @@ export const handlers = [
   // "Effectif · {club name}" heading; club-name-focused tests override it
   // with server.use(...).
   http.get('/api/clubs/:clubId', ({ params }) =>
-    HttpResponse.json({ id: params.clubId, name: '', createdAt: 'x' }),
+    HttpResponse.json({ id: params.clubId, name: '', ffbbClubCode: null, createdAt: 'x' }),
   ),
 
   // Default: no teams for any club. RosterPage always queries this (its
@@ -51,6 +51,10 @@ export const handlers = [
   // this to populate the "Ajouter un administrateur" dropdown; team-admin-add
   // focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/admins/eligible', () => HttpResponse.json([])),
+
+  // Default: no FFBB links for any team. TeamDetailPage always queries this
+  // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
 
   // Default: no personal teams. MyTeamsPage always queries this; tests
   // exercising it override with server.use(...).

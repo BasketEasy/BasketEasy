@@ -41,6 +41,30 @@ describe('ClubCreateForm', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('keeps the FFBB code field collapsed by default and submits it when filled in', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<ClubCreateForm />);
+
+    expect(screen.queryByLabelText(/code club ffbb/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /lier ce club à la ffbb/i }));
+    await user.type(screen.getByLabelText(/code club ffbb/i), 'pdl0044190');
+    await user.type(screen.getByLabelText(/nom du club/i), 'COC Basket');
+    await user.click(screen.getByRole('button', { name: /créer le club/i }));
+
+    await waitFor(() =>
+      expect(capturedBody).toEqual({ name: 'COC Basket', ffbbClubCode: 'pdl0044190' }),
+    );
+  });
+
   it('shows a submit-level error on a server failure', async () => {
     server.use(
       http.post('/api/clubs', () => HttpResponse.json({ message: 'error' }, { status: 500 })),

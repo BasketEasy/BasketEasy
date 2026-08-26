@@ -47,6 +47,10 @@
     "./my-dashboard": {
       "types": "./my-dashboard.ts",
       "default": "./my-dashboard.ts"
+    },
+    "./ffbb": {
+      "types": "./ffbb.ts",
+      "default": "./ffbb.ts"
     }
   },
   "scripts": {

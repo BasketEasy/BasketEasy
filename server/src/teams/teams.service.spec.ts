@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { TeamsService } from './teams.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { FFBB_PROVIDER } from '../ffbb/ffbb-provider';
 
 describe('TeamsService', () => {
   let service: TeamsService;
@@ -47,8 +48,15 @@ describe('TeamsService', () => {
       delete: jest.Mock;
       count: jest.Mock;
     };
+    teamFfbbLink: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      delete: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
+  let ffbbProvider: { parseEngagementRef: jest.Mock; getMatchesForEngagement: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
@@ -87,11 +95,22 @@ describe('TeamsService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
+      teamFfbbLink: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        delete: jest.fn(),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
+    ffbbProvider = { parseEngagementRef: jest.fn(), getMatchesForEngagement: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TeamsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        TeamsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: FFBB_PROVIDER, useValue: ffbbProvider },
+      ],
     }).compile();
 
     service = module.get<TeamsService>(TeamsService);
@@ -128,6 +147,220 @@ describe('TeamsService', () => {
         gender: 'MEN',
         createdAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+
+    it('rejects an ffbbTeamUrl with a bad shape without calling the club-team create', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(null);
+
+      await expect(
+        service.createTeam('club-1', {
+          name: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          ffbbTeamUrl: 'bad',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.team.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an ffbbTeamUrl whose live fetch fails', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(
+        'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+      );
+      ffbbProvider.getMatchesForEngagement.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        service.createTeam('club-1', {
+          name: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          ffbbTeamUrl:
+            'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.team.create).not.toHaveBeenCalled();
+    });
+
+    it('creates the first TeamFfbbLink when a valid ffbbTeamUrl is given', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(
+        'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+      );
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: 'Seniors M D3',
+        matches: [],
+      });
+      prisma.team.create.mockResolvedValue({
+        id: 'team-1',
+        name: 'U15',
+        category: 'U15',
+        gender: 'MEN',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      await service.createTeam('club-1', {
+        name: 'U15',
+        category: 'U15',
+        gender: 'MEN',
+        ffbbTeamUrl:
+          'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+      });
+
+      expect(prisma.team.create).toHaveBeenCalledWith({
+        data: {
+          name: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          clubTeams: { create: { clubId: 'club-1', isOwner: true } },
+          ffbbLinks: {
+            create: {
+              ffbbEngagementRef: 'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+              ffbbEngagementLabel: 'Seniors M D3',
+            },
+          },
+        },
+      });
+    });
+
+    it('surfaces a conflict when the engagement is already linked to another team', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(
+        'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+      );
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [],
+      });
+      prisma.team.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(
+        service.createTeam('club-1', {
+          name: 'U15',
+          category: 'U15',
+          gender: 'MEN',
+          ffbbTeamUrl:
+            'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/1',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('listFfbbLinks', () => {
+    it('lists the links for a team in the club', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        teamId: 'team-1',
+        isOwner: true,
+      });
+      prisma.teamFfbbLink.findMany.mockResolvedValue([
+        { id: 'link-1', ffbbEngagementLabel: 'Seniors M D3' },
+        { id: 'link-2', ffbbEngagementLabel: null },
+      ]);
+
+      const result = await service.listFfbbLinks('club-1', 'team-1');
+
+      expect(result).toEqual([
+        { id: 'link-1', ffbbEngagementLabel: 'Seniors M D3' },
+        { id: 'link-2', ffbbEngagementLabel: null },
+      ]);
+    });
+
+    it('404s when the team is not linked to the club', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue(null);
+
+      await expect(service.listFfbbLinks('club-1', 'team-1')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('addFfbbLink', () => {
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        teamId: 'team-1',
+        isOwner: false,
+      });
+    });
+
+    it('adds a second link to a team that already has one (multiple competitions)', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(
+        'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/2',
+      );
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: 'Coupe',
+        matches: [],
+      });
+      prisma.teamFfbbLink.create.mockResolvedValue({ id: 'link-2', ffbbEngagementLabel: 'Coupe' });
+
+      const result = await service.addFfbbLink(
+        'club-1',
+        'team-1',
+        'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/2',
+      );
+
+      expect(prisma.teamFfbbLink.create).toHaveBeenCalledWith({
+        data: {
+          teamId: 'team-1',
+          ffbbEngagementRef: 'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/2',
+          ffbbEngagementLabel: 'Coupe',
+        },
+      });
+      expect(result).toEqual({ id: 'link-2', ffbbEngagementLabel: 'Coupe' });
+    });
+
+    it('rejects a bare id (no shape match)', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(null);
+
+      await expect(service.addFfbbLink('club-1', 'team-1', '200000005346381')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.teamFfbbLink.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a URL that does not resolve', async () => {
+      ffbbProvider.parseEngagementRef.mockReturnValue(
+        'ligues/pdl/comites/0044/clubs/pdl0044190/equipes/2',
+      );
+      ffbbProvider.getMatchesForEngagement.mockRejectedValue(new Error('404'));
+
+      await expect(
+        service.addFfbbLink(
+          'club-1',
+          'team-1',
+          'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/2',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('removeFfbbLink', () => {
+    it('deletes only the targeted link, leaving other links on the team untouched', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        teamId: 'team-1',
+        isOwner: true,
+      });
+      prisma.teamFfbbLink.findUnique.mockResolvedValue({ id: 'link-1', teamId: 'team-1' });
+
+      await service.removeFfbbLink('club-1', 'team-1', 'link-1');
+
+      expect(prisma.teamFfbbLink.delete).toHaveBeenCalledWith({ where: { id: 'link-1' } });
+    });
+
+    it('404s when the link belongs to a different team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        teamId: 'team-1',
+        isOwner: true,
+      });
+      prisma.teamFfbbLink.findUnique.mockResolvedValue({ id: 'link-1', teamId: 'other-team' });
+
+      await expect(service.removeFfbbLink('club-1', 'team-1', 'link-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.teamFfbbLink.delete).not.toHaveBeenCalled();
     });
   });
 
