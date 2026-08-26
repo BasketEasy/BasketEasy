@@ -214,8 +214,9 @@ model EventRsvp {
   event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
 
+  // No separate @@index([eventId]) — the unique constraint below already
+  // provides a usable btree prefix index for eventId-only lookups.
   @@unique([eventId, teamPlayerId])
-  @@index([eventId])
 }
 
 // A team manager's call-up of a specific roster member for one event —
@@ -232,8 +233,8 @@ model EventConvocation {
   event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer   TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
 
+  // No separate @@index([eventId]) — same reasoning as EventRsvp above.
   @@unique([eventId, teamPlayerId])
-  @@index([eventId])
 }
 
 enum ClubRole {

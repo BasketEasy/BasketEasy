@@ -111,6 +111,10 @@
       "types": "./src/components/icons/ShieldIcon.tsx",
       "default": "./src/components/icons/ShieldIcon.tsx"
     },
+    "./icons/spinner": {
+      "types": "./src/components/icons/Spinner.tsx",
+      "default": "./src/components/icons/Spinner.tsx"
+    },
     "./tooltip": {
       "types": "./src/components/Tooltip.tsx",
       "default": "./src/components/Tooltip.tsx"

@@ -1,6 +1,8 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
+import { Spinner } from '@basketeasy/ui/icons/spinner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@basketeasy/ui/tooltip';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { EventRsvpStatus, TeamEvent } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
@@ -39,6 +41,11 @@ const ICONS: Record<EventRsvpStatus, ReactNode> = {
   ),
 };
 
+// 409 isn't a realistic outcome of an upsert/delete RSVP write, but the
+// shared default 409 message is worded for club-membership forms — pass a
+// status-agnostic fallback here rather than risk a nonsensical string.
+const GENERIC_FALLBACK = 'Une erreur est survenue. Merci de réessayer.';
+
 /**
  * Inline tri-state RSVP toggle for a rostered team member — single-field,
  * non-destructive, high-frequency, so an inline control rather than a
@@ -54,9 +61,15 @@ export function EventRsvpControl({
   teamId: string;
   event: TeamEvent;
 }) {
+  // Tracks which option is mid-flight so only that button swaps to a
+  // spinner — the other two stay static even though all three are disabled
+  // together to prevent a double-submit race.
+  const [pendingValue, setPendingValue] = useState<EventRsvpStatus | null>(null);
   const { mutate: setRsvp, isPending: isSetting } = useEventRsvpSet(clubId, teamId);
   const { mutate: clearRsvp, isPending: isClearing } = useEventRsvpClear(clubId, teamId);
   const isPending = isSetting || isClearing;
+  const hasResponded = event.myRsvpStatus !== null;
+  const hintId = `rsvp-hint-${event.id}`;
 
   // No success toast here: the segmented control's own highlighted state is
   // the feedback, and RSVP is a frequent, low-stakes action — a toast on
@@ -64,60 +77,83 @@ export function EventRsvpControl({
   // since nothing else in the UI would otherwise reveal that the click
   // didn't stick.
   const select = (status: EventRsvpStatus) => {
+    setPendingValue(status);
+    const onSettled = () => setPendingValue(null);
     const onError = (err: unknown) =>
-      toast({ variant: 'destructive', description: getClubErrorMessage(err) });
+      toast({
+        variant: 'destructive',
+        description: getClubErrorMessage(err, { 409: GENERIC_FALLBACK }),
+      });
     if (event.myRsvpStatus === status) {
-      clearRsvp({ eventId: event.id }, { onError });
+      clearRsvp({ eventId: event.id }, { onError, onSettled });
     } else {
-      setRsvp({ eventId: event.id, status }, { onError });
+      setRsvp({ eventId: event.id, status }, { onError, onSettled });
     }
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
-      {/* Icon-only below the desktop breakpoint — a fixed icon+label width
-          per segment can exceed a narrow card/screen (see the mobile agenda
-          card) however the segments share space; icon-only guarantees the
-          control never overflows regardless of card width. The label stays
-          the accessible name (aria-label) even when visually hidden. */}
-      <div
-        role="group"
-        aria-label="Ma réponse"
-        className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
-      >
-        {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
-          const active = event.myRsvpStatus === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={active}
-              aria-label={option.label}
-              disabled={isPending}
-              onClick={() => select(option.value)}
-              className={cn(
-                'flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
-                'disabled:pointer-events-none disabled:opacity-50',
-                focusRing,
-                index > 0 && 'border-l border-border-strong',
-                active
-                  ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
-                  : 'bg-surface text-muted hover:bg-sunk',
-              )}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                className="h-4 w-4 shrink-0"
-              >
-                {ICONS[option.value]}
-              </svg>
-              <span className="hidden md:inline">{option.label}</span>
-            </button>
-          );
-        })}
+    <TooltipProvider>
+      <div className="flex flex-col gap-1.5">
+        {/* A short label (e.g. "Oui") stays visible at every breakpoint —
+            icon-only below md left touch users with no reliable way to
+            learn what a button means, since a hover tooltip never fires on
+            tap. The full label takes over at md; the tooltip is a bonus for
+            mouse/keyboard users below that breakpoint. */}
+        <div
+          role="group"
+          aria-label="Ma réponse"
+          className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
+        >
+          {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
+            const active = event.myRsvpStatus === option.value;
+            const isThisPending = pendingValue === option.value;
+            return (
+              <Tooltip key={option.value}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    aria-label={option.label}
+                    aria-describedby={hasResponded ? hintId : undefined}
+                    disabled={isPending}
+                    onClick={() => select(option.value)}
+                    className={cn(
+                      'flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
+                      'disabled:pointer-events-none disabled:opacity-50',
+                      focusRing,
+                      index > 0 && 'border-l border-border-strong',
+                      active
+                        ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
+                        : 'bg-surface text-muted hover:bg-sunk',
+                    )}
+                  >
+                    {isThisPending ? (
+                      <Spinner className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        className="h-4 w-4 shrink-0"
+                      >
+                        {ICONS[option.value]}
+                      </svg>
+                    )}
+                    <span className="md:hidden">{option.shortLabel}</span>
+                    <span className="hidden md:inline">{option.label}</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{option.label}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+        {hasResponded && (
+          <p id={hintId} className="text-xs text-muted">
+            Touchez à nouveau votre réponse pour l&apos;annuler.
+          </p>
+        )}
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

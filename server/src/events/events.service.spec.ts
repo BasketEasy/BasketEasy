@@ -18,7 +18,12 @@ describe('EventsService', () => {
     };
     teamPlayer: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
     eventRsvp: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
-    eventConvocation: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    eventConvocation: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      upsert: jest.Mock;
+      deleteMany: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -36,7 +41,12 @@ describe('EventsService', () => {
       },
       teamPlayer: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
       eventRsvp: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
-      eventConvocation: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+      eventConvocation: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -49,6 +59,7 @@ describe('EventsService', () => {
     // itself care about, so tests only need to mock the one they exercise.
     prisma.eventRsvp.findMany.mockResolvedValue([]);
     prisma.eventConvocation.findMany.mockResolvedValue([]);
+    prisma.eventConvocation.findUnique.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [EventsService, { provide: PrismaService, useValue: prisma }],
@@ -1027,7 +1038,7 @@ describe('EventsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue(existingEvent);
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
-      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+      prisma.eventConvocation.findUnique.mockResolvedValue({ id: 'conv-1' });
 
       const result = await service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING');
 
@@ -1042,6 +1053,22 @@ describe('EventsService', () => {
         update: { status: 'GOING', respondedAt: expect.any(Date) },
       });
       expect(result.myRsvpStatus).toBe('GOING');
+      expect(result.myConvocation).toBe(true);
+    });
+
+    it('resolves the write in a bounded number of queries, without re-fetching the event or re-resolving the caller TeamPlayer', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      await service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING');
+
+      expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).not.toHaveBeenCalled();
+      expect(prisma.eventConvocation.findUnique).toHaveBeenCalledWith({
+        where: { eventId_teamPlayerId: { eventId: 'event-1', teamPlayerId: 'tp-1' } },
+      });
     });
   });
 
@@ -1073,7 +1100,6 @@ describe('EventsService', () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue(existingEvent);
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
-      prisma.eventRsvp.findMany.mockResolvedValue([]);
 
       const result = await service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1');
 
@@ -1081,6 +1107,19 @@ describe('EventsService', () => {
         where: { eventId: 'event-1', teamPlayerId: 'tp-1' },
       });
       expect(result.myRsvpStatus).toBeNull();
+      expect(result.myConvocation).toBe(false);
+    });
+
+    it('resolves the write in a bounded number of queries, without re-fetching the event or re-resolving the caller TeamPlayer', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      await service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).not.toHaveBeenCalled();
     });
   });
 
