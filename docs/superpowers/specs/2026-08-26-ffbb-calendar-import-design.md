@@ -61,12 +61,26 @@ JSON API at `https://api.ffbb.com` — a **Directus**-backed headless-CMS REST
 API (not a public, versioned "standard" FFBB publishes or supports; several
 independent open-source clients have reverse-engineered it: `Fimeo/ffbb-api-ts`
 (TypeScript), `nickdesi/ffbb-data-client` and `ffbb-api-client-v2` (Python)).
-Key points for this spec, gathered from those clients' docs (this sandbox
-cannot reach `api.ffbb.com`/`competitions.ffbb.com` directly — egress to FFBB
-domains is proxy-blocked here, so everything below needs a one-time empirical
-confirmation from an environment that *can* reach it, before finalizing field
-mappings and before trusting the "search clubs" / "list a club's engagements"
-calls this loop adds — see Open questions):
+Key points for this spec, gathered from those clients' docs. **Corrected
+finding (re-verified 2026-08-26):** this sandbox's egress is *not* blocked —
+`api.ffbb.com`/`competitions.ffbb.com` resolve and respond normally at the
+network level. The earlier "proxy-blocked" note was wrong about the
+mechanism. What's actually there is a Bunny CDN WAF in front of
+`api.ffbb.com`: a plain request (no `Referer`/`Origin`/browser `User-Agent`)
+gets a `403` from the CDN edge on every path, including `/`, while
+`/assets/...` (Directus file serving) is always open. Adding
+`Referer: https://competitions.ffbb.com/`, `Origin:
+https://competitions.ffbb.com`, and a real browser `User-Agent` gets past the
+WAF for `GET /items/configuration` and `GET /server/info` (`200`, and
+`/items/configuration`'s response matches the third-party docs' `key_dh`/
+`key_ms` token shape exactly). `GET /items/organisme` — the actual
+club-search collection — still returned `403` with those same headers; it
+likely also needs the `key_dh` value sent as the Directus bearer token, which
+this session didn't get to confirm before its own tooling started blocking
+further requests to the host (probably reading repeated calls against a
+WAF-blocked target as scraping-like). So: the auth bootstrap step is now
+empirically confirmed, but the "search clubs" / "list a club's engagements"
+calls this loop adds are still unverified — see Open questions.
 
 - **Auth:** tokens are obtained automatically and publicly — the site itself
   fetches a bearer token from `GET /items/configuration` (a Directus
@@ -432,10 +446,18 @@ export interface FfbbImportResult {
    loop 0.
 4. **New this loop — whether club search and "a club's engagements" are
    real, usable, comité-scoped queries against `api.ffbb.com`/Meilisearch**
-   (not just inferred from third-party client docs). If `listClubEngagements`
-   turns out to be unreliable or missing, the team-creation picker degrades
-   to "manual input only," which is exactly loop 0's original design — no
-   rework needed, just don't ship the picker.
+   (not just inferred from third-party client docs). Partially de-risked
+   2026-08-26: the auth bootstrap (`GET /items/configuration` behind the WAF,
+   with `Referer`/`Origin`/browser `User-Agent` set) is now confirmed working
+   and returns real tokens. Still unconfirmed: whether sending the returned
+   `key_dh` as a Directus bearer token unlocks `/items/organisme` (it didn't
+   unlock with headers alone) and, if so, whether the Meilisearch-backed
+   search and an `organisme`'s `engagements[]` behave as the third-party docs
+   describe. Needs a follow-up check from an environment that can complete a
+   few more request/response round trips against the host than this session
+   could. If `listClubEngagements` turns out to be unreliable or missing, the
+   team-creation picker degrades to "manual input only," which is exactly
+   loop 0's original design — no rework needed, just don't ship the picker.
 5. **Whether a club code's ligue/comité prefix convention is universal.**
    Doesn't block this design (we never rely on it), but would let us
    validate that a picked club actually belongs to the selected comité
