@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
+import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
@@ -489,10 +490,30 @@ export function TeamDetailPage() {
         }
       >
         <TabsList>
-          <TabsTrigger value="roster">Effectif</TabsTrigger>
-          <TabsTrigger value="clubs">Clubs partenaires</TabsTrigger>
-          <TabsTrigger value="admins">Administrateurs</TabsTrigger>
-          <TabsTrigger value="events">Événements</TabsTrigger>
+          <TabsTrigger value="roster" className="gap-2">
+            Effectif
+            <Badge variant="outline" aria-hidden="true">
+              {allTeamPlayers.length}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="clubs" className="gap-2">
+            Clubs partenaires
+            <Badge variant="outline" aria-hidden="true">
+              {teamClubsResult?.total ?? 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="admins" className="gap-2">
+            Administrateurs
+            <Badge variant="outline" aria-hidden="true">
+              {teamAdmins?.length ?? 0}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="events" className="gap-2">
+            Événements
+            <Badge variant="outline" aria-hidden="true">
+              {eventsResult?.total ?? 0}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="roster" className="mt-4 flex flex-col gap-4">
