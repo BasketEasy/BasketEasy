@@ -23,6 +23,40 @@ function renderLoggedIn() {
   return renderWithProviders(<DashboardPage />);
 }
 
+// A plain rostered player: no club-ADMIN membership, no TeamAdmin grant
+// anywhere, so `hasManageRights` is false and the leaner tile set renders.
+function renderLoggedInAsPlayer() {
+  server.use(
+    http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+    http.get('/api/auth/me', () =>
+      HttpResponse.json({
+        id: 'user-1',
+        email: 'a@b.com',
+        firstName: 'Chris',
+        lastName: 'Rillesen',
+        avatarUrl: null,
+        memberships: [{ clubId: 'club-1', role: 'MEMBER' }],
+      }),
+    ),
+    http.get('/api/clubs', () => HttpResponse.json([{ id: 'club-1', name: 'COC Basket' }])),
+    http.get('/api/me/teams', () =>
+      HttpResponse.json([
+        {
+          teamId: 'team-1',
+          teamName: 'U15 Filles',
+          category: 'U15',
+          gender: 'WOMEN',
+          clubId: 'club-1',
+          clubName: 'COC Basket',
+          isTeamAdmin: false,
+          rosterRole: 'PLAYER',
+        },
+      ]),
+    ),
+  );
+  return renderWithProviders(<DashboardPage />);
+}
+
 describe('DashboardPage', () => {
   it('greets the logged-in user by first name and shows their email', async () => {
     renderLoggedIn();
@@ -177,5 +211,72 @@ describe('DashboardPage', () => {
     await waitFor(() =>
       expect(screen.getByText('Aucune équipe pour le moment')).toBeInTheDocument(),
     );
+  });
+
+  it('shows a leaner two-tile view and hides the admin-only tiles for a plain rostered player', async () => {
+    renderLoggedInAsPlayer();
+
+    await waitFor(() => expect(screen.getByText('U15 Filles')).toBeInTheDocument());
+    expect(screen.getByText('Événements — 7 prochains jours')).toBeInTheDocument();
+    expect(screen.getByText('En attente de réponse')).toBeInTheDocument();
+    expect(screen.queryByText('Équipes gérées')).not.toBeInTheDocument();
+    expect(screen.queryByText('Joueurs au total')).not.toBeInTheDocument();
+    expect(screen.queryByText('Clubs administrés')).not.toBeInTheDocument();
+  });
+
+  it("shows the player's roster role on their team card", async () => {
+    renderLoggedInAsPlayer();
+
+    expect(await screen.findByText('Joueur')).toBeInTheDocument();
+  });
+
+  it('shows the RSVP status and convocation badge on an agenda event, and counts events awaiting a response', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [
+            {
+              eventId: 'event-1',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              type: 'MATCH',
+              startsAt: '2026-08-12T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+              opponentName: 'Les Aigles',
+              myRsvpStatus: null,
+              myConvocation: true,
+            },
+            {
+              eventId: 'event-2',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              type: 'TRAINING',
+              startsAt: '2026-08-13T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+              opponentName: null,
+              myRsvpStatus: 'GOING',
+              myConvocation: false,
+            },
+          ],
+        }),
+      ),
+    );
+    renderLoggedInAsPlayer();
+
+    expect(await screen.findByText('Convoqué')).toBeInTheDocument();
+    expect(screen.getByText('Ma réponse : En attente')).toBeInTheDocument();
+    expect(screen.getByText('Ma réponse : Présent')).toBeInTheDocument();
+    expect(screen.getByText(/vs Les Aigles/)).toBeInTheDocument();
+
+    // Only event-1 is unanswered — event-2 already has a RSVP.
+    const statValues = screen.getAllByText(/^\d+$/).map((el) => el.textContent);
+    expect(statValues).toEqual(expect.arrayContaining(['2', '1']));
   });
 });
