@@ -4,10 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Gender } from '@prisma/client';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember, ClubMemberSortBy } from '@basketeasy/types/club-members';
-import type { Player, PlayerSortBy } from '@basketeasy/types/players';
+import type {
+  ImportPlayersRow,
+  ImportPlayersResult,
+  Player,
+  PlayerSortBy,
+} from '@basketeasy/types/players';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
@@ -273,6 +278,62 @@ export class ClubsService {
     }
   }
 
+  async importPlayers(clubId: string, rows: ImportPlayersRow[]): Promise<ImportPlayersResult> {
+    return this.prisma.$transaction(async (tx) => {
+      let created = 0;
+      let updated = 0;
+      let conflicts = 0;
+
+      for (const row of rows) {
+        const data = {
+          firstName: row.firstName,
+          lastName: row.lastName,
+          nationalId: row.nationalId ?? null,
+          licenseNumber: row.licenseNumber ?? null,
+          birthDate: row.birthDate ? new Date(row.birthDate) : null,
+          gender: row.gender ?? null,
+          licenseType: row.licenseType ?? null,
+        };
+
+        const byNationalId = row.nationalId
+          ? await tx.player.findUnique({ where: { nationalId: row.nationalId } })
+          : null;
+
+        if (byNationalId) {
+          if (byNationalId.clubId !== clubId) {
+            conflicts++;
+            continue;
+          }
+          await tx.player.update({ where: { id: byNationalId.id }, data });
+          updated++;
+          continue;
+        }
+
+        const byNameAndBirthDate =
+          row.birthDate &&
+          (await tx.player.findFirst({
+            where: {
+              clubId,
+              firstName: row.firstName,
+              lastName: row.lastName,
+              birthDate: new Date(row.birthDate),
+            },
+          }));
+
+        if (byNameAndBirthDate) {
+          await tx.player.update({ where: { id: byNameAndBirthDate.id }, data });
+          updated++;
+          continue;
+        }
+
+        await tx.player.create({ data: { ...data, clubId } });
+        created++;
+      }
+
+      return { created, updated, conflicts };
+    });
+  }
+
   private async assertClubMember(clubId: string, userId: string): Promise<void> {
     const membership = await this.prisma.clubMembership.findUnique({
       where: { userId_clubId: { userId, clubId } },
@@ -310,6 +371,11 @@ export class ClubsService {
     firstName: string;
     lastName: string;
     userId: string | null;
+    nationalId: string | null;
+    licenseNumber: string | null;
+    birthDate: Date | null;
+    gender: Gender | null;
+    licenseType: string | null;
     createdAt: Date;
   }): Player {
     return {
@@ -318,6 +384,11 @@ export class ClubsService {
       firstName: player.firstName,
       lastName: player.lastName,
       userId: player.userId,
+      nationalId: player.nationalId,
+      licenseNumber: player.licenseNumber,
+      birthDate: player.birthDate ? player.birthDate.toISOString() : null,
+      gender: player.gender,
+      licenseType: player.licenseType,
       createdAt: player.createdAt.toISOString(),
     };
   }
