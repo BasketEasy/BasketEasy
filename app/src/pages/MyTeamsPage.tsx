@@ -66,7 +66,7 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
 /** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
 function MyTeamCard({ team }: { team: MyTeamSummary }) {
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
       <span className="font-medium text-charcoal">{team.teamName}</span>
       <span className="text-sm text-muted">
         {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}

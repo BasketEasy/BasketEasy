@@ -41,7 +41,7 @@ function AgendaRow({ event }: { event: MyAgendaEvent }) {
     <Link
       to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
       state={{ origin: { from: 'dashboard' } }}
-      className="flex w-full flex-col gap-1 rounded-md border border-border p-3 text-left transition hover:border-orange"
+      className="flex w-full flex-col gap-1 rounded-md border border-border bg-surface-2 p-3 text-left transition hover:border-orange"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-charcoal">{event.teamName}</span>

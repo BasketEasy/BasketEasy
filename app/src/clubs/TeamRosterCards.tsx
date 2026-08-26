@@ -33,7 +33,7 @@ function RosterGroup({
       <SectionHeading count={players.length}>{GROUP_LABEL[role](teamGender)}</SectionHeading>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {players.map((player) => (
-          <Card key={player.id} className="flex items-center gap-3 p-3">
+          <Card key={player.id} className="flex items-center gap-3 bg-surface-2 p-3">
             <Avatar>
               <AvatarFallback>{getInitials(player.firstName, player.lastName)}</AvatarFallback>
             </Avatar>

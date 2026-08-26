@@ -22,7 +22,7 @@ export function TeamClubCard({
   const { mutate: removeTeamClub, isPending } = useTeamClubRemove(clubId, teamId);
 
   return (
-    <Card className="flex flex-col gap-2 p-3">
+    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-charcoal">{link.clubName}</span>
         {link.isOwner && <Badge variant="secondary">Propriétaire</Badge>}
