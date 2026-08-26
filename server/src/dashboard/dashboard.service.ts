@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { EventType } from '@basketeasy/types/events';
+import type { EventRsvpStatus, EventType } from '@basketeasy/types/events';
 import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -26,7 +26,7 @@ export class DashboardService {
       this.prisma.teamAdmin.findMany({ where: { userId }, select: { teamId: true } }),
       this.prisma.teamPlayer.findMany({
         where: { player: { userId } },
-        select: { teamId: true },
+        select: { id: true, teamId: true },
       }),
     ]);
 
@@ -35,6 +35,9 @@ export class DashboardService {
     const teamIds = Array.from(
       new Set([...adminGrants.map((g) => g.teamId), ...rosterEntries.map((r) => r.teamId)]),
     );
+    // Any of the caller's own TeamPlayer rows is enough to resolve their
+    // RSVP/convocation state for an event on that row's team.
+    const teamPlayerIds = rosterEntries.map((r) => r.id);
 
     const [totalPlayers, events] = await Promise.all([
       adminClubIds.length > 0
@@ -58,9 +61,31 @@ export class DashboardService {
         : Promise.resolve([]),
     ]);
 
+    const eventIds = events.map((e) => e.id);
+    const [rsvps, convocations] =
+      teamPlayerIds.length > 0 && eventIds.length > 0
+        ? await Promise.all([
+            this.prisma.eventRsvp.findMany({
+              where: { teamPlayerId: { in: teamPlayerIds }, eventId: { in: eventIds } },
+            }),
+            this.prisma.eventConvocation.findMany({
+              where: { teamPlayerId: { in: teamPlayerIds }, eventId: { in: eventIds } },
+            }),
+          ])
+        : [[], []];
+    const rsvpStatuses = new Map(rsvps.map((r) => [r.eventId, r.status as EventRsvpStatus]));
+    const convokedEventIds = new Set(convocations.map((c) => c.eventId));
+
     return {
       totalPlayers,
-      upcomingEvents: events.map((event) => this.toAgendaEvent(event, memberClubIds)),
+      upcomingEvents: events.map((event) =>
+        this.toAgendaEvent(
+          event,
+          memberClubIds,
+          rsvpStatuses.get(event.id) ?? null,
+          convokedEventIds.has(event.id),
+        ),
+      ),
     };
   }
 
@@ -80,9 +105,12 @@ export class DashboardService {
       startsAt: Date;
       location: string;
       notes: string | null;
+      opponentName: string | null;
       team: { name: string; clubTeams: { club: { id: string; name: string } }[] };
     },
     memberClubIds: Set<string>,
+    myRsvpStatus: EventRsvpStatus | null,
+    myConvocation: boolean,
   ): MyAgendaEvent {
     // Prefer the club the caller actually belongs to (see
     // TeamsService.toMyTeamSummary for the same navigation-safety reasoning),
@@ -100,6 +128,9 @@ export class DashboardService {
       startsAt: event.startsAt.toISOString(),
       location: event.location,
       notes: event.notes,
+      opponentName: event.opponentName,
+      myRsvpStatus,
+      myConvocation,
     };
   }
 }

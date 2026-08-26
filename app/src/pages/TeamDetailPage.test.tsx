@@ -103,7 +103,7 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
-  it('shows the team header above the tabs, and defaults to the Effectif tab as a card view', async () => {
+  it('shows the team header above the tabs, defaults to the Événements tab, and shows the Effectif tab as a card view once selected', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
@@ -118,15 +118,19 @@ describe('TeamDetailPage', () => {
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
+    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.getByText('U15 · Masculin')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
 
-    // Effectif is the default tab, in card view — grouped by role, initials
-    // + name, no sortable table/rôle <select> visible yet.
-    expect(screen.getByRole('tab', { name: 'Effectif', selected: true })).toBeInTheDocument();
+    // Événements is the default tab.
+    expect(screen.getByRole('tab', { name: 'Événements', selected: true })).toBeInTheDocument();
+
+    // Effectif: card view — grouped by role, initials + name, no sortable
+    // table/rôle <select> visible yet.
+    await goToTab(user, /^effectif$/i);
     expect(screen.getByText('Joueurs (1)')).toBeInTheDocument();
     expect(screen.getByText('AD')).toBeInTheDocument();
     expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
@@ -218,7 +222,7 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText('U15 · Féminin')).toBeInTheDocument());
   });
 
-  it('hides all admin controls for a MEMBER', async () => {
+  it('hides all admin controls for a MEMBER, and hides the Clubs partenaires/Administrateurs tabs entirely', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
@@ -236,15 +240,34 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+
+    // A plain roster MEMBER (no club-admin rights, no TeamAdmin grant) never
+    // sees the management-only tabs at all.
+    expect(screen.queryByRole('tab', { name: /clubs partenaires/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^administrateurs$/i })).not.toBeInTheDocument();
+
+    await goToTab(user, /^effectif$/i);
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+  });
 
-    await goToTab(user, /clubs partenaires/i);
-    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
+  it('falls back to Événements when a MEMBER requests the Clubs/Administrateurs tab directly via the URL', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
 
-    await goToTab(user, /^administrateurs$/i);
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
+
     expect(
-      screen.queryByRole('button', { name: /ajouter un administrateur/i }),
-    ).not.toBeInTheDocument();
+      await screen.findByRole('tab', { name: 'Événements', selected: true }),
+    ).toBeInTheDocument();
   });
 
   it('lets a TeamAdmin who is not a club admin manage the roster and events', async () => {
@@ -270,22 +293,22 @@ describe('TeamDetailPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
-    // Team-day management is available to this TeamAdmin...
-    expect(await screen.findByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
+    // Événements is the default tab, empty by default (no explicit mock
+    // above), so the header button and the empty state's own CTA both
+    // render — either opens the same "Créer un événement" dialog.
+    expect(
+      (await screen.findAllByRole('button', { name: /créer un événement/i })).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
+
+    // Team-day management is available to this TeamAdmin...
+    await goToTab(user, /^effectif$/i);
+    expect(await screen.findByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
 
     await goToTab(user, /^administrateurs$/i);
     expect(
       await screen.findByRole('button', { name: /ajouter un administrateur/i }),
     ).toBeInTheDocument();
-
-    // Événements is empty by default (no explicit mock above), so the
-    // header button and the empty state's own CTA both render — either
-    // opens the same "Créer un événement" dialog.
-    await goToTab(user, /événements/i);
-    expect(
-      (await screen.findAllByRole('button', { name: /créer un événement/i })).length,
-    ).toBeGreaterThan(0);
 
     // ...but CTC governance and team deletion stay owner-club-ADMIN-only.
     await goToTab(user, /clubs partenaires/i);
@@ -307,9 +330,15 @@ describe('TeamDetailPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
-    // Effectif (default tab): card view's empty branch is the same
-    // EmptyState the table view would show, with the header button and the
-    // empty state's own CTA sharing the "Ajouter un joueur" name.
+    // Événements (default tab): empty state, with the header button and the
+    // empty state's own CTA sharing the "Créer un événement" name.
+    expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /créer un événement/i })).toHaveLength(2);
+
+    // Effectif: card view's empty branch is the same EmptyState the table
+    // view would show, with the header button and the empty state's own
+    // CTA sharing the "Ajouter un joueur" name.
+    await goToTab(user, /^effectif$/i);
     expect(await screen.findByText('Effectif vide')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(2);
 
@@ -322,10 +351,6 @@ describe('TeamDetailPage', () => {
     await goToTab(user, /^administrateurs$/i);
     expect(await screen.findByText("Aucun administrateur d'équipe")).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /ajouter un administrateur/i })).toHaveLength(2);
-
-    await goToTab(user, /événements/i);
-    expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /créer un événement/i })).toHaveLength(2);
   });
 
   it('does not let a non-owning (partner) club admin manage partner clubs or delete the team', async () => {
@@ -351,7 +376,9 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+
     // Roster management stays available to any linked club's admin.
+    await goToTab(user, /^effectif$/i);
     expect(screen.getByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
 
     await goToTab(user, /clubs partenaires/i);
@@ -442,6 +469,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /^effectif$/i);
     // The roster starts empty, so the header button and the empty state's
     // CTA both render — either opens the same "Ajouter un joueur" dialog.
     await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
@@ -596,6 +624,7 @@ describe('TeamDetailPage', () => {
 
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
 
     // Defaults to card view — no search input, no sortable table.
     expect(await screen.findByText('Alex Dupont')).toBeInTheDocument();
@@ -654,7 +683,9 @@ describe('TeamDetailPage', () => {
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
+    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
 
     expect(await screen.findByText('Joueuses (1)')).toBeInTheDocument();
     expect(screen.getByText('Staff (1)')).toBeInTheDocument();
@@ -680,6 +711,7 @@ describe('TeamDetailPage', () => {
 
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Tableau' }));
@@ -703,6 +735,7 @@ describe('TeamDetailPage', () => {
 
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Tableau' }));
@@ -730,6 +763,7 @@ describe('TeamDetailPage', () => {
 
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
 
     await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Tableau' }));
