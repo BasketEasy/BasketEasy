@@ -153,9 +153,7 @@ export function LandingPage() {
               <div className="flex items-center gap-3">
                 <TrophyIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
                 <p className="text-sm text-muted">
-                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
-                    0 €
-                  </span>{' '}
+                  <span className="tabular font-heading text-2xl font-bold text-charcoal">0 €</span>{' '}
                   pour créer votre club et inviter votre première équipe.
                 </p>
               </div>
