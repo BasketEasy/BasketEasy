@@ -117,26 +117,46 @@ a real link on the agenda card, which also gains the home/away badge.
 
 **Files:** Modify `server/src/events/dto/create-event.dto.ts`,
 `server/src/events/dto/update-event.dto.ts`, `events.service.ts`, `events.service.spec.ts`,
-`events.controller.spec.ts` (fixtures only)
+`events.controller.spec.ts` (fixtures only), `server/src/ffbb/ffbb-import.service.ts`,
+`server/src/ffbb/ffbb-import.service.spec.ts`
 
-- [ ] DTOs: add `venue?: EventVenue` (`@IsEnum(EventVenue) @IsOptional()`).
+- [ ] `CreateEventDto`: add `venue?: EventVenue`, decorated **exactly like `opponentName` on this
+      same DTO** — `@ValidateIf((o: CreateEventDto) => o.type === EventType.MATCH) @IsEnum(EventVenue)`
+      (no `@IsOptional()` — `opponentName` doesn't use it either; the `ValidateIf` is what makes it
+      optional-but-only-conditionally-validated). `UpdateEventDto`: add `venue?: EventVenue`,
+      decorated like `opponentName` on _that_ DTO instead — plain `@IsOptional() @IsEnum(EventVenue)`
+      (every field on `UpdateEventDto` is unconditionally optional; the required-for-MATCH rule is
+      enforced in `updateEvent`'s service logic, same as `opponentName`). These two DTOs use
+      different decorators for the same rule today — don't copy one combo onto both.
 - [ ] `EventsService`: wherever `opponentName` is required-for-MATCH/forced-null-for-TRAINING
-      (`createEvent`, `updateEvent`, `buildOccurrences`), apply the identical rule to `venue`
-      (400 `"Le domicile/extérieur est requis pour un match"` if missing on a MATCH create/update;
-      force `null` on TRAINING). Add `venue` to `toTeamEvent`'s mapped output.
+      (`createEvent`, `updateEvent` — **not** `buildOccurrences`, which never branches on
+      `opponentName`/`type` at all), apply the identical rule to `venue` (400
+      `"Le domicile/extérieur est requis pour un match"` if missing on a MATCH create/update; force
+      `null` on TRAINING). Add `venue` to `toTeamEvent`'s mapped output.
+- [ ] Add `EventsService.getEventForUser(clubId, teamId, eventId, userId): Promise<TeamEvent>` (see
+      spec's new "Single-event fetch" subsection) and wire `GET :eventId` in `events.controller.ts`
+      to it, `ClubRoles('ADMIN','MEMBER')`. Phases 3-5 all return through this method instead of
+      each re-deriving a `TeamEvent`.
+- [ ] `FfbbImportService.upsertMatch`: map `venue: match.isHome ? 'HOME' : 'AWAY'` into both the
+      `create` and `update` calls, and add the venue comparison to the `isUnchanged` check — see
+      the spec's Data model section's FFBB callout. `FfbbMatch.isHome` already exists on the
+      provider type; this is the only place that reads it today.
 - [ ] Tests: MATCH create/update without `venue` → 400; TRAINING create/update with `venue` set
-      → forced null in response; `listEvents`/`createEvent`/`updateEvent` responses carry `venue`.
+      → forced null in response; `listEvents`/`createEvent`/`updateEvent`/`GET :eventId` responses
+      carry `venue`; FFBB import sets `venue` from `isHome` on both create and update, and a
+      flipped `isHome` on re-sync is detected as a change (not reported `unchanged`).
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/server test -- events.service.spec.ts events.controller.spec.ts
-  git add server/src/events
-  git commit -m "feat(server): validate and return Event.venue"
+  pnpm --filter @basketeasy/server test -- events.service.spec.ts events.controller.spec.ts ffbb-import.service.spec.ts
+  git add server/src/events server/src/ffbb
+  git commit -m "feat(server): validate and return Event.venue, including FFBB-imported matches"
   ```
 
 ### Task 1.5 — Frontend: match detail route + page shell + Aperçu tab
 
 **Files:** Create `app/src/pages/MatchDetailPage.tsx` (+ test), create
-`app/src/clubs/matchDetailLabels.ts` (+ test); modify `app/src/App.tsx` (route registration)
+`app/src/clubs/matchDetailLabels.ts` (+ test), create `app/src/clubs/useEvent.ts` (+ test); modify
+`app/src/App.tsx` (route registration)
 
 Reference: `assets/.../Main.dc.html` lines 1–150 (everything above the `<!-- Logistique -->`
 comment — that section is Phase 2).
@@ -144,12 +164,10 @@ comment — that section is Phase 2).
 - [ ] Add route `clubs/:clubId/teams/:teamId/events/:eventId` inside the authenticated route
       tree in `App.tsx`, rendering `MatchDetailPage`.
 - [ ] `MatchDetailPage.tsx`:
-  - Fetches the event via the existing `useEventList`/a new single-event lookup (prefer adding a
-    `GET .../events/:eventId` single-fetch if one doesn't already exist — check
-    `events.controller.ts` first; reuse `listEvents`'s existing query hook filtered client-side
-    only if a single-event endpoint would be net-new backend work disproportionate to this task,
-    otherwise add the trivial single-GET route + hook, mirroring `assertEventInTeam`'s existing
-    fetch).
+  - Fetches the event via a new `useEvent(clubId, teamId, eventId)` hook against Task 1.4's
+    `GET .../events/:eventId` route (`getEventForUser`) — not a client-side filter over
+    `listEvents`; Phases 3-5 need that same backend method regardless, so it's built once in
+    Task 1.4 rather than deferred or duplicated.
   - Renders: back link to the team's Événements tab (label = team name, per
     `Main.dc.html:35-38`), header (match title + Domicile/Extérieur badge, `venue === 'HOME'` →
     "Domicile" else "Extérieur" — lines 41-53), hero time-block + vs framing (lines 55-79, reuse
@@ -167,8 +185,8 @@ comment — that section is Phase 2).
       branches; redirects on a TRAINING event id.
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- MatchDetailPage matchDetailLabels
-  git add app/src/pages/MatchDetailPage.tsx app/src/pages/MatchDetailPage.test.tsx app/src/clubs/matchDetailLabels.ts app/src/clubs/matchDetailLabels.test.ts app/src/App.tsx
+  pnpm --filter @basketeasy/app test -- MatchDetailPage matchDetailLabels useEvent
+  git add app/src/pages/MatchDetailPage.tsx app/src/pages/MatchDetailPage.test.tsx app/src/clubs/matchDetailLabels.ts app/src/clubs/matchDetailLabels.test.ts app/src/clubs/useEvent.ts app/src/clubs/useEvent.test.ts app/src/App.tsx
   git commit -m "feat(app): match detail page shell with Aperçu tab"
   ```
 
@@ -366,15 +384,19 @@ References:
 **Files:** Modify `events.service.ts`, `events.service.spec.ts`
 
 - [ ] `castVote` and `getEventVoteResults` exactly per the spec's Service logic section
-      (before-match rejection, self-vote rejection, off-roster rejection, upsert-on-recast,
-      aggregation that never includes `voterTeamPlayerId`).
-- [ ] `buildVoteResults(votes, myTeamPlayerId)` helper: groups by category, counts per
+      (non-MATCH 400 on **both** — the read path gates on `event.type` too, not just the write
+      path; before-match rejection on `castVote`; self-vote rejection; off-roster rejection;
+      upsert-on-recast; aggregation that never includes `voterTeamPlayerId`). `getEventVoteResults`
+      fetches the roster count (`this.prisma.teamPlayer.count({ where: { teamId } })`) alongside
+      the votes — it's the only source for `totalVoters`, nothing else in this method computes it.
+- [ ] `buildVoteResults(votes, totalVoters, myTeamPlayerId)` helper: groups by category, counts per
       `votedTeamPlayerId`, sorts descending, resolves `myVote.best`/`myVote.worst` from the
-      caller's own two rows if present.
-- [ ] Tests: vote before match start → 400; self-vote → 400; off-roster target → 400; recast
-      updates (not duplicates) the row; results never contain `voterTeamPlayerId` under any
-      circumstance (explicit assertion, not just implicit from the mapped shape); `totalVoters`
-      reflects roster size, `votesCast` reflects distinct voters who've cast at least one vote.
+      caller's own two rows if present, passes `totalVoters` through unchanged.
+- [ ] Tests: vote on a TRAINING event → 400 (both `castVote` and `getEventVoteResults`); vote
+      before match start → 400; self-vote → 400; off-roster target → 400; recast updates (not
+      duplicates) the row; results never contain `voterTeamPlayerId` under any circumstance
+      (explicit assertion, not just implicit from the mapped shape); `totalVoters` reflects roster
+      size, `votesCast` reflects distinct voters who've cast at least one vote.
 - [ ] Run, commit:
   ```bash
   pnpm --filter @basketeasy/server test -- events.service.spec.ts
@@ -486,7 +508,7 @@ still missing.
       PUT, short expiry (e.g. 5 minutes — long enough for a mobile upload over a gym's wifi,
       short enough not to leave stale writable URLs around). Construct the S3 client with
       `region: 'auto'` and `endpoint: \`https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\``—
-    R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
+R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
 - [ ] Env vars `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — add to
       `docker-compose.yml`'s `server` service and `.env.example`, matching `JWT_ACCESS_SECRET`'s
       existing treatment exactly (name only in `.env.example`, real values only in untracked
@@ -522,13 +544,18 @@ still missing.
 `server/src/events/dto/confirm-scoresheet-upload.dto.ts`
 
 - [ ] `getScoresheetUploadUrl`, `confirmScoresheetUpload`, `getScoresheetStatus` exactly per spec
-      (content-type allowlist, rostered-member gate, non-MATCH 400, upsert-on-confirm).
+      — all three gate on `event.type !== 'MATCH'` (400). Only the first two additionally require
+      a rostered `TeamPlayer` (403 otherwise); `getScoresheetStatus` is a plain read available to
+      any `ClubRoles('ADMIN','MEMBER')` caller, same visibility as the event itself, and returns
+      the full `EventScoresheet | null` shape (not the bare status enum).
 - [ ] Routes: `POST :eventId/scoresheet/upload-url`, `PATCH :eventId/scoresheet`,
-      `GET :eventId/scoresheet`, `ClubRoles('ADMIN','MEMBER')` + service-level rostered check.
+      `GET :eventId/scoresheet`, `ClubRoles('ADMIN','MEMBER')` + service-level rostered check on
+      the first two only.
 - [ ] Shared types: `EventScoresheetStatus`, `EventScoresheetUploadUrlRequest/Response`,
       `ConfirmEventScoresheetRequest`, `EventScoresheet` exactly per spec.
-- [ ] Tests: content-type rejection; non-rostered caller 403; non-MATCH 400; confirm upserts (not
-      duplicates) on a retried upload; status returns `null` before any upload.
+- [ ] Tests: content-type rejection; non-rostered caller 403 on upload-url/confirm; non-MATCH 400
+      on all three methods; confirm upserts (not duplicates) on a retried upload; status returns
+      `null` before any upload.
 - [ ] Run, commit:
   ```bash
   pnpm --filter @basketeasy/types build

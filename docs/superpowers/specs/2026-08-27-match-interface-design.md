@@ -123,8 +123,23 @@ enum EventVenue {
 
 `Event` gains `venue EventVenue?` — required (non-null) whenever `type` is `MATCH`, forced to
 `null` whenever `type` is `TRAINING`, exactly mirroring how `opponentName` is already validated
-in `EventsService` (see `CLAUDE.md`'s Events module section). Same create/update/recurrence
-validation path as `opponentName` — no new validation mechanism.
+in `EventsService` (see `CLAUDE.md`'s Events module section). Same create/update validation path
+as `opponentName`: the required-for-MATCH/forced-null-for-TRAINING branching lives in
+`createEvent` and `updateEvent` themselves (`events.service.ts`'s `data.type === EventType.MATCH`
+checks), not in `buildOccurrences` — that helper only turns `startsAt`/`recurrence` into a list of
+occurrence dates and never sees `opponentName`, so there is no branch in it to mirror.
+
+**A third write path exists and is easy to miss:** `FfbbImportService.upsertMatch`
+(`server/src/ffbb/ffbb-import.service.ts`) creates and updates `MATCH`-type `Event` rows directly
+via `this.prisma.event.create`/`.update`, bypassing `EventsService.createEvent`/`updateEvent`
+entirely — it has its own copy of the "set these fields on a MATCH event" logic. Every FFBB-synced
+match must also get a `venue`, or the "required whenever `type` is `MATCH`" invariant above breaks
+for what is likely the primary way most matches get created in this app. The provider type already
+carries what's needed: `FfbbMatch.isHome: boolean` (`server/src/ffbb/ffbb-provider.ts`) is fetched
+today and currently dropped on the floor. `upsertMatch` must map
+`venue: match.isHome ? 'HOME' : 'AWAY'` into both the `create` and `update` calls, and add
+`existing.venue === (match.isHome ? 'HOME' : 'AWAY')` to the `isUnchanged` comparison so a
+re-sync's change detection doesn't miss a flipped venue. See Task 1.4 in the plan.
 
 ### Jersey/ball logistics
 
@@ -289,9 +304,24 @@ it, since it's infrastructure other modules will eventually need too.
 
 ### Home/away
 
-Extends the existing `opponentName` validation branch in `createEvent`/`updateEvent`/
-`buildOccurrences` — wherever `opponentName` is required-for-MATCH/forced-null-for-TRAINING,
-`venue` follows the identical rule. No new method.
+Extends the existing `opponentName` validation branch in `createEvent`/`updateEvent` — wherever
+`opponentName` is required-for-MATCH/forced-null-for-TRAINING, `venue` follows the identical rule.
+No new method. (`buildOccurrences` is untouched — see the Data model section above for why.) Also
+touches `FfbbImportService.upsertMatch`, a separate write path outside `EventsService` — see the
+Data model section's FFBB callout.
+
+### Single-event fetch (new, needed by three of the four slices below)
+
+`EventsService` has no single-event read today — every existing route returns either a page
+(`listEvents`) or the row(s) it just wrote (`createEvent`/`updateEvent`). Logistics, voting, and
+scoresheet actions all need to hand back a fresh `TeamEvent` after a mutation, and the frontend's
+match detail page (plan Task 1.5) needs to fetch one event directly rather than filtering a page
+of `listEvents` client-side. Rather than have each of those three slices reinvent this, Phase 1
+adds `EventsService.getEventForUser(clubId, teamId, eventId, userId): Promise<TeamEvent>` — calls
+`assertEventInTeam`, then the existing `resolveMyEventState` for the single id, then `toTeamEvent`
+— and a `GET clubs/:clubId/teams/:teamId/events/:eventId` route that calls it. Logistics'
+`setEventLogistics`, votes, and scoresheet all call this same method to build their return value
+instead of each hand-rolling a re-fetch.
 
 ### Logistics
 
@@ -380,16 +410,32 @@ async castVote(
 }
 
 async getEventVoteResults(clubId: string, teamId: string, eventId: string, userId: string): Promise<EventVoteResults> {
-  await this.assertEventInTeam(clubId, teamId, eventId);
+  const event = await this.assertEventInTeam(clubId, teamId, eventId);
+  if (event.type !== 'MATCH') {
+    throw new BadRequestException('Le vote ne concerne que les matchs');
+  }
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
-  const votes = await this.prisma.eventVote.findMany({
-    where: { eventId },
-    include: { votedFor: { include: { player: true } } },
-  });
+  const [votes, totalVoters] = await Promise.all([
+    this.prisma.eventVote.findMany({
+      where: { eventId },
+      include: { votedFor: { include: { player: true } } },
+    }),
+    this.prisma.teamPlayer.count({ where: { teamId } }),
+  ]);
   // Aggregate counts per category client-visible; never return voterTeamPlayerId.
-  return buildVoteResults(votes, myTeamPlayer?.id ?? null);
+  return buildVoteResults(votes, totalVoters, myTeamPlayer?.id ?? null);
 }
 ```
+
+`buildVoteResults(votes, totalVoters, myTeamPlayerId)` takes the roster count as an explicit
+argument — `totalVoters` in `EventVoteResults` ("roster size eligible to vote") has no other
+source; it isn't derivable from `votes` alone. `votesCast` is derived from `votes` by counting
+distinct `voterTeamPlayerId`s across both categories (a member who voted in only one category
+still counts as one voter).
+
+Both `castVote` and `getEventVoteResults` gate on `event.type === 'MATCH'`, per the plan's Global
+Constraints ("don't let a TRAINING event reach any of these new routes") — the read path needs the
+same 400 as the write path, not just the write path.
 
 No deadline enforced server-side beyond "not before the match" — the mockup's "Ouvert jusqu'au…"
 countdown is a **client-computed** label (`event.startsAt + VOTE_WINDOW_DAYS`), not a hard
@@ -418,8 +464,11 @@ async getScoresheetUploadUrl(clubId: string, teamId: string, eventId: string, us
   return { uploadUrl, r2Key };
 }
 
-async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, r2Key: string): Promise<EventScoresheetStatus> {
-  await this.assertEventInTeam(clubId, teamId, eventId);
+async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, r2Key: string): Promise<EventScoresheet | null> {
+  const event = await this.assertEventInTeam(clubId, teamId, eventId);
+  if (event.type !== 'MATCH') {
+    throw new BadRequestException('La feuille de match ne concerne que les matchs');
+  }
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
   if (!myTeamPlayer) {
     throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
@@ -431,7 +480,33 @@ async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, u
   });
   return this.getScoresheetStatus(clubId, teamId, eventId);
 }
+
+async getScoresheetStatus(clubId: string, teamId: string, eventId: string): Promise<EventScoresheet | null> {
+  const event = await this.assertEventInTeam(clubId, teamId, eventId);
+  if (event.type !== 'MATCH') {
+    throw new BadRequestException('La feuille de match ne concerne que les matchs');
+  }
+  const scoresheet = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
+  return scoresheet
+    ? {
+        status: scoresheet.status,
+        uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
+        uploadedAt: scoresheet.uploadedAt.toISOString(),
+      }
+    : null;
+}
 ```
+
+`getScoresheetStatus` returns the full `EventScoresheet` shape (not the bare `EventScoresheetStatus`
+enum) — that's what backs `GET .../scoresheet` and what `confirmScoresheetUpload` hands back after
+a successful upload, and it's why `EventScoresheet` carries `uploadedByTeamPlayerId`/`uploadedAt`
+in the shared types below rather than being a redundant one-field wrapper around the status enum.
+It gates on `event.type === 'MATCH'` too, same as every other method here — the plan's Global
+Constraints rule ("don't let a TRAINING event reach any of these new routes") applies to reads as
+much as writes, so this doesn't get a bespoke exception. `confirmScoresheetUpload`'s return type
+carries the same `| null` as `getScoresheetStatus`'s even though the row it just upserted always
+exists — it delegates to that method rather than re-deriving the shape, so its signature has to
+match what that method can actually return.
 
 Any rostered member (not manager-only) can upload — practically, whoever's still at the gym
 after the game, not necessarily the coach. Same self-service framing as RSVP.
@@ -443,14 +518,15 @@ guarded like the existing RSVP/convocation routes (`ClubRoles('ADMIN','MEMBER')`
 narrowed to "must be rostered" or "must be a team manager" inside the service — same
 defense-in-depth split already used throughout this module):
 
-| Method | Path                        | Notes                                                               |
-| ------ | --------------------------- | ------------------------------------------------------------------- |
-| PATCH  | `.../logistics`             | body `{ field: 'JERSEYS'\|'BALLS', teamPlayerId: string \| null }`  |
-| PATCH  | `.../votes`                 | body `{ category: 'BEST'\|'WORST', teamPlayerId: string }`          |
-| GET    | `.../votes`                 | `EventVoteResults` — both categories, aggregated, `myVote`          |
-| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, r2Key }`             |
-| PATCH  | `.../scoresheet`            | body `{ r2Key: string }` — confirms a completed direct-to-R2 upload |
-| GET    | `.../scoresheet`            | current status, or `null` if nothing uploaded yet                   |
+| Method | Path                        | Notes                                                                                                                                                |
+| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `.../events/:eventId`       | new single-event fetch — `TeamEvent`, backs the match detail page and every mutation below's return value (see Service logic's "Single-event fetch") |
+| PATCH  | `.../logistics`             | body `{ field: 'JERSEYS'\|'BALLS', teamPlayerId: string \| null }`                                                                                   |
+| PATCH  | `.../votes`                 | body `{ category: 'BEST'\|'WORST', teamPlayerId: string }`                                                                                           |
+| GET    | `.../votes`                 | `EventVoteResults` — both categories, aggregated, `myVote`                                                                                           |
+| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, r2Key }`                                                                                              |
+| PATCH  | `.../scoresheet`            | body `{ r2Key: string }` — confirms a completed direct-to-R2 upload                                                                                  |
+| GET    | `.../scoresheet`            | `EventScoresheet`, or `null` if nothing uploaded yet                                                                                                 |
 
 `createEvent`/`updateEvent` gain `venue` in their existing DTOs (validated like `opponentName`).
 `TeamEvent` gains `venue`, `logistics`, and (for the agenda card's mini chips) enough of that
