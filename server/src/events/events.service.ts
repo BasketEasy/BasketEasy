@@ -27,6 +27,12 @@ const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
 // distant `until` date can't be used to write an unbounded number of rows.
 const MAX_RECURRING_OCCURRENCES = 104;
+// Best/worst player voting window, both ends measured from Event.startsAt
+// and enforced server-side in castVote: opens an hour after kickoff (nobody
+// has anything meaningful to vote on the moment the whistle blows) and
+// closes five days later.
+const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
+const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
 
 type EventRow = {
   id: string;
@@ -553,13 +559,15 @@ export class EventsService {
     );
   }
 
-  // Anonymous peer voting, both categories' results public — see the match
-  // interface spec's Voting visibility section. No hard deadline server-side
-  // beyond "not before the match starts"; the mockup's "Ouvert jusqu'au…"
-  // countdown is a client-computed label, matching RSVP's existing
-  // no-deadline precedent. Upserts on recast (the unique index on
-  // eventId/category/voterTeamPlayerId doubles as the upsert key), so
-  // changing your vote updates the one row rather than accumulating history.
+  // Anonymous peer voting — see the match interface spec's Voting visibility
+  // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS after kickoff
+  // (players are still on court right at the whistle) and closes
+  // VOTE_CLOSE_DELAY_MS after kickoff, both enforced here, not just
+  // client-displayed. Only a roster member marked GOING on this event's RSVP
+  // may vote — you have to have actually been there. Upserts on recast (the
+  // unique index on eventId/category/voterTeamPlayerId doubles as the
+  // upsert key), so changing your vote updates the one row rather than
+  // accumulating history.
   async castVote(
     clubId: string,
     teamId: string,
@@ -572,12 +580,24 @@ export class EventsService {
     if (event.type !== EventType.MATCH) {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
-    if (event.startsAt > new Date()) {
-      throw new BadRequestException("Le vote n'est ouvert qu'après le match");
+    const now = new Date();
+    const voteOpensAt = new Date(event.startsAt.getTime() + VOTE_OPEN_DELAY_MS);
+    const voteClosesAt = new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
+    if (now < voteOpensAt) {
+      throw new BadRequestException('Le vote ouvre 1h après le début du match');
+    }
+    if (now > voteClosesAt) {
+      throw new BadRequestException('Le vote est fermé pour ce match');
     }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
     if (!myTeamPlayer) {
       throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const myRsvp = await this.prisma.eventRsvp.findUnique({
+      where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
+    });
+    if (myRsvp?.status !== EventRsvpStatus.GOING) {
+      throw new ForbiddenException('Seuls les joueurs présents au match peuvent voter');
     }
     if (votedTeamPlayerId === myTeamPlayer.id) {
       throw new BadRequestException('Vous ne pouvez pas voter pour vous-même');
@@ -628,6 +648,10 @@ export class EventsService {
   // sorts each category's leaderboard descending — never returns
   // voterTeamPlayerId (see EventVote's schema comment: this is the one field
   // in this whole feature that would be a real privacy regression if leaked).
+  // The leaderboards themselves are withheld (empty arrays) until the caller
+  // has cast their own BEST vote — "vote to see results" — even though
+  // totalVoters/votesCast stay visible so the UI can still show "N votes
+  // exprimés" while nudging the viewer to vote first.
   private buildVoteResults(
     votes: {
       category: EventVoteCategory;
@@ -663,17 +687,19 @@ export class EventsService {
       votes.find((v) => v.category === category && v.voterTeamPlayerId === myTeamPlayerId)
         ?.votedTeamPlayerId ?? null;
 
+    const myVote = {
+      best: myVoteFor(EventVoteCategory.BEST),
+      worst: myVoteFor(EventVoteCategory.WORST),
+    };
+    const hasVoted = myVote.best !== null;
     const distinctVoters = new Set(votes.map((v) => v.voterTeamPlayerId));
 
     return {
-      best: buildCategoryResults(EventVoteCategory.BEST),
-      worst: buildCategoryResults(EventVoteCategory.WORST),
+      best: hasVoted ? buildCategoryResults(EventVoteCategory.BEST) : [],
+      worst: hasVoted ? buildCategoryResults(EventVoteCategory.WORST) : [],
       totalVoters,
       votesCast: distinctVoters.size,
-      myVote: {
-        best: myVoteFor(EventVoteCategory.BEST),
-        worst: myVoteFor(EventVoteCategory.WORST),
-      },
+      myVote,
     };
   }
 

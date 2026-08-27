@@ -175,10 +175,13 @@ export interface EventVoteCandidateResult {
 }
 
 /**
- * Both categories' aggregated results — public for the whole team, per the
- * match interface spec's Voting visibility section. Never carries who voted
- * for whom, only counts. `myVote` reflects the caller's own two rows (null
- * per category if they haven't voted yet).
+ * Both categories' aggregated results, visible to the whole team — but only
+ * once the caller has cast their own BEST vote ("vote to see results"): the
+ * server returns `best`/`worst` as empty arrays until then, even though
+ * `totalVoters`/`votesCast` stay populated so the UI can still show "N votes
+ * exprimés" alongside a "vote first" prompt. Never carries who voted for
+ * whom, only counts. `myVote` reflects the caller's own two rows (null per
+ * category if they haven't voted yet).
  */
 export interface EventVoteResults {
   best: EventVoteCandidateResult[];
