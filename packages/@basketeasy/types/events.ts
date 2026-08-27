@@ -157,3 +157,38 @@ export interface EventConvocationRosterEntry {
   /** True when this roster row belongs to the requesting user. */
   isMe: boolean;
 }
+
+/** "Best player" or "joueur en difficulté" ("worst", softer framing) — see EventVote in the server schema. */
+export type EventVoteCategory = 'BEST' | 'WORST';
+
+export interface CastEventVoteRequest {
+  category: EventVoteCategory;
+  teamPlayerId: string;
+}
+
+/** One candidate's aggregated vote count within a category's results. */
+export interface EventVoteCandidateResult {
+  teamPlayerId: string;
+  firstName: string;
+  lastName: string;
+  voteCount: number;
+}
+
+/**
+ * Both categories' aggregated results — public for the whole team, per the
+ * match interface spec's Voting visibility section. Never carries who voted
+ * for whom, only counts. `myVote` reflects the caller's own two rows (null
+ * per category if they haven't voted yet).
+ */
+export interface EventVoteResults {
+  best: EventVoteCandidateResult[];
+  worst: EventVoteCandidateResult[];
+  /** Roster size eligible to vote, for "N votes sur M". */
+  totalVoters: number;
+  /** Count of distinct voters who've cast at least one vote (either category). */
+  votesCast: number;
+  myVote: {
+    best: string | null;
+    worst: string | null;
+  };
+}

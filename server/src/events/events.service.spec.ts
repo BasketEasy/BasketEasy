@@ -1828,7 +1828,14 @@ describe('EventsService', () => {
       ]);
       prisma.teamPlayer.count.mockResolvedValue(2);
 
-      const result = await service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2');
+      const result = await service.castVote(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'BEST',
+        'tp-2',
+      );
 
       expect(result).toEqual({
         best: [{ teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 1 }],

@@ -23,6 +23,8 @@ describe('EventsController', () => {
     setEventConvocations: jest.Mock;
     listEventConvocations: jest.Mock;
     setEventLogistics: jest.Mock;
+    castVote: jest.Mock;
+    getEventVoteResults: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -39,6 +41,8 @@ describe('EventsController', () => {
       setEventConvocations: jest.fn(),
       listEventConvocations: jest.fn(),
       setEventLogistics: jest.fn(),
+      castVote: jest.fn(),
+      getEventVoteResults: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -330,5 +334,55 @@ describe('EventsController', () => {
       'tp-1',
     );
     expect(result.id).toBe('event-1');
+  });
+
+  it('castVote delegates clubId, teamId, eventId, the category/teamPlayerId, and the caller id', async () => {
+    const results = {
+      best: [],
+      worst: [],
+      totalVoters: 2,
+      votesCast: 1,
+      myVote: { best: 'tp-2', worst: null },
+    };
+    service.castVote.mockResolvedValue(results);
+
+    const result = await controller.castVote(
+      'club-1',
+      'team-1',
+      'event-1',
+      { category: 'BEST', teamPlayerId: 'tp-2' },
+      user,
+    );
+
+    expect(service.castVote).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'BEST',
+      'tp-2',
+    );
+    expect(result).toBe(results);
+  });
+
+  it('getEventVoteResults delegates clubId, teamId, eventId, and the caller id', async () => {
+    const results = {
+      best: [],
+      worst: [],
+      totalVoters: 2,
+      votesCast: 0,
+      myVote: { best: null, worst: null },
+    };
+    service.getEventVoteResults.mockResolvedValue(results);
+
+    const result = await controller.getEventVoteResults('club-1', 'team-1', 'event-1', user);
+
+    expect(service.getEventVoteResults).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+    );
+    expect(result).toBe(results);
   });
 });

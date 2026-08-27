@@ -14,6 +14,7 @@ import {
 import type {
   EventConvocationRosterEntry,
   EventRsvpRosterEntry,
+  EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
@@ -31,6 +32,7 @@ import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
 import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
 import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
+import { CastEventVoteDto } from './dto/cast-event-vote.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -197,5 +199,40 @@ export class EventsController {
       dto.field,
       dto.teamPlayerId,
     );
+  }
+
+  // ClubRolesGuard only — voting is self-service for any rostered member
+  // (narrowed and self-vote-checked inside EventsService.castVote), same
+  // defense-in-depth split as RSVP/logistics above.
+  @Patch(':eventId/votes')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  castVote(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: CastEventVoteDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventVoteResults> {
+    return this.eventsService.castVote(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.category,
+      dto.teamPlayerId,
+    );
+  }
+
+  @Get(':eventId/votes')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  getEventVoteResults(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventVoteResults> {
+    return this.eventsService.getEventVoteResults(clubId, teamId, eventId, user.id);
   }
 }
