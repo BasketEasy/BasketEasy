@@ -139,6 +139,8 @@ model TeamPlayer {
   convocations          EventConvocation[]
   jerseysAssignedEvents Event[]            @relation("EventJerseysAssignee")
   ballsAssignedEvents   Event[]            @relation("EventBallsAssignee")
+  votesCast             EventVote[]        @relation("EventVoteVoter")
+  votesReceived         EventVote[]        @relation("EventVoteVotedFor")
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -216,6 +218,7 @@ model Event {
   team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps               EventRsvp[]
   convocations        EventConvocation[]
+  votes               EventVote[]
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -263,6 +266,35 @@ model EventConvocation {
 
   // No separate @@index([eventId]) — same reasoning as EventRsvp above.
   @@unique([eventId, teamPlayerId])
+}
+
+enum EventVoteCategory {
+  BEST
+  WORST
+}
+
+// A peer vote for "best player" or "joueur en difficulté" ("worst", softer
+// framing) on one MATCH event — one row per (event, category, voter), the
+// unique constraint doubling as the upsert key for "change my vote" (see
+// EventsService.castVote). voterTeamPlayerId exists only to enforce one vote
+// per person per category and to allow upserting on recast — it must never
+// be serialized in any API response: voting stays anonymous even though both
+// categories' aggregated results are public (see the match interface spec's
+// Voting visibility section). Cascades on both event and either TeamPlayer
+// side, same convention as EventRsvp/EventConvocation.
+model EventVote {
+  id                String            @id @default(uuid())
+  eventId           String
+  category          EventVoteCategory
+  voterTeamPlayerId String
+  votedTeamPlayerId String
+  createdAt         DateTime          @default(now())
+  event             Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  voter             TeamPlayer        @relation("EventVoteVoter", fields: [voterTeamPlayerId], references: [id], onDelete: Cascade)
+  votedFor          TeamPlayer        @relation("EventVoteVotedFor", fields: [votedTeamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, category, voterTeamPlayerId])
+  @@index([eventId, category])
 }
 
 enum ClubRole {

@@ -179,4 +179,81 @@ describe('EventDetailPage', () => {
       await screen.findByRole('button', { name: /gérer la convocation/i }),
     ).toBeInTheDocument();
   });
+
+  it('shows a Vote tab for a convoked and present MATCH viewer, but not for a TRAINING event', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const eligibleMatchEvent = { ...matchEvent, myConvocation: true, myRsvpStatus: 'GOING' };
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
+        HttpResponse.json(eligibleMatchEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-2', () =>
+        HttpResponse.json(trainingEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json([]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<App />, { route });
+
+    await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
+    expect(screen.getByRole('tab', { name: 'Vote' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Vote' }));
+    expect(await screen.findByText('Le vote ouvrira après le match')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<App />, { route: trainingRoute });
+    await screen.findByRole('heading', { name: /entraînement/i });
+    expect(screen.queryByRole('tab', { name: 'Vote' })).not.toBeInTheDocument();
+  });
+
+  it('hides the Vote tab for a MATCH viewer not both convoked and present, while voting is still open', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    // Base matchEvent fixture: myConvocation false, myRsvpStatus null — not
+    // eligible, and startsAt is in the future so the window hasn't closed.
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
+        HttpResponse.json(matchEvent),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
+    expect(screen.queryByRole('tab', { name: 'Vote' })).not.toBeInTheDocument();
+  });
+
+  it('shows the Vote tab once the vote window has closed, even for a viewer who was never convoked', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const closedMatchEvent = {
+      ...matchEvent,
+      startsAt: '2020-01-05T18:00:00.000Z',
+      myConvocation: false,
+      myRsvpStatus: null,
+    };
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
+        HttpResponse.json(closedMatchEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
+        HttpResponse.json({
+          best: [],
+          worst: [],
+          totalVoters: 0,
+          votesCast: 0,
+          myVote: { best: null, worst: null },
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
+    expect(screen.getByRole('tab', { name: 'Vote' })).toBeInTheDocument();
+  });
 });

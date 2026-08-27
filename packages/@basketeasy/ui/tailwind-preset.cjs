@@ -55,6 +55,12 @@ module.exports = {
       letterSpacing: {
         'wide-caps': '0.13em',
         section: '0.11em',
+        // Uppercase eyebrow labels set in the body font (Atkinson
+        // Hyperlegible), not the condensed heading font — needs less
+        // tracking than wide-caps/section, which are both sized for Big
+        // Shoulders Display. Introduced for the Vote tab's ballot category
+        // labels (Vote.dc.html).
+        eyebrow: '0.08em',
       },
     },
   },

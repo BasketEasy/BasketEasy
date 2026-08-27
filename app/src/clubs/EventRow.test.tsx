@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -106,6 +106,25 @@ describe('EventRow', () => {
     };
     renderRow(matchWithLogistics, false);
     expect(screen.getByText(/Maillots : Léa M\. ✓/)).toBeInTheDocument();
+  });
+
+  describe('the "Votes ouverts" badge', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-08T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows for a past match still inside the vote window, never for a training event', () => {
+      renderRow(matchEvent, false);
+      expect(screen.getByText(/votes ouverts/i)).toBeInTheDocument();
+
+      renderRow(trainingEvent, false);
+      expect(screen.queryAllByText(/votes ouverts/i)).toHaveLength(1);
+    });
   });
 
   it('does not show a scope select in the delete confirmation for a non-recurring event', async () => {

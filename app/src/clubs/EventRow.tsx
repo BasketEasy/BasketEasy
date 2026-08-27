@@ -7,6 +7,8 @@ import { formatEventDate, formatEventDateOnly } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
 import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
+import { EventVoteBadge } from './EventVoteBadge';
+import { MatchWinnersRow } from './MatchWinnersRow';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
@@ -89,6 +91,8 @@ export function EventRow({
             </Badge>
           )}
           <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+          <EventVoteBadge event={event} />
+          <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />

@@ -19,13 +19,19 @@ describe('EventsService', () => {
       count: jest.Mock;
     };
     teamPlayer: { findFirst: jest.Mock; findMany: jest.Mock; count: jest.Mock };
-    eventRsvp: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+    eventRsvp: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      upsert: jest.Mock;
+      deleteMany: jest.Mock;
+    };
     eventConvocation: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       upsert: jest.Mock;
       deleteMany: jest.Mock;
     };
+    eventVote: { findMany: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -42,13 +48,19 @@ describe('EventsService', () => {
         count: jest.fn(),
       },
       teamPlayer: { findFirst: jest.fn(), findMany: jest.fn(), count: jest.fn() },
-      eventRsvp: { findMany: jest.fn(), upsert: jest.fn(), deleteMany: jest.fn() },
+      eventRsvp: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+        deleteMany: jest.fn(),
+      },
       eventConvocation: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         upsert: jest.fn(),
         deleteMany: jest.fn(),
       },
+      eventVote: { findMany: jest.fn(), upsert: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -1697,6 +1709,377 @@ describe('EventsService', () => {
         jerseys: { teamPlayerId: 'tp-1', firstName: 'Lea', lastName: 'Bernard' },
         balls: null,
       });
+    });
+  });
+
+  describe('castVote', () => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const DAY_MS = 24 * HOUR_MS;
+    // Within the vote window (opens startsAt+1h, closes startsAt+5d) for
+    // every test that isn't specifically exercising a window boundary.
+    const withinWindowMatchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date(Date.now() - 2 * DAY_MS),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+    const beforeWindowOpensEvent = {
+      ...withinWindowMatchEvent,
+      // Match started 30 minutes ago — the window doesn't open until 1h.
+      startsAt: new Date(Date.now() - 30 * 60 * 1000),
+    };
+    const afterWindowClosesEvent = {
+      ...withinWindowMatchEvent,
+      startsAt: new Date(Date.now() - 6 * DAY_MS),
+    };
+    const trainingEvent = {
+      ...withinWindowMatchEvent,
+      type: 'TRAINING',
+      opponentName: null,
+      venue: null,
+    };
+
+    function mockRoster(options: { callerTeamPlayerId?: string; rosterTeamPlayerIds?: string[] }) {
+      prisma.teamPlayer.findFirst.mockImplementation(({ where }: { where: any }) => {
+        if ('player' in where) {
+          return Promise.resolve(
+            options.callerTeamPlayerId ? { id: options.callerTeamPlayerId } : null,
+          );
+        }
+        const onRoster = (options.rosterTeamPlayerIds ?? []).includes(where.id);
+        return Promise.resolve(onRoster ? { id: where.id } : null);
+      });
+    }
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(withinWindowMatchEvent);
+      prisma.eventVote.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.count.mockResolvedValue(0);
+      // Default: the caller was marked present and convoked — tests about
+      // the present/convoked-only rule itself override these.
+      prisma.eventRsvp.findUnique.mockResolvedValue({ status: 'GOING' });
+      prisma.eventConvocation.findUnique.mockResolvedValue({ convokedAt: new Date() });
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue(trainingEvent);
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException before the vote window opens (1h after kickoff)', async () => {
+      prisma.event.findUnique.mockResolvedValue(beforeWindowOpensEvent);
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException once the vote window has closed (5 days after kickoff)', async () => {
+      prisma.event.findUnique.mockResolvedValue(afterWindowClosesEvent);
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller is not rostered', async () => {
+      mockRoster({});
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller was not marked present (RSVP status other than GOING)', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventRsvp.findUnique.mockResolvedValue({ status: 'MAYBE' });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller never RSVPed at all', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventRsvp.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller was present but never convoked for this match', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventConvocation.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on a self-vote', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the target is not on this team roster', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-off'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts on recast — updates the existing row rather than duplicating it', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventVote.upsert.mockResolvedValue({});
+
+      await service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2');
+
+      expect(prisma.eventVote.upsert).toHaveBeenCalledWith({
+        where: {
+          eventId_category_voterTeamPlayerId: {
+            eventId: 'event-1',
+            category: 'BEST',
+            voterTeamPlayerId: 'tp-1',
+          },
+        },
+        create: {
+          eventId: 'event-1',
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+        },
+        update: { votedTeamPlayerId: 'tp-2' },
+      });
+    });
+
+    it('returns the aggregated results after a successful vote', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventVote.upsert.mockResolvedValue({});
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.castVote(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'BEST',
+        'tp-2',
+      );
+
+      expect(result).toEqual({
+        best: [{ teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 1 }],
+        worst: [],
+        totalVoters: 2,
+        votesCast: 1,
+        myVote: { best: 'tp-2', worst: null },
+      });
+    });
+  });
+
+  describe('getEventVoteResults', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    // Within the vote window (not yet ended) unless a test specifically
+    // wants the "vote has ended, results are public" behavior.
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date(Date.now() - 2 * DAY_MS),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+    const endedMatchEvent = { ...matchEvent, startsAt: new Date(Date.now() - 6 * DAY_MS) };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, type: 'TRAINING' });
+
+      await expect(
+        service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    const fourVoteFixture = [
+      {
+        category: 'BEST',
+        voterTeamPlayerId: 'tp-1',
+        votedTeamPlayerId: 'tp-2',
+        votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+      },
+      {
+        category: 'BEST',
+        voterTeamPlayerId: 'tp-3',
+        votedTeamPlayerId: 'tp-2',
+        votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+      },
+      {
+        category: 'BEST',
+        voterTeamPlayerId: 'tp-4',
+        votedTeamPlayerId: 'tp-5',
+        votedFor: { player: { firstName: 'Chloé', lastName: 'Dubois' } },
+      },
+      {
+        category: 'WORST',
+        voterTeamPlayerId: 'tp-1',
+        votedTeamPlayerId: 'tp-6',
+        votedFor: { player: { firstName: 'Nina', lastName: 'Perrin' } },
+      },
+    ];
+
+    it('withholds best/worst (but keeps totalVoters/votesCast) when the caller has not voted yet — "vote to see results"', async () => {
+      // Default beforeEach: teamPlayer.findFirst resolves null, so the
+      // caller has no roster row at all — the strictest "haven't voted"
+      // case, but the same withholding applies to any rostered caller who
+      // simply hasn't cast a BEST vote yet.
+      prisma.eventVote.findMany.mockResolvedValue(fourVoteFixture);
+      prisma.teamPlayer.count.mockResolvedValue(6);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best).toEqual([]);
+      expect(result.worst).toEqual([]);
+      expect(result.totalVoters).toBe(6);
+      expect(result.votesCast).toBe(3);
+      expect(result.myVote).toEqual({ best: null, worst: null });
+    });
+
+    it('aggregates both categories, sorted descending, without ever exposing voterTeamPlayerId, once the caller has voted', async () => {
+      // tp-1 (the caller) already cast a BEST vote in this fixture, so
+      // results are no longer withheld.
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue(fourVoteFixture);
+      prisma.teamPlayer.count.mockResolvedValue(6);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best).toEqual([
+        { teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 2 },
+        { teamPlayerId: 'tp-5', firstName: 'Chloé', lastName: 'Dubois', voteCount: 1 },
+      ]);
+      expect(result.worst).toEqual([
+        { teamPlayerId: 'tp-6', firstName: 'Nina', lastName: 'Perrin', voteCount: 1 },
+      ]);
+      expect(result.totalVoters).toBe(6);
+      expect(result.votesCast).toBe(3);
+      // Explicit assertion, not just implicit from the mapped shape — a
+      // voterTeamPlayerId leak here would be a real privacy regression (see
+      // EventVote's schema comment).
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain('voterTeamPlayerId');
+      expect(serialized).not.toContain('tp-3');
+      expect(serialized).not.toContain('tp-4');
+    });
+
+    it("resolves myVote from the caller's own rows", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
+    });
+
+    it('breaks a vote-count tie alphabetically (lastName, then firstName) for a stable order', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-9',
+          votedFor: { player: { firstName: 'Nina', lastName: 'Zidane' } },
+        },
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-2',
+          votedTeamPlayerId: 'tp-8',
+          votedFor: { player: { firstName: 'Julie', lastName: 'Abal' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best.map((r) => r.lastName)).toEqual(['Abal', 'Zidane']);
+    });
+
+    it('makes results public to everyone once the vote window has ended, even for a caller who never voted', async () => {
+      // Default beforeEach: teamPlayer.findFirst resolves null — the caller
+      // has no roster row at all and never voted, yet still sees results
+      // because the window is over.
+      prisma.event.findUnique.mockResolvedValue(endedMatchEvent);
+      prisma.eventVote.findMany.mockResolvedValue(fourVoteFixture);
+      prisma.teamPlayer.count.mockResolvedValue(6);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best).toEqual([
+        { teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 2 },
+        { teamPlayerId: 'tp-5', firstName: 'Chloé', lastName: 'Dubois', voteCount: 1 },
+      ]);
+      expect(result.worst).toEqual([
+        { teamPlayerId: 'tp-6', firstName: 'Nina', lastName: 'Perrin', voteCount: 1 },
+      ]);
+      expect(result.myVote).toEqual({ best: null, worst: null });
     });
   });
 });
