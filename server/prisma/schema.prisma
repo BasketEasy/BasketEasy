@@ -24,15 +24,20 @@ model User {
 }
 
 model Player {
-  id          String       @id @default(uuid())
-  firstName   String
-  lastName    String
-  clubId      String
-  userId      String?
-  createdAt   DateTime     @default(now())
-  club        Club         @relation(fields: [clubId], references: [id])
-  user        User?        @relation(fields: [userId], references: [id])
-  teamPlayers TeamPlayer[]
+  id            String       @id @default(uuid())
+  firstName     String
+  lastName      String
+  clubId        String
+  userId        String?
+  nationalId    String?      @unique
+  licenseNumber String?
+  birthDate     DateTime?
+  gender        Gender?
+  licenseType   String?
+  createdAt     DateTime     @default(now())
+  club          Club         @relation(fields: [clubId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
+  teamPlayers   TeamPlayer[]
 
   @@unique([clubId, userId])
   @@index([clubId])
@@ -58,7 +63,7 @@ enum TeamCategory {
   SENIORS
 }
 
-enum TeamGender {
+enum Gender {
   MEN
   WOMEN
 }
@@ -72,7 +77,7 @@ model Team {
   id          String         @id @default(uuid())
   name        String
   category    TeamCategory
-  gender      TeamGender
+  gender      Gender
   createdAt   DateTime       @default(now())
   clubTeams   ClubTeam[]
   teamPlayers TeamPlayer[]

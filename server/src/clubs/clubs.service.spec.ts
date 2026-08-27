@@ -18,6 +18,7 @@ describe('ClubsService', () => {
     user: { findUnique: jest.Mock };
     player: {
       findMany: jest.Mock;
+      findFirst: jest.Mock;
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
@@ -41,6 +42,7 @@ describe('ClubsService', () => {
       user: { findUnique: jest.fn() },
       player: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
@@ -48,7 +50,11 @@ describe('ClubsService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
-      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
+      $transaction: jest.fn((arg: unknown) =>
+        typeof arg === 'function'
+          ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
+          : Promise.all(arg as unknown[]),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -391,6 +397,11 @@ describe('ClubsService', () => {
           firstName: 'A',
           lastName: 'B',
           userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: null,
+          gender: null,
+          licenseType: null,
           createdAt: new Date('2026-01-01'),
         },
       ]);
@@ -413,6 +424,11 @@ describe('ClubsService', () => {
             firstName: 'A',
             lastName: 'B',
             userId: null,
+            nationalId: null,
+            licenseNumber: null,
+            birthDate: null,
+            gender: null,
+            licenseType: null,
             createdAt: '2026-01-01T00:00:00.000Z',
           },
         ],
@@ -589,6 +605,102 @@ describe('ClubsService', () => {
       await service.deletePlayer('club-1', 'p1');
 
       expect(prisma.player.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+    });
+  });
+
+  describe('importPlayers', () => {
+    it('creates a new player when nothing matches', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.findFirst.mockResolvedValue(null);
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ clubId: 'club-1', firstName: 'Léa', lastName: 'Martin' }),
+      });
+      expect(result).toEqual({ created: 1, updated: 0, conflicts: 0 });
+    });
+
+    it('updates an existing player at the same club matched by nationalId', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.player.update.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: expect.objectContaining({ firstName: 'Léa' }),
+      });
+      expect(result).toEqual({ created: 0, updated: 1, conflicts: 0 });
+    });
+
+    it('flags a nationalId match at a different club as a conflict and does not write', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'other-club' });
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.update).not.toHaveBeenCalled();
+      expect(prisma.player.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ created: 0, updated: 0, conflicts: 1 });
+    });
+
+    it('matches an existing player by name + birthDate when nationalId is absent', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.findFirst.mockResolvedValue({ id: 'p2', clubId: 'club-1' });
+      prisma.player.update.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Théo', lastName: 'Dupont', birthDate: '2009-11-04' },
+      ]);
+
+      expect(prisma.player.findFirst).toHaveBeenCalledWith({
+        where: {
+          clubId: 'club-1',
+          firstName: 'Théo',
+          lastName: 'Dupont',
+          birthDate: new Date('2009-11-04'),
+        },
+      });
+      expect(prisma.player.update).toHaveBeenCalledWith({
+        where: { id: 'p2' },
+        data: expect.anything(),
+      });
+      expect(result).toEqual({ created: 0, updated: 1, conflicts: 0 });
+    });
+
+    it('does not attempt a name+birthDate match when birthDate is missing, and creates instead', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Théo', lastName: 'Dupont' },
+      ]);
+
+      expect(prisma.player.findFirst).not.toHaveBeenCalled();
+      expect(result).toEqual({ created: 1, updated: 0, conflicts: 0 });
+    });
+
+    it('processes a mixed batch of rows in one transaction', async () => {
+      prisma.player.findUnique
+        .mockResolvedValueOnce({ id: 'p1', clubId: 'club-1' })
+        .mockResolvedValueOnce(null);
+      prisma.player.findFirst.mockResolvedValue(null);
+      prisma.player.update.mockResolvedValue({});
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+        { firstName: 'Théo', lastName: 'Dupont' },
+      ]);
+
+      expect(result).toEqual({ created: 1, updated: 1, conflicts: 0 });
     });
   });
 });

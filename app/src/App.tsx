@@ -9,6 +9,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClubCreatePage } from './pages/ClubCreatePage';
 import { MembersPage } from './pages/MembersPage';
+import { PlayerImportPage } from './pages/PlayerImportPage';
 import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />
           <Route path="/clubs/:clubId/members" element={<MembersPage />} />
+          <Route path="/clubs/:clubId/import-players" element={<PlayerImportPage />} />
           <Route path="/clubs/:clubId/teams/:teamId" element={<TeamDetailPage />} />
           <Route path="/clubs/*" element={<NotFoundPage />} />
         </Route>

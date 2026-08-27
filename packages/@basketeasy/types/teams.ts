@@ -2,7 +2,7 @@ import type { PaginationParams, SortOrder } from './pagination';
 
 export type TeamCategory = 'U9' | 'U11' | 'U13' | 'U15' | 'U18' | 'U21' | 'SENIORS';
 
-export type TeamGender = 'MEN' | 'WOMEN';
+export type Gender = 'MEN' | 'WOMEN';
 
 export type TeamMemberRole = 'COACH' | 'PLAYER';
 
@@ -10,14 +10,14 @@ export interface Team {
   id: string;
   name: string;
   category: TeamCategory;
-  gender: TeamGender;
+  gender: Gender;
   createdAt: string;
 }
 
 export interface CreateTeamRequest {
   name: string;
   category: TeamCategory;
-  gender: TeamGender;
+  gender: Gender;
   /** Optional full competitions.ffbb.com/.../equipes/<id> URL — creates the team's first FfbbLink, validated on submit. */
   ffbbTeamUrl?: string;
 }
@@ -25,7 +25,7 @@ export interface CreateTeamRequest {
 export interface UpdateTeamRequest {
   name?: string;
   category?: TeamCategory;
-  gender?: TeamGender;
+  gender?: Gender;
 }
 
 export interface TeamClubLink {
@@ -64,7 +64,7 @@ export type TeamSortBy = 'name' | 'category' | 'createdAt';
 
 export interface ListTeamsParams extends PaginationParams {
   category?: TeamCategory;
-  gender?: TeamGender;
+  gender?: Gender;
   sortBy?: TeamSortBy;
   sortOrder?: SortOrder;
 }

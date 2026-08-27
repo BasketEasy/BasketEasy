@@ -6,9 +6,14 @@ import {
 } from 'react';
 import { cn } from '../lib/cn';
 
-export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="w-full overflow-auto">
+export interface TableProps extends HTMLAttributes<HTMLTableElement> {
+  /** className applied to the wrapping scroll <div>, not the <table> — e.g. to cap height for a sticky header. */
+  containerClassName?: string;
+}
+
+export const Table = forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div className={cn('w-full overflow-auto', containerClassName)}>
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
