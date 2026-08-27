@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import type { EventConvocationRosterEntry, EventRsvpRosterEntry } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
-import { MatchRosterTab } from './MatchRosterTab';
+import { EventRosterTab } from './EventRosterTab';
 
 const rsvps: EventRsvpRosterEntry[] = [
   {
@@ -89,7 +89,7 @@ function setViewportWidth(width: number) {
   });
 }
 
-describe('MatchRosterTab', () => {
+describe('EventRosterTab', () => {
   afterEach(() => {
     setViewportWidth(1024);
   });
@@ -105,7 +105,7 @@ describe('MatchRosterTab', () => {
     );
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
 
     expect(await screen.findByRole('button', { name: /réessayer/i })).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe('MatchRosterTab', () => {
     mockRoster();
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
 
     expect(await screen.findByText(/lea bernard \(vous\)/i)).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('MatchRosterTab', () => {
     mockRoster();
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
 
     await waitFor(() => expect(screen.getByText('2/3')).toBeInTheDocument());
@@ -152,7 +152,7 @@ describe('MatchRosterTab', () => {
     mockRoster();
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
     await screen.findByText(/lea bernard/i);
     expect(screen.queryByRole('button', { name: /gérer la convocation/i })).not.toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('MatchRosterTab', () => {
     mockRoster();
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage />,
     );
     expect(
       await screen.findByRole('button', { name: /gérer la convocation/i }),
@@ -174,7 +174,7 @@ describe('MatchRosterTab', () => {
     mockRoster();
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
 
     await screen.findByText(/lea bernard/i);
@@ -191,7 +191,7 @@ describe('MatchRosterTab', () => {
     );
 
     renderWithProviders(
-      <MatchRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
+      <EventRosterTab clubId="club-1" teamId="team-1" eventId="event-1" canManage={false} />,
     );
 
     expect(await screen.findByText('Effectif vide')).toBeInTheDocument();

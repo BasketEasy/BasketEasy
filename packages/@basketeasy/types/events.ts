@@ -38,16 +38,21 @@ export interface TeamEvent {
   isImported: boolean;
   /** False when FFBB's kickoff time was still its "not yet confirmed" placeholder; always true for a manual event. */
   timeConfirmed: boolean;
-  /** Jersey/ball assignment for a MATCH event; null for TRAINING. */
+  /**
+   * Jersey/ball equipment assignment — populated for both event types.
+   * `jerseys` holds the match-jersey assignee for a MATCH event or the
+   * scrimmage-bib ("Chasubles") assignee for a TRAINING event; `balls` is
+   * the same slot/copy for both. Either field is null when unassigned.
+   */
   logistics: {
     jerseys: EventLogisticsAssignee | null;
     balls: EventLogisticsAssignee | null;
-  } | null;
+  };
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';
 
-/** The roster member currently assigned to bring the jerseys or the balls to a MATCH event. */
+/** The roster member currently assigned to bring the jerseys/bibs or the balls to an event. */
 export interface EventLogisticsAssignee {
   teamPlayerId: string;
   firstName: string;

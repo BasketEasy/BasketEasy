@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
@@ -6,37 +5,41 @@ import { cn } from '@basketeasy/ui/cn';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
-import { eventTypeShortLabel } from './eventLabels';
+import { eventDetailLinkLabel, eventTypeShortLabel } from './eventLabels';
 import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
-import { EventEditModal } from './EventEditModal';
-import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
-import { EventRsvpBreakdown } from './EventRsvpBreakdown';
-import { EventConvocationModal } from './EventConvocationModal';
-import { EventConvocationBreakdown } from './EventConvocationBreakdown';
 
+/**
+ * Two content columns to the right of the time block — left: venue/status
+ * badges plus the jersey/ball mini-chips, with the RSVP control underneath;
+ * right: location (+ opponent for MATCH) with the "Voir →" link underneath.
+ * Everything else (notes, the full RSVP/convocation breakdown,
+ * Modifier/Supprimer, convocation management) lives on the detail page for
+ * BOTH event types, not just MATCH — EventDetailPage and its Effectif tab
+ * (EventRosterTab) cover TRAINING exactly the same way, so the agenda card
+ * doesn't need to duplicate any of it here. EventRow (the table view) is a
+ * different surface with room to spare and still carries those inline.
+ */
 function AgendaEventCard({
   clubId,
   teamId,
   event,
-  canManage,
   isRostered,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
-  canManage: boolean;
   isRostered: boolean;
 }) {
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const isMatch = event.type === 'MATCH';
 
   return (
     <Card className="flex flex-row overflow-hidden p-0">
       <div
         className={cn(
           'flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 py-4 sm:w-24',
-          event.type === 'MATCH'
+          isMatch
             ? 'bg-blue-green text-cream'
             : 'border-r border-border bg-surface-2 text-charcoal',
         )}
@@ -46,7 +49,12 @@ function AgendaEventCard({
             {formatEventTime(event.startsAt)}
           </span>
         ) : (
-          <span className="font-heading text-sm font-extrabold uppercase leading-none tracking-wide-caps">
+          // w-full + text-center (rather than letting the span shrink-to-fit
+          // and get centered by the flex column) keeps this two-word label
+          // from overflowing the narrow time-block column and getting
+          // clipped by the card's overflow-hidden — it was rendering as a
+          // mangled fragment ("ONFIRME") on a narrow viewport before this.
+          <span className="w-full break-words px-0.5 text-center font-heading text-xs font-extrabold uppercase leading-tight tracking-wide-caps">
             à confirmer
           </span>
         )}
@@ -54,55 +62,64 @@ function AgendaEventCard({
           {eventTypeShortLabel(event.type)}
         </span>
       </div>
-      <div className="flex min-w-0 flex-grow flex-col gap-3.5 p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            {(isRostered && event.myConvocation) ||
-            event.isImported ||
-            !event.timeConfirmed ||
-            (event.type === 'MATCH' && event.venue) ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
-                {event.type === 'MATCH' && event.venue && <EventVenueBadge venue={event.venue} />}
-                {event.isImported && <Badge variant="outline">Importé</Badge>}
-                {!event.timeConfirmed && <Badge variant="outline">Heure à confirmer</Badge>}
-              </div>
-            ) : null}
-            <span className="text-sm text-muted">
-              {event.location}
-              {event.type === 'MATCH' ? ` · vs ${event.opponentName}` : ''}
-            </span>
-            {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
-          </div>
+      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4 sm:flex-row sm:gap-4">
+        {/* Left column: badge/logistics cluster on top, RSVP underneath.
+            min-w-0 + flex-1 lets it shrink below its content's natural
+            width instead of the sm:flex-row parent falling back to the
+            min-content trap the single-line layout hit before (a wrapper
+            around a flex-1 sibling of shrink-0 items baking in the wrong
+            floor) — here each column is its own flex-1 min-w-0 item, so
+            there's no shrink-0/flex-1 mix inside a shared wrapper to get
+            wrong. The columns only sit side by side from `sm` up — below
+            that the RSVP control's fixed-width segmented group (see
+            EventRsvpControl, `w-fit`, non-compact below `lg`) is too wide
+            for a half-width mobile column, so the whole card stacks to one
+            full-width column below `sm` instead, which is also where a
+            two-up layout stops earning its keep on a ~360-400px phone
+            anyway. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* Venue/status badges plus the jersey/ball mini-chips, all
+              shrink-0 flex-wrap siblings — none of them compete for space
+              with a flex-1 item the way location used to sit alongside
+              badges on the old single row, so free-wrapping them together
+              here is safe. */}
           <div className="flex flex-wrap items-center gap-2">
-            {event.type === 'MATCH' && (
-              <Link
-                to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-                className="shrink-0 text-sm font-bold text-blue-green hover:underline"
-              >
-                Voir le match →
-              </Link>
+            {isRostered && event.myConvocation && <Badge className="shrink-0">Convoqué</Badge>}
+            {isMatch && event.venue && (
+              <span className="shrink-0">
+                <EventVenueBadge venue={event.venue} />
+              </span>
             )}
-            {canManage && (
-              <>
-                <EventEditModal
-                  clubId={clubId}
-                  teamId={teamId}
-                  event={event}
-                  open={isEditOpen}
-                  onOpenChange={setIsEditOpen}
-                />
-                <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
-                <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
-              </>
+            {event.isImported && (
+              <Badge variant="outline" className="shrink-0">
+                Importé
+              </Badge>
             )}
+            {!event.timeConfirmed && (
+              <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                Heure à confirmer
+              </Badge>
+            )}
+            <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
           </div>
+          {isRostered && (
+            <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
+          )}
         </div>
-        {event.type === 'MATCH' && <EventLogisticsMiniChips logistics={event.logistics} />}
-        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
-          {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
-          <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
-          <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
+        {/* Right column: location (+ opponent for MATCH) on top, the "Voir
+            →" link underneath. min-w-0 lets the location line truncate
+            instead of forcing the column past its share of the row. */}
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
+          <span className="min-w-0 max-w-full truncate text-sm text-muted">
+            {event.location}
+            {isMatch ? ` · vs ${event.opponentName}` : ''}
+          </span>
+          <Link
+            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
+            className="shrink-0 text-sm font-bold text-blue-green hover:underline"
+          >
+            {eventDetailLinkLabel(event.type)} →
+          </Link>
         </div>
       </div>
     </Card>
@@ -121,13 +138,11 @@ export function TeamEventsAgenda({
   clubId,
   teamId,
   events,
-  canManage,
   isRostered,
 }: {
   clubId: string;
   teamId: string;
   events: TeamEvent[];
-  canManage: boolean;
   isRostered: boolean;
 }) {
   const groups = new Map<string, TeamEvent[]>();
@@ -153,7 +168,6 @@ export function TeamEventsAgenda({
                 clubId={clubId}
                 teamId={teamId}
                 event={event}
-                canManage={canManage}
                 isRostered={isRostered}
               />
             ))}

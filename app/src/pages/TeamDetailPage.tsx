@@ -960,7 +960,6 @@ export function TeamDetailPage() {
                   clubId={clubId!}
                   teamId={teamId!}
                   events={agendaEvents}
-                  canManage={canManageTeam}
                   isRostered={isRostered}
                 />
               ) : (

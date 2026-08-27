@@ -56,10 +56,22 @@ export function EventRsvpControl({
   clubId,
   teamId,
   event,
+  compactOnDesktop = false,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
+  /**
+   * Drops to an icon-only rendering (no short/full label, no hint line) at
+   * the `lg` breakpoint and up — used by the agenda card's single-line
+   * desktop row, where the labelled control is too wide to sit alongside
+   * badges, location, and action buttons on one line. Below `lg` the
+   * control renders exactly as it does everywhere else (icon + short label
+   * under `md`, icon + full label from `md` up), since there's no
+   * single-line constraint on a stacked mobile/tablet card. The touch
+   * target stays `min-h-11` at every breakpoint regardless.
+   */
+  compactOnDesktop?: boolean;
 }) {
   // Tracks which option is mid-flight so only that button swaps to a
   // spinner — the other two stay static even though all three are disabled
@@ -122,6 +134,7 @@ export function EventRsvpControl({
                       'disabled:pointer-events-none disabled:opacity-50',
                       focusRing,
                       index > 0 && 'border-l border-border-strong',
+                      compactOnDesktop && 'lg:w-11 lg:px-0',
                       active
                         ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
                         : 'bg-surface text-muted hover:bg-sunk',
@@ -140,7 +153,9 @@ export function EventRsvpControl({
                       </svg>
                     )}
                     <span className="md:hidden">{option.shortLabel}</span>
-                    <span className="hidden md:inline">{option.label}</span>
+                    <span className={cn('hidden md:inline', compactOnDesktop && 'lg:hidden')}>
+                      {option.label}
+                    </span>
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>{option.label}</TooltipContent>
@@ -149,7 +164,7 @@ export function EventRsvpControl({
           })}
         </div>
         {hasResponded && (
-          <p id={hintId} className="text-xs text-muted">
+          <p id={hintId} className={cn('text-xs text-muted', compactOnDesktop && 'lg:hidden')}>
             Touchez à nouveau votre réponse pour l&apos;annuler.
           </p>
         )}

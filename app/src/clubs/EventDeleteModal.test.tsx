@@ -23,7 +23,7 @@ const trainingEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
-  logistics: null,
+  logistics: { jerseys: null, balls: null },
 };
 
 const recurringEvent: TeamEvent = {

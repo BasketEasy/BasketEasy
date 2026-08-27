@@ -70,7 +70,17 @@ const convocationRoster: EventConvocationRosterEntry[] = [
 
 const route = '/clubs/club-1/teams/team-1/events/event-1';
 
-describe('MatchDetailPage', () => {
+const trainingEvent = {
+  ...matchEvent,
+  id: 'event-2',
+  type: 'TRAINING',
+  opponentName: null,
+  venue: null,
+};
+
+const trainingRoute = '/clubs/club-1/teams/team-1/events/event-2';
+
+describe('EventDetailPage', () => {
   it('renders the header, hero, and info grid for a MATCH event', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -107,22 +117,40 @@ describe('MatchDetailPage', () => {
     expect(await screen.findByRole('button', { name: /réessayer/i })).toBeInTheDocument();
   });
 
-  it('redirects away from a TRAINING event id', async () => {
+  it('renders the header and hero for a TRAINING event, with no opponent/venue chrome', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
-      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
-        HttpResponse.json({ ...matchEvent, type: 'TRAINING', opponentName: null, venue: null }),
-      ),
-      http.get('/api/clubs/club-1/teams/team-1/events', () =>
-        HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-2', () =>
+        HttpResponse.json(trainingEvent),
       ),
     );
 
-    renderWithProviders(<App />, { route });
+    renderWithProviders(<App />, { route: trainingRoute });
 
-    expect(await screen.findByRole('heading', { name: /u15 filles/i })).toBeInTheDocument();
-    expect(screen.queryByText(/es rezé/i)).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /u15 filles — entraînement/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
+    expect(screen.queryByText(/vs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Adversaire')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Gymnase Pierre de Coubertin').length).toBeGreaterThan(0);
+  });
+
+  it('shows Modifier/Supprimer for a manager, for both event types', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-2', () =>
+        HttpResponse.json(trainingEvent),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: trainingRoute });
+
+    await screen.findByRole('heading', { name: /entraînement/i });
+    expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
   });
 
   it('switches to the Effectif tab and shows the merged roster, with manage access for a club admin', async () => {

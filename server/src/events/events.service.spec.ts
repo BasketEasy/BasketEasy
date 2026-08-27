@@ -131,7 +131,7 @@ describe('EventsService', () => {
             timeConfirmed: true,
             myRsvpStatus: null,
             myConvocation: false,
-            logistics: null,
+            logistics: { jerseys: null, balls: null },
           },
         ],
         total: 1,
@@ -1578,13 +1578,27 @@ describe('EventsService', () => {
       prisma.teamPlayer.findMany.mockResolvedValue([]);
     });
 
-    it('throws BadRequestException on a TRAINING event', async () => {
+    it('allows logistics assignment on a TRAINING event too — no event.type gate', async () => {
       prisma.event.findUnique.mockResolvedValue(trainingEvent);
+      prisma.event.update.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...trainingEvent, ...data }),
+      );
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
 
-      await expect(
-        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-1'),
-      ).rejects.toThrow(BadRequestException);
-      expect(prisma.event.update).not.toHaveBeenCalled();
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'JERSEYS',
+        'tp-1',
+      );
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { jerseysTeamPlayerId: 'tp-1' },
+      });
+      expect(result.type).toBe('TRAINING');
     });
 
     it('allows a rostered non-manager to self-assign', async () => {

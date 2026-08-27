@@ -88,7 +88,7 @@ export function EventRow({
               Convoqué par le coach
             </Badge>
           )}
-          {event.type === 'MATCH' && <EventLogisticsMiniChips logistics={event.logistics} />}
+          <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />

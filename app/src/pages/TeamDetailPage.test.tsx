@@ -493,8 +493,14 @@ describe('TeamDetailPage', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: null,
+        venue: null,
         recurrenceId: null,
         createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        logistics: { jerseys: null, balls: null },
       },
     ];
     let createCalled = false;
@@ -519,8 +525,14 @@ describe('TeamDetailPage', () => {
           location: body.location,
           notes: null,
           opponentName: null,
+          venue: null,
           recurrenceId: null,
           createdAt: 'x',
+          myRsvpStatus: null,
+          isImported: false,
+          timeConfirmed: true,
+          myConvocation: false,
+          logistics: { jerseys: null, balls: null },
         };
         events = [...events, created];
         return HttpResponse.json([created]);
@@ -556,8 +568,14 @@ describe('TeamDetailPage', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: null,
+        venue: null,
         recurrenceId: null,
         createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        logistics: { jerseys: null, balls: null },
       },
     ];
     server.use(
