@@ -1,0 +1,78 @@
+{
+  "artboards": [
+    {
+      "file": "AgendaCard.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 1650,
+      "title": "1. Carte match — agenda"
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 1100,
+      "y": 0,
+      "w": 1280,
+      "h": 1380,
+      "title": "2. Détail du match — Aperçu (desktop)"
+    },
+    {
+      "file": "MobileDetail.dc.html",
+      "x": 2480,
+      "y": 0,
+      "w": 390,
+      "h": 1740,
+      "title": "6. Détail du match — mobile"
+    },
+    {
+      "file": "Roster.dc.html",
+      "x": 0,
+      "y": 1880,
+      "w": 1240,
+      "h": 1020,
+      "title": "2b. Détail du match — Effectif"
+    },
+    {
+      "file": "Vote.dc.html",
+      "x": 1340,
+      "y": 1880,
+      "w": 1360,
+      "h": 1220,
+      "title": "4. Vote meilleur / joueur en difficulté"
+    },
+    {
+      "file": "Scoresheet.dc.html",
+      "x": 2800,
+      "y": 1880,
+      "w": 1700,
+      "h": 1030,
+      "title": "5. Import feuille de match (e-Marque)"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "overview",
+      "x": 0,
+      "y": -210,
+      "w": 320,
+      "text": "BasketEasy — Match interface, proposition\n\nOrdre de lecture : carte agenda → détail (Aperçu, Effectif) → mobile → vote → import e-Marque.\n\nMockups seulement, aucun fichier app/server/packages modifié."
+    },
+    {
+      "id": "route-decision",
+      "x": 1100,
+      "y": -210,
+      "w": 320,
+      "text": "Route, pas Dialog : le détail de match couvre 4 zones indépendantes (infos, effectif, vote, feuille), se consulte avant et après le match, et doit être partageable/retour-arrière — ce n'est pas l'édition ponctuelle d'un seul enregistrement que couvre la règle Dialog du CLAUDE.md. Proposé : /clubs/:clubId/teams/:teamId/events/:eventId, avec les mêmes onglets que TeamDetailPage."
+    },
+    {
+      "id": "gold-token",
+      "x": 1340,
+      "y": 1750,
+      "w": 360,
+      "text": "Token proposé (non appliqué ici) : gold #C08A2E / gold-text #8C5F16 / gold-tint #FBF1DC — accent trophée/classement, distinct de orange (action) et blue-green (structure). À ajouter dans tailwind-preset.cjs si validé."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

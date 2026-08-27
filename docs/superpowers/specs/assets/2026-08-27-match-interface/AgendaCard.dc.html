@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; background: #EFE4D4; font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif; color: #23201C; }
+h1, h2, h3 { line-height: 0.94; margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; }
+a { color: #1E5F74; text-decoration: none; }
+a:hover { color: #16495B; text-decoration: underline; }
+</style>
+</helmet>
+
+<div style="width:1000px; min-height:1560px; background:#EFE4D4; padding:28px 32px 40px 32px; display:flex; flex-direction:column; gap:26px;">
+
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Événements &mdash; U15 Filles</h3>
+    <span style="font-size:13px; color:#5B564F;">Agenda existant (TeamEventsAgenda), avec la carte match enrichie</span>
+  </div>
+
+  <!-- Day: today, training, unchanged -->
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Jeudi 27 août</h3>
+      <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+    </div>
+    <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid #E7DECF; background:#FFFCF7; box-shadow:0 1px 2px rgba(59,42,24,0.07);">
+      <div style="width:96px; flex-shrink:0; background:#FAF5EF; border-right:1px solid #E7DECF; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:16px 8px;">
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:26px; line-height:1; font-variant-numeric:tabular-nums;">19:00</span>
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.13em; opacity:0.8;">Entraîn.</span>
+      </div>
+      <div style="flex-grow:1; padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:14px; color:#5B564F;">Gymnase Municipal Beaulieu</span>
+        </div>
+        <div style="display:flex; gap:10px; padding-top:10px; border-top:1px solid #E7DECF;">
+          <button style="height:36px; padding:0 14px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:12.5px; font-weight:600;">Voir les réponses</button>
+          <button style="height:36px; padding:0 14px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:12.5px; font-weight:600;">Voir la convocation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Day: upcoming match, enhanced -->
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Samedi 30 août</h3>
+      <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+    </div>
+    <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid #E7DECF; background:#FFFCF7; box-shadow:0 2px 6px rgba(59,42,24,0.08), 0 1px 2px rgba(59,42,24,0.05);">
+      <div style="width:96px; flex-shrink:0; background:#1E5F74; color:#FAF5EF; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:16px 8px;">
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:26px; line-height:1; font-variant-numeric:tabular-nums;">18:00</span>
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.13em; opacity:0.85;">Match</span>
+      </div>
+      <div style="flex-grow:1; padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="display:inline-flex; align-items:center; border-radius:9999px; padding:2px 10px; font-size:11px; font-weight:700; background:#AA4F22; color:#FAF5EF;">Convoqué</span>
+              <span style="display:inline-flex; align-items:center; gap:4px; border-radius:9999px; padding:2px 10px; font-size:11px; font-weight:700; background:#EAF1F3; color:#1E5F74; border:1px solid rgba(30,95,116,0.25);">
+                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/></svg>
+                Domicile
+              </span>
+            </div>
+            <span style="font-size:14px; color:#5B564F;">Gymnase Pierre de Coubertin &middot; vs ES Rezé</span>
+          </div>
+          <a href="#" style="font-size:13px; font-weight:700; color:#1E5F74; flex-shrink:0;">Voir le match &rarr;</a>
+        </div>
+
+        <!-- logistics mini row (new) -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; border:1px solid #D6C8B2; background:#FAF5EF; padding:3px 10px; font-size:11.5px; font-weight:600; color:#23201C;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#1E5F74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 3 7l3 3 2-1.5V20a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8.5L18 10l3-3-5-4-2 2h-4L8 3Z"/></svg>
+            Maillots : Léa M. &#10003;
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; border:1px solid #E7DECF; background:#FAF5EF; padding:3px 10px; font-size:11.5px; font-weight:600; color:#5B564F;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#5B564F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/></svg>
+            Ballons : non assigné
+          </span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:14px; padding-top:12px; border-top:1px solid #E7DECF;">
+          <div style="display:flex; height:36px; border-radius:6px; overflow:hidden; border:1px solid #E7DECF; background:#E9DDCA;">
+            <span style="height:36px; padding:0 12px; display:flex; align-items:center; gap:5px; background:#2F7D5C; color:#FAF5EF; font-weight:600; font-size:12.5px; box-shadow:inset 0 -3px 0 rgba(0,0,0,0.18);">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              Oui
+            </span>
+            <span style="height:36px; padding:0 12px; display:flex; align-items:center; background:#FFFCF7; color:#5B564F; border-left:1px solid #D6C8B2; font-weight:600; font-size:12.5px;">?</span>
+            <span style="height:36px; padding:0 12px; display:flex; align-items:center; background:#FFFCF7; color:#5B564F; border-left:1px solid #D6C8B2; font-weight:600; font-size:12.5px;">Non</span>
+          </div>
+          <button style="height:36px; padding:0 14px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:12.5px; font-weight:600;">Voir la convocation</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Day: past match with vote status -->
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Dimanche 21 août</h3>
+      <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+    </div>
+    <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid #E7DECF; background:#FFFCF7; box-shadow:0 1px 2px rgba(59,42,24,0.07); opacity:0.94;">
+      <div style="width:96px; flex-shrink:0; background:#1E5F74; color:#FAF5EF; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:16px 8px;">
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:26px; line-height:1; font-variant-numeric:tabular-nums;">10:00</span>
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.13em; opacity:0.85;">Match</span>
+      </div>
+      <div style="flex-grow:1; padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="display:inline-flex; align-items:center; border-radius:9999px; padding:2px 10px; font-size:11px; font-weight:700; border:1px solid #E7DECF; color:#23201C;">Extérieur</span>
+              <span style="display:inline-flex; align-items:center; border-radius:9999px; padding:2px 10px; font-size:11px; font-weight:700; border:1px solid #E7DECF; color:#5B564F;">Terminé</span>
+            </div>
+            <span style="font-size:14px; color:#5B564F;">Gymnase Jean Bouin, Rezé &middot; vs ES Rezé</span>
+          </div>
+          <a href="#" style="font-size:13px; font-weight:700; color:#1E5F74; flex-shrink:0;">Voir les résultats &rarr;</a>
+        </div>
+
+        <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:4px 12px; font-size:12px; font-weight:700; background:#FBEDE4; color:#AA4F22; border:1px solid rgba(212,98,42,0.3); width:fit-content;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M12 13v3"/><path d="M9 20h6"/><path d="M9.5 16h5l.5 4h-6l.5-4Z"/></svg>
+          Votes ouverts &middot; 2 j restants
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rationale -->
+  <div style="border-radius:8px; border:1.5px dashed #2F6E80; background:#FAF5EF; padding:18px 22px; display:flex; flex-direction:column; gap:8px;">
+    <span style="font-size:13px; font-weight:700; color:#1E5F74; text-transform:uppercase; letter-spacing:0.08em;">Ce qui change vs. la carte match actuelle</span>
+    <ul style="margin:0; padding-left:18px; display:flex; flex-direction:column; gap:5px; font-size:13px; color:#23201C; line-height:1.5;">
+      <li>Le bloc horaire (signature existante) est inchangé ; la carte entraînement au-dessus aussi, à titre de comparaison.</li>
+      <li>Nouveau : badge Domicile/Extérieur, mini-indicateurs maillots/ballons, statut &laquo;&nbsp;Votes ouverts&nbsp;&raquo; une fois le match passé.</li>
+      <li>&laquo;&nbsp;Voir le match&nbsp;&rarr;&nbsp;&raquo; est un vrai lien vers la nouvelle route de détail, pas un onClick (règle A1 du CLAUDE.md).</li>
+    </ul>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

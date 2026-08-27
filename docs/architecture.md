@@ -28,7 +28,7 @@ graph TB
   subgraph Data_Layer["Data Layer"]
     PG[(Postgres<br/>primary DB)]
     Redis[(Redis<br/>cache + queue)]
-    S3[(Object Storage<br/>Scaleway S3 - scoresheet photos)]
+    S3[(Object Storage<br/>Cloudflare R2 - scoresheet photos)]
   end
 
   subgraph External["External Services"]
