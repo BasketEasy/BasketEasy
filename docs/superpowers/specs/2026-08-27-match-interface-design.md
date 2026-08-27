@@ -195,7 +195,7 @@ model EventScoresheet {
   id                   String                 @id @default(uuid())
   eventId              String                 @unique
   status               EventScoresheetStatus  @default(UPLOADED)
-  s3Key                String
+  r2Key                String
   uploadedByTeamPlayerId String
   uploadedAt           DateTime               @default(now())
   event                Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -206,27 +206,78 @@ model EventScoresheet {
 `@@unique` on `eventId` — re-uploading (a retry, or a better photo) upserts this one row rather
 than accumulating a history; v1 doesn't need scoresheet-photo versioning.
 
-## Storage (new infrastructure — first of its kind in this repo)
+## Storage: Cloudflare R2 (new infrastructure — first of its kind in this repo)
 
-No S3 client exists anywhere in `server/` today; `docs/architecture.md` names Scaleway S3 as the
-planned store but nothing wires it up. This slice needs the minimum viable version of that:
+No object-storage client exists anywhere in `server/` today. **This slice uses Cloudflare R2**,
+not the Scaleway S3 originally named in `docs/architecture.md`/`docs/backend-stack.md` (both
+updated alongside this spec) — R2 was already on that doc's shortlist of alternatives, and the
+product decision has now been made to use it: zero egress fees (a scoresheet photo gets re-read
+on every retry and eventually by the OCR pipeline — S3/Scaleway both bill per-GB for that, R2
+doesn't), and it speaks the same S3 API, so the implementation is nearly identical to what an S3
+integration would have looked like (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`, just
+pointed at R2's endpoint instead).
+
+**RGPD note, carried forward from the original Scaleway rationale:** scoresheet photos are minors'
+data. Scaleway was EU-resident by default; R2 is a global product and is **not** EU-resident
+unless the bucket is explicitly created with Cloudflare's EU jurisdictional restriction. This is
+a hard requirement, not a nice-to-have — see **Setup required in the Cloudflare dashboard**
+below, and don't build against a non-EU-jurisdiction bucket even for local dev if avoidable.
 
 - New `server/src/storage` module: `StorageService.getUploadUrl(key, contentType)` returning a
-  presigned PUT URL (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`, Scaleway's S3-
-  compatible endpoint). No download/read path needed yet — the scoresheet photo isn't displayed
-  anywhere in this slice, only captured.
+  presigned PUT URL, client configured with `region: 'auto'` (R2 doesn't use AWS regions) and
+  `endpoint: https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`. No download/read path needed
+  yet — the scoresheet photo isn't displayed anywhere in this slice, only captured.
 - New required env vars, added to `docker-compose.yml`'s `server` service and `.env.example`
   exactly as `JWT_ACCESS_SECRET` was (`CLAUDE.md`'s Auth module convention):
-  `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
-- The browser **uploads directly to S3** via the presigned URL — the photo bytes never transit
-  through the NestJS API. The API only issues the URL and later records the confirmed key.
-- `s3Key` convention: `scoresheets/{eventId}/{uuid}.jpg` — scoped by event, collision-proof.
+  `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. No region var — R2
+  is always `auto`; the endpoint is derived from `R2_ACCOUNT_ID` in code, not stored separately.
+- The browser **uploads directly to R2** via the presigned URL — the photo bytes never transit
+  through the NestJS API. The API only issues the URL and later records the confirmed key. This
+  requires **CORS configured on the R2 bucket** (see setup checklist) to allow a `PUT` from the
+  app's origin(s) — without it, the presigned URL works from `curl` but fails silently from the
+  browser.
+- `r2Key` convention: `scoresheets/{eventId}/{uuid}.jpg` — scoped by event, collision-proof.
 
-This is real, load-bearing infrastructure, not a mock — treat Task group 4 in the plan as the
-one most likely to need judgment calls the plan can't fully anticipate (bucket CORS
-configuration, content-type restrictions to `image/jpeg`/`image/png`/`image/webp`, a max upload
-size). Keep it minimal: this slice's entire job is "get the photo durably stored and know it's
-there," not build toward the eventual OCR pipeline's needs preemptively.
+This is real, load-bearing infrastructure, not a mock — treat Task group 5 in the plan as the
+one most likely to need judgment calls the plan can't fully anticipate (upload size limits, exact
+CORS origin list per environment). Keep it minimal: this slice's entire job is "get the photo
+durably stored and know it's there," not build toward the eventual OCR pipeline's needs
+preemptively.
+
+### Setup required in the Cloudflare dashboard (blocks Phase 5 — human action, not agentic)
+
+Nothing in Task group 5 can run against a real bucket until this is done outside the repo, by
+whoever holds the Cloudflare account. None of it can be scripted or provisioned by an agent —
+flag it and stop rather than guessing at values:
+
+1. **Create (or confirm) a Cloudflare account** with R2 enabled (R2 requires a payment method on
+   file even though the free tier likely covers this app's volume for a long time).
+2. **Create the bucket** — a clear, environment-scoped name (e.g. `basketeasy-scoresheets-prod`;
+   a second bucket or a prefix convention for a staging/dev environment if one exists).
+   **Set the bucket's jurisdiction to "European Union"** at creation time (R2's jurisdictional
+   restriction — this cannot be changed after the fact without recreating the bucket) — this is
+   what preserves the RGPD rationale above; don't skip it.
+3. **Configure CORS on the bucket** to allow `PUT` (and `OPTIONS` preflight) from the app's
+   origin(s) — the deployed frontend origin, plus `http://localhost:5173` (Vite's dev server
+   default) for local development. Cloudflare's dashboard has a CORS policy editor on the
+   bucket's Settings tab; the policy needs `AllowedMethods: ["PUT"]`,
+   `AllowedHeaders: ["content-type"]`, and `AllowedOrigins` listing the origins above.
+4. **Create an R2 API token** (Cloudflare dashboard → R2 → "Manage API Tokens", not a
+   general Cloudflare API token) scoped to **Object Read & Write** on this bucket specifically —
+   not an account-wide token. This produces an **Access Key ID** and **Secret Access Key** (R2's
+   S3-compatible credential pair, distinct from a Cloudflare API token/email).
+5. **Find the Account ID** (Cloudflare dashboard right sidebar, or the R2 overview page) — this
+   is `R2_ACCOUNT_ID`, used to build the endpoint URL.
+6. **Hand the four values to whoever sets up the deployment environment**: `R2_ACCOUNT_ID`,
+   `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — these go into `.env` (local),
+   `docker-compose.yml`'s `server` service env (per Task 5.1), and whatever secrets mechanism
+   the actual deploy target uses (per `docs/backend-stack.md`'s Config/secrets row — Scaleway
+   secrets manager in prod today). **Never commit these values** — `.env.example` gets the
+   variable names with placeholder/empty values only, same as every other secret in this repo.
+
+Local development and CI can use the same EU-jurisdiction bucket with a distinct key prefix
+(`scoresheets/dev/...` vs `scoresheets/prod/...`) rather than provisioning a second bucket, if
+that's simpler operationally — either is fine; this spec doesn't mandate one over the other.
 
 ## Service logic
 
@@ -362,12 +413,12 @@ async getScoresheetUploadUrl(clubId: string, teamId: string, eventId: string, us
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
     throw new BadRequestException('Format de photo non supporté');
   }
-  const s3Key = `scoresheets/${eventId}/${randomUUID()}.${extensionFor(contentType)}`;
-  const uploadUrl = await this.storage.getUploadUrl(s3Key, contentType);
-  return { uploadUrl, s3Key };
+  const r2Key = `scoresheets/${eventId}/${randomUUID()}.${extensionFor(contentType)}`;
+  const uploadUrl = await this.storage.getUploadUrl(r2Key, contentType);
+  return { uploadUrl, r2Key };
 }
 
-async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, s3Key: string): Promise<EventScoresheetStatus> {
+async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, r2Key: string): Promise<EventScoresheetStatus> {
   await this.assertEventInTeam(clubId, teamId, eventId);
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
   if (!myTeamPlayer) {
@@ -375,8 +426,8 @@ async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, u
   }
   await this.prisma.eventScoresheet.upsert({
     where: { eventId },
-    create: { eventId, s3Key, uploadedByTeamPlayerId: myTeamPlayer.id },
-    update: { s3Key, uploadedByTeamPlayerId: myTeamPlayer.id, uploadedAt: new Date(), status: 'UPLOADED' },
+    create: { eventId, r2Key, uploadedByTeamPlayerId: myTeamPlayer.id },
+    update: { r2Key, uploadedByTeamPlayerId: myTeamPlayer.id, uploadedAt: new Date(), status: 'UPLOADED' },
   });
   return this.getScoresheetStatus(clubId, teamId, eventId);
 }
@@ -397,8 +448,8 @@ defense-in-depth split already used throughout this module):
 | PATCH  | `.../logistics`             | body `{ field: 'JERSEYS'\|'BALLS', teamPlayerId: string \| null }`  |
 | PATCH  | `.../votes`                 | body `{ category: 'BEST'\|'WORST', teamPlayerId: string }`          |
 | GET    | `.../votes`                 | `EventVoteResults` — both categories, aggregated, `myVote`          |
-| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, s3Key }`             |
-| PATCH  | `.../scoresheet`            | body `{ s3Key: string }` — confirms a completed direct-to-S3 upload |
+| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, r2Key }`             |
+| PATCH  | `.../scoresheet`            | body `{ r2Key: string }` — confirms a completed direct-to-R2 upload |
 | GET    | `.../scoresheet`            | current status, or `null` if nothing uploaded yet                   |
 
 `createEvent`/`updateEvent` gain `venue` in their existing DTOs (validated like `opponentName`).
@@ -459,11 +510,11 @@ export interface EventScoresheetUploadUrlRequest {
 
 export interface EventScoresheetUploadUrlResponse {
   uploadUrl: string;
-  s3Key: string;
+  r2Key: string;
 }
 
 export interface ConfirmEventScoresheetRequest {
-  s3Key: string;
+  r2Key: string;
 }
 
 export interface EventScoresheet {
@@ -505,7 +556,7 @@ file list and build order are in the plan; the shape:
 - **Vote tab**: ballot (rendered only once the match has started, per the server-side check
   above) plus the merged public results card, exactly as the (already-updated) `Vote.dc.html`
   shows — see **Voting visibility**.
-- **Feuille de match tab**: capture → preview → upload (direct to the presigned S3 URL) →
+- **Feuille de match tab**: capture → preview → upload (direct to the presigned R2 URL) →
   confirm, with a persistent (not toast) failure state offering retry — matching the existing
   `QueryError` pattern used elsewhere for exactly this reason (a toast could vanish before
   someone back at the gym retries). Mobile-first per the mockup; still needs a usable desktop
@@ -522,5 +573,5 @@ method groups (logistics self/manager permission split; vote upsert, self-vote r
 before-match rejection, results aggregation and anonymity — assert `voterTeamPlayerId` never
 appears in a mapped response; scoresheet upload-url content-type validation and upsert-on-
 confirm) and `EventsController` delegation; a focused `StorageService` spec mocking the AWS SDK
-client rather than hitting real S3. Vitest/RTL for every new hook and component, plus updated
+client rather than hitting real R2. Vitest/RTL for every new hook and component, plus updated
 tests for `EventRow`/`TeamEventsAgenda`'s now-linked MATCH cards. No new E2E harness.
