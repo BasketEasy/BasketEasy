@@ -77,6 +77,7 @@ describe('FfbbImportService', () => {
         opponentName: 'Nantes Sully Basket',
         externalId: 'match-1',
         timeConfirmed: true,
+        venue: 'HOME',
       },
     });
     expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
@@ -101,6 +102,7 @@ describe('FfbbImportService', () => {
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
+      venue: 'HOME',
     });
 
     const result = await service.importSchedule('club-1', 'team-1');
@@ -112,6 +114,7 @@ describe('FfbbImportService', () => {
         location: 'Lieu non communiqué',
         opponentName: 'Nantes Sully Basket',
         timeConfirmed: true,
+        venue: 'HOME',
       },
     });
     expect(prisma.event.create).not.toHaveBeenCalled();
@@ -137,6 +140,7 @@ describe('FfbbImportService', () => {
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
+      venue: 'HOME',
     });
 
     const result = await service.importSchedule('club-1', 'team-1');
@@ -213,6 +217,58 @@ describe('FfbbImportService', () => {
     expect(prisma.event.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ timeConfirmed: false }) }),
     );
+  });
+
+  it('stores the away venue for an away match', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [match({ isHome: false })],
+    });
+    prisma.event.findUnique.mockResolvedValue(null);
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ venue: 'AWAY' }) }),
+    );
+  });
+
+  it('updates the venue when FFBB flips home/away for an already-imported match', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [match({ isHome: false })],
+    });
+    prisma.event.findUnique.mockResolvedValue({
+      id: 'event-1',
+      startsAt: new Date('2026-09-20T18:30:00Z'),
+      location: 'Lieu non communiqué',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    });
+
+    const result = await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ venue: 'AWAY' }) }),
+    );
+    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('imports matches from two linked engagements with no id collision, into one combined result', async () => {
