@@ -6,6 +6,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
 import { eventDetailLinkLabel, eventTypeShortLabel } from './eventLabels';
+import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventRsvpControl } from './EventRsvpControl';
 

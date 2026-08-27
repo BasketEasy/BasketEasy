@@ -19,6 +19,7 @@ const trainingEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
+  logistics: null,
 };
 
 const matchEventSameDay: TeamEvent = {
@@ -84,6 +85,32 @@ describe('TeamEventsAgenda', () => {
     const homeMatch: TeamEvent = { ...matchEventSameDay, venue: 'HOME' };
     renderAgenda([homeMatch]);
     expect(screen.getByText('Domicile')).toBeInTheDocument();
+  });
+
+  it('shows the jersey/ball mini-chips for both event types when logistics is assigned', () => {
+    renderAgenda([trainingEvent], false);
+    expect(screen.queryByText(/Chasubles :/)).not.toBeInTheDocument();
+
+    const trainingWithLogistics: TeamEvent = {
+      ...trainingEvent,
+      logistics: {
+        jerseys: { teamPlayerId: 'tp-1', firstName: 'Léa', lastName: 'Martin' },
+        balls: null,
+      },
+    };
+    renderAgenda([trainingWithLogistics], false);
+    expect(screen.getByText(/Chasubles : Léa M\. ✓/)).toBeInTheDocument();
+    expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
+
+    const matchWithLogistics: TeamEvent = {
+      ...matchEventSameDay,
+      logistics: {
+        jerseys: { teamPlayerId: 'tp-1', firstName: 'Léa', lastName: 'Martin' },
+        balls: null,
+      },
+    };
+    renderAgenda([matchWithLogistics], false);
+    expect(screen.getByText(/Maillots : Léa M\. ✓/)).toBeInTheDocument();
   });
 
   it('never renders Modifier/Supprimer/Gérer la convocation or roster breakdowns on the card — that moved to the detail page', () => {

@@ -128,15 +128,17 @@ model ClubTeam {
 // Cascades on both sides: deleting the team or the player should not be
 // blocked by leftover roster rows.
 model TeamPlayer {
-  id           String             @id @default(uuid())
-  teamId       String
-  playerId     String
-  role         TeamMemberRole     @default(PLAYER)
-  createdAt    DateTime           @default(now())
-  team         Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player       Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  rsvps        EventRsvp[]
-  convocations EventConvocation[]
+  id                    String             @id @default(uuid())
+  teamId                String
+  playerId              String
+  role                  TeamMemberRole     @default(PLAYER)
+  createdAt             DateTime           @default(now())
+  team                  Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player                Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  rsvps                 EventRsvp[]
+  convocations          EventConvocation[]
+  jerseysAssignedEvents Event[]            @relation("EventJerseysAssignee")
+  ballsAssignedEvents   Event[]            @relation("EventBallsAssignee")
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -176,32 +178,42 @@ enum EventVenue {
 // occurrence created together in one recurring POST so they can be
 // edited/deleted as a group; null for a plain single event.
 model Event {
-  id            String             @id @default(uuid())
-  teamId        String
-  type          EventType          @default(TRAINING)
-  startsAt      DateTime
-  location      String
-  notes         String?
-  opponentName  String?
+  id                  String             @id @default(uuid())
+  teamId              String
+  type                EventType          @default(TRAINING)
+  startsAt            DateTime
+  location            String
+  notes               String?
+  opponentName        String?
   // Home/away for a MATCH event; required (non-null) whenever type is
   // MATCH, forced to null whenever type is TRAINING — same validation path
   // as opponentName (see EventsService).
-  venue         EventVenue?
-  recurrenceId  String?
+  venue               EventVenue?
+  // Per-match equipment logistics — who's bringing the jerseys/balls for
+  // this MATCH event. Nullable self-relations directly on Event rather than
+  // a separate table: at most one assignee per item, so a join table would
+  // only add an unused-most-of-the-time row lifecycle. onDelete: SetNull
+  // (not Cascade) — removing a roster entry should clear the assignment,
+  // not delete the event.
+  jerseysTeamPlayerId String?
+  ballsTeamPlayerId   String?
+  jerseysAssignee     TeamPlayer?        @relation("EventJerseysAssignee", fields: [jerseysTeamPlayerId], references: [id], onDelete: SetNull)
+  ballsAssignee       TeamPlayer?        @relation("EventBallsAssignee", fields: [ballsTeamPlayerId], references: [id], onDelete: SetNull)
+  recurrenceId        String?
   // The FFBB match id for an imported event, null for a manually-created one.
   // Postgres treats each NULL as distinct, so plain events never collide on
   // the compound unique below — same convention recurrenceId: null already
   // uses. isImported is derived from this (externalId !== null) rather than
   // stored separately.
-  externalId    String?
+  externalId          String?
   // False when FFBB's fetched kickoff time was its 00:00:00 "not yet
   // confirmed" placeholder. Defaults true so every manually-created event is
   // unaffected; only the FFBB import path ever sets it false.
-  timeConfirmed Boolean            @default(true)
-  createdAt     DateTime           @default(now())
-  team          Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  rsvps         EventRsvp[]
-  convocations  EventConvocation[]
+  timeConfirmed       Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rsvps               EventRsvp[]
+  convocations        EventConvocation[]
 
   @@unique([teamId, externalId])
   @@index([teamId])

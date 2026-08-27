@@ -38,6 +38,26 @@ export interface TeamEvent {
   isImported: boolean;
   /** False when FFBB's kickoff time was still its "not yet confirmed" placeholder; always true for a manual event. */
   timeConfirmed: boolean;
+  /** Jersey/ball assignment for a MATCH event; null for TRAINING. */
+  logistics: {
+    jerseys: EventLogisticsAssignee | null;
+    balls: EventLogisticsAssignee | null;
+  } | null;
+}
+
+export type EventLogisticsField = 'JERSEYS' | 'BALLS';
+
+/** The roster member currently assigned to bring the jerseys or the balls to a MATCH event. */
+export interface EventLogisticsAssignee {
+  teamPlayerId: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface SetEventLogisticsRequest {
+  field: EventLogisticsField;
+  /** Null clears the assignment. */
+  teamPlayerId: string | null;
 }
 
 export type EventRecurrenceFrequency = 'WEEKLY';

@@ -39,6 +39,7 @@ const matchEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
+  logistics: { jerseys: null, balls: null },
 };
 
 const rsvpRoster: EventRsvpRosterEntry[] = [
@@ -86,6 +87,9 @@ describe('EventDetailPage', () => {
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
         HttpResponse.json(matchEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json([]),
       ),
     );
 

@@ -17,6 +17,7 @@ import { eventTypeLabel } from '../clubs/eventLabels';
 import { EventVenueBadge } from '../clubs/EventVenueBadge';
 import { EventEditModal } from '../clubs/EventEditModal';
 import { EventDeleteModal } from '../clubs/EventDeleteModal';
+import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { EventRosterTab } from '../clubs/EventRosterTab';
 import { teamAvatarInitials } from '../clubs/eventDetailLabels';
@@ -348,6 +349,14 @@ export function EventDetailPage() {
               )}
             </div>
           </div>
+
+          <EventLogisticsSection
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            canManage={canManage}
+            isRostered={isRostered}
+          />
         </TabsContent>
 
         <TabsContent value="effectif" className="mt-4">
