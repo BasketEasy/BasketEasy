@@ -5,6 +5,7 @@ import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate, formatEventDateOnly } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
+import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
@@ -87,6 +88,7 @@ export function EventRow({
               Convoqué par le coach
             </Badge>
           )}
+          {event.type === 'MATCH' && <EventLogisticsMiniChips logistics={event.logistics} />}
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />

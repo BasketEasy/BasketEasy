@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 
 describe('EventsService', () => {
   let service: EventsService;
+  let teamManagerGuard: { isTeamManager: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: {
@@ -60,9 +62,16 @@ describe('EventsService', () => {
     prisma.eventRsvp.findMany.mockResolvedValue([]);
     prisma.eventConvocation.findMany.mockResolvedValue([]);
     prisma.eventConvocation.findUnique.mockResolvedValue(null);
+    // Default: caller has no manager rights; individual logistics tests
+    // override this to exercise the manager-reassign path.
+    teamManagerGuard = { isTeamManager: jest.fn().mockResolvedValue(false) };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [EventsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        EventsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: TeamManagerGuard, useValue: teamManagerGuard },
+      ],
     }).compile();
 
     service = module.get<EventsService>(EventsService);
@@ -122,6 +131,7 @@ describe('EventsService', () => {
             timeConfirmed: true,
             myRsvpStatus: null,
             myConvocation: false,
+            logistics: null,
           },
         ],
         total: 1,
@@ -1521,6 +1531,158 @@ describe('EventsService', () => {
           isMe: false,
         },
       ]);
+    });
+  });
+
+  describe('setEventLogistics', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2026-01-01'),
+    };
+    const trainingEvent = { ...matchEvent, type: 'TRAINING', opponentName: null, venue: null };
+
+    // findFirst backs two different lookups here (the caller's own
+    // TeamPlayer, and the "is teamPlayerId on this roster" check) —
+    // distinguished by the shape of `where` rather than call order, so each
+    // test only needs to state what's actually rostered.
+    function mockRoster(options: { callerTeamPlayerId?: string; rosterTeamPlayerIds?: string[] }) {
+      prisma.teamPlayer.findFirst.mockImplementation(({ where }: { where: any }) => {
+        if ('player' in where) {
+          return Promise.resolve(
+            options.callerTeamPlayerId ? { id: options.callerTeamPlayerId } : null,
+          );
+        }
+        const onRoster = (options.rosterTeamPlayerIds ?? []).includes(where.id);
+        return Promise.resolve(onRoster ? { id: where.id } : null);
+      });
+    }
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.event.update.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...matchEvent, ...data }),
+      );
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue(trainingEvent);
+
+      await expect(
+        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a rostered non-manager to self-assign', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'JERSEYS',
+        'tp-1',
+      );
+
+      expect(teamManagerGuard.isTeamManager).not.toHaveBeenCalled();
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { jerseysTeamPlayerId: 'tp-1' },
+      });
+      expect(result.type).toBe('MATCH');
+    });
+
+    it('allows a rostered non-manager to self-clear their own assignment', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, ballsTeamPlayerId: 'tp-1' });
+      mockRoster({ callerTeamPlayerId: 'tp-1' });
+
+      await service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'BALLS', null);
+
+      expect(teamManagerGuard.isTeamManager).not.toHaveBeenCalled();
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { ballsTeamPlayerId: null },
+      });
+    });
+
+    it('forbids a non-manager from assigning a teammate', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      teamManagerGuard.isTeamManager.mockResolvedValue(false);
+
+      await expect(
+        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('allows a manager to reassign anyone', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      teamManagerGuard.isTeamManager.mockResolvedValue(true);
+
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'JERSEYS',
+        'tp-2',
+      );
+
+      expect(teamManagerGuard.isTeamManager).toHaveBeenCalledWith('club-1', 'team-1', 'user-1');
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { jerseysTeamPlayerId: 'tp-2' },
+      });
+      expect(result.type).toBe('MATCH');
+    });
+
+    it('throws BadRequestException when the teamPlayerId is not on this team roster', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1' });
+      teamManagerGuard.isTeamManager.mockResolvedValue(true);
+
+      await expect(
+        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-off'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('resolves the assignee display name in the returned event', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        {
+          id: 'tp-1',
+          player: { firstName: 'Lea', lastName: 'Bernard' },
+        },
+      ]);
+
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'JERSEYS',
+        'tp-1',
+      );
+
+      expect(result.logistics).toEqual({
+        jerseys: { teamPlayerId: 'tp-1', firstName: 'Lea', lastName: 'Bernard' },
+        balls: null,
+      });
     });
   });
 });

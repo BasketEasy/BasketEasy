@@ -23,6 +23,7 @@ const baseEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
+  logistics: null,
 };
 
 describe('EventRsvpControl', () => {

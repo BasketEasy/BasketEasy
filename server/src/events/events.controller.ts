@@ -30,6 +30,7 @@ import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
 import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
+import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -172,5 +173,29 @@ export class EventsController {
     @CurrentUser() user: RequestUser,
   ): Promise<EventConvocationRosterEntry[]> {
     return this.eventsService.listEventConvocations(clubId, teamId, eventId, user.id);
+  }
+
+  // ClubRolesGuard only (not TeamManagerGuard) — self-assign/self-clear is
+  // open to any rostered member, narrowed to the manager-only reassign case
+  // inside EventsService.setEventLogistics, same defense-in-depth split as
+  // the RSVP/convocation routes above.
+  @Patch(':eventId/logistics')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  setEventLogistics(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: SetEventLogisticsDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.setEventLogistics(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.field,
+      dto.teamPlayerId,
+    );
   }
 }

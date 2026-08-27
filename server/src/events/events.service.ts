@@ -8,6 +8,8 @@ import {
 import { EventRsvpStatus, EventType, EventVenue, Prisma } from '@prisma/client';
 import type {
   EventConvocationRosterEntry,
+  EventLogisticsAssignee,
+  EventLogisticsField,
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
   EventUpdateScope,
@@ -15,6 +17,7 @@ import type {
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { resolvePagination } from '../common/pagination';
 import { ListEventsDto } from './dto/list-events.dto';
 
@@ -32,6 +35,8 @@ type EventRow = {
   notes: string | null;
   opponentName: string | null;
   venue: EventVenue | null;
+  jerseysTeamPlayerId: string | null;
+  ballsTeamPlayerId: string | null;
   recurrenceId: string | null;
   externalId: string | null;
   timeConfirmed: boolean;
@@ -40,7 +45,10 @@ type EventRow = {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly teamManagerGuard: TeamManagerGuard,
+  ) {}
 
   async listEvents(
     clubId: string,
@@ -82,9 +90,15 @@ export class EventsService {
       userId,
       eventIds,
     );
+    const logisticsAssignees = await this.resolveLogisticsAssignees(events);
     return {
       items: events.map((e) =>
-        this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id)),
+        this.toTeamEvent(
+          e,
+          rsvpStatuses.get(e.id) ?? null,
+          convokedEventIds.has(e.id),
+          logisticsAssignees,
+        ),
       ),
       total,
       page,
@@ -106,10 +120,12 @@ export class EventsService {
     const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
       eventId,
     ]);
+    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
     return this.toTeamEvent(
       event,
       rsvpStatuses.get(eventId) ?? null,
       convokedEventIds.has(eventId),
+      logisticsAssignees,
     );
   }
 
@@ -165,8 +181,11 @@ export class EventsService {
       userId,
       eventIds,
     );
+    // A freshly created event never has a jersey/ball assignee yet (those
+    // columns aren't part of create data), so there's nothing to resolve —
+    // an empty map short-circuits every lookup in toTeamEvent to null.
     return events.map((e) =>
-      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id)),
+      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id), new Map()),
     );
   }
 
@@ -267,8 +286,14 @@ export class EventsService {
       userId,
       updatedIds,
     );
+    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
     return updated.map((e) =>
-      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id)),
+      this.toTeamEvent(
+        e,
+        rsvpStatuses.get(e.id) ?? null,
+        convokedEventIds.has(e.id),
+        logisticsAssignees,
+      ),
     );
   }
 
@@ -325,8 +350,14 @@ export class EventsService {
       userId,
       updatedIds,
     );
+    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
     return updated.map((e) =>
-      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id)),
+      this.toTeamEvent(
+        e,
+        rsvpStatuses.get(e.id) ?? null,
+        convokedEventIds.has(e.id),
+        logisticsAssignees,
+      ),
     );
   }
 
@@ -359,7 +390,8 @@ export class EventsService {
       update: { status, respondedAt: new Date() },
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    return this.toTeamEvent(event, status, myConvocation);
+    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
+    return this.toTeamEvent(event, status, myConvocation, logisticsAssignees);
   }
 
   // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
@@ -379,7 +411,8 @@ export class EventsService {
       where: { eventId, teamPlayerId: teamPlayer.id },
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    return this.toTeamEvent(event, null, myConvocation);
+    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
+    return this.toTeamEvent(event, null, myConvocation, logisticsAssignees);
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
@@ -463,6 +496,60 @@ export class EventsService {
     return this.fetchConvocationRoster(teamId, eventId, userId);
   }
 
+  // Self-service: any rostered member may assign themself or clear their
+  // own assignment. Assigning or clearing SOMEONE ELSE requires the same
+  // manager check TeamManagerGuard already encodes (club ADMIN of a linked
+  // club, or TeamAdmin of this team) — reused via the guard's own
+  // isTeamManager method rather than duplicated here.
+  async setEventLogistics(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    field: EventLogisticsField,
+    teamPlayerId: string | null,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('La logistique ne concerne que les matchs');
+    }
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    const currentValue = field === 'JERSEYS' ? event.jerseysTeamPlayerId : event.ballsTeamPlayerId;
+
+    const isSelfAction = teamPlayerId
+      ? teamPlayerId === myTeamPlayer?.id
+      : currentValue === myTeamPlayer?.id;
+    if (!isSelfAction && !(await this.teamManagerGuard.isTeamManager(clubId, teamId, userId))) {
+      throw new ForbiddenException("Vous ne pouvez pas modifier l'affectation d'un·e autre membre");
+    }
+    if (teamPlayerId) {
+      const onRoster = await this.prisma.teamPlayer.findFirst({
+        where: { id: teamPlayerId, teamId },
+      });
+      if (!onRoster) {
+        throw new BadRequestException("Ce membre n'est pas inscrit sur l'effectif de cette équipe");
+      }
+    }
+
+    const updated = await this.prisma.event.update({
+      where: { id: eventId },
+      data:
+        field === 'JERSEYS'
+          ? { jerseysTeamPlayerId: teamPlayerId }
+          : { ballsTeamPlayerId: teamPlayerId },
+    });
+    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
+      eventId,
+    ]);
+    const logisticsAssignees = await this.resolveLogisticsAssignees([updated]);
+    return this.toTeamEvent(
+      updated,
+      rsvpStatuses.get(eventId) ?? null,
+      convokedEventIds.has(eventId),
+      logisticsAssignees,
+    );
+  }
+
   private async fetchConvocationRoster(
     teamId: string,
     eventId: string,
@@ -483,6 +570,36 @@ export class EventsService {
       convokedAt: tp.convocations[0]?.convokedAt.toISOString() ?? null,
       isMe: tp.player.userId === userId,
     }));
+  }
+
+  // Resolves the display name for every distinct non-null jersey/ball
+  // assignee across a batch of events in one query, rather than one lookup
+  // per event — same batching shape as resolveMyEventState above.
+  private async resolveLogisticsAssignees(
+    events: Pick<EventRow, 'jerseysTeamPlayerId' | 'ballsTeamPlayerId'>[],
+  ): Promise<Map<string, EventLogisticsAssignee>> {
+    const teamPlayerIds = new Set<string>();
+    for (const event of events) {
+      if (event.jerseysTeamPlayerId) {
+        teamPlayerIds.add(event.jerseysTeamPlayerId);
+      }
+      if (event.ballsTeamPlayerId) {
+        teamPlayerIds.add(event.ballsTeamPlayerId);
+      }
+    }
+    if (teamPlayerIds.size === 0) {
+      return new Map();
+    }
+    const teamPlayers = await this.prisma.teamPlayer.findMany({
+      where: { id: { in: Array.from(teamPlayerIds) } },
+      include: { player: true },
+    });
+    return new Map(
+      teamPlayers.map((tp) => [
+        tp.id,
+        { teamPlayerId: tp.id, firstName: tp.player.firstName, lastName: tp.player.lastName },
+      ]),
+    );
   }
 
   private async findMyTeamPlayer(teamId: string, userId: string) {
@@ -577,6 +694,7 @@ export class EventsService {
     event: EventRow,
     myRsvpStatus: EventRsvpStatus | null,
     myConvocation: boolean,
+    logisticsAssignees: Map<string, EventLogisticsAssignee>,
   ): TeamEvent {
     return {
       id: event.id,
@@ -593,6 +711,17 @@ export class EventsService {
       timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
       myConvocation,
+      logistics:
+        event.type === EventType.MATCH
+          ? {
+              jerseys: event.jerseysTeamPlayerId
+                ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
+                : null,
+              balls: event.ballsTeamPlayerId
+                ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
+                : null,
+            }
+          : null,
     };
   }
 }
