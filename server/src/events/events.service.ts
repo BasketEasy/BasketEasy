@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventRsvpStatus, EventType, EventVenue, Prisma } from '@prisma/client';
+import { EventRsvpStatus, EventType, EventVenue, EventVoteCategory, Prisma } from '@prisma/client';
 import type {
   EventConvocationRosterEntry,
   EventLogisticsAssignee,
@@ -13,6 +13,8 @@ import type {
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
   EventUpdateScope,
+  EventVoteCandidateResult,
+  EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
@@ -549,6 +551,130 @@ export class EventsService {
       convokedEventIds.has(eventId),
       logisticsAssignees,
     );
+  }
+
+  // Anonymous peer voting, both categories' results public — see the match
+  // interface spec's Voting visibility section. No hard deadline server-side
+  // beyond "not before the match starts"; the mockup's "Ouvert jusqu'au…"
+  // countdown is a client-computed label, matching RSVP's existing
+  // no-deadline precedent. Upserts on recast (the unique index on
+  // eventId/category/voterTeamPlayerId doubles as the upsert key), so
+  // changing your vote updates the one row rather than accumulating history.
+  async castVote(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    category: EventVoteCategory,
+    votedTeamPlayerId: string,
+  ): Promise<EventVoteResults> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('Le vote ne concerne que les matchs');
+    }
+    if (event.startsAt > new Date()) {
+      throw new BadRequestException("Le vote n'est ouvert qu'après le match");
+    }
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    if (votedTeamPlayerId === myTeamPlayer.id) {
+      throw new BadRequestException('Vous ne pouvez pas voter pour vous-même');
+    }
+    const onRoster = await this.prisma.teamPlayer.findFirst({
+      where: { id: votedTeamPlayerId, teamId },
+    });
+    if (!onRoster) {
+      throw new BadRequestException("Ce membre n'est pas inscrit sur l'effectif de cette équipe");
+    }
+
+    await this.prisma.eventVote.upsert({
+      where: {
+        eventId_category_voterTeamPlayerId: {
+          eventId,
+          category,
+          voterTeamPlayerId: myTeamPlayer.id,
+        },
+      },
+      create: { eventId, category, voterTeamPlayerId: myTeamPlayer.id, votedTeamPlayerId },
+      update: { votedTeamPlayerId },
+    });
+    return this.getEventVoteResults(clubId, teamId, eventId, userId);
+  }
+
+  async getEventVoteResults(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<EventVoteResults> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('Le vote ne concerne que les matchs');
+    }
+    const [myTeamPlayer, votes, rosterSize] = await Promise.all([
+      this.findMyTeamPlayer(teamId, userId),
+      this.prisma.eventVote.findMany({
+        where: { eventId },
+        include: { votedFor: { include: { player: true } } },
+      }),
+      this.prisma.teamPlayer.count({ where: { teamId } }),
+    ]);
+    return this.buildVoteResults(votes, myTeamPlayer?.id ?? null, rosterSize);
+  }
+
+  // Groups the event's votes by category, counts per votedTeamPlayerId, and
+  // sorts each category's leaderboard descending — never returns
+  // voterTeamPlayerId (see EventVote's schema comment: this is the one field
+  // in this whole feature that would be a real privacy regression if leaked).
+  private buildVoteResults(
+    votes: {
+      category: EventVoteCategory;
+      voterTeamPlayerId: string;
+      votedTeamPlayerId: string;
+      votedFor: { player: { firstName: string; lastName: string } };
+    }[],
+    myTeamPlayerId: string | null,
+    totalVoters: number,
+  ): EventVoteResults {
+    const buildCategoryResults = (category: EventVoteCategory): EventVoteCandidateResult[] => {
+      const counts = new Map<string, EventVoteCandidateResult>();
+      for (const vote of votes) {
+        if (vote.category !== category) {
+          continue;
+        }
+        const existing = counts.get(vote.votedTeamPlayerId);
+        if (existing) {
+          existing.voteCount += 1;
+        } else {
+          counts.set(vote.votedTeamPlayerId, {
+            teamPlayerId: vote.votedTeamPlayerId,
+            firstName: vote.votedFor.player.firstName,
+            lastName: vote.votedFor.player.lastName,
+            voteCount: 1,
+          });
+        }
+      }
+      return Array.from(counts.values()).sort((a, b) => b.voteCount - a.voteCount);
+    };
+
+    const myVoteFor = (category: EventVoteCategory): string | null =>
+      votes.find((v) => v.category === category && v.voterTeamPlayerId === myTeamPlayerId)
+        ?.votedTeamPlayerId ?? null;
+
+    const distinctVoters = new Set(votes.map((v) => v.voterTeamPlayerId));
+
+    return {
+      best: buildCategoryResults(EventVoteCategory.BEST),
+      worst: buildCategoryResults(EventVoteCategory.WORST),
+      totalVoters,
+      votesCast: distinctVoters.size,
+      myVote: {
+        best: myVoteFor(EventVoteCategory.BEST),
+        worst: myVoteFor(EventVoteCategory.WORST),
+      },
+    };
   }
 
   private async fetchConvocationRoster(

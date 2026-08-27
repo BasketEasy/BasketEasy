@@ -26,6 +26,7 @@ describe('EventsService', () => {
       upsert: jest.Mock;
       deleteMany: jest.Mock;
     };
+    eventVote: { findMany: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -49,6 +50,7 @@ describe('EventsService', () => {
         upsert: jest.fn(),
         deleteMany: jest.fn(),
       },
+      eventVote: { findMany: jest.fn(), upsert: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -1697,6 +1699,244 @@ describe('EventsService', () => {
         jerseys: { teamPlayerId: 'tp-1', firstName: 'Lea', lastName: 'Bernard' },
         balls: null,
       });
+    });
+  });
+
+  describe('castVote', () => {
+    const pastMatchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2020-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+    const futureMatchEvent = {
+      ...pastMatchEvent,
+      startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    };
+    const trainingEvent = { ...pastMatchEvent, type: 'TRAINING', opponentName: null, venue: null };
+
+    function mockRoster(options: { callerTeamPlayerId?: string; rosterTeamPlayerIds?: string[] }) {
+      prisma.teamPlayer.findFirst.mockImplementation(({ where }: { where: any }) => {
+        if ('player' in where) {
+          return Promise.resolve(
+            options.callerTeamPlayerId ? { id: options.callerTeamPlayerId } : null,
+          );
+        }
+        const onRoster = (options.rosterTeamPlayerIds ?? []).includes(where.id);
+        return Promise.resolve(onRoster ? { id: where.id } : null);
+      });
+    }
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(pastMatchEvent);
+      prisma.eventVote.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.count.mockResolvedValue(0);
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue(trainingEvent);
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException before the match has started', async () => {
+      prisma.event.findUnique.mockResolvedValue(futureMatchEvent);
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller is not rostered', async () => {
+      mockRoster({});
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on a self-vote', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the target is not on this team roster', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-off'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts on recast — updates the existing row rather than duplicating it', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventVote.upsert.mockResolvedValue({});
+
+      await service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2');
+
+      expect(prisma.eventVote.upsert).toHaveBeenCalledWith({
+        where: {
+          eventId_category_voterTeamPlayerId: {
+            eventId: 'event-1',
+            category: 'BEST',
+            voterTeamPlayerId: 'tp-1',
+          },
+        },
+        create: {
+          eventId: 'event-1',
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+        },
+        update: { votedTeamPlayerId: 'tp-2' },
+      });
+    });
+
+    it('returns the aggregated results after a successful vote', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventVote.upsert.mockResolvedValue({});
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2');
+
+      expect(result).toEqual({
+        best: [{ teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 1 }],
+        worst: [],
+        totalVoters: 2,
+        votesCast: 1,
+        myVote: { best: 'tp-2', worst: null },
+      });
+    });
+  });
+
+  describe('getEventVoteResults', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2020-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, type: 'TRAINING' });
+
+      await expect(
+        service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('aggregates both categories, sorted descending, without ever exposing voterTeamPlayerId', async () => {
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-3',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-4',
+          votedTeamPlayerId: 'tp-5',
+          votedFor: { player: { firstName: 'Chloé', lastName: 'Dubois' } },
+        },
+        {
+          category: 'WORST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-6',
+          votedFor: { player: { firstName: 'Nina', lastName: 'Perrin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(6);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best).toEqual([
+        { teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 2 },
+        { teamPlayerId: 'tp-5', firstName: 'Chloé', lastName: 'Dubois', voteCount: 1 },
+      ]);
+      expect(result.worst).toEqual([
+        { teamPlayerId: 'tp-6', firstName: 'Nina', lastName: 'Perrin', voteCount: 1 },
+      ]);
+      expect(result.totalVoters).toBe(6);
+      expect(result.votesCast).toBe(3);
+      // Explicit assertion, not just implicit from the mapped shape — a
+      // voterTeamPlayerId leak here would be a real privacy regression (see
+      // EventVote's schema comment).
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain('voterTeamPlayerId');
+      expect(serialized).not.toContain('tp-1');
+      expect(serialized).not.toContain('tp-3');
+      expect(serialized).not.toContain('tp-4');
+    });
+
+    it("resolves myVote from the caller's own rows", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
     });
   });
 });
