@@ -16,7 +16,16 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
 }
 
 function paginated<T>(items: T[]) {
-  return { items, total: items.length, page: 1, pageSize: 1000 };
+  return { items, total: items.length, page: 1, pageSize: 100 };
+}
+
+async function reachPreviewStep(user: ReturnType<typeof userEvent.setup>) {
+  const file = new File(['Prénom,Nom\nThéo,Dupont'], 'export.csv', { type: 'text/csv' });
+  const input = await screen.findByLabelText('Choisir un fichier à importer');
+  await user.upload(input, file);
+
+  const continueButton = await screen.findByRole('button', { name: 'Continuer' });
+  await user.click(continueButton);
 }
 
 describe('PlayerImportPage', () => {
@@ -39,13 +48,7 @@ describe('PlayerImportPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/import-players' });
 
-    const file = new File(['Prénom,Nom\nThéo,Dupont'], 'export.csv', { type: 'text/csv' });
-    const input = await screen.findByLabelText('Choisir un fichier à importer');
-    await user.upload(input, file);
-
-    const continueButton = await screen.findByRole('button', { name: 'Continuer' });
-    expect(continueButton).toBeEnabled();
-    await user.click(continueButton);
+    await reachPreviewStep(user);
 
     await screen.findByText('Vérifier et confirmer');
     expect(screen.getByText('Théo')).toBeInTheDocument();
@@ -59,5 +62,30 @@ describe('PlayerImportPage', () => {
       expect(importBody).toEqual({ rows: [{ firstName: 'Théo', lastName: 'Dupont' }] }),
     );
     expect(await screen.findByText('Import terminé')).toBeInTheDocument();
+  });
+
+  it('shows an error branch, not a false "no duplicates" preview, when the existing roster fails to load', async () => {
+    const user = userEvent.setup();
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+
+    server.use(
+      http.get('/api/clubs/club-1/players', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/import-players' });
+
+    await reachPreviewStep(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/chargement impossible/i);
+    expect(screen.queryByText('Vérifier et confirmer')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Retour' }));
+    await screen.findByText('Faire correspondre les colonnes');
   });
 });

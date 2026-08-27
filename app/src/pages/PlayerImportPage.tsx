@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { Heading } from '@basketeasy/ui/heading';
 import { Card, CardContent } from '@basketeasy/ui/card';
+import { Loader } from '@basketeasy/ui/loader';
+import { QueryError } from '@basketeasy/ui/query-error';
+import { Button } from '@basketeasy/ui/button';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { ImportPlayersRow } from '@basketeasy/types/players';
 import { usePlayerList } from '../clubs/usePlayerList';
@@ -27,6 +30,11 @@ type Step =
 
 const STEP_INDEX: Record<Step['name'], 0 | 1 | 2> = { upload: 0, map: 1, preview: 2 };
 
+// Mirrors MembersPage's/TeamDetailPage's LINKING_PAGE_SIZE — capped at the
+// server's MAX_PAGE_SIZE (server/src/common/dto/pagination-query.dto.ts),
+// which a naive 1000 exceeds and always 400s.
+const LINKING_PAGE_SIZE = 100;
+
 export function PlayerImportPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
@@ -43,7 +51,13 @@ export function PlayerImportPage() {
     headingRef.current?.focus();
   }, [step.name]);
 
-  const { data: allPlayersResult } = usePlayerList(clubId!, { pageSize: 1000 });
+  const {
+    data: allPlayersResult,
+    isLoading: isPlayersLoading,
+    isError: isPlayersError,
+    refetch: refetchPlayers,
+    isRefetching: isPlayersRefetching,
+  } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
   const existingPlayers = useMemo(() => allPlayersResult?.items ?? [], [allPlayersResult]);
 
   const { mutate: importPlayers, isPending } = usePlayerImport(clubId!);
@@ -106,7 +120,29 @@ export function PlayerImportPage() {
             />
           )}
 
-          {step.name === 'preview' && (
+          {step.name === 'preview' && isPlayersError && (
+            <div className="flex flex-col gap-4">
+              <QueryError
+                onRetry={() => refetchPlayers()}
+                isRetrying={isPlayersRefetching}
+                description="L'effectif existant n'a pas pu être chargé, nécessaire pour détecter les doublons. Vérifiez votre connexion."
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                onClick={() => setStep({ name: 'map', parsed: step.parsed })}
+              >
+                Retour
+              </Button>
+            </div>
+          )}
+
+          {step.name === 'preview' && !isPlayersError && isPlayersLoading && (
+            <Loader>Chargement de l&apos;effectif existant…</Loader>
+          )}
+
+          {step.name === 'preview' && !isPlayersError && !isPlayersLoading && (
             <PlayerImportPreviewStep
               resolvedRows={resolvedRows}
               isSubmitting={isPending}
