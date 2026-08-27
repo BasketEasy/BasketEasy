@@ -56,6 +56,20 @@ export const handlers = [
   // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
 
+  // Default: no votes cast. MatchWinnersCard auto-fetches this for every
+  // past MATCH event once its vote window has closed, so any agenda/table
+  // view rendering such an event queries it even when the test isn't
+  // exercising voting; vote-focused tests override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/events/:eventId/votes', () =>
+    HttpResponse.json({
+      best: [],
+      worst: [],
+      totalVoters: 0,
+      votesCast: 0,
+      myVote: { best: null, worst: null },
+    }),
+  ),
+
   // Default: no personal teams. MyTeamsPage always queries this; tests
   // exercising it override with server.use(...).
   http.get('/api/me/teams', () => HttpResponse.json([])),

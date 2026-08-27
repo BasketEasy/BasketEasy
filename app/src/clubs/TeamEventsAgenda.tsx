@@ -10,6 +10,7 @@ import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventVoteBadge } from './EventVoteBadge';
 import { EventRsvpControl } from './EventRsvpControl';
+import { MatchWinnersCard } from './MatchWinnersCard';
 
 /**
  * Two content columns to the right of the time block — left: venue/status
@@ -165,13 +166,15 @@ export function TeamEventsAgenda({
           <SectionHeading>{formatDayHeading(dayEvents[0].startsAt)}</SectionHeading>
           <div className="flex flex-col gap-2">
             {dayEvents.map((event) => (
-              <AgendaEventCard
-                key={event.id}
-                clubId={clubId}
-                teamId={teamId}
-                event={event}
-                isRostered={isRostered}
-              />
+              <div key={event.id} className="flex flex-col gap-2">
+                <AgendaEventCard
+                  clubId={clubId}
+                  teamId={teamId}
+                  event={event}
+                  isRostered={isRostered}
+                />
+                <MatchWinnersCard clubId={clubId} teamId={teamId} event={event} />
+              </div>
             ))}
           </div>
         </section>
