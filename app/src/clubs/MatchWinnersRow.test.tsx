@@ -115,4 +115,47 @@ describe('MatchWinnersRow', () => {
     expect(screen.getByText('- 100%')).toBeInTheDocument();
     expect(screen.queryByText('Sarah Fabre')).not.toBeInTheDocument();
   });
+
+  it('shows "Égalité (N)" instead of a name when the BEST side is tied for 1st, independently of the WORST side', async () => {
+    mockVotes({
+      best: [
+        { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 },
+        { teamPlayerId: 'tp-3', firstName: 'Ines', lastName: 'Petit', voteCount: 2 },
+      ],
+      worst: [{ teamPlayerId: 'tp-4', firstName: 'Sarah', lastName: 'Fabre', voteCount: 1 }],
+      totalVoters: 4,
+      votesCast: 3,
+      myVote: { best: null, worst: null },
+    });
+
+    renderWithProviders(
+      <MatchWinnersRow clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
+    );
+
+    expect(await screen.findByText('Égalité (2)')).toBeInTheDocument();
+    expect(screen.queryByText('Nathan Hubert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ines Petit')).not.toBeInTheDocument();
+    // WORST side has a single clear leader — unaffected by the BEST tie.
+    expect(screen.getByText('Sarah Fabre')).toBeInTheDocument();
+  });
+
+  it('degrades to the tied count for 3+ tied candidates', async () => {
+    mockVotes({
+      best: [
+        { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 1 },
+        { teamPlayerId: 'tp-3', firstName: 'Ines', lastName: 'Petit', voteCount: 1 },
+        { teamPlayerId: 'tp-4', firstName: 'Sarah', lastName: 'Fabre', voteCount: 1 },
+      ],
+      worst: [],
+      totalVoters: 5,
+      votesCast: 3,
+      myVote: { best: null, worst: null },
+    });
+
+    renderWithProviders(
+      <MatchWinnersRow clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
+    );
+
+    expect(await screen.findByText('Égalité (3)')).toBeInTheDocument();
+  });
 });

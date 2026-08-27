@@ -1,7 +1,8 @@
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
-import type { TeamEvent } from '@basketeasy/types/events';
+import type { EventVoteCandidateResult, TeamEvent } from '@basketeasy/types/events';
 import { hasVoteWindowClosed } from './voteWindow';
 import { useEventVoteResults } from './useEventVoteResults';
+import { countTiedAtTop } from './voteTies';
 import { WorstIcon } from './voteIcons';
 
 /**
@@ -14,6 +15,11 @@ import { WorstIcon } from './voteIcons';
  * "the window is closed". Renders nothing before that, for a TRAINING
  * event, or if nobody voted — keeps the card/row unchanged for matches
  * with no votes cast.
+ *
+ * A tie for the top spot, on either side independently, swaps the name for
+ * "Égalité (N)" rather than trying to cram 2+ names into this already-tight
+ * slot (see the mobile-stacking comment below for how tight "one name" is)
+ * — length-neutral against a real name, and degrades the same way for 3+.
  */
 export function MatchWinnersRow({
   clubId,
@@ -33,6 +39,8 @@ export function MatchWinnersRow({
 
   const bestWinner = results.best[0];
   const worstWinner = results.worst[0];
+  const bestTiedCount = countTiedAtTop(results.best);
+  const worstTiedCount = countTiedAtTop(results.worst);
   // Same share-of-votes-cast convention as MatchVoteTab's leaderboard bars.
   const denominator = results.votesCast > 0 ? results.votesCast : 1;
   const bestPct = Math.round((bestWinner.voteCount / denominator) * 100);
@@ -47,7 +55,7 @@ export function MatchWinnersRow({
       <span className="flex min-w-0 items-center gap-1.5">
         <TrophyIcon className="h-4 w-4 shrink-0 text-gold" />
         <span className="truncate font-bold text-charcoal">
-          {bestWinner.firstName} {bestWinner.lastName}
+          {winnerLabel(bestWinner, bestTiedCount)}
         </span>
         <span className="tabular shrink-0 font-bold text-gold-text">- {bestPct}%</span>
       </span>
@@ -55,11 +63,15 @@ export function MatchWinnersRow({
         <span className="flex min-w-0 items-center gap-1.5 sm:justify-end">
           <span className="tabular shrink-0 font-bold text-blue-green-2">{worstPct}% -</span>
           <span className="truncate font-bold text-charcoal">
-            {worstWinner.firstName} {worstWinner.lastName}
+            {winnerLabel(worstWinner, worstTiedCount)}
           </span>
           <WorstIcon size={15} className="shrink-0 text-blue-green-2" />
         </span>
       )}
     </div>
   );
+}
+
+function winnerLabel(winner: EventVoteCandidateResult, tiedCount: number): string {
+  return tiedCount > 1 ? `Égalité (${tiedCount})` : `${winner.firstName} ${winner.lastName}`;
 }
