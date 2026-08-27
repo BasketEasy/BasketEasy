@@ -22,6 +22,7 @@ describe('EventsController', () => {
     listEventRsvps: jest.Mock;
     setEventConvocations: jest.Mock;
     listEventConvocations: jest.Mock;
+    setEventLogistics: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -37,6 +38,7 @@ describe('EventsController', () => {
       listEventRsvps: jest.fn(),
       setEventConvocations: jest.fn(),
       listEventConvocations: jest.fn(),
+      setEventLogistics: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -306,5 +308,27 @@ describe('EventsController', () => {
       'user-1',
     );
     expect(result[0].isMe).toBe(true);
+  });
+
+  it('setEventLogistics delegates clubId, teamId, eventId, the field/teamPlayerId, and the caller id', async () => {
+    service.setEventLogistics.mockResolvedValue({ id: 'event-1', type: 'MATCH' });
+
+    const result = await controller.setEventLogistics(
+      'club-1',
+      'team-1',
+      'event-1',
+      { field: 'JERSEYS', teamPlayerId: 'tp-1' },
+      user,
+    );
+
+    expect(service.setEventLogistics).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'JERSEYS',
+      'tp-1',
+    );
+    expect(result.id).toBe('event-1');
   });
 });
