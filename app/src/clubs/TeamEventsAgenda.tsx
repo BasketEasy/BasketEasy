@@ -7,6 +7,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
 import { eventTypeShortLabel } from './eventLabels';
+import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
@@ -97,6 +98,7 @@ function AgendaEventCard({
             )}
           </div>
         </div>
+        {event.type === 'MATCH' && <EventLogisticsMiniChips logistics={event.logistics} />}
         <div className="flex flex-col gap-2.5 border-t border-border pt-3">
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />

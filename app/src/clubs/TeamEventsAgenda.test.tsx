@@ -19,6 +19,7 @@ const trainingEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
+  logistics: null,
 };
 
 const matchEventSameDay: TeamEvent = {
@@ -82,6 +83,22 @@ describe('TeamEventsAgenda', () => {
       'href',
       '/clubs/club-1/teams/team-1/events/event-2',
     );
+  });
+
+  it('shows the jersey/ball mini-chips for a match with logistics, never for a training event', () => {
+    renderAgenda([trainingEvent], false);
+    expect(screen.queryByText(/Maillots :/)).not.toBeInTheDocument();
+
+    const matchWithLogistics: TeamEvent = {
+      ...matchEventSameDay,
+      logistics: {
+        jerseys: { teamPlayerId: 'tp-1', firstName: 'Léa', lastName: 'Martin' },
+        balls: null,
+      },
+    };
+    renderAgenda([matchWithLogistics], false);
+    expect(screen.getByText(/Maillots : Léa M\. ✓/)).toBeInTheDocument();
+    expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
   });
 
   it('hides edit/delete actions for a viewer who cannot manage the team', () => {

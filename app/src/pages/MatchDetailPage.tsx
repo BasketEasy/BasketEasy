@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { formatEventDate, formatEventDateOnly, formatEventTime } from '../clubs/eventDateFormat';
 import { EventVenueBadge } from '../clubs/EventVenueBadge';
+import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { MatchRosterTab } from '../clubs/MatchRosterTab';
 import { teamAvatarInitials } from '../clubs/matchDetailLabels';
@@ -305,6 +306,14 @@ export function MatchDetailPage() {
               )}
             </div>
           </div>
+
+          <EventLogisticsSection
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            canManage={canManage}
+            isRostered={isRostered}
+          />
         </TabsContent>
 
         <TabsContent value="effectif" className="mt-4">
