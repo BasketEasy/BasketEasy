@@ -79,6 +79,8 @@ export class FfbbImportService {
     // interpret an offset-less ISO string.
     const startsAt = new Date(`${match.startsAt}Z`);
 
+    const venue = match.isHome ? 'HOME' : 'AWAY';
+
     if (!existing) {
       await this.prisma.event.create({
         data: {
@@ -89,6 +91,7 @@ export class FfbbImportService {
           opponentName: match.opponentLabel,
           externalId: match.id,
           timeConfirmed: match.timeConfirmed,
+          venue,
         },
       });
       return 'created';
@@ -106,7 +109,8 @@ export class FfbbImportService {
       existing.startsAt.getTime() === startsAt.getTime() &&
       existing.location === location &&
       existing.opponentName === match.opponentLabel &&
-      existing.timeConfirmed === match.timeConfirmed;
+      existing.timeConfirmed === match.timeConfirmed &&
+      existing.venue === venue;
     if (isUnchanged) {
       return 'unchanged';
     }
@@ -118,6 +122,7 @@ export class FfbbImportService {
         location,
         opponentName: match.opponentLabel,
         timeConfirmed: match.timeConfirmed,
+        venue,
       },
     });
     return 'updated';
