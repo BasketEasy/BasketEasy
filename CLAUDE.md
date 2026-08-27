@@ -18,7 +18,7 @@ Full diagrams (global, frontend, backend, ER model) are in [`docs/architecture.m
 - **API Gateway:** NestJS, REST, global `/api` prefix, guards + DTO validation pipes.
 - **Domain modules:** Auth (built — see below); Clubs/Players (built, `server/src/clubs`); Teams (built — see below); Scheduling (créneaux + conflict detection), Scoresheet (AI-assisted capture), Payments (HelloAsso), Subvention, Volunteer/Role (planned, not yet built).
 - **Async:** BullMQ (Redis-backed) for scoresheet OCR parsing and scheduled reminders.
-- **Data:** PostgreSQL (Prisma ORM) as primary store, Redis for cache + queue, Scaleway S3 for scoresheet photos.
+- **Data:** PostgreSQL (Prisma ORM) as primary store, Redis for cache + queue, Cloudflare R2 (S3-compatible, EU-jurisdiction bucket) for scoresheet photos.
 - **External:** LLM vision API (scoresheet OCR — provider TBD), HelloAsso (payments), Brevo (email).
 
 Stack rationale and alternatives considered (why NestJS over Fastify, Prisma over Drizzle, BullMQ over RabbitMQ/Temporal, Brevo over SES, etc.) live in [`docs/backend-stack.md`](./docs/backend-stack.md) and [`docs/frontend-stack.md`](./docs/frontend-stack.md) — read those before proposing a stack change.

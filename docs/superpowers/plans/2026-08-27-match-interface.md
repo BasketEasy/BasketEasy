@@ -442,31 +442,63 @@ final block. Agenda card's "Votes ouverts" badge: `AgendaCard.dc.html:126-129`.
 
 ---
 
-## Phase 5 — E-marque scoresheet capture
+## Phase 5 — E-marque scoresheet capture (Cloudflare R2)
 
 The heaviest phase — new infrastructure, not just a new tab. Expect this to need judgment calls
-the plan can't fully anticipate (bucket CORS, upload size limits); keep every addition scoped to
-"get the photo stored," per the spec's Storage section.
+the plan can't fully anticipate (upload size limits, exact CORS origin list per environment);
+keep every addition scoped to "get the photo stored," per the spec's Storage section.
 
-### Task 5.1 — `StorageService` (Scaleway S3 wiring)
+### Task 5.0 — ⚠️ Blocked on human setup in the Cloudflare dashboard
+
+**This task cannot be done by an agent.** Nothing past this point can be exercised against a real
+bucket — only written and unit-tested against a mocked client — until whoever holds the
+Cloudflare account has done the six steps in the spec's **"Setup required in the Cloudflare
+dashboard"** section:
+
+- [ ] Cloudflare account has R2 enabled (payment method on file).
+- [ ] Bucket created **with EU jurisdictional restriction** — cannot be changed after creation,
+      don't proceed without this being set correctly (this is the RGPD-compliance requirement
+      that replaced Scaleway's default EU residency — see spec's RGPD note).
+- [ ] CORS configured on the bucket for `PUT`/`OPTIONS` from the app's origin(s), including
+      `http://localhost:5173` for local dev.
+- [ ] R2 API token created, scoped to Object Read & Write on this bucket only (not
+      account-wide) — produces the Access Key ID / Secret Access Key pair.
+- [ ] Account ID located (for `R2_ACCOUNT_ID`).
+- [ ] The four values (`R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`,
+      `R2_SECRET_ACCESS_KEY`) shared with whoever configures the deployment environment's
+      secrets — **not committed to the repo**.
+
+If this hasn't happened yet: still complete Tasks 5.1–5.4 (the code doesn't need real credentials
+to be written and unit-tested — `StorageService`'s tests mock the AWS SDK client entirely, per
+Task 5.1), but flag clearly at handover that the scoresheet-capture slice is code-complete and
+tested, not yet runnable end-to-end against a real bucket, and name exactly which env vars are
+still missing.
+
+### Task 5.1 — `StorageService` (Cloudflare R2 wiring)
 
 **Files:** Create `server/src/storage/storage.module.ts`, `storage.service.ts`,
 `storage.service.spec.ts`; modify `docker-compose.yml`, `.env.example`, `server/src/app.module.ts`
 
-- [ ] Add `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` to `server/package.json`.
+- [ ] Add `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner` to `server/package.json` — R2
+      is S3-compatible, so the AWS SDK works unmodified; only the client config differs from a
+      real S3 target (see below).
 - [ ] `StorageService.getUploadUrl(key: string, contentType: string): Promise<string>` — presigned
       PUT, short expiry (e.g. 5 minutes — long enough for a mobile upload over a gym's wifi,
-      short enough not to leave stale writable URLs around).
-- [ ] Env vars `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
-      `S3_SECRET_ACCESS_KEY` — add to `docker-compose.yml`'s `server` service and `.env.example`,
-      matching `JWT_ACCESS_SECRET`'s existing treatment exactly.
+      short enough not to leave stale writable URLs around). Construct the S3 client with
+      `region: 'auto'` and `endpoint: \`https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\``—
+    R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
+- [ ] Env vars `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — add to
+      `docker-compose.yml`'s `server` service and `.env.example`, matching `JWT_ACCESS_SECRET`'s
+      existing treatment exactly (name only in `.env.example`, real values only in untracked
+      `.env`/deployment secrets — never commit the values from Task 5.0).
 - [ ] Test: mock the S3 client, assert `getUploadUrl` is called with the right bucket/key/expiry
-      — no real network call in tests.
+      and that the client was constructed with `region: 'auto'` and the R2 endpoint shape — no
+      real network call in tests, so this task's tests pass whether or not Task 5.0 is done yet.
 - [ ] Run, commit:
   ```bash
   pnpm --filter @basketeasy/server test -- storage.service.spec.ts
   git add server/src/storage server/package.json docker-compose.yml .env.example server/src/app.module.ts
-  git commit -m "feat(server): StorageService for presigned S3 uploads"
+  git commit -m "feat(server): StorageService for presigned Cloudflare R2 uploads"
   ```
 
 ### Task 5.2 — Prisma schema
@@ -519,7 +551,7 @@ mockup flavor text — implement it against the existing `QueryError` component/
 
 - [ ] `useEventScoresheetUpload.ts`: orchestrates the three-step flow — request the presigned URL
       (`POST .../upload-url`), `PUT` the file directly to that URL (raw `fetch`, not
-      `ApiClient` — this goes to S3, not the API), then confirm (`PATCH .../scoresheet`). Exposes
+      `ApiClient` — this goes to R2, not the API), then confirm (`PATCH .../scoresheet`). Exposes
       enough state (`idle | uploading | confirming | error`) for the tab to render each frame.
 - [ ] `useEventScoresheetStatus.ts`: query against `GET .../scoresheet`.
 - [ ] `MatchScoresheetTab.tsx`: capture (native file input with `capture="environment"` on
