@@ -22,6 +22,7 @@ import { formatVoteWindowEnd, hasVoteWindowClosed, voteWindowOpensAt } from './v
 import { useEventConvocations } from './useEventConvocations';
 import { useEventVoteCast } from './useEventVoteCast';
 import { useEventVoteResults } from './useEventVoteResults';
+import { computeRanks, countTiedAtTop } from './voteTies';
 import { WorstIcon } from './voteIcons';
 
 // Per-rank bar opacity in the results leaderboards — transcribed from
@@ -177,11 +178,11 @@ function BestResultRow({
 
 function WorstResultRow({
   result,
-  index,
+  rank,
   widthPct,
 }: {
   result: EventVoteCandidateResult;
-  index: number;
+  rank: number;
   widthPct: number;
 }) {
   return (
@@ -192,7 +193,7 @@ function WorstResultRow({
       <div className="h-2 flex-grow overflow-hidden rounded-full bg-sunk">
         <div
           className="h-full rounded-full bg-blue-green-2"
-          style={{ width: `${widthPct}%`, opacity: rankOpacity(index) }}
+          style={{ width: `${widthPct}%`, opacity: rankOpacity(rank - 1) }}
         />
       </div>
       <span className="tabular w-5 shrink-0 text-right text-xs font-bold text-muted">
@@ -221,6 +222,12 @@ function MatchVoteResultsCard({
   // relative-to-leader one (Vote.dc.html's 5/3/2-vote sample against "6
   // votes exprimés" works out to 83%/50%/33%, confirming the denominator).
   const voteDenominator = results.votesCast > 0 ? results.votesCast : 1;
+  // Competition ranking (two tied for 1st both get "1", the next entry is
+  // "3", not "2") rather than plain array position — a positional rank
+  // would otherwise imply one tied candidate beat the other.
+  const bestRanks = computeRanks(results.best);
+  const worstRanks = computeRanks(results.worst);
+  const bestTiedAtTop = countTiedAtTop(results.best);
 
   return (
     <Card className="flex flex-col gap-4 p-5 shadow-md">
@@ -244,7 +251,7 @@ function MatchVoteResultsCard({
             <BestResultRow
               key={result.teamPlayerId}
               result={result}
-              rank={index + 1}
+              rank={bestRanks[index]}
               widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
             />
           ))}
@@ -253,6 +260,13 @@ function MatchVoteResultsCard({
       <span className="text-xs text-muted">
         {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
         {results.votesCast > 1 ? 's' : ''} sur {results.totalVoters}
+        {/* A tie at rank 1 makes the numbered gold badge alone ambiguous
+            ("is #1 the MVP, or is this a tie?") in a way lower ranks
+            aren't — the bar length already shows equality there, but a
+            single "MVP" framing benefits from saying it outright. */}
+        {!gateMessage && bestTiedAtTop > 1 && (
+          <span className="text-gold-text"> · Égalité en tête</span>
+        )}
       </span>
 
       <div className="h-px bg-border" />
@@ -272,7 +286,7 @@ function MatchVoteResultsCard({
               <WorstResultRow
                 key={result.teamPlayerId}
                 result={result}
-                index={index}
+                rank={worstRanks[index]}
                 widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
               />
             ))}

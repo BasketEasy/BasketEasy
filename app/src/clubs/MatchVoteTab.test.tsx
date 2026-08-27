@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type {
@@ -211,6 +211,49 @@ describe('MatchVoteTab', () => {
     expect(screen.getByText('Joueur en difficulté — agrégé')).toBeInTheDocument();
     expect(screen.getByText('3 votes exprimés · réponse optionnelle')).toBeInTheDocument();
     expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
+  });
+
+  it('gives tied leaders the same rank badge, skips the next number, and shows an "Égalité en tête" caption', async () => {
+    mockData({
+      best: [
+        { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 },
+        { teamPlayerId: 'tp-3', firstName: 'Ines', lastName: 'Petit', voteCount: 2 },
+        { teamPlayerId: 'tp-4', firstName: 'Leo', lastName: 'Roy', voteCount: 1 },
+      ],
+      worst: [],
+      totalVoters: 5,
+      votesCast: 5,
+      myVote: { best: 'tp-2', worst: null },
+    });
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+
+    await screen.findByText('Meilleur joueur');
+    expect(screen.getByText(/Égalité en tête/)).toBeInTheDocument();
+
+    // Léo is the sole 3rd-place entry — his row's own rank badge shows "3"
+    // (skipping "2"), unambiguous within his row since his own vote count
+    // is "1", not "3".
+    const leoRow = screen.getByText('Leo Roy').closest('div');
+    expect(within(leoRow as HTMLElement).getByText('3')).toBeInTheDocument();
+  });
+
+  it('does not show the "Égalité en tête" caption when there is a single clear leader', async () => {
+    mockData({
+      best: [
+        { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 },
+        { teamPlayerId: 'tp-3', firstName: 'Ines', lastName: 'Petit', voteCount: 1 },
+      ],
+      worst: [],
+      totalVoters: 5,
+      votesCast: 3,
+      myVote: { best: 'tp-2', worst: null },
+    });
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+
+    await screen.findByText('Meilleur joueur');
+    expect(screen.queryByText(/Égalité en tête/)).not.toBeInTheDocument();
   });
 
   it('shows results only (no ballot, ungated) once the vote window has closed, even for a caller who never voted', async () => {
