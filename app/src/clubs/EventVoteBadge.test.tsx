@@ -46,6 +46,11 @@ describe('EventVoteBadge', () => {
     expect(screen.queryByText(/votes ouverts/i)).not.toBeInTheDocument();
   });
 
+  it('renders nothing within the first hour after kickoff', () => {
+    render(<EventVoteBadge event={{ ...baseEvent, startsAt: '2026-08-27T11:30:00.000Z' }} />);
+    expect(screen.queryByText(/votes ouverts/i)).not.toBeInTheDocument();
+  });
+
   it('renders nothing once the vote window has closed', () => {
     render(<EventVoteBadge event={{ ...baseEvent, startsAt: '2026-08-01T18:00:00.000Z' }} />);
     expect(screen.queryByText(/votes ouverts/i)).not.toBeInTheDocument();

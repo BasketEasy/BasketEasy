@@ -5,11 +5,12 @@ import { voteWindowDaysRemaining } from './voteWindow';
 
 /**
  * "Votes ouverts · N j restants" (`AgendaCard.dc.html:126-129`) — shown on a
- * past MATCH event still inside the client-computed vote window. Shared by
- * the table (EventRow) and card (TeamEventsAgenda) agenda views, same
- * pattern as EventVenueBadge/EventLogisticsMiniChips. Renders nothing
- * outside the window (before the match, or once it's closed) or for a
- * TRAINING event — voting doesn't exist there.
+ * MATCH event currently inside the vote window (opens 1h after kickoff,
+ * closes 5 days after — mirrors EventsService.castVote's hard server-side
+ * window, see voteWindow.ts). Shared by the table (EventRow) and card
+ * (TeamEventsAgenda) agenda views, same pattern as
+ * EventVenueBadge/EventLogisticsMiniChips. Renders nothing outside the
+ * window or for a TRAINING event — voting doesn't exist there.
  */
 export function EventVoteBadge({ event }: { event: TeamEvent }) {
   if (event.type !== 'MATCH') {

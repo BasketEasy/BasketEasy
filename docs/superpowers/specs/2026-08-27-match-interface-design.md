@@ -38,9 +38,12 @@ nothing here changes their behavior):
    types rather than staying gated. The one type-aware bit is copy: the jersey slot reads
    "Maillots" for a MATCH and "Chasubles" (scrimmage bibs, a different physical item) for a
    TRAINING — see `eventLogisticsFieldLabel` — "Ballons" is identical for both.
-4. **Best & worst player voting** — anonymous peer voting, both results public (per explicit
-   product decision — see **Voting visibility**, which supersedes the mockups' original
-   staff-only "difficulté" framing).
+4. **Best & worst player voting** — anonymous peer voting, present-players-only, results visible
+   to a voter only after they've cast their own BEST vote (per explicit product decision — see
+   **Voting visibility**, which supersedes the mockups' original staff-only "difficulté" framing
+   and the original always-public-results/no-deadline design). A hard server-side window (opens
+   1h after kickoff, closes 5 days after) replaces the originally client-only "Ouvert jusqu'au…"
+   label.
 5. **E-marque scoresheet capture** — photo upload + status tracking only. No OCR, no box score,
    no parsed data — the mockups deliberately stop at "queued for processing" because the AI
    parsing pipeline (`docs/architecture.md`'s LLM vision API, provider still TBD per
@@ -110,12 +113,25 @@ in these files task by task. Rules for using them, binding on every implementati
 The mockups' `Vote.dc.html` was drafted with the worst-player ("Joueur en difficulté") result
 visible only to team staff, reasoning that a public "who's struggling" leaderboard is punitive.
 That artboard has since been **updated** (already reflected in the committed reference file) to
-make both results public, per explicit product direction: **the worst-player leaderboard is
-visible to the whole team, same as best-player**, merged into one results card. What's kept from
-the original sensitivity pass: voting itself stays **anonymous** (nobody, including staff, sees
-who voted for whom), and the label stays "Joueur en difficulté" rather than "Pire joueur" (softer
-framing, identical mechanic) — visibility changed, wording didn't. Build against the committed
-`Vote.dc.html` as-is; it already reflects this.
+make both results visible to the whole team on the same terms, merged into one results card. What's
+kept from the original sensitivity pass: voting itself stays **anonymous** (nobody, including
+staff, sees who voted for whom), and the label stays "Joueur en difficulté" rather than "Pire
+joueur" (softer framing, identical mechanic) — visibility changed, wording didn't. Build against
+the committed `Vote.dc.html` as-is; it already reflects this.
+
+**Second deviation, layered on top of the first (post-launch product decision, not reflected in
+the mockup's static screenshot):** "the whole team" narrowed twice more —
+
+- **Present-only voting.** Only a roster member whose `EventRsvp` for this event is `GOING` may
+  cast a vote (`EventsService.castVote` 403s anyone else) — you have to have actually been on
+  court to weigh in. `MatchVoteTab` uses the already-fetched `TeamEvent.myRsvpStatus` to swap the
+  ballot for an explanatory message rather than letting a non-present viewer fill it in only to
+  have the submit fail.
+- **Vote-to-see-results.** `EventsService.buildVoteResults` withholds `best`/`worst` (returns them
+  as empty arrays) until the caller has cast their own BEST vote — `totalVoters`/`votesCast` stay
+  populated throughout so the UI can still show "N votes exprimés" alongside a "Votez pour voir
+  les résultats" prompt. Since only present players can ever vote, this also means only present
+  players can ever see the results — no separate present-check needed on the read path.
 
 ## Data model (Prisma)
 
@@ -352,6 +368,9 @@ this codebase).
 ### Voting
 
 ```typescript
+const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000; // 1h after kickoff
+const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000; // 5 days after kickoff
+
 async castVote(
   clubId: string,
   teamId: string,
@@ -364,12 +383,24 @@ async castVote(
   if (event.type !== 'MATCH') {
     throw new BadRequestException('Le vote ne concerne que les matchs');
   }
-  if (new Date(event.startsAt) > new Date()) {
-    throw new BadRequestException("Le vote n'est ouvert qu'après le match");
+  const now = new Date();
+  const voteOpensAt = new Date(event.startsAt.getTime() + VOTE_OPEN_DELAY_MS);
+  const voteClosesAt = new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
+  if (now < voteOpensAt) {
+    throw new BadRequestException('Le vote ouvre 1h après le début du match');
+  }
+  if (now > voteClosesAt) {
+    throw new BadRequestException('Le vote est fermé pour ce match');
   }
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
   if (!myTeamPlayer) {
     throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+  }
+  const myRsvp = await this.prisma.eventRsvp.findUnique({
+    where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
+  });
+  if (myRsvp?.status !== 'GOING') {
+    throw new ForbiddenException('Seuls les joueurs présents au match peuvent voter');
   }
   if (votedTeamPlayerId === myTeamPlayer.id) {
     throw new BadRequestException('Vous ne pouvez pas voter pour vous-même');
@@ -393,17 +424,18 @@ async getEventVoteResults(clubId: string, teamId: string, eventId: string, userI
     where: { eventId },
     include: { votedFor: { include: { player: true } } },
   });
-  // Aggregate counts per category client-visible; never return voterTeamPlayerId.
+  // Aggregate counts per category; never return voterTeamPlayerId. best/worst
+  // come back empty until the caller has cast their own BEST vote — see
+  // Voting visibility's "vote-to-see-results" note above.
   return buildVoteResults(votes, myTeamPlayer?.id ?? null);
 }
 ```
 
-No deadline enforced server-side beyond "not before the match" — the mockup's "Ouvert jusqu'au…"
-countdown is a **client-computed** label (`event.startsAt + VOTE_WINDOW_DAYS`), not a hard
-server cutoff; a late vote still counts, matching RSVP's existing "no deadline" precedent (see
-`docs/superpowers/specs/2026-08-24-event-rsvp-design.md`'s Scope). `VOTE_WINDOW_DAYS = 7` is a
-reasonable default, not derived precisely from the mockups' illustrative sample dates (they use
-two different windows across two sample events, neither meant as a spec).
+Both window ends are now a **hard server-side rule**, not just a display label: `castVote` 400s
+outside `[startsAt + 1h, startsAt + 5d]`. The frontend's `formatVoteWindowEnd`/
+`voteWindowDaysRemaining` (`app/src/clubs/voteWindow.ts`) mirror this exactly rather than using an
+independent `VOTE_WINDOW_DAYS` display-only constant, so the badge/label never disagree with what
+the server will actually accept.
 
 ### Scoresheet capture
 

@@ -11,18 +11,22 @@ import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { MatchVoteTab } from './MatchVoteTab';
 
-const pastMatchEvent: TeamEvent = {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Within the vote window (opens startsAt+1h, closes startsAt+5d) and the
+// caller marked present — the baseline fixture most tests build on.
+const openMatchEvent: TeamEvent = {
   id: 'event-1',
   teamId: 'team-1',
   type: 'MATCH',
-  startsAt: '2020-01-05T18:00:00.000Z',
+  startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
   location: 'Gymnase Pierre de Coubertin',
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
   recurrenceId: null,
   createdAt: 'x',
-  myRsvpStatus: null,
+  myRsvpStatus: 'GOING',
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
@@ -30,8 +34,13 @@ const pastMatchEvent: TeamEvent = {
 };
 
 const futureMatchEvent: TeamEvent = {
-  ...pastMatchEvent,
-  startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  ...openMatchEvent,
+  startsAt: new Date(Date.now() + DAY_MS).toISOString(),
+};
+
+const closedMatchEvent: TeamEvent = {
+  ...openMatchEvent,
+  startsAt: new Date(Date.now() - 6 * DAY_MS).toISOString(),
 };
 
 const roster: EventConvocationRosterEntry[] = [
@@ -87,10 +96,16 @@ function mockData(results: EventVoteResults = emptyResults) {
 }
 
 describe('MatchVoteTab', () => {
-  it('gates the ballot behind the vote window before the match starts, without fetching anything', async () => {
+  it('gates the ballot behind the vote window before it opens (1h after kickoff), without fetching anything', async () => {
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={futureMatchEvent} />);
 
     expect(await screen.findByText('Le vote ouvrira après le match')).toBeInTheDocument();
+  });
+
+  it('shows a distinct message once the vote window has closed (5 days after kickoff)', async () => {
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={closedMatchEvent} />);
+
+    expect(await screen.findByText('Le vote est terminé')).toBeInTheDocument();
   });
 
   it('shows an error state with retry when either fetch fails', async () => {
@@ -103,7 +118,7 @@ describe('MatchVoteTab', () => {
       ),
     );
 
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={pastMatchEvent} />);
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
 
     expect(await screen.findByRole('button', { name: /réessayer/i })).toBeInTheDocument();
   });
@@ -111,7 +126,7 @@ describe('MatchVoteTab', () => {
   it('excludes the voter themself from both ballot candidate lists', async () => {
     mockData();
 
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={pastMatchEvent} />);
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
 
     await screen.findByText('Bulletin de vote');
     expect(screen.queryByText('Lea Bernard')).not.toBeInTheDocument();
@@ -119,11 +134,29 @@ describe('MatchVoteTab', () => {
     expect(screen.getAllByText('Ines Petit').length).toBeGreaterThan(0);
   });
 
+  it('replaces the ballot with an explanation, and withholds results, for a viewer not marked present', async () => {
+    mockData();
+    const notPresentEvent: TeamEvent = { ...openMatchEvent, myRsvpStatus: 'NOT_GOING' };
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={notPresentEvent} />);
+
+    await screen.findByText('Bulletin de vote');
+    expect(screen.queryByRole('button', { name: /envoyer mon vote/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Nathan Hubert')).not.toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Seul·e·s les joueur·euse·s marqué·e·s présent·e·s peuvent voter/i)
+        .length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Seul·e·s les joueur·euse·s présent·e·s au match peuvent voter/i).length,
+    ).toBe(2);
+  });
+
   it('disables submit until a BEST candidate is selected, and casts BEST then WORST on submit', async () => {
     mockData();
     const user = userEvent.setup();
 
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={pastMatchEvent} />);
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
 
     await screen.findByText('Bulletin de vote');
     const submitButton = screen.getByRole('button', { name: /envoyer mon vote/i });
@@ -161,12 +194,27 @@ describe('MatchVoteTab', () => {
       ),
     );
 
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={pastMatchEvent} />);
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
 
     expect(await screen.findByText('Pas assez de joueurs à départager')).toBeInTheDocument();
   });
 
-  it('renders the aggregated results leaderboards without ever showing raw voter data', async () => {
+  it('withholds the leaderboards behind a "vote to see results" message before the caller has voted', async () => {
+    mockData({
+      best: [],
+      worst: [],
+      totalVoters: 3,
+      votesCast: 3,
+      myVote: { best: null, worst: null },
+    });
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+
+    await screen.findByText('Meilleur joueur');
+    expect(screen.getAllByText('Votez pour voir les résultats.').length).toBe(2);
+  });
+
+  it('renders the aggregated results leaderboards once the caller has voted', async () => {
     mockData({
       best: [
         { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 },
@@ -175,14 +223,15 @@ describe('MatchVoteTab', () => {
       worst: [{ teamPlayerId: 'tp-3', firstName: 'Ines', lastName: 'Petit', voteCount: 1 }],
       totalVoters: 3,
       votesCast: 3,
-      myVote: { best: null, worst: null },
+      myVote: { best: 'tp-2', worst: null },
     });
 
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={pastMatchEvent} />);
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
 
     await screen.findByText('Meilleur joueur');
     expect(screen.getByText('3 votes exprimés sur 3')).toBeInTheDocument();
     expect(screen.getByText('Joueur en difficulté — agrégé')).toBeInTheDocument();
     expect(screen.getByText('3 votes exprimés · réponse optionnelle')).toBeInTheDocument();
+    expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
   });
 });
