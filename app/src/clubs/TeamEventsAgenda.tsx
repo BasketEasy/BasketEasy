@@ -10,7 +10,7 @@ import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventVoteBadge } from './EventVoteBadge';
 import { EventRsvpControl } from './EventRsvpControl';
-import { MatchWinnersCard } from './MatchWinnersCard';
+import { MatchWinnersRow } from './MatchWinnersRow';
 
 /**
  * Two content columns to the right of the time block — left: venue/status
@@ -64,66 +64,70 @@ function AgendaEventCard({
           {eventTypeShortLabel(event.type)}
         </span>
       </div>
-      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4 sm:flex-row sm:gap-4">
-        {/* Left column: badge/logistics cluster on top, RSVP underneath.
-            min-w-0 + flex-1 lets it shrink below its content's natural
-            width instead of the sm:flex-row parent falling back to the
-            min-content trap the single-line layout hit before (a wrapper
-            around a flex-1 sibling of shrink-0 items baking in the wrong
-            floor) — here each column is its own flex-1 min-w-0 item, so
-            there's no shrink-0/flex-1 mix inside a shared wrapper to get
-            wrong. The columns only sit side by side from `sm` up — below
-            that the RSVP control's fixed-width segmented group (see
-            EventRsvpControl, `w-fit`, non-compact below `lg`) is too wide
-            for a half-width mobile column, so the whole card stacks to one
-            full-width column below `sm` instead, which is also where a
-            two-up layout stops earning its keep on a ~360-400px phone
-            anyway. */}
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {/* Venue/status badges plus the jersey/ball mini-chips, all
-              shrink-0 flex-wrap siblings — none of them compete for space
-              with a flex-1 item the way location used to sit alongside
-              badges on the old single row, so free-wrapping them together
-              here is safe. */}
-          <div className="flex flex-wrap items-center gap-2">
-            {isRostered && event.myConvocation && <Badge className="shrink-0">Convoqué</Badge>}
-            {isMatch && event.venue && (
-              <span className="shrink-0">
-                <EventVenueBadge venue={event.venue} />
-              </span>
+      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-4">
+          {/* Left column: badge/logistics cluster on top, RSVP underneath.
+              min-w-0 + flex-1 lets it shrink below its content's natural
+              width instead of the sm:flex-row parent falling back to the
+              min-content trap the single-line layout hit before (a wrapper
+              around a flex-1 sibling of shrink-0 items baking in the wrong
+              floor) — here each column is its own flex-1 min-w-0 item, so
+              there's no shrink-0/flex-1 mix inside a shared wrapper to get
+              wrong. The columns only sit side by side from `sm` up — below
+              that the RSVP control's fixed-width segmented group (see
+              EventRsvpControl, `w-fit`, non-compact below `lg`) is too wide
+              for a half-width mobile column, so the whole card stacks to
+              one full-width column below `sm` instead, which is also
+              where a two-up layout stops earning its keep on a ~360-400px
+              phone anyway. */}
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {/* Venue/status badges plus the jersey/ball mini-chips, all
+                shrink-0 flex-wrap siblings — none of them compete for
+                space with a flex-1 item the way location used to sit
+                alongside badges on the old single row, so free-wrapping
+                them together here is safe. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {isRostered && event.myConvocation && <Badge className="shrink-0">Convoqué</Badge>}
+              {isMatch && event.venue && (
+                <span className="shrink-0">
+                  <EventVenueBadge venue={event.venue} />
+                </span>
+              )}
+              {event.isImported && (
+                <Badge variant="outline" className="shrink-0">
+                  Importé
+                </Badge>
+              )}
+              {!event.timeConfirmed && (
+                <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                  Heure à confirmer
+                </Badge>
+              )}
+              <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+              <EventVoteBadge event={event} />
+            </div>
+            {isRostered && (
+              <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
             )}
-            {event.isImported && (
-              <Badge variant="outline" className="shrink-0">
-                Importé
-              </Badge>
-            )}
-            {!event.timeConfirmed && (
-              <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                Heure à confirmer
-              </Badge>
-            )}
-            <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
-            <EventVoteBadge event={event} />
           </div>
-          {isRostered && (
-            <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
-          )}
+          {/* Right column: location (+ opponent for MATCH) on top, the
+              "Voir →" link underneath. min-w-0 lets the location line
+              truncate instead of forcing the column past its share of the
+              row. */}
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
+            <span className="min-w-0 max-w-full truncate text-sm text-muted">
+              {event.location}
+              {isMatch ? ` · vs ${event.opponentName}` : ''}
+            </span>
+            <Link
+              to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
+              className="shrink-0 text-sm font-bold text-blue-green hover:underline"
+            >
+              {eventDetailLinkLabel(event.type)} →
+            </Link>
+          </div>
         </div>
-        {/* Right column: location (+ opponent for MATCH) on top, the "Voir
-            →" link underneath. min-w-0 lets the location line truncate
-            instead of forcing the column past its share of the row. */}
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
-          <span className="min-w-0 max-w-full truncate text-sm text-muted">
-            {event.location}
-            {isMatch ? ` · vs ${event.opponentName}` : ''}
-          </span>
-          <Link
-            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-            className="shrink-0 text-sm font-bold text-blue-green hover:underline"
-          >
-            {eventDetailLinkLabel(event.type)} →
-          </Link>
-        </div>
+        <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
       </div>
     </Card>
   );
@@ -166,15 +170,13 @@ export function TeamEventsAgenda({
           <SectionHeading>{formatDayHeading(dayEvents[0].startsAt)}</SectionHeading>
           <div className="flex flex-col gap-2">
             {dayEvents.map((event) => (
-              <div key={event.id} className="flex flex-col gap-2">
-                <AgendaEventCard
-                  clubId={clubId}
-                  teamId={teamId}
-                  event={event}
-                  isRostered={isRostered}
-                />
-                <MatchWinnersCard clubId={clubId} teamId={teamId} event={event} />
-              </div>
+              <AgendaEventCard
+                key={event.id}
+                clubId={clubId}
+                teamId={teamId}
+                event={event}
+                isRostered={isRostered}
+              />
             ))}
           </div>
         </section>

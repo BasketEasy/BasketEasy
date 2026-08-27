@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import type { TeamEvent } from '@basketeasy/types/events';
+import type { EventVoteResults, TeamEvent } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
-import { MatchWinnersCard } from './MatchWinnersCard';
+import { MatchWinnersRow } from './MatchWinnersRow';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -38,7 +38,7 @@ const trainingEvent: TeamEvent = {
   venue: null,
 };
 
-function mockVotes(results: unknown) {
+function mockVotes(results: EventVoteResults) {
   server.use(
     http.get('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
       HttpResponse.json(results),
@@ -46,17 +46,15 @@ function mockVotes(results: unknown) {
   );
 }
 
-describe('MatchWinnersCard', () => {
+describe('MatchWinnersRow', () => {
   it('renders nothing while the vote window is still open', () => {
-    renderWithProviders(
-      <MatchWinnersCard clubId="club-1" teamId="team-1" event={openMatchEvent} />,
-    );
-    expect(screen.queryByText('Meilleur joueur')).not.toBeInTheDocument();
+    renderWithProviders(<MatchWinnersRow clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+    expect(screen.queryByText(/^-\s/)).not.toBeInTheDocument();
   });
 
   it('renders nothing for a TRAINING event', () => {
-    renderWithProviders(<MatchWinnersCard clubId="club-1" teamId="team-1" event={trainingEvent} />);
-    expect(screen.queryByText('Meilleur joueur')).not.toBeInTheDocument();
+    renderWithProviders(<MatchWinnersRow clubId="club-1" teamId="team-1" event={trainingEvent} />);
+    expect(screen.queryByText(/^-\s/)).not.toBeInTheDocument();
   });
 
   it('renders nothing once closed if nobody voted', async () => {
@@ -69,15 +67,15 @@ describe('MatchWinnersCard', () => {
     });
 
     renderWithProviders(
-      <MatchWinnersCard clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
+      <MatchWinnersRow clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
     );
 
     // Give the query a tick to resolve, then confirm nothing rendered.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByText('Meilleur joueur')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nathan Hubert')).not.toBeInTheDocument();
   });
 
-  it('shows the top BEST and top WORST once closed', async () => {
+  it('shows the top BEST and top WORST with their share of votes cast, space-between', async () => {
     mockVotes({
       best: [
         { teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 3 },
@@ -90,17 +88,17 @@ describe('MatchWinnersCard', () => {
     });
 
     renderWithProviders(
-      <MatchWinnersCard clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
+      <MatchWinnersRow clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
     );
 
-    expect(await screen.findByText('Meilleur joueur')).toBeInTheDocument();
-    expect(screen.getByText('Nathan Hubert')).toBeInTheDocument();
+    expect(await screen.findByText('Nathan Hubert')).toBeInTheDocument();
+    expect(screen.getByText('- 75%')).toBeInTheDocument();
     expect(screen.queryByText('Ines Petit')).not.toBeInTheDocument();
-    expect(screen.getByText('Joueur en difficulté')).toBeInTheDocument();
     expect(screen.getByText('Sarah Fabre')).toBeInTheDocument();
+    expect(screen.getByText('50% -')).toBeInTheDocument();
   });
 
-  it('omits the "difficulté" line when nobody cast a WORST vote', async () => {
+  it('omits the WORST side entirely when nobody cast a WORST vote', async () => {
     mockVotes({
       best: [{ teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 3 }],
       worst: [],
@@ -110,10 +108,11 @@ describe('MatchWinnersCard', () => {
     });
 
     renderWithProviders(
-      <MatchWinnersCard clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
+      <MatchWinnersRow clubId="club-1" teamId="team-1" event={closedMatchEvent} />,
     );
 
     expect(await screen.findByText('Nathan Hubert')).toBeInTheDocument();
-    expect(screen.queryByText('Joueur en difficulté')).not.toBeInTheDocument();
+    expect(screen.getByText('- 100%')).toBeInTheDocument();
+    expect(screen.queryByText('Sarah Fabre')).not.toBeInTheDocument();
   });
 });

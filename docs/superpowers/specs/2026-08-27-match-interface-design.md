@@ -148,11 +148,13 @@ component keyed off the window: **not yet open** (`Le vote ouvrira après le mat
 tab is hidden otherwise), and **closed** (leaderboard only, no ballot, never gated).
 
 **Match winners on the agenda.** Once a MATCH event's vote window has closed and at least one BEST
-vote was cast, a compact "Vainqueurs" card appears directly under that event's card
-(`TeamEventsAgenda`) and row (`EventRow`) on the team's Événements tab — the top BEST and top
-WORST-category player, by name, with the same gold/blue-green iconography as the results card in
-miniature. Nothing renders if the match has no votes yet, keeping the agenda clean for matches
-nobody voted on.
+vote was cast, a `MatchWinnersRow` renders _inside_ that event's own card (`TeamEventsAgenda`'s
+`AgendaEventCard`) and row (`EventRow`) on the team's Événements tab — not a separate card
+underneath. It's a space-between row along the bottom of the card's content area (below the
+existing badges/RSVP and location/link columns, separated by a top border): the top BEST player on
+the left (🏆 name — share of votes cast) and the top WORST-category player on the right (share of
+votes cast — name 🛡️), mirrored so both trophy/shield icons sit at the outer edges. Nothing renders
+if the match has no votes yet, keeping the card unchanged for matches nobody voted on.
 
 ## Data model (Prisma)
 
