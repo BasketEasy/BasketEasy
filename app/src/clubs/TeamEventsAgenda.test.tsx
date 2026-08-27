@@ -19,7 +19,7 @@ const trainingEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
-  logistics: null,
+  logistics: { jerseys: null, balls: null },
 };
 
 const matchEventSameDay: TeamEvent = {
@@ -87,9 +87,11 @@ describe('TeamEventsAgenda', () => {
     expect(screen.getByText('Domicile')).toBeInTheDocument();
   });
 
-  it('shows the jersey/ball mini-chips for both event types when logistics is assigned', () => {
-    renderAgenda([trainingEvent], false);
-    expect(screen.queryByText(/Chasubles :/)).not.toBeInTheDocument();
+  it('shows the jersey/ball mini-chips for both event types, unassigned or assigned', () => {
+    const unassigned = renderAgenda([trainingEvent], false);
+    expect(screen.getByText(/Chasubles : non assigné/)).toBeInTheDocument();
+    expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
+    unassigned.unmount();
 
     const trainingWithLogistics: TeamEvent = {
       ...trainingEvent,
@@ -98,9 +100,10 @@ describe('TeamEventsAgenda', () => {
         balls: null,
       },
     };
-    renderAgenda([trainingWithLogistics], false);
+    const trainingAssigned = renderAgenda([trainingWithLogistics], false);
     expect(screen.getByText(/Chasubles : Léa M\. ✓/)).toBeInTheDocument();
     expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
+    trainingAssigned.unmount();
 
     const matchWithLogistics: TeamEvent = {
       ...matchEventSameDay,

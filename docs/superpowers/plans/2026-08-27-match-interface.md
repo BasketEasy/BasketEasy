@@ -135,15 +135,15 @@ a real link on the agenda card, which also gains the home/away badge.
 
 ### Task 1.5 — Frontend: match detail route + page shell + Aperçu tab
 
-**Files:** Create `app/src/pages/MatchDetailPage.tsx` (+ test), create
-`app/src/clubs/matchDetailLabels.ts` (+ test); modify `app/src/App.tsx` (route registration)
+**Files:** Create `app/src/pages/EventDetailPage.tsx` (+ test), create
+`app/src/clubs/eventDetailLabels.ts` (+ test); modify `app/src/App.tsx` (route registration)
 
 Reference: `assets/.../Main.dc.html` lines 1–150 (everything above the `<!-- Logistique -->`
 comment — that section is Phase 2).
 
 - [ ] Add route `clubs/:clubId/teams/:teamId/events/:eventId` inside the authenticated route
-      tree in `App.tsx`, rendering `MatchDetailPage`.
-- [ ] `MatchDetailPage.tsx`:
+      tree in `App.tsx`, rendering `EventDetailPage`.
+- [ ] `EventDetailPage.tsx`:
   - Fetches the event via the existing `useEventList`/a new single-event lookup (prefer adding a
     `GET .../events/:eventId` single-fetch if one doesn't already exist — check
     `events.controller.ts` first; reuse `listEvents`'s existing query hook filtered client-side
@@ -162,13 +162,13 @@ comment — that section is Phase 2).
   - Query branches error → loading → empty → data, per `CLAUDE.md`.
   - Redirects (or 400s inline) if the resolved event's `type !== 'MATCH'` — this page doesn't
     exist for trainings.
-- [ ] `matchDetailLabels.ts`: `venueLabel(venue)` → "Domicile"/"Extérieur".
+- [ ] `eventDetailLabels.ts`: `venueLabel(venue)` → "Domicile"/"Extérieur".
 - [ ] Tests: renders header/hero/info grid from a mocked `TeamEvent`; error/loading/empty
       branches; redirects on a TRAINING event id.
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- MatchDetailPage matchDetailLabels
-  git add app/src/pages/MatchDetailPage.tsx app/src/pages/MatchDetailPage.test.tsx app/src/clubs/matchDetailLabels.ts app/src/clubs/matchDetailLabels.test.ts app/src/App.tsx
+  pnpm --filter @basketeasy/app test -- EventDetailPage eventDetailLabels
+  git add app/src/pages/EventDetailPage.tsx app/src/pages/EventDetailPage.test.tsx app/src/clubs/eventDetailLabels.ts app/src/clubs/eventDetailLabels.test.ts app/src/App.tsx
   git commit -m "feat(app): match detail page shell with Aperçu tab"
   ```
 
@@ -188,7 +188,7 @@ Phases 2/4.
     the new Domicile/Extérieur badge — same visual weight, don't let one crowd out the other;
     match `AgendaCard.dc.html`'s flex-wrap grouping exactly.
 - [ ] Add the Domicile/Extérieur badge next to the existing type/opponent info, using
-      `matchDetailLabels.venueLabel`.
+      `eventDetailLabels.venueLabel`.
 - [ ] Update tests for the new link-wrap and badge.
 - [ ] Run, commit:
   ```bash
@@ -212,9 +212,9 @@ Phases 2/4.
 No new backend. Pure reuse of `useEventRsvps`/`useEventConvocations` (already exist per
 `CLAUDE.md`'s Events module section) merged into one table.
 
-### Task 2.1 — `MatchRosterTab.tsx`
+### Task 2.1 — `EventRosterTab.tsx`
 
-**Files:** Create `app/src/clubs/MatchRosterTab.tsx` (+ test); modify `MatchDetailPage.tsx` (add
+**Files:** Create `app/src/clubs/EventRosterTab.tsx` (+ test); modify `EventDetailPage.tsx` (add
 second tab trigger)
 
 Reference: `assets/.../Roster.dc.html` lines 22-90+ (condensed context strip already covered by
@@ -235,13 +235,13 @@ the page shell — only build the summary meters + table from this file).
       collapse to cards — same pattern `MembersPage`/`MyTeamsPage` already use, which
       `Roster.dc.html` doesn't show but `CLAUDE.md`'s Consistency section already flags as a gap
       not to repeat.
-- [ ] Add the "Effectif" `TabsTrigger` to `MatchDetailPage.tsx`.
+- [ ] Add the "Effectif" `TabsTrigger` to `EventDetailPage.tsx`.
 - [ ] Tests: merge logic (a player convoked-and-present, convoked-and-absent, not-convoked),
       meter math, desktop/mobile render branches.
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- MatchRosterTab MatchDetailPage
-  git add app/src/clubs/MatchRosterTab.tsx app/src/clubs/MatchRosterTab.test.tsx app/src/pages/MatchDetailPage.tsx app/src/pages/MatchDetailPage.test.tsx
+  pnpm --filter @basketeasy/app test -- EventRosterTab EventDetailPage
+  git add app/src/clubs/EventRosterTab.tsx app/src/clubs/EventRosterTab.test.tsx app/src/pages/EventDetailPage.tsx app/src/pages/EventDetailPage.test.tsx
   git commit -m "feat(app): match detail Effectif tab"
   ```
 
@@ -308,7 +308,7 @@ the page shell — only build the summary meters + table from this file).
 ### Task 3.4 — Frontend: `EventLogisticsSection` (Aperçu tab) + agenda mini-chips
 
 **Files:** Create `app/src/clubs/useEventLogisticsSet.ts` (+ test),
-`app/src/clubs/EventLogisticsSection.tsx` (+ test); modify `MatchDetailPage.tsx`, `EventRow.tsx`,
+`app/src/clubs/EventLogisticsSection.tsx` (+ test); modify `EventDetailPage.tsx`, `EventRow.tsx`,
 `TeamEventsAgenda.tsx` (+ their tests)
 
 References:
@@ -327,7 +327,7 @@ References:
       a manager or is the current assignee themself) or an unassigned state ("Non assigné" badge + "Je m'en occupe" primary button, shown to any rostered member). "Changer" opens an inline
       `SelectField` of the roster (not a `Dialog` — same reasoning as `TeamPlayerRow`'s role
       select), not a second click target that navigates anywhere.
-- [ ] Wire into `MatchDetailPage.tsx`'s Aperçu tab, right below "Informations pratiques".
+- [ ] Wire into `EventDetailPage.tsx`'s Aperçu tab, right below "Informations pratiques".
 - [ ] Agenda card: two small chips (`AgendaCard.dc.html:77-86`) — reuse the same "assigned/
       unassigned" copy and icon logic as `EventLogisticsSection`, factored so both share one
       small presentational piece rather than duplicating the assigned/unassigned branching.
@@ -335,8 +335,8 @@ References:
       on the agenda card.
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- EventLogistics useEventLogisticsSet EventRow TeamEventsAgenda MatchDetailPage
-  git add app/src/clubs/useEventLogisticsSet.ts app/src/clubs/useEventLogisticsSet.test.ts app/src/clubs/EventLogisticsSection.tsx app/src/clubs/EventLogisticsSection.test.tsx app/src/pages/MatchDetailPage.tsx app/src/clubs/EventRow.tsx app/src/clubs/TeamEventsAgenda.tsx
+  pnpm --filter @basketeasy/app test -- EventLogistics useEventLogisticsSet EventRow TeamEventsAgenda EventDetailPage
+  git add app/src/clubs/useEventLogisticsSet.ts app/src/clubs/useEventLogisticsSet.test.ts app/src/clubs/EventLogisticsSection.tsx app/src/clubs/EventLogisticsSection.test.tsx app/src/pages/EventDetailPage.tsx app/src/clubs/EventRow.tsx app/src/clubs/TeamEventsAgenda.tsx
   git commit -m "feat(app): jersey/ball logistics UI in match detail and agenda card"
   ```
 
@@ -403,7 +403,7 @@ References:
 ### Task 4.4 — Frontend: `MatchVoteTab`
 
 **Files:** Create `app/src/clubs/useEventVoteCast.ts`, `app/src/clubs/useEventVoteResults.ts` (+
-tests), `app/src/clubs/MatchVoteTab.tsx` (+ test); modify `MatchDetailPage.tsx`, `EventRow.tsx`,
+tests), `app/src/clubs/MatchVoteTab.tsx` (+ test); modify `EventDetailPage.tsx`, `EventRow.tsx`,
 `TeamEventsAgenda.tsx` (+ their tests)
 
 References: **`assets/.../Vote.dc.html` — the already-updated, public-results version.** Read
@@ -425,7 +425,7 @@ final block. Agenda card's "Votes ouverts" badge: `AgendaCard.dc.html:126-129`.
     convention for 1st/2nd/3rd place rather than inventing a new one.
   - Gate the whole tab's ballot behind "vote window open" (`event.startsAt` in the past); before
     that, show only a "Le vote ouvrira après le match" state, not an empty ballot.
-- [ ] Add "Vote" `TabsTrigger` to `MatchDetailPage.tsx`.
+- [ ] Add "Vote" `TabsTrigger` to `EventDetailPage.tsx`.
 - [ ] Agenda card: "Votes ouverts · N j restants" badge on past MATCH events within
       `VOTE_WINDOW_DAYS` of `startsAt` (client-computed, define `VOTE_WINDOW_DAYS = 7` alongside
       the badge logic — no new fetch).
@@ -435,8 +435,8 @@ final block. Agenda card's "Votes ouverts" badge: `AgendaCard.dc.html:126-129`.
       date-window math.
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- MatchVoteTab useEventVote EventRow TeamEventsAgenda MatchDetailPage
-  git add app/src/clubs/useEventVoteCast.ts app/src/clubs/useEventVoteCast.test.ts app/src/clubs/useEventVoteResults.ts app/src/clubs/useEventVoteResults.test.ts app/src/clubs/MatchVoteTab.tsx app/src/clubs/MatchVoteTab.test.tsx app/src/pages/MatchDetailPage.tsx app/src/clubs/EventRow.tsx app/src/clubs/TeamEventsAgenda.tsx
+  pnpm --filter @basketeasy/app test -- MatchVoteTab useEventVote EventRow TeamEventsAgenda EventDetailPage
+  git add app/src/clubs/useEventVoteCast.ts app/src/clubs/useEventVoteCast.test.ts app/src/clubs/useEventVoteResults.ts app/src/clubs/useEventVoteResults.test.ts app/src/clubs/MatchVoteTab.tsx app/src/clubs/MatchVoteTab.test.tsx app/src/pages/EventDetailPage.tsx app/src/clubs/EventRow.tsx app/src/clubs/TeamEventsAgenda.tsx
   git commit -m "feat(app): best/worst player voting tab and agenda badge"
   ```
 
@@ -541,7 +541,7 @@ R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
 
 **Files:** Create `app/src/clubs/useEventScoresheetUpload.ts` (+ test),
 `app/src/clubs/useEventScoresheetStatus.ts` (+ test), `app/src/clubs/MatchScoresheetTab.tsx` (+
-test); modify `MatchDetailPage.tsx` (+ test)
+test); modify `EventDetailPage.tsx` (+ test)
 
 Reference: `assets/.../Scoresheet.dc.html` — all four frames (Capture, Aperçu avant envoi, En
 file d'attente, Échec/retry — lines noted in the file's own comments). Read the whole file; the
@@ -561,14 +561,14 @@ mockup flavor text — implement it against the existing `QueryError` component/
       d'attente pour analyse" copy — a static label for this one status, not a live queue read)
       → persistent failure card with "Réessayer l'envoi" on any step's error, replacing the whole
       capture flow until resolved (not a toast — see above).
-- [ ] Add "Feuille de match" `TabsTrigger` to `MatchDetailPage.tsx`.
+- [ ] Add "Feuille de match" `TabsTrigger` to `EventDetailPage.tsx`.
 - [ ] Tests: happy path through all three async steps; upload-URL failure and PUT failure both
       surface the persistent error card; retry re-runs from the top; already-uploaded state on
       mount shows the queued frame directly (skips capture).
 - [ ] Run, commit:
   ```bash
-  pnpm --filter @basketeasy/app test -- MatchScoresheetTab useEventScoresheet MatchDetailPage
-  git add app/src/clubs/useEventScoresheetUpload.ts app/src/clubs/useEventScoresheetUpload.test.ts app/src/clubs/useEventScoresheetStatus.ts app/src/clubs/useEventScoresheetStatus.test.ts app/src/clubs/MatchScoresheetTab.tsx app/src/clubs/MatchScoresheetTab.test.tsx app/src/pages/MatchDetailPage.tsx
+  pnpm --filter @basketeasy/app test -- MatchScoresheetTab useEventScoresheet EventDetailPage
+  git add app/src/clubs/useEventScoresheetUpload.ts app/src/clubs/useEventScoresheetUpload.test.ts app/src/clubs/useEventScoresheetStatus.ts app/src/clubs/useEventScoresheetStatus.test.ts app/src/clubs/MatchScoresheetTab.tsx app/src/clubs/MatchScoresheetTab.test.tsx app/src/pages/EventDetailPage.tsx
   git commit -m "feat(app): e-Marque scoresheet capture tab"
   ```
 
@@ -578,7 +578,7 @@ mockup flavor text — implement it against the existing `QueryError` component/
 
 ### Task 6.1 — Mobile responsive pass
 
-**Files:** Modify `MatchDetailPage.tsx` and the four tab components as needed
+**Files:** Modify `EventDetailPage.tsx` and the four tab components as needed
 
 Reference: `assets/.../MobileDetail.dc.html` — the full file, it's the single source for how
 every section restacks at phone width.

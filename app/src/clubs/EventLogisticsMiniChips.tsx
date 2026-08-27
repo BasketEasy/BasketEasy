@@ -3,10 +3,11 @@ import { cn } from '@basketeasy/ui/cn';
 import type {
   EventLogisticsAssignee,
   EventLogisticsField,
+  EventType,
   TeamEvent,
 } from '@basketeasy/types/events';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
-import { EVENT_LOGISTICS_FIELD_LABEL } from './eventLogisticsLabels';
+import { eventLogisticsFieldLabel } from './eventLogisticsLabels';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -19,9 +20,11 @@ function shortAssigneeName(assignee: EventLogisticsAssignee): string {
 
 function LogisticsMiniChip({
   field,
+  eventType,
   assignee,
 }: {
   field: EventLogisticsField;
+  eventType: EventType;
   assignee: EventLogisticsAssignee | null;
 }) {
   const Icon = FIELD_ICON[field];
@@ -34,7 +37,7 @@ function LogisticsMiniChip({
       )}
     >
       <Icon size={12} className={cn('shrink-0', assignee ? 'text-blue-green' : 'text-muted')} />
-      {EVENT_LOGISTICS_FIELD_LABEL[field]} :{' '}
+      {eventLogisticsFieldLabel(field, eventType)} :{' '}
       {assignee ? `${shortAssigneeName(assignee)} ✓` : 'non assigné'}
     </Badge>
   );
@@ -46,16 +49,21 @@ function LogisticsMiniChip({
  * views of the agenda so the assigned/unassigned copy and icon branching
  * lives in one place, matching EventLogisticsSection's conventions
  * ("Non assigné", the check mark on an assigned slot) rather than
- * re-deriving them per call site.
+ * re-deriving them per call site. Renders for both event types — `eventType`
+ * only changes the jersey-slot label ("Maillots" vs "Chasubles"), the
+ * assigned/unassigned rendering is identical for both.
  */
-export function EventLogisticsMiniChips({ logistics }: { logistics: TeamEvent['logistics'] }) {
-  if (!logistics) {
-    return null;
-  }
+export function EventLogisticsMiniChips({
+  eventType,
+  logistics,
+}: {
+  eventType: EventType;
+  logistics: TeamEvent['logistics'];
+}) {
   return (
     <div className="flex flex-wrap gap-2">
-      <LogisticsMiniChip field="JERSEYS" assignee={logistics.jerseys} />
-      <LogisticsMiniChip field="BALLS" assignee={logistics.balls} />
+      <LogisticsMiniChip field="JERSEYS" eventType={eventType} assignee={logistics.jerseys} />
+      <LogisticsMiniChip field="BALLS" eventType={eventType} assignee={logistics.balls} />
     </div>
   );
 }

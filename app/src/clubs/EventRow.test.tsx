@@ -23,7 +23,7 @@ const trainingEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
-  logistics: null,
+  logistics: { jerseys: null, balls: null },
 };
 
 const matchEvent: TeamEvent = {
@@ -85,9 +85,17 @@ describe('EventRow', () => {
     );
   });
 
-  it('shows the jersey/ball mini-chips for a match with logistics, never for a training event', () => {
-    renderRow(trainingEvent, false);
-    expect(screen.queryByText(/Maillots :/)).not.toBeInTheDocument();
+  it('shows the jersey/ball mini-chips for both event types, with a type-aware jersey-slot label', () => {
+    const trainingWithLogistics: TeamEvent = {
+      ...trainingEvent,
+      logistics: {
+        jerseys: { teamPlayerId: 'tp-1', firstName: 'Léa', lastName: 'Martin' },
+        balls: null,
+      },
+    };
+    renderRow(trainingWithLogistics, false);
+    expect(screen.getByText(/Chasubles : Léa M\. ✓/)).toBeInTheDocument();
+    expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
 
     const matchWithLogistics: TeamEvent = {
       ...matchEvent,
@@ -98,7 +106,6 @@ describe('EventRow', () => {
     };
     renderRow(matchWithLogistics, false);
     expect(screen.getByText(/Maillots : Léa M\. ✓/)).toBeInTheDocument();
-    expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
   });
 
   it('does not show a scope select in the delete confirmation for a non-recurring event', async () => {

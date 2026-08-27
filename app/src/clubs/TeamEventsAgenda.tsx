@@ -108,6 +108,14 @@ function AgendaEventCard({
               )}
             </div>
           )}
+          {/* Jersey/ball mini-chips, always rendered for both event types.
+              shrink-0 keeps them from compressing; they fall back to the
+              row's own lg:flex-wrap (not a hardcoded second row) when the
+              line is too crowded to fit everything, same safety valve the
+              badges cluster above already relies on. */}
+          <div className="shrink-0">
+            <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+          </div>
           {/* flex-1 + min-w-0 is what lets lg:truncate actually bite instead
               of forcing the row to grow past its container — a long
               location/opponent string truncates rather than pushing badges

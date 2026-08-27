@@ -71,18 +71,34 @@ function mockLogisticsPatch() {
 }
 
 describe('EventLogisticsSection', () => {
-  it('renders nothing for a TRAINING event (logistics null)', () => {
+  it('labels the jersey slot "Maillots" for a MATCH event and "Chasubles" for a TRAINING event', async () => {
     mockRoster();
-    const { container } = renderWithProviders(
+    const { unmount } = renderWithProviders(
       <EventLogisticsSection
         clubId="club-1"
         teamId="team-1"
-        event={baseEvent({ type: 'TRAINING', logistics: null })}
+        event={baseEvent({ type: 'MATCH' })}
         canManage={false}
         isRostered
       />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(await screen.findByText('Maillots')).toBeInTheDocument();
+    expect(screen.queryByText('Chasubles')).not.toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(
+      <EventLogisticsSection
+        clubId="club-1"
+        teamId="team-1"
+        event={baseEvent({ type: 'TRAINING' })}
+        canManage={false}
+        isRostered
+      />,
+    );
+    expect(await screen.findByText('Chasubles')).toBeInTheDocument();
+    expect(screen.queryByText('Maillots')).not.toBeInTheDocument();
+    // "Ballons" copy is identical for both event types.
+    expect(screen.getAllByText('Ballons').length).toBeGreaterThan(0);
   });
 
   it('shows the unassigned state with a self-assign button for a rostered member', async () => {

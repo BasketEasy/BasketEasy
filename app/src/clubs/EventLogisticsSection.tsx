@@ -10,15 +10,10 @@ import { toast } from '@basketeasy/ui/toast-store';
 import type { EventLogisticsField, TeamEvent } from '@basketeasy/types/events';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
-import { EVENT_LOGISTICS_FIELD_LABEL } from './eventLogisticsLabels';
+import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLogisticsLabels';
 import { getInitials } from './getInitials';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
-
-const FIELD_QUESTION: Record<EventLogisticsField, string> = {
-  JERSEYS: 'Qui apporte le jeu de maillots ?',
-  BALLS: "Qui apporte les ballons d'échauffement ?",
-};
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -52,10 +47,11 @@ function LogisticsFieldRow({
 }) {
   const [isChanging, setIsChanging] = useState(false);
   const { mutate: setLogistics, isPending } = useEventLogisticsSet(clubId, teamId);
-  const assignee = field === 'JERSEYS' ? event.logistics?.jerseys : event.logistics?.balls;
+  const assignee = field === 'JERSEYS' ? event.logistics.jerseys : event.logistics.balls;
   const isAssignedToMe = assignee?.teamPlayerId === myTeamPlayerId;
   const canChange = canManage || isAssignedToMe;
   const Icon = FIELD_ICON[field];
+  const fieldLabel = eventLogisticsFieldLabel(field, event.type);
 
   const handleChange = (value: string) => {
     setLogistics(
@@ -85,15 +81,13 @@ function LogisticsFieldRow({
         <Icon size={19} />
       </span>
       <div className="flex flex-col gap-px">
-        <span className="text-sm font-bold text-charcoal">
-          {EVENT_LOGISTICS_FIELD_LABEL[field]}
-        </span>
-        <span className="text-xs text-muted">{FIELD_QUESTION[field]}</span>
+        <span className="text-sm font-bold text-charcoal">{fieldLabel}</span>
+        <span className="text-xs text-muted">{eventLogisticsFieldQuestion(field, event.type)}</span>
       </div>
       <div className="ml-auto flex items-center gap-2.5">
         {isChanging ? (
           <SelectField
-            label={`Assigné·e — ${EVENT_LOGISTICS_FIELD_LABEL[field]}`}
+            label={`Assigné·e — ${fieldLabel}`}
             containerClassName="w-52"
             options={[{ value: UNASSIGNED_VALUE, label: 'Non assigné' }, ...rosterOptions]}
             value={assignee?.teamPlayerId ?? UNASSIGNED_VALUE}
@@ -135,9 +129,14 @@ function LogisticsFieldRow({
 }
 
 /**
- * Aperçu tab's Logistique section (`Main.dc.html:152-190`) — jersey/ball
- * carrier assignment for a MATCH event. Reuses `useEventConvocations` for
- * the roster (teamPlayerId/firstName/lastName + `isMe`, already fetched
+ * Aperçu tab's Logistique section (`Main.dc.html:152-190`) — equipment
+ * carrier assignment for an event. Originally MATCH-only; now shared by
+ * both event types, since a TRAINING session has the same "who's bringing
+ * it" logistics need for scrimmage bibs and balls. Only the jersey-slot
+ * label/question differ per type ("Maillots" vs "Chasubles", see
+ * eventLogisticsFieldLabel) — the layout and the self-assign/manager-
+ * reassign mechanics are identical for both. Reuses `useEventConvocations`
+ * for the roster (teamPlayerId/firstName/lastName + `isMe`, already fetched
  * elsewhere in this module for the same shape) rather than a new roster
  * endpoint — fetched eagerly (not lazily, unlike the RSVP/convocation
  * breakdowns) since `isMe` is needed up front just to decide whether to
@@ -157,10 +156,6 @@ export function EventLogisticsSection({
   isRostered: boolean;
 }) {
   const { data: roster } = useEventConvocations(clubId, teamId, event.id, true);
-
-  if (!event.logistics) {
-    return null;
-  }
 
   const myTeamPlayerId = roster?.find((r) => r.isMe)?.teamPlayerId ?? null;
   const rosterOptions = (roster ?? []).map((r) => ({

@@ -189,12 +189,14 @@ model Event {
   // MATCH, forced to null whenever type is TRAINING — same validation path
   // as opponentName (see EventsService).
   venue               EventVenue?
-  // Per-match equipment logistics — who's bringing the jerseys/balls for
-  // this MATCH event. Nullable self-relations directly on Event rather than
-  // a separate table: at most one assignee per item, so a join table would
-  // only add an unused-most-of-the-time row lifecycle. onDelete: SetNull
-  // (not Cascade) — removing a roster entry should clear the assignment,
-  // not delete the event.
+  // Equipment logistics — who's bringing the jerseys/balls (MATCH) or the
+  // scrimmage bibs/balls (TRAINING) for this event; valid for both types,
+  // the "jerseys" slot is just labeled differently per type on the frontend
+  // (eventLogisticsFieldLabel). Nullable self-relations directly on Event
+  // rather than a separate table: at most one assignee per item, so a join
+  // table would only add an unused-most-of-the-time row lifecycle.
+  // onDelete: SetNull (not Cascade) — removing a roster entry should clear
+  // the assignment, not delete the event.
   jerseysTeamPlayerId String?
   ballsTeamPlayerId   String?
   jerseysAssignee     TeamPlayer?        @relation("EventJerseysAssignee", fields: [jerseysTeamPlayerId], references: [id], onDelete: SetNull)

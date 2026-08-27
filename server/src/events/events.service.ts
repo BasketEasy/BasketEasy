@@ -500,7 +500,11 @@ export class EventsService {
   // own assignment. Assigning or clearing SOMEONE ELSE requires the same
   // manager check TeamManagerGuard already encodes (club ADMIN of a linked
   // club, or TeamAdmin of this team) — reused via the guard's own
-  // isTeamManager method rather than duplicated here.
+  // isTeamManager method rather than duplicated here. Valid for both event
+  // types — a TRAINING event uses the same slots for scrimmage bibs
+  // ("Chasubles") instead of match jerseys ("Maillots"), see
+  // eventLogisticsFieldLabel on the frontend; the ball slot is identical
+  // copy for both. No event.type gate here on purpose.
   async setEventLogistics(
     clubId: string,
     teamId: string,
@@ -510,9 +514,6 @@ export class EventsService {
     teamPlayerId: string | null,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    if (event.type !== EventType.MATCH) {
-      throw new BadRequestException('La logistique ne concerne que les matchs');
-    }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
     const currentValue = field === 'JERSEYS' ? event.jerseysTeamPlayerId : event.ballsTeamPlayerId;
 
@@ -711,17 +712,17 @@ export class EventsService {
       timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
       myConvocation,
-      logistics:
-        event.type === EventType.MATCH
-          ? {
-              jerseys: event.jerseysTeamPlayerId
-                ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
-                : null,
-              balls: event.ballsTeamPlayerId
-                ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
-                : null,
-            }
+      // Populated for both event types — the jersey slot is just labeled
+      // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
+      // frontend, see eventLogisticsFieldLabel.
+      logistics: {
+        jerseys: event.jerseysTeamPlayerId
+          ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
           : null,
+        balls: event.ballsTeamPlayerId
+          ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
+          : null,
+      },
     };
   }
 }

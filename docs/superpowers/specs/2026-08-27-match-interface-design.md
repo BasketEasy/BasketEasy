@@ -22,15 +22,22 @@ settled there.
 
 ## Scope
 
-**In scope**, four independently shippable slices, all gated to `event.type === 'MATCH'`
-(trainings keep today's plain row — no detail page, no tabs, nothing here changes their
-behavior):
+**In scope**, five independently shippable slices. Four are gated to `event.type === 'MATCH'`
+(trainings keep today's plain row for those — no detail page, no Vote/Feuille de match tabs,
+nothing here changes their behavior):
 
 1. **Match detail page** — a new route with an Aperçu / Effectif / Vote / Feuille de match tab
    shell, reusing existing RSVP/convocation data rather than re-modeling it.
 2. **Home/away** — a new field on `Event`, since the mockups' hero and agenda card both lead
    with a Domicile/Extérieur badge that nothing in the schema carries today.
-3. **Jersey/ball logistics** — lightweight per-match equipment assignment.
+3. **Jersey/ball logistics** — lightweight per-event equipment assignment. Originally scoped
+   MATCH-only like the rest of this slice list, this one was later extended to also cover
+   `TRAINING` events (self-assign/manager-reassign of who's bringing the jerseys/bibs and who's
+   bringing the balls) — a training session has the same "who's bringing it" need as a match, so
+   it landed on the shared `EventDetailPage` Aperçu tab and the agenda/table mini-chips for both
+   types rather than staying gated. The one type-aware bit is copy: the jersey slot reads
+   "Maillots" for a MATCH and "Chasubles" (scrimmage bibs, a different physical item) for a
+   TRAINING — see `eventLogisticsFieldLabel` — "Ballons" is identical for both.
 4. **Best & worst player voting** — anonymous peer voting, both results public (per explicit
    product decision — see **Voting visibility**, which supersedes the mockups' original
    staff-only "difficulté" framing).
@@ -49,9 +56,9 @@ behavior):
 - A match score/result field — the mockups don't show one (confirmed against
   `assets/.../AgendaCard.dc.html` and `Main.dc.html`); "Voir les résultats" in the agenda card
   links to vote results, not a score.
-- A detail page, logistics, voting, or scoresheet capture for `TRAINING` events. If a future
-  need arises, extend this module rather than building a parallel one — but don't build it
-  speculatively now.
+- A detail page, voting, or scoresheet capture for `TRAINING` events (jersey/ball logistics is
+  the one exception — see slice 3 above). If a future need arises for the rest, extend this
+  module rather than building a parallel one — but don't build it speculatively now.
 - A voting deadline/close mechanism more elaborate than a fixed post-match window (see
   **Voting window**).
 - Any change to the existing `Event` CRUD, recurrence, or bulk time-of-day update logic beyond
@@ -526,7 +533,7 @@ export interface EventScoresheet {
 
 ## Frontend
 
-New route `/clubs/:clubId/teams/:teamId/events/:eventId` → `MatchDetailPage.tsx`
+New route `/clubs/:clubId/teams/:teamId/events/:eventId` → `EventDetailPage.tsx`
 (`app/src/pages/`), reachable only from a `MATCH`-type event card — `EventRow.tsx`'s table
 rendering and `TeamEventsAgenda.tsx`'s `AgendaEventCard` both wrap the whole MATCH card in a real
 `<Link>` (per `CLAUDE.md`'s A1: every URL-changing control is a link), leaving `TRAINING` cards
