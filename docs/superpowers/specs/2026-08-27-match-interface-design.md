@@ -120,18 +120,39 @@ joueur" (softer framing, identical mechanic) — visibility changed, wording did
 the committed `Vote.dc.html` as-is; it already reflects this.
 
 **Second deviation, layered on top of the first (post-launch product decision, not reflected in
-the mockup's static screenshot):** "the whole team" narrowed twice more —
+the mockup's static screenshot):** "the whole team" narrowed, then widened back out once voting
+ends —
 
-- **Present-only voting.** Only a roster member whose `EventRsvp` for this event is `GOING` may
-  cast a vote (`EventsService.castVote` 403s anyone else) — you have to have actually been on
-  court to weigh in. `MatchVoteTab` uses the already-fetched `TeamEvent.myRsvpStatus` to swap the
-  ballot for an explanatory message rather than letting a non-present viewer fill it in only to
-  have the submit fail.
-- **Vote-to-see-results.** `EventsService.buildVoteResults` withholds `best`/`worst` (returns them
-  as empty arrays) until the caller has cast their own BEST vote — `totalVoters`/`votesCast` stay
-  populated throughout so the UI can still show "N votes exprimés" alongside a "Votez pour voir
-  les résultats" prompt. Since only present players can ever vote, this also means only present
-  players can ever see the results — no separate present-check needed on the read path.
+- **Present-and-convoked-only voting.** Only a roster member both convoked for this event
+  (`EventConvocation` row exists) and marked `GOING` on its `EventRsvp` may cast a vote
+  (`EventsService.castVote` 403s anyone else) — you have to have been called up _and_ actually
+  shown up. `EventDetailPage` uses the already-fetched `TeamEvent.myConvocation`/`myRsvpStatus` to
+  decide whether the **Vote tab appears at all** (see below), rather than showing an unusable
+  ballot that would 403 on submit.
+- **Vote-to-see-results, while voting is still open.** `EventsService.buildVoteResults` withholds
+  `best`/`worst` (returns them as empty arrays) until the caller has cast their own BEST vote —
+  `totalVoters`/`votesCast` stay populated throughout so the UI can still show "N votes exprimés"
+  alongside a "Votez pour voir les résultats" prompt.
+- **Results go public once the vote window closes.** Once `now > startsAt + VOTE_CLOSE_DELAY_MS`,
+  `buildVoteResults` stops withholding — `best`/`worst` are returned to _any_ caller regardless of
+  whether they voted (`showResults = voteHasEnded || hasVoted`). This is also when the **Vote tab
+  becomes visible to everyone**, not just voters.
+
+**Vote tab visibility (`EventDetailPage`):** the tab itself — not just the ballot — is omitted
+from the tab bar unless `(event.myConvocation && event.myRsvpStatus === 'GOING') ||
+voteWindowHasClosed(event.startsAt)`. A rostered-but-not-called-up (or called-up-but-absent)
+viewer never sees an unusable ballot while voting is still live; once the window closes, the tab
+reappears for everyone so results are genuinely public. `MatchVoteTab` itself is a three-state
+component keyed off the window: **not yet open** (`Le vote ouvrira après le match`), **open**
+(ballot + vote-to-see-results-gated leaderboard — only reachable by an eligible voter, since the
+tab is hidden otherwise), and **closed** (leaderboard only, no ballot, never gated).
+
+**Match winners on the agenda.** Once a MATCH event's vote window has closed and at least one BEST
+vote was cast, a compact "Vainqueurs" card appears directly under that event's card
+(`TeamEventsAgenda`) and row (`EventRow`) on the team's Événements tab — the top BEST and top
+WORST-category player, by name, with the same gold/blue-green iconography as the results card in
+miniature. Nothing renders if the match has no votes yet, keeping the agenda clean for matches
+nobody voted on.
 
 ## Data model (Prisma)
 
@@ -396,11 +417,14 @@ async castVote(
   if (!myTeamPlayer) {
     throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
   }
-  const myRsvp = await this.prisma.eventRsvp.findUnique({
-    where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
-  });
-  if (myRsvp?.status !== 'GOING') {
-    throw new ForbiddenException('Seuls les joueurs présents au match peuvent voter');
+  const [myRsvp, wasConvoked] = await Promise.all([
+    this.prisma.eventRsvp.findUnique({
+      where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
+    }),
+    this.isConvoked(eventId, myTeamPlayer.id),
+  ]);
+  if (myRsvp?.status !== 'GOING' || !wasConvoked) {
+    throw new ForbiddenException('Seuls les joueurs convoqués et présents au match peuvent voter');
   }
   if (votedTeamPlayerId === myTeamPlayer.id) {
     throw new BadRequestException('Vous ne pouvez pas voter pour vous-même');
@@ -418,16 +442,18 @@ async castVote(
 }
 
 async getEventVoteResults(clubId: string, teamId: string, eventId: string, userId: string): Promise<EventVoteResults> {
-  await this.assertEventInTeam(clubId, teamId, eventId);
+  const event = await this.assertEventInTeam(clubId, teamId, eventId);
+  const voteHasEnded = new Date() > new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
   const votes = await this.prisma.eventVote.findMany({
     where: { eventId },
     include: { votedFor: { include: { player: true } } },
   });
   // Aggregate counts per category; never return voterTeamPlayerId. best/worst
-  // come back empty until the caller has cast their own BEST vote — see
-  // Voting visibility's "vote-to-see-results" note above.
-  return buildVoteResults(votes, myTeamPlayer?.id ?? null);
+  // come back empty unless the caller has cast their own BEST vote OR the
+  // vote window has ended (results go public to everyone once voting closes)
+  // — see Voting visibility's notes above.
+  return buildVoteResults(votes, myTeamPlayer?.id ?? null, voteHasEnded);
 }
 ```
 

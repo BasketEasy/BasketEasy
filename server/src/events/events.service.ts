@@ -563,11 +563,11 @@ export class EventsService {
   // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS after kickoff
   // (players are still on court right at the whistle) and closes
   // VOTE_CLOSE_DELAY_MS after kickoff, both enforced here, not just
-  // client-displayed. Only a roster member marked GOING on this event's RSVP
-  // may vote — you have to have actually been there. Upserts on recast (the
-  // unique index on eventId/category/voterTeamPlayerId doubles as the
-  // upsert key), so changing your vote updates the one row rather than
-  // accumulating history.
+  // client-displayed. Only a roster member both marked GOING on this event's
+  // RSVP AND convoked for it may vote — you have to have actually been
+  // called up and shown up. Upserts on recast (the unique index on
+  // eventId/category/voterTeamPlayerId doubles as the upsert key), so
+  // changing your vote updates the one row rather than accumulating history.
   async castVote(
     clubId: string,
     teamId: string,
@@ -593,11 +593,16 @@ export class EventsService {
     if (!myTeamPlayer) {
       throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
     }
-    const myRsvp = await this.prisma.eventRsvp.findUnique({
-      where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
-    });
-    if (myRsvp?.status !== EventRsvpStatus.GOING) {
-      throw new ForbiddenException('Seuls les joueurs présents au match peuvent voter');
+    const [myRsvp, wasConvoked] = await Promise.all([
+      this.prisma.eventRsvp.findUnique({
+        where: { eventId_teamPlayerId: { eventId, teamPlayerId: myTeamPlayer.id } },
+      }),
+      this.isConvoked(eventId, myTeamPlayer.id),
+    ]);
+    if (myRsvp?.status !== EventRsvpStatus.GOING || !wasConvoked) {
+      throw new ForbiddenException(
+        'Seuls les joueurs convoqués et présents au match peuvent voter',
+      );
     }
     if (votedTeamPlayerId === myTeamPlayer.id) {
       throw new BadRequestException('Vous ne pouvez pas voter pour vous-même');
@@ -633,6 +638,7 @@ export class EventsService {
     if (event.type !== EventType.MATCH) {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
+    const voteHasEnded = new Date() > new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
     const [myTeamPlayer, votes, rosterSize] = await Promise.all([
       this.findMyTeamPlayer(teamId, userId),
       this.prisma.eventVote.findMany({
@@ -641,17 +647,18 @@ export class EventsService {
       }),
       this.prisma.teamPlayer.count({ where: { teamId } }),
     ]);
-    return this.buildVoteResults(votes, myTeamPlayer?.id ?? null, rosterSize);
+    return this.buildVoteResults(votes, myTeamPlayer?.id ?? null, rosterSize, voteHasEnded);
   }
 
   // Groups the event's votes by category, counts per votedTeamPlayerId, and
   // sorts each category's leaderboard descending — never returns
   // voterTeamPlayerId (see EventVote's schema comment: this is the one field
   // in this whole feature that would be a real privacy regression if leaked).
-  // The leaderboards themselves are withheld (empty arrays) until the caller
-  // has cast their own BEST vote — "vote to see results" — even though
-  // totalVoters/votesCast stay visible so the UI can still show "N votes
-  // exprimés" while nudging the viewer to vote first.
+  // The leaderboards themselves are withheld (empty arrays) until either the
+  // caller has cast their own BEST vote ("vote to see results") or the vote
+  // window has closed, at which point results become public to everyone
+  // regardless of whether they voted — totalVoters/votesCast stay visible
+  // throughout so the UI can show "N votes exprimés" even while withheld.
   private buildVoteResults(
     votes: {
       category: EventVoteCategory;
@@ -661,6 +668,7 @@ export class EventsService {
     }[],
     myTeamPlayerId: string | null,
     totalVoters: number,
+    voteHasEnded: boolean,
   ): EventVoteResults {
     const buildCategoryResults = (category: EventVoteCategory): EventVoteCandidateResult[] => {
       const counts = new Map<string, EventVoteCandidateResult>();
@@ -691,12 +699,12 @@ export class EventsService {
       best: myVoteFor(EventVoteCategory.BEST),
       worst: myVoteFor(EventVoteCategory.WORST),
     };
-    const hasVoted = myVote.best !== null;
+    const showResults = voteHasEnded || myVote.best !== null;
     const distinctVoters = new Set(votes.map((v) => v.voterTeamPlayerId));
 
     return {
-      best: hasVoted ? buildCategoryResults(EventVoteCategory.BEST) : [],
-      worst: hasVoted ? buildCategoryResults(EventVoteCategory.WORST) : [],
+      best: showResults ? buildCategoryResults(EventVoteCategory.BEST) : [],
+      worst: showResults ? buildCategoryResults(EventVoteCategory.WORST) : [],
       totalVoters,
       votesCast: distinctVoters.size,
       myVote,

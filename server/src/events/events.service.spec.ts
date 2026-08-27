@@ -1766,9 +1766,10 @@ describe('EventsService', () => {
       prisma.event.findUnique.mockResolvedValue(withinWindowMatchEvent);
       prisma.eventVote.findMany.mockResolvedValue([]);
       prisma.teamPlayer.count.mockResolvedValue(0);
-      // Default: the caller was marked present — tests about the
-      // present-only rule itself override this.
+      // Default: the caller was marked present and convoked — tests about
+      // the present/convoked-only rule itself override these.
       prisma.eventRsvp.findUnique.mockResolvedValue({ status: 'GOING' });
+      prisma.eventConvocation.findUnique.mockResolvedValue({ convokedAt: new Date() });
     });
 
     it('throws BadRequestException on a TRAINING event', async () => {
@@ -1823,6 +1824,16 @@ describe('EventsService', () => {
     it('throws ForbiddenException when the caller never RSVPed at all', async () => {
       mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
       prisma.eventRsvp.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventVote.upsert).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller was present but never convoked for this match', async () => {
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1', 'tp-2'] });
+      prisma.eventConvocation.findUnique.mockResolvedValue(null);
 
       await expect(
         service.castVote('club-1', 'team-1', 'event-1', 'user-1', 'BEST', 'tp-2'),
@@ -1905,11 +1916,14 @@ describe('EventsService', () => {
   });
 
   describe('getEventVoteResults', () => {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    // Within the vote window (not yet ended) unless a test specifically
+    // wants the "vote has ended, results are public" behavior.
     const matchEvent = {
       id: 'event-1',
       teamId: 'team-1',
       type: 'MATCH',
-      startsAt: new Date('2020-01-05T18:00:00.000Z'),
+      startsAt: new Date(Date.now() - 2 * DAY_MS),
       location: 'Gymnase A',
       notes: null,
       opponentName: 'ES Rezé',
@@ -1921,6 +1935,7 @@ describe('EventsService', () => {
       timeConfirmed: true,
       createdAt: new Date('2020-01-01'),
     };
+    const endedMatchEvent = { ...matchEvent, startsAt: new Date(Date.now() - 6 * DAY_MS) };
 
     beforeEach(() => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
@@ -2022,6 +2037,26 @@ describe('EventsService', () => {
       const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
 
       expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
+    });
+
+    it('makes results public to everyone once the vote window has ended, even for a caller who never voted', async () => {
+      // Default beforeEach: teamPlayer.findFirst resolves null — the caller
+      // has no roster row at all and never voted, yet still sees results
+      // because the window is over.
+      prisma.event.findUnique.mockResolvedValue(endedMatchEvent);
+      prisma.eventVote.findMany.mockResolvedValue(fourVoteFixture);
+      prisma.teamPlayer.count.mockResolvedValue(6);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best).toEqual([
+        { teamPlayerId: 'tp-2', firstName: 'Léa', lastName: 'Martin', voteCount: 2 },
+        { teamPlayerId: 'tp-5', firstName: 'Chloé', lastName: 'Dubois', voteCount: 1 },
+      ]);
+      expect(result.worst).toEqual([
+        { teamPlayerId: 'tp-6', firstName: 'Nina', lastName: 'Perrin', voteCount: 1 },
+      ]);
+      expect(result.myVote).toEqual({ best: null, worst: null });
     });
   });
 });
