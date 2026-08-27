@@ -39,7 +39,11 @@ export function MatchWinnersRow({
   const worstPct = worstWinner ? Math.round((worstWinner.voteCount / denominator) * 100) : null;
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5 text-sm">
+    // Stacks to two lines below `sm` — a single row at phone width squeezed
+    // both names down to bare initials (space-between + min-w-0/truncate on
+    // both halves competing for the same line), unreadable. From `sm` up
+    // there's room for the mockup's actual space-between single row.
+    <div className="flex flex-col gap-1.5 border-t border-border pt-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="flex min-w-0 items-center gap-1.5">
         <TrophyIcon className="h-4 w-4 shrink-0 text-gold" />
         <span className="truncate font-bold text-charcoal">
@@ -48,7 +52,7 @@ export function MatchWinnersRow({
         <span className="tabular shrink-0 font-bold text-gold-text">- {bestPct}%</span>
       </span>
       {worstWinner && (
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5 sm:justify-end">
           <span className="tabular shrink-0 font-bold text-blue-green-2">{worstPct}% -</span>
           <span className="truncate font-bold text-charcoal">
             {worstWinner.firstName} {worstWinner.lastName}
