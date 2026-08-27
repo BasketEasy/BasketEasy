@@ -13,8 +13,10 @@ import { MatchVoteTab } from './MatchVoteTab';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Within the vote window (opens startsAt+1h, closes startsAt+5d) and the
-// caller marked present — the baseline fixture most tests build on.
+// Within the vote window (opens startsAt+1h, closes startsAt+5d). Eligibility
+// (convoked + present) is enforced upstream by EventDetailPage's tab
+// visibility, not by MatchVoteTab itself, so these fixtures don't need to
+// vary myConvocation/myRsvpStatus.
 const openMatchEvent: TeamEvent = {
   id: 'event-1',
   teamId: 'team-1',
@@ -29,7 +31,7 @@ const openMatchEvent: TeamEvent = {
   myRsvpStatus: 'GOING',
   isImported: false,
   timeConfirmed: true,
-  myConvocation: false,
+  myConvocation: true,
   logistics: { jerseys: null, balls: null },
 };
 
@@ -96,19 +98,13 @@ function mockData(results: EventVoteResults = emptyResults) {
 }
 
 describe('MatchVoteTab', () => {
-  it('gates the ballot behind the vote window before it opens (1h after kickoff), without fetching anything', async () => {
+  it('gates behind the vote window before it opens (1h after kickoff), without fetching anything', async () => {
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={futureMatchEvent} />);
 
     expect(await screen.findByText('Le vote ouvrira après le match')).toBeInTheDocument();
   });
 
-  it('shows a distinct message once the vote window has closed (5 days after kickoff)', async () => {
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={closedMatchEvent} />);
-
-    expect(await screen.findByText('Le vote est terminé')).toBeInTheDocument();
-  });
-
-  it('shows an error state with retry when either fetch fails', async () => {
+  it('shows an error state with retry when either fetch fails while voting is live', async () => {
     server.use(
       http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
         HttpResponse.json({ message: 'error' }, { status: 500 }),
@@ -132,24 +128,6 @@ describe('MatchVoteTab', () => {
     expect(screen.queryByText('Lea Bernard')).not.toBeInTheDocument();
     expect(screen.getAllByText('Nathan Hubert').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Ines Petit').length).toBeGreaterThan(0);
-  });
-
-  it('replaces the ballot with an explanation, and withholds results, for a viewer not marked present', async () => {
-    mockData();
-    const notPresentEvent: TeamEvent = { ...openMatchEvent, myRsvpStatus: 'NOT_GOING' };
-
-    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={notPresentEvent} />);
-
-    await screen.findByText('Bulletin de vote');
-    expect(screen.queryByRole('button', { name: /envoyer mon vote/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('Nathan Hubert')).not.toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Seul·e·s les joueur·euse·s marqué·e·s présent·e·s peuvent voter/i)
-        .length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/Seul·e·s les joueur·euse·s présent·e·s au match peuvent voter/i).length,
-    ).toBe(2);
   });
 
   it('disables submit until a BEST candidate is selected, and casts BEST then WORST on submit', async () => {
@@ -233,5 +211,38 @@ describe('MatchVoteTab', () => {
     expect(screen.getByText('Joueur en difficulté — agrégé')).toBeInTheDocument();
     expect(screen.getByText('3 votes exprimés · réponse optionnelle')).toBeInTheDocument();
     expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
+  });
+
+  it('shows results only (no ballot, ungated) once the vote window has closed, even for a caller who never voted', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
+        HttpResponse.json({
+          best: [{ teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 }],
+          worst: [],
+          totalVoters: 3,
+          votesCast: 2,
+          myVote: { best: null, worst: null },
+        }),
+      ),
+    );
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={closedMatchEvent} />);
+
+    expect(await screen.findByText('Nathan Hubert')).toBeInTheDocument();
+    expect(screen.queryByText('Bulletin de vote')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /envoyer mon vote/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
+  });
+
+  it('shows an error state with retry when the results fetch fails once closed', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
+        HttpResponse.json({ message: 'error' }, { status: 500 }),
+      ),
+    );
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={closedMatchEvent} />);
+
+    expect(await screen.findByRole('button', { name: /réessayer/i })).toBeInTheDocument();
   });
 });

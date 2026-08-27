@@ -21,6 +21,7 @@ import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { EventRosterTab } from '../clubs/EventRosterTab';
 import { MatchVoteTab } from '../clubs/MatchVoteTab';
+import { hasVoteWindowClosed } from '../clubs/voteWindow';
 import { teamAvatarInitials } from '../clubs/eventDetailLabels';
 import { useEventShow } from '../clubs/useEventShow';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
@@ -116,6 +117,16 @@ export function EventDetailPage() {
   }
 
   const isMatch = event.type === 'MATCH';
+  // The Vote tab itself — not just the ballot inside it — is hidden unless
+  // the viewer can actually vote right now (called up AND marked present)
+  // or the vote has already closed, at which point results go public to
+  // the whole team. A rostered-but-not-called-up (or called-up-but-absent)
+  // viewer never sees an unusable ballot while voting is still live.
+  const canVoteNow = event.myConvocation && event.myRsvpStatus === 'GOING';
+  const showVoteTab = isMatch && (canVoteNow || hasVoteWindowClosed(event.startsAt));
+  // Falls back to Aperçu if the URL still points at ?tab=vote from before
+  // the tab became eligible-only (or the viewer's own eligibility changed).
+  const resolvedActiveTab = activeTab === 'vote' && !showVoteTab ? 'apercu' : activeTab;
 
   return (
     <PageContainer size="lg">
@@ -242,7 +253,7 @@ export function EventDetailPage() {
       </div>
 
       <Tabs
-        value={activeTab}
+        value={resolvedActiveTab}
         onValueChange={(value) =>
           setSearchParams(
             (previous) => {
@@ -257,7 +268,7 @@ export function EventDetailPage() {
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
           <TabsTrigger value="effectif">Effectif</TabsTrigger>
-          {isMatch && <TabsTrigger value="vote">Vote</TabsTrigger>}
+          {showVoteTab && <TabsTrigger value="vote">Vote</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="apercu" className="mt-4 flex flex-col gap-6">
@@ -370,7 +381,7 @@ export function EventDetailPage() {
           />
         </TabsContent>
 
-        {isMatch && (
+        {showVoteTab && (
           <TabsContent value="vote" className="mt-4">
             <MatchVoteTab clubId={clubId!} teamId={teamId!} event={event} />
           </TabsContent>

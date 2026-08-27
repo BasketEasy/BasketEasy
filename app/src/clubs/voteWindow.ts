@@ -15,7 +15,7 @@ export function voteWindowOpensAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_OPEN_DELAY_HOURS * HOUR_MS);
 }
 
-function voteWindowClosesAt(startsAtIso: string): Date {
+export function voteWindowClosesAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_CLOSE_DELAY_DAYS * DAY_MS);
 }
 
@@ -23,6 +23,15 @@ function voteWindowClosesAt(startsAtIso: string): Date {
 export function isVoteWindowOpen(startsAtIso: string): boolean {
   const now = new Date();
   return now >= voteWindowOpensAt(startsAtIso) && now <= voteWindowClosesAt(startsAtIso);
+}
+
+/**
+ * Whether the vote window has ended — the point at which results become
+ * public to everyone (not just voters) and the Vote tab becomes visible to
+ * the whole team, per EventsService.getEventVoteResults/EventDetailPage.
+ */
+export function hasVoteWindowClosed(startsAtIso: string): boolean {
+  return new Date() > voteWindowClosesAt(startsAtIso);
 }
 
 const voteWindowEndFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });

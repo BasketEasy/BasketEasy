@@ -13,11 +13,12 @@ import { toast } from '@basketeasy/ui/toast-store';
 import type {
   EventVoteCandidateResult,
   EventVoteCategory,
+  EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { getInitials } from './getInitials';
-import { formatVoteWindowEnd, isVoteWindowOpen, voteWindowOpensAt } from './voteWindow';
+import { formatVoteWindowEnd, hasVoteWindowClosed, voteWindowOpensAt } from './voteWindow';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventVoteCast } from './useEventVoteCast';
 import { useEventVoteResults } from './useEventVoteResults';
@@ -202,12 +203,107 @@ function WorstResultRow({
 }
 
 /**
+ * Both categories' results card — extracted so it can render two ways: gated
+ * behind a "vote to see results" message while voting is still live (the
+ * common case, shown only to eligible voters — see EventDetailPage's
+ * showVoteTab), or fully open once the vote window has closed, when results
+ * go public to everyone (`gateMessage: null`).
+ */
+function MatchVoteResultsCard({
+  results,
+  gateMessage,
+}: {
+  results: EventVoteResults;
+  gateMessage: string | null;
+}) {
+  // Bar width denominator for both leaderboards: the distinct voter count,
+  // not the leading candidate's own tally — a share-of-votes-cast bar, not a
+  // relative-to-leader one (Vote.dc.html's 5/3/2-vote sample against "6
+  // votes exprimés" works out to 83%/50%/33%, confirming the denominator).
+  const voteDenominator = results.votesCast > 0 ? results.votesCast : 1;
+
+  return (
+    <Card className="flex flex-col gap-4 p-5 shadow-md">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-semibold text-muted">
+          Résultats — visibles par toute l&apos;équipe
+        </span>
+        <div className="flex items-center gap-2">
+          <TrophyIcon className="h-5 w-5 text-gold" />
+          <h3 className="font-heading text-lg font-extrabold">Meilleur joueur</h3>
+        </div>
+      </div>
+
+      {gateMessage ? (
+        <span className="text-sm text-muted">{gateMessage}</span>
+      ) : results.best.length === 0 ? (
+        <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {results.best.map((result, index) => (
+            <BestResultRow
+              key={result.teamPlayerId}
+              result={result}
+              rank={index + 1}
+              widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
+            />
+          ))}
+        </div>
+      )}
+      <span className="text-xs text-muted">
+        {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
+        {results.votesCast > 1 ? 's' : ''} sur {results.totalVoters}
+      </span>
+
+      <div className="h-px bg-border" />
+
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center gap-2">
+          <WorstIcon size={16} className="text-blue-green-2" />
+          <h3 className="text-base font-extrabold">Joueur en difficulté — agrégé</h3>
+        </div>
+        {gateMessage ? (
+          <span className="text-sm text-muted">{gateMessage}</span>
+        ) : results.worst.length === 0 ? (
+          <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {results.worst.map((result, index) => (
+              <WorstResultRow
+                key={result.teamPlayerId}
+                result={result}
+                index={index}
+                widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
+              />
+            ))}
+          </div>
+        )}
+        <span className="text-xs text-muted">
+          {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
+          {results.votesCast > 1 ? 's' : ''} · réponse optionnelle
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+/**
  * Match detail page's Vote tab (`Vote.dc.html`) — a ballot (own vote, one
- * selection per category, WORST optional) alongside the merged public
- * results card, both categories visible to the whole team per the match
- * interface spec's Voting visibility section. No new roster endpoint: reuses
- * useEventConvocations for the candidate list (teamPlayerId/firstName/
- * lastName/isMe), same as EventLogisticsSection.
+ * selection per category, WORST optional) alongside the results card, per
+ * the match interface spec's Voting visibility section. No new roster
+ * endpoint: reuses useEventConvocations for the candidate list
+ * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsSection.
+ *
+ * Three states, keyed off the vote window (opens 1h after kickoff, closes
+ * 5 days after — see voteWindow.ts):
+ * - **Not yet open**: this component only mounts here if the viewer can
+ *   vote (EventDetailPage's showVoteTab already filtered for
+ *   convoked+present, or the window has closed) — so reaching this state
+ *   means the viewer is eligible and just has to wait.
+ * - **Open**: ballot + results gated behind "vote to see results" — also
+ *   only reachable by an eligible voter, same reasoning.
+ * - **Closed**: results only, ungated, no ballot — the Vote tab is visible
+ *   to the whole team at this point (EventDetailPage), not just voters.
  */
 export function MatchVoteTab({
   clubId,
@@ -225,26 +321,24 @@ export function MatchVoteTab({
   // selection would silently get overwritten, same fix already applied to
   // EventConvocationModal's seeding.
   const hasSeededRef = useRef(false);
-  // The ballot/results are gated behind the vote window (below) — computed
-  // up front so the two queries can skip fetching entirely before the
-  // window has opened, rather than firing and discarding the response.
-  // Mirrors EventsService.castVote's window exactly (opens 1h after
-  // kickoff, closes 5 days after) — this is a hard server-side rule now,
-  // not just a display label.
-  const windowOpen = isVoteWindowOpen(event.startsAt);
+  const hasOpened = new Date() >= voteWindowOpensAt(event.startsAt);
+  const hasClosed = hasVoteWindowClosed(event.startsAt);
+  const isVotingLive = hasOpened && !hasClosed;
 
+  // Candidates are only needed while the ballot itself is actionable;
+  // results are needed both while voting (gated) and once closed (public).
   const {
     data: roster,
     isLoading: isLoadingRoster,
     isError: isRosterError,
     refetch: refetchRoster,
-  } = useEventConvocations(clubId, teamId, event.id, windowOpen);
+  } = useEventConvocations(clubId, teamId, event.id, isVotingLive);
   const {
     data: results,
     isLoading: isLoadingResults,
     isError: isResultsError,
     refetch: refetchResults,
-  } = useEventVoteResults(clubId, teamId, event.id, windowOpen);
+  } = useEventVoteResults(clubId, teamId, event.id, hasOpened);
   const { mutateAsync: castVote, isPending } = useEventVoteCast(clubId, teamId);
 
   useEffect(() => {
@@ -255,18 +349,27 @@ export function MatchVoteTab({
     }
   }, [results]);
 
-  if (!windowOpen) {
-    const hasNotOpenedYet = new Date() < voteWindowOpensAt(event.startsAt);
+  if (!hasOpened) {
     return (
       <EmptyState
         icon={<TrophyIcon className="h-8 w-8 text-muted" />}
-        title={hasNotOpenedYet ? 'Le vote ouvrira après le match' : 'Le vote est terminé'}
-        description={
-          hasNotOpenedYet
-            ? 'Le bulletin de vote ouvre 1h après le début de la rencontre.'
-            : 'Le bulletin de vote pour ce match a fermé 5 jours après la rencontre.'
-        }
+        title="Le vote ouvrira après le match"
+        description="Le bulletin de vote ouvre 1h après le début de la rencontre."
       />
+    );
+  }
+
+  if (hasClosed) {
+    if (isResultsError) {
+      return <QueryError onRetry={() => refetchResults()} />;
+    }
+    if (isLoadingResults || !results) {
+      return <SkeletonList rows={4} variant="card" />;
+    }
+    return (
+      <div className="max-w-xl">
+        <MatchVoteResultsCard results={results} gateMessage={null} />
+      </div>
     );
   }
 
@@ -311,27 +414,7 @@ export function MatchVoteTab({
     }
   };
 
-  // Voting is present-only: EventsService.castVote 403s anyone whose RSVP
-  // for this event isn't GOING, so the ballot is replaced by an explanation
-  // rather than letting a non-present viewer fill it in only to have the
-  // submit fail. myRsvpStatus already lives on the fetched TeamEvent, no new
-  // fetch needed.
-  const isPresent = event.myRsvpStatus === 'GOING';
   const hasVoted = results.myVote.best !== null;
-  // Server withholds best/worst until the caller has cast their own BEST
-  // vote ("vote to see results" — see EventsService.buildVoteResults), so
-  // an empty array here can mean three different things; this message picks
-  // the right one rather than always reading as "no votes yet".
-  const resultsGateMessage = !isPresent
-    ? 'Seul·e·s les joueur·euse·s présent·e·s au match peuvent voter et voir les résultats.'
-    : !hasVoted
-      ? 'Votez pour voir les résultats.'
-      : null;
-  // Bar width denominator for both leaderboards: the distinct voter count,
-  // not the leading candidate's own tally — a share-of-votes-cast bar, not a
-  // relative-to-leader one (Vote.dc.html's 5/3/2-vote sample against "6
-  // votes exprimés" works out to 83%/50%/33%, confirming the denominator).
-  const voteDenominator = results.votesCast > 0 ? results.votesCast : 1;
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
@@ -346,106 +429,40 @@ export function MatchVoteTab({
           </span>
         </div>
 
-        {isPresent ? (
-          <>
-            <BallotSection
-              title="Meilleur joueur du match"
-              candidates={candidates}
-              selected={selectedBest}
-              category="BEST"
-              onSelect={setSelectedBest}
-            />
-
-            <div className="h-px bg-border" />
-
-            <BallotSection
-              title="Joueur en difficulté ce match"
-              helperText="Optionnel. Vote anonyme — le classement agrégé est visible par toute l'équipe."
-              candidates={candidates}
-              selected={selectedWorst}
-              category="WORST"
-              onSelect={(id) => setSelectedWorst((current) => (current === id ? null : id))}
-            />
-
-            <Button disabled={!selectedBest} loading={isPending} onClick={handleSubmit}>
-              Envoyer mon vote
-            </Button>
-            {hasVoted && (
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-success">
-                <Check className="h-3 w-3 shrink-0" />
-                Vote envoyé — merci !
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-sm text-muted">
-            Seul·e·s les joueur·euse·s marqué·e·s présent·e·s peuvent voter. Indiquez votre présence
-            dans l&apos;onglet Aperçu pour débloquer le bulletin.
-          </span>
-        )}
-      </Card>
-
-      <Card className="flex flex-col gap-4 p-5 shadow-md">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-semibold text-muted">
-            Résultats — visibles par toute l&apos;équipe
-          </span>
-          <div className="flex items-center gap-2">
-            <TrophyIcon className="h-5 w-5 text-gold" />
-            <h3 className="font-heading text-lg font-extrabold">Meilleur joueur</h3>
-          </div>
-        </div>
-
-        {resultsGateMessage ? (
-          <span className="text-sm text-muted">{resultsGateMessage}</span>
-        ) : results.best.length === 0 ? (
-          <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {results.best.map((result, index) => (
-              <BestResultRow
-                key={result.teamPlayerId}
-                result={result}
-                rank={index + 1}
-                widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
-              />
-            ))}
-          </div>
-        )}
-        <span className="text-xs text-muted">
-          {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
-          {results.votesCast > 1 ? 's' : ''} sur {results.totalVoters}
-        </span>
+        <BallotSection
+          title="Meilleur joueur du match"
+          candidates={candidates}
+          selected={selectedBest}
+          category="BEST"
+          onSelect={setSelectedBest}
+        />
 
         <div className="h-px bg-border" />
 
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <WorstIcon size={16} className="text-blue-green-2" />
-            <h3 className="text-base font-extrabold">Joueur en difficulté — agrégé</h3>
-          </div>
-          {resultsGateMessage ? (
-            <span className="text-sm text-muted">{resultsGateMessage}</span>
-          ) : results.worst.length === 0 ? (
-            <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {results.worst.map((result, index) => (
-                <WorstResultRow
-                  key={result.teamPlayerId}
-                  result={result}
-                  index={index}
-                  widthPct={Math.round((result.voteCount / voteDenominator) * 100)}
-                />
-              ))}
-            </div>
-          )}
-          <span className="text-xs text-muted">
-            {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
-            {results.votesCast > 1 ? 's' : ''} · réponse optionnelle
+        <BallotSection
+          title="Joueur en difficulté ce match"
+          helperText="Optionnel. Vote anonyme — le classement agrégé est visible par toute l'équipe."
+          candidates={candidates}
+          selected={selectedWorst}
+          category="WORST"
+          onSelect={(id) => setSelectedWorst((current) => (current === id ? null : id))}
+        />
+
+        <Button disabled={!selectedBest} loading={isPending} onClick={handleSubmit}>
+          Envoyer mon vote
+        </Button>
+        {hasVoted && (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-success">
+            <Check className="h-3 w-3 shrink-0" />
+            Vote envoyé — merci !
           </span>
-        </div>
+        )}
       </Card>
+
+      <MatchVoteResultsCard
+        results={results}
+        gateMessage={hasVoted ? null : 'Votez pour voir les résultats.'}
+      />
     </div>
   );
 }
