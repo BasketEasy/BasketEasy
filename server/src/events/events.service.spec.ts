@@ -141,6 +141,7 @@ describe('EventsService', () => {
           location: 'Lieu non communiqué',
           notes: null,
           opponentName: 'Nantes Sully Basket',
+          venue: 'AWAY',
           recurrenceId: null,
           externalId: 'ffbb-match-1',
           timeConfirmed: false,
@@ -153,6 +154,7 @@ describe('EventsService', () => {
 
       expect(result.items[0].isImported).toBe(true);
       expect(result.items[0].timeConfirmed).toBe(false);
+      expect(result.items[0].venue).toBe('AWAY');
     });
 
     it('resolves the caller RSVP status and convocation flag in a bounded number of queries, regardless of page size', async () => {
@@ -338,6 +340,7 @@ describe('EventsService', () => {
           location: 'Gymnase A',
           notes: null,
           opponentName: null,
+          venue: null,
           recurrenceId: null,
         },
       });
@@ -356,6 +359,7 @@ describe('EventsService', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: 'US Saint-Nazaire',
+        venue: 'HOME',
         recurrenceId: null,
         createdAt: new Date('2026-01-01'),
       });
@@ -368,6 +372,7 @@ describe('EventsService', () => {
           startsAt: '2026-01-05T18:00:00.000Z',
           location: 'Gymnase A',
           opponentName: 'US Saint-Nazaire',
+          venue: 'HOME',
         },
         'user-1',
       );
@@ -376,6 +381,90 @@ describe('EventsService', () => {
         data: expect.objectContaining({ opponentName: 'US Saint-Nazaire' }),
       });
       expect(result[0].opponentName).toBe('US Saint-Nazaire');
+    });
+
+    it('throws BadRequestException for a MATCH with an opponentName but no venue', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+
+      await expect(
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'MATCH',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: 'Gymnase A',
+            opponentName: 'US Saint-Nazaire',
+          },
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a MATCH event with the given venue and forces venue null for a TRAINING event', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: 'US Saint-Nazaire',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'MATCH',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+          opponentName: 'US Saint-Nazaire',
+          venue: 'AWAY',
+        },
+        'user-1',
+      );
+
+      expect(prisma.event.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ venue: 'AWAY' }),
+      });
+      expect(result[0].venue).toBe('AWAY');
+    });
+
+    it('forces venue null when creating a TRAINING event even if one is given', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+        },
+        'user-1',
+      );
+
+      expect(prisma.event.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ venue: null }),
+      });
     });
 
     it('creates one event per week through the recurrence end date, inclusive, sharing one recurrenceId', async () => {
@@ -460,6 +549,7 @@ describe('EventsService', () => {
         type: 'TRAINING',
         startsAt: new Date('2026-01-05T18:00:00.000Z'),
         opponentName: null,
+        venue: null,
         recurrenceId: null,
       });
       prisma.event.update.mockResolvedValue({
@@ -470,6 +560,7 @@ describe('EventsService', () => {
         location: 'Gymnase B',
         notes: null,
         opponentName: null,
+        venue: null,
         recurrenceId: null,
         createdAt: new Date('2026-01-01'),
       });
@@ -570,6 +661,7 @@ describe('EventsService', () => {
         type: 'MATCH',
         startsAt: new Date('2026-01-05T18:00:00.000Z'),
         opponentName: 'US Saint-Nazaire',
+        venue: 'HOME',
         recurrenceId: null,
       });
       prisma.event.update.mockResolvedValue({
@@ -580,6 +672,7 @@ describe('EventsService', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: null,
+        venue: null,
         recurrenceId: null,
         createdAt: new Date('2026-01-01'),
       });
@@ -588,8 +681,71 @@ describe('EventsService', () => {
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
-        data: { type: 'TRAINING', opponentName: null },
+        data: { type: 'TRAINING', opponentName: null, venue: null },
       });
+    });
+
+    it('throws BadRequestException switching to MATCH with an opponentName but no venue', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+      });
+
+      await expect(
+        service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { type: 'MATCH', opponentName: 'US Saint-Nazaire' },
+          'user-1',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('updates venue on a MATCH event', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        opponentName: 'US Saint-Nazaire',
+        venue: 'HOME',
+        recurrenceId: null,
+      });
+      prisma.event.update.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: 'US Saint-Nazaire',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { venue: 'AWAY' },
+        'user-1',
+      );
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { venue: 'AWAY' },
+      });
+      expect(result[0].venue).toBe('AWAY');
     });
 
     it('scope THIS_AND_FUTURE updates this event and later same-series occurrences only', async () => {

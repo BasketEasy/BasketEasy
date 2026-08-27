@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventRsvpStatus, EventType, Prisma } from '@prisma/client';
+import { EventRsvpStatus, EventType, EventVenue, Prisma } from '@prisma/client';
 import type {
   EventConvocationRosterEntry,
   EventRecurrenceRequest,
@@ -31,6 +31,7 @@ type EventRow = {
   location: string;
   notes: string | null;
   opponentName: string | null;
+  venue: EventVenue | null;
   recurrenceId: string | null;
   externalId: string | null;
   timeConfirmed: boolean;
@@ -100,6 +101,7 @@ export class EventsService {
       location: string;
       notes?: string;
       opponentName?: string;
+      venue?: EventVenue;
       recurrence?: EventRecurrenceRequest;
     },
     userId: string,
@@ -108,6 +110,9 @@ export class EventsService {
     if (data.type === EventType.MATCH && !data.opponentName) {
       throw new BadRequestException("Le nom de l'adversaire est requis pour un match");
     }
+    if (data.type === EventType.MATCH && !data.venue) {
+      throw new BadRequestException('Le domicile/extérieur est requis pour un match');
+    }
 
     const occurrences = this.buildOccurrences(data.startsAt, data.recurrence);
     // One recurrenceId is shared by every row in this batch — only when the
@@ -115,6 +120,7 @@ export class EventsService {
     // un-grouped, same as before this feature existed.
     const recurrenceId = data.recurrence ? randomUUID() : null;
     const opponentName = data.type === EventType.MATCH ? (data.opponentName ?? null) : null;
+    const venue = data.type === EventType.MATCH ? (data.venue ?? null) : null;
 
     const events = await this.prisma.$transaction(
       occurrences.map((startsAt) =>
@@ -126,6 +132,7 @@ export class EventsService {
             location: data.location,
             notes: data.notes ?? null,
             opponentName,
+            venue,
             recurrenceId,
           },
         }),
@@ -180,6 +187,7 @@ export class EventsService {
       location?: string;
       notes?: string;
       opponentName?: string;
+      venue?: EventVenue;
       scope?: EventUpdateScope;
     },
     userId: string,
@@ -200,6 +208,10 @@ export class EventsService {
     if (resultingType === EventType.MATCH && !resultingOpponent) {
       throw new BadRequestException("Le nom de l'adversaire est requis pour un match");
     }
+    const resultingVenue = data.venue !== undefined ? data.venue : event.venue;
+    if (resultingType === EventType.MATCH && !resultingVenue) {
+      throw new BadRequestException('Le domicile/extérieur est requis pour un match');
+    }
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
@@ -216,6 +228,12 @@ export class EventsService {
         ? { opponentName: null }
         : resultingType === EventType.MATCH && data.opponentName !== undefined
           ? { opponentName: data.opponentName }
+          : {}),
+      // Same rule as opponentName above, applied to venue.
+      ...(resultingType === EventType.TRAINING && event.venue !== null
+        ? { venue: null }
+        : resultingType === EventType.MATCH && data.venue !== undefined
+          ? { venue: data.venue }
           : {}),
     };
 
@@ -547,6 +565,7 @@ export class EventsService {
       location: event.location,
       notes: event.notes,
       opponentName: event.opponentName,
+      venue: event.venue,
       recurrenceId: event.recurrenceId,
       createdAt: event.createdAt.toISOString(),
       isImported: event.externalId !== null,
