@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; background: #EFE4D4; font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif; color: #23201C; }
+h1, h2, h3 { line-height: 0.94; margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; }
+a { color: #1E5F74; text-decoration: none; }
+a:hover { color: #16495B; text-decoration: underline; }
+</style>
+</helmet>
+
+<div style="width:1240px; min-height:980px; background:#EFE4D4; padding:28px 0 56px 0;">
+  <div style="max-width:960px; margin:0 auto; padding:0 32px; display:flex; flex-direction:column; gap:22px;">
+
+    <!-- Condensed context strip -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <a href="#" style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#1E5F74; width:fit-content;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+        AS Basket Nantes vs ES Rezé &middot; sam. 30 août, 18h00 &middot; Domicile
+      </a>
+      <div style="display:inline-flex; align-items:center; height:40px; border-radius:6px; background:rgba(231,222,207,0.4); padding:4px; width:fit-content; gap:2px;">
+        <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Aperçu</span>
+        <span style="height:32px; padding:0 16px; display:flex; align-items:center; border-radius:4px; background:#FFFCF7; color:#AA4F22; font-weight:600; font-size:14px; box-shadow:0 1px 2px rgba(59,42,24,0.07);">Effectif</span>
+        <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Vote</span>
+        <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Feuille de match</span>
+      </div>
+    </div>
+
+    <!-- Summary meters + manager action -->
+    <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:13px; font-weight:600; color:#5B564F;">Convoqués</span>
+        <div style="width:96px; height:6px; border-radius:9999px; background:#E9DDCA; overflow:hidden;"><div style="width:75%; height:100%; border-radius:9999px; background:#D4622A;"></div></div>
+        <span style="font-size:13px; font-weight:700; color:#5B564F; font-variant-numeric:tabular-nums;">6/8</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:13px; font-weight:600; color:#5B564F;">Présences confirmées</span>
+        <div style="width:96px; height:6px; border-radius:9999px; background:#E9DDCA; overflow:hidden;"><div style="width:63%; height:100%; border-radius:9999px; background:#2F7D5C;"></div></div>
+        <span style="font-size:13px; font-weight:700; color:#5B564F; font-variant-numeric:tabular-nums;">5/8</span>
+      </div>
+      <button style="margin-left:auto; height:40px; padding:0 18px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:14px; font-weight:600;">Gérer la convocation</button>
+    </div>
+
+    <!-- Roster table -->
+    <div style="border-radius:8px; border:1px solid #E7DECF; background:#FFFCF7; overflow:hidden; box-shadow:0 1px 2px rgba(59,42,24,0.07);">
+      <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <thead>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <th style="text-align:left; padding:10px 16px; color:#5B564F; font-weight:600; font-size:13px;">Joueur</th>
+            <th style="text-align:left; padding:10px 16px; color:#5B564F; font-weight:600; font-size:13px;">Rôle</th>
+            <th style="text-align:left; padding:10px 16px; color:#5B564F; font-weight:600; font-size:13px;">Convocation</th>
+            <th style="text-align:left; padding:10px 16px; color:#5B564F; font-weight:600; font-size:13px;">Présence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">LM</span><span style="font-weight:600;">Léa Martin</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#2F7D5C;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Présent</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">CD</span><span style="font-weight:600;">Chloé Dubois</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#2F7D5C;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Présent</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">SF</span><span style="font-weight:600;">Sarah Fabre</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#1E5F74;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Incertain</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">NP</span><span style="font-weight:600;">Nina Perrin</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#B23A2E;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Absent</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">CR</span><span style="font-weight:600;">Camille Roy</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#5B564F;"><span style="width:8px; height:8px; border-radius:9999px; border:1px solid currentColor;"></span>Non convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#5B564F;"><span style="width:8px; height:8px; border-radius:9999px; border:1px solid currentColor;"></span>En attente</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">MG</span><span style="font-weight:600;">Manon Girard</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#2F7D5C;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Présent</span></td>
+          </tr>
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">JB</span><span style="font-weight:600;">Julie Blanc</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Joueuse</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#5B564F;"><span style="width:8px; height:8px; border-radius:9999px; border:1px solid currentColor;"></span>Non convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#2F7D5C;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Présent</span></td>
+          </tr>
+          <tr>
+            <td style="padding:10px 16px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#D4622A; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">IP</span><span style="font-weight:600;">Inès Petit</span></div></td>
+            <td style="padding:10px 16px; color:#5B564F;">Coach</td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#AA4F22;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Convoqué</span></td>
+            <td style="padding:10px 16px;"><span style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#2F7D5C;"><span style="width:8px; height:8px; border-radius:9999px; background:currentColor;"></span>Présent</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
