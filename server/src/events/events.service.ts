@@ -92,6 +92,27 @@ export class EventsService {
     };
   }
 
+  // Single-event fetch backing the match detail page — reuses
+  // assertEventInTeam's existing defense-in-depth check rather than a new
+  // lookup, same pattern every other single-event route in this service
+  // already follows.
+  async getEvent(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
+      eventId,
+    ]);
+    return this.toTeamEvent(
+      event,
+      rsvpStatuses.get(eventId) ?? null,
+      convokedEventIds.has(eventId),
+    );
+  }
+
   async createEvent(
     clubId: string,
     teamId: string,

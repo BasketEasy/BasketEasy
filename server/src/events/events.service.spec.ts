@@ -269,6 +269,43 @@ describe('EventsService', () => {
     });
   });
 
+  describe('getEvent', () => {
+    it('throws NotFoundException when the event does not belong to the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({ id: 'event-1', teamId: 'team-2' });
+
+      await expect(service.getEvent('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns the event with the caller RSVP status and convocation flag', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: 'US Saint-Nazaire',
+        venue: 'HOME',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      });
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+      prisma.eventConvocation.findMany.mockResolvedValue([{ eventId: 'event-1' }]);
+
+      const result = await service.getEvent('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.id).toBe('event-1');
+      expect(result.venue).toBe('HOME');
+      expect(result.myRsvpStatus).toBe('GOING');
+      expect(result.myConvocation).toBe(true);
+    });
+  });
+
   describe('createEvent', () => {
     it('throws NotFoundException when the team is not linked to the club', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue(null);
