@@ -21,11 +21,7 @@ import { useEventUpdate } from './useEventUpdate';
 import { useEventTimeUpdate } from './useEventTimeUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { toDatetimeLocalValue } from './eventDateFormat';
-import {
-  EVENT_TYPE_OPTIONS,
-  EVENT_UPDATE_SCOPE_OPTIONS,
-  EVENT_VENUE_OPTIONS,
-} from './eventLabels';
+import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
 
 const eventEditSchema = z
   .object({
