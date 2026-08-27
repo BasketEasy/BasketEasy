@@ -2039,6 +2039,29 @@ describe('EventsService', () => {
       expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
     });
 
+    it('breaks a vote-count tie alphabetically (lastName, then firstName) for a stable order', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-9',
+          votedFor: { player: { firstName: 'Nina', lastName: 'Zidane' } },
+        },
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-2',
+          votedTeamPlayerId: 'tp-8',
+          votedFor: { player: { firstName: 'Julie', lastName: 'Abal' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.best.map((r) => r.lastName)).toEqual(['Abal', 'Zidane']);
+    });
+
     it('makes results public to everyone once the vote window has ended, even for a caller who never voted', async () => {
       // Default beforeEach: teamPlayer.findFirst resolves null — the caller
       // has no roster row at all and never voted, yet still sees results

@@ -688,7 +688,20 @@ export class EventsService {
           });
         }
       }
-      return Array.from(counts.values()).sort((a, b) => b.voteCount - a.voteCount);
+      // Descending by voteCount; ties broken alphabetically (lastName, then
+      // firstName) so a real tie's *order* is at least deterministic and
+      // reproducible across requests — the incoming `votes` array carries no
+      // orderBy of its own, so without this a tie's order would depend on
+      // undocumented DB row order. This doesn't resolve who's "really"
+      // first (nothing can), it just keeps the tied group stable — the
+      // frontend (computeRanks/countTiedAtTop, app/src/clubs/voteTies.ts)
+      // is what actually displays the tie.
+      return Array.from(counts.values()).sort(
+        (a, b) =>
+          b.voteCount - a.voteCount ||
+          a.lastName.localeCompare(b.lastName, 'fr') ||
+          a.firstName.localeCompare(b.firstName, 'fr'),
+      );
     };
 
     const myVoteFor = (category: EventVoteCategory): string | null =>
