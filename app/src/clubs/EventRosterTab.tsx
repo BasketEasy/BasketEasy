@@ -126,7 +126,7 @@ function RosterPlayerIdentity({ row }: { row: MergedRosterRow }) {
   );
 }
 
-function MatchRosterCard({ row }: { row: MergedRosterRow }) {
+function EventRosterCard({ row }: { row: MergedRosterRow }) {
   return (
     <Card className="flex flex-col gap-2.5 bg-surface-2 p-3">
       <RosterPlayerIdentity row={row} />
@@ -149,14 +149,16 @@ function MatchRosterCard({ row }: { row: MergedRosterRow }) {
 
 /**
  * Merged Effectif tab — RSVP + convocation status for the whole roster in
- * one table/card list, per the Roster mockup. No new backend: both halves
- * are the existing per-event roster-breakdown queries
+ * one table/card list, per the Roster mockup. Shared by both event types
+ * (MATCH and TRAINING) via EventDetailPage; nothing here is match-specific
+ * — `eventId` is opaque to this component. No new backend: both halves are
+ * the existing per-event roster-breakdown queries
  * (useEventRsvps/useEventConvocations), merged client-side by
  * teamPlayerId — the summary meters are then derived from that merged data
  * rather than a separate aggregate endpoint, matching this module's
  * established no-backend-aggregate convention.
  */
-export function MatchRosterTab({
+export function EventRosterTab({
   clubId,
   teamId,
   eventId,
@@ -275,7 +277,7 @@ export function MatchRosterTab({
       ) : (
         <div className="flex flex-col gap-2.5">
           {rows.map((row) => (
-            <MatchRosterCard key={row.teamPlayerId} row={row} />
+            <EventRosterCard key={row.teamPlayerId} row={row} />
           ))}
         </div>
       )}

@@ -12,7 +12,7 @@ import { MembersPage } from './pages/MembersPage';
 import { PlayerImportPage } from './pages/PlayerImportPage';
 import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
-import { MatchDetailPage } from './pages/MatchDetailPage';
+import { EventDetailPage } from './pages/EventDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
 import { AboutPage } from './pages/AboutPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -39,7 +39,7 @@ export default function App() {
           <Route path="/clubs/:clubId/teams/:teamId" element={<TeamDetailPage />} />
           <Route
             path="/clubs/:clubId/teams/:teamId/events/:eventId"
-            element={<MatchDetailPage />}
+            element={<EventDetailPage />}
           />
           <Route path="/clubs/*" element={<NotFoundPage />} />
         </Route>

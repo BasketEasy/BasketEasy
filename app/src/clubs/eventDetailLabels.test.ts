@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { teamAvatarInitials } from './matchDetailLabels';
+import { teamAvatarInitials } from './eventDetailLabels';
 
 describe('teamAvatarInitials', () => {
   it('takes the first letter of the first two words', () => {

@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
-import { Link, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
+import { cn } from '@basketeasy/ui/cn';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
@@ -10,20 +11,23 @@ import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
-import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { formatEventDate, formatEventDateOnly, formatEventTime } from '../clubs/eventDateFormat';
+import { eventTypeLabel } from '../clubs/eventLabels';
 import { EventVenueBadge } from '../clubs/EventVenueBadge';
+import { EventEditModal } from '../clubs/EventEditModal';
+import { EventDeleteModal } from '../clubs/EventDeleteModal';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
-import { MatchRosterTab } from '../clubs/MatchRosterTab';
-import { teamAvatarInitials } from '../clubs/matchDetailLabels';
+import { EventRosterTab } from '../clubs/EventRosterTab';
+import { teamAvatarInitials } from '../clubs/eventDetailLabels';
 import { useEventShow } from '../clubs/useEventShow';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
 
-type MatchDetailTab = 'apercu' | 'effectif';
+type EventDetailTab = 'apercu' | 'effectif';
 
-function isMatchDetailTab(value: string | null): value is MatchDetailTab {
+function isEventDetailTab(value: string | null): value is EventDetailTab {
   return value === 'apercu' || value === 'effectif';
 }
 
@@ -39,7 +43,17 @@ function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; valu
   );
 }
 
-export function MatchDetailPage() {
+/**
+ * Shared detail page for both event types (MATCH and TRAINING) — a
+ * generalization of what was originally a MATCH-only page. TRAINING has no
+ * other dedicated surface, so the agenda card no longer needs to carry full
+ * detail (notes, RSVP/convocation breakdowns) for it either; this page and
+ * the Effectif tab (`EventRosterTab`) are now that surface for both types.
+ * The MATCH-specific bits (opponent, venue, the vs-team hero row) are gated
+ * on `isMatch`; everything else — time/location, RSVP, manager actions, the
+ * merged roster tab — applies identically to both.
+ */
+export function EventDetailPage() {
   const { clubId, teamId, eventId } = useParams<{
     clubId: string;
     teamId: string;
@@ -47,7 +61,8 @@ export function MatchDetailPage() {
   }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const activeTab: MatchDetailTab = isMatchDetailTab(requestedTab) ? requestedTab : 'apercu';
+  const activeTab: EventDetailTab = isEventDetailTab(requestedTab) ? requestedTab : 'apercu';
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const {
     data: event,
@@ -85,9 +100,9 @@ export function MatchDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
-          title="Match introuvable"
-          description="Ce match n’existe plus ou a été supprimé."
+          icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+          title="Événement introuvable"
+          description="Cet événement n’existe plus ou a été supprimé."
           action={
             <Button asChild>
               <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`}>{team?.name}</Link>
@@ -98,11 +113,7 @@ export function MatchDetailPage() {
     );
   }
 
-  // This page only exists for MATCH events — a TRAINING id lands back on the
-  // team's Événements tab rather than rendering an empty/broken shell.
-  if (event.type !== 'MATCH') {
-    return <Navigate to={`/clubs/${clubId}/teams/${teamId}?tab=events`} replace />;
-  }
+  const isMatch = event.type === 'MATCH';
 
   return (
     <PageContainer size="lg">
@@ -113,17 +124,24 @@ export function MatchDetailPage() {
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center gap-3">
           <Heading as="h1" className="m-0">
-            {team.name} vs {event.opponentName}
+            {isMatch ? `${team.name} vs ${event.opponentName}` : `${team.name} — Entraînement`}
           </Heading>
-          {event.venue && <EventVenueBadge venue={event.venue} />}
+          {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <Badge>Match</Badge>
+          <Badge>{eventTypeLabel(event.type)}</Badge>
         </div>
       </div>
 
       <div className="flex overflow-hidden rounded-lg border border-border shadow-md">
-        <div className="flex w-32 shrink-0 flex-col items-center justify-center gap-1 bg-blue-green px-2 py-5 text-cream sm:w-36">
+        <div
+          className={cn(
+            'flex w-32 shrink-0 flex-col items-center justify-center gap-1 px-2 py-5 sm:w-36',
+            isMatch
+              ? 'bg-blue-green text-cream'
+              : 'border-r border-border bg-surface-2 text-charcoal',
+          )}
+        >
           {event.timeConfirmed ? (
             <span className="tabular font-heading text-4xl font-extrabold leading-none">
               {formatEventTime(event.startsAt)}
@@ -134,27 +152,36 @@ export function MatchDetailPage() {
             </span>
           )}
           <span className="font-heading text-xs font-bold uppercase tracking-wide-caps opacity-85">
-            Match
+            {eventTypeLabel(event.type)}
           </span>
         </div>
         <div className="flex flex-grow flex-col gap-3.5 bg-surface p-5">
-          <div className="flex items-center justify-between gap-4">
+          {isMatch ? (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <Avatar>
+                  <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
+                </Avatar>
+                <span className="font-heading text-xl font-extrabold">{team.name}</span>
+              </div>
+              <span className="font-heading text-base font-bold tracking-wide text-muted">VS</span>
+              <div className="flex items-center gap-3.5">
+                <span className="font-heading text-xl font-extrabold">{event.opponentName}</span>
+                <Avatar>
+                  <AvatarFallback className="border-2 border-dashed border-border-strong bg-sunk text-muted">
+                    ?
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            </div>
+          ) : (
             <div className="flex items-center gap-3.5">
               <Avatar>
                 <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
               </Avatar>
               <span className="font-heading text-xl font-extrabold">{team.name}</span>
             </div>
-            <span className="font-heading text-base font-bold tracking-wide text-muted">VS</span>
-            <div className="flex items-center gap-3.5">
-              <span className="font-heading text-xl font-extrabold">{event.opponentName}</span>
-              <Avatar>
-                <AvatarFallback className="border-2 border-dashed border-border-strong bg-sunk text-muted">
-                  ?
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
+          )}
           <div className="h-px bg-border" />
           <div className="flex items-center gap-2 text-sm text-muted">
             <svg
@@ -195,7 +222,21 @@ export function MatchDetailPage() {
             Convoqué par le coach
           </Badge>
         )}
-        {isRostered && <EventRsvpControl clubId={clubId!} teamId={teamId!} event={event} />}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {isRostered && <EventRsvpControl clubId={clubId!} teamId={teamId!} event={event} />}
+          {canManage && (
+            <>
+              <EventEditModal
+                clubId={clubId!}
+                teamId={teamId!}
+                event={event}
+                open={isEditOpen}
+                onOpenChange={setIsEditOpen}
+              />
+              <EventDeleteModal clubId={clubId!} teamId={teamId!} event={event} />
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs
@@ -265,26 +306,28 @@ export function MatchDetailPage() {
                 }
                 value={event.location}
               />
-              <InfoTile
-                label="Adversaire"
-                icon={
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.6}
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M12 3v18" />
-                    <path d="M3 12h18" />
-                    <path d="M5.5 5.5c2 2.2 3 4.8 3 6.5s-1 4.3-3 6.5" />
-                    <path d="M18.5 5.5c-2 2.2-3 4.8-3 6.5s1 4.3 3 6.5" />
-                  </svg>
-                }
-                value={event.opponentName}
-              />
+              {isMatch && (
+                <InfoTile
+                  label="Adversaire"
+                  icon={
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.6}
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 3v18" />
+                      <path d="M3 12h18" />
+                      <path d="M5.5 5.5c2 2.2 3 4.8 3 6.5s-1 4.3-3 6.5" />
+                      <path d="M18.5 5.5c-2 2.2-3 4.8-3 6.5s1 4.3 3 6.5" />
+                    </svg>
+                  }
+                  value={event.opponentName}
+                />
+              )}
               {event.notes && (
                 <InfoTile
                   label="Notes"
@@ -308,7 +351,7 @@ export function MatchDetailPage() {
         </TabsContent>
 
         <TabsContent value="effectif" className="mt-4">
-          <MatchRosterTab
+          <EventRosterTab
             clubId={clubId!}
             teamId={teamId!}
             eventId={eventId!}
