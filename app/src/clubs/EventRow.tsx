@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate, formatEventDateOnly } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
+import { EventVenueBadge } from './EventVenueBadge';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
@@ -41,11 +43,23 @@ export function EventRow({
       <TableCell>
         <div className="flex flex-wrap items-center gap-2">
           {eventTypeLabel(event.type)}
+          {event.type === 'MATCH' && event.venue && <EventVenueBadge venue={event.venue} />}
           {event.isImported && <Badge variant="outline">Importé</Badge>}
         </div>
       </TableCell>
       <TableCell>{event.location}</TableCell>
-      <TableCell>{event.type === 'MATCH' ? `vs ${event.opponentName}` : '—'}</TableCell>
+      <TableCell>
+        {event.type === 'MATCH' ? (
+          <Link
+            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
+            className="font-semibold text-blue-green hover:underline"
+          >
+            vs {event.opponentName}
+          </Link>
+        ) : (
+          '—'
+        )}
+      </TableCell>
       <TableCell>{event.notes ?? '—'}</TableCell>
       <TableCell className="min-w-[280px]">
         <div className="flex flex-col gap-2.5">

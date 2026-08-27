@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { EventType } from '@prisma/client';
+import { EventType, EventVenue } from '@prisma/client';
 import type { EventUpdateScope, UpdateEventRequest } from '@basketeasy/types/events';
 
 const EVENT_UPDATE_SCOPES: EventUpdateScope[] = ['THIS', 'THIS_AND_FUTURE', 'ALL'];
@@ -41,6 +41,10 @@ export class UpdateEventDto implements UpdateEventRequest {
   @MinLength(1)
   @MaxLength(120)
   opponentName?: string;
+
+  @IsOptional()
+  @IsEnum(EventVenue)
+  venue?: EventVenue;
 
   @IsOptional()
   @IsIn(EVENT_UPDATE_SCOPES)

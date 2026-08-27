@@ -16,12 +16,12 @@ import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Textarea } from '@basketeasy/ui/textarea';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { EventType, EventUpdateScope, TeamEvent } from '@basketeasy/types/events';
+import type { EventType, EventUpdateScope, EventVenue, TeamEvent } from '@basketeasy/types/events';
 import { useEventUpdate } from './useEventUpdate';
 import { useEventTimeUpdate } from './useEventTimeUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { toDatetimeLocalValue } from './eventDateFormat';
-import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS } from './eventLabels';
+import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
 
 const eventEditSchema = z
   .object({
@@ -32,6 +32,7 @@ const eventEditSchema = z
     location: z.string().min(1, 'Lieu requis'),
     notes: z.string().optional(),
     opponentName: z.string().optional(),
+    venue: z.enum(['HOME', 'AWAY']).optional(),
   })
   .refine((d) => d.scope !== 'THIS' || d.startsAt.length > 0, {
     message: 'Date requise',
@@ -44,6 +45,10 @@ const eventEditSchema = z
   .refine((d) => d.type !== 'MATCH' || !!d.opponentName?.trim(), {
     message: "Nom de l'adversaire requis pour un match",
     path: ['opponentName'],
+  })
+  .refine((d) => d.type !== 'MATCH' || !!d.venue, {
+    message: 'Domicile/extérieur requis pour un match',
+    path: ['venue'],
   });
 
 type EventEditFormValues = z.infer<typeof eventEditSchema>;
@@ -58,6 +63,7 @@ function buildDefaultValues(event: TeamEvent): EventEditFormValues {
     location: event.location,
     notes: event.notes ?? '',
     opponentName: event.opponentName ?? '',
+    venue: event.venue ?? undefined,
   };
 }
 
@@ -113,6 +119,7 @@ export function EventEditModal({
           location: values.location,
           notes: values.notes || undefined,
           opponentName: values.type === 'MATCH' ? values.opponentName : undefined,
+          venue: values.type === 'MATCH' ? values.venue : undefined,
           scope: values.scope,
           ...(values.scope === 'THIS' ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
         },
@@ -185,6 +192,24 @@ export function EventEditModal({
               id={`event-${event.id}-edit-opponent-name`}
               error={errors.opponentName?.message}
               {...register('opponentName')}
+            />
+          )}
+
+          {type === 'MATCH' && (
+            <Controller
+              control={control}
+              name="venue"
+              render={({ field }) => (
+                <SelectField
+                  label="Domicile / Extérieur"
+                  id={`event-${event.id}-edit-venue-select`}
+                  placeholder="Sélectionner…"
+                  error={errors.venue?.message}
+                  options={EVENT_VENUE_OPTIONS}
+                  value={field.value ?? ''}
+                  onValueChange={(value) => field.onChange(value as EventVenue)}
+                />
+              )}
             />
           )}
 

@@ -16,6 +16,7 @@ const baseEvent: TeamEvent = {
   location: 'Gymnase A',
   notes: null,
   opponentName: null,
+  venue: null,
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,

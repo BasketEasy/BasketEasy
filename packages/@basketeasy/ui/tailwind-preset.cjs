@@ -27,6 +27,10 @@ module.exports = {
           2: '#2F6E80',
           tint: '#EAF1F3',
         },
+        // Best-player trophy/leaderboard accent (Vote tab) — distinct from
+        // orange on purpose, so voting doesn't compete visually with the
+        // primary-action color. See docs/superpowers/specs/2026-08-27-match-interface-design.md.
+        gold: { DEFAULT: '#C08A2E', text: '#8C5F16', tint: '#FBF1DC' },
         charcoal: '#23201C',
         muted: '#5B564F',
         border: { DEFAULT: '#E7DECF', strong: '#D6C8B2' },

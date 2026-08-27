@@ -486,7 +486,7 @@ still missing.
       PUT, short expiry (e.g. 5 minutes — long enough for a mobile upload over a gym's wifi,
       short enough not to leave stale writable URLs around). Construct the S3 client with
       `region: 'auto'` and `endpoint: \`https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\``—
-    R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
+R2 has no AWS-style regions, so don't add an`S3_REGION`-style env var for it.
 - [ ] Env vars `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — add to
       `docker-compose.yml`'s `server` service and `.env.example`, matching `JWT_ACCESS_SECRET`'s
       existing treatment exactly (name only in `.env.example`, real values only in untracked

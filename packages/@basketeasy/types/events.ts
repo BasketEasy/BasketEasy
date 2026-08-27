@@ -3,6 +3,9 @@ import type { TeamMemberRole } from './teams';
 
 export type EventType = 'TRAINING' | 'MATCH';
 
+/** Home/away for a MATCH event; not applicable to TRAINING. */
+export type EventVenue = 'HOME' | 'AWAY';
+
 /** A rostered team member's self-reported attendance status for one event. */
 export type EventRsvpStatus = 'GOING' | 'NOT_GOING' | 'MAYBE';
 
@@ -22,6 +25,8 @@ export interface TeamEvent {
   notes: string | null;
   /** Opponent's name for a MATCH event; null for TRAINING. */
   opponentName: string | null;
+  /** Home/away for a MATCH event; null for TRAINING. */
+  venue: EventVenue | null;
   /** Shared by every occurrence created in the same recurring POST; null for a single event. */
   recurrenceId: string | null;
   createdAt: string;
@@ -50,6 +55,8 @@ export interface CreateEventRequest {
   notes?: string;
   /** Required when type is MATCH. */
   opponentName?: string;
+  /** Required when type is MATCH; validated server-side, see EventsService. */
+  venue?: EventVenue;
   /** When set, creates one event per week from startsAt through until, inclusive. */
   recurrence?: EventRecurrenceRequest;
 }
@@ -60,6 +67,8 @@ export interface UpdateEventRequest {
   location?: string;
   notes?: string;
   opponentName?: string;
+  /** Required when the resulting type is MATCH; validated server-side, see EventsService. */
+  venue?: EventVenue;
   /** Defaults to 'THIS'. startsAt may only be changed with scope 'THIS'. */
   scope?: EventUpdateScope;
 }

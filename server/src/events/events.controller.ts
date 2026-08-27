@@ -48,6 +48,18 @@ export class EventsController {
     return this.eventsService.listEvents(clubId, teamId, query, user.id);
   }
 
+  @Get(':eventId')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  getEvent(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.getEvent(clubId, teamId, eventId, user.id);
+  }
+
   @Post()
   @UseGuards(TeamManagerGuard)
   createEvent(

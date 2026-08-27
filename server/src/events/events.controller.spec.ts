@@ -12,6 +12,7 @@ describe('EventsController', () => {
   let controller: EventsController;
   let service: {
     listEvents: jest.Mock;
+    getEvent: jest.Mock;
     createEvent: jest.Mock;
     updateEvent: jest.Mock;
     updateEventTimeOfDay: jest.Mock;
@@ -26,6 +27,7 @@ describe('EventsController', () => {
   beforeEach(async () => {
     service = {
       listEvents: jest.fn(),
+      getEvent: jest.fn(),
       createEvent: jest.fn(),
       updateEvent: jest.fn(),
       updateEventTimeOfDay: jest.fn(),
@@ -60,6 +62,15 @@ describe('EventsController', () => {
 
     expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1', query, 'user-1');
     expect(result.total).toBe(0);
+  });
+
+  it('getEvent delegates clubId, teamId, eventId, and the caller id', async () => {
+    service.getEvent.mockResolvedValue({ id: 'event-1', teamId: 'team-1' });
+
+    const result = await controller.getEvent('club-1', 'team-1', 'event-1', user);
+
+    expect(service.getEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(result.id).toBe('event-1');
   });
 
   it('createEvent delegates clubId, teamId, the DTO, and the caller id', async () => {

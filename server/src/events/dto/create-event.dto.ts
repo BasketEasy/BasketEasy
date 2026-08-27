@@ -9,7 +9,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { EventType } from '@prisma/client';
+import { EventType, EventVenue } from '@prisma/client';
 import type { CreateEventRequest } from '@basketeasy/types/events';
 import { CreateEventRecurrenceDto } from './create-event-recurrence.dto';
 
@@ -38,6 +38,10 @@ export class CreateEventDto implements CreateEventRequest {
   @MinLength(1)
   @MaxLength(120)
   opponentName?: string;
+
+  @IsOptional()
+  @IsEnum(EventVenue)
+  venue?: EventVenue;
 
   @IsOptional()
   @ValidateNested()

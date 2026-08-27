@@ -165,6 +165,11 @@ enum EventType {
   MATCH
 }
 
+enum EventVenue {
+  HOME
+  AWAY
+}
+
 // A single team-day event — a training session or a match against an
 // opponent outside the club graph (opponentName is a label, not a relation;
 // see CLAUDE.md's Events module section). recurrenceId links every
@@ -178,6 +183,10 @@ model Event {
   location      String
   notes         String?
   opponentName  String?
+  // Home/away for a MATCH event; required (non-null) whenever type is
+  // MATCH, forced to null whenever type is TRAINING — same validation path
+  // as opponentName (see EventsService).
+  venue         EventVenue?
   recurrenceId  String?
   // The FFBB match id for an imported event, null for a manually-created one.
   // Postgres treats each NULL as distinct, so plain events never collide on
