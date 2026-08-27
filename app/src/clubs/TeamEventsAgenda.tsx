@@ -11,11 +11,12 @@ import { EventVenueBadge } from './EventVenueBadge';
 import { EventRsvpControl } from './EventRsvpControl';
 
 /**
- * One line per event — time, type, key badges, location (+ opponent for
- * MATCH), RSVP control, and a "Voir →" link to EventDetailPage. Everything
- * else (notes, the full RSVP/convocation breakdown, Modifier/Supprimer,
- * convocation management) now lives on that detail page for BOTH event
- * types, not just MATCH — EventDetailPage and its Effectif tab
+ * Two content columns to the right of the time block — left: venue/status
+ * badges plus the jersey/ball mini-chips, with the RSVP control underneath;
+ * right: location (+ opponent for MATCH) with the "Voir →" link underneath.
+ * Everything else (notes, the full RSVP/convocation breakdown,
+ * Modifier/Supprimer, convocation management) lives on the detail page for
+ * BOTH event types, not just MATCH — EventDetailPage and its Effectif tab
  * (EventRosterTab) cover TRAINING exactly the same way, so the agenda card
  * doesn't need to duplicate any of it here. EventRow (the table view) is a
  * different surface with room to spare and still carries those inline.
@@ -32,11 +33,6 @@ function AgendaEventCard({
   isRostered: boolean;
 }) {
   const isMatch = event.type === 'MATCH';
-  const hasBadges =
-    (isRostered && event.myConvocation) ||
-    event.isImported ||
-    !event.timeConfirmed ||
-    (isMatch && !!event.venue);
 
   return (
     <Card className="flex flex-row overflow-hidden p-0">
@@ -66,75 +62,64 @@ function AgendaEventCard({
           {eventTypeShortLabel(event.type)}
         </span>
       </div>
-      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4">
-        {/* One line for the common case at lg+: badges, location (+
-            opponent for MATCH), RSVP control, and the detail link.
-            `lg:flex-wrap` (rather than nowrap) is the safety valve for an
-            unusually crowded row (several badges, a long location) — the
-            RSVP/link cluster drops to its own second line instead of being
-            forced to overlap the badges/location content, which a hard
-            nowrap did. Below lg it stacks top to bottom, since there's no
-            single-line requirement on a narrower card. */}
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-2">
-          {hasBadges && (
-            // shrink-0 on both the cluster and each badge: badges never
-            // compress, only the location span (flex-1 + min-w-0, a direct
-            // sibling rather than nested alongside these) gives up width.
-            // Nesting location one level down inside a shared wrapper with
-            // the badges previously broke that: the wrapper's own automatic
-            // min-content size baked in the badges' full width, so the flex
-            // algorithm either couldn't shrink the wrapper at all (letting
-            // it barge into the RSVP/link column) or, once min-w-0 was moved
-            // onto the wrapper to fix that, lost track of the badges' floor
-            // entirely and let them overflow it instead. Keeping all three
-            // — badges, location, RSVP/link — as flat siblings of one row
-            // sidesteps that miscalculation altogether.
-            <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
-              {isRostered && event.myConvocation && <Badge className="shrink-0">Convoqué</Badge>}
-              {isMatch && event.venue && (
-                <span className="shrink-0">
-                  <EventVenueBadge venue={event.venue} />
-                </span>
-              )}
-              {event.isImported && (
-                <Badge variant="outline" className="shrink-0">
-                  Importé
-                </Badge>
-              )}
-              {!event.timeConfirmed && (
-                <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                  Heure à confirmer
-                </Badge>
-              )}
-            </div>
-          )}
-          {/* Jersey/ball mini-chips, always rendered for both event types.
-              shrink-0 keeps them from compressing; they fall back to the
-              row's own lg:flex-wrap (not a hardcoded second row) when the
-              line is too crowded to fit everything, same safety valve the
-              badges cluster above already relies on. */}
-          <div className="shrink-0">
+      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4 sm:flex-row sm:gap-4">
+        {/* Left column: badge/logistics cluster on top, RSVP underneath.
+            min-w-0 + flex-1 lets it shrink below its content's natural
+            width instead of the sm:flex-row parent falling back to the
+            min-content trap the single-line layout hit before (a wrapper
+            around a flex-1 sibling of shrink-0 items baking in the wrong
+            floor) — here each column is its own flex-1 min-w-0 item, so
+            there's no shrink-0/flex-1 mix inside a shared wrapper to get
+            wrong. The columns only sit side by side from `sm` up — below
+            that the RSVP control's fixed-width segmented group (see
+            EventRsvpControl, `w-fit`, non-compact below `lg`) is too wide
+            for a half-width mobile column, so the whole card stacks to one
+            full-width column below `sm` instead, which is also where a
+            two-up layout stops earning its keep on a ~360-400px phone
+            anyway. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* Venue/status badges plus the jersey/ball mini-chips, all
+              shrink-0 flex-wrap siblings — none of them compete for space
+              with a flex-1 item the way location used to sit alongside
+              badges on the old single row, so free-wrapping them together
+              here is safe. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {isRostered && event.myConvocation && <Badge className="shrink-0">Convoqué</Badge>}
+            {isMatch && event.venue && (
+              <span className="shrink-0">
+                <EventVenueBadge venue={event.venue} />
+              </span>
+            )}
+            {event.isImported && (
+              <Badge variant="outline" className="shrink-0">
+                Importé
+              </Badge>
+            )}
+            {!event.timeConfirmed && (
+              <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                Heure à confirmer
+              </Badge>
+            )}
             <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
           </div>
-          {/* flex-1 + min-w-0 is what lets lg:truncate actually bite instead
-              of forcing the row to grow past its container — a long
-              location/opponent string truncates rather than pushing badges
-              or the RSVP/link cluster off the single line. */}
-          <span className="min-w-0 flex-1 text-sm text-muted lg:truncate">
+          {isRostered && (
+            <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
+          )}
+        </div>
+        {/* Right column: location (+ opponent for MATCH) on top, the "Voir
+            →" link underneath. min-w-0 lets the location line truncate
+            instead of forcing the column past its share of the row. */}
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
+          <span className="min-w-0 max-w-full truncate text-sm text-muted">
             {event.location}
             {isMatch ? ` · vs ${event.opponentName}` : ''}
           </span>
-          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:flex-nowrap">
-            {isRostered && (
-              <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
-            )}
-            <Link
-              to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-              className="shrink-0 text-sm font-bold text-blue-green hover:underline"
-            >
-              {eventDetailLinkLabel(event.type)} →
-            </Link>
-          </div>
+          <Link
+            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
+            className="shrink-0 text-sm font-bold text-blue-green hover:underline"
+          >
+            {eventDetailLinkLabel(event.type)} →
+          </Link>
         </div>
       </div>
     </Card>
