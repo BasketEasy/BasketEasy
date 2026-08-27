@@ -25,6 +25,7 @@
 ## File Structure
 
 **Server:**
+
 - Modify `server/prisma/schema.prisma` — rename `TeamGender` → `Gender`, add `Player.nationalId/licenseNumber/birthDate/gender/licenseType`.
 - Modify `server/src/teams/teams.service.ts`, `server/src/teams/dto/{create-team,update-team,list-teams}.dto.ts` — `TeamGender` → `Gender` references.
 - Create `server/src/clubs/dto/import-players.dto.ts` — request DTO for the import endpoint.
@@ -33,10 +34,12 @@
 - Modify `server/src/clubs/clubs.service.spec.ts`, `server/src/clubs/clubs.controller.spec.ts` — new test coverage.
 
 **Shared types:**
+
 - Modify `packages/@basketeasy/types/teams.ts` — `TeamGender` → `Gender`.
 - Modify `packages/@basketeasy/types/players.ts` — extend `Player`, add `ImportPlayersRequest`/`ImportPlayersRow`/`ImportPlayersResult`.
 
 **App:**
+
 - Modify `app/package.json` — add `xlsx` dependency.
 - Modify `app/src/clubs/TeamEditModal.tsx`, `TeamCreateForm.tsx`, `teamLabels.ts`, `TeamRosterCards.tsx`, `app/src/pages/MembersPage.tsx` — `TeamGender` → `Gender` references.
 - Create `app/src/clubs/playerImport/parseSpreadsheet.ts` — file → header row + raw rows, using `xlsx`.
@@ -58,6 +61,7 @@
 ### Task 1: Rename `TeamGender` to shared `Gender`, add `Player` import columns (schema + migration)
 
 **Files:**
+
 - Modify: `server/prisma/schema.prisma`
 - Modify: `server/src/teams/teams.service.ts:9,49,197,580,645`
 - Modify: `server/src/teams/dto/create-team.dto.ts:3,16-17`
@@ -65,6 +69,7 @@
 - Modify: `server/src/teams/dto/list-teams.dto.ts:2,8`
 
 **Interfaces:**
+
 - Produces: Prisma enum `Gender` (`'MEN' | 'WOMEN'`), `Player.nationalId: string | null`, `Player.licenseNumber: string | null`, `Player.birthDate: Date | null`, `Player.gender: Gender | null`, `Player.licenseType: string | null`.
 
 - [ ] **Step 1: Edit the schema**
@@ -146,10 +151,12 @@ git commit -m "feat(server): rename TeamGender to Gender, add Player import colu
 ### Task 2: Shared types — `Gender` rename in `teams.ts`, `Player` additions, import request/response shapes
 
 **Files:**
+
 - Modify: `packages/@basketeasy/types/teams.ts`
 - Modify: `packages/@basketeasy/types/players.ts`
 
 **Interfaces:**
+
 - Consumes: nothing (pure type definitions).
 - Produces: `Gender` (exported from `@basketeasy/types/teams`), `Player` (extended), `ImportPlayersRow`, `ImportPlayersRequest`, `ImportPlayersResult` (exported from `@basketeasy/types/players`).
 
@@ -239,6 +246,7 @@ git commit -m "feat(types): rename TeamGender to Gender, add player import types
 ### Task 3: Fix up remaining `TeamGender` references (server DTO import, app)
 
 **Files:**
+
 - Modify: `server/src/teams/dto/list-teams.dto.ts:2`
 - Modify: `app/src/clubs/TeamEditModal.tsx:8,36,83`
 - Modify: `app/src/clubs/TeamCreateForm.tsx:9,112`
@@ -247,6 +255,7 @@ git commit -m "feat(types): rename TeamGender to Gender, add player import types
 - Modify: `app/src/pages/MembersPage.tsx:33,341`
 
 **Interfaces:**
+
 - Consumes: `Gender` from `@basketeasy/types/teams` (Task 2).
 
 - [ ] **Step 1: Update the server DTO import**
@@ -291,11 +300,13 @@ git commit -m "refactor: finish TeamGender to Gender rename across app and serve
 ### Task 4: `POST clubs/:clubId/players/import` DTO and controller wiring
 
 **Files:**
+
 - Create: `server/src/clubs/dto/import-players.dto.ts`
 - Modify: `server/src/clubs/clubs.controller.ts`
 - Modify: `server/src/clubs/clubs.controller.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `ImportPlayersRequest`, `ImportPlayersRow`, `ImportPlayersResult` from `@basketeasy/types/players` (Task 2); `ClubsService.importPlayers` (Task 5 — controller test mocks it, so this task doesn't block on Task 5 existing yet).
 - Produces: `ImportPlayersDto` class, `POST clubs/:clubId/players/import` route.
 
@@ -419,9 +430,11 @@ git commit -m "feat(server): wire player import route through ClubsController"
 ### Task 5: `ClubsService.importPlayers` — matching, conflict detection, transaction
 
 **Files:**
+
 - Modify: `server/src/clubs/clubs.service.ts`
 
 **Interfaces:**
+
 - Consumes: `ImportPlayersRow`, `ImportPlayersResult` from `@basketeasy/types/players`.
 - Produces: `ClubsService.importPlayers(clubId: string, rows: ImportPlayersRow[]): Promise<ImportPlayersResult>`.
 
@@ -540,9 +553,11 @@ git commit -m "feat(server): ClubsService.importPlayers matching and transaction
 ### Task 6: `ClubsService.importPlayers` tests
 
 **Files:**
+
 - Modify: `server/src/clubs/clubs.service.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `ClubsService.importPlayers` (Task 5).
 
 - [ ] **Step 1: Extend the Prisma mock's `$transaction` to support the callback form**
@@ -681,10 +696,12 @@ git commit -m "test(server): cover ClubsService.importPlayers matching rules"
 ### Task 7: `xlsx` dependency and `parseSpreadsheet` utility
 
 **Files:**
+
 - Modify: `app/package.json`
 - Create: `app/src/clubs/playerImport/parseSpreadsheet.ts`
 
 **Interfaces:**
+
 - Produces: `parseSpreadsheet(file: File): Promise<ParsedSpreadsheet>`, `interface ParsedSpreadsheet { headers: string[]; rows: string[][] }`.
 
 - [ ] **Step 1: Add the dependency**
@@ -752,10 +769,12 @@ git commit -m "feat(app): add xlsx dependency and spreadsheet parsing utility"
 ### Task 8: Column-mapping guess function
 
 **Files:**
+
 - Create: `app/src/clubs/playerImport/columnMapping.ts`
 - Create: `app/src/clubs/playerImport/columnMapping.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `IMPORT_TARGET_FIELDS: ImportTargetField[]`, `type ImportTargetField = 'firstName' | 'lastName' | 'nationalId' | 'licenseNumber' | 'birthDate' | 'gender' | 'licenseType'`, `guessColumnMapping(headers: string[]): Partial<Record<ImportTargetField, number>>` (maps each target field to a header index, when a confident guess exists).
 
@@ -768,7 +787,15 @@ import { guessColumnMapping } from './columnMapping';
 
 describe('guessColumnMapping', () => {
   it('matches known FBI French labels case-insensitively', () => {
-    const headers = ['N° national', 'N° licence', 'Nom', 'Prénom', 'Sexe', 'Date de naissance', 'Type lic.'];
+    const headers = [
+      'N° national',
+      'N° licence',
+      'Nom',
+      'Prénom',
+      'Sexe',
+      'Date de naissance',
+      'Type lic.',
+    ];
     const mapping = guessColumnMapping(headers);
 
     expect(mapping).toEqual({
@@ -814,7 +841,11 @@ export type ImportTargetField =
   | 'gender'
   | 'licenseType';
 
-export const IMPORT_TARGET_FIELDS: { field: ImportTargetField; label: string; required: boolean }[] = [
+export const IMPORT_TARGET_FIELDS: {
+  field: ImportTargetField;
+  label: string;
+  required: boolean;
+}[] = [
   { field: 'firstName', label: 'Prénom', required: true },
   { field: 'lastName', label: 'Nom', required: true },
   { field: 'nationalId', label: 'N° national', required: false },
@@ -838,11 +869,7 @@ const KNOWN_LABELS: Record<ImportTargetField, string[]> = {
 };
 
 function normalize(header: string): string {
-  return header
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim();
+  return header.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 }
 
 export function guessColumnMapping(headers: string[]): Partial<Record<ImportTargetField, number>> {
@@ -878,12 +905,15 @@ git commit -m "feat(app): column-mapping guess for player import"
 ### Task 9: `resolveImportRows` — client-side preview matching (mirrors server rules)
 
 **Files:**
+
 - Create: `app/src/clubs/playerImport/resolveImportRows.ts`
 - Create: `app/src/clubs/playerImport/resolveImportRows.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ImportTargetField` (Task 8); `Player`, `ImportPlayersRow` from `@basketeasy/types/players` (Task 2).
 - Produces:
+
   ```typescript
   export type ImportRowAction =
     | { type: 'create' }
@@ -958,12 +988,7 @@ describe('resolveImportRows', () => {
   });
 
   it('skips a row missing firstName or lastName', () => {
-    const [{ action }] = resolveImportRows(
-      [['', 'Dupont', '', '', 'C1']],
-      MAPPING,
-      [],
-      CLUB_ID,
-    );
+    const [{ action }] = resolveImportRows([['', 'Dupont', '', '', 'C1']], MAPPING, [], CLUB_ID);
     expect(action).toEqual({ type: 'skip', reason: 'missing-name' });
   });
 
@@ -1040,7 +1065,11 @@ export interface ResolvedImportRow {
   action: ImportRowAction;
 }
 
-function cell(raw: string[], mapping: Partial<Record<ImportTargetField, number>>, field: ImportTargetField): string {
+function cell(
+  raw: string[],
+  mapping: Partial<Record<ImportTargetField, number>>,
+  field: ImportTargetField,
+): string {
   const index = mapping[field];
   if (index === undefined) return '';
   return (raw[index] ?? '').trim();
@@ -1127,9 +1156,11 @@ git commit -m "feat(app): client-side import row matching, mirrors server rules"
 ### Task 10: `usePlayerImport` mutation hook
 
 **Files:**
+
 - Create: `app/src/clubs/usePlayerImport.ts`
 
 **Interfaces:**
+
 - Consumes: `ImportPlayersRequest`, `ImportPlayersResult` from `@basketeasy/types/players`; `clubPlayersQueryKey` from `app/src/clubs/queryKeys.ts`.
 - Produces: `usePlayerImport(clubId: string)` — TanStack mutation, `mutate(rows: ImportPlayersRow[])`.
 
@@ -1183,6 +1214,7 @@ segmented toggles). Two small, justified extensions to existing shared
 primitives are needed instead (Step 1 below) — no new component or token.
 
 **Files:**
+
 - Modify: `packages/@basketeasy/ui/package.json` — add the missing `./icons/check` subpath export for the already-existing (but currently unexported) `Check.tsx` icon.
 - Modify: `packages/@basketeasy/ui/src/components/Table.tsx` — add an optional `containerClassName` prop, forwarded to the wrapping scroll `<div>`.
 - Create: `app/src/clubs/playerImport/PlayerImportSteps.tsx`
@@ -1194,6 +1226,7 @@ primitives are needed instead (Step 1 below) — no new component or token.
 - Modify: `app/src/pages/MembersPage.tsx`
 
 **Interfaces:**
+
 - Consumes: `parseSpreadsheet`/`ParsedSpreadsheet`/`SpreadsheetParseError` (Task 7); `guessColumnMapping`/`IMPORT_TARGET_FIELDS`/`ImportTargetField` (Task 8); `resolveImportRows`/`ResolvedImportRow` (Task 9); `usePlayerImport` (Task 10); `usePlayerList`/`useIsClubAdmin` (existing, `app/src/clubs/`); `useIsDesktopViewport` (existing, `app/src/hooks/useIsDesktopViewport.ts` — the same desktop-table/mobile-card split `MembersPage.tsx` already uses for its player list); `getClubErrorMessage` (existing, `app/src/clubs/clubErrorMessages.ts`).
 - Produces: route `/clubs/:clubId/import-players`; "Importer les licenciés" button in `MembersPage`; `Table`'s new optional `containerClassName` prop; the `@basketeasy/ui/icons/check` subpath export.
 
@@ -1286,7 +1319,9 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
               >
                 {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
               </span>
-              <span className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}>
+              <span
+                className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}
+              >
                 {label}
                 {isCurrent && <span className="sr-only"> (étape actuelle)</span>}
               </span>
@@ -1318,7 +1353,11 @@ import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Loader } from '@basketeasy/ui/loader';
 import { cn } from '@basketeasy/ui/cn';
-import { parseSpreadsheet, SpreadsheetParseError, type ParsedSpreadsheet } from './parseSpreadsheet';
+import {
+  parseSpreadsheet,
+  SpreadsheetParseError,
+  type ParsedSpreadsheet,
+} from './parseSpreadsheet';
 
 const ACCEPTED_EXTENSIONS = ['.csv', '.xls', '.xlsx'];
 
@@ -1364,8 +1403,8 @@ export function PlayerImportUploadStep({
         Importer le fichier
       </h2>
       <p className="text-sm text-muted">
-        Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx
-        listant vos licenciés.
+        Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx listant
+        vos licenciés.
       </p>
 
       {error && (
@@ -1448,8 +1487,21 @@ so the explanation and the control it refers to are visually linked:
 import { useState, type RefObject } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@basketeasy/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@basketeasy/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@basketeasy/ui/table';
 import type { ParsedSpreadsheet } from './parseSpreadsheet';
 import { IMPORT_TARGET_FIELDS, guessColumnMapping, type ImportTargetField } from './columnMapping';
 
@@ -1480,7 +1532,9 @@ export function PlayerImportMappingStep({
   onBack: () => void;
   onConfirm: (mapping: Partial<Record<ImportTargetField, number>>) => void;
 }) {
-  const [mapping, setMapping] = useState(() => initialMapping ?? guessColumnMapping(parsed.headers));
+  const [mapping, setMapping] = useState(
+    () => initialMapping ?? guessColumnMapping(parsed.headers),
+  );
 
   const columnOptions = parsed.headers.map((header, index) => ({
     value: String(index),
@@ -1558,7 +1612,9 @@ export function PlayerImportMappingStep({
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-sm text-muted">{sampleValues(parsed, columnIndex)}</TableCell>
+                  <TableCell className="text-sm text-muted">
+                    {sampleValues(parsed, columnIndex)}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -1605,7 +1661,7 @@ empty file (header row only, no data) gets `EmptyState` with a way back;
 a file that resolves but leaves nothing committable (every row is a
 conflict or gets skipped) keeps the audit table visible instead of
 hiding it behind an empty state, since that table full of "Conflit" rows
-*is* the useful information in that case:
+_is_ the useful information in that case:
 
 ```tsx
 // app/src/clubs/playerImport/PlayerImportPreviewStep.tsx
@@ -1615,7 +1671,14 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@basketeasy/ui/table';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { useIsDesktopViewport } from '../../hooks/useIsDesktopViewport';
@@ -1738,8 +1801,8 @@ export function PlayerImportPreviewStep({
       {committable === 0 && (
         <Alert variant="destructive">
           <AlertDescription>
-            Aucune ligne ne sera importée avec le mappage actuel. Revenez à l&apos;étape
-            précédente pour l&apos;ajuster, ou vérifiez les conflits ci-dessous.
+            Aucune ligne ne sera importée avec le mappage actuel. Revenez à l&apos;étape précédente
+            pour l&apos;ajuster, ou vérifiez les conflits ci-dessous.
           </AlertDescription>
         </Alert>
       )}
@@ -1786,11 +1849,16 @@ export function PlayerImportPreviewStep({
                 <TableCell>{row.firstName || '—'}</TableCell>
                 <TableCell>{row.lastName || '—'}</TableCell>
                 <TableCell>
-                  <Badge variant={badgeVariant(action.type)} className={badgeClassName(action.type)}>
+                  <Badge
+                    variant={badgeVariant(action.type)}
+                    className={badgeClassName(action.type)}
+                  >
                     {ACTION_LABEL[action.type]}
                   </Badge>
                   {action.type === 'conflict' && (
-                    <span className="ml-2 text-xs text-muted">déjà licencié dans un autre club</span>
+                    <span className="ml-2 text-xs text-muted">
+                      déjà licencié dans un autre club
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
@@ -1821,7 +1889,12 @@ export function PlayerImportPreviewStep({
         <Button type="button" variant="outline" disabled={isSubmitting} onClick={onBack}>
           Retour
         </Button>
-        <Button type="button" disabled={committable === 0} loading={isSubmitting} onClick={onConfirm}>
+        <Button
+          type="button"
+          disabled={committable === 0}
+          loading={isSubmitting}
+          onClick={onConfirm}
+        >
           Importer {committable} joueur{committable !== 1 ? 's' : ''}
         </Button>
       </div>
@@ -1861,7 +1934,11 @@ import { resolveImportRows } from '../clubs/playerImport/resolveImportRows';
 type Step =
   | { name: 'upload' }
   | { name: 'map'; parsed: ParsedSpreadsheet }
-  | { name: 'preview'; parsed: ParsedSpreadsheet; mapping: Partial<Record<ImportTargetField, number>> };
+  | {
+      name: 'preview';
+      parsed: ParsedSpreadsheet;
+      mapping: Partial<Record<ImportTargetField, number>>;
+    };
 
 const STEP_INDEX: Record<Step['name'], 0 | 1 | 2> = { upload: 0, map: 1, preview: 2 };
 
@@ -1979,16 +2056,18 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 Then, inside the `players` tab's admin-only block (around the existing "Ajouter un joueur" `Dialog`, line ~552), add a link button next to it, following the same `Button asChild` + `Link` idiom `TeamRow.tsx` and `TeamListingCard.tsx` already use elsewhere in this codebase for a button that navigates instead of acting in place:
 
 ```tsx
-{isAdmin && (
-  <div className="flex flex-wrap gap-2">
-    <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
-      {/* existing dialog trigger/content unchanged */}
-    </Dialog>
-    <Button asChild variant="outline">
-      <Link to={`/clubs/${clubId}/import-players`}>Importer les licenciés</Link>
-    </Button>
-  </div>
-)}
+{
+  isAdmin && (
+    <div className="flex flex-wrap gap-2">
+      <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+        {/* existing dialog trigger/content unchanged */}
+      </Dialog>
+      <Button asChild variant="outline">
+        <Link to={`/clubs/${clubId}/import-players`}>Importer les licenciés</Link>
+      </Button>
+    </div>
+  );
+}
 ```
 
 - [ ] **Step 9: Typecheck**
@@ -2012,9 +2091,11 @@ git commit -m "feat(app): player import wizard (upload, map, preview, confirm)"
 ### Task 12: `PlayerImportPage` happy-path component test
 
 **Files:**
+
 - Create: `app/src/pages/PlayerImportPage.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `PlayerImportPage` (Task 11); existing MSW test setup conventions used elsewhere in `app/src/pages/*.test.tsx` (check an existing page test, e.g. one covering `MembersPage`, for the exact MSW/QueryClient/router wrapper boilerplate this repo uses, and match it — this task doesn't repeat that boilerplate here since it must match whatever the existing pattern is).
 
 - [ ] **Step 1: Locate the existing page-test wrapper pattern**
@@ -2024,6 +2105,7 @@ Before writing this test, read one existing `*.test.tsx` for a protected, club-s
 - [ ] **Step 2: Write the test**
 
 Using the wrapper found in Step 1, write one test that:
+
 1. Renders `PlayerImportPage` at route `/clubs/club-1/import-players` with an MSW handler for `GET /clubs/club-1/players` returning `{ items: [], total: 0, page: 1, pageSize: 1000 }` and one for `POST /clubs/club-1/players/import` returning `{ created: 1, updated: 0, conflicts: 0 }`.
 2. Uploads a `File` built in-test from a CSV string (`new File(['Prénom,Nom\nThéo,Dupont'], 'export.csv', { type: 'text/csv' })`) via `fireEvent.change` on the file input (query it by `input[type="file"]` — it's visually hidden with `sr-only`, not `display: none`, but still queryable and present in the DOM either way).
 3. Waits for the mapping step to render (`await screen.findByText('Continuer')`), clicks it (mapping is pre-guessed from the CSV headers, so no manual mapping needed — both required fields are mapped, so the button is enabled and no blocking `Alert` renders).
