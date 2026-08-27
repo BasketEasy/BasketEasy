@@ -14,12 +14,18 @@ import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { formatEventDate, formatEventDateOnly, formatEventTime } from '../clubs/eventDateFormat';
 import { EventVenueBadge } from '../clubs/EventVenueBadge';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
+import { MatchRosterTab } from '../clubs/MatchRosterTab';
 import { teamAvatarInitials } from '../clubs/matchDetailLabels';
 import { useEventShow } from '../clubs/useEventShow';
+import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
 
-type MatchDetailTab = 'apercu';
+type MatchDetailTab = 'apercu' | 'effectif';
+
+function isMatchDetailTab(value: string | null): value is MatchDetailTab {
+  return value === 'apercu' || value === 'effectif';
+}
 
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
@@ -39,12 +45,9 @@ export function MatchDetailPage() {
     teamId: string;
     eventId: string;
   }>();
-  // Only one tab exists in this phase — the ?tab= param is still wired up
-  // (read/write) so Phases 2-5 can add Effectif/Vote/Feuille de match
-  // without re-plumbing the URL convention TeamDetailPage already
-  // establishes for tabs.
-  const [, setSearchParams] = useSearchParams();
-  const activeTab: MatchDetailTab = 'apercu';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab: MatchDetailTab = isMatchDetailTab(requestedTab) ? requestedTab : 'apercu';
 
   const {
     data: event,
@@ -60,6 +63,7 @@ export function MatchDetailPage() {
   } = useTeamShow(clubId!, teamId!);
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
+  const canManage = useIsTeamManager(clubId!, teamId!);
 
   if (isEventError || isTeamError) {
     return (
@@ -209,6 +213,7 @@ export function MatchDetailPage() {
       >
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          <TabsTrigger value="effectif">Effectif</TabsTrigger>
         </TabsList>
 
         <TabsContent value="apercu" className="mt-4 flex flex-col gap-6">
@@ -300,6 +305,15 @@ export function MatchDetailPage() {
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="effectif" className="mt-4">
+          <MatchRosterTab
+            clubId={clubId!}
+            teamId={teamId!}
+            eventId={eventId!}
+            canManage={canManage}
+          />
         </TabsContent>
       </Tabs>
     </PageContainer>
