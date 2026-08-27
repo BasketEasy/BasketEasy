@@ -31,6 +31,17 @@ export class TeamManagerGuard implements CanActivate {
       throw new ForbiddenException('Insufficient team role');
     }
 
+    if (!(await this.isTeamManager(clubId, teamId, userId))) {
+      throw new ForbiddenException('Insufficient team role');
+    }
+    return true;
+  }
+
+  // The check itself, extracted so EventsService can reuse it for a
+  // non-route-level authorization decision (assigning/clearing someone
+  // else's jersey/ball logistics slot) without duplicating the query logic
+  // or going through a route guard.
+  async isTeamManager(clubId: string, teamId: string, userId: string): Promise<boolean> {
     const membership = await this.prisma.clubMembership.findUnique({
       where: { userId_clubId: { userId, clubId } },
     });
@@ -41,10 +52,6 @@ export class TeamManagerGuard implements CanActivate {
     const teamAdmin = await this.prisma.teamAdmin.findUnique({
       where: { teamId_userId: { teamId, userId } },
     });
-    if (teamAdmin) {
-      return true;
-    }
-
-    throw new ForbiddenException('Insufficient team role');
+    return teamAdmin !== null;
   }
 }

@@ -94,4 +94,38 @@ describe('TeamManagerGuard', () => {
     ).rejects.toThrow(ForbiddenException);
     expect(prisma.clubMembership.findUnique).not.toHaveBeenCalled();
   });
+
+  // isTeamManager is the extracted check EventsService also calls directly
+  // (e.g. for jersey/ball logistics reassignment) — exercised here as a
+  // plain boolean-returning method, distinct from canActivate's
+  // throw-on-denial route-guard behavior.
+  describe('isTeamManager', () => {
+    it('returns true for a club ADMIN of clubId', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ role: 'ADMIN' });
+
+      await expect(guard.isTeamManager('club-1', 'team-1', 'user-1')).resolves.toBe(true);
+      expect(prisma.teamAdmin.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns true for a TeamAdmin of teamId who is not a club ADMIN', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
+      prisma.teamAdmin.findUnique.mockResolvedValue({ id: 'ta-1' });
+
+      await expect(guard.isTeamManager('club-1', 'team-1', 'user-1')).resolves.toBe(true);
+    });
+
+    it('returns false for a club MEMBER who is not a TeamAdmin', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
+      prisma.teamAdmin.findUnique.mockResolvedValue(null);
+
+      await expect(guard.isTeamManager('club-1', 'team-1', 'user-1')).resolves.toBe(false);
+    });
+
+    it('returns false without throwing for a user with no membership at all', async () => {
+      prisma.clubMembership.findUnique.mockResolvedValue(null);
+      prisma.teamAdmin.findUnique.mockResolvedValue(null);
+
+      await expect(guard.isTeamManager('club-1', 'team-1', 'user-1')).resolves.toBe(false);
+    });
+  });
 });
