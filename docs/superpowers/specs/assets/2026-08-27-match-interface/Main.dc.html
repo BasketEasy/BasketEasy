@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; background: #EFE4D4; font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif; color: #23201C; }
+h1, h2, h3 { line-height: 0.94; margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; }
+a { color: #1E5F74; text-decoration: none; }
+a:hover { color: #16495B; text-decoration: underline; }
+</style>
+</helmet>
+
+<div style="width:1280px; min-height:1300px; background:#EFE4D4; padding-bottom:56px;">
+
+  <!-- App shell top bar (context only) -->
+  <div style="height:56px; background:#FFFCF7; border-bottom:1px solid #E7DECF; display:flex; align-items:center; padding:0 32px; box-shadow:0 1px 2px rgba(59,42,24,0.07);">
+    <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:20px; color:#D4622A; letter-spacing:0.01em;">BasketEasy</span>
+    <div style="margin-left:auto; display:flex; gap:24px; font-size:13px; font-weight:600; color:#5B564F;">
+      <span>Tableau de bord</span>
+      <span>Mes équipes</span>
+      <span style="width:32px; height:32px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">IP</span>
+    </div>
+  </div>
+
+  <div style="max-width:960px; margin:0 auto; padding:28px 32px 0 32px; display:flex; flex-direction:column; gap:24px;">
+
+    <!-- Back link -->
+    <a href="#" style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#1E5F74; width:fit-content;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+      U15 Filles
+    </a>
+
+    <!-- Header -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <h1 style="font-size:34px; font-weight:800; color:#23201C;">AS Basket Nantes&nbsp;vs&nbsp;ES Rezé</h1>
+        <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:3px 11px; font-size:12px; font-weight:700; background:#EAF1F3; color:#1E5F74; border:1px solid rgba(30,95,116,0.25);">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/></svg>
+          Domicile
+        </span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:2px 10px; font-size:11px; font-weight:700; background:#AA4F22; color:#FAF5EF;">Match</span>
+        <span style="font-size:14px; color:#5B564F;">Championnat régional U15F &middot; Journée 4</span>
+      </div>
+    </div>
+
+    <!-- Hero: time block + vs framing -->
+    <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid #E7DECF; background:#FFFCF7; box-shadow:0 2px 6px rgba(59,42,24,0.08), 0 1px 2px rgba(59,42,24,0.05);">
+      <div style="width:150px; flex-shrink:0; background:#1E5F74; color:#FAF5EF; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:20px 8px;">
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:38px; line-height:1; font-variant-numeric:tabular-nums;">18:00</span>
+        <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.13em; opacity:0.85;">Match</span>
+      </div>
+      <div style="flex-grow:1; padding:20px 28px; display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <span style="width:40px; height:40px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0;">ABN</span>
+            <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:20px;">AS Basket Nantes</span>
+          </div>
+          <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:700; font-size:16px; color:#5B564F; letter-spacing:0.05em;">VS</span>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:20px; text-align:right;">ES Rezé</span>
+            <span style="width:40px; height:40px; border-radius:9999px; background:#E9DDCA; border:1.5px dashed #D6C8B2; color:#5B564F; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">?</span>
+          </div>
+        </div>
+        <div style="height:1px; background:#E7DECF;"></div>
+        <div style="display:flex; align-items:center; gap:8px; font-size:14px; color:#5B564F;">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#1E5F74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          Gymnase Pierre de Coubertin, 12 rue de la Paix, Nantes
+        </div>
+      </div>
+    </div>
+
+    <!-- Convocation + RSVP -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:3px 11px; font-size:12px; font-weight:600; border:1px solid #E7DECF; color:#23201C; width:fit-content;">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="1.5"/><path d="M9 4V3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V4"/><path d="M9 11.5l2 2 4-4.5"/></svg>
+        Convoqué par le coach
+      </span>
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span style="font-size:13px; font-weight:600; color:#5B564F;">Votre présence</span>
+        <div style="display:flex; border-radius:6px; overflow:hidden; border:1px solid #E7DECF; background:#E9DDCA; width:fit-content;">
+          <button style="height:44px; padding:0 18px; display:flex; align-items:center; gap:7px; background:#2F7D5C; color:#FAF5EF; border:none; font-weight:600; font-size:14px; box-shadow:inset 0 -3px 0 rgba(0,0,0,0.18);">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            Présent
+          </button>
+          <button style="height:44px; padding:0 18px; display:flex; align-items:center; gap:7px; background:#FFFCF7; color:#5B564F; border:none; border-left:1px solid #D6C8B2; font-weight:600; font-size:14px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.4 2.4 0 1 1 3.5 2.1c-.8.4-1.1.9-1.1 1.8" stroke-linecap="round"/><circle cx="12" cy="16.6" r="0.35" fill="currentColor" stroke="none"/></svg>
+            Incertain
+          </button>
+          <button style="height:44px; padding:0 18px; display:flex; align-items:center; gap:7px; background:#FFFCF7; color:#5B564F; border:none; border-left:1px solid #D6C8B2; font-weight:600; font-size:14px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
+            Absent
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:inline-flex; align-items:center; height:40px; border-radius:6px; background:rgba(231,222,207,0.4); padding:4px; width:fit-content; gap:2px;">
+      <span style="height:32px; padding:0 16px; display:flex; align-items:center; border-radius:4px; background:#FFFCF7; color:#AA4F22; font-weight:600; font-size:14px; box-shadow:0 1px 2px rgba(59,42,24,0.07);">Aperçu</span>
+      <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Effectif</span>
+      <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Vote</span>
+      <span style="height:32px; padding:0 16px; display:flex; align-items:center; color:#23201C; font-weight:500; font-size:14px;">Feuille de match</span>
+    </div>
+
+    <!-- Informations pratiques -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Informations pratiques</h3>
+        <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px;">
+        <div style="display:flex; gap:10px; padding:14px 16px; border-radius:8px; background:#FAF5EF; border:1px solid #E7DECF;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1E5F74" stroke-width="1.6" style="flex-shrink:0; margin-top:1px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#5B564F;">Date &amp; heure</span>
+            <span style="font-size:14px; color:#23201C; font-variant-numeric:tabular-nums;">Samedi 30 août 2026 &middot; 18h00</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; padding:14px 16px; border-radius:8px; background:#FAF5EF; border:1px solid #E7DECF;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1E5F74" stroke-width="1.6" style="flex-shrink:0; margin-top:1px;"><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#5B564F;">Lieu</span>
+            <span style="font-size:14px; color:#23201C;">Gymnase Pierre de Coubertin, Nantes</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; padding:14px 16px; border-radius:8px; background:#FAF5EF; border:1px solid #E7DECF;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1E5F74" stroke-width="1.6" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M5.5 5.5c2 2.2 3 4.8 3 6.5s-1 4.3-3 6.5"/><path d="M18.5 5.5c-2 2.2-3 4.8-3 6.5s1 4.3 3 6.5"/></svg>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#5B564F;">Adversaire</span>
+            <span style="font-size:14px; color:#23201C;">ES Rezé</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; padding:14px 16px; border-radius:8px; background:#FAF5EF; border:1px solid #E7DECF;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#1E5F74" stroke-width="1.6" style="flex-shrink:0; margin-top:1px;"><path d="M4 20h16M4 20V9l8-5 8 5v11M9 20v-6h6v6"/></svg>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#5B564F;">Notes</span>
+            <span style="font-size:14px; color:#23201C;">Échauffement 30 min avant. Tenue extérieure (maillot blanc).</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logistique -->
+    <div style="display:flex; flex-direction:column; gap:14px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Logistique</h3>
+        <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+      </div>
+      <div style="border-radius:8px; border:1px solid #E7DECF; background:#FAF5EF; overflow:hidden;">
+        <!-- Assigned row -->
+        <div style="display:flex; align-items:center; gap:14px; padding:14px 18px; border-bottom:1px solid #E7DECF;">
+          <span style="width:38px; height:38px; border-radius:9999px; background:#EAF1F3; color:#1E5F74; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 3 7l3 3 2-1.5V20a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V8.5L18 10l3-3-5-4-2 2h-4L8 3Z"/></svg>
+          </span>
+          <div style="display:flex; flex-direction:column; gap:1px;">
+            <span style="font-size:14px; font-weight:700; color:#23201C;">Maillots</span>
+            <span style="font-size:12px; color:#5B564F;">Qui apporte le jeu de maillots ?</span>
+          </div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+            <span style="width:26px; height:26px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;">LM</span>
+            <span style="font-size:14px; font-weight:600; color:#23201C;">Léa Martin</span>
+            <span style="display:flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:9999px; background:#2F7D5C;"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#FAF5EF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <button style="height:32px; padding:0 12px; border-radius:6px; background:transparent; border:none; color:#23201C; font-size:13px; font-weight:600;">Changer</button>
+          </div>
+        </div>
+        <!-- Unassigned row -->
+        <div style="display:flex; align-items:center; gap:14px; padding:14px 18px;">
+          <span style="width:38px; height:38px; border-radius:9999px; background:#EAF1F3; color:#1E5F74; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M3 12h18"/><path d="M5.5 5.5c2 2.2 3 4.8 3 6.5s-1 4.3-3 6.5"/><path d="M18.5 5.5c-2 2.2-3 4.8-3 6.5s1 4.3 3 6.5"/></svg>
+          </span>
+          <div style="display:flex; flex-direction:column; gap:1px;">
+            <span style="font-size:14px; font-weight:700; color:#23201C;">Ballons</span>
+            <span style="font-size:12px; color:#5B564F;">Qui apporte les ballons d'échauffement ?</span>
+          </div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+            <span style="display:inline-flex; align-items:center; border-radius:9999px; padding:3px 11px; font-size:12px; font-weight:600; border:1px solid #E7DECF; color:#5B564F;">Non assigné</span>
+            <button style="height:36px; padding:0 16px; border-radius:6px; background:#AA4F22; color:#FAF5EF; border:none; font-size:13px; font-weight:600;">Je m'en occupe</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
