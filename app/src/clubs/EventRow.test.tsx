@@ -70,6 +70,20 @@ describe('EventRow', () => {
     expect(screen.getByText('vs US Saint-Nazaire')).toBeInTheDocument();
   });
 
+  it('links a match event to its detail page and shows the venue badge, never for a training event', () => {
+    renderRow(trainingEvent, false);
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
+
+    const homeMatch: TeamEvent = { ...matchEvent, venue: 'HOME' };
+    renderRow(homeMatch, false);
+    expect(screen.getByText('Domicile')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /vs US Saint-Nazaire/i })).toHaveAttribute(
+      'href',
+      '/clubs/club-1/teams/team-1/events/event-2',
+    );
+  });
+
   it('does not show a scope select in the delete confirmation for a non-recurring event', async () => {
     const user = userEvent.setup();
     renderRow(trainingEvent, true);

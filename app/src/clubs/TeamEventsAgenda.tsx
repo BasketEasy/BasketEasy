@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
@@ -6,6 +7,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
 import { eventTypeShortLabel } from './eventLabels';
+import { EventVenueBadge } from './EventVenueBadge';
 import { EventEditModal } from './EventEditModal';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventRsvpControl } from './EventRsvpControl';
@@ -52,11 +54,15 @@ function AgendaEventCard({
         </span>
       </div>
       <div className="flex min-w-0 flex-grow flex-col gap-3.5 p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-1">
-            {(isRostered && event.myConvocation) || event.isImported || !event.timeConfirmed ? (
+            {(isRostered && event.myConvocation) ||
+            event.isImported ||
+            !event.timeConfirmed ||
+            (event.type === 'MATCH' && event.venue) ? (
               <div className="flex flex-wrap items-center gap-2">
                 {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
+                {event.type === 'MATCH' && event.venue && <EventVenueBadge venue={event.venue} />}
                 {event.isImported && <Badge variant="outline">Importé</Badge>}
                 {!event.timeConfirmed && <Badge variant="outline">Heure à confirmer</Badge>}
               </div>
@@ -67,19 +73,29 @@ function AgendaEventCard({
             </span>
             {event.notes && <span className="text-sm text-muted">{event.notes}</span>}
           </div>
-          {canManage && (
-            <div className="flex flex-wrap items-center gap-2">
-              <EventEditModal
-                clubId={clubId}
-                teamId={teamId}
-                event={event}
-                open={isEditOpen}
-                onOpenChange={setIsEditOpen}
-              />
-              <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
-              <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {event.type === 'MATCH' && (
+              <Link
+                to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
+                className="shrink-0 text-sm font-bold text-blue-green hover:underline"
+              >
+                Voir le match →
+              </Link>
+            )}
+            {canManage && (
+              <>
+                <EventEditModal
+                  clubId={clubId}
+                  teamId={teamId}
+                  event={event}
+                  open={isEditOpen}
+                  onOpenChange={setIsEditOpen}
+                />
+                <EventDeleteModal clubId={clubId} teamId={teamId} event={event} />
+                <EventConvocationModal clubId={clubId} teamId={teamId} eventId={event.id} />
+              </>
+            )}
+          </div>
         </div>
         <div className="flex flex-col gap-2.5 border-t border-border pt-3">
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}

@@ -70,6 +70,20 @@ describe('TeamEventsAgenda', () => {
     expect(screen.getByText(/vs US Saint-Nazaire/)).toBeInTheDocument();
   });
 
+  it('links a match event to its detail page and shows the venue badge, never for a training event', () => {
+    renderAgenda([trainingEvent], false);
+    expect(screen.queryByRole('link', { name: /voir le match/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
+
+    const homeMatch: TeamEvent = { ...matchEventSameDay, venue: 'HOME' };
+    renderAgenda([homeMatch], false);
+    expect(screen.getByText('Domicile')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /voir le match/i })).toHaveAttribute(
+      'href',
+      '/clubs/club-1/teams/team-1/events/event-2',
+    );
+  });
+
   it('hides edit/delete actions for a viewer who cannot manage the team', () => {
     renderAgenda([trainingEvent], false);
 
