@@ -33,6 +33,8 @@ export const eventRsvpsQueryKey = (clubId: string, teamId: string, eventId: stri
   ['clubs', clubId, 'teams', teamId, 'events', eventId, 'rsvps'] as const;
 export const eventConvocationsQueryKey = (clubId: string, teamId: string, eventId: string) =>
   ['clubs', clubId, 'teams', teamId, 'events', eventId, 'convocations'] as const;
+export const eventVoteResultsQueryKey = (clubId: string, teamId: string, eventId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'votes'] as const;
 export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins'] as const;
 export const teamFfbbLinksQueryKey = (clubId: string, teamId: string) =>

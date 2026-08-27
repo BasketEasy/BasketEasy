@@ -8,6 +8,7 @@ import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateForma
 import { eventDetailLinkLabel, eventTypeShortLabel } from './eventLabels';
 import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
+import { EventVoteBadge } from './EventVoteBadge';
 import { EventRsvpControl } from './EventRsvpControl';
 
 /**
@@ -101,6 +102,7 @@ function AgendaEventCard({
               </Badge>
             )}
             <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+            <EventVoteBadge event={event} />
           </div>
           {isRostered && (
             <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />

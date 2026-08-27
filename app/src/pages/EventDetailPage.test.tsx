@@ -179,4 +179,33 @@ describe('EventDetailPage', () => {
       await screen.findByRole('button', { name: /gérer la convocation/i }),
     ).toBeInTheDocument();
   });
+
+  it('shows a Vote tab for a MATCH event but not for a TRAINING event', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
+        HttpResponse.json(matchEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-2', () =>
+        HttpResponse.json(trainingEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json([]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<App />, { route });
+
+    await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
+    expect(screen.getByRole('tab', { name: 'Vote' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Vote' }));
+    expect(await screen.findByText('Le vote ouvrira après le match')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<App />, { route: trainingRoute });
+    await screen.findByRole('heading', { name: /entraînement/i });
+    expect(screen.queryByRole('tab', { name: 'Vote' })).not.toBeInTheDocument();
+  });
 });

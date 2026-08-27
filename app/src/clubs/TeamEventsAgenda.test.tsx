@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { renderWithProviders } from '../testUtils';
@@ -85,6 +85,25 @@ describe('TeamEventsAgenda', () => {
     const homeMatch: TeamEvent = { ...matchEventSameDay, venue: 'HOME' };
     renderAgenda([homeMatch]);
     expect(screen.getByText('Domicile')).toBeInTheDocument();
+  });
+
+  describe('the "Votes ouverts" badge', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-15T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows for a past match still inside the vote window, never for a training event', () => {
+      renderAgenda([matchEventSameDay]);
+      expect(screen.getByText(/votes ouverts/i)).toBeInTheDocument();
+
+      renderAgenda([trainingEvent]);
+      expect(screen.queryAllByText(/votes ouverts/i)).toHaveLength(1);
+    });
   });
 
   it('shows the jersey/ball mini-chips for both event types, unassigned or assigned', () => {

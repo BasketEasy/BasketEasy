@@ -20,16 +20,17 @@ import { EventDeleteModal } from '../clubs/EventDeleteModal';
 import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { EventRosterTab } from '../clubs/EventRosterTab';
+import { MatchVoteTab } from '../clubs/MatchVoteTab';
 import { teamAvatarInitials } from '../clubs/eventDetailLabels';
 import { useEventShow } from '../clubs/useEventShow';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
 
-type EventDetailTab = 'apercu' | 'effectif';
+type EventDetailTab = 'apercu' | 'effectif' | 'vote';
 
 function isEventDetailTab(value: string | null): value is EventDetailTab {
-  return value === 'apercu' || value === 'effectif';
+  return value === 'apercu' || value === 'effectif' || value === 'vote';
 }
 
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
@@ -256,6 +257,7 @@ export function EventDetailPage() {
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
           <TabsTrigger value="effectif">Effectif</TabsTrigger>
+          {isMatch && <TabsTrigger value="vote">Vote</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="apercu" className="mt-4 flex flex-col gap-6">
@@ -367,6 +369,12 @@ export function EventDetailPage() {
             canManage={canManage}
           />
         </TabsContent>
+
+        {isMatch && (
+          <TabsContent value="vote" className="mt-4">
+            <MatchVoteTab clubId={clubId!} teamId={teamId!} event={event} />
+          </TabsContent>
+        )}
       </Tabs>
     </PageContainer>
   );
