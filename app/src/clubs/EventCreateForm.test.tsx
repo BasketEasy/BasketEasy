@@ -144,10 +144,18 @@ describe('EventCreateForm', () => {
     await user.type(screen.getByLabelText(/adversaire/i), 'US Saint-Nazaire');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
+    expect(await screen.findByText(/domicile\/extérieur requis/i)).toBeInTheDocument();
+    expect(capturedBody).toBeUndefined();
+
+    await user.click(screen.getByRole('combobox', { name: /domicile.*extérieur/i }));
+    await user.click(await screen.findByRole('option', { name: /^domicile$/i }));
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
     await waitFor(() => expect(capturedBody).toBeDefined());
     expect(capturedBody).toMatchObject({
       type: 'MATCH',
       opponentName: 'US Saint-Nazaire',
+      venue: 'HOME',
     });
   });
 });
