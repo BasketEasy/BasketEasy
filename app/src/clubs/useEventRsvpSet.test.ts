@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('useEventRsvpSet', () => {
-  it('PATCHes the status and invalidates the events list and the roster breakdown', async () => {
+  it('PATCHes the status and invalidates the single event, the events list, and the roster breakdown', async () => {
     let requestBody: unknown;
     server.use(
       http.patch('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', async ({ request }) => {
@@ -47,12 +47,19 @@ describe('useEventRsvpSet', () => {
       ['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1', 'rsvps'],
       [],
     );
+    queryClient.setQueryData(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'], {
+      id: 'event-1',
+    });
     const { result } = renderHook(() => useEventRsvpSet('club-1', 'team-1'), { wrapper });
 
     result.current.mutate({ eventId: 'event-1', status: 'GOING' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestBody).toEqual({ status: 'GOING' });
+    expect(
+      queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'])
+        ?.isInvalidated,
+    ).toBe(true);
     expect(
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,

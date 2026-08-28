@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('useEventRsvpClear', () => {
-  it('DELETEs the caller own RSVP and invalidates the events list and the roster breakdown', async () => {
+  it('DELETEs the caller own RSVP and invalidates the single event and the events list', async () => {
     server.use(
       http.delete('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', () =>
         HttpResponse.json({
@@ -41,12 +41,19 @@ describe('useEventRsvpClear', () => {
       page: 1,
       pageSize: 25,
     });
+    queryClient.setQueryData(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'], {
+      id: 'event-1',
+    });
     const { result } = renderHook(() => useEventRsvpClear('club-1', 'team-1'), { wrapper });
 
     result.current.mutate({ eventId: 'event-1' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.myRsvpStatus).toBeNull();
+    expect(
+      queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'])
+        ?.isInvalidated,
+    ).toBe(true);
     expect(
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,
