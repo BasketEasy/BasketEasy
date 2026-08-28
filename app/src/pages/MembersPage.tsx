@@ -461,7 +461,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (membersResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
                   title={isMembersFiltered ? 'Aucun résultat' : 'Aucun membre pour le moment'}
                   description={
                     isMembersFiltered
@@ -569,7 +569,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (playersResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
                   title={isPlayersFiltered ? 'Aucun résultat' : 'Aucun joueur pour le moment'}
                   description={
                     isPlayersFiltered
@@ -692,7 +692,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (teamsResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+                  icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
                   title={isTeamsFiltered ? 'Aucun résultat' : 'Aucune équipe pour le moment'}
                   description={
                     isTeamsFiltered

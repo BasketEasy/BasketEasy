@@ -14,6 +14,7 @@ import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLo
 import { getInitials } from './getInitials';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
+import { Text } from '@basketeasy/ui/text';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -77,12 +78,21 @@ function LogisticsFieldRow({
 
   return (
     <div className="flex items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint text-blue-green">
+      <Text
+        as="span"
+        variant="body"
+        tone="structure"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
+      >
         <Icon size={19} />
-      </span>
+      </Text>
       <div className="flex flex-col gap-px">
-        <span className="text-sm font-bold text-charcoal">{fieldLabel}</span>
-        <span className="text-xs text-muted">{eventLogisticsFieldQuestion(field, event.type)}</span>
+        <Text as="span" variant="label" size="sm" className="font-bold">
+          {fieldLabel}
+        </Text>
+        <Text as="span" variant="meta" size="xs">
+          {eventLogisticsFieldQuestion(field, event.type)}
+        </Text>
       </div>
       <div className="ml-auto flex items-center gap-2.5">
         {isChanging ? (
@@ -96,15 +106,20 @@ function LogisticsFieldRow({
           />
         ) : assignee ? (
           <>
-            <Avatar className="h-7 w-7 text-xs">
+            <Avatar size="sm">
               <AvatarFallback>{getInitials(assignee.firstName, assignee.lastName)}</AvatarFallback>
             </Avatar>
-            <span className="whitespace-nowrap text-sm font-semibold text-charcoal">
+            <Text as="span" variant="label" size="sm" className="whitespace-nowrap">
               {assignee.firstName} {assignee.lastName}
-            </span>
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success text-cream">
+            </Text>
+            <Text
+              as="span"
+              variant="body"
+              tone="inverse"
+              className="flex h-4 w-4 items-center justify-center rounded-full bg-success"
+            >
               <Check className="h-2.5 w-2.5" />
-            </span>
+            </Text>
             {canChange && (
               <Button variant="ghost" size="sm" onClick={() => setIsChanging(true)}>
                 Changer

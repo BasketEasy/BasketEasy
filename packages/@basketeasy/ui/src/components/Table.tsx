@@ -24,7 +24,7 @@ export const TableHeader = forwardRef<
   HTMLTableSectionElement,
   HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('border-b border-border', className)} {...props} />
+  <thead ref={ref} className={cn('bg-surface border-b border-border', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 

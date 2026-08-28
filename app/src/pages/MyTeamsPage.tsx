@@ -96,10 +96,10 @@ export function MyTeamsPage() {
       <Heading as="h1" className="m-0">
         Mes équipes
       </Heading>
-      <p className="text-muted">
+      <Text variant="meta">
         Les équipes que vous administrez ou dans lesquelles vous êtes inscrit·e comme joueur ou
         entraîneur.
-      </p>
+      </Text>
 
       {adminClubs.length > 0 && (
         <Dialog
@@ -160,7 +160,7 @@ export function MyTeamsPage() {
             </ResponsiveTable>
           ) : (
             <EmptyState
-              icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+              icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
               title="Aucune équipe pour le moment"
               description="Vous n'êtes membre d'aucune équipe pour le moment."
             />

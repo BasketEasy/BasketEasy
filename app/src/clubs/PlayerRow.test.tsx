@@ -42,7 +42,7 @@ function renderRow(isAdmin = true) {
 }
 
 describe('PlayerRow', () => {
-  it('discards an edited draft when Annuler is clicked, instead of keeping it for next time', async () => {
+  it('discards an edited draft when the dialog is closed, instead of keeping it for next time', async () => {
     const user = userEvent.setup();
     renderRow();
 
@@ -50,15 +50,16 @@ describe('PlayerRow', () => {
     const firstNameInput = screen.getAllByRole('textbox')[0];
     await user.clear(firstNameInput);
     await user.type(firstNameInput, 'Alexandre');
-    await user.click(screen.getByRole('button', { name: /annuler/i }));
+    await user.click(screen.getByRole('button', { name: /fermer/i }));
 
-    // Re-enter edit mode: the input should show the original name, not the
-    // discarded 'Alexandre' draft.
+    // Re-open the dialog: the input should show the original name, not the
+    // discarded 'Alexandre' draft — Radix unmounts the dialog content (and
+    // with it the form's local state) when it closes.
     await user.click(screen.getByRole('button', { name: /modifier/i }));
     expect(screen.getAllByRole('textbox')[0]).toHaveValue('Alex');
   });
 
-  it('shows an error and stays in edit mode when saving fails', async () => {
+  it('shows an error and stays open when saving fails', async () => {
     server.use(
       http.patch('/api/clubs/club-1/players/p1', () =>
         HttpResponse.json({ message: 'error' }, { status: 500 }),
@@ -159,6 +160,15 @@ describe('PlayerRow', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /enregistrer/i })).not.toBeInTheDocument(),
     );
-    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
+    expect(capturedBody).toEqual({
+      firstName: 'Alex',
+      lastName: 'Dupont',
+      userId: 'user-2',
+      nationalId: null,
+      licenseNumber: null,
+      birthDate: null,
+      gender: null,
+      licenseType: null,
+    });
   });
 });

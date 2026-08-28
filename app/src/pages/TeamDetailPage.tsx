@@ -58,6 +58,7 @@ import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ShieldIcon } from '@basketeasy/ui/icons/shield';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { Text } from '@basketeasy/ui/text';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -253,13 +254,26 @@ export function TeamDetailPage() {
     setEventsTo('');
     setEventsSortOrder('asc');
     setEventsPage(1);
+    setAgendaPeriod('upcoming');
     setEventsViewMode((mode) => (mode === 'agenda' ? 'table' : 'agenda'));
   };
-  // Agenda fetch window: from the start of today onward, uncapped by an
-  // upper bound but capped at LINKING_PAGE_SIZE rows (a team's realistic
-  // near-term event count is well under that) — computed once per mount
+  // Agenda period — "À venir" (default) vs. "Passés", toggled the same way
+  // as eventsViewMode above and reset back to 'upcoming' whenever the outer
+  // Agenda/Liste toggle flips, so re-entering Agenda always starts
+  // forward-looking. Liste view remains the real paginated escape hatch for
+  // deep history — this only covers "yesterday's/last week's practice."
+  const [agendaPeriod, setAgendaPeriod] = useState<'upcoming' | 'past'>('upcoming');
+  const toggleAgendaPeriod = () => {
+    setAgendaPeriod((period) => (period === 'upcoming' ? 'past' : 'upcoming'));
+  };
+  // Agenda fetch window boundary: start of today — computed once per mount
   // rather than every render, since it only needs to be "today," not "this
-  // exact instant."
+  // exact instant." Shared by both directions: upcoming reads from this
+  // point on (uncapped upper bound), past reads up to this point (capped
+  // lower bound) — today's own events always bucket into "À venir," never
+  // "Passés," since an event later today hasn't happened yet. Either
+  // direction is capped at LINKING_PAGE_SIZE rows (a team's realistic
+  // near-term/recent event count is well under that).
   const agendaFrom = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -344,8 +358,8 @@ export function TeamDetailPage() {
     refetch: refetchAgendaEvents,
     isRefetching: isAgendaEventsRefetching,
   } = useEventList(clubId!, teamId!, {
-    from: agendaFrom,
-    sortOrder: 'asc',
+    ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
+    sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
     pageSize: LINKING_PAGE_SIZE,
   });
 
@@ -427,7 +441,7 @@ export function TeamDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+          icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
           title="Équipe introuvable"
           description="Cette équipe n’existe plus ou a été supprimée."
           action={
@@ -451,9 +465,9 @@ export function TeamDetailPage() {
           <Heading as="h1" className="m-0">
             {team.name}
           </Heading>
-          <p className="mt-1 text-muted">
+          <Text variant="meta" className="mt-1">
             {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-          </p>
+          </Text>
         </div>
         {canManageTeam && (
           <div className="flex flex-wrap gap-2">
@@ -594,7 +608,7 @@ export function TeamDetailPage() {
                 <SkeletonList rows={3} />
               ) : isRosterEmpty ? (
                 <EmptyState
-                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
                   title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
                   description={
                     isRosterFiltered
@@ -704,7 +718,7 @@ export function TeamDetailPage() {
                   <SkeletonList rows={3} />
                 ) : (teamClubsResult?.total ?? 0) === 0 ? (
                   <EmptyState
-                    icon={<BuildingIcon className="h-8 w-8 text-muted" />}
+                    icon={<BuildingIcon tone="secondary" className="h-8 w-8" />}
                     title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
                     description={
                       isTeamClubsFiltered
@@ -779,7 +793,7 @@ export function TeamDetailPage() {
                   <SkeletonList rows={3} />
                 ) : (teamAdmins?.length ?? 0) === 0 ? (
                   <EmptyState
-                    icon={<ShieldIcon className="h-8 w-8 text-muted" />}
+                    icon={<ShieldIcon tone="secondary" className="h-8 w-8" />}
                     title="Aucun administrateur d'équipe"
                     description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
                     action={
@@ -839,6 +853,18 @@ export function TeamDetailPage() {
             />
           </div>
 
+          {eventsViewMode === 'agenda' && (
+            <ViewModeToggle
+              ariaLabel="Période"
+              value={agendaPeriod}
+              onToggle={toggleAgendaPeriod}
+              options={[
+                { value: 'upcoming', label: 'À venir' },
+                { value: 'past', label: 'Passés' },
+              ]}
+            />
+          )}
+
           {eventsViewMode === 'table' && (
             <div className="flex flex-wrap items-end gap-3">
               <Input
@@ -893,19 +919,25 @@ export function TeamDetailPage() {
                 <SkeletonList rows={3} />
               ) : isEventsEmpty ? (
                 <EmptyState
-                  icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+                  icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
                   title={
                     eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun résultat'
-                      : 'Aucun événement'
+                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
+                        ? 'Aucun événement passé'
+                        : 'Aucun événement'
                   }
                   description={
                     eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun événement ne correspond à ces critères.'
-                      : 'Planifiez un entraînement ou un match pour cette équipe.'
+                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
+                        ? 'Aucun entraînement ni match n’a encore eu lieu pour cette équipe.'
+                        : 'Planifiez un entraînement ou un match pour cette équipe.'
                   }
                   action={
-                    canManageTeam && !(eventsViewMode === 'table' && isEventsFiltered) ? (
+                    canManageTeam &&
+                    !(eventsViewMode === 'table' && isEventsFiltered) &&
+                    !(eventsViewMode === 'agenda' && agendaPeriod === 'past') ? (
                       <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
                     ) : undefined
                   }

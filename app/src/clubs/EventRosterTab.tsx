@@ -26,14 +26,16 @@ import { meterWidthClass } from './meterWidthClass';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventRsvps } from './useEventRsvps';
+import { Text } from '@basketeasy/ui/text';
+import type { StatusTone } from './statusTone';
 
 // Mirrors EventRsvpBreakdown's status→color mapping (kept local rather than
 // exported/shared, since this is the same three-value convention repeated,
 // not a new one).
-const RSVP_STATUS_COLOR: Record<EventRsvpStatus, string> = {
-  GOING: 'text-success',
-  MAYBE: 'text-blue-green',
-  NOT_GOING: 'text-error',
+const RSVP_STATUS_TONE: Record<EventRsvpStatus, StatusTone> = {
+  GOING: 'success',
+  MAYBE: 'structure',
+  NOT_GOING: 'danger',
 };
 
 interface MergedRosterRow {
@@ -80,48 +82,56 @@ function RosterMeter({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="text-sm font-semibold text-muted">{label}</span>
+      <Text as="span" variant="label" size="sm" tone="secondary">
+        {label}
+      </Text>
       <div className="h-1.5 w-24 overflow-hidden rounded-full bg-sunk">
         <div className={cn('h-full rounded-full', meterWidthClass(value, max), barClassName)} />
       </div>
-      <span className="tabular text-sm font-bold text-muted">
+      <Text as="span" variant="label" size="sm" tone="secondary" className="tabular font-bold">
         {value}/{max}
-      </span>
+      </Text>
     </div>
   );
 }
 
 function RosterStatusDot({
   label,
-  colorClassName,
+  tone,
   filled,
 }: {
   label: string;
-  colorClassName: string;
+  tone: StatusTone;
   filled: boolean;
 }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 text-sm font-semibold', colorClassName)}>
+    <Text
+      as="span"
+      variant="label"
+      size="sm"
+      tone={tone}
+      className="inline-flex items-center gap-1.5"
+    >
       <span
         className={cn('h-2 w-2 rounded-full', filled ? 'bg-current' : 'border border-current')}
       />
       {label}
-    </span>
+    </Text>
   );
 }
 
 function RosterPlayerIdentity({ row }: { row: MergedRosterRow }) {
   return (
     <div className="flex items-center gap-2.5">
-      <Avatar className="h-7 w-7 text-xs">
-        <AvatarFallback className={row.role === 'COACH' ? 'bg-orange' : undefined}>
+      <Avatar size="sm">
+        <AvatarFallback tone={row.role === 'COACH' ? 'brand' : 'structure'}>
           {getInitials(row.firstName, row.lastName)}
         </AvatarFallback>
       </Avatar>
-      <span className="font-semibold text-charcoal">
+      <Text as="span" variant="label">
         {row.firstName} {row.lastName}
         {row.isMe && ' (vous)'}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -130,16 +140,18 @@ function EventRosterCard({ row }: { row: MergedRosterRow }) {
   return (
     <Card variant="inset" className="flex flex-col gap-2.5">
       <RosterPlayerIdentity row={row} />
-      <span className="text-sm text-muted">{teamMemberRoleLabel(row.role)}</span>
+      <Text as="span" variant="meta">
+        {teamMemberRoleLabel(row.role)}
+      </Text>
       <div className="flex flex-wrap items-center gap-3">
         <RosterStatusDot
           label={row.convoked ? 'Convoqué' : 'Non convoqué'}
-          colorClassName={row.convoked ? 'text-orange-text' : 'text-muted'}
+          tone={row.convoked ? 'brand' : 'secondary'}
           filled={row.convoked}
         />
         <RosterStatusDot
           label={eventRsvpStatusLabel(row.rsvpStatus)}
-          colorClassName={row.rsvpStatus ? RSVP_STATUS_COLOR[row.rsvpStatus] : 'text-muted'}
+          tone={row.rsvpStatus ? RSVP_STATUS_TONE[row.rsvpStatus] : 'secondary'}
           filled={row.rsvpStatus !== null}
         />
       </div>
@@ -203,7 +215,7 @@ export function EventRosterTab({
   if (rows.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon className="h-8 w-8 text-muted" />}
+        icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
         title="Effectif vide"
         description="Cette équipe n’a pas encore de joueurs ou de staff à convoquer."
       />
@@ -252,20 +264,22 @@ export function EventRosterTab({
                   <TableCell>
                     <RosterPlayerIdentity row={row} />
                   </TableCell>
-                  <TableCell className="text-muted">{teamMemberRoleLabel(row.role)}</TableCell>
+                  <TableCell>
+                    <Text as="span" variant="meta" size="md">
+                      {teamMemberRoleLabel(row.role)}
+                    </Text>
+                  </TableCell>
                   <TableCell>
                     <RosterStatusDot
                       label={row.convoked ? 'Convoqué' : 'Non convoqué'}
-                      colorClassName={row.convoked ? 'text-orange-text' : 'text-muted'}
+                      tone={row.convoked ? 'brand' : 'secondary'}
                       filled={row.convoked}
                     />
                   </TableCell>
                   <TableCell>
                     <RosterStatusDot
                       label={eventRsvpStatusLabel(row.rsvpStatus)}
-                      colorClassName={
-                        row.rsvpStatus ? RSVP_STATUS_COLOR[row.rsvpStatus] : 'text-muted'
-                      }
+                      tone={row.rsvpStatus ? RSVP_STATUS_TONE[row.rsvpStatus] : 'secondary'}
                       filled={row.rsvpStatus !== null}
                     />
                   </TableCell>

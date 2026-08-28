@@ -45,6 +45,8 @@ const textVariants = cva('', {
       primary: 'text-charcoal',
       secondary: 'text-muted',
       inverse: 'text-cream',
+      /** Secondary copy on an inverse (dark) ground, where `secondary` would vanish. */
+      inverseSecondary: 'text-blue-green-tint',
       brand: 'text-orange-text',
       structure: 'text-blue-green',
       danger: 'text-error',

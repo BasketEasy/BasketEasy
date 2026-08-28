@@ -13,6 +13,10 @@
       "types": "./src/lib/focusRing.ts",
       "default": "./src/lib/focusRing.ts"
     },
+    "./icon-variants": {
+      "types": "./src/lib/iconVariants.ts",
+      "default": "./src/lib/iconVariants.ts"
+    },
     "./use-is-desktop-viewport": {
       "types": "./src/lib/useIsDesktopViewport.ts",
       "default": "./src/lib/useIsDesktopViewport.ts"
@@ -158,6 +162,10 @@
     "./text": {
       "types": "./src/components/Text.tsx",
       "default": "./src/components/Text.tsx"
+    },
+    "./text-link": {
+      "types": "./src/components/TextLink.tsx",
+      "default": "./src/components/TextLink.tsx"
     },
     "./field-error": {
       "types": "./src/components/FieldError.tsx",

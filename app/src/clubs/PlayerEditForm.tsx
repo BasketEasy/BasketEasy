@@ -13,15 +13,16 @@ import {
   SelectValue,
 } from '@basketeasy/ui/select';
 import { toast } from '@basketeasy/ui/toast-store';
+import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { Gender } from '@basketeasy/types/teams';
-import { usePlayerCreate } from './usePlayerCreate';
+import { usePlayerUpdate } from './usePlayerUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 
 const UNLINKED = 'none';
 const UNSPECIFIED_GENDER = 'unspecified';
 
-const playerSchema = z.object({
+const playerEditSchema = z.object({
   firstName: z.string().min(1, 'Prénom requis'),
   lastName: z.string().min(1, 'Nom requis'),
   userId: z.string(),
@@ -32,57 +33,64 @@ const playerSchema = z.object({
   licenseType: z.string().max(20, 'Maximum 20 caractères'),
 });
 
-type PlayerFormValues = z.infer<typeof playerSchema>;
+type PlayerEditFormValues = z.infer<typeof playerEditSchema>;
 
-export function PlayerCreateForm({
+function defaultValuesFor(player: Player): PlayerEditFormValues {
+  return {
+    firstName: player.firstName,
+    lastName: player.lastName,
+    userId: player.userId ?? UNLINKED,
+    nationalId: player.nationalId ?? '',
+    licenseNumber: player.licenseNumber ?? '',
+    birthDate: player.birthDate?.slice(0, 10) ?? '',
+    gender: player.gender ?? UNSPECIFIED_GENDER,
+    licenseType: player.licenseType ?? '',
+  };
+}
+
+/** Dialog-based edit form for a player's full info, used by both the desktop row and mobile card. */
+export function PlayerEditForm({
   clubId,
-  linkableMembers = [],
+  player,
+  linkableMembers,
   onSuccess,
 }: {
   clubId: string;
-  /** Club members not yet linked to another player, offered as a link target. */
-  linkableMembers?: ClubMember[];
+  player: Player;
+  /** Club members this player can be linked to: unlinked ones, plus its own current link. */
+  linkableMembers: ClubMember[];
   onSuccess?: () => void;
 }) {
-  const { mutate: createPlayer, isPending } = usePlayerCreate(clubId);
+  const { mutate: updatePlayer, isPending } = usePlayerUpdate(clubId);
   const {
     register,
     control,
     handleSubmit,
-    reset,
     setError,
-    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<PlayerFormValues>({
-    resolver: zodResolver(playerSchema),
-    defaultValues: {
-      firstName: '',
-      lastName: '',
-      userId: UNLINKED,
-      nationalId: '',
-      licenseNumber: '',
-      birthDate: '',
-      gender: UNSPECIFIED_GENDER,
-      licenseType: '',
-    },
+  } = useForm<PlayerEditFormValues>({
+    resolver: zodResolver(playerEditSchema),
+    defaultValues: defaultValuesFor(player),
   });
 
-  const onSubmit = (values: PlayerFormValues) => {
-    createPlayer(
+  const onSubmit = (values: PlayerEditFormValues) => {
+    updatePlayer(
       {
-        firstName: values.firstName,
-        lastName: values.lastName,
-        userId: values.userId === UNLINKED ? undefined : values.userId,
-        nationalId: values.nationalId.trim() || undefined,
-        licenseNumber: values.licenseNumber.trim() || undefined,
-        birthDate: values.birthDate || undefined,
-        gender: values.gender === UNSPECIFIED_GENDER ? undefined : (values.gender as Gender),
-        licenseType: values.licenseType.trim() || undefined,
+        playerId: player.id,
+        dto: {
+          firstName: values.firstName,
+          lastName: values.lastName,
+          userId: values.userId === UNLINKED ? null : values.userId,
+          nationalId: values.nationalId.trim() || null,
+          licenseNumber: values.licenseNumber.trim() || null,
+          birthDate: values.birthDate || null,
+          gender: values.gender === UNSPECIFIED_GENDER ? null : (values.gender as Gender),
+          licenseType: values.licenseType.trim() || null,
+        },
       },
       {
         onSuccess: () => {
-          toast({ variant: 'success', title: 'Joueur ajouté' });
-          reset();
+          toast({ variant: 'success', title: 'Joueur modifié' });
           onSuccess?.();
         },
         onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
@@ -106,32 +114,32 @@ export function PlayerCreateForm({
 
       <FormField
         label="Prénom"
-        id="player-first-name"
+        id={`player-${player.id}-edit-first-name`}
         error={errors.firstName?.message}
         {...register('firstName')}
       />
       <FormField
         label="Nom"
-        id="player-last-name"
+        id={`player-${player.id}-edit-last-name`}
         error={errors.lastName?.message}
         {...register('lastName')}
       />
       <FormField
         label="Date de naissance"
-        id="player-birth-date"
+        id={`player-${player.id}-edit-birth-date`}
         type="date"
         error={errors.birthDate?.message}
         {...register('birthDate')}
       />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="player-gender">Sexe</Label>
+        <Label htmlFor={`player-${player.id}-edit-gender`}>Sexe</Label>
         <Controller
           control={control}
           name="gender"
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger id="player-gender" aria-label="Sexe">
+              <SelectTrigger id={`player-${player.id}-edit-gender`} aria-label="Sexe">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -146,47 +154,34 @@ export function PlayerCreateForm({
 
       <FormField
         label="N° national (optionnel)"
-        id="player-national-id"
+        id={`player-${player.id}-edit-national-id`}
         error={errors.nationalId?.message}
         {...register('nationalId')}
       />
       <FormField
         label="N° licence (optionnel)"
-        id="player-license-number"
+        id={`player-${player.id}-edit-license-number`}
         error={errors.licenseNumber?.message}
         {...register('licenseNumber')}
       />
       <FormField
         label="Type de licence (optionnel)"
-        id="player-license-type"
+        id={`player-${player.id}-edit-license-type`}
         error={errors.licenseType?.message}
         {...register('licenseType')}
       />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="player-linked-member">Compte lié (optionnel)</Label>
+        <Label htmlFor={`player-${player.id}-edit-linked-member`}>Compte lié (optionnel)</Label>
         <Controller
           control={control}
           name="userId"
           render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(value) => {
-                field.onChange(value);
-                const member = linkableMembers.find((m) => m.userId === value);
-                if (member?.firstName && member?.lastName) {
-                  setValue('firstName', member.firstName, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                  setValue('lastName', member.lastName, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  });
-                }
-              }}
-            >
-              <SelectTrigger id="player-linked-member" aria-label="Compte lié (optionnel)">
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger
+                id={`player-${player.id}-edit-linked-member`}
+                aria-label="Compte lié (optionnel)"
+              >
                 <SelectValue placeholder="Aucun compte lié" />
               </SelectTrigger>
               <SelectContent>
@@ -203,7 +198,7 @@ export function PlayerCreateForm({
       </div>
 
       <Button type="submit" loading={isSubmitting || isPending}>
-        Ajouter
+        Enregistrer
       </Button>
     </form>
   );

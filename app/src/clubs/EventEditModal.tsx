@@ -22,6 +22,7 @@ import { useEventTimeUpdate } from './useEventTimeUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { toDatetimeLocalValue } from './eventDateFormat';
 import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
+import { Text } from '@basketeasy/ui/text';
 
 const eventEditSchema = z
   .object({
@@ -246,10 +247,10 @@ export function EventEditModal({
                 error={errors.time?.message}
                 {...register('time')}
               />
-              <p className="text-sm text-muted">
+              <Text variant="meta">
                 La date de chaque occurrence est conservée, seule l&apos;heure sera modifiée pour
                 les événements sélectionnés.
-              </p>
+              </Text>
             </div>
           )}
 

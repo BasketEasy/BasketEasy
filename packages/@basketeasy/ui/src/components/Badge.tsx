@@ -15,49 +15,51 @@ import { cn } from '../lib/cn';
  * (orange), `structure` carries the blue-green that organises the UI. Nothing
  * here names a hue.
  */
-const badgeVariants = cva(
-  'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-  {
-    variants: {
-      variant: {
-        solid: '',
-        soft: 'border',
-        outline: 'border',
-      },
-      tone: { brand: '', structure: '', neutral: '', muted: '', danger: '' },
+const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
+  variants: {
+    /** Padding and weight together, so a call site never reaches for either. */
+    size: {
+      sm: 'px-2.5 py-0.5 font-semibold',
+      md: 'px-3 py-1 font-bold',
     },
-    compoundVariants: [
-      { variant: 'solid', tone: 'brand', class: 'bg-orange-text text-cream' },
-      { variant: 'solid', tone: 'structure', class: 'bg-blue-green text-cream' },
-      { variant: 'solid', tone: 'neutral', class: 'bg-charcoal text-cream' },
-      { variant: 'solid', tone: 'muted', class: 'bg-muted text-cream' },
-      { variant: 'solid', tone: 'danger', class: 'bg-error text-cream' },
-
-      { variant: 'soft', tone: 'brand', class: 'border-orange/30 bg-orange-tint text-orange-text' },
-      {
-        variant: 'soft',
-        tone: 'structure',
-        class: 'border-blue-green/25 bg-blue-green-tint text-blue-green',
-      },
-      { variant: 'soft', tone: 'neutral', class: 'border-border bg-surface-2 text-charcoal' },
-      { variant: 'soft', tone: 'muted', class: 'border-border bg-surface-2 text-muted' },
-      { variant: 'soft', tone: 'danger', class: 'border-error bg-error-tint text-error' },
-
-      { variant: 'outline', tone: 'brand', class: 'border-orange/40 text-orange-text' },
-      { variant: 'outline', tone: 'structure', class: 'border-blue-green/40 text-blue-green' },
-      { variant: 'outline', tone: 'neutral', class: 'border-border text-charcoal' },
-      { variant: 'outline', tone: 'muted', class: 'border-border text-muted' },
-      { variant: 'outline', tone: 'danger', class: 'border-error text-error' },
-    ],
-    defaultVariants: { variant: 'solid', tone: 'brand' },
+    variant: {
+      solid: '',
+      soft: 'border',
+      outline: 'border',
+    },
+    tone: { brand: '', structure: '', neutral: '', muted: '', danger: '' },
   },
-);
+  compoundVariants: [
+    { variant: 'solid', tone: 'brand', class: 'bg-orange-text text-cream' },
+    { variant: 'solid', tone: 'structure', class: 'bg-blue-green text-cream' },
+    { variant: 'solid', tone: 'neutral', class: 'bg-charcoal text-cream' },
+    { variant: 'solid', tone: 'muted', class: 'bg-muted text-cream' },
+    { variant: 'solid', tone: 'danger', class: 'bg-error text-cream' },
+
+    { variant: 'soft', tone: 'brand', class: 'border-orange/30 bg-orange-tint text-orange-text' },
+    {
+      variant: 'soft',
+      tone: 'structure',
+      class: 'border-blue-green/25 bg-blue-green-tint text-blue-green',
+    },
+    { variant: 'soft', tone: 'neutral', class: 'border-border bg-surface-2 text-charcoal' },
+    { variant: 'soft', tone: 'muted', class: 'border-border bg-surface-2 text-muted' },
+    { variant: 'soft', tone: 'danger', class: 'border-error bg-error-tint text-error' },
+
+    { variant: 'outline', tone: 'brand', class: 'border-orange/40 text-orange-text' },
+    { variant: 'outline', tone: 'structure', class: 'border-blue-green/40 text-blue-green' },
+    { variant: 'outline', tone: 'neutral', class: 'border-border text-charcoal' },
+    { variant: 'outline', tone: 'muted', class: 'border-border text-muted' },
+    { variant: 'outline', tone: 'danger', class: 'border-error text-error' },
+  ],
+  defaultVariants: { variant: 'solid', tone: 'brand', size: 'sm' },
+});
 
 export interface BadgeProps
   extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
-export function Badge({ className, variant, tone, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ variant, tone }), className)} {...props} />;
+export function Badge({ className, variant, tone, size, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ variant, tone, size }), className)} {...props} />;
 }
 
 export { badgeVariants };

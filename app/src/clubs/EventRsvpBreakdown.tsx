@@ -4,11 +4,12 @@ import { EventRosterBreakdown } from './EventRosterBreakdown';
 import { eventRsvpStatusLabel } from './eventRsvpLabels';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRsvps } from './useEventRsvps';
+import type { StatusTone } from './statusTone';
 
-const STATUS_COLOR: Record<EventRsvpStatus, string> = {
-  GOING: 'text-success',
-  MAYBE: 'text-blue-green',
-  NOT_GOING: 'text-error',
+const STATUS_TONE: Record<EventRsvpStatus, StatusTone> = {
+  GOING: 'success',
+  MAYBE: 'structure',
+  NOT_GOING: 'danger',
 };
 
 /**
@@ -51,7 +52,7 @@ export function EventRsvpBreakdown({
           lastName: entry.lastName + (entry.isMe ? ' (vous)' : ''),
           role: teamMemberRoleLabel(entry.role),
           statusLabel: eventRsvpStatusLabel(entry.status),
-          statusClassName: entry.status ? STATUS_COLOR[entry.status] : 'text-muted',
+          statusTone: entry.status ? STATUS_TONE[entry.status] : 'secondary',
           filled: entry.status !== null,
         })) ?? []
       }

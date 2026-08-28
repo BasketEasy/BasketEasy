@@ -16,6 +16,7 @@ import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type { ResolvedImportRow } from './resolveImportRows';
+import { Text } from '@basketeasy/ui/text';
 
 type ActionType = ResolvedImportRow['action']['type'];
 type FilterValue = 'all' | 'create' | 'update' | 'conflict' | 'excluded';
@@ -128,12 +129,12 @@ export function PlayerImportPreviewStep({
     <div className="flex flex-col gap-4">
       {heading}
 
-      <p aria-live="polite" className="text-sm text-muted">
+      <Text variant="meta" aria-live="polite">
         {counts.create} création{counts.create !== 1 ? 's' : ''}, {counts.update} mise
         {counts.update !== 1 ? 's' : ''} à jour, {counts.conflict} conflit
         {counts.conflict !== 1 ? 's' : ''}, {excluded} ligne{excluded !== 1 ? 's' : ''} ignorée
         {excluded !== 1 ? 's' : ''}.
-      </p>
+      </Text>
 
       {committable === 0 && (
         <Alert variant="destructive">
@@ -170,10 +171,10 @@ export function PlayerImportPreviewStep({
       </div>
 
       {filteredRows.length === 0 ? (
-        <p className="text-sm text-muted">Aucune ligne ne correspond à ce filtre.</p>
+        <Text variant="meta">Aucune ligne ne correspond à ce filtre.</Text>
       ) : isDesktop ? (
         <Table containerClassName="max-h-96 overflow-y-auto rounded-lg border border-border">
-          <TableHeader className="sticky top-0 z-10 bg-surface">
+          <TableHeader className="sticky top-0 z-10">
             <TableRow>
               <TableHead>Prénom</TableHead>
               <TableHead>Nom</TableHead>
@@ -188,9 +189,9 @@ export function PlayerImportPreviewStep({
                 <TableCell>
                   <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
                   {action.type === 'conflict' && (
-                    <span className="ml-2 text-xs text-muted">
+                    <Text as="span" variant="meta" size="xs" className="ml-2">
                       déjà licencié dans un autre club
-                    </span>
+                    </Text>
                   )}
                 </TableCell>
               </TableRow>
@@ -201,14 +202,16 @@ export function PlayerImportPreviewStep({
         <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
           {filteredRows.map(({ row, action }, index) => (
             <Card key={index} variant="inset" className="flex flex-col gap-1.5">
-              <span className="font-medium text-charcoal">
+              <Text as="span" variant="label" className="font-medium">
                 {row.firstName || '—'} {row.lastName || '—'}
-              </span>
+              </Text>
               <div>
                 <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
               </div>
               {action.type === 'conflict' && (
-                <span className="text-xs text-muted">déjà licencié dans un autre club</span>
+                <Text as="span" variant="meta" size="xs">
+                  déjà licencié dans un autre club
+                </Text>
               )}
             </Card>
           ))}

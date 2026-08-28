@@ -57,8 +57,8 @@ function BallotCandidate({
   const onBrandFill = selected && category === 'BEST';
   return (
     <>
-      <Avatar className="h-7 w-7 shrink-0">
-        <AvatarFallback className={cn('text-xs', onBrandFill && 'bg-surface-2 text-orange-text')}>
+      <Avatar size="sm" className="shrink-0">
+        <AvatarFallback tone={onBrandFill ? 'inverse' : 'structure'}>
           {getInitials(candidate.firstName, candidate.lastName)}
         </AvatarFallback>
       </Avatar>
@@ -73,10 +73,8 @@ function BallotCandidate({
       </Text>
       {selected && (
         <Check
-          className={cn(
-            'ml-auto h-3.5 w-3.5 shrink-0',
-            category === 'BEST' ? 'text-cream' : 'text-blue-green-2',
-          )}
+          tone={category === 'BEST' ? 'inverse' : 'structure'}
+          className="ml-auto h-3.5 w-3.5 shrink-0"
         />
       )}
     </>
@@ -144,7 +142,7 @@ function BestResultRow({
       >
         {rank}
       </span>
-      <Avatar className="h-7 w-7 text-xs">
+      <Avatar size="sm">
         <AvatarFallback>{getInitials(result.firstName, result.lastName)}</AvatarFallback>
       </Avatar>
       <span
@@ -161,9 +159,15 @@ function BestResultRow({
           style={{ width: `${widthPct}%`, opacity: rankOpacity(rank - 1) }}
         />
       </div>
-      <span className="tabular w-6 shrink-0 text-right text-xs font-bold text-gold-text">
+      <Text
+        as="span"
+        variant="label"
+        size="xs"
+        tone="accent"
+        className="tabular w-6 shrink-0 text-right font-bold"
+      >
         {result.voteCount}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -179,18 +183,24 @@ function WorstResultRow({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-24 shrink-0 truncate text-sm font-semibold text-charcoal">
+      <Text as="span" variant="label" size="sm" className="w-24 shrink-0 truncate">
         {result.firstName} {result.lastName}
-      </span>
+      </Text>
       <div className="h-2 flex-grow overflow-hidden rounded-full bg-sunk">
         <div
           className="h-full rounded-full bg-blue-green-2"
           style={{ width: `${widthPct}%`, opacity: rankOpacity(rank - 1) }}
         />
       </div>
-      <span className="tabular w-5 shrink-0 text-right text-xs font-bold text-muted">
+      <Text
+        as="span"
+        variant="label"
+        size="xs"
+        tone="secondary"
+        className="tabular w-5 shrink-0 text-right font-bold"
+      >
         {result.voteCount}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -224,19 +234,23 @@ function MatchVoteResultsCard({
   return (
     <Card variant="panel" className="flex flex-col gap-4">
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-semibold text-muted">
+        <Text as="span" variant="label" size="xs" tone="secondary">
           Résultats — visibles par toute l&apos;équipe
-        </span>
+        </Text>
         <div className="flex items-center gap-2">
-          <TrophyIcon className="h-5 w-5 text-gold" />
+          <TrophyIcon tone="accent" className="h-5 w-5" />
           <h3 className="font-heading text-lg font-extrabold">Meilleur joueur</h3>
         </div>
       </div>
 
       {gateMessage ? (
-        <span className="text-sm text-muted">{gateMessage}</span>
+        <Text as="span" variant="meta">
+          {gateMessage}
+        </Text>
       ) : results.best.length === 0 ? (
-        <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+        <Text as="span" variant="meta">
+          Aucun vote pour l&apos;instant.
+        </Text>
       ) : (
         <div className="flex flex-col gap-2.5">
           {results.best.map((result, index) => (
@@ -249,7 +263,7 @@ function MatchVoteResultsCard({
           ))}
         </div>
       )}
-      <span className="text-xs text-muted">
+      <Text as="span" variant="meta" size="xs">
         {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
         {results.votesCast > 1 ? 's' : ''} sur {results.totalVoters}
         {/* A tie at rank 1 makes the numbered gold badge alone ambiguous
@@ -257,21 +271,28 @@ function MatchVoteResultsCard({
             aren't — the bar length already shows equality there, but a
             single "MVP" framing benefits from saying it outright. */}
         {!gateMessage && bestTiedAtTop > 1 && (
-          <span className="text-gold-text"> · Égalité en tête</span>
+          <Text as="span" variant="body" tone="accent">
+            {' '}
+            · Égalité en tête
+          </Text>
         )}
-      </span>
+      </Text>
 
       <div className="h-px bg-border" />
 
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <WorstIcon size={16} className="text-blue-green-2" />
+          <WorstIcon size={16} tone="structure" />
           <h3 className="text-base font-extrabold">Joueur en difficulté — agrégé</h3>
         </div>
         {gateMessage ? (
-          <span className="text-sm text-muted">{gateMessage}</span>
+          <Text as="span" variant="meta">
+            {gateMessage}
+          </Text>
         ) : results.worst.length === 0 ? (
-          <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+          <Text as="span" variant="meta">
+            Aucun vote pour l&apos;instant.
+          </Text>
         ) : (
           <div className="flex flex-col gap-2">
             {results.worst.map((result, index) => (
@@ -284,10 +305,10 @@ function MatchVoteResultsCard({
             ))}
           </div>
         )}
-        <span className="text-xs text-muted">
+        <Text as="span" variant="meta" size="xs">
           {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
           {results.votesCast > 1 ? 's' : ''} · réponse optionnelle
-        </span>
+        </Text>
       </div>
     </Card>
   );
@@ -358,7 +379,7 @@ export function MatchVoteTab({
   if (!hasOpened) {
     return (
       <EmptyState
-        icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+        icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
         title="Le vote ouvrira après le match"
         description="Le bulletin de vote ouvre 1h après le début de la rencontre."
       />
@@ -399,7 +420,7 @@ export function MatchVoteTab({
   if (candidates.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon className="h-8 w-8 text-muted" />}
+        icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
         title="Pas assez de joueurs à départager"
         description="Il faut au moins un·e autre coéquipier·ère sur l'effectif pour voter."
       />
@@ -427,12 +448,12 @@ export function MatchVoteTab({
       <Card variant="panel" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <TrophyIcon className="h-5 w-5 text-orange-text" />
+            <TrophyIcon tone="brand" className="h-5 w-5" />
             <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
           </div>
-          <span className="text-xs text-muted">
+          <Text as="span" variant="meta" size="xs">
             Ouvert jusqu&apos;au {formatVoteWindowEnd(event.startsAt)} · un vote par catégorie
-          </span>
+          </Text>
         </div>
 
         <BallotSection
@@ -458,10 +479,16 @@ export function MatchVoteTab({
           Envoyer mon vote
         </Button>
         {hasVoted && (
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-success">
+          <Text
+            as="span"
+            variant="label"
+            size="xs"
+            tone="success"
+            className="flex items-center gap-1.5"
+          >
             <Check className="h-3 w-3 shrink-0" />
             Vote envoyé — merci !
-          </span>
+          </Text>
         )}
       </Card>
 

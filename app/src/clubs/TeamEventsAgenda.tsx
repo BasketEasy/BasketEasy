@@ -11,6 +11,8 @@ import { EventVenueBadge } from './EventVenueBadge';
 import { EventVoteBadge } from './EventVoteBadge';
 import { EventRsvpControl } from './EventRsvpControl';
 import { MatchWinnersRow } from './MatchWinnersRow';
+import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 
 /**
  * Two content columns to the right of the time block — left: venue/status
@@ -47,22 +49,32 @@ function AgendaEventCard({
         )}
       >
         {event.timeConfirmed ? (
-          <span className="tabular font-heading text-2xl font-extrabold leading-none sm:text-3xl">
+          <Text as="span" variant="display" size="2xl" className="tabular leading-none sm:text-3xl">
             {formatEventTime(event.startsAt)}
-          </span>
+          </Text>
         ) : (
           // w-full + text-center (rather than letting the span shrink-to-fit
           // and get centered by the flex column) keeps this two-word label
           // from overflowing the narrow time-block column and getting
           // clipped by the card's overflow-hidden — it was rendering as a
           // mangled fragment ("ONFIRME") on a narrow viewport before this.
-          <span className="w-full break-words px-0.5 text-center font-heading text-xs font-extrabold uppercase leading-tight tracking-wide-caps">
+          <Text
+            as="span"
+            variant="eyebrow"
+            tone="primary"
+            className="w-full break-words px-0.5 text-center leading-tight tracking-wide-caps"
+          >
             à confirmer
-          </span>
+          </Text>
         )}
-        <span className="min-w-0 max-w-full truncate font-heading text-xs font-bold uppercase tracking-wide-caps opacity-80">
+        <Text
+          as="span"
+          variant="eyebrow"
+          tone="primary"
+          className="min-w-0 max-w-full truncate opacity-80 tracking-wide-caps"
+        >
           {eventTypeShortLabel(event.type)}
-        </span>
+        </Text>
       </div>
       <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-4">
@@ -115,16 +127,15 @@ function AgendaEventCard({
               truncate instead of forcing the column past its share of the
               row. */}
           <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
-            <span className="min-w-0 max-w-full truncate text-sm text-muted">
+            <Text as="span" variant="meta" className="min-w-0 max-w-full truncate">
               {event.location}
               {isMatch ? ` · vs ${event.opponentName}` : ''}
-            </span>
-            <Link
-              to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-              className="shrink-0 text-sm font-bold text-blue-green hover:underline"
-            >
-              {eventDetailLinkLabel(event.type)} →
-            </Link>
+            </Text>
+            <TextLink asChild className="shrink-0">
+              <Link to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}>
+                {eventDetailLinkLabel(event.type)} →
+              </Link>
+            </TextLink>
           </div>
         </div>
         <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
@@ -136,10 +147,11 @@ function AgendaEventCard({
 /**
  * Day-grouped agenda view — the Événements tab's default (item 5a). Reads a
  * bounded, unpaginated window of events (see TeamDetailPage's agenda fetch,
- * from today through the LINKING_PAGE_SIZE cap) already sorted ascending by
- * startsAt, so grouping only needs to preserve arrival order — no re-sort.
- * Empty days are simply never rendered, since only days with an event
- * produce a group at all.
+ * either from today onward or up to today depending on the À venir/Passés
+ * toggle, capped at LINKING_PAGE_SIZE) already sorted in the requested
+ * direction by startsAt, so grouping only needs to preserve arrival order —
+ * no re-sort. Empty days are simply never rendered, since only days with an
+ * event produce a group at all.
  */
 export function TeamEventsAgenda({
   clubId,

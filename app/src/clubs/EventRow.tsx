@@ -15,6 +15,7 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 import { EventConvocationModal } from './EventConvocationModal';
 import { EventConvocationBreakdown } from './EventConvocationBreakdown';
+import { TextLink } from '@basketeasy/ui/text-link';
 
 export function EventRow({
   clubId,
@@ -59,12 +60,11 @@ export function EventRow({
       <TableCell>{event.location}</TableCell>
       <TableCell>
         {event.type === 'MATCH' ? (
-          <Link
-            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-            className="font-semibold text-blue-green hover:underline"
-          >
-            vs {event.opponentName}
-          </Link>
+          <TextLink asChild size="md">
+            <Link to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}>
+              vs {event.opponentName}
+            </Link>
+          </TextLink>
         ) : (
           '—'
         )}

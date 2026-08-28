@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -194,9 +195,9 @@ export function DashboardPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Cette semaine</CardTitle>
-          <Link to="/my-teams" className="text-sm font-semibold text-orange-text hover:underline">
-            Voir le calendrier →
-          </Link>
+          <TextLink asChild tone="brand">
+            <Link to="/my-teams">Voir le calendrier →</Link>
+          </TextLink>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {isDashboardError ? (
@@ -209,7 +210,7 @@ export function DashboardPage() {
             ))
           ) : (
             <EmptyState
-              icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
               title="Rien de prévu cette semaine"
               description="Aucun événement dans les 7 prochains jours pour vos équipes."
             />
@@ -233,7 +234,7 @@ export function DashboardPage() {
           </div>
         ) : (
           <EmptyState
-            icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+            icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
             title="Aucune équipe pour le moment"
             description="Vous n'êtes membre d'aucune équipe pour le moment."
           />

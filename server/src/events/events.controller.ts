@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import type {
   EventConvocationRosterEntry,
   EventRsvpRosterEntry,
@@ -281,14 +283,26 @@ export class EventsController {
     );
   }
 
+  // Nest's standard response handling treats a returned `null` the same as
+  // `undefined` and sends an EMPTY body (no `Content-Type`, nothing to
+  // parse) instead of the JSON literal `null` — a well-known Nest gotcha.
+  // `getScoresheetStatus` legitimately returns `null` (no upload yet, the
+  // common case), so the frontend's `res.json()` was throwing a parse error
+  // on every "nothing uploaded" response — a silent client-side failure
+  // with no corresponding server-side error, since Nest never threw.
+  // `@Res()` (non-passthrough) opts this one route out of Nest's automatic
+  // serialization so we can call `res.json()` ourselves and guarantee a
+  // real JSON body every time.
   @Get(':eventId/scoresheet')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
-  getScoresheetStatus(
+  async getScoresheetStatus(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
-  ): Promise<EventScoresheet | null> {
-    return this.eventsService.getScoresheetStatus(clubId, teamId, eventId);
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.eventsService.getScoresheetStatus(clubId, teamId, eventId);
+    res.status(HttpStatus.OK).json(result);
   }
 }

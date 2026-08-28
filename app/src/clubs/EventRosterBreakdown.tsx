@@ -3,6 +3,8 @@ import { Button } from '@basketeasy/ui/button';
 import { cn } from '@basketeasy/ui/cn';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { meterWidthClass } from './meterWidthClass';
+import { Text } from '@basketeasy/ui/text';
+import type { StatusTone } from './statusTone';
 
 export interface EventRosterEntry {
   id: string;
@@ -11,7 +13,7 @@ export interface EventRosterEntry {
   /** Already resolved to a display label by the caller (e.g. via `teamMemberRoleLabel`) — this shell doesn't know about team roles. */
   role: string;
   statusLabel: string;
-  statusClassName: string;
+  statusTone: StatusTone;
   filled: boolean;
 }
 
@@ -22,20 +24,23 @@ function initialsOf(firstName: string, lastName: string): string {
 function RosterRow({ entry }: { entry: EventRosterEntry }) {
   return (
     <div className="flex items-center gap-2.5 border-t border-border p-3 first:border-t-0">
-      <Avatar className="h-8 w-8 text-xs">
+      <Avatar size="md">
         <AvatarFallback>{initialsOf(entry.firstName, entry.lastName)}</AvatarFallback>
       </Avatar>
       <div className="flex min-w-0 flex-col">
-        <span className="text-sm font-medium text-charcoal">
+        <Text as="span" variant="label" size="sm" className="font-medium">
           {entry.firstName} {entry.lastName}
-        </span>
-        <span className="text-xs text-muted">{entry.role}</span>
+        </Text>
+        <Text as="span" variant="meta" size="xs">
+          {entry.role}
+        </Text>
       </div>
-      <span
-        className={cn(
-          'ml-auto flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold',
-          entry.statusClassName,
-        )}
+      <Text
+        as="span"
+        variant="label"
+        size="sm"
+        tone={entry.statusTone}
+        className="ml-auto flex items-center gap-1.5 whitespace-nowrap"
       >
         <span
           className={cn(
@@ -44,7 +49,7 @@ function RosterRow({ entry }: { entry: EventRosterEntry }) {
           )}
         />
         {entry.statusLabel}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -107,7 +112,9 @@ export function EventRosterBreakdown({
               )}
             />
           </div>
-          <span className="tabular text-xs font-semibold text-muted">{summary}</span>
+          <Text as="span" variant="label" size="xs" tone="secondary" className="tabular">
+            {summary}
+          </Text>
         </div>
       )}
       {isOpen && isError && (

@@ -13,8 +13,13 @@ import { cn } from '../lib/cn';
  * font. CardTitle and AlertTitle already own their font and colour; this
  * brings the one text primitive that didn't into line.
  */
-const headingVariants = cva('font-heading text-charcoal', {
+const headingVariants = cva('font-heading', {
   variants: {
+    /** Colour is a tone, never a caller-side text-* class. */
+    tone: {
+      primary: 'text-charcoal',
+      inverse: 'text-cream',
+    },
     size: {
       '6xl': 'text-6xl',
       '5xl': 'text-5xl',
@@ -24,6 +29,7 @@ const headingVariants = cva('font-heading text-charcoal', {
       xl: 'text-xl',
     },
   },
+  defaultVariants: { tone: 'primary' },
 });
 
 export type HeadingLevel = 'h1' | 'h2' | 'h3';
@@ -43,12 +49,12 @@ export interface HeadingProps
 }
 
 export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
-  ({ as = 'h2', size, className, ...props }, ref) => {
+  ({ as = 'h2', size, tone, className, ...props }, ref) => {
     const Tag = as;
     return (
       <Tag
         ref={ref}
-        className={cn(headingVariants({ size: size ?? defaultSizeByLevel[as] }), className)}
+        className={cn(headingVariants({ size: size ?? defaultSizeByLevel[as], tone }), className)}
         {...props}
       />
     );

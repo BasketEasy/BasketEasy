@@ -23,6 +23,11 @@ export interface CreatePlayerRequest {
   firstName: string;
   lastName: string;
   userId?: string;
+  nationalId?: string;
+  licenseNumber?: string;
+  birthDate?: string;
+  gender?: Gender;
+  licenseType?: string;
 }
 
 export interface UpdatePlayerRequest {
@@ -30,6 +35,12 @@ export interface UpdatePlayerRequest {
   lastName?: string;
   /** Pass null to unlink, a member's userId to link, or omit to leave unchanged. */
   userId?: string | null;
+  /** Pass null to clear, a value to set, or omit to leave unchanged. */
+  nationalId?: string | null;
+  licenseNumber?: string | null;
+  birthDate?: string | null;
+  gender?: Gender | null;
+  licenseType?: string | null;
 }
 
 export type PlayerSortBy = 'name' | 'createdAt';

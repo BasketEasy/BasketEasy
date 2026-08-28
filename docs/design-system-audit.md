@@ -417,6 +417,31 @@ Four files deleted, two inline pairs collapsed, and the five `isDesktop ? <Table
 
 ---
 
+### 3.7 Closing the loop: `Text` everywhere, colour nowhere
+
+Two review comments on the PR — "this shouldn't exist anymore, use a typography or text ds component" and "color should be defined by a variant" — were applied to **every** occurrence rather than the two lines they were left on.
+
+**Text.** 94 more raw elements were converted by a transformer that classifies each class list into a role and keeps only the layout classes, then finds the matching close tag by depth-tracking rather than by regex. The remaining handful were done by hand. `app/src` now has **zero** raw `<p>`/`<span>`/`<dt>`/`<dd>` carrying a font-size, weight or colour. `Text` gained one tone in the process: `inverseSecondary`, for de-emphasised copy on a dark ground, where `secondary` would vanish.
+
+**Colour.** A colour may now only be named inside the component that owns the look. Three shapes of violation were found and closed:
+
+| Shape                                                                               | Count | Fix                                                                                                           |
+| ----------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| `className="text-*"` on an icon                                                     | 25    | shared `tone` axis (`@basketeasy/ui/icon-variants`), applied to all 7 DS icons and all 6 app-local ones       |
+| colour on a DS component (`Avatar`, `Heading`, `Badge`, `TableCell`, `TableHeader`) | 11    | `tone` on `AvatarFallback` and `Heading`; `size` on `Badge` and `Avatar`; `TableHeader` bakes its own surface |
+| a Tailwind colour string passed **as a prop** — `colorClassName`, `statusClassName` | 7     | a shared `StatusTone` union, handed straight to `Text`                                                        |
+
+That last shape is the one worth remembering: a prop typed `string` that happens to hold `'text-orange-text'` is the same violation as a `className`, just wearing a name that hides it.
+
+Two side-effects fell out of the sweep:
+
+- **`Avatar`'s `text-xs` was dead.** Four call sites paired `h-7 w-7` with `text-xs` to shrink the initials; `AvatarFallback` hardcoded its own `text-sm`, and a child's class beats an inherited one, so the initials never shrank. `Avatar` now has a `size` axis where the circle and its initials move together, and the intent those call sites expressed finally lands.
+- **`TextLink` is now used, not just built.** The three inline-link recipes the audit found are one component.
+
+**Deliberately not swept:** colour _inside_ a component that owns its own look — `EventRsvpControl`'s per-status fills, `PlayerImportSteps`' step states, the segmented controls' active states. That is a variant definition, which is exactly where colour belongs. Those controls are still the hand-rolled primitives §4 proposes extracting; the colour is not the problem there, the duplication is.
+
+---
+
 ---
 
 ## 4. Proposed APIs for the larger items (not built)
