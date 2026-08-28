@@ -356,6 +356,67 @@ That last one is the shape to aim for: a _state_ that used to be expressed as a 
 
 `FormField:42` and `SelectField:72` each reimplemented `FieldError` inline (`<p role="alert" className="text-sm text-error">`); both now compose it.
 
+### 3.5 `RadioCardGroup` — new primitive
+
+```ts
+options: ReadonlyArray<{ value: T; disabled?: boolean; render: (s: { selected: boolean }) => ReactNode }>
+value: T | null
+onChange: (value: T) => void
+tone?: 'brand' | 'structure'          // selected-state fill
+'aria-label' | 'aria-labelledby'      // one or the other, enforced by the type
+```
+
+The Vote tab's ballot was a `role="radio"` inside a `role="radiogroup"` with **no focus styling at all**, every option natively tabbable, and no arrow-key handling — a keyboard user tabbed through all N candidates and could not see where they were. The primitive owns the three things that were missing and are easy to get wrong: the shared focus ring, a roving tabindex (the group is one tab stop), and arrow/Home/End navigation that moves selection with focus, per the ARIA radiogroup pattern.
+
+Options carry a `render` callback rather than a plain node because a card's contents restyle when selected (the avatar inverts, the name goes bold). That keeps the content decision with the caller while the primitive keeps the chrome, the roles and the keyboard model. Eight tests cover the keyboard behaviour; verified in the real app that the tab stop moves with selection (`[0,-1,-1]` → `[-1,0,-1]`) and that ArrowDown both selects and carries focus.
+
+Migrating the ballot also removed the hand-rolled initials circle at `MatchVoteTab:71` — the file already imported `Avatar`/`AvatarFallback` and used them correctly two functions further down.
+
+**Edge case left alone:** the selected `structure` card uses `border-2` where the unselected uses `border`, so selection shifts the card by 1px. That is pre-existing and unrelated to the accessibility fix; it is a one-line change once someone decides which border weight is correct.
+
+### 3.6 `ResponsiveTable` — new primitive, and the twin consolidation
+
+```ts
+columns: ReadonlyArray<ReactNode>   // desktop headers; '' for an actions column
+children: ReactNode                 // one record component per row
+useTableLayout(): 'row' | 'card'    // what the nearest ResponsiveTable is rendering
+```
+
+The duplication in the six twin pairs was never in the _markup_ — a table row and a card genuinely differ. It was in everything around it: the mutation hook, the error branching, the toast copy, the button labels, written twice per record. So the fix is not a generic cell renderer that would flatten both layouts into one; it is to let a record component be written **once**, keep its behaviour once, and choose its own markup from `useTableLayout()`.
+
+| Was                                 | Now            |
+| ----------------------------------- | -------------- |
+| `TeamAdminRow` + `TeamAdminCard`    | `TeamAdminRow` |
+| `TeamClubRow` + `TeamClubCard`      | `TeamClubRow`  |
+| `TeamRow` + `TeamListingCard`       | `TeamRow`      |
+| `PlayerRow` + `PlayerCard`          | `PlayerRow`    |
+| `MyTeamRow` + `MyTeamCard` (inline) | `MyTeamRow`    |
+| `MemberRow` + `MemberCard` (inline) | `MemberRow`    |
+
+Four files deleted, two inline pairs collapsed, and the five `isDesktop ? <Table>… : <div>…` blocks in `MembersPage`, `MyTeamsPage` and `TeamDetailPage` replaced by one `<ResponsiveTable columns={…}>` each. `useIsDesktopViewport` moved from `app/src/hooks` into `@basketeasy/ui` so the primitive is self-contained.
+
+```diff
+-{isDesktop ? (
+-  <Table>
+-    <TableHeader><TableRow><TableHead>Nom</TableHead>…</TableRow></TableHeader>
+-    <TableBody>{teams?.map((t) => <TeamRow key={t.id} … />)}</TableBody>
+-  </Table>
+-) : (
+-  <div className="flex flex-col gap-3">
+-    {teams?.map((t) => <TeamListingCard key={t.id} … />)}
+-  </div>
+-)}
++<ResponsiveTable columns={['Nom', 'Catégorie', 'Genre', '']}>
++  {teams?.map((t) => <TeamRow key={t.id} clubId={clubId!} team={t} />)}
++</ResponsiveTable>
+```
+
+**The one behavioural change worth calling out:** `PlayerRow` and `PlayerCard` validated the _same_ edit form differently — the desktop one with raw `useState` and no validation, the mobile one with react-hook-form + zod requiring a non-empty first and last name. The same form therefore enforced different rules depending on the width of the window. The merged component keeps the stricter of the two, so the desktop edit form now rejects an empty name where it previously accepted it. Desktop keeps its inline-cell layout (a `<form>` cannot wrap a `<tr>`, so the submit button calls the same `handleSubmit`).
+
+**`TeamPlayerRow` was deliberately left alone:** its mobile counterpart, `TeamRosterCards`, is a genuinely different grouped-by-role layout, not a twin.
+
+---
+
 ---
 
 ## 4. Proposed APIs for the larger items (not built)
@@ -375,25 +436,25 @@ interface SegmentedControlProps<T extends string> {
 
 `EventRsvpControl` needs a _per-option_ active fill (going/maybe/not-going are different colours); `activeClassName` on the option is the escape hatch for that, and is the one place a caller-supplied class is justified.
 
-**`IconButton`** — `size` needs an `xs` step below `Button`'s `icon` (44px) for the `TeamFfbbLinkList` chip dismiss, and `aria-label` must be required, since all five current instances are glyph-only.
+**`IconButton`** (still open) — `size` needs an `xs` step below `Button`'s `icon` (44px) for the `TeamFfbbLinkList` chip dismiss, and `aria-label` must be required, since all five current instances are glyph-only.
 
 **`TextLink`** — `tone: 'structure' | 'brand'`, `weight: 'semibold' | 'bold'`; needs a decision on which of the three existing recipes is correct rather than encoding all three.
 
 ---
 
-## 5. Needs decision — flagged, not guessed
+## 5. The four flagged decisions — resolved
 
-**5.1 Destructive actions are currently neutral.** Nine remove/delete buttons use `variant="outline"`; `destructive` exists and is used once. Making all nine red is a visible product change affecting every roster and member row, so it is a design call, not a refactor. The inconsistency is real either way — it should be one answer, not nine.
+All four were flagged rather than guessed on the first pass, then confirmed and implemented.
 
-**5.2 Responsive twins (~300 duplicated lines).** A `ResponsiveRow` primitive taking `{cells, actions}` and switching `TableRow`↔`Card` internally would remove the duplication, but it is an architectural change touching six pairs and their tests, and `PlayerRow`/`PlayerCard` would first need their form mechanisms reconciled (react-hook-form vs raw `useState`). Worth doing before the debt above is fixed twice in each pair; too large to fold into a styling pass.
+**5.1 Destructive actions are now destructive.** All eleven remove/delete buttons moved from `variant="outline"` to `variant="destructive"`, matching `TeamDeleteModal`, which was already the lone correct instance. This covers both halves of a confirm flow — the trigger and the confirm — since `ConfirmDialog` already pairs `destructive` confirm with `ghost` cancel. Twelve `Button variant="destructive"` sites now exist where there was one.
 
-**5.3 `focusRing` offset colour.** Hardcoded `ring-offset-surface` while composed by controls on `surface-2`, `sunk` and `ground`. Options: `ring-offset-transparent`, a per-ground variant, or accept it. Touches the one shared focus recipe, so it needs an explicit call.
+**5.2 The responsive twins are gone.** See §3.6 — six pairs collapsed into six components behind a new `ResponsiveTable`.
 
-**5.4 `MatchVoteTab` radio group.** `role="radio"` with no focus styling, inside a `role="radiogroup"` with no roving tabindex or arrow-key handling. This is a genuine keyboard-accessibility gap, not drift, and fixing it properly means a `RadioCard` primitive with real focus management rather than adding `focusRing` and calling it done.
+**5.3 `focusRing` no longer names a background.** Rewritten from Tailwind's `ring` to a real CSS `outline`. Tailwind's ring paints its offset gap a solid colour, so the recipe had to name the ground it sat on (`ring-offset-surface`, #FFFCF7) — and this one recipe is composed by controls on all four rungs of the ladder, so every segmented control on `sunk` (#E9DDCA) drew a near-white halo. An outline leaves its offset transparent: the gap shows whatever ground the control is actually on, with no per-ground variant. It also moves focus out of `box-shadow`, so a component's `shadow-*` and its focus state can no longer clobber each other.
 
-**5.5 Dead code.** `AvatarImage`, `TableFooter`, `eventUpdateScopeLabel` have zero references of any kind. `CardFooter` and `AlertTitle` have stories/tests but no app usage — they are conventional API-completeness pieces, and removing them is a judgement call about whether this DS keeps a complete surface or only what is used.
+**5.4 The vote ballot is keyboard-operable.** See §3.5 — `RadioCardGroup`.
 
----
+**5.5 Dead code — still open, deliberately.** `AvatarImage`, `TableFooter` and `eventUpdateScopeLabel` have zero references of any kind; `CardFooter` and `AlertTitle` have stories/tests but no app usage. Removing them is a judgement call about whether this DS keeps a complete surface or only what is used, not a defect to fix — left for a maintainer.
 
 ## 6. Accessibility notes
 

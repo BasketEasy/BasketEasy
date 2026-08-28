@@ -13,7 +13,7 @@ import { cn } from '@basketeasy/ui/cn';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useAccount } from '../auth/useAccount';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { AccountMenu } from './AccountMenu';
 
 interface AppHeaderProps {

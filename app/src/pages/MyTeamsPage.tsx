@@ -18,24 +18,53 @@ import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@basketeasy/ui/table';
+import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
+import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
+import { Text } from '@basketeasy/ui/text';
 import { myTeamsQueryKey } from '../clubs/queryKeys';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 
+/** One row of the My teams table — a table row on desktop, a card below it. */
 function MyTeamRow({ team }: { team: MyTeamSummary }) {
+  const layout = useTableLayout();
+
+  const badges = (
+    <>
+      {team.isTeamAdmin && <Badge>Administrateur</Badge>}
+      {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
+    </>
+  );
+  const viewLink = (
+    <Link
+      to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+      state={{ origin: { from: 'my-teams' } }}
+    >
+      Voir
+    </Link>
+  );
+
+  if (layout === 'card') {
+    return (
+      <Card variant="inset" className="flex flex-col gap-2">
+        <Text as="span" variant="label">
+          {team.teamName}
+        </Text>
+        <Text as="span" variant="meta">
+          {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
+        </Text>
+        <div className="flex flex-wrap items-center gap-1">{badges}</div>
+        <Button asChild variant="outline" className="self-start">
+          {viewLink}
+        </Button>
+      </Card>
+    );
+  }
+
   return (
     <TableRow>
       <TableCell>{team.teamName}</TableCell>
@@ -43,52 +72,19 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       <TableCell>
         {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
       </TableCell>
-      <TableCell className="flex flex-wrap items-center gap-1">
-        {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-        {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
-      </TableCell>
+      <TableCell className="flex flex-wrap items-center gap-1">{badges}</TableCell>
       <TableCell>
         <Button asChild variant="outline">
-          <Link
-            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
-            state={{ origin: { from: 'my-teams' } }}
-          >
-            Voir
-          </Link>
+          {viewLink}
         </Button>
       </TableCell>
     </TableRow>
   );
 }
 
-/** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
-function MyTeamCard({ team }: { team: MyTeamSummary }) {
-  return (
-    <Card variant="inset" className="flex flex-col gap-2">
-      <span className="font-medium text-charcoal">{team.teamName}</span>
-      <span className="text-sm text-muted">
-        {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-      </span>
-      <div className="flex flex-wrap items-center gap-1">
-        {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-        {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
-      </div>
-      <Button asChild variant="outline" className="self-start">
-        <Link
-          to={`/clubs/${team.clubId}/teams/${team.teamId}`}
-          state={{ origin: { from: 'my-teams' } }}
-        >
-          Voir
-        </Link>
-      </Button>
-    </Card>
-  );
-}
-
 export function MyTeamsPage() {
   const { data: teams, isLoading, isError, refetch, isRefetching } = useMyTeamList();
   const adminClubs = useAdminClubs();
-  const isDesktop = useIsDesktopViewport();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | undefined>(undefined);
@@ -157,30 +153,11 @@ export function MyTeamsPage() {
           ) : isLoading ? (
             <SkeletonList rows={3} />
           ) : teams && teams.length > 0 ? (
-            isDesktop ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Équipe</TableHead>
-                    <TableHead>Club</TableHead>
-                    <TableHead>Catégorie</TableHead>
-                    <TableHead>Votre rôle</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teams.map((team) => (
-                    <MyTeamRow key={team.teamId} team={team} />
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {teams.map((team) => (
-                  <MyTeamCard key={team.teamId} team={team} />
-                ))}
-              </div>
-            )
+            <ResponsiveTable columns={['Équipe', 'Club', 'Catégorie', 'Votre rôle', '']}>
+              {teams.map((team) => (
+                <MyTeamRow key={team.teamId} team={team} />
+              ))}
+            </ResponsiveTable>
           ) : (
             <EmptyState
               icon={<TrophyIcon className="h-8 w-8 text-muted" />}

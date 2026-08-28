@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@basketeasy/ui/table';
+import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
@@ -40,14 +33,13 @@ import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useClubShow } from '../clubs/useClubShow';
 import { ClubFfbbLinkControl } from '../clubs/ClubFfbbLinkControl';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
 import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
 import { PlayerRow } from '../clubs/PlayerRow';
-import { PlayerCard } from '../clubs/PlayerCard';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { TeamRow } from '../clubs/TeamRow';
-import { TeamListingCard } from '../clubs/TeamListingCard';
+import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
+import { Text } from '@basketeasy/ui/text';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -144,13 +136,13 @@ function RemoveMemberControl({
   if (isConfirming) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-muted">
+        <Text variant="meta">
           Fiche joueur liée : {linkedPlayerName}. Elle sera conservée, seul le lien avec ce compte
           sera supprimé.
-        </p>
+        </Text>
         <div className="flex flex-wrap gap-2">
           <Button
-            variant="outline"
+            variant="destructive"
             onClick={() => {
               setIsConfirming(false);
               onRemove();
@@ -168,7 +160,7 @@ function RemoveMemberControl({
 
   return (
     <Button
-      variant="outline"
+      variant="destructive"
       onClick={() => (linkedPlayerName ? setIsConfirming(true) : onRemove())}
     >
       Retirer
@@ -176,6 +168,7 @@ function RemoveMemberControl({
   );
 }
 
+/** One row of the Membres tab — a table row on desktop, a card below it. */
 function MemberRow({
   member,
   isAdmin,
@@ -187,49 +180,36 @@ function MemberRow({
   linkedPlayerName: string | null;
   onRemove: (userId: string) => void;
 }) {
+  const layout = useTableLayout();
+  const roleLabel = member.role === 'ADMIN' ? 'Administrateur' : 'Membre';
+  const removeControl = isAdmin ? (
+    <RemoveMemberControl
+      linkedPlayerName={linkedPlayerName}
+      onRemove={() => onRemove(member.userId)}
+    />
+  ) : null;
+
+  if (layout === 'card') {
+    return (
+      <Card variant="inset" className="flex flex-col gap-2">
+        <Text as="span" variant="label">
+          {member.email}
+        </Text>
+        <Text as="span" variant="meta">
+          {roleLabel} · Fiche joueur liée : {linkedPlayerName ?? '—'}
+        </Text>
+        {removeControl}
+      </Card>
+    );
+  }
+
   return (
     <TableRow>
       <TableCell>{member.email}</TableCell>
-      <TableCell>{member.role === 'ADMIN' ? 'Administrateur' : 'Membre'}</TableCell>
+      <TableCell>{roleLabel}</TableCell>
       <TableCell>{linkedPlayerName ?? '—'}</TableCell>
-      {isAdmin && (
-        <TableCell>
-          <RemoveMemberControl
-            linkedPlayerName={linkedPlayerName}
-            onRemove={() => onRemove(member.userId)}
-          />
-        </TableCell>
-      )}
+      {isAdmin && <TableCell>{removeControl}</TableCell>}
     </TableRow>
-  );
-}
-
-/** Mobile card row for the Membres tab's table — see MemberRow for the desktop equivalent. */
-function MemberCard({
-  member,
-  isAdmin,
-  linkedPlayerName,
-  onRemove,
-}: {
-  member: ClubMember;
-  isAdmin: boolean;
-  linkedPlayerName: string | null;
-  onRemove: (userId: string) => void;
-}) {
-  return (
-    <Card variant="inset" className="flex flex-col gap-2">
-      <span className="font-medium text-charcoal">{member.email}</span>
-      <span className="text-sm text-muted">
-        {member.role === 'ADMIN' ? 'Administrateur' : 'Membre'} · Fiche joueur liée :{' '}
-        {linkedPlayerName ?? '—'}
-      </span>
-      {isAdmin && (
-        <RemoveMemberControl
-          linkedPlayerName={linkedPlayerName}
-          onRemove={() => onRemove(member.userId)}
-        />
-      )}
-    </Card>
   );
 }
 
@@ -241,7 +221,6 @@ export function MembersPage() {
     tabParam === 'players' ? 'players' : tabParam === 'teams' ? 'teams' : 'members';
 
   const isAdmin = useIsClubAdmin(clubId);
-  const isDesktop = useIsDesktopViewport();
   const { data: club } = useClubShow(clubId!);
 
   // Membres tab filters
@@ -497,41 +476,23 @@ export function MembersPage() {
                 />
               ) : (
                 <>
-                  {isDesktop ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>E-mail</TableHead>
-                          <TableHead>Rôle</TableHead>
-                          <TableHead>Fiche joueur liée</TableHead>
-                          {isAdmin && <TableHead />}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {members?.map((member) => (
-                          <MemberRow
-                            key={member.userId}
-                            member={member}
-                            isAdmin={isAdmin}
-                            linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
-                            onRemove={handleRemove}
-                          />
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {members?.map((member) => (
-                        <MemberCard
-                          key={member.userId}
-                          member={member}
-                          isAdmin={isAdmin}
-                          linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
-                          onRemove={handleRemove}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <ResponsiveTable
+                    columns={
+                      isAdmin
+                        ? ['E-mail', 'Rôle', 'Fiche joueur liée', '']
+                        : ['E-mail', 'Rôle', 'Fiche joueur liée']
+                    }
+                  >
+                    {members?.map((member) => (
+                      <MemberRow
+                        key={member.userId}
+                        member={member}
+                        isAdmin={isAdmin}
+                        linkedPlayerName={linkedPlayerNameByUserId.get(member.userId) ?? null}
+                        onRemove={handleRemove}
+                      />
+                    ))}
+                  </ResponsiveTable>
                   <Pagination
                     page={membersResult?.page ?? 1}
                     pageSize={membersResult?.pageSize ?? membersPageSize}
@@ -623,51 +584,28 @@ export function MembersPage() {
                 />
               ) : (
                 <>
-                  {isDesktop ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Prénom</TableHead>
-                          <TableHead>Nom</TableHead>
-                          <TableHead>Compte lié</TableHead>
-                          {isAdmin && <TableHead />}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {players?.map((player) => (
-                          <PlayerRow
-                            key={player.id}
-                            clubId={clubId!}
-                            player={player}
-                            isAdmin={isAdmin}
-                            linkedMemberEmail={
-                              player.userId ? (emailByUserId.get(player.userId) ?? null) : null
-                            }
-                            linkableMembers={allMembers.filter(
-                              (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
-                            )}
-                          />
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {players?.map((player) => (
-                        <PlayerCard
-                          key={player.id}
-                          clubId={clubId!}
-                          player={player}
-                          isAdmin={isAdmin}
-                          linkedMemberEmail={
-                            player.userId ? (emailByUserId.get(player.userId) ?? null) : null
-                          }
-                          linkableMembers={allMembers.filter(
-                            (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
-                          )}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <ResponsiveTable
+                    columns={
+                      isAdmin
+                        ? ['Prénom', 'Nom', 'Compte lié', '']
+                        : ['Prénom', 'Nom', 'Compte lié']
+                    }
+                  >
+                    {players?.map((player) => (
+                      <PlayerRow
+                        key={player.id}
+                        clubId={clubId!}
+                        player={player}
+                        isAdmin={isAdmin}
+                        linkedMemberEmail={
+                          player.userId ? (emailByUserId.get(player.userId) ?? null) : null
+                        }
+                        linkableMembers={allMembers.filter(
+                          (m) => !linkedUserIds.has(m.userId) || m.userId === player.userId,
+                        )}
+                      />
+                    ))}
+                  </ResponsiveTable>
                   <Pagination
                     page={playersResult?.page ?? 1}
                     pageSize={playersResult?.pageSize ?? playersPageSize}
@@ -769,29 +707,11 @@ export function MembersPage() {
                 />
               ) : (
                 <>
-                  {isDesktop ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nom</TableHead>
-                          <TableHead>Catégorie</TableHead>
-                          <TableHead>Genre</TableHead>
-                          <TableHead />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teams?.map((team) => (
-                          <TeamRow key={team.id} clubId={clubId!} team={team} />
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {teams?.map((team) => (
-                        <TeamListingCard key={team.id} clubId={clubId!} team={team} />
-                      ))}
-                    </div>
-                  )}
+                  <ResponsiveTable columns={['Nom', 'Catégorie', 'Genre', '']}>
+                    {teams?.map((team) => (
+                      <TeamRow key={team.id} clubId={clubId!} team={team} />
+                    ))}
+                  </ResponsiveTable>
                   <Pagination
                     page={teamsResult?.page ?? 1}
                     pageSize={teamsResult?.pageSize ?? teamsPageSize}

@@ -19,7 +19,6 @@ import {
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -42,7 +41,6 @@ import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
-import { TeamClubCard } from '../clubs/TeamClubCard';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { TeamRosterCards } from '../clubs/TeamRosterCards';
@@ -51,7 +49,7 @@ import { EventRow } from '../clubs/EventRow';
 import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
-import { TeamAdminCard } from '../clubs/TeamAdminCard';
+import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { TeamEditModal } from '../clubs/TeamEditModal';
 import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
@@ -191,7 +189,6 @@ export function TeamDetailPage() {
       ? 'events'
       : requestedTab;
   const backLink = useBackLink();
-  const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -722,39 +719,17 @@ export function TeamDetailPage() {
                   />
                 ) : (
                   <>
-                    {isDesktop ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Club</TableHead>
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamClubs?.map((link) => (
-                            <TeamClubRow
-                              key={link.clubId}
-                              clubId={clubId!}
-                              teamId={teamId!}
-                              link={link}
-                              canManage={isAdmin && isOwner}
-                            />
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {teamClubs?.map((link) => (
-                          <TeamClubCard
-                            key={link.clubId}
-                            clubId={clubId!}
-                            teamId={teamId!}
-                            link={link}
-                            canManage={isAdmin && isOwner}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    <ResponsiveTable columns={['Club', '']}>
+                      {teamClubs?.map((link) => (
+                        <TeamClubRow
+                          key={link.clubId}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          link={link}
+                          canManage={isAdmin && isOwner}
+                        />
+                      ))}
+                    </ResponsiveTable>
                     <Pagination
                       page={teamClubsResult?.page ?? 1}
                       pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
@@ -813,30 +788,10 @@ export function TeamDetailPage() {
                       </Button>
                     }
                   />
-                ) : isDesktop ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>E-mail</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamAdmins?.map((admin) => (
-                        <TeamAdminRow
-                          key={admin.userId}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          admin={admin}
-                          canManage={canManageTeam}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <ResponsiveTable columns={['E-mail', '']}>
                     {teamAdmins?.map((admin) => (
-                      <TeamAdminCard
+                      <TeamAdminRow
                         key={admin.userId}
                         clubId={clubId!}
                         teamId={teamId!}
@@ -844,7 +799,7 @@ export function TeamDetailPage() {
                         canManage={canManageTeam}
                       />
                     ))}
-                  </div>
+                  </ResponsiveTable>
                 )}
               </CardContent>
             </Card>

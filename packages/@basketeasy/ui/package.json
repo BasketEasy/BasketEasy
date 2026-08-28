@@ -13,6 +13,14 @@
       "types": "./src/lib/focusRing.ts",
       "default": "./src/lib/focusRing.ts"
     },
+    "./use-is-desktop-viewport": {
+      "types": "./src/lib/useIsDesktopViewport.ts",
+      "default": "./src/lib/useIsDesktopViewport.ts"
+    },
+    "./responsive-table": {
+      "types": "./src/components/ResponsiveTable.tsx",
+      "default": "./src/components/ResponsiveTable.tsx"
+    },
     "./tailwind-preset": "./tailwind-preset.cjs",
     "./styles/globals.css": "./src/styles/globals.css",
     "./button": {
@@ -90,6 +98,10 @@
     "./query-error": {
       "types": "./src/components/QueryError.tsx",
       "default": "./src/components/QueryError.tsx"
+    },
+    "./radio-card-group": {
+      "types": "./src/components/RadioCardGroup.tsx",
+      "default": "./src/components/RadioCardGroup.tsx"
     },
     "./icons/users": {
       "types": "./src/components/icons/UsersIcon.tsx",

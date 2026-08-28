@@ -18,7 +18,7 @@ import type {
   EventRsvpRosterEntry,
   EventRsvpStatus,
 } from '@basketeasy/types/events';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { EventConvocationModal } from './EventConvocationModal';
 import { eventRsvpStatusLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';

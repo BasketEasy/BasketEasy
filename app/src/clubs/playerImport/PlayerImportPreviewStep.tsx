@@ -14,7 +14,7 @@ import {
 } from '@basketeasy/ui/table';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
-import { useIsDesktopViewport } from '../../hooks/useIsDesktopViewport';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type { ResolvedImportRow } from './resolveImportRows';
 
 type ActionType = ResolvedImportRow['action']['type'];

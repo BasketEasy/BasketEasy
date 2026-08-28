@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
@@ -6,7 +6,9 @@ import { cn } from '@basketeasy/ui/cn';
 import { Check } from '@basketeasy/ui/icons/check';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
+import { Text } from '@basketeasy/ui/text';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { toast } from '@basketeasy/ui/toast-store';
@@ -39,54 +41,36 @@ interface VoteCandidate {
   lastName: string;
 }
 
-function BallotRow({
+/**
+ * One candidate's card inside a ballot. Rendering only — the roles, the
+ * roving tabindex and the arrow-key model belong to RadioCardGroup.
+ */
+function BallotCandidate({
   candidate,
   selected,
   category,
-  onSelect,
 }: {
   candidate: VoteCandidate;
   selected: boolean;
   category: EventVoteCategory;
-  onSelect: (teamPlayerId: string) => void;
 }) {
-  const initials = getInitials(candidate.firstName, candidate.lastName);
-  const name = `${candidate.firstName} ${candidate.lastName}`;
-
+  const onBrandFill = selected && category === 'BEST';
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={() => onSelect(candidate.teamPlayerId)}
-      className={cn(
-        'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors',
-        selected
-          ? category === 'BEST'
-            ? 'bg-orange shadow-segment-active'
-            : 'border-2 border-blue-green-2 bg-sunk'
-          : 'border border-border bg-surface hover:bg-surface-2',
-      )}
-    >
-      <span
-        className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-          selected && category === 'BEST'
-            ? 'bg-surface-2 text-orange-text'
-            : 'bg-blue-green text-cream',
-        )}
+    <>
+      <Avatar className="h-7 w-7 shrink-0">
+        <AvatarFallback className={cn('text-xs', onBrandFill && 'bg-surface-2 text-orange-text')}>
+          {getInitials(candidate.firstName, candidate.lastName)}
+        </AvatarFallback>
+      </Avatar>
+      <Text
+        as="span"
+        variant="label"
+        size="sm"
+        tone={onBrandFill ? 'inverse' : 'primary'}
+        className={selected ? 'font-bold' : undefined}
       >
-        {initials}
-      </span>
-      <span
-        className={cn(
-          'text-sm',
-          selected ? 'font-bold' : 'font-semibold',
-          selected && category === 'BEST' ? 'text-cream' : 'text-charcoal',
-        )}
-      >
-        {name}
-      </span>
+        {candidate.firstName} {candidate.lastName}
+      </Text>
       {selected && (
         <Check
           className={cn(
@@ -95,7 +79,7 @@ function BallotRow({
           )}
         />
       )}
-    </button>
+    </>
   );
 }
 
@@ -114,21 +98,29 @@ function BallotSection({
   category: EventVoteCategory;
   onSelect: (teamPlayerId: string) => void;
 }) {
+  const titleId = useId();
   return (
-    <div className="flex flex-col gap-2" role="radiogroup" aria-label={title}>
-      <span className="text-xs font-bold uppercase tracking-eyebrow text-charcoal">{title}</span>
-      {helperText && <span className="text-xs leading-relaxed text-muted">{helperText}</span>}
-      <div className="flex flex-col gap-1.5">
-        {candidates.map((candidate) => (
-          <BallotRow
-            key={candidate.teamPlayerId}
-            candidate={candidate}
-            selected={selected === candidate.teamPlayerId}
-            category={category}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+    <div className="flex flex-col gap-2">
+      <Text as="span" variant="eyebrow" tone="primary" id={titleId}>
+        {title}
+      </Text>
+      {helperText && (
+        <Text as="span" variant="meta" size="xs" className="leading-relaxed">
+          {helperText}
+        </Text>
+      )}
+      <RadioCardGroup
+        aria-labelledby={titleId}
+        tone={category === 'BEST' ? 'brand' : 'structure'}
+        value={selected}
+        onChange={onSelect}
+        options={candidates.map((candidate) => ({
+          value: candidate.teamPlayerId,
+          render: ({ selected: isSelected }) => (
+            <BallotCandidate candidate={candidate} selected={isSelected} category={category} />
+          ),
+        }))}
+      />
     </div>
   );
 }

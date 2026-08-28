@@ -57,7 +57,7 @@ export function TeamPlayerRow({
       <TableCell className="flex flex-col gap-2">
         {canManage && (
           <Button
-            variant="outline"
+            variant="destructive"
             loading={isRemoving}
             onClick={() =>
               removeTeamPlayer(teamPlayer.playerId, {
