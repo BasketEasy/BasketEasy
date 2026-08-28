@@ -1,7 +1,7 @@
-import { type SVGProps } from 'react';
-
+import { cn } from '../../lib/cn';
+import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Calendar / events (Événements). */
-export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+export function CalendarIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,6 +10,7 @@ export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <rect x="3.5" y="5" width="17" height="15" rx="2" />

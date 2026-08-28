@@ -42,7 +42,7 @@ export function EventConvocationBreakdown({
           lastName: entry.lastName + (entry.isMe ? ' (vous)' : ''),
           role: teamMemberRoleLabel(entry.role),
           statusLabel: entry.convoked ? 'Convoqué' : 'Non convoqué',
-          statusClassName: entry.convoked ? 'text-orange-text' : 'text-muted',
+          statusTone: entry.convoked ? 'brand' : 'secondary',
           filled: entry.convoked,
         })) ?? []
       }

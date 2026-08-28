@@ -19,7 +19,6 @@ import {
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -42,7 +41,6 @@ import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
 import { TeamClubRow } from '../clubs/TeamClubRow';
-import { TeamClubCard } from '../clubs/TeamClubCard';
 import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
 import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
 import { TeamRosterCards } from '../clubs/TeamRosterCards';
@@ -51,7 +49,7 @@ import { EventRow } from '../clubs/EventRow';
 import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
-import { TeamAdminCard } from '../clubs/TeamAdminCard';
+import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { TeamEditModal } from '../clubs/TeamEditModal';
 import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
@@ -60,6 +58,7 @@ import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ShieldIcon } from '@basketeasy/ui/icons/shield';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { Text } from '@basketeasy/ui/text';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -191,7 +190,6 @@ export function TeamDetailPage() {
       ? 'events'
       : requestedTab;
   const backLink = useBackLink();
-  const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -443,7 +441,7 @@ export function TeamDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+          icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
           title="Équipe introuvable"
           description="Cette équipe n’existe plus ou a été supprimée."
           action={
@@ -467,9 +465,9 @@ export function TeamDetailPage() {
           <Heading as="h1" className="m-0">
             {team.name}
           </Heading>
-          <p className="mt-1 text-muted">
+          <Text variant="meta" className="mt-1">
             {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-          </p>
+          </Text>
         </div>
         {canManageTeam && (
           <div className="flex flex-wrap gap-2">
@@ -515,14 +513,14 @@ export function TeamDetailPage() {
         <TabsList>
           <TabsTrigger value="roster" className="gap-2">
             Effectif
-            <Badge variant="outline" aria-hidden="true">
+            <Badge variant="outline" tone="neutral" aria-hidden="true">
               {allTeamPlayers.length}
             </Badge>
           </TabsTrigger>
           {canManageTeam && (
             <TabsTrigger value="clubs" className="gap-2">
               Clubs partenaires
-              <Badge variant="outline" aria-hidden="true">
+              <Badge variant="outline" tone="neutral" aria-hidden="true">
                 {teamClubsResult?.total ?? 0}
               </Badge>
             </TabsTrigger>
@@ -530,14 +528,14 @@ export function TeamDetailPage() {
           {canManageTeam && (
             <TabsTrigger value="admins" className="gap-2">
               Administrateurs
-              <Badge variant="outline" aria-hidden="true">
+              <Badge variant="outline" tone="neutral" aria-hidden="true">
                 {teamAdmins?.length ?? 0}
               </Badge>
             </TabsTrigger>
           )}
           <TabsTrigger value="events" className="gap-2">
             Événements
-            <Badge variant="outline" aria-hidden="true">
+            <Badge variant="outline" tone="neutral" aria-hidden="true">
               {eventsResult?.total ?? 0}
             </Badge>
           </TabsTrigger>
@@ -603,14 +601,14 @@ export function TeamDetailPage() {
           )}
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isRosterError ? (
                 <QueryError onRetry={() => refetchRoster()} isRetrying={isRosterRefetching} />
               ) : isLoadingRoster ? (
                 <SkeletonList rows={3} />
               ) : isRosterEmpty ? (
                 <EmptyState
-                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
+                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
                   title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
                   description={
                     isRosterFiltered
@@ -713,14 +711,14 @@ export function TeamDetailPage() {
             </div>
 
             <Card>
-              <CardContent className="pt-6 flex flex-col gap-4">
+              <CardContent className="flex flex-col gap-4">
                 {isClubsError ? (
                   <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
                 ) : isLoadingClubs ? (
                   <SkeletonList rows={3} />
                 ) : (teamClubsResult?.total ?? 0) === 0 ? (
                   <EmptyState
-                    icon={<BuildingIcon className="h-8 w-8 text-muted" />}
+                    icon={<BuildingIcon tone="secondary" className="h-8 w-8" />}
                     title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
                     description={
                       isTeamClubsFiltered
@@ -735,39 +733,17 @@ export function TeamDetailPage() {
                   />
                 ) : (
                   <>
-                    {isDesktop ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Club</TableHead>
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamClubs?.map((link) => (
-                            <TeamClubRow
-                              key={link.clubId}
-                              clubId={clubId!}
-                              teamId={teamId!}
-                              link={link}
-                              canManage={isAdmin && isOwner}
-                            />
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {teamClubs?.map((link) => (
-                          <TeamClubCard
-                            key={link.clubId}
-                            clubId={clubId!}
-                            teamId={teamId!}
-                            link={link}
-                            canManage={isAdmin && isOwner}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    <ResponsiveTable columns={['Club', '']}>
+                      {teamClubs?.map((link) => (
+                        <TeamClubRow
+                          key={link.clubId}
+                          clubId={clubId!}
+                          teamId={teamId!}
+                          link={link}
+                          canManage={isAdmin && isOwner}
+                        />
+                      ))}
+                    </ResponsiveTable>
                     <Pagination
                       page={teamClubsResult?.page ?? 1}
                       pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
@@ -810,14 +786,14 @@ export function TeamDetailPage() {
             </Dialog>
 
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 {isAdminsError ? (
                   <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
                 ) : isLoadingAdmins ? (
                   <SkeletonList rows={3} />
                 ) : (teamAdmins?.length ?? 0) === 0 ? (
                   <EmptyState
-                    icon={<ShieldIcon className="h-8 w-8 text-muted" />}
+                    icon={<ShieldIcon tone="secondary" className="h-8 w-8" />}
                     title="Aucun administrateur d'équipe"
                     description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
                     action={
@@ -826,30 +802,10 @@ export function TeamDetailPage() {
                       </Button>
                     }
                   />
-                ) : isDesktop ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>E-mail</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamAdmins?.map((admin) => (
-                        <TeamAdminRow
-                          key={admin.userId}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          admin={admin}
-                          canManage={canManageTeam}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <ResponsiveTable columns={['E-mail', '']}>
                     {teamAdmins?.map((admin) => (
-                      <TeamAdminCard
+                      <TeamAdminRow
                         key={admin.userId}
                         clubId={clubId!}
                         teamId={teamId!}
@@ -857,7 +813,7 @@ export function TeamDetailPage() {
                         canManage={canManageTeam}
                       />
                     ))}
-                  </div>
+                  </ResponsiveTable>
                 )}
               </CardContent>
             </Card>
@@ -953,7 +909,7 @@ export function TeamDetailPage() {
           )}
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isEventsViewError ? (
                 <QueryError
                   onRetry={() => refetchEventsView()}
@@ -963,7 +919,7 @@ export function TeamDetailPage() {
                 <SkeletonList rows={3} />
               ) : isEventsEmpty ? (
                 <EmptyState
-                  icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+                  icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
                   title={
                     eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun résultat'

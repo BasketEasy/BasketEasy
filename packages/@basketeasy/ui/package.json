@@ -13,6 +13,18 @@
       "types": "./src/lib/focusRing.ts",
       "default": "./src/lib/focusRing.ts"
     },
+    "./icon-variants": {
+      "types": "./src/lib/iconVariants.ts",
+      "default": "./src/lib/iconVariants.ts"
+    },
+    "./use-is-desktop-viewport": {
+      "types": "./src/lib/useIsDesktopViewport.ts",
+      "default": "./src/lib/useIsDesktopViewport.ts"
+    },
+    "./responsive-table": {
+      "types": "./src/components/ResponsiveTable.tsx",
+      "default": "./src/components/ResponsiveTable.tsx"
+    },
     "./tailwind-preset": "./tailwind-preset.cjs",
     "./styles/globals.css": "./src/styles/globals.css",
     "./button": {
@@ -91,6 +103,10 @@
       "types": "./src/components/QueryError.tsx",
       "default": "./src/components/QueryError.tsx"
     },
+    "./radio-card-group": {
+      "types": "./src/components/RadioCardGroup.tsx",
+      "default": "./src/components/RadioCardGroup.tsx"
+    },
     "./icons/users": {
       "types": "./src/components/icons/UsersIcon.tsx",
       "default": "./src/components/icons/UsersIcon.tsx"
@@ -142,6 +158,14 @@
     "./heading": {
       "types": "./src/components/Heading.tsx",
       "default": "./src/components/Heading.tsx"
+    },
+    "./text": {
+      "types": "./src/components/Text.tsx",
+      "default": "./src/components/Text.tsx"
+    },
+    "./text-link": {
+      "types": "./src/components/TextLink.tsx",
+      "default": "./src/components/TextLink.tsx"
     },
     "./field-error": {
       "types": "./src/components/FieldError.tsx",

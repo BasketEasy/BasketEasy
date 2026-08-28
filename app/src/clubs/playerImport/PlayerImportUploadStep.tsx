@@ -8,6 +8,7 @@ import {
   SpreadsheetParseError,
   type ParsedSpreadsheet,
 } from './parseSpreadsheet';
+import { Text } from '@basketeasy/ui/text';
 
 const ACCEPTED_EXTENSIONS = ['.csv', '.xls', '.xlsx'];
 
@@ -52,10 +53,10 @@ export function PlayerImportUploadStep({
       >
         Importer le fichier
       </h2>
-      <p className="text-sm text-muted">
+      <Text variant="meta">
         Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx listant
         vos licenciés.
-      </p>
+      </Text>
 
       {error && (
         <Alert variant="destructive">
@@ -92,11 +93,13 @@ export function PlayerImportUploadStep({
               <path d="M12 16V4M12 4 7.5 8.5M12 4l4.5 4.5" />
               <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
             </svg>
-            <p className="text-sm text-muted">Glissez-déposez le fichier ici, ou</p>
+            <Text variant="meta">Glissez-déposez le fichier ici, ou</Text>
             <Button type="button" onClick={() => inputRef.current?.click()}>
               Choisir un fichier
             </Button>
-            <p className="text-xs text-muted">Formats acceptés : .csv, .xls, .xlsx</p>
+            <Text variant="meta" size="xs">
+              Formats acceptés : .csv, .xls, .xlsx
+            </Text>
           </>
         )}
       </div>

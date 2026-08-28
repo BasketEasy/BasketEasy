@@ -1,7 +1,7 @@
-import { type SVGProps } from 'react';
-
+import { cn } from '../../lib/cn';
+import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Partner clubs / CTC (Clubs partenaires). */
-export function BuildingIcon(props: SVGProps<SVGSVGElement>) {
+export function BuildingIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,6 +10,7 @@ export function BuildingIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <rect x="4" y="3" width="10" height="18" />

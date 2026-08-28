@@ -99,7 +99,7 @@ export function PlayerImportPage() {
       <PlayerImportSteps current={STEP_INDEX[step.name]} />
 
       <Card>
-        <CardContent className="flex flex-col gap-4 pt-6">
+        <CardContent className="flex flex-col gap-4">
           {step.name === 'upload' && (
             <PlayerImportUploadStep
               headingRef={headingRef}

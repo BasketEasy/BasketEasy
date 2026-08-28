@@ -12,6 +12,7 @@ import { focusRing } from '@basketeasy/ui/focus-ring';
 import { cn } from '@basketeasy/ui/cn';
 import { useClubCreate } from './useClubCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { Text } from '@basketeasy/ui/text';
 
 const clubSchema = z.object({
   name: z.string().min(2, 'Le nom du club doit contenir au moins 2 caractères'),
@@ -92,9 +93,9 @@ export function ClubCreateForm() {
               )}
             >
               Lier ce club à la FFBB
-              <span aria-hidden="true" className="text-muted">
+              <Text as="span" variant="meta" aria-hidden="true">
                 {isFfbbOpen ? '▴' : '▾'}
-              </span>
+              </Text>
             </button>
             {isFfbbOpen && (
               <div id={ffbbPanelId} className="border-t border-border px-3.5 pb-3.5 pt-3.5">
@@ -105,10 +106,10 @@ export function ClubCreateForm() {
                   error={errors.ffbbClubCode?.message}
                   {...register('ffbbClubCode')}
                 />
-                <p className="mt-1.5 text-xs text-muted">
+                <Text variant="meta" size="xs" className="mt-1.5">
                   Le code affiché dans l&apos;URL du club sur competitions.ffbb.com. Non vérifié
                   automatiquement — facultatif.
-                </p>
+                </Text>
               </div>
             )}
           </div>

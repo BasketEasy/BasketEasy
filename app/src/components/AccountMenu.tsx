@@ -26,7 +26,7 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Mon compte">
-          <Avatar className="h-8 w-8">
+          <Avatar size="md">
             <AvatarFallback>{initials || '·'}</AvatarFallback>
           </Avatar>
         </Button>

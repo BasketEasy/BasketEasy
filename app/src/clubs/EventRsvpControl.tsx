@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@basketeasy/ui/cn';
+import { Text } from '@basketeasy/ui/text';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Spinner } from '@basketeasy/ui/icons/spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@basketeasy/ui/tooltip';
@@ -164,9 +165,14 @@ export function EventRsvpControl({
           })}
         </div>
         {hasResponded && (
-          <p id={hintId} className={cn('text-xs text-muted', compactOnDesktop && 'lg:hidden')}>
+          <Text
+            id={hintId}
+            variant="meta"
+            size="xs"
+            className={cn(compactOnDesktop && 'lg:hidden')}
+          >
             Touchez à nouveau votre réponse pour l&apos;annuler.
-          </p>
+          </Text>
         )}
       </div>
     </TooltipProvider>

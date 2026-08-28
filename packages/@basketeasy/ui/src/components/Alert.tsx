@@ -22,17 +22,6 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
 );
 Alert.displayName = 'Alert';
 
-export const AlertTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h5
-      ref={ref}
-      className={cn('mb-1 font-heading text-base font-bold leading-none', className)}
-      {...props}
-    />
-  ),
-);
-AlertTitle.displayName = 'AlertTitle';
-
 export const AlertDescription = forwardRef<
   HTMLParagraphElement,
   HTMLAttributes<HTMLParagraphElement>

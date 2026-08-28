@@ -1,7 +1,8 @@
 import { Check } from '@basketeasy/ui/icons/check';
 import { cn } from '@basketeasy/ui/cn';
+import { Text } from '@basketeasy/ui/text';
 
-export const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
+const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
 
 /**
  * Three-stop step indicator for the import wizard. Kept local to this
@@ -33,12 +34,10 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
               >
                 {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
               </span>
-              <span
-                className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}
-              >
+              <Text as="span" variant="label" size="sm" tone={isCurrent ? 'primary' : 'secondary'}>
                 {label}
                 {isCurrent && <span className="sr-only"> (étape actuelle)</span>}
-              </span>
+              </Text>
             </div>
             {index < PLAYER_IMPORT_STEP_LABELS.length - 1 && (
               <span aria-hidden="true" className="h-0.5 flex-grow rounded-sm bg-blue-green/20" />

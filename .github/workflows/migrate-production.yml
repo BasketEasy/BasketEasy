@@ -10,7 +10,7 @@ on:
 
 env:
   PNPM_VERSION: 9.7.0
-  NODE_VERSION: 20
+  NODE_VERSION: 24
 
 jobs:
   migrate:

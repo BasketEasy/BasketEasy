@@ -8,6 +8,7 @@ import type { Club } from '@basketeasy/types/clubs';
 import { useClubFfbbLinkSet } from './useClubFfbbLinkSet';
 import { useClubFfbbLinkRemove } from './useClubFfbbLinkRemove';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { Text } from '@basketeasy/ui/text';
 
 /** Club-header FFBB link block, per docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md — same
  * inline (not Dialog) treatment as the team-link disclosure, since the club code is a single optional,
@@ -64,10 +65,10 @@ export function ClubFfbbLinkControl({ clubId, club }: { clubId: string; club: Cl
           </Button>
         </div>
         {error && <FieldError>{error}</FieldError>}
-        <p className="text-xs text-muted">
+        <Text variant="meta" size="xs">
           Le code affiché dans l&apos;URL du club sur competitions.ffbb.com. Non vérifié
           automatiquement — facultatif.
-        </p>
+        </Text>
       </div>
     );
   }
@@ -75,8 +76,12 @@ export function ClubFfbbLinkControl({ clubId, club }: { clubId: string; club: Cl
   if (club.ffbbClubCode) {
     return (
       <div className="flex flex-wrap items-center gap-2.5">
-        <Badge variant="outline">FFBB</Badge>
-        <span className="font-mono text-sm text-charcoal">{club.ffbbClubCode}</span>
+        <Badge variant="outline" tone="neutral">
+          FFBB
+        </Badge>
+        <Text as="span" variant="body" size="sm" className="font-mono">
+          {club.ffbbClubCode}
+        </Text>
         <Button size="sm" variant="outline" onClick={startEditing}>
           Modifier le lien
         </Button>

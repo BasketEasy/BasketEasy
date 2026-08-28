@@ -1,6 +1,6 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
-import { Badge } from '@basketeasy/ui/badge';
+import { Badge, type BadgeProps } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -14,8 +14,9 @@ import {
 } from '@basketeasy/ui/table';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
-import { useIsDesktopViewport } from '../../hooks/useIsDesktopViewport';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type { ResolvedImportRow } from './resolveImportRows';
+import { Text } from '@basketeasy/ui/text';
 
 type ActionType = ResolvedImportRow['action']['type'];
 type FilterValue = 'all' | 'create' | 'update' | 'conflict' | 'excluded';
@@ -36,15 +37,19 @@ const ACTION_LABEL: Record<ActionType, string> = {
   ignored: 'Ignorée : type de licence',
 };
 
-function badgeVariant(type: ActionType): 'secondary' | 'outline' {
-  return type === 'update' ? 'secondary' : 'outline';
-}
-
-function badgeClassName(type: ActionType): string | undefined {
-  if (type === 'conflict') return 'border-error bg-error-tint text-error';
-  if (type === 'skip' || type === 'ignored') return 'text-muted';
-  return undefined;
-}
+/**
+ * One table, five rows — the whole visual vocabulary of an import action.
+ * This used to be two functions, one returning a Badge variant and one
+ * returning raw Tailwind colour classes, because the Badge enum had no way
+ * to say "danger" or "de-emphasised".
+ */
+const ACTION_BADGE: Record<ActionType, Pick<BadgeProps, 'variant' | 'tone'>> = {
+  create: { variant: 'outline', tone: 'neutral' },
+  update: { variant: 'solid', tone: 'structure' },
+  conflict: { variant: 'soft', tone: 'danger' },
+  skip: { variant: 'outline', tone: 'muted' },
+  ignored: { variant: 'outline', tone: 'muted' },
+};
 
 function matchesFilter(filter: FilterValue, type: ActionType): boolean {
   if (filter === 'all') return true;
@@ -124,12 +129,12 @@ export function PlayerImportPreviewStep({
     <div className="flex flex-col gap-4">
       {heading}
 
-      <p aria-live="polite" className="text-sm text-muted">
+      <Text variant="meta" aria-live="polite">
         {counts.create} création{counts.create !== 1 ? 's' : ''}, {counts.update} mise
         {counts.update !== 1 ? 's' : ''} à jour, {counts.conflict} conflit
         {counts.conflict !== 1 ? 's' : ''}, {excluded} ligne{excluded !== 1 ? 's' : ''} ignorée
         {excluded !== 1 ? 's' : ''}.
-      </p>
+      </Text>
 
       {committable === 0 && (
         <Alert variant="destructive">
@@ -166,10 +171,10 @@ export function PlayerImportPreviewStep({
       </div>
 
       {filteredRows.length === 0 ? (
-        <p className="text-sm text-muted">Aucune ligne ne correspond à ce filtre.</p>
+        <Text variant="meta">Aucune ligne ne correspond à ce filtre.</Text>
       ) : isDesktop ? (
         <Table containerClassName="max-h-96 overflow-y-auto rounded-lg border border-border">
-          <TableHeader className="sticky top-0 z-10 bg-surface">
+          <TableHeader className="sticky top-0 z-10">
             <TableRow>
               <TableHead>Prénom</TableHead>
               <TableHead>Nom</TableHead>
@@ -182,16 +187,11 @@ export function PlayerImportPreviewStep({
                 <TableCell>{row.firstName || '—'}</TableCell>
                 <TableCell>{row.lastName || '—'}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={badgeVariant(action.type)}
-                    className={badgeClassName(action.type)}
-                  >
-                    {ACTION_LABEL[action.type]}
-                  </Badge>
+                  <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
                   {action.type === 'conflict' && (
-                    <span className="ml-2 text-xs text-muted">
+                    <Text as="span" variant="meta" size="xs" className="ml-2">
                       déjà licencié dans un autre club
-                    </span>
+                    </Text>
                   )}
                 </TableCell>
               </TableRow>
@@ -201,17 +201,17 @@ export function PlayerImportPreviewStep({
       ) : (
         <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
           {filteredRows.map(({ row, action }, index) => (
-            <Card key={index} className="flex flex-col gap-1.5 bg-surface-2 p-3">
-              <span className="font-medium text-charcoal">
+            <Card key={index} variant="inset" className="flex flex-col gap-1.5">
+              <Text as="span" variant="label" className="font-medium">
                 {row.firstName || '—'} {row.lastName || '—'}
-              </span>
+              </Text>
               <div>
-                <Badge variant={badgeVariant(action.type)} className={badgeClassName(action.type)}>
-                  {ACTION_LABEL[action.type]}
-                </Badge>
+                <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
               </div>
               {action.type === 'conflict' && (
-                <span className="text-xs text-muted">déjà licencié dans un autre club</span>
+                <Text as="span" variant="meta" size="xs">
+                  déjà licencié dans un autre club
+                </Text>
               )}
             </Card>
           ))}

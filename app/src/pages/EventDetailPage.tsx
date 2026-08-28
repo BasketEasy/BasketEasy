@@ -28,6 +28,7 @@ import { useEventShow } from '../clubs/useEventShow';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
+import { Text } from '@basketeasy/ui/text';
 
 type EventDetailTab = 'apercu' | 'effectif' | 'vote' | 'scoresheet';
 
@@ -38,10 +39,16 @@ function isEventDetailTab(value: string | null): value is EventDetailTab {
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
   return (
     <div className="flex gap-2.5 rounded-lg border border-border bg-surface-2 p-3.5">
-      <span className="mt-0.5 shrink-0 text-blue-green">{icon}</span>
+      <Text as="span" variant="body" tone="structure" className="mt-0.5 shrink-0">
+        {icon}
+      </Text>
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-bold uppercase tracking-wide-caps text-muted">{label}</span>
-        <span className="tabular text-sm text-charcoal">{value}</span>
+        <Text as="span" variant="label" size="xs" tone="secondary" className="font-bold">
+          {label}
+        </Text>
+        <Text as="span" variant="body" size="sm" className="tabular">
+          {value}
+        </Text>
       </div>
     </div>
   );
@@ -104,7 +111,7 @@ export function EventDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+          icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
           title="Événement introuvable"
           description="Cet événement n’existe plus ou a été supprimé."
           action={
@@ -162,17 +169,33 @@ export function EventDetailPage() {
           )}
         >
           {event.timeConfirmed ? (
-            <span className="tabular font-heading text-4xl font-extrabold leading-none">
+            <Text
+              tone="inherit"
+              as="span"
+              variant="display"
+              className="tabular text-4xl leading-none"
+            >
               {formatEventTime(event.startsAt)}
-            </span>
+            </Text>
           ) : (
-            <span className="font-heading text-sm font-extrabold uppercase leading-none tracking-wide-caps">
+            <Text
+              as="span"
+              variant="eyebrow"
+              size="sm"
+              tone="inherit"
+              className="leading-none tracking-wide-caps"
+            >
               à confirmer
-            </span>
+            </Text>
           )}
-          <span className="font-heading text-xs font-bold uppercase tracking-wide-caps opacity-85">
+          <Text
+            as="span"
+            variant="eyebrow"
+            tone="inherit"
+            className="opacity-85 tracking-wide-caps"
+          >
             {eventTypeLabel(event.type)}
-          </span>
+          </Text>
         </div>
         <div className="flex flex-grow flex-col gap-3.5 bg-surface p-5">
           {isMatch ? (
@@ -181,15 +204,25 @@ export function EventDetailPage() {
                 <Avatar>
                   <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
                 </Avatar>
-                <span className="font-heading text-xl font-extrabold">{team.name}</span>
+                <Text tone="inherit" as="span" variant="display">
+                  {team.name}
+                </Text>
               </div>
-              <span className="font-heading text-base font-bold tracking-wide text-muted">VS</span>
+              <Text
+                as="span"
+                variant="display"
+                size="md"
+                tone="secondary"
+                className="tracking-wide"
+              >
+                VS
+              </Text>
               <div className="flex items-center gap-3.5">
-                <span className="font-heading text-xl font-extrabold">{event.opponentName}</span>
+                <Text tone="inherit" as="span" variant="display">
+                  {event.opponentName}
+                </Text>
                 <Avatar>
-                  <AvatarFallback className="border-2 border-dashed border-border-strong bg-sunk text-muted">
-                    ?
-                  </AvatarFallback>
+                  <AvatarFallback tone="placeholder">?</AvatarFallback>
                 </Avatar>
               </div>
             </div>
@@ -198,7 +231,9 @@ export function EventDetailPage() {
               <Avatar>
                 <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
               </Avatar>
-              <span className="font-heading text-xl font-extrabold">{team.name}</span>
+              <Text tone="inherit" as="span" variant="display">
+                {team.name}
+              </Text>
             </div>
           )}
           <div className="h-px bg-border" />
@@ -208,11 +243,11 @@ export function EventDetailPage() {
               width="15"
               height="15"
               fill="none"
-              stroke="#1E5F74"
+              stroke="currentColor"
               strokeWidth={1.8}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0"
+              className="shrink-0 text-blue-green"
             >
               <path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" />
               <circle cx="12" cy="9" r="2.5" />
@@ -224,7 +259,7 @@ export function EventDetailPage() {
 
       <div className="flex flex-col gap-2.5">
         {isRostered && event.myConvocation && (
-          <Badge variant="outline" className="w-fit gap-1">
+          <Badge variant="outline" tone="neutral" className="w-fit gap-1">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -305,7 +340,9 @@ export function EventDetailPage() {
                   ) : (
                     <div className="flex flex-col items-start gap-1">
                       {formatEventDateOnly(event.startsAt)}
-                      <Badge variant="outline">Heure à confirmer</Badge>
+                      <Badge variant="outline" tone="neutral">
+                        Heure à confirmer
+                      </Badge>
                     </div>
                   )
                 }

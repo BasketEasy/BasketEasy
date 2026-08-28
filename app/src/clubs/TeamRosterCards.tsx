@@ -5,6 +5,7 @@ import { SectionHeading } from '@basketeasy/ui/section-heading';
 import type { Gender, TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
+import { Text } from '@basketeasy/ui/text';
 
 // TeamPlayer carries no per-player gender — only Team.gender exists. A
 // literal "Joueuses" label doesn't generalize to a mixed-gender roster, so
@@ -33,15 +34,15 @@ function RosterGroup({
       <SectionHeading count={players.length}>{GROUP_LABEL[role](teamGender)}</SectionHeading>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {players.map((player) => (
-          <Card key={player.id} className="flex items-center gap-3 bg-surface-2 p-3">
+          <Card key={player.id} variant="inset" className="flex items-center gap-3">
             <Avatar>
               <AvatarFallback>{getInitials(player.firstName, player.lastName)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col gap-1">
-              <span className="font-medium text-charcoal">
+              <Text as="span" variant="label" className="font-medium">
                 {player.firstName} {player.lastName}
-              </span>
-              <Badge variant="secondary" className="w-fit">
+              </Text>
+              <Badge tone="structure" className="w-fit">
                 {teamMemberRoleLabel(player.role)}
               </Badge>
             </div>

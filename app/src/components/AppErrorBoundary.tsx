@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { Text } from '@basketeasy/ui/text';
 
 /**
  * Class component because React has no hook equivalent of
@@ -26,9 +27,9 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { hasEr
       <PageContainer size="md" centered>
         <div className="flex flex-col items-center gap-4 text-center">
           <Heading as="h1">Une erreur est survenue</Heading>
-          <p className="text-muted">
+          <Text variant="meta">
             Quelque chose s’est mal passé de notre côté. Rechargez la page pour reprendre.
-          </p>
+          </Text>
           <Button onClick={() => window.location.reload()}>Recharger la page</Button>
         </div>
       </PageContainer>
