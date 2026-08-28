@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -41,7 +41,16 @@ function mockStatus(status: EventScoresheet | null) {
 
 const file = new File(['fake-jpeg-bytes'], 'feuille.jpg', { type: 'image/jpeg' });
 
+// Below useIsDesktopViewport's 768px breakpoint (jsdom defaults to 1024,
+// i.e. desktop, so the mobile-specific camera/gallery split needs an
+// explicit narrower width to exercise).
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+}
+
 describe('MatchScoresheetTab', () => {
+  afterEach(() => setViewportWidth(1024));
+
   it('shows a read-only empty state for a non-rostered viewer when nothing is uploaded', async () => {
     mockStatus(null);
 
@@ -53,7 +62,8 @@ describe('MatchScoresheetTab', () => {
     expect(screen.queryByText('Prendre une photo')).not.toBeInTheDocument();
   });
 
-  it('shows the capture screen for a rostered viewer when nothing is uploaded', async () => {
+  it('shows both a camera and a gallery button on mobile when nothing is uploaded', async () => {
+    setViewportWidth(500);
     mockStatus(null);
 
     renderWithProviders(
@@ -62,6 +72,18 @@ describe('MatchScoresheetTab', () => {
 
     expect(await screen.findByText('Prendre une photo')).toBeInTheDocument();
     expect(screen.getByText('Choisir dans la galerie')).toBeInTheDocument();
+  });
+
+  it('shows a single plain file picker on desktop — no camera-specific button', async () => {
+    mockStatus(null);
+
+    renderWithProviders(
+      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+    );
+
+    expect(await screen.findByText('Choisir une photo')).toBeInTheDocument();
+    expect(screen.queryByText('Prendre une photo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choisir dans la galerie')).not.toBeInTheDocument();
   });
 
   it('shows the queued state directly on mount when already uploaded — skips capture', async () => {

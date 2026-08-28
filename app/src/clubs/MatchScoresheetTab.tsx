@@ -6,6 +6,7 @@ import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamEvent } from '@basketeasy/types/events';
+import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
 import { formatEventDate } from './eventDateFormat';
 import { useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
@@ -120,6 +121,13 @@ export function MatchScoresheetTab({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // No desktop browser exposes a real "take a photo now" affordance — a
+  // `capture="environment"` input just falls back to the same file picker
+  // as the plain one, so showing two buttons that do the identical thing
+  // on desktop only confuses. Below the breakpoint, both controls stay
+  // (camera capture vs. gallery, per Scoresheet.dc.html); at/above it,
+  // there's exactly one "choose a file" control.
+  const isDesktop = useIsDesktopViewport();
 
   const {
     data: status,
@@ -193,7 +201,7 @@ export function MatchScoresheetTab({
   // an in-progress replace.
   if (selectedFile) {
     return (
-      <Card className="flex max-w-sm flex-col gap-4 p-5 shadow-md">
+      <Card className="flex max-w-sm flex-col gap-4 p-5 shadow-md md:max-w-lg">
         {isUploadError && (
           <QueryError
             title="Échec de l'envoi"
@@ -234,7 +242,7 @@ export function MatchScoresheetTab({
 
   if (status?.status === 'UPLOADED') {
     return (
-      <Card className="flex max-w-sm flex-col items-center gap-3 p-5 text-center shadow-md">
+      <Card className="flex max-w-sm flex-col items-center gap-3 p-5 text-center shadow-md md:max-w-lg">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success text-cream">
           <Check className="h-6 w-6" />
         </span>
@@ -274,24 +282,36 @@ export function MatchScoresheetTab({
   }
 
   return (
-    <Card className="flex max-w-sm flex-col gap-5 p-5 shadow-md">
+    <Card className="flex max-w-sm flex-col gap-5 p-5 shadow-md md:max-w-lg">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint text-blue-green">
           <CameraIcon className="h-7 w-7" />
         </span>
-        <span className="text-sm font-bold text-charcoal">Photographiez la feuille de marque</span>
+        <span className="text-sm font-bold text-charcoal">
+          {isDesktop
+            ? 'Ajoutez une photo de la feuille de marque'
+            : 'Photographiez la feuille de marque'}
+        </span>
         <span className="text-xs leading-relaxed text-muted">
-          Cadrez la feuille e-Marque bien à plat, dans un endroit lumineux.
+          {isDesktop
+            ? 'Sélectionnez le fichier depuis votre ordinateur.'
+            : 'Cadrez la feuille e-Marque bien à plat, dans un endroit lumineux.'}
         </span>
       </div>
       <div className="flex flex-col gap-2.5">
-        <Button onClick={() => cameraInputRef.current?.click()}>
-          <CameraIcon className="h-4 w-4" />
-          Prendre une photo
-        </Button>
-        <Button variant="outline" onClick={() => galleryInputRef.current?.click()}>
-          Choisir dans la galerie
-        </Button>
+        {isDesktop ? (
+          <Button onClick={() => galleryInputRef.current?.click()}>Choisir une photo</Button>
+        ) : (
+          <>
+            <Button onClick={() => cameraInputRef.current?.click()}>
+              <CameraIcon className="h-4 w-4" />
+              Prendre une photo
+            </Button>
+            <Button variant="outline" onClick={() => galleryInputRef.current?.click()}>
+              Choisir dans la galerie
+            </Button>
+          </>
+        )}
       </div>
       <span className="text-xs leading-relaxed text-muted">
         L&apos;analyse automatique (IA) arrive bientôt. Pour l&apos;instant, la photo est simplement
