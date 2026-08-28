@@ -25,7 +25,7 @@ export function TeamClubRow({
       <TableCell>
         {link.clubName}
         {link.isOwner && (
-          <Badge variant="secondary" className="ml-2">
+          <Badge tone="structure" className="ml-2">
             Propriétaire
           </Badge>
         )}

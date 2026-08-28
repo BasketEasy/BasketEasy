@@ -143,6 +143,10 @@
       "types": "./src/components/Heading.tsx",
       "default": "./src/components/Heading.tsx"
     },
+    "./text": {
+      "types": "./src/components/Text.tsx",
+      "default": "./src/components/Text.tsx"
+    },
     "./field-error": {
       "types": "./src/components/FieldError.tsx",
       "default": "./src/components/FieldError.tsx"

@@ -2,23 +2,62 @@ import { type HTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
+/**
+ * Two orthogonal axes: `variant` is the fill treatment, `tone` is the meaning.
+ *
+ * The old enum mixed the two — `default` meant "solid orange", `secondary`
+ * meant "solid blue-green" — so a soft orange badge had nowhere to live and
+ * five call sites hand-wrote the tint triad instead (the worst being
+ * `badgeClassName()` in PlayerImportPreviewStep, a caller-side function
+ * returning Tailwind colour classes).
+ *
+ * Tone names describe role, not colour: `brand` is the rare sharp accent
+ * (orange), `structure` carries the blue-green that organises the UI. Nothing
+ * here names a hue.
+ */
 const badgeVariants = cva(
   'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
   {
     variants: {
       variant: {
-        default: 'bg-orange-text text-cream',
-        secondary: 'bg-blue-green text-cream',
-        outline: 'border border-border text-charcoal',
+        solid: '',
+        soft: 'border',
+        outline: 'border',
       },
+      tone: { brand: '', structure: '', neutral: '', muted: '', danger: '' },
     },
-    defaultVariants: { variant: 'default' },
+    compoundVariants: [
+      { variant: 'solid', tone: 'brand', class: 'bg-orange-text text-cream' },
+      { variant: 'solid', tone: 'structure', class: 'bg-blue-green text-cream' },
+      { variant: 'solid', tone: 'neutral', class: 'bg-charcoal text-cream' },
+      { variant: 'solid', tone: 'muted', class: 'bg-muted text-cream' },
+      { variant: 'solid', tone: 'danger', class: 'bg-error text-cream' },
+
+      { variant: 'soft', tone: 'brand', class: 'border-orange/30 bg-orange-tint text-orange-text' },
+      {
+        variant: 'soft',
+        tone: 'structure',
+        class: 'border-blue-green/25 bg-blue-green-tint text-blue-green',
+      },
+      { variant: 'soft', tone: 'neutral', class: 'border-border bg-surface-2 text-charcoal' },
+      { variant: 'soft', tone: 'muted', class: 'border-border bg-surface-2 text-muted' },
+      { variant: 'soft', tone: 'danger', class: 'border-error bg-error-tint text-error' },
+
+      { variant: 'outline', tone: 'brand', class: 'border-orange/40 text-orange-text' },
+      { variant: 'outline', tone: 'structure', class: 'border-blue-green/40 text-blue-green' },
+      { variant: 'outline', tone: 'neutral', class: 'border-border text-charcoal' },
+      { variant: 'outline', tone: 'muted', class: 'border-border text-muted' },
+      { variant: 'outline', tone: 'danger', class: 'border-error text-error' },
+    ],
+    defaultVariants: { variant: 'solid', tone: 'brand' },
   },
 );
 
 export interface BadgeProps
   extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
-export function Badge({ className, variant, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
+export function Badge({ className, variant, tone, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ variant, tone }), className)} {...props} />;
 }
+
+export { badgeVariants };

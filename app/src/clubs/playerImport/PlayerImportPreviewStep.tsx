@@ -1,6 +1,6 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
-import { Badge } from '@basketeasy/ui/badge';
+import { Badge, type BadgeProps } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -36,15 +36,19 @@ const ACTION_LABEL: Record<ActionType, string> = {
   ignored: 'Ignorée : type de licence',
 };
 
-function badgeVariant(type: ActionType): 'secondary' | 'outline' {
-  return type === 'update' ? 'secondary' : 'outline';
-}
-
-function badgeClassName(type: ActionType): string | undefined {
-  if (type === 'conflict') return 'border-error bg-error-tint text-error';
-  if (type === 'skip' || type === 'ignored') return 'text-muted';
-  return undefined;
-}
+/**
+ * One table, five rows — the whole visual vocabulary of an import action.
+ * This used to be two functions, one returning a Badge variant and one
+ * returning raw Tailwind colour classes, because the Badge enum had no way
+ * to say "danger" or "de-emphasised".
+ */
+const ACTION_BADGE: Record<ActionType, Pick<BadgeProps, 'variant' | 'tone'>> = {
+  create: { variant: 'outline', tone: 'neutral' },
+  update: { variant: 'solid', tone: 'structure' },
+  conflict: { variant: 'soft', tone: 'danger' },
+  skip: { variant: 'outline', tone: 'muted' },
+  ignored: { variant: 'outline', tone: 'muted' },
+};
 
 function matchesFilter(filter: FilterValue, type: ActionType): boolean {
   if (filter === 'all') return true;
@@ -182,12 +186,7 @@ export function PlayerImportPreviewStep({
                 <TableCell>{row.firstName || '—'}</TableCell>
                 <TableCell>{row.lastName || '—'}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={badgeVariant(action.type)}
-                    className={badgeClassName(action.type)}
-                  >
-                    {ACTION_LABEL[action.type]}
-                  </Badge>
+                  <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
                   {action.type === 'conflict' && (
                     <span className="ml-2 text-xs text-muted">
                       déjà licencié dans un autre club
@@ -201,14 +200,12 @@ export function PlayerImportPreviewStep({
       ) : (
         <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
           {filteredRows.map(({ row, action }, index) => (
-            <Card key={index} className="flex flex-col gap-1.5 bg-surface-2 p-3">
+            <Card key={index} variant="inset" className="flex flex-col gap-1.5">
               <span className="font-medium text-charcoal">
                 {row.firstName || '—'} {row.lastName || '—'}
               </span>
               <div>
-                <Badge variant={badgeVariant(action.type)} className={badgeClassName(action.type)}>
-                  {ACTION_LABEL[action.type]}
-                </Badge>
+                <Badge {...ACTION_BADGE[action.type]}>{ACTION_LABEL[action.type]}</Badge>
               </div>
               {action.type === 'conflict' && (
                 <span className="text-xs text-muted">déjà licencié dans un autre club</span>

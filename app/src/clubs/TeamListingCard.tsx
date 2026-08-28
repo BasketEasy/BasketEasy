@@ -8,11 +8,13 @@ import { teamCategoryLabel, teamGenderLabel } from './teamLabels';
 /** Mobile card row for the Équipes tab's table — see TeamRow for the desktop equivalent. */
 export function TeamListingCard({ clubId, team }: { clubId: string; team: Team }) {
   return (
-    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
+    <Card variant="inset" className="flex flex-col gap-2">
       <span className="font-medium text-charcoal">{team.name}</span>
       <div className="flex flex-wrap gap-1">
-        <Badge variant="secondary">{teamCategoryLabel(team.category)}</Badge>
-        <Badge variant="outline">{teamGenderLabel(team.gender)}</Badge>
+        <Badge tone="structure">{teamCategoryLabel(team.category)}</Badge>
+        <Badge variant="outline" tone="neutral">
+          {teamGenderLabel(team.gender)}
+        </Badge>
       </div>
       <Button asChild variant="outline" className="self-start">
         <Link

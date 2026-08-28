@@ -37,7 +37,7 @@ function AgendaEventCard({
   const isMatch = event.type === 'MATCH';
 
   return (
-    <Card className="flex flex-row overflow-hidden p-0">
+    <Card variant="flush" className="flex flex-row">
       <div
         className={cn(
           'flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 py-4 sm:w-24',
@@ -94,12 +94,12 @@ function AgendaEventCard({
                 </span>
               )}
               {event.isImported && (
-                <Badge variant="outline" className="shrink-0">
+                <Badge variant="outline" tone="neutral" className="shrink-0">
                   Importé
                 </Badge>
               )}
               {!event.timeConfirmed && (
-                <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                <Badge variant="outline" tone="neutral" className="shrink-0 whitespace-nowrap">
                   Heure à confirmer
                 </Badge>
               )}

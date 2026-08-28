@@ -39,7 +39,9 @@ export function EventRow({
         ) : (
           <div className="flex flex-col items-start gap-1">
             {formatEventDateOnly(event.startsAt)}
-            <Badge variant="outline">Heure à confirmer</Badge>
+            <Badge variant="outline" tone="neutral">
+              Heure à confirmer
+            </Badge>
           </div>
         )}
       </TableCell>
@@ -47,7 +49,11 @@ export function EventRow({
         <div className="flex flex-wrap items-center gap-2">
           {eventTypeLabel(event.type)}
           {event.type === 'MATCH' && event.venue && <EventVenueBadge venue={event.venue} />}
-          {event.isImported && <Badge variant="outline">Importé</Badge>}
+          {event.isImported && (
+            <Badge variant="outline" tone="neutral">
+              Importé
+            </Badge>
+          )}
         </div>
       </TableCell>
       <TableCell>{event.location}</TableCell>
@@ -73,7 +79,7 @@ export function EventRow({
             // control, previously read too easily as "attendance confirmed"
             // rather than "the coach picked you," a different, independent
             // signal (see EventConvocationBreakdown's matching icon).
-            <Badge variant="outline" className="w-fit gap-1">
+            <Badge variant="outline" tone="neutral" className="w-fit gap-1">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"

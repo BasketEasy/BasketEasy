@@ -113,7 +113,7 @@ function LogisticsFieldRow({
           </>
         ) : (
           <>
-            <Badge variant="outline" className="text-muted">
+            <Badge variant="outline" tone="muted">
               Non assigné
             </Badge>
             {isRostered && (
@@ -166,7 +166,7 @@ export function EventLogisticsSection({
   return (
     <div className="flex flex-col gap-3.5">
       <SectionHeading>Logistique</SectionHeading>
-      <Card className="overflow-hidden p-0">
+      <Card variant="flush">
         <LogisticsFieldRow
           clubId={clubId}
           teamId={teamId}

@@ -230,7 +230,7 @@ function MatchVoteResultsCard({
   const bestTiedAtTop = countTiedAtTop(results.best);
 
   return (
-    <Card className="flex flex-col gap-4 p-5 shadow-md">
+    <Card variant="panel" className="flex flex-col gap-4">
       <div className="flex flex-col gap-0.5">
         <span className="text-xs font-semibold text-muted">
           Résultats — visibles par toute l&apos;équipe
@@ -432,7 +432,7 @@ export function MatchVoteTab({
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-      <Card className="flex flex-col gap-4 p-5 shadow-md">
+      <Card variant="panel" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <TrophyIcon className="h-5 w-5 text-orange-text" />

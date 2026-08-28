@@ -217,7 +217,7 @@ function MemberCard({
   onRemove: (userId: string) => void;
 }) {
   return (
-    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
+    <Card variant="inset" className="flex flex-col gap-2">
       <span className="font-medium text-charcoal">{member.email}</span>
       <span className="text-sm text-muted">
         {member.role === 'ADMIN' ? 'Administrateur' : 'Membre'} · Fiche joueur liée :{' '}
@@ -475,7 +475,7 @@ export function MembersPage() {
           </div>
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isMembersError ? (
                 <QueryError onRetry={() => refetchMembers()} isRetrying={isMembersRefetching} />
               ) : isLoadingMembers ? (
@@ -601,7 +601,7 @@ export function MembersPage() {
           </div>
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isPlayersError ? (
                 <QueryError onRetry={() => refetchPlayers()} isRetrying={isPlayersRefetching} />
               ) : isLoadingPlayers ? (
@@ -747,7 +747,7 @@ export function MembersPage() {
           </div>
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isTeamsError ? (
                 <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
               ) : isLoadingTeams ? (

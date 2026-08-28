@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject, type SVGProps } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
@@ -200,7 +201,7 @@ export function MatchScoresheetTab({
   if (selectedFile) {
     const isPdf = selectedFile.type === 'application/pdf';
     return (
-      <Card className="flex max-w-sm flex-col gap-4 p-5 shadow-md md:max-w-lg">
+      <Card variant="panel" className="flex max-w-sm flex-col gap-4 md:max-w-lg">
         {isUploadError && (
           <QueryError
             title="Échec de l'envoi"
@@ -250,15 +251,18 @@ export function MatchScoresheetTab({
 
   if (status?.status === 'UPLOADED') {
     return (
-      <Card className="flex max-w-sm flex-col items-center gap-3 p-5 text-center shadow-md md:max-w-lg">
+      <Card
+        variant="panel"
+        className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
+      >
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success text-cream">
           <Check className="h-6 w-6" />
         </span>
         <h3 className="font-heading text-lg font-extrabold">Fichier envoyé</h3>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-green/30 bg-blue-green-tint px-3 py-1 text-xs font-bold text-blue-green">
+        <Badge variant="soft" tone="structure" className="w-fit gap-1.5 px-3 py-1 font-bold">
           <ClockIcon className="h-3.5 w-3.5" />
           En file d&apos;attente pour analyse
-        </span>
+        </Badge>
         <p className="text-xs leading-relaxed text-muted">
           Envoyé le {formatEventDate(status.uploadedAt)}. Nous vous préviendrons une fois
           l&apos;analyse terminée.
@@ -286,7 +290,7 @@ export function MatchScoresheetTab({
   }
 
   return (
-    <Card className="flex max-w-sm flex-col gap-5 p-5 shadow-md md:max-w-lg">
+    <Card variant="panel" className="flex max-w-sm flex-col gap-5 md:max-w-lg">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint text-blue-green">
           <UploadIcon className="h-7 w-7" />

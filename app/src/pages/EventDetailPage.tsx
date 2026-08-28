@@ -208,11 +208,11 @@ export function EventDetailPage() {
               width="15"
               height="15"
               fill="none"
-              stroke="#1E5F74"
+              stroke="currentColor"
               strokeWidth={1.8}
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="shrink-0"
+              className="shrink-0 text-blue-green"
             >
               <path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" />
               <circle cx="12" cy="9" r="2.5" />
@@ -224,7 +224,7 @@ export function EventDetailPage() {
 
       <div className="flex flex-col gap-2.5">
         {isRostered && event.myConvocation && (
-          <Badge variant="outline" className="w-fit gap-1">
+          <Badge variant="outline" tone="neutral" className="w-fit gap-1">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -305,7 +305,9 @@ export function EventDetailPage() {
                   ) : (
                     <div className="flex flex-col items-start gap-1">
                       {formatEventDateOnly(event.startsAt)}
-                      <Badge variant="outline">Heure à confirmer</Badge>
+                      <Badge variant="outline" tone="neutral">
+                        Heure à confirmer
+                      </Badge>
                     </div>
                   )
                 }

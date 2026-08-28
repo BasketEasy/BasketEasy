@@ -128,7 +128,7 @@ function RosterPlayerIdentity({ row }: { row: MergedRosterRow }) {
 
 function EventRosterCard({ row }: { row: MergedRosterRow }) {
   return (
-    <Card className="flex flex-col gap-2.5 bg-surface-2 p-3">
+    <Card variant="inset" className="flex flex-col gap-2.5">
       <RosterPlayerIdentity row={row} />
       <span className="text-sm text-muted">{teamMemberRoleLabel(row.role)}</span>
       <div className="flex flex-wrap items-center gap-3">
@@ -236,7 +236,7 @@ export function EventRosterTab({
       </div>
 
       {isDesktop ? (
-        <Card className="overflow-hidden p-0">
+        <Card variant="flush">
           <Table>
             <TableHeader>
               <TableRow>

@@ -11,10 +11,7 @@ import { eventVenueLabel } from './eventLabels';
 export function EventVenueBadge({ venue }: { venue: EventVenue }) {
   if (venue === 'HOME') {
     return (
-      <Badge
-        variant="outline"
-        className="gap-1 border-blue-green/25 bg-blue-green-tint text-blue-green"
-      >
+      <Badge variant="soft" tone="structure" className="gap-1">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -31,5 +28,9 @@ export function EventVenueBadge({ venue }: { venue: EventVenue }) {
       </Badge>
     );
   }
-  return <Badge variant="outline">{eventVenueLabel('AWAY')}</Badge>;
+  return (
+    <Badge variant="outline" tone="neutral">
+      {eventVenueLabel('AWAY')}
+    </Badge>
+  );
 }

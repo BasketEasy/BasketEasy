@@ -21,7 +21,7 @@ export function EventVoteBadge({ event }: { event: TeamEvent }) {
     return null;
   }
   return (
-    <Badge variant="outline" className="gap-1.5 border-orange/30 bg-orange-tint text-orange-text">
+    <Badge variant="soft" tone="brand" className="gap-1.5">
       <TrophyIcon className="h-3 w-3 shrink-0" />
       Votes ouverts · {daysRemaining} j restant{daysRemaining > 1 ? 's' : ''}
     </Badge>

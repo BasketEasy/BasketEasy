@@ -502,14 +502,14 @@ export function TeamDetailPage() {
         <TabsList>
           <TabsTrigger value="roster" className="gap-2">
             Effectif
-            <Badge variant="outline" aria-hidden="true">
+            <Badge variant="outline" tone="neutral" aria-hidden="true">
               {allTeamPlayers.length}
             </Badge>
           </TabsTrigger>
           {canManageTeam && (
             <TabsTrigger value="clubs" className="gap-2">
               Clubs partenaires
-              <Badge variant="outline" aria-hidden="true">
+              <Badge variant="outline" tone="neutral" aria-hidden="true">
                 {teamClubsResult?.total ?? 0}
               </Badge>
             </TabsTrigger>
@@ -517,14 +517,14 @@ export function TeamDetailPage() {
           {canManageTeam && (
             <TabsTrigger value="admins" className="gap-2">
               Administrateurs
-              <Badge variant="outline" aria-hidden="true">
+              <Badge variant="outline" tone="neutral" aria-hidden="true">
                 {teamAdmins?.length ?? 0}
               </Badge>
             </TabsTrigger>
           )}
           <TabsTrigger value="events" className="gap-2">
             Événements
-            <Badge variant="outline" aria-hidden="true">
+            <Badge variant="outline" tone="neutral" aria-hidden="true">
               {eventsResult?.total ?? 0}
             </Badge>
           </TabsTrigger>
@@ -590,7 +590,7 @@ export function TeamDetailPage() {
           )}
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isRosterError ? (
                 <QueryError onRetry={() => refetchRoster()} isRetrying={isRosterRefetching} />
               ) : isLoadingRoster ? (
@@ -700,7 +700,7 @@ export function TeamDetailPage() {
             </div>
 
             <Card>
-              <CardContent className="pt-6 flex flex-col gap-4">
+              <CardContent className="flex flex-col gap-4">
                 {isClubsError ? (
                   <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
                 ) : isLoadingClubs ? (
@@ -797,7 +797,7 @@ export function TeamDetailPage() {
             </Dialog>
 
             <Card>
-              <CardContent className="pt-6">
+              <CardContent>
                 {isAdminsError ? (
                   <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
                 ) : isLoadingAdmins ? (
@@ -928,7 +928,7 @@ export function TeamDetailPage() {
           )}
 
           <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4">
               {isEventsViewError ? (
                 <QueryError
                   onRetry={() => refetchEventsView()}

@@ -69,14 +69,14 @@ function HeroAgendaMock() {
             <span className="text-sm font-semibold text-charcoal">Entraînement</span>
             <span className="text-sm text-muted">Mardi 19h · Gymnase Jean-Moulin</span>
           </div>
-          <Badge variant="secondary">12 convoqués</Badge>
+          <Badge tone="structure">12 convoqués</Badge>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-charcoal">Match vs. ES Rezé</span>
             <span className="text-sm text-muted">Samedi 15h · Salle des sports</span>
           </div>
-          <Badge variant="secondary">9 présents</Badge>
+          <Badge tone="structure">9 présents</Badge>
         </div>
       </div>
     </Card>
@@ -93,7 +93,7 @@ export function LandingPage() {
       <main className="flex-1">
         <section className="mx-auto grid max-w-5xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:py-24">
           <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
-            <Badge variant="secondary" className="w-fit">
+            <Badge tone="structure" className="w-fit">
               Pensé pour les CTC
             </Badge>
             <Heading as="h1" size="6xl">
@@ -192,7 +192,7 @@ export function LandingPage() {
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle>{feature.title}</CardTitle>
-                        <Badge variant="secondary">Bientôt</Badge>
+                        <Badge tone="structure">Bientôt</Badge>
                       </div>
                       <CardDescription>{feature.description}</CardDescription>
                     </CardHeader>

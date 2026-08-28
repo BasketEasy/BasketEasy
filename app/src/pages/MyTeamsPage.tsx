@@ -45,9 +45,7 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       </TableCell>
       <TableCell className="flex flex-wrap items-center gap-1">
         {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-        {team.rosterRole && (
-          <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
-        )}
+        {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
       </TableCell>
       <TableCell>
         <Button asChild variant="outline">
@@ -66,16 +64,14 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
 /** Mobile card row for the My teams table — see MyTeamRow for the desktop equivalent. */
 function MyTeamCard({ team }: { team: MyTeamSummary }) {
   return (
-    <Card className="flex flex-col gap-2 bg-surface-2 p-3">
+    <Card variant="inset" className="flex flex-col gap-2">
       <span className="font-medium text-charcoal">{team.teamName}</span>
       <span className="text-sm text-muted">
         {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
       </span>
       <div className="flex flex-wrap items-center gap-1">
         {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-        {team.rosterRole && (
-          <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
-        )}
+        {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
       </div>
       <Button asChild variant="outline" className="self-start">
         <Link
@@ -155,7 +151,7 @@ export function MyTeamsPage() {
       )}
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           {isError ? (
             <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />
           ) : isLoading ? (

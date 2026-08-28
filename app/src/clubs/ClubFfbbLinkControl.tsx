@@ -75,7 +75,9 @@ export function ClubFfbbLinkControl({ clubId, club }: { clubId: string; club: Cl
   if (club.ffbbClubCode) {
     return (
       <div className="flex flex-wrap items-center gap-2.5">
-        <Badge variant="outline">FFBB</Badge>
+        <Badge variant="outline" tone="neutral">
+          FFBB
+        </Badge>
         <span className="font-mono text-sm text-charcoal">{club.ffbbClubCode}</span>
         <Button size="sm" variant="outline" onClick={startEditing}>
           Modifier le lien
