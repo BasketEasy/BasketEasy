@@ -60,3 +60,28 @@ if (typeof Blob.prototype.text !== 'function') {
     });
   };
 }
+// jsdom doesn't implement URL.createObjectURL/revokeObjectURL at all —
+// MatchScoresheetTab's local photo preview needs some URL string to hand a
+// real <img>, and the value itself is never inspected by any test.
+if (typeof URL.createObjectURL !== 'function') {
+  URL.createObjectURL = () => 'blob:mock-object-url';
+}
+if (typeof URL.revokeObjectURL !== 'function') {
+  URL.revokeObjectURL = () => {};
+}
+// MSW's node interceptor reads a File/Blob request body via `.stream()`,
+// which jsdom's Blob doesn't implement either — without a stub, any test
+// that `fetch`es with a File body (e.g. the direct-to-R2 scoresheet upload)
+// fails with "object.stream is not a function" before MSW ever sees the
+// request. Built on the arrayBuffer() stub above.
+if (typeof Blob.prototype.stream !== 'function') {
+  Blob.prototype.stream = function (this: Blob) {
+    return new ReadableStream({
+      start: async (controller) => {
+        const buffer = await this.arrayBuffer();
+        controller.enqueue(new Uint8Array(buffer));
+        controller.close();
+      },
+    }) as ReturnType<Blob['stream']>;
+  };
+}

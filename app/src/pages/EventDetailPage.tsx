@@ -20,6 +20,7 @@ import { EventDeleteModal } from '../clubs/EventDeleteModal';
 import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { EventRosterTab } from '../clubs/EventRosterTab';
+import { MatchScoresheetTab } from '../clubs/MatchScoresheetTab';
 import { MatchVoteTab } from '../clubs/MatchVoteTab';
 import { hasVoteWindowClosed } from '../clubs/voteWindow';
 import { teamAvatarInitials } from '../clubs/eventDetailLabels';
@@ -28,10 +29,10 @@ import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
 
-type EventDetailTab = 'apercu' | 'effectif' | 'vote';
+type EventDetailTab = 'apercu' | 'effectif' | 'vote' | 'scoresheet';
 
 function isEventDetailTab(value: string | null): value is EventDetailTab {
-  return value === 'apercu' || value === 'effectif' || value === 'vote';
+  return value === 'apercu' || value === 'effectif' || value === 'vote' || value === 'scoresheet';
 }
 
 function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
@@ -125,8 +126,13 @@ export function EventDetailPage() {
   const canVoteNow = event.myConvocation && event.myRsvpStatus === 'GOING';
   const showVoteTab = isMatch && (canVoteNow || hasVoteWindowClosed(event.startsAt));
   // Falls back to Aperçu if the URL still points at ?tab=vote from before
-  // the tab became eligible-only (or the viewer's own eligibility changed).
-  const resolvedActiveTab = activeTab === 'vote' && !showVoteTab ? 'apercu' : activeTab;
+  // the tab became eligible-only (or the viewer's own eligibility changed),
+  // or at ?tab=scoresheet on a TRAINING event (the tab only exists for
+  // MATCH — the backend 400s every scoresheet route otherwise).
+  const resolvedActiveTab =
+    (activeTab === 'vote' && !showVoteTab) || (activeTab === 'scoresheet' && !isMatch)
+      ? 'apercu'
+      : activeTab;
 
   return (
     <PageContainer size="lg">
@@ -269,6 +275,7 @@ export function EventDetailPage() {
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
           <TabsTrigger value="effectif">Effectif</TabsTrigger>
           {showVoteTab && <TabsTrigger value="vote">Vote</TabsTrigger>}
+          {isMatch && <TabsTrigger value="scoresheet">Feuille de match</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="apercu" className="mt-4 flex flex-col gap-6">
@@ -384,6 +391,17 @@ export function EventDetailPage() {
         {showVoteTab && (
           <TabsContent value="vote" className="mt-4">
             <MatchVoteTab clubId={clubId!} teamId={teamId!} event={event} />
+          </TabsContent>
+        )}
+
+        {isMatch && (
+          <TabsContent value="scoresheet" className="mt-4">
+            <MatchScoresheetTab
+              clubId={clubId!}
+              teamId={teamId!}
+              event={event}
+              isRostered={isRostered}
+            />
           </TabsContent>
         )}
       </Tabs>
