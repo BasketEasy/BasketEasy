@@ -169,7 +169,12 @@ export function EventDetailPage() {
           )}
         >
           {event.timeConfirmed ? (
-            <Text as="span" variant="display" className="tabular text-4xl leading-none">
+            <Text
+              tone="inherit"
+              as="span"
+              variant="display"
+              className="tabular text-4xl leading-none"
+            >
               {formatEventTime(event.startsAt)}
             </Text>
           ) : (
@@ -177,7 +182,7 @@ export function EventDetailPage() {
               as="span"
               variant="eyebrow"
               size="sm"
-              tone="primary"
+              tone="inherit"
               className="leading-none tracking-wide-caps"
             >
               à confirmer
@@ -186,7 +191,7 @@ export function EventDetailPage() {
           <Text
             as="span"
             variant="eyebrow"
-            tone="primary"
+            tone="inherit"
             className="opacity-85 tracking-wide-caps"
           >
             {eventTypeLabel(event.type)}
@@ -199,7 +204,7 @@ export function EventDetailPage() {
                 <Avatar>
                   <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
                 </Avatar>
-                <Text as="span" variant="display">
+                <Text tone="inherit" as="span" variant="display">
                   {team.name}
                 </Text>
               </div>
@@ -213,7 +218,7 @@ export function EventDetailPage() {
                 VS
               </Text>
               <div className="flex items-center gap-3.5">
-                <Text as="span" variant="display">
+                <Text tone="inherit" as="span" variant="display">
                   {event.opponentName}
                 </Text>
                 <Avatar>
@@ -226,7 +231,7 @@ export function EventDetailPage() {
               <Avatar>
                 <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
               </Avatar>
-              <Text as="span" variant="display">
+              <Text tone="inherit" as="span" variant="display">
                 {team.name}
               </Text>
             </div>

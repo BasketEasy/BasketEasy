@@ -49,7 +49,13 @@ function AgendaEventCard({
         )}
       >
         {event.timeConfirmed ? (
-          <Text as="span" variant="display" size="2xl" className="tabular leading-none sm:text-3xl">
+          <Text
+            tone="inherit"
+            as="span"
+            variant="display"
+            size="2xl"
+            className="tabular leading-none sm:text-3xl"
+          >
             {formatEventTime(event.startsAt)}
           </Text>
         ) : (
@@ -61,7 +67,7 @@ function AgendaEventCard({
           <Text
             as="span"
             variant="eyebrow"
-            tone="primary"
+            tone="inherit"
             className="w-full break-words px-0.5 text-center leading-tight tracking-wide-caps"
           >
             à confirmer
@@ -70,7 +76,7 @@ function AgendaEventCard({
         <Text
           as="span"
           variant="eyebrow"
-          tone="primary"
+          tone="inherit"
           className="min-w-0 max-w-full truncate opacity-80 tracking-wide-caps"
         >
           {eventTypeShortLabel(event.type)}

@@ -61,7 +61,7 @@ function HeroAgendaMock() {
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2 text-muted">
           <CalendarIcon className="h-4 w-4" aria-hidden="true" />
-          <Text as="span" variant="body" size="sm">
+          <Text tone="inherit" as="span" variant="body" size="sm">
             Cette semaine · U15 Garçons
           </Text>
         </div>

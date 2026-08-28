@@ -145,14 +145,14 @@ function BestResultRow({
       <Avatar size="sm">
         <AvatarFallback>{getInitials(result.firstName, result.lastName)}</AvatarFallback>
       </Avatar>
-      <span
-        className={cn(
-          'w-24 shrink-0 truncate text-sm text-charcoal',
-          rank === 1 ? 'font-bold' : 'font-semibold',
-        )}
+      <Text
+        as="span"
+        variant="label"
+        size="sm"
+        className={cn('w-24 shrink-0 truncate', rank === 1 && 'font-bold')}
       >
         {result.firstName} {result.lastName}
-      </span>
+      </Text>
       <div className="h-2 flex-grow overflow-hidden rounded-full bg-gold-tint">
         <div
           className="h-full bg-gold"
