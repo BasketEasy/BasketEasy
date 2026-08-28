@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Response } from 'express';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -443,12 +444,31 @@ describe('EventsController', () => {
     expect(result).toBe(scoresheet);
   });
 
-  it('getScoresheetStatus delegates clubId, teamId, and eventId', async () => {
+  it('getScoresheetStatus delegates clubId, teamId, and eventId, and writes the result via res.json', async () => {
     service.getScoresheetStatus.mockResolvedValue(null);
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
 
-    const result = await controller.getScoresheetStatus('club-1', 'team-1', 'event-1');
+    await controller.getScoresheetStatus('club-1', 'team-1', 'event-1', res as unknown as Response);
 
     expect(service.getScoresheetStatus).toHaveBeenCalledWith('club-1', 'team-1', 'event-1');
-    expect(result).toBeNull();
+    // Explicit res.json(null) — not a bare `return null` — so a "nothing
+    // uploaded yet" response is a real JSON body, not the empty body Nest's
+    // standard response handling would otherwise send for a null return.
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(null);
+  });
+
+  it('getScoresheetStatus writes a non-null result via res.json the same way', async () => {
+    const scoresheet = {
+      status: 'UPLOADED',
+      uploadedByTeamPlayerId: 'tp-1',
+      uploadedAt: '2026-01-01T20:00:00.000Z',
+    };
+    service.getScoresheetStatus.mockResolvedValue(scoresheet);
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+
+    await controller.getScoresheetStatus('club-1', 'team-1', 'event-1', res as unknown as Response);
+
+    expect(res.json).toHaveBeenCalledWith(scoresheet);
   });
 });
