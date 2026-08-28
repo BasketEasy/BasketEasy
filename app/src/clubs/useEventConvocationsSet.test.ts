@@ -15,7 +15,7 @@ function createWrapper() {
 }
 
 describe('useEventConvocationsSet', () => {
-  it('PATCHes the full teamPlayerIds list and invalidates the events list and the roster breakdown', async () => {
+  it('PATCHes the full teamPlayerIds list and invalidates the single event, the events list, and the roster breakdown', async () => {
     let requestBody: unknown;
     server.use(
       http.patch(
@@ -49,12 +49,19 @@ describe('useEventConvocationsSet', () => {
       ['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1', 'convocations'],
       [],
     );
+    queryClient.setQueryData(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'], {
+      id: 'event-1',
+    });
     const { result } = renderHook(() => useEventConvocationsSet('club-1', 'team-1'), { wrapper });
 
     result.current.mutate({ eventId: 'event-1', teamPlayerIds: ['tp-1'] });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(requestBody).toEqual({ teamPlayerIds: ['tp-1'] });
+    expect(
+      queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', 'event-1'])
+        ?.isInvalidated,
+    ).toBe(true);
     expect(
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,
