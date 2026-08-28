@@ -91,7 +91,7 @@ model Team {
 // several links — e.g. a championship plus a departmental cup in the same
 // season — so this is its own row rather than a scalar on Team. ffbbEngagementRef
 // is unique globally (not per-team): one FFBB engagement maps to at most one
-// BasketEasy team. ffbbEngagementLabel is a display-name snapshot taken once
+// Kluvo team. ffbbEngagementLabel is a display-name snapshot taken once
 // at link time (e.g. "Seniors M D3") from the validated page fetch — a link is
 // removed and re-added rather than edited, so there's no "stale after relink"
 // case. Cascade-deletes with its Team, same convention as TeamPlayer/ClubTeam.

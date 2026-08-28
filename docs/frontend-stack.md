@@ -1,4 +1,4 @@
-# BasketEasy — Frontend Technology Stack
+# Kluvo — Frontend Technology Stack
 
 Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context, react-hook-form + zod, i18n FR-default). This fills in the concrete picks.
 
@@ -42,12 +42,12 @@ Builds on `architecture.md`'s frontend layer (React SPA, TanStack Query, Context
 
 ## UI components & styling
 
-| Concern                     | Choice                                                             | Why                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Styling                     | Tailwind CSS                                                       | fast iteration, consistent design tokens for brand                                                            |
-| Component primitives        | shadcn/ui (Radix-based)                                            | you own the generated code directly, so it's fully restylable to the BasketEasy brand rather than a black box |
-| Icons                       | custom icon set                                                    | brand-specific, avoids a generic library look                                                                 |
-| Component library structure | separate `packages/@basketeasy/ui` package, consumed by the app(s) | decouples UI kit from app code, reusable if a second frontend (CTC admin, etc.) is added later                |
+| Concern                     | Choice                                                             | Why                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Styling                     | Tailwind CSS                                                       | fast iteration, consistent design tokens for brand                                                       |
+| Component primitives        | shadcn/ui (Radix-based)                                            | you own the generated code directly, so it's fully restylable to the Kluvo brand rather than a black box |
+| Icons                       | custom icon set                                                    | brand-specific, avoids a generic library look                                                            |
+| Component library structure | separate `packages/@basketeasy/ui` package, consumed by the app(s) | decouples UI kit from app code, reusable if a second frontend (CTC admin, etc.) is added later           |
 
 ## Mobile / PWA
 

@@ -41,7 +41,7 @@ export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
     return (
       <header className="border-b border-border">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
-          <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
+          <span className="font-heading text-2xl font-extrabold text-orange-text">Kluvo</span>
           <div className="flex items-center gap-2">
             <Skeleton className="h-8 w-24" />
             <Skeleton className="h-8 w-24" />
@@ -187,7 +187,7 @@ function AppHeaderResolved() {
             to={user ? '/dashboard' : '/'}
             className="font-heading text-2xl font-extrabold text-orange-text no-underline"
           >
-            BasketEasy
+            Kluvo
           </Link>
           {isDesktop && switcher}
         </div>

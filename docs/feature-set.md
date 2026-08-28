@@ -1,4 +1,4 @@
-# BasketEasy — Full Feature Set to Lead the Loire-Atlantique Market
+# Kluvo — Full Feature Set to Lead the Loire-Atlantique Market
 
 _Based on `market-research.md`, revised against real build constraints (no FBI/e-Marque API access, gym booking owned by city councils)._
 

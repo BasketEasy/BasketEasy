@@ -26,7 +26,7 @@ async function bootstrap() {
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   await app.listen(port);
   // eslint-disable-next-line no-console
-  console.log(`BasketEasy API listening on port ${port}`);
+  console.log(`Kluvo API listening on port ${port}`);
 }
 
 bootstrap();

@@ -24,7 +24,7 @@ describe('unknown routes', () => {
     renderWithProviders(<App />, { route: '/clubs/does-not-exist/nope' });
 
     expect(await screen.findByRole('heading', { name: /Page introuvable/ })).toBeInTheDocument();
-    expect(screen.getByText('BasketEasy')).toBeInTheDocument();
+    expect(screen.getByText('Kluvo')).toBeInTheDocument();
   });
 
   it('renders a 404 in place rather than redirecting to the landing page for an unauthenticated user on a non-/clubs URL', async () => {
