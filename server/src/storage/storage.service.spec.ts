@@ -31,10 +31,10 @@ describe('StorageService', () => {
     service = module.get<StorageService>(StorageService);
   });
 
-  it('constructs the S3 client with region "auto" and the R2 endpoint — no real network call', () => {
+  it('constructs the S3 client with region "auto" and the EU-jurisdiction R2 endpoint — no real network call', () => {
     expect(S3Client).toHaveBeenCalledWith({
       region: 'auto',
-      endpoint: 'https://acct-123.r2.cloudflarestorage.com',
+      endpoint: 'https://acct-123.eu.r2.cloudflarestorage.com',
       credentials: { accessKeyId: 'key-id', secretAccessKey: 'secret' },
     });
   });

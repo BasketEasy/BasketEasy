@@ -271,8 +271,12 @@ below, and don't build against a non-EU-jurisdiction bucket even for local dev i
 
 - New `server/src/storage` module: `StorageService.getUploadUrl(key, contentType)` returning a
   presigned PUT URL, client configured with `region: 'auto'` (R2 doesn't use AWS regions) and
-  `endpoint: https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`. No download/read path needed
-  yet — the scoresheet photo isn't displayed anywhere in this slice, only captured.
+  `endpoint: https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com` — the `.eu.` segment is
+  Cloudflare's jurisdiction-scoped endpoint shape for a bucket created with the EU restriction
+  (confirmed against the actual "S3 API" value Cloudflare's dashboard shows for the bucket); a
+  bucket without a jurisdictional restriction would instead use the plain
+  `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`. No download/read path needed yet — the
+  scoresheet photo isn't displayed anywhere in this slice, only captured.
 - New required env vars, added to `docker-compose.yml`'s `server` service and `.env.example`
   exactly as `JWT_ACCESS_SECRET` was (`CLAUDE.md`'s Auth module convention):
   `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. No region var — R2

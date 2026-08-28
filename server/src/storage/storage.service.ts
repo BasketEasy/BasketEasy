@@ -22,7 +22,14 @@ export class StorageService {
     this.bucket = config.get<string>('R2_BUCKET')!;
     this.client = new S3Client({
       region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      // Cloudflare namespaces the S3 API endpoint by jurisdiction for a
+      // bucket created with a jurisdictional restriction — `.eu.` here,
+      // not the plain `<account>.r2.cloudflarestorage.com` a
+      // no-restriction bucket would use. This app's bucket is required to
+      // have the EU restriction (RGPD: scoresheet photos are minors' data,
+      // see the match interface spec's Storage section), so this is the
+      // only endpoint shape this service ever needs to produce.
+      endpoint: `https://${accountId}.eu.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: config.get<string>('R2_ACCESS_KEY_ID')!,
         secretAccessKey: config.get<string>('R2_SECRET_ACCESS_KEY')!,
