@@ -1,6 +1,7 @@
 import { type InputHTMLAttributes, forwardRef, useId } from 'react';
 import { Label } from './Label';
 import { Input } from './Input';
+import { FieldError } from './FieldError';
 import { cn } from '../lib/cn';
 
 export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -38,11 +39,7 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
           className={className}
           {...props}
         />
-        {error && (
-          <p id={errorId} role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
+        {error && <FieldError id={errorId}>{error}</FieldError>}
       </div>
     );
   },

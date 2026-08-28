@@ -1,5 +1,4 @@
 import { Badge } from '@basketeasy/ui/badge';
-import { cn } from '@basketeasy/ui/cn';
 import type {
   EventLogisticsAssignee,
   EventLogisticsField,
@@ -29,14 +28,8 @@ function LogisticsMiniChip({
 }) {
   const Icon = FIELD_ICON[field];
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'gap-1.5 bg-surface-2 font-semibold',
-        assignee ? 'border-border-strong text-charcoal' : 'border-border text-muted',
-      )}
-    >
-      <Icon size={12} className={cn('shrink-0', assignee ? 'text-blue-green' : 'text-muted')} />
+    <Badge variant="soft" tone={assignee ? 'neutral' : 'muted'} className="gap-1.5">
+      <Icon size={12} tone={assignee ? 'structure' : 'secondary'} className="shrink-0" />
       {eventLogisticsFieldLabel(field, eventType)} :{' '}
       {assignee ? `${shortAssigneeName(assignee)} ✓` : 'non assigné'}
     </Badge>

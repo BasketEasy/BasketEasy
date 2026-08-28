@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, type RefObject, type SVGProps } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
+import { cn } from '@basketeasy/ui/cn';
+import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
@@ -9,6 +12,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate } from './eventDateFormat';
 import { useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
+import { Text } from '@basketeasy/ui/text';
 
 // Must match the allowlist EventsService.getScoresheetUploadUrl enforces
 // server-side — kept in sync by hand since it's four literal strings, not
@@ -23,7 +27,7 @@ const ACCEPTED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applic
 // (camera roll, files, cloud drive, or an actual camera where the device
 // offers one from its own picker UI). UploadIcon reuses the same glyph
 // PlayerImportUploadStep already uses for this exact "pick a file" moment.
-function UploadIcon(props: SVGProps<SVGSVGElement>) {
+function UploadIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -32,6 +36,7 @@ function UploadIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <path d="M12 16V4M12 4 7.5 8.5M12 4l4.5 4.5" />
@@ -40,7 +45,7 @@ function UploadIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function ClockIcon(props: SVGProps<SVGSVGElement>) {
+function ClockIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -49,6 +54,7 @@ function ClockIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <circle cx="12" cy="12" r="9" />
@@ -60,7 +66,7 @@ function ClockIcon(props: SVGProps<SVGSVGElement>) {
 // Generic document glyph for the PDF preview placeholder — a PDF can't be
 // thumbnailed client-side without pulling in a rendering library, which
 // would be overkill for "show what you're about to send."
-function DocumentIcon(props: SVGProps<SVGSVGElement>) {
+function DocumentIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -69,6 +75,7 @@ function DocumentIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <path d="M14 3v4a1 1 0 0 0 1 1h4" />
@@ -200,7 +207,7 @@ export function MatchScoresheetTab({
   if (selectedFile) {
     const isPdf = selectedFile.type === 'application/pdf';
     return (
-      <Card className="flex max-w-sm flex-col gap-4 p-5 shadow-md md:max-w-lg">
+      <Card variant="panel" className="flex max-w-sm flex-col gap-4 md:max-w-lg">
         {isUploadError && (
           <QueryError
             title="Échec de l'envoi"
@@ -215,10 +222,10 @@ export function MatchScoresheetTab({
         )}
         {isPdf ? (
           <div className="flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-lg border border-border-strong bg-surface-2 p-6 text-center">
-            <DocumentIcon className="h-10 w-10 text-muted" />
-            <span className="break-all text-sm font-semibold text-charcoal">
+            <DocumentIcon tone="secondary" className="h-10 w-10" />
+            <Text as="span" variant="label" size="sm" className="break-all">
               {selectedFile.name}
-            </span>
+            </Text>
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border-strong bg-surface-2">
@@ -250,19 +257,27 @@ export function MatchScoresheetTab({
 
   if (status?.status === 'UPLOADED') {
     return (
-      <Card className="flex max-w-sm flex-col items-center gap-3 p-5 text-center shadow-md md:max-w-lg">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success text-cream">
+      <Card
+        variant="panel"
+        className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
+      >
+        <Text
+          as="span"
+          variant="body"
+          tone="inverse"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-success"
+        >
           <Check className="h-6 w-6" />
-        </span>
+        </Text>
         <h3 className="font-heading text-lg font-extrabold">Fichier envoyé</h3>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-green/30 bg-blue-green-tint px-3 py-1 text-xs font-bold text-blue-green">
+        <Badge variant="soft" tone="structure" size="md" className="w-fit gap-1.5">
           <ClockIcon className="h-3.5 w-3.5" />
           En file d&apos;attente pour analyse
-        </span>
-        <p className="text-xs leading-relaxed text-muted">
+        </Badge>
+        <Text variant="meta" size="xs" className="leading-relaxed">
           Envoyé le {formatEventDate(status.uploadedAt)}. Nous vous préviendrons une fois
           l&apos;analyse terminée.
-        </p>
+        </Text>
         {isRostered && (
           <>
             <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
@@ -278,7 +293,7 @@ export function MatchScoresheetTab({
   if (!isRostered) {
     return (
       <EmptyState
-        icon={<UploadIcon className="h-8 w-8 text-muted" />}
+        icon={<UploadIcon tone="secondary" className="h-8 w-8" />}
         title="Aucune feuille de match pour le moment"
         description="Un membre de l'effectif peut l'ajouter après la rencontre."
       />
@@ -286,24 +301,31 @@ export function MatchScoresheetTab({
   }
 
   return (
-    <Card className="flex max-w-sm flex-col gap-5 p-5 shadow-md md:max-w-lg">
+    <Card variant="panel" className="flex max-w-sm flex-col gap-5 md:max-w-lg">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint text-blue-green">
+        <Text
+          as="span"
+          variant="body"
+          tone="structure"
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint"
+        >
           <UploadIcon className="h-7 w-7" />
-        </span>
-        <span className="text-sm font-bold text-charcoal">Ajoutez la feuille de marque</span>
-        <span className="text-xs leading-relaxed text-muted">
+        </Text>
+        <Text as="span" variant="label" size="sm" className="font-bold">
+          Ajoutez la feuille de marque
+        </Text>
+        <Text as="span" variant="meta" size="xs" className="leading-relaxed">
           Photo ou PDF de la feuille e-Marque.
-        </span>
+        </Text>
       </div>
       <Button onClick={() => fileInputRef.current?.click()}>
         <UploadIcon className="h-4 w-4" />
         Choisir un fichier
       </Button>
-      <span className="text-xs leading-relaxed text-muted">
+      <Text as="span" variant="meta" size="xs" className="leading-relaxed">
         L&apos;analyse automatique (IA) arrive bientôt. Pour l&apos;instant, le fichier est
         simplement archivé avec le match.
-      </span>
+      </Text>
       <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
     </Card>
   );

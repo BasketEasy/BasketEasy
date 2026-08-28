@@ -32,9 +32,9 @@ describe('Tabs', () => {
       </Tabs>,
     );
     expect(screen.getByRole('tab', { name: 'Effectif' })).toHaveClass(
-      'focus-visible:ring-2',
-      'focus-visible:ring-orange',
-      'focus-visible:ring-offset-surface',
+      'focus-visible:outline-2',
+      'focus-visible:outline-orange',
+      'focus-visible:outline-offset-2',
     );
   });
 });

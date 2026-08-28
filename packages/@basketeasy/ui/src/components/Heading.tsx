@@ -2,8 +2,24 @@ import { type HTMLAttributes, forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
-const headingVariants = cva('', {
+/**
+ * `font-heading`/`text-charcoal` are baked in here rather than left to callers.
+ *
+ * They used to come from a global `h1,h2,h3 { font-family: ... }` rule in
+ * globals.css, which meant Heading only rendered correctly by accident of the
+ * tag it happened to emit: not one of the app's call sites passed the font
+ * class the component's own contract asked for, and any h4-h6 level (or a
+ * Heading rendering a non-heading tag) would silently fall back to the body
+ * font. CardTitle and AlertTitle already own their font and colour; this
+ * brings the one text primitive that didn't into line.
+ */
+const headingVariants = cva('font-heading', {
   variants: {
+    /** Colour is a tone, never a caller-side text-* class. */
+    tone: {
+      primary: 'text-charcoal',
+      inverse: 'text-cream',
+    },
     size: {
       '6xl': 'text-6xl',
       '5xl': 'text-5xl',
@@ -13,6 +29,7 @@ const headingVariants = cva('', {
       xl: 'text-xl',
     },
   },
+  defaultVariants: { tone: 'primary' },
 });
 
 export type HeadingLevel = 'h1' | 'h2' | 'h3';
@@ -32,12 +49,12 @@ export interface HeadingProps
 }
 
 export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
-  ({ as = 'h2', size, className, ...props }, ref) => {
+  ({ as = 'h2', size, tone, className, ...props }, ref) => {
     const Tag = as;
     return (
       <Tag
         ref={ref}
-        className={cn(headingVariants({ size: size ?? defaultSizeByLevel[as] }), className)}
+        className={cn(headingVariants({ size: size ?? defaultSizeByLevel[as], tone }), className)}
         {...props}
       />
     );

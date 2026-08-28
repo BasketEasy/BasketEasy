@@ -7,6 +7,7 @@ import { FormField } from '@basketeasy/ui/form-field';
 import { toast } from '@basketeasy/ui/toast-store';
 import { useTeamClubAdd } from './useTeamClubAdd';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { Text } from '@basketeasy/ui/text';
 
 const teamClubSchema = z.object({
   clubId: z.string().min(1, 'Identifiant du club requis'),
@@ -57,10 +58,10 @@ export function TeamClubAddForm({
       }}
       className="flex flex-col gap-4"
     >
-      <p className="text-sm text-muted">
+      <Text variant="meta">
         Demandez à l'administrateur du club partenaire (entente/CTC) son identifiant de club pour
         l'associer à cette équipe.
-      </p>
+      </Text>
 
       {errors.root?.message && (
         <Alert variant="destructive">

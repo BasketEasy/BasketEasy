@@ -1,7 +1,7 @@
-import { type SVGProps } from 'react';
-
+import { cn } from '../../lib/cn';
+import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Teams (Équipes, Mes équipes). */
-export function TrophyIcon(props: SVGProps<SVGSVGElement>) {
+export function TrophyIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,6 +10,7 @@ export function TrophyIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z" />

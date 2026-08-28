@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { Label } from './Label';
+import { FieldError } from './FieldError';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './Select';
 import { cn } from '../lib/cn';
 
@@ -68,11 +69,7 @@ export function SelectField({
           ))}
         </SelectContent>
       </Select>
-      {error && (
-        <p id={errorId} role="alert" className="text-sm text-error">
-          {error}
-        </p>
-      )}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </div>
   );
 }

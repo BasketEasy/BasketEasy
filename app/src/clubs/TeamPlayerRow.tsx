@@ -51,13 +51,13 @@ export function TeamPlayerRow({
             }
           />
         ) : (
-          <Badge variant="secondary">{teamMemberRoleLabel(teamPlayer.role)}</Badge>
+          <Badge tone="structure">{teamMemberRoleLabel(teamPlayer.role)}</Badge>
         )}
       </TableCell>
       <TableCell className="flex flex-col gap-2">
         {canManage && (
           <Button
-            variant="outline"
+            variant="destructive"
             loading={isRemoving}
             onClick={() =>
               removeTeamPlayer(teamPlayer.playerId, {

@@ -13,8 +13,9 @@ import { cn } from '@basketeasy/ui/cn';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useAccount } from '../auth/useAccount';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { AccountMenu } from './AccountMenu';
+import { Text } from '@basketeasy/ui/text';
 
 interface AppHeaderProps {
   /**
@@ -41,7 +42,9 @@ export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
     return (
       <header className="border-b border-border">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
-          <span className="font-heading text-2xl font-extrabold text-orange-text">BasketEasy</span>
+          <Text as="span" variant="display" size="2xl" tone="brand">
+            BasketEasy
+          </Text>
           <div className="flex items-center gap-2">
             <Skeleton className="h-8 w-24" />
             <Skeleton className="h-8 w-24" />

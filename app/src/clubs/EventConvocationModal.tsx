@@ -18,6 +18,7 @@ import { teamMemberRoleLabel } from './teamLabels';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventConvocationsSet } from './useEventConvocationsSet';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { Text } from '@basketeasy/ui/text';
 
 function convokedIdsOf(roster: EventConvocationRosterEntry[]): Set<string> {
   return new Set(roster.filter((r) => r.convoked).map((r) => r.teamPlayerId));
@@ -157,9 +158,9 @@ export function EventConvocationModal({
         <div className="flex flex-col gap-4">
           {staleWarning && (
             <div className="flex flex-col gap-2 rounded-md border border-error/40 bg-error/5 p-3">
-              <p className="text-sm text-error">
+              <Text variant="body" size="sm" tone="danger">
                 La liste a changé depuis l&apos;ouverture de cette fenêtre.
-              </p>
+              </Text>
               <Button variant="outline" className="w-fit" onClick={submit} disabled={isPending}>
                 Enregistrer quand même
               </Button>
@@ -180,9 +181,9 @@ export function EventConvocationModal({
                     Tout désélectionner
                   </Button>
                 </div>
-                <span className="whitespace-nowrap text-sm text-muted">
+                <Text as="span" variant="meta" className="whitespace-nowrap">
                   {selectedCount}/{roster.length} sélectionné{selectedCount > 1 ? 's' : ''}
-                </span>
+                </Text>
               </div>
               <div className="flex max-h-80 flex-col gap-1 overflow-y-auto">
                 {roster.map((entry) => {
@@ -199,12 +200,12 @@ export function EventConvocationModal({
                         onCheckedChange={() => toggle(entry.teamPlayerId)}
                       />
                       <span className="flex flex-col">
-                        <span className="text-sm font-medium text-charcoal">
+                        <Text as="span" variant="label" size="sm" className="font-medium">
                           {entry.firstName} {entry.lastName}
-                        </span>
-                        <span className="text-xs text-muted">
+                        </Text>
+                        <Text as="span" variant="meta" size="xs">
                           {teamMemberRoleLabel(entry.role)}
-                        </span>
+                        </Text>
                       </span>
                     </Label>
                   );

@@ -1,8 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 import { Button } from '@basketeasy/ui/button';
-import { cn } from '@basketeasy/ui/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
@@ -27,12 +28,16 @@ import { eventRsvpStatusLabel } from '../clubs/eventRsvpLabels';
 function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <Card>
-      <CardContent className="flex flex-col gap-1 pt-6">
+      <CardContent className="flex flex-col gap-1">
         <div className="flex items-center gap-2 text-muted">
           {icon}
-          <span className="text-sm">{label}</span>
+          <Text as="span" variant="meta" tone="inherit">
+            {label}
+          </Text>
         </div>
-        <span className="font-heading text-3xl font-bold text-charcoal">{value}</span>
+        <Text as="span" variant="display" size="3xl">
+          {value}
+        </Text>
       </CardContent>
     </Card>
   );
@@ -46,25 +51,22 @@ function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: bo
       className="flex w-full flex-col gap-1 rounded-md border border-border bg-surface-2 p-3 text-left transition hover:border-orange"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-charcoal">{event.teamName}</span>
-        <Badge variant={event.type === 'MATCH' ? 'default' : 'secondary'}>
+        <Text as="span" variant="label">
+          {event.teamName}
+        </Text>
+        <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
           {eventTypeLabel(event.type)}
         </Badge>
         {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
       </div>
-      <span className="text-sm text-muted">
+      <Text as="span" variant="meta">
         {formatEventDate(event.startsAt)} · {event.location}
         {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
-      </span>
+      </Text>
       {isRostered && (
-        <span
-          className={cn(
-            'text-sm font-semibold',
-            event.myRsvpStatus ? 'text-muted' : 'text-orange-text',
-          )}
-        >
+        <Text as="span" variant="label" size="sm" tone={event.myRsvpStatus ? 'secondary' : 'brand'}>
           Ma réponse : {eventRsvpStatusLabel(event.myRsvpStatus)}
-        </span>
+        </Text>
       )}
     </Link>
   );
@@ -73,19 +75,21 @@ function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: bo
 function TeamCard({ team }: { team: MyTeamSummary }) {
   return (
     <Card>
-      <CardContent className="flex flex-col gap-2 pt-6">
+      <CardContent className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="font-heading text-lg font-bold text-charcoal">{team.teamName}</span>
+          <Text as="span" variant="display" size="lg">
+            {team.teamName}
+          </Text>
           <div className="flex flex-wrap items-center gap-2">
             {team.rosterRole && (
-              <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
+              <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>
             )}
             {team.isTeamAdmin && <Badge>Administrateur</Badge>}
           </div>
         </div>
-        <p className="text-sm text-muted">
+        <Text variant="meta">
           {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-        </p>
+        </Text>
         <Button asChild variant="outline">
           <Link
             to={`/clubs/${team.clubId}/teams/${team.teamId}`}
@@ -140,7 +144,11 @@ export function DashboardPage() {
           <Heading as="h1" className="m-0">
             {greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
           </Heading>
-          {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
+          {user && (
+            <Text variant="meta" size="md" className="mt-1 break-all">
+              {user.email}
+            </Text>
+          )}
         </div>
       </div>
 
@@ -187,9 +195,9 @@ export function DashboardPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Cette semaine</CardTitle>
-          <Link to="/my-teams" className="text-sm font-semibold text-orange-text hover:underline">
-            Voir le calendrier →
-          </Link>
+          <TextLink asChild tone="brand">
+            <Link to="/my-teams">Voir le calendrier →</Link>
+          </TextLink>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           {isDashboardError ? (
@@ -202,7 +210,7 @@ export function DashboardPage() {
             ))
           ) : (
             <EmptyState
-              icon={<CalendarIcon className="h-8 w-8 text-muted" />}
+              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
               title="Rien de prévu cette semaine"
               description="Aucun événement dans les 7 prochains jours pour vos équipes."
             />
@@ -226,7 +234,7 @@ export function DashboardPage() {
           </div>
         ) : (
           <EmptyState
-            icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+            icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
             title="Aucune équipe pour le moment"
             description="Vous n'êtes membre d'aucune équipe pour le moment."
           />

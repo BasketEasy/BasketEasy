@@ -5,8 +5,8 @@
  * vote on the moment the whistle blows — and closes VOTE_CLOSE_DELAY_DAYS
  * after kickoff.
  */
-export const VOTE_OPEN_DELAY_HOURS = 1;
-export const VOTE_CLOSE_DELAY_DAYS = 5;
+const VOTE_OPEN_DELAY_HOURS = 1;
+const VOTE_CLOSE_DELAY_DAYS = 5;
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -15,7 +15,7 @@ export function voteWindowOpensAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_OPEN_DELAY_HOURS * HOUR_MS);
 }
 
-export function voteWindowClosesAt(startsAtIso: string): Date {
+function voteWindowClosesAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_CLOSE_DELAY_DAYS * DAY_MS);
 }
 

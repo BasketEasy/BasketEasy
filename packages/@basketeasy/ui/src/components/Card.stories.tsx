@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card';
 import { Button } from './Button';
 
 const meta: Meta<typeof Card> = {
@@ -16,10 +16,10 @@ export const Default: Story = {
         <CardTitle>AS Basket</CardTitle>
         <CardDescription>Club de Loire-Atlantique</CardDescription>
       </CardHeader>
-      <CardContent>42 licenciés, 6 équipes</CardContent>
-      <CardFooter>
+      <CardContent className="flex flex-col items-start gap-4">
+        42 licenciés, 6 équipes
         <Button size="sm">Voir le club</Button>
-      </CardFooter>
+      </CardContent>
     </Card>
   ),
 };

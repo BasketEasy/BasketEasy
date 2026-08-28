@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { Label } from '@basketeasy/ui/label';
 import { Input } from '@basketeasy/ui/input';
 import { FieldError } from '@basketeasy/ui/field-error';
-import { cn } from '@basketeasy/ui/cn';
+import { Text } from '@basketeasy/ui/text';
 
 const FFBB_TEAM_URL_PLACEHOLDER =
   'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/200000005346381';
@@ -60,9 +60,15 @@ export function FfbbLinkField({
           {error}
         </FieldError>
       ) : (
-        <p id={helpId} className={cn('mt-1.5 text-xs', pending ? 'text-blue-green' : 'text-muted')}>
+        <Text
+          id={helpId}
+          variant="meta"
+          size="xs"
+          tone={pending ? 'structure' : 'secondary'}
+          className="mt-1.5"
+        >
           {pending ? FFBB_TEAM_URL_PENDING : FFBB_TEAM_URL_HELP}
-        </p>
+        </Text>
       )}
     </div>
   );

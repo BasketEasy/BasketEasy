@@ -10,6 +10,7 @@ import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { PublicHeader } from '../components/PublicHeader';
 import { useAccount } from '../auth/useAccount';
+import { Text } from '@basketeasy/ui/text';
 
 // Copy sourced from docs/brand.md (headline/subhead/footer) — see
 // CLAUDE.md's Events and Teams module sections for what actually ships
@@ -60,23 +61,33 @@ function HeroAgendaMock() {
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2 text-muted">
           <CalendarIcon className="h-4 w-4" aria-hidden="true" />
-          <span className="text-sm">Cette semaine · U15 Garçons</span>
+          <Text tone="inherit" as="span" variant="body" size="sm">
+            Cette semaine · U15 Garçons
+          </Text>
         </div>
       </CardHeader>
       <div className="flex flex-col gap-2 px-6 pb-6">
         <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-charcoal">Entraînement</span>
-            <span className="text-sm text-muted">Mardi 19h · Gymnase Jean-Moulin</span>
+            <Text as="span" variant="label" size="sm">
+              Entraînement
+            </Text>
+            <Text as="span" variant="meta">
+              Mardi 19h · Gymnase Jean-Moulin
+            </Text>
           </div>
-          <Badge variant="secondary">12 convoqués</Badge>
+          <Badge tone="structure">12 convoqués</Badge>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
           <div className="flex flex-col">
-            <span className="text-sm font-semibold text-charcoal">Match vs. ES Rezé</span>
-            <span className="text-sm text-muted">Samedi 15h · Salle des sports</span>
+            <Text as="span" variant="label" size="sm">
+              Match vs. ES Rezé
+            </Text>
+            <Text as="span" variant="meta">
+              Samedi 15h · Salle des sports
+            </Text>
           </div>
-          <Badge variant="secondary">9 présents</Badge>
+          <Badge tone="structure">9 présents</Badge>
         </div>
       </div>
     </Card>
@@ -93,17 +104,17 @@ export function LandingPage() {
       <main className="flex-1">
         <section className="mx-auto grid max-w-5xl gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:py-24">
           <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
-            <Badge variant="secondary" className="w-fit">
+            <Badge tone="structure" className="w-fit">
               Pensé pour les CTC
             </Badge>
             <Heading as="h1" size="6xl">
               Moins de tableurs, plus de terrain.
             </Heading>
-            <p className="max-w-xl text-lg text-muted">
+            <Text variant="meta" size="lg" className="max-w-xl">
               BasketEasy centralise calendriers, convocations et présences pour les clubs de basket
               amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les
               bénévoles, pas pour les DSI.
-            </p>
+            </Text>
             <div className="flex flex-wrap justify-center gap-3 md:justify-start">
               {!isLoading && user ? (
                 <Button asChild size="lg">
@@ -133,29 +144,31 @@ export function LandingPage() {
             </SectionHeading>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="flex items-center gap-3">
-                <BuildingIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
-                <p className="text-sm text-muted">
-                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
+                <BuildingIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <Text variant="meta">
+                  <Text as="span" variant="display" size="2xl" className="tabular">
                     ~130
-                  </span>{' '}
+                  </Text>{' '}
                   clubs affiliés en Loire-Atlantique (CD44), premier marché visé.
-                </p>
+                </Text>
               </div>
               <div className="flex items-center gap-3">
-                <UsersIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
-                <p className="text-sm text-muted">
-                  <span className="tabular font-heading text-2xl font-bold text-charcoal">
+                <UsersIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <Text variant="meta">
+                  <Text as="span" variant="display" size="2xl" className="tabular">
                     ~28 000
-                  </span>{' '}
+                  </Text>{' '}
                   licenciés dans ce même département.
-                </p>
+                </Text>
               </div>
               <div className="flex items-center gap-3">
-                <TrophyIcon className="h-6 w-6 shrink-0 text-blue-green" aria-hidden="true" />
-                <p className="text-sm text-muted">
-                  <span className="tabular font-heading text-2xl font-bold text-charcoal">0 €</span>{' '}
+                <TrophyIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <Text variant="meta">
+                  <Text as="span" variant="display" size="2xl" className="tabular">
+                    0 €
+                  </Text>{' '}
                   pour créer votre club et inviter votre première équipe.
-                </p>
+                </Text>
               </div>
             </div>
           </div>
@@ -192,7 +205,7 @@ export function LandingPage() {
                     <CardHeader>
                       <div className="flex items-start justify-between gap-2">
                         <CardTitle>{feature.title}</CardTitle>
-                        <Badge variant="secondary">Bientôt</Badge>
+                        <Badge tone="structure">Bientôt</Badge>
                       </div>
                       <CardDescription>{feature.description}</CardDescription>
                     </CardHeader>
@@ -206,12 +219,12 @@ export function LandingPage() {
         <section className="bg-blue-green text-cream">
           <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 py-16 text-center md:flex-row md:items-center md:justify-between md:text-left">
             <div className="flex flex-col items-center gap-4 text-center md:items-start md:text-left">
-              <Heading as="h2" size="3xl" className="text-cream">
+              <Heading as="h2" size="3xl" tone="inverse">
                 Prêt à simplifier la gestion de votre équipe ?
               </Heading>
-              <p className="max-w-xl text-blue-green-tint">
+              <Text tone="inverseSecondary" className="max-w-xl">
                 Créez un compte gratuitement et invitez votre équipe en quelques minutes.
-              </p>
+              </Text>
             </div>
             <Button
               asChild

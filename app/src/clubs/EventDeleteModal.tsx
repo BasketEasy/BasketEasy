@@ -43,7 +43,7 @@ export function EventDeleteModal({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline">Supprimer</Button>
+        <Button variant="destructive">Supprimer</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -65,7 +65,7 @@ export function EventDeleteModal({
               Annuler
             </Button>
             <Button
-              variant="outline"
+              variant="destructive"
               loading={isPending}
               onClick={() =>
                 deleteEvent(

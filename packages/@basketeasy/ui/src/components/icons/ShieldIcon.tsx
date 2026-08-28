@@ -1,7 +1,7 @@
-import { type SVGProps } from 'react';
-
+import { cn } from '../../lib/cn';
+import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Team admins (Administrateurs). */
-export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
+export function ShieldIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,6 +10,7 @@ export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
       {...props}
     >
       <path d="M12 3.5 5 6v5.5c0 4.6 3 7.6 7 9 4-1.4 7-4.4 7-9V6l-7-2.5Z" />
