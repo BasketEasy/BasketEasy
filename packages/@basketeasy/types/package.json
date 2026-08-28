@@ -59,6 +59,6 @@
     "test": "echo \"no tests yet in @basketeasy/types\""
   },
   "devDependencies": {
-    "typescript": "^5.5.4"
+    "typescript": "^7.0.2"
   }
 }
