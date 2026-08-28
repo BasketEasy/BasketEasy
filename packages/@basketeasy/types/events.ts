@@ -195,3 +195,32 @@ export interface EventVoteResults {
     worst: string | null;
   };
 }
+
+/**
+ * Deliberately a one-member status today — PROCESSING/PARSED/FAILED belong
+ * to the future AI-parsing module. An upload-transport failure is
+ * client-side-only and never reaches this type; nothing is persisted until
+ * the direct-to-R2 upload actually succeeds.
+ */
+export type EventScoresheetStatus = 'UPLOADED';
+
+export interface EventScoresheetUploadUrlRequest {
+  contentType: string;
+}
+
+export interface EventScoresheetUploadUrlResponse {
+  uploadUrl: string;
+  /** Provider-agnostic object key — named storageKey (not r2Key) so it stays meaningful if the backing object store ever changes. */
+  storageKey: string;
+}
+
+export interface ConfirmEventScoresheetRequest {
+  storageKey: string;
+}
+
+/** The file itself is never exposed here — only capture status, not display, is in scope. */
+export interface EventScoresheet {
+  status: EventScoresheetStatus;
+  uploadedByTeamPlayerId: string;
+  uploadedAt: string;
+}

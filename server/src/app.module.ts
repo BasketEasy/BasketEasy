@@ -7,6 +7,7 @@ import { ClubsModule } from './clubs/clubs.module';
 import { TeamsModule } from './teams/teams.module';
 import { EventsModule } from './events/events.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { StorageModule } from './storage/storage.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
 // signature a reasonable amount of entropy to resist brute force; this is a
@@ -41,6 +42,7 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     TeamsModule,
     EventsModule,
     DashboardModule,
+    StorageModule,
   ],
 })
 export class AppModule {}

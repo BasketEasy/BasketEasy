@@ -14,6 +14,8 @@ import {
 import type {
   EventConvocationRosterEntry,
   EventRsvpRosterEntry,
+  EventScoresheet,
+  EventScoresheetUploadUrlResponse,
   EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
@@ -33,6 +35,8 @@ import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
 import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
 import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
 import { CastEventVoteDto } from './dto/cast-event-vote.dto';
+import { GetScoresheetUploadUrlDto } from './dto/get-scoresheet-upload-url.dto';
+import { ConfirmScoresheetUploadDto } from './dto/confirm-scoresheet-upload.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -234,5 +238,57 @@ export class EventsController {
     @CurrentUser() user: RequestUser,
   ): Promise<EventVoteResults> {
     return this.eventsService.getEventVoteResults(clubId, teamId, eventId, user.id);
+  }
+
+  // ClubRolesGuard only — any rostered member may capture the scoresheet
+  // (narrowed inside EventsService), same defense-in-depth split as
+  // RSVP/logistics/votes above.
+  @Post(':eventId/scoresheet/upload-url')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  getScoresheetUploadUrl(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: GetScoresheetUploadUrlDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventScoresheetUploadUrlResponse> {
+    return this.eventsService.getScoresheetUploadUrl(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.contentType,
+    );
+  }
+
+  @Patch(':eventId/scoresheet')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  confirmScoresheetUpload(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: ConfirmScoresheetUploadDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventScoresheet> {
+    return this.eventsService.confirmScoresheetUpload(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.storageKey,
+    );
+  }
+
+  @Get(':eventId/scoresheet')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  getScoresheetStatus(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+  ): Promise<EventScoresheet | null> {
+    return this.eventsService.getScoresheetStatus(clubId, teamId, eventId);
   }
 }

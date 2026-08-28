@@ -12,6 +12,8 @@ import type {
   EventLogisticsField,
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
+  EventScoresheet,
+  EventScoresheetUploadUrlResponse,
   EventUpdateScope,
   EventVoteCandidateResult,
   EventVoteResults,
@@ -20,6 +22,7 @@ import type {
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { StorageService } from '../storage/storage.service';
 import { resolvePagination } from '../common/pagination';
 import { ListEventsDto } from './dto/list-events.dto';
 
@@ -33,6 +36,16 @@ const MAX_RECURRING_OCCURRENCES = 104;
 // closes five days later.
 const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
 const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
+// Allowlisted scoresheet formats and their storageKey file extension — kept
+// as one map so the content-type check and the extension picked for the
+// object key can never disagree. A scoresheet capture may be a PDF export
+// (some e-Marque flows produce one) as well as a photo.
+const SCORESHEET_CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+};
 
 type EventRow = {
   id: string;
@@ -56,6 +69,7 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
+    private readonly storage: StorageService,
   ) {}
 
   async listEvents(
@@ -318,7 +332,24 @@ export class EventsService {
     }
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
+    await this.deleteScoresheetObjects(ids);
     await this.prisma.event.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  // EventScoresheet's onDelete: Cascade removes the DB row automatically
+  // when its Event is deleted, but never the underlying R2 object — deleted
+  // here first (best-effort) so deleting a match doesn't leave its
+  // scoresheet file permanently orphaned in the bucket. Doesn't cover every
+  // path an Event can disappear through (e.g. disbanding the whole team) —
+  // an R2 lifecycle rule expiring untouched objects under scoresheets/ is
+  // the intended backstop for those, not more cascade-cleanup code wired
+  // into every service that can indirectly delete an Event.
+  private async deleteScoresheetObjects(eventIds: string[]): Promise<void> {
+    const scoresheets = await this.prisma.eventScoresheet.findMany({
+      where: { eventId: { in: eventIds } },
+      select: { storageKey: true },
+    });
+    await Promise.all(scoresheets.map((s) => this.deleteStorageObjectSafely(s.storageKey)));
   }
 
   // Bulk-changes only hour/minute across a series, leaving each occurrence's
@@ -721,6 +752,109 @@ export class EventsService {
       totalVoters,
       votesCast: distinctVoters.size,
       myVote,
+    };
+  }
+
+  // Any rostered member (not manager-only) may capture the scoresheet —
+  // practically, whoever's still at the gym after the game, not necessarily
+  // the coach — same self-service framing as RSVP. The storageKey embeds
+  // the event id so objects are scoped/collision-proof without a lookup,
+  // and a fresh uuid per attempt so a retried upload never overwrites an
+  // in-flight one at the same key. Named storageKey (not r2Key) so this
+  // stays meaningful if the backing object store ever changes.
+  async getScoresheetUploadUrl(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    contentType: string,
+  ): Promise<EventScoresheetUploadUrlResponse> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('La feuille de match ne concerne que les matchs');
+    }
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const extension = SCORESHEET_CONTENT_TYPE_EXTENSIONS[contentType];
+    if (!extension) {
+      throw new BadRequestException('Format de fichier non supporté');
+    }
+    const storageKey = `scoresheets/${eventId}/${randomUUID()}.${extension}`;
+    const uploadUrl = await this.storage.getUploadUrl(storageKey, contentType);
+    return { uploadUrl, storageKey };
+  }
+
+  // Confirms a completed direct-to-R2 upload and records it. @@unique on
+  // eventId means a retry or a better file upserts this one row rather than
+  // accumulating history — v1 doesn't need scoresheet-file versioning. The
+  // previous row's object (if any, and if this call actually changed the
+  // key — a retried confirm with the same key is a no-op here) is deleted
+  // from R2 afterward so a replace/retry doesn't leave the old file
+  // orphaned in the bucket forever.
+  async confirmScoresheetUpload(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    storageKey: string,
+  ): Promise<EventScoresheet> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const previous = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
+    const scoresheet = await this.prisma.eventScoresheet.upsert({
+      where: { eventId },
+      create: { eventId, storageKey, uploadedByTeamPlayerId: myTeamPlayer.id },
+      update: {
+        storageKey,
+        uploadedByTeamPlayerId: myTeamPlayer.id,
+        uploadedAt: new Date(),
+        status: 'UPLOADED',
+      },
+    });
+    if (previous && previous.storageKey !== storageKey) {
+      await this.deleteStorageObjectSafely(previous.storageKey);
+    }
+    return this.toEventScoresheet(scoresheet);
+  }
+
+  // Best-effort: the DB write has already succeeded by the time this runs,
+  // so a storage-delete failure here must never surface as an error to the
+  // caller — it just means one orphaned object left in the bucket, not a
+  // broken upload.
+  private async deleteStorageObjectSafely(storageKey: string): Promise<void> {
+    try {
+      await this.storage.deleteObject(storageKey);
+    } catch {
+      // Swallowed on purpose — see comment above.
+    }
+  }
+
+  async getScoresheetStatus(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+  ): Promise<EventScoresheet | null> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const scoresheet = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
+    return scoresheet ? this.toEventScoresheet(scoresheet) : null;
+  }
+
+  // Deliberately omits storageKey/id — the file isn't displayed anywhere in
+  // this slice, only captured, so the frontend never needs a way to address it.
+  private toEventScoresheet(scoresheet: {
+    status: string;
+    uploadedByTeamPlayerId: string;
+    uploadedAt: Date;
+  }): EventScoresheet {
+    return {
+      status: scoresheet.status as EventScoresheet['status'],
+      uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
+      uploadedAt: scoresheet.uploadedAt.toISOString(),
     };
   }
 

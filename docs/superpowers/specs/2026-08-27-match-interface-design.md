@@ -241,7 +241,7 @@ model EventScoresheet {
   id                   String                 @id @default(uuid())
   eventId              String                 @unique
   status               EventScoresheetStatus  @default(UPLOADED)
-  r2Key                String
+  storageKey                String
   uploadedByTeamPlayerId String
   uploadedAt           DateTime               @default(now())
   event                Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -271,8 +271,12 @@ below, and don't build against a non-EU-jurisdiction bucket even for local dev i
 
 - New `server/src/storage` module: `StorageService.getUploadUrl(key, contentType)` returning a
   presigned PUT URL, client configured with `region: 'auto'` (R2 doesn't use AWS regions) and
-  `endpoint: https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`. No download/read path needed
-  yet — the scoresheet photo isn't displayed anywhere in this slice, only captured.
+  `endpoint: https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com` — the `.eu.` segment is
+  Cloudflare's jurisdiction-scoped endpoint shape for a bucket created with the EU restriction
+  (confirmed against the actual "S3 API" value Cloudflare's dashboard shows for the bucket); a
+  bucket without a jurisdictional restriction would instead use the plain
+  `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`. No download/read path needed yet — the
+  scoresheet photo isn't displayed anywhere in this slice, only captured.
 - New required env vars, added to `docker-compose.yml`'s `server` service and `.env.example`
   exactly as `JWT_ACCESS_SECRET` was (`CLAUDE.md`'s Auth module convention):
   `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. No region var — R2
@@ -282,7 +286,9 @@ below, and don't build against a non-EU-jurisdiction bucket even for local dev i
   requires **CORS configured on the R2 bucket** (see setup checklist) to allow a `PUT` from the
   app's origin(s) — without it, the presigned URL works from `curl` but fails silently from the
   browser.
-- `r2Key` convention: `scoresheets/{eventId}/{uuid}.jpg` — scoped by event, collision-proof.
+- `storageKey` convention: `scoresheets/{eventId}/{uuid}.{ext}` — scoped by event, collision-proof,
+  extension driven by the content-type allowlist (`image/jpeg`, `image/png`, `image/webp`,
+  `application/pdf` — some e-Marque exports are a PDF rather than a photo).
 
 This is real, load-bearing infrastructure, not a mock — treat Task group 5 in the plan as the
 one most likely to need judgment calls the plan can't fully anticipate (upload size limits, exact
@@ -477,15 +483,15 @@ async getScoresheetUploadUrl(clubId: string, teamId: string, eventId: string, us
   if (!myTeamPlayer) {
     throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
   }
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
-    throw new BadRequestException('Format de photo non supporté');
+  if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(contentType)) {
+    throw new BadRequestException('Format de fichier non supporté');
   }
-  const r2Key = `scoresheets/${eventId}/${randomUUID()}.${extensionFor(contentType)}`;
-  const uploadUrl = await this.storage.getUploadUrl(r2Key, contentType);
-  return { uploadUrl, r2Key };
+  const storageKey = `scoresheets/${eventId}/${randomUUID()}.${extensionFor(contentType)}`;
+  const uploadUrl = await this.storage.getUploadUrl(storageKey, contentType);
+  return { uploadUrl, storageKey };
 }
 
-async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, r2Key: string): Promise<EventScoresheetStatus> {
+async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, userId: string, storageKey: string): Promise<EventScoresheetStatus> {
   await this.assertEventInTeam(clubId, teamId, eventId);
   const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
   if (!myTeamPlayer) {
@@ -493,8 +499,8 @@ async confirmScoresheetUpload(clubId: string, teamId: string, eventId: string, u
   }
   await this.prisma.eventScoresheet.upsert({
     where: { eventId },
-    create: { eventId, r2Key, uploadedByTeamPlayerId: myTeamPlayer.id },
-    update: { r2Key, uploadedByTeamPlayerId: myTeamPlayer.id, uploadedAt: new Date(), status: 'UPLOADED' },
+    create: { eventId, storageKey, uploadedByTeamPlayerId: myTeamPlayer.id },
+    update: { storageKey, uploadedByTeamPlayerId: myTeamPlayer.id, uploadedAt: new Date(), status: 'UPLOADED' },
   });
   return this.getScoresheetStatus(clubId, teamId, eventId);
 }
@@ -510,14 +516,14 @@ guarded like the existing RSVP/convocation routes (`ClubRoles('ADMIN','MEMBER')`
 narrowed to "must be rostered" or "must be a team manager" inside the service — same
 defense-in-depth split already used throughout this module):
 
-| Method | Path                        | Notes                                                               |
-| ------ | --------------------------- | ------------------------------------------------------------------- |
-| PATCH  | `.../logistics`             | body `{ field: 'JERSEYS'\|'BALLS', teamPlayerId: string \| null }`  |
-| PATCH  | `.../votes`                 | body `{ category: 'BEST'\|'WORST', teamPlayerId: string }`          |
-| GET    | `.../votes`                 | `EventVoteResults` — both categories, aggregated, `myVote`          |
-| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, r2Key }`             |
-| PATCH  | `.../scoresheet`            | body `{ r2Key: string }` — confirms a completed direct-to-R2 upload |
-| GET    | `.../scoresheet`            | current status, or `null` if nothing uploaded yet                   |
+| Method | Path                        | Notes                                                                    |
+| ------ | --------------------------- | ------------------------------------------------------------------------ |
+| PATCH  | `.../logistics`             | body `{ field: 'JERSEYS'\|'BALLS', teamPlayerId: string \| null }`       |
+| PATCH  | `.../votes`                 | body `{ category: 'BEST'\|'WORST', teamPlayerId: string }`               |
+| GET    | `.../votes`                 | `EventVoteResults` — both categories, aggregated, `myVote`               |
+| POST   | `.../scoresheet/upload-url` | body `{ contentType: string }` → `{ uploadUrl, storageKey }`             |
+| PATCH  | `.../scoresheet`            | body `{ storageKey: string }` — confirms a completed direct-to-R2 upload |
+| GET    | `.../scoresheet`            | current status, or `null` if nothing uploaded yet                        |
 
 `createEvent`/`updateEvent` gain `venue` in their existing DTOs (validated like `opponentName`).
 `TeamEvent` gains `venue`, `logistics`, and (for the agenda card's mini chips) enough of that
@@ -577,11 +583,11 @@ export interface EventScoresheetUploadUrlRequest {
 
 export interface EventScoresheetUploadUrlResponse {
   uploadUrl: string;
-  r2Key: string;
+  storageKey: string;
 }
 
 export interface ConfirmEventScoresheetRequest {
-  r2Key: string;
+  storageKey: string;
 }
 
 export interface EventScoresheet {
@@ -626,9 +632,14 @@ file list and build order are in the plan; the shape:
 - **Feuille de match tab**: capture → preview → upload (direct to the presigned R2 URL) →
   confirm, with a persistent (not toast) failure state offering retry — matching the existing
   `QueryError` pattern used elsewhere for exactly this reason (a toast could vanish before
-  someone back at the gym retries). Mobile-first per the mockup; still needs a usable desktop
-  fallback (a file picker instead of a camera capture) since the tab is reachable from desktop
-  too.
+  someone back at the gym retries). **Deviation from the original mockup, per product feedback
+  during review:** `Scoresheet.dc.html`'s capture frame shows a dedicated "Prendre une photo"
+  camera-capture button alongside a gallery picker; in practice no desktop browser exposes real
+  camera capture (a `capture="environment"` input just falls back to the same file picker there),
+  and mobile browsers don't reliably trigger one either — so the shipped tab is a single plain
+  file-upload control everywhere, accepting a photo or a PDF, sourced from whatever picker the
+  OS/browser offers (which may itself include a camera option on a phone). No device-specific
+  branching.
 - **Agenda card**: `EventRow`/`AgendaEventCard`'s `MATCH` rendering gains the home/away badge,
   jersey/ball mini-chips, and (for past matches) a "Votes ouverts · N j restants" badge — the
   last one purely client-computed from `event.startsAt` and `VOTE_WINDOW_DAYS`, no new fetch.

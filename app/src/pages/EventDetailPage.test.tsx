@@ -256,4 +256,33 @@ describe('EventDetailPage', () => {
     await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
     expect(screen.getByRole('tab', { name: 'Vote' })).toBeInTheDocument();
   });
+
+  it('shows the Feuille de match tab only for a MATCH event, and renders its content on click', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
+        HttpResponse.json(matchEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-2', () =>
+        HttpResponse.json(trainingEvent),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
+        HttpResponse.json(null),
+      ),
+    );
+    const user = userEvent.setup();
+
+    const { unmount } = renderWithProviders(<App />, { route });
+
+    await screen.findByRole('heading', { name: /u15 filles vs es rezé/i });
+    expect(screen.getByRole('tab', { name: 'Feuille de match' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Feuille de match' }));
+    expect(await screen.findByText('Aucune feuille de match pour le moment')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<App />, { route: trainingRoute });
+    await screen.findByRole('heading', { name: /entraînement/i });
+    expect(screen.queryByRole('tab', { name: 'Feuille de match' })).not.toBeInTheDocument();
+  });
 });
