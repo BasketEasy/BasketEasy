@@ -6,7 +6,7 @@ CREATE TABLE "EventScoresheet" (
     "id" TEXT NOT NULL,
     "eventId" TEXT NOT NULL,
     "status" "EventScoresheetStatus" NOT NULL DEFAULT 'UPLOADED',
-    "r2Key" TEXT NOT NULL,
+    "storageKey" TEXT NOT NULL,
     "uploadedByTeamPlayerId" TEXT NOT NULL,
     "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

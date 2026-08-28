@@ -272,7 +272,13 @@ export class EventsController {
     @Body() dto: ConfirmScoresheetUploadDto,
     @CurrentUser() user: RequestUser,
   ): Promise<EventScoresheet> {
-    return this.eventsService.confirmScoresheetUpload(clubId, teamId, eventId, user.id, dto.r2Key);
+    return this.eventsService.confirmScoresheetUpload(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.storageKey,
+    );
   }
 
   @Get(':eventId/scoresheet')

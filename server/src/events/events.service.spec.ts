@@ -2135,12 +2135,12 @@ describe('EventsService', () => {
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
 
       await expect(
-        service.getScoresheetUploadUrl('club-1', 'team-1', 'event-1', 'user-1', 'application/pdf'),
+        service.getScoresheetUploadUrl('club-1', 'team-1', 'event-1', 'user-1', 'application/zip'),
       ).rejects.toThrow(BadRequestException);
       expect(storage.getUploadUrl).not.toHaveBeenCalled();
     });
 
-    it('returns a presigned upload URL and an event-scoped r2Key for an allowed content type', async () => {
+    it('returns a presigned upload URL and an event-scoped storageKey for an allowed content type', async () => {
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
 
       const result = await service.getScoresheetUploadUrl(
@@ -2152,8 +2152,23 @@ describe('EventsService', () => {
       );
 
       expect(result.uploadUrl).toBe('https://signed.example/upload');
-      expect(result.r2Key).toMatch(/^scoresheets\/event-1\/[0-9a-f-]+\.png$/);
-      expect(storage.getUploadUrl).toHaveBeenCalledWith(result.r2Key, 'image/png');
+      expect(result.storageKey).toMatch(/^scoresheets\/event-1\/[0-9a-f-]+\.png$/);
+      expect(storage.getUploadUrl).toHaveBeenCalledWith(result.storageKey, 'image/png');
+    });
+
+    it('accepts a PDF scoresheet export', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      const result = await service.getScoresheetUploadUrl(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'application/pdf',
+      );
+
+      expect(result.storageKey).toMatch(/^scoresheets\/event-1\/[0-9a-f-]+\.pdf$/);
+      expect(storage.getUploadUrl).toHaveBeenCalledWith(result.storageKey, 'application/pdf');
     });
   });
 
@@ -2215,11 +2230,11 @@ describe('EventsService', () => {
         where: { eventId: 'event-1' },
         create: {
           eventId: 'event-1',
-          r2Key: 'scoresheets/event-1/abc.jpg',
+          storageKey: 'scoresheets/event-1/abc.jpg',
           uploadedByTeamPlayerId: 'tp-1',
         },
         update: {
-          r2Key: 'scoresheets/event-1/abc.jpg',
+          storageKey: 'scoresheets/event-1/abc.jpg',
           uploadedByTeamPlayerId: 'tp-1',
           uploadedAt: expect.any(Date),
           status: 'UPLOADED',

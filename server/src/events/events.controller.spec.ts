@@ -395,7 +395,7 @@ describe('EventsController', () => {
   it('getScoresheetUploadUrl delegates clubId, teamId, eventId, the caller id, and contentType', async () => {
     const response = {
       uploadUrl: 'https://signed.example/upload',
-      r2Key: 'scoresheets/event-1/x.jpg',
+      storageKey: 'scoresheets/event-1/x.jpg',
     };
     service.getScoresheetUploadUrl.mockResolvedValue(response);
 
@@ -417,7 +417,7 @@ describe('EventsController', () => {
     expect(result).toBe(response);
   });
 
-  it('confirmScoresheetUpload delegates clubId, teamId, eventId, the caller id, and r2Key', async () => {
+  it('confirmScoresheetUpload delegates clubId, teamId, eventId, the caller id, and storageKey', async () => {
     const scoresheet = {
       status: 'UPLOADED',
       uploadedByTeamPlayerId: 'tp-1',
@@ -429,7 +429,7 @@ describe('EventsController', () => {
       'club-1',
       'team-1',
       'event-1',
-      { r2Key: 'scoresheets/event-1/x.jpg' },
+      { storageKey: 'scoresheets/event-1/x.jpg' },
       user,
     );
 

@@ -29,7 +29,7 @@ describe('useEventScoresheetUpload', () => {
           uploadUrlRequestBody = await request.json();
           return HttpResponse.json({
             uploadUrl: 'https://r2.example/upload-target',
-            r2Key: 'scoresheets/event-1/abc.jpg',
+            storageKey: 'scoresheets/event-1/abc.jpg',
           });
         },
       ),
@@ -60,7 +60,7 @@ describe('useEventScoresheetUpload', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(uploadUrlRequestBody).toEqual({ contentType: 'image/jpeg' });
     expect(putContentType).toBe('image/jpeg');
-    expect(confirmRequestBody).toEqual({ r2Key: 'scoresheets/event-1/abc.jpg' });
+    expect(confirmRequestBody).toEqual({ storageKey: 'scoresheets/event-1/abc.jpg' });
     expect(
       queryClient.getQueryData(eventScoresheetStatusQueryKey('club-1', 'team-1', 'event-1')),
     ).toEqual({
@@ -76,7 +76,7 @@ describe('useEventScoresheetUpload', () => {
       http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet/upload-url', () =>
         HttpResponse.json({
           uploadUrl: 'https://r2.example/upload-target',
-          r2Key: 'scoresheets/event-1/abc.jpg',
+          storageKey: 'scoresheets/event-1/abc.jpg',
         }),
       ),
       http.put('https://r2.example/upload-target', () => new HttpResponse(null, { status: 500 })),

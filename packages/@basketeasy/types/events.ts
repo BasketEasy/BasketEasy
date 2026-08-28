@@ -210,14 +210,15 @@ export interface EventScoresheetUploadUrlRequest {
 
 export interface EventScoresheetUploadUrlResponse {
   uploadUrl: string;
-  r2Key: string;
+  /** Provider-agnostic object key — named storageKey (not r2Key) so it stays meaningful if the backing object store ever changes. */
+  storageKey: string;
 }
 
 export interface ConfirmEventScoresheetRequest {
-  r2Key: string;
+  storageKey: string;
 }
 
-/** The photo itself is never exposed here — only capture status, not display, is in scope. */
+/** The file itself is never exposed here — only capture status, not display, is in scope. */
 export interface EventScoresheet {
   status: EventScoresheetStatus;
   uploadedByTeamPlayerId: string;

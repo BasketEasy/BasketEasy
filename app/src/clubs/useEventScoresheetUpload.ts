@@ -20,7 +20,7 @@ export function useEventScoresheetUpload(clubId: string, teamId: string, eventId
 
   return useMutation({
     mutationFn: async (file: File): Promise<EventScoresheet> => {
-      const { uploadUrl, r2Key } = await apiClient.post<EventScoresheetUploadUrlResponse>(
+      const { uploadUrl, storageKey } = await apiClient.post<EventScoresheetUploadUrlResponse>(
         `${basePath}/upload-url`,
         { contentType: file.type },
       );
@@ -34,7 +34,7 @@ export function useEventScoresheetUpload(clubId: string, teamId: string, eventId
         throw new Error('La connexion a été interrompue. Vérifiez votre réseau et réessayez.');
       }
 
-      return apiClient.patch<EventScoresheet>(basePath, { r2Key });
+      return apiClient.patch<EventScoresheet>(basePath, { storageKey });
     },
     onSuccess: (data) => {
       queryClient.setQueryData(eventScoresheetStatusQueryKey(clubId, teamId, eventId), data);

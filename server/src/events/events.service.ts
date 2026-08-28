@@ -36,13 +36,15 @@ const MAX_RECURRING_OCCURRENCES = 104;
 // closes five days later.
 const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
 const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
-// Allowlisted scoresheet photo formats and their r2Key file extension —
-// kept as one map so the content-type check and the extension picked for
-// the object key can never disagree.
+// Allowlisted scoresheet formats and their storageKey file extension — kept
+// as one map so the content-type check and the extension picked for the
+// object key can never disagree. A scoresheet capture may be a PDF export
+// (some e-Marque flows produce one) as well as a photo.
 const SCORESHEET_CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+  'application/pdf': 'pdf',
 };
 
 type EventRow = {
@@ -738,10 +740,11 @@ export class EventsService {
 
   // Any rostered member (not manager-only) may capture the scoresheet —
   // practically, whoever's still at the gym after the game, not necessarily
-  // the coach — same self-service framing as RSVP. The r2Key embeds the
-  // event id so objects are scoped/collision-proof without a lookup, and a
-  // fresh uuid per attempt so a retried upload never overwrites an
-  // in-flight one at the same key.
+  // the coach — same self-service framing as RSVP. The storageKey embeds
+  // the event id so objects are scoped/collision-proof without a lookup,
+  // and a fresh uuid per attempt so a retried upload never overwrites an
+  // in-flight one at the same key. Named storageKey (not r2Key) so this
+  // stays meaningful if the backing object store ever changes.
   async getScoresheetUploadUrl(
     clubId: string,
     teamId: string,
@@ -759,22 +762,22 @@ export class EventsService {
     }
     const extension = SCORESHEET_CONTENT_TYPE_EXTENSIONS[contentType];
     if (!extension) {
-      throw new BadRequestException('Format de photo non supporté');
+      throw new BadRequestException('Format de fichier non supporté');
     }
-    const r2Key = `scoresheets/${eventId}/${randomUUID()}.${extension}`;
-    const uploadUrl = await this.storage.getUploadUrl(r2Key, contentType);
-    return { uploadUrl, r2Key };
+    const storageKey = `scoresheets/${eventId}/${randomUUID()}.${extension}`;
+    const uploadUrl = await this.storage.getUploadUrl(storageKey, contentType);
+    return { uploadUrl, storageKey };
   }
 
   // Confirms a completed direct-to-R2 upload and records it. @@unique on
-  // eventId means a retry or a better photo upserts this one row rather than
-  // accumulating history — v1 doesn't need scoresheet-photo versioning.
+  // eventId means a retry or a better file upserts this one row rather than
+  // accumulating history — v1 doesn't need scoresheet-file versioning.
   async confirmScoresheetUpload(
     clubId: string,
     teamId: string,
     eventId: string,
     userId: string,
-    r2Key: string,
+    storageKey: string,
   ): Promise<EventScoresheet> {
     await this.assertEventInTeam(clubId, teamId, eventId);
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
@@ -783,9 +786,9 @@ export class EventsService {
     }
     const scoresheet = await this.prisma.eventScoresheet.upsert({
       where: { eventId },
-      create: { eventId, r2Key, uploadedByTeamPlayerId: myTeamPlayer.id },
+      create: { eventId, storageKey, uploadedByTeamPlayerId: myTeamPlayer.id },
       update: {
-        r2Key,
+        storageKey,
         uploadedByTeamPlayerId: myTeamPlayer.id,
         uploadedAt: new Date(),
         status: 'UPLOADED',
@@ -804,8 +807,8 @@ export class EventsService {
     return scoresheet ? this.toEventScoresheet(scoresheet) : null;
   }
 
-  // Deliberately omits r2Key/id — the photo isn't displayed anywhere in this
-  // slice, only captured, so the frontend never needs a way to address it.
+  // Deliberately omits storageKey/id — the file isn't displayed anywhere in
+  // this slice, only captured, so the frontend never needs a way to address it.
   private toEventScoresheet(scoresheet: {
     status: string;
     uploadedByTeamPlayerId: string;

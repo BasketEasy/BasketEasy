@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -39,18 +39,10 @@ function mockStatus(status: EventScoresheet | null) {
   );
 }
 
-const file = new File(['fake-jpeg-bytes'], 'feuille.jpg', { type: 'image/jpeg' });
-
-// Below useIsDesktopViewport's 768px breakpoint (jsdom defaults to 1024,
-// i.e. desktop, so the mobile-specific camera/gallery split needs an
-// explicit narrower width to exercise).
-function setViewportWidth(width: number) {
-  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
-}
+const imageFile = new File(['fake-jpeg-bytes'], 'feuille.jpg', { type: 'image/jpeg' });
+const pdfFile = new File(['fake-pdf-bytes'], 'feuille.pdf', { type: 'application/pdf' });
 
 describe('MatchScoresheetTab', () => {
-  afterEach(() => setViewportWidth(1024));
-
   it('shows a read-only empty state for a non-rostered viewer when nothing is uploaded', async () => {
     mockStatus(null);
 
@@ -59,31 +51,18 @@ describe('MatchScoresheetTab', () => {
     );
 
     expect(await screen.findByText('Aucune feuille de match pour le moment')).toBeInTheDocument();
-    expect(screen.queryByText('Prendre une photo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choisir un fichier')).not.toBeInTheDocument();
   });
 
-  it('shows both a camera and a gallery button on mobile when nothing is uploaded', async () => {
-    setViewportWidth(500);
+  it('shows a single file-upload control for a rostered viewer when nothing is uploaded', async () => {
     mockStatus(null);
 
     renderWithProviders(
       <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
     );
 
-    expect(await screen.findByText('Prendre une photo')).toBeInTheDocument();
-    expect(screen.getByText('Choisir dans la galerie')).toBeInTheDocument();
-  });
-
-  it('shows a single plain file picker on desktop — no camera-specific button', async () => {
-    mockStatus(null);
-
-    renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
-    );
-
-    expect(await screen.findByText('Choisir une photo')).toBeInTheDocument();
-    expect(screen.queryByText('Prendre une photo')).not.toBeInTheDocument();
-    expect(screen.queryByText('Choisir dans la galerie')).not.toBeInTheDocument();
+    expect(await screen.findByText('Ajoutez la feuille de marque')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choisir un fichier' })).toBeInTheDocument();
   });
 
   it('shows the queued state directly on mount when already uploaded — skips capture', async () => {
@@ -93,29 +72,29 @@ describe('MatchScoresheetTab', () => {
       <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
     );
 
-    expect(await screen.findByText('Photo envoyée')).toBeInTheDocument();
+    expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
     expect(screen.getByText("En file d'attente pour analyse")).toBeInTheDocument();
-    expect(screen.queryByText('Prendre une photo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Choisir un fichier')).not.toBeInTheDocument();
   });
 
-  it('does not offer "Remplacer la photo" to a non-rostered viewer once uploaded', async () => {
+  it('does not offer "Remplacer le fichier" to a non-rostered viewer once uploaded', async () => {
     mockStatus(uploadedStatus);
 
     renderWithProviders(
       <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={false} />,
     );
 
-    expect(await screen.findByText('Photo envoyée')).toBeInTheDocument();
-    expect(screen.queryByText('Remplacer la photo')).not.toBeInTheDocument();
+    expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
+    expect(screen.queryByText('Remplacer le fichier')).not.toBeInTheDocument();
   });
 
-  it('runs the happy path: select a file, preview it, send it, and land on the queued state', async () => {
+  it('runs the happy path: select a photo, preview it, send it, and land on the queued state', async () => {
     mockStatus(null);
     server.use(
       http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet/upload-url', () =>
         HttpResponse.json({
           uploadUrl: 'https://r2.example/upload-target',
-          r2Key: 'scoresheets/event-1/abc.jpg',
+          storageKey: 'scoresheets/event-1/abc.jpg',
         }),
       ),
       http.put('https://r2.example/upload-target', () => new HttpResponse(null, { status: 200 })),
@@ -129,15 +108,28 @@ describe('MatchScoresheetTab', () => {
       <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
     );
 
-    const galleryInput = await screen.findByLabelText(
-      'Choisir une photo de la feuille de match dans la galerie',
-    );
-    await user.upload(galleryInput, file);
+    const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
+    await user.upload(fileInput, imageFile);
 
     expect(await screen.findByAltText('Aperçu de la feuille de match')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Envoyer' }));
 
-    expect(await screen.findByText('Photo envoyée')).toBeInTheDocument();
+    expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
+  });
+
+  it('shows a document placeholder instead of an image preview for a PDF selection', async () => {
+    mockStatus(null);
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+    );
+
+    const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
+    await user.upload(fileInput, pdfFile);
+
+    expect(screen.queryByAltText('Aperçu de la feuille de match')).not.toBeInTheDocument();
+    expect(await screen.findByText('feuille.pdf')).toBeInTheDocument();
   });
 
   it('shows a persistent (not toast) failure card when the send fails, and retry re-runs it', async () => {
@@ -147,7 +139,7 @@ describe('MatchScoresheetTab', () => {
       http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet/upload-url', () =>
         HttpResponse.json({
           uploadUrl: 'https://r2.example/upload-target',
-          r2Key: 'scoresheets/event-1/abc.jpg',
+          storageKey: 'scoresheets/event-1/abc.jpg',
         }),
       ),
       http.put('https://r2.example/upload-target', () => {
@@ -164,10 +156,8 @@ describe('MatchScoresheetTab', () => {
       <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
     );
 
-    const galleryInput = await screen.findByLabelText(
-      'Choisir une photo de la feuille de match dans la galerie',
-    );
-    await user.upload(galleryInput, file);
+    const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
+    await user.upload(fileInput, imageFile);
     await user.click(screen.getByRole('button', { name: 'Envoyer' }));
 
     expect(await screen.findByText("Échec de l'envoi")).toBeInTheDocument();
@@ -177,7 +167,7 @@ describe('MatchScoresheetTab', () => {
     await user.click(screen.getByRole('button', { name: 'Réessayer' }));
 
     await waitFor(() => expect(attempts).toBe(2));
-    expect(await screen.findByText('Photo envoyée')).toBeInTheDocument();
+    expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
   });
 
   it('shows a QueryError with retry when the status fetch itself fails', async () => {

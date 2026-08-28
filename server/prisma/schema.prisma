@@ -309,16 +309,17 @@ enum EventScoresheetStatus {
   UPLOADED
 }
 
-// One row per MATCH event's e-Marque scoresheet photo — @@unique on eventId
-// means a retry or a better photo upserts this same row rather than
-// accumulating history; v1 doesn't need scoresheet-photo versioning. Any
-// rostered member can upload (not manager-only), same self-service framing
-// as EventRsvp.
+// One row per MATCH event's e-Marque scoresheet capture (photo or PDF) —
+// @@unique on eventId means a retry or a better file upserts this same row
+// rather than accumulating history; v1 doesn't need scoresheet-file
+// versioning. Any rostered member can upload (not manager-only), same
+// self-service framing as EventRsvp. storageKey (not r2Key) so the column
+// stays meaningful if the backing object store ever changes.
 model EventScoresheet {
   id                     String                @id @default(uuid())
   eventId                String                @unique
   status                 EventScoresheetStatus @default(UPLOADED)
-  r2Key                  String
+  storageKey             String
   uploadedByTeamPlayerId String
   uploadedAt             DateTime              @default(now())
   event                  Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
