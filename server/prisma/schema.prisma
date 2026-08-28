@@ -141,6 +141,7 @@ model TeamPlayer {
   ballsAssignedEvents   Event[]            @relation("EventBallsAssignee")
   votesCast             EventVote[]        @relation("EventVoteVoter")
   votesReceived         EventVote[]        @relation("EventVoteVotedFor")
+  uploadedScoresheets   EventScoresheet[]
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -219,6 +220,7 @@ model Event {
   rsvps               EventRsvp[]
   convocations        EventConvocation[]
   votes               EventVote[]
+  scoresheet          EventScoresheet?
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -295,6 +297,32 @@ model EventVote {
 
   @@unique([eventId, category, voterTeamPlayerId])
   @@index([eventId, category])
+}
+
+// Deliberately a one-member status enum today: PROCESSING/PARSED/FAILED
+// belong to the future AI-parsing module and would be speculative to add now
+// with no writer for them. An upload-transport failure (network error, bad
+// photo) is client-side-only and never persisted — nothing is written until
+// the direct-to-R2 upload actually succeeds, so "retry" just re-runs the
+// presigned-upload flow.
+enum EventScoresheetStatus {
+  UPLOADED
+}
+
+// One row per MATCH event's e-Marque scoresheet photo — @@unique on eventId
+// means a retry or a better photo upserts this same row rather than
+// accumulating history; v1 doesn't need scoresheet-photo versioning. Any
+// rostered member can upload (not manager-only), same self-service framing
+// as EventRsvp.
+model EventScoresheet {
+  id                     String                @id @default(uuid())
+  eventId                String                @unique
+  status                 EventScoresheetStatus @default(UPLOADED)
+  r2Key                  String
+  uploadedByTeamPlayerId String
+  uploadedAt             DateTime              @default(now())
+  event                  Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploadedBy             TeamPlayer            @relation(fields: [uploadedByTeamPlayerId], references: [id], onDelete: Cascade)
 }
 
 enum ClubRole {
