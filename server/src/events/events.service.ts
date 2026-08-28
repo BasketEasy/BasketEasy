@@ -12,6 +12,8 @@ import type {
   EventLogisticsField,
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
+  EventScoresheet,
+  EventScoresheetUploadUrlResponse,
   EventUpdateScope,
   EventVoteCandidateResult,
   EventVoteResults,
@@ -20,6 +22,7 @@ import type {
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { StorageService } from '../storage/storage.service';
 import { resolvePagination } from '../common/pagination';
 import { ListEventsDto } from './dto/list-events.dto';
 
@@ -33,6 +36,14 @@ const MAX_RECURRING_OCCURRENCES = 104;
 // closes five days later.
 const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
 const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
+// Allowlisted scoresheet photo formats and their r2Key file extension —
+// kept as one map so the content-type check and the extension picked for
+// the object key can never disagree.
+const SCORESHEET_CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 type EventRow = {
   id: string;
@@ -56,6 +67,7 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
+    private readonly storage: StorageService,
   ) {}
 
   async listEvents(
@@ -721,6 +733,88 @@ export class EventsService {
       totalVoters,
       votesCast: distinctVoters.size,
       myVote,
+    };
+  }
+
+  // Any rostered member (not manager-only) may capture the scoresheet —
+  // practically, whoever's still at the gym after the game, not necessarily
+  // the coach — same self-service framing as RSVP. The r2Key embeds the
+  // event id so objects are scoped/collision-proof without a lookup, and a
+  // fresh uuid per attempt so a retried upload never overwrites an
+  // in-flight one at the same key.
+  async getScoresheetUploadUrl(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    contentType: string,
+  ): Promise<EventScoresheetUploadUrlResponse> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('La feuille de match ne concerne que les matchs');
+    }
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const extension = SCORESHEET_CONTENT_TYPE_EXTENSIONS[contentType];
+    if (!extension) {
+      throw new BadRequestException('Format de photo non supporté');
+    }
+    const r2Key = `scoresheets/${eventId}/${randomUUID()}.${extension}`;
+    const uploadUrl = await this.storage.getUploadUrl(r2Key, contentType);
+    return { uploadUrl, r2Key };
+  }
+
+  // Confirms a completed direct-to-R2 upload and records it. @@unique on
+  // eventId means a retry or a better photo upserts this one row rather than
+  // accumulating history — v1 doesn't need scoresheet-photo versioning.
+  async confirmScoresheetUpload(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    r2Key: string,
+  ): Promise<EventScoresheet> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const scoresheet = await this.prisma.eventScoresheet.upsert({
+      where: { eventId },
+      create: { eventId, r2Key, uploadedByTeamPlayerId: myTeamPlayer.id },
+      update: {
+        r2Key,
+        uploadedByTeamPlayerId: myTeamPlayer.id,
+        uploadedAt: new Date(),
+        status: 'UPLOADED',
+      },
+    });
+    return this.toEventScoresheet(scoresheet);
+  }
+
+  async getScoresheetStatus(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+  ): Promise<EventScoresheet | null> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const scoresheet = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
+    return scoresheet ? this.toEventScoresheet(scoresheet) : null;
+  }
+
+  // Deliberately omits r2Key/id — the photo isn't displayed anywhere in this
+  // slice, only captured, so the frontend never needs a way to address it.
+  private toEventScoresheet(scoresheet: {
+    status: string;
+    uploadedByTeamPlayerId: string;
+    uploadedAt: Date;
+  }): EventScoresheet {
+    return {
+      status: scoresheet.status as EventScoresheet['status'],
+      uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
+      uploadedAt: scoresheet.uploadedAt.toISOString(),
     };
   }
 

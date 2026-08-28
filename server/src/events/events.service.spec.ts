@@ -3,10 +3,12 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { StorageService } from '../storage/storage.service';
 
 describe('EventsService', () => {
   let service: EventsService;
   let teamManagerGuard: { isTeamManager: jest.Mock };
+  let storage: { getUploadUrl: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: {
@@ -32,6 +34,7 @@ describe('EventsService', () => {
       deleteMany: jest.Mock;
     };
     eventVote: { findMany: jest.Mock; upsert: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -61,6 +64,7 @@ describe('EventsService', () => {
         deleteMany: jest.fn(),
       },
       eventVote: { findMany: jest.fn(), upsert: jest.fn() },
+      eventScoresheet: { findUnique: jest.fn(), upsert: jest.fn() },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -77,12 +81,14 @@ describe('EventsService', () => {
     // Default: caller has no manager rights; individual logistics tests
     // override this to exercise the manager-reassign path.
     teamManagerGuard = { isTeamManager: jest.fn().mockResolvedValue(false) };
+    storage = { getUploadUrl: jest.fn().mockResolvedValue('https://signed.example/upload') };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EventsService,
         { provide: PrismaService, useValue: prisma },
         { provide: TeamManagerGuard, useValue: teamManagerGuard },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
 
@@ -2080,6 +2086,198 @@ describe('EventsService', () => {
         { teamPlayerId: 'tp-6', firstName: 'Nina', lastName: 'Perrin', voteCount: 1 },
       ]);
       expect(result.myVote).toEqual({ best: null, worst: null });
+    });
+  });
+
+  describe('getScoresheetUploadUrl', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-01T18:00:00Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+    });
+
+    it('throws BadRequestException on a TRAINING event', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, type: 'TRAINING' });
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      await expect(
+        service.getScoresheetUploadUrl('club-1', 'team-1', 'event-1', 'user-1', 'image/jpeg'),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.getUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it('throws ForbiddenException when the caller is not rostered on this team', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getScoresheetUploadUrl('club-1', 'team-1', 'event-1', 'user-1', 'image/jpeg'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(storage.getUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException for an unsupported content type', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      await expect(
+        service.getScoresheetUploadUrl('club-1', 'team-1', 'event-1', 'user-1', 'application/pdf'),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.getUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it('returns a presigned upload URL and an event-scoped r2Key for an allowed content type', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      const result = await service.getScoresheetUploadUrl(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'image/png',
+      );
+
+      expect(result.uploadUrl).toBe('https://signed.example/upload');
+      expect(result.r2Key).toMatch(/^scoresheets\/event-1\/[0-9a-f-]+\.png$/);
+      expect(storage.getUploadUrl).toHaveBeenCalledWith(result.r2Key, 'image/png');
+    });
+  });
+
+  describe('confirmScoresheetUpload', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-01T18:00:00Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+    });
+
+    it('throws ForbiddenException when the caller is not rostered on this team', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.confirmScoresheetUpload(
+          'club-1',
+          'team-1',
+          'event-1',
+          'user-1',
+          'scoresheets/event-1/abc.jpg',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.eventScoresheet.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts on confirm — a retried upload updates the one row rather than duplicating it', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventScoresheet.upsert.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+
+      const result = await service.confirmScoresheetUpload(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'scoresheets/event-1/abc.jpg',
+      );
+
+      expect(prisma.eventScoresheet.upsert).toHaveBeenCalledWith({
+        where: { eventId: 'event-1' },
+        create: {
+          eventId: 'event-1',
+          r2Key: 'scoresheets/event-1/abc.jpg',
+          uploadedByTeamPlayerId: 'tp-1',
+        },
+        update: {
+          r2Key: 'scoresheets/event-1/abc.jpg',
+          uploadedByTeamPlayerId: 'tp-1',
+          uploadedAt: expect.any(Date),
+          status: 'UPLOADED',
+        },
+      });
+      expect(result).toEqual({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: '2026-01-01T20:00:00.000Z',
+      });
+    });
+  });
+
+  describe('getScoresheetStatus', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-01T18:00:00Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: 'ES Rezé',
+      venue: 'HOME',
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2020-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+    });
+
+    it('returns null before any upload', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue(null);
+
+      const result = await service.getScoresheetStatus('club-1', 'team-1', 'event-1');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns the current status once uploaded', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+
+      const result = await service.getScoresheetStatus('club-1', 'team-1', 'event-1');
+
+      expect(result).toEqual({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: '2026-01-01T20:00:00.000Z',
+      });
     });
   });
 });

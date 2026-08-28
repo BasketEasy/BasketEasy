@@ -25,6 +25,9 @@ describe('EventsController', () => {
     setEventLogistics: jest.Mock;
     castVote: jest.Mock;
     getEventVoteResults: jest.Mock;
+    getScoresheetUploadUrl: jest.Mock;
+    confirmScoresheetUpload: jest.Mock;
+    getScoresheetStatus: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -43,6 +46,9 @@ describe('EventsController', () => {
       setEventLogistics: jest.fn(),
       castVote: jest.fn(),
       getEventVoteResults: jest.fn(),
+      getScoresheetUploadUrl: jest.fn(),
+      confirmScoresheetUpload: jest.fn(),
+      getScoresheetStatus: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -384,5 +390,65 @@ describe('EventsController', () => {
       'user-1',
     );
     expect(result).toBe(results);
+  });
+
+  it('getScoresheetUploadUrl delegates clubId, teamId, eventId, the caller id, and contentType', async () => {
+    const response = {
+      uploadUrl: 'https://signed.example/upload',
+      r2Key: 'scoresheets/event-1/x.jpg',
+    };
+    service.getScoresheetUploadUrl.mockResolvedValue(response);
+
+    const result = await controller.getScoresheetUploadUrl(
+      'club-1',
+      'team-1',
+      'event-1',
+      { contentType: 'image/jpeg' },
+      user,
+    );
+
+    expect(service.getScoresheetUploadUrl).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'image/jpeg',
+    );
+    expect(result).toBe(response);
+  });
+
+  it('confirmScoresheetUpload delegates clubId, teamId, eventId, the caller id, and r2Key', async () => {
+    const scoresheet = {
+      status: 'UPLOADED',
+      uploadedByTeamPlayerId: 'tp-1',
+      uploadedAt: '2026-01-01T20:00:00.000Z',
+    };
+    service.confirmScoresheetUpload.mockResolvedValue(scoresheet);
+
+    const result = await controller.confirmScoresheetUpload(
+      'club-1',
+      'team-1',
+      'event-1',
+      { r2Key: 'scoresheets/event-1/x.jpg' },
+      user,
+    );
+
+    expect(service.confirmScoresheetUpload).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'scoresheets/event-1/x.jpg',
+    );
+    expect(result).toBe(scoresheet);
+  });
+
+  it('getScoresheetStatus delegates clubId, teamId, and eventId', async () => {
+    service.getScoresheetStatus.mockResolvedValue(null);
+
+    const result = await controller.getScoresheetStatus('club-1', 'team-1', 'event-1');
+
+    expect(service.getScoresheetStatus).toHaveBeenCalledWith('club-1', 'team-1', 'event-1');
+    expect(result).toBeNull();
   });
 });
