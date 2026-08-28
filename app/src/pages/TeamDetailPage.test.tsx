@@ -626,6 +626,67 @@ describe('TeamDetailPage', () => {
     expect(screen.getByText('Gymnase A')).toBeInTheDocument();
   });
 
+  it('toggles the agenda between upcoming and past events, and resets to upcoming when leaving agenda view', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const upcomingEvent = {
+      id: 'event-future',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: futureIso(1),
+      location: 'Gymnase Futur',
+      notes: null,
+      opponentName: null,
+      venue: null,
+      recurrenceId: null,
+      createdAt: 'x',
+      myRsvpStatus: null,
+      isImported: false,
+      timeConfirmed: true,
+      myConvocation: false,
+      logistics: { jerseys: null, balls: null },
+    };
+    const pastEvent = {
+      ...upcomingEvent,
+      id: 'event-past',
+      startsAt: futureIso(-7),
+      location: 'Gymnase Passé',
+    };
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+        const url = new URL(request.url);
+        const items = url.searchParams.has('to') ? [pastEvent] : [upcomingEvent];
+        return HttpResponse.json(paginated(items));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /événements/i);
+
+    // Defaults to "À venir" and shows the upcoming event only.
+    expect(await screen.findByText('Gymnase Futur')).toBeInTheDocument();
+    const upcomingOption = screen.getByRole('button', { name: 'À venir' });
+    const pastOption = screen.getByRole('button', { name: 'Passés' });
+    expect(upcomingOption).toHaveAttribute('aria-pressed', 'true');
+    expect(pastOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(pastOption);
+    expect(await screen.findByText('Gymnase Passé')).toBeInTheDocument();
+    expect(screen.queryByText('Gymnase Futur')).not.toBeInTheDocument();
+    expect(pastOption).toHaveAttribute('aria-pressed', 'true');
+    expect(upcomingOption).toHaveAttribute('aria-pressed', 'false');
+
+    // Switching to table view and back to agenda resets the period to upcoming.
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    await user.click(screen.getByRole('button', { name: 'Agenda' }));
+    expect(screen.getByRole('button', { name: 'À venir' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('toggles the Effectif tab between card view and table view, resetting search/sort/page on each switch', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     const requestedSearches: string[] = [];
