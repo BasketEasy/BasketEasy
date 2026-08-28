@@ -136,10 +136,11 @@ function AgendaEventCard({
 /**
  * Day-grouped agenda view — the Événements tab's default (item 5a). Reads a
  * bounded, unpaginated window of events (see TeamDetailPage's agenda fetch,
- * from today through the LINKING_PAGE_SIZE cap) already sorted ascending by
- * startsAt, so grouping only needs to preserve arrival order — no re-sort.
- * Empty days are simply never rendered, since only days with an event
- * produce a group at all.
+ * either from today onward or up to today depending on the À venir/Passés
+ * toggle, capped at LINKING_PAGE_SIZE) already sorted in the requested
+ * direction by startsAt, so grouping only needs to preserve arrival order —
+ * no re-sort. Empty days are simply never rendered, since only days with an
+ * event produce a group at all.
  */
 export function TeamEventsAgenda({
   clubId,

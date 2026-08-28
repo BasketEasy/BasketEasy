@@ -256,13 +256,26 @@ export function TeamDetailPage() {
     setEventsTo('');
     setEventsSortOrder('asc');
     setEventsPage(1);
+    setAgendaPeriod('upcoming');
     setEventsViewMode((mode) => (mode === 'agenda' ? 'table' : 'agenda'));
   };
-  // Agenda fetch window: from the start of today onward, uncapped by an
-  // upper bound but capped at LINKING_PAGE_SIZE rows (a team's realistic
-  // near-term event count is well under that) — computed once per mount
+  // Agenda period — "À venir" (default) vs. "Passés", toggled the same way
+  // as eventsViewMode above and reset back to 'upcoming' whenever the outer
+  // Agenda/Liste toggle flips, so re-entering Agenda always starts
+  // forward-looking. Liste view remains the real paginated escape hatch for
+  // deep history — this only covers "yesterday's/last week's practice."
+  const [agendaPeriod, setAgendaPeriod] = useState<'upcoming' | 'past'>('upcoming');
+  const toggleAgendaPeriod = () => {
+    setAgendaPeriod((period) => (period === 'upcoming' ? 'past' : 'upcoming'));
+  };
+  // Agenda fetch window boundary: start of today — computed once per mount
   // rather than every render, since it only needs to be "today," not "this
-  // exact instant."
+  // exact instant." Shared by both directions: upcoming reads from this
+  // point on (uncapped upper bound), past reads up to this point (capped
+  // lower bound) — today's own events always bucket into "À venir," never
+  // "Passés," since an event later today hasn't happened yet. Either
+  // direction is capped at LINKING_PAGE_SIZE rows (a team's realistic
+  // near-term/recent event count is well under that).
   const agendaFrom = useMemo(() => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -347,8 +360,8 @@ export function TeamDetailPage() {
     refetch: refetchAgendaEvents,
     isRefetching: isAgendaEventsRefetching,
   } = useEventList(clubId!, teamId!, {
-    from: agendaFrom,
-    sortOrder: 'asc',
+    ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
+    sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
     pageSize: LINKING_PAGE_SIZE,
   });
 
@@ -884,6 +897,18 @@ export function TeamDetailPage() {
             />
           </div>
 
+          {eventsViewMode === 'agenda' && (
+            <ViewModeToggle
+              ariaLabel="Période"
+              value={agendaPeriod}
+              onToggle={toggleAgendaPeriod}
+              options={[
+                { value: 'upcoming', label: 'À venir' },
+                { value: 'past', label: 'Passés' },
+              ]}
+            />
+          )}
+
           {eventsViewMode === 'table' && (
             <div className="flex flex-wrap items-end gap-3">
               <Input
@@ -942,15 +967,21 @@ export function TeamDetailPage() {
                   title={
                     eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun résultat'
-                      : 'Aucun événement'
+                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
+                        ? 'Aucun événement passé'
+                        : 'Aucun événement'
                   }
                   description={
                     eventsViewMode === 'table' && isEventsFiltered
                       ? 'Aucun événement ne correspond à ces critères.'
-                      : 'Planifiez un entraînement ou un match pour cette équipe.'
+                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
+                        ? 'Aucun entraînement ni match n’a encore eu lieu pour cette équipe.'
+                        : 'Planifiez un entraînement ou un match pour cette équipe.'
                   }
                   action={
-                    canManageTeam && !(eventsViewMode === 'table' && isEventsFiltered) ? (
+                    canManageTeam &&
+                    !(eventsViewMode === 'table' && isEventsFiltered) &&
+                    !(eventsViewMode === 'agenda' && agendaPeriod === 'past') ? (
                       <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
                     ) : undefined
                   }
