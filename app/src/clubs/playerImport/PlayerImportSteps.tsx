@@ -1,7 +1,7 @@
 import { Check } from '@basketeasy/ui/icons/check';
 import { cn } from '@basketeasy/ui/cn';
 
-export const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
+const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
 
 /**
  * Three-stop step indicator for the import wizard. Kept local to this

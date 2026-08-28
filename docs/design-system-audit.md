@@ -181,7 +181,7 @@ Radix `data-[state=…]` selectors are **not** violations and are excluded from 
 | `CardFooter`                                  | 0 in app; used by `Card.stories.tsx`                              |
 | `AlertTitle`                                  | 0 in app; used by test + stories                                  |
 
-No `@basketeasy/ui` **subpath export** is unused — all 40 have a real importer. The dead code above is dead at the named-export level inside an otherwise-used module.
+No `@basketeasy/ui` **subpath export** is unused — all 40 have a real importer. The dead code above is dead at the named-export level inside an otherwise-used module, which is why an `exports`-map grep alone would not have caught it. All five are now deleted; see §5.5.
 
 ---
 
@@ -454,7 +454,11 @@ All four were flagged rather than guessed on the first pass, then confirmed and 
 
 **5.4 The vote ballot is keyboard-operable.** See §3.5 — `RadioCardGroup`.
 
-**5.5 Dead code — still open, deliberately.** `AvatarImage`, `TableFooter` and `eventUpdateScopeLabel` have zero references of any kind; `CardFooter` and `AlertTitle` have stories/tests but no app usage. Removing them is a judgement call about whether this DS keeps a complete surface or only what is used, not a defect to fix — left for a maintainer.
+**5.5 Dead code — removed.** Five exports had no non-test, non-story importer and are gone: `AvatarImage` (no player-photo feature exists; `Avatar` is only ever used with `AvatarFallback`), `TableFooter` (no table in the app has a footer row), `CardFooter` (every card puts its actions inside `CardContent`), `AlertTitle` (every `Alert` in the app is a single line of error text), and `eventUpdateScopeLabel` together with the lookup `Map` that existed only to back it — its `EVENT_UPDATE_SCOPE_OPTIONS` is used in three files and stays. The stories and tests that were the only remaining references were updated rather than deleted, so `Alert` and `Card` keep their coverage.
+
+A second sweep, run after the refactors above rather than before, found four more exports that nothing outside their own module used. Those were **un-exported, not deleted** — the code is live, only the export was dead: `voteWindowClosesAt`, `VOTE_OPEN_DELAY_HOURS`, `VOTE_CLOSE_DELAY_DAYS` and `PLAYER_IMPORT_STEP_LABELS`.
+
+Three exports look unused to a naive sweep and were deliberately kept: `isVoteWindowOpen` (used inside `voteWindow.ts` and covered by five assertions), `DESKTOP_BREAKPOINT_PX` (used by the hook and by two test files that need the breakpoint), and `__resetToastsForTests` (a test hook, named for it). Exported prop/variant interfaces — `ButtonProps`, `TextProps`, `RadioCardGroupProps` and the rest — are a component's public typed contract, not dead code; `BadgeProps` being imported by `PlayerImportPreviewStep` is the proof that they do get consumed. The rule now lives in `CLAUDE.md`.
 
 ## 6. Accessibility notes
 

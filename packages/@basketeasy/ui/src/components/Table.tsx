@@ -36,14 +36,6 @@ export const TableBody = forwardRef<
 ));
 TableBody.displayName = 'TableBody';
 
-export const TableFooter = forwardRef<
-  HTMLTableSectionElement,
-  HTMLAttributes<HTMLTableSectionElement>
->(({ className, ...props }, ref) => (
-  <tfoot ref={ref} className={cn('border-t border-border font-medium', className)} {...props} />
-));
-TableFooter.displayName = 'TableFooter';
-
 export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(
   ({ className, ...props }, ref) => (
     <tr ref={ref} className={cn('transition-colors hover:bg-border/20', className)} {...props} />

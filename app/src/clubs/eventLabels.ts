@@ -53,9 +53,3 @@ export const EVENT_UPDATE_SCOPE_OPTIONS: { value: EventUpdateScope; label: strin
   { value: 'THIS_AND_FUTURE', label: 'Cet événement et les suivants' },
   { value: 'ALL', label: 'Tous les événements de la série' },
 ];
-
-const eventUpdateScopeLabels = new Map(EVENT_UPDATE_SCOPE_OPTIONS.map((o) => [o.value, o.label]));
-
-export function eventUpdateScopeLabel(scope: EventUpdateScope): string {
-  return eventUpdateScopeLabels.get(scope) ?? scope;
-}
