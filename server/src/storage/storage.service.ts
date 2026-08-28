@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Long enough for a mobile upload over a gym's wifi, short enough not to
@@ -44,5 +44,11 @@ export class StorageService {
       ContentType: contentType,
     });
     return getSignedUrl(this.client, command, { expiresIn: UPLOAD_URL_EXPIRY_SECONDS });
+  }
+
+  // Deleting a key that doesn't exist is not an error for S3-compatible
+  // APIs (including R2) — callers don't need to check existence first.
+  async deleteObject(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 }

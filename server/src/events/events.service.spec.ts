@@ -8,7 +8,7 @@ import { StorageService } from '../storage/storage.service';
 describe('EventsService', () => {
   let service: EventsService;
   let teamManagerGuard: { isTeamManager: jest.Mock };
-  let storage: { getUploadUrl: jest.Mock };
+  let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: {
@@ -34,7 +34,7 @@ describe('EventsService', () => {
       deleteMany: jest.Mock;
     };
     eventVote: { findMany: jest.Mock; upsert: jest.Mock };
-    eventScoresheet: { findUnique: jest.Mock; upsert: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -64,7 +64,11 @@ describe('EventsService', () => {
         deleteMany: jest.fn(),
       },
       eventVote: { findMany: jest.fn(), upsert: jest.fn() },
-      eventScoresheet: { findUnique: jest.fn(), upsert: jest.fn() },
+      eventScoresheet: {
+        findUnique: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        upsert: jest.fn(),
+      },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -81,7 +85,10 @@ describe('EventsService', () => {
     // Default: caller has no manager rights; individual logistics tests
     // override this to exercise the manager-reassign path.
     teamManagerGuard = { isTeamManager: jest.fn().mockResolvedValue(false) };
-    storage = { getUploadUrl: jest.fn().mockResolvedValue('https://signed.example/upload') };
+    storage = {
+      getUploadUrl: jest.fn().mockResolvedValue('https://signed.example/upload'),
+      deleteObject: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -1153,6 +1160,41 @@ describe('EventsService', () => {
 
       expect(prisma.event.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['event-1'] } } });
       expect(prisma.event.findMany).not.toHaveBeenCalled();
+    });
+
+    it('deletes any scoresheet objects from storage before the cascade removes their rows', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        recurrenceId: null,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+      prisma.eventScoresheet.findMany.mockResolvedValue([
+        { storageKey: 'scoresheets/event-1/abc.jpg' },
+      ]);
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      expect(prisma.eventScoresheet.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+        select: { storageKey: true },
+      });
+      expect(storage.deleteObject).toHaveBeenCalledWith('scoresheets/event-1/abc.jpg');
+    });
+
+    it('does not call storage at all when the deleted event has no scoresheet', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        recurrenceId: null,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      expect(storage.deleteObject).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException for scope ALL on a non-recurring event', async () => {
@@ -2241,6 +2283,97 @@ describe('EventsService', () => {
         },
       });
       expect(result).toEqual({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: '2026-01-01T20:00:00.000Z',
+      });
+    });
+
+    it('does not attempt to delete anything on a first-ever upload (no previous row)', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue(null);
+      prisma.eventScoresheet.upsert.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+
+      await service.confirmScoresheetUpload(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'scoresheets/event-1/abc.jpg',
+      );
+
+      expect(storage.deleteObject).not.toHaveBeenCalled();
+    });
+
+    it('deletes the previous object from storage when a replace/retry changes the storageKey', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        storageKey: 'scoresheets/event-1/old.jpg',
+      });
+      prisma.eventScoresheet.upsert.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+
+      await service.confirmScoresheetUpload(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'scoresheets/event-1/new.jpg',
+      );
+
+      expect(storage.deleteObject).toHaveBeenCalledWith('scoresheets/event-1/old.jpg');
+    });
+
+    it('does not delete anything when a retried confirm reuses the same storageKey', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        storageKey: 'scoresheets/event-1/abc.jpg',
+      });
+      prisma.eventScoresheet.upsert.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+
+      await service.confirmScoresheetUpload(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'scoresheets/event-1/abc.jpg',
+      );
+
+      expect(storage.deleteObject).not.toHaveBeenCalled();
+    });
+
+    it('does not let a storage delete failure surface as an error — the DB write already succeeded', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        storageKey: 'scoresheets/event-1/old.jpg',
+      });
+      prisma.eventScoresheet.upsert.mockResolvedValue({
+        status: 'UPLOADED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: new Date('2026-01-01T20:00:00Z'),
+      });
+      storage.deleteObject.mockRejectedValue(new Error('R2 unavailable'));
+
+      await expect(
+        service.confirmScoresheetUpload(
+          'club-1',
+          'team-1',
+          'event-1',
+          'user-1',
+          'scoresheets/event-1/new.jpg',
+        ),
+      ).resolves.toEqual({
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',

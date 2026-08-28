@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { StorageService } from './storage.service';
 
@@ -50,6 +50,19 @@ describe('StorageService', () => {
     });
     expect(getSignedUrl).toHaveBeenCalledWith(expect.any(S3Client), expect.any(PutObjectCommand), {
       expiresIn: 300,
+    });
+  });
+
+  it('deletes an object by key, scoped to the configured bucket', async () => {
+    const sendMock = jest.fn().mockResolvedValue(undefined);
+    (S3Client as unknown as jest.Mock).mock.instances[0].send = sendMock;
+
+    await service.deleteObject('scoresheets/event-1/old.jpg');
+
+    expect(sendMock).toHaveBeenCalledWith(expect.any(DeleteObjectCommand));
+    expect(DeleteObjectCommand).toHaveBeenCalledWith({
+      Bucket: 'basketeasy-scoresheets-test',
+      Key: 'scoresheets/event-1/old.jpg',
     });
   });
 });

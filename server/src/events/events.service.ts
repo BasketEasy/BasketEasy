@@ -332,7 +332,24 @@ export class EventsService {
     }
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
+    await this.deleteScoresheetObjects(ids);
     await this.prisma.event.deleteMany({ where: { id: { in: ids } } });
+  }
+
+  // EventScoresheet's onDelete: Cascade removes the DB row automatically
+  // when its Event is deleted, but never the underlying R2 object — deleted
+  // here first (best-effort) so deleting a match doesn't leave its
+  // scoresheet file permanently orphaned in the bucket. Doesn't cover every
+  // path an Event can disappear through (e.g. disbanding the whole team) —
+  // an R2 lifecycle rule expiring untouched objects under scoresheets/ is
+  // the intended backstop for those, not more cascade-cleanup code wired
+  // into every service that can indirectly delete an Event.
+  private async deleteScoresheetObjects(eventIds: string[]): Promise<void> {
+    const scoresheets = await this.prisma.eventScoresheet.findMany({
+      where: { eventId: { in: eventIds } },
+      select: { storageKey: true },
+    });
+    await Promise.all(scoresheets.map((s) => this.deleteStorageObjectSafely(s.storageKey)));
   }
 
   // Bulk-changes only hour/minute across a series, leaving each occurrence's
@@ -771,7 +788,11 @@ export class EventsService {
 
   // Confirms a completed direct-to-R2 upload and records it. @@unique on
   // eventId means a retry or a better file upserts this one row rather than
-  // accumulating history — v1 doesn't need scoresheet-file versioning.
+  // accumulating history — v1 doesn't need scoresheet-file versioning. The
+  // previous row's object (if any, and if this call actually changed the
+  // key — a retried confirm with the same key is a no-op here) is deleted
+  // from R2 afterward so a replace/retry doesn't leave the old file
+  // orphaned in the bucket forever.
   async confirmScoresheetUpload(
     clubId: string,
     teamId: string,
@@ -784,6 +805,7 @@ export class EventsService {
     if (!myTeamPlayer) {
       throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
     }
+    const previous = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
     const scoresheet = await this.prisma.eventScoresheet.upsert({
       where: { eventId },
       create: { eventId, storageKey, uploadedByTeamPlayerId: myTeamPlayer.id },
@@ -794,7 +816,22 @@ export class EventsService {
         status: 'UPLOADED',
       },
     });
+    if (previous && previous.storageKey !== storageKey) {
+      await this.deleteStorageObjectSafely(previous.storageKey);
+    }
     return this.toEventScoresheet(scoresheet);
+  }
+
+  // Best-effort: the DB write has already succeeded by the time this runs,
+  // so a storage-delete failure here must never surface as an error to the
+  // caller — it just means one orphaned object left in the bucket, not a
+  // broken upload.
+  private async deleteStorageObjectSafely(storageKey: string): Promise<void> {
+    try {
+      await this.storage.deleteObject(storageKey);
+    } catch {
+      // Swallowed on purpose — see comment above.
+    }
   }
 
   async getScoresheetStatus(
