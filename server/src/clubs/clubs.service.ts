@@ -246,14 +246,33 @@ export class ClubsService {
 
   async createPlayer(
     clubId: string,
-    data: { firstName: string; lastName: string; userId?: string },
+    data: {
+      firstName: string;
+      lastName: string;
+      userId?: string;
+      nationalId?: string;
+      licenseNumber?: string;
+      birthDate?: string;
+      gender?: Gender;
+      licenseType?: string;
+    },
   ): Promise<Player> {
     if (data.userId) {
       await this.assertClubMember(clubId, data.userId);
     }
     try {
       const player = await this.prisma.player.create({
-        data: { clubId, firstName: data.firstName, lastName: data.lastName, userId: data.userId },
+        data: {
+          clubId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          userId: data.userId,
+          nationalId: data.nationalId,
+          licenseNumber: data.licenseNumber,
+          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+          gender: data.gender,
+          licenseType: data.licenseType,
+        },
       });
       return this.toPlayer(player);
     } catch (err) {
@@ -264,14 +283,34 @@ export class ClubsService {
   async updatePlayer(
     clubId: string,
     playerId: string,
-    data: { firstName?: string; lastName?: string; userId?: string | null },
+    data: {
+      firstName?: string;
+      lastName?: string;
+      userId?: string | null;
+      nationalId?: string | null;
+      licenseNumber?: string | null;
+      birthDate?: string | null;
+      gender?: Gender | null;
+      licenseType?: string | null;
+    },
   ): Promise<Player> {
     await this.findPlayerInClub(clubId, playerId);
     if (data.userId) {
       await this.assertClubMember(clubId, data.userId);
     }
     try {
-      const player = await this.prisma.player.update({ where: { id: playerId }, data });
+      const player = await this.prisma.player.update({
+        where: { id: playerId },
+        data: {
+          ...data,
+          birthDate:
+            data.birthDate === undefined
+              ? undefined
+              : data.birthDate
+                ? new Date(data.birthDate)
+                : null,
+        },
+      });
       return this.toPlayer(player);
     } catch (err) {
       throw this.toPlayerLinkError(err);

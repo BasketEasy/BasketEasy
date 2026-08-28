@@ -649,7 +649,16 @@ describe('MembersPage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /enregistrer/i })).not.toBeInTheDocument(),
     );
-    expect(capturedBody).toEqual({ firstName: 'Alexandre', lastName: 'Dupont', userId: null });
+    expect(capturedBody).toEqual({
+      firstName: 'Alexandre',
+      lastName: 'Dupont',
+      userId: null,
+      nationalId: null,
+      licenseNumber: null,
+      birthDate: null,
+      gender: null,
+      licenseType: null,
+    });
   });
 
   it('renders the Équipes tab as cards below the desktop breakpoint, with Gérer still navigating', async () => {

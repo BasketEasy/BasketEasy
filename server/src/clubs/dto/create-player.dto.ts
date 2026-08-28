@@ -1,6 +1,17 @@
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsIn,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import type { Gender } from '@basketeasy/types/teams';
 import type { CreatePlayerRequest } from '@basketeasy/types/players';
+
+const GENDERS: Gender[] = ['MEN', 'WOMEN'];
 
 export class CreatePlayerDto implements CreatePlayerRequest {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -18,4 +29,27 @@ export class CreatePlayerDto implements CreatePlayerRequest {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  nationalId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  licenseNumber?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  birthDate?: string;
+
+  @IsOptional()
+  @IsIn(GENDERS)
+  gender?: Gender;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  licenseType?: string;
 }
