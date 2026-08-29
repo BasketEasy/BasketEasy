@@ -82,7 +82,7 @@ export function PlayerRow({
         <Text as="span" variant="label">
           {player.firstName} {player.lastName}
         </Text>
-        <Text as="span" variant="meta">
+        <Text as="span" variant="meta" className="break-all">
           Compte lié : {linkedMemberEmail ?? '—'}
         </Text>
         {adminActions}

@@ -13,7 +13,10 @@ import { cn } from '../lib/cn';
  * font. CardTitle and AlertTitle already own their font and colour; this
  * brings the one text primitive that didn't into line.
  */
-const headingVariants = cva('font-heading', {
+// break-words is in the base string, not left to call sites: an h1 whose
+// content can be a single unbroken token (an email address in the dashboard
+// greeting) otherwise widens the page rather than wrapping.
+const headingVariants = cva('break-words font-heading', {
   variants: {
     /** Colour is a tone, never a caller-side text-* class. */
     tone: {

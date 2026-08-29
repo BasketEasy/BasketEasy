@@ -115,7 +115,7 @@ export function EventRsvpControl({
         <div
           role="group"
           aria-label="Ma réponse"
-          className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
+          className="flex w-fit max-w-full flex-wrap overflow-hidden rounded-md border border-border bg-sunk"
         >
           {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
             const active = event.myRsvpStatus === option.value;
@@ -131,7 +131,10 @@ export function EventRsvpControl({
                     disabled={isPending}
                     onClick={() => select(option.value)}
                     className={cn(
-                      'flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
+                      // grow only has room to act once the group has wrapped (its w-fit
+                      // width is max-content otherwise), where it makes each wrapped row
+                      // fill the group instead of leaving a ragged edge.
+                      'flex min-h-11 grow items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors md:px-3.5',
                       'disabled:pointer-events-none disabled:opacity-50',
                       focusRing,
                       index > 0 && 'border-l border-border-strong',

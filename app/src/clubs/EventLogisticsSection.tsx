@@ -77,7 +77,7 @@ function LogisticsFieldRow({
   };
 
   return (
-    <div className="flex items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
+    <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
       <Text
         as="span"
         variant="body"
@@ -86,7 +86,7 @@ function LogisticsFieldRow({
       >
         <Icon size={19} />
       </Text>
-      <div className="flex flex-col gap-px">
+      <div className="flex min-w-0 flex-col gap-px">
         <Text as="span" variant="label" size="sm" className="font-bold">
           {fieldLabel}
         </Text>
@@ -98,7 +98,7 @@ function LogisticsFieldRow({
         {isChanging ? (
           <SelectField
             label={`Assigné·e — ${fieldLabel}`}
-            containerClassName="w-52"
+            containerClassName="w-full sm:w-52"
             options={[{ value: UNASSIGNED_VALUE, label: 'Non assigné' }, ...rosterOptions]}
             value={assignee?.teamPlayerId ?? UNASSIGNED_VALUE}
             disabled={isPending}
@@ -109,7 +109,7 @@ function LogisticsFieldRow({
             <Avatar size="sm">
               <AvatarFallback>{getInitials(assignee.firstName, assignee.lastName)}</AvatarFallback>
             </Avatar>
-            <Text as="span" variant="label" size="sm" className="whitespace-nowrap">
+            <Text as="span" variant="label" size="sm">
               {assignee.firstName} {assignee.lastName}
             </Text>
             <Text

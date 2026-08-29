@@ -52,6 +52,18 @@ module.exports = {
         'nav-active': 'inset 0 -2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
       },
+      minWidth: {
+        // The dropdown-menu content's floor width, previously an arbitrary
+        // min-w-[14rem] at the DropdownMenuContent call site.
+        menu: '14rem',
+      },
+      maxWidth: {
+        // Radix Popper measures the space left in the viewport on the side it
+        // placed the content and exposes it as this custom property. Capping
+        // the menu at it keeps a long email or club name inside the viewport
+        // at 320px instead of running hundreds of px off the right edge.
+        'menu-available': 'var(--radix-dropdown-menu-content-available-width)',
+      },
       letterSpacing: {
         'wide-caps': '0.13em',
         section: '0.11em',
