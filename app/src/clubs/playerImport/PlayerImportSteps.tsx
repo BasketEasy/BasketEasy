@@ -16,7 +16,12 @@ const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
  */
 export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
   return (
-    <ol aria-label="Étapes de l'import" className="flex list-none items-center gap-2">
+    <ol
+      aria-label="Étapes de l'import"
+      // flex-wrap: the three labels' min-content runs ~17px past a 320px
+      // viewport, so the strip wraps rather than widening the page.
+      className="flex list-none flex-wrap items-center gap-2"
+    >
       {PLAYER_IMPORT_STEP_LABELS.map((label, index) => {
         const isDone = index < current;
         const isCurrent = index === current;
