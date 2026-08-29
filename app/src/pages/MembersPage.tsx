@@ -408,7 +408,7 @@ export function MembersPage() {
                 <DialogHeader>
                   <DialogTitle>Ajouter un membre</DialogTitle>
                   <DialogDescription>
-                    Invitez une personne ayant déjà un compte BasketEasy à rejoindre le club.
+                    Invitez une personne ayant déjà un compte Kluvo à rejoindre le club.
                   </DialogDescription>
                 </DialogHeader>
                 <ClubMemberAddForm clubId={clubId!} onSuccess={() => setIsAddMemberOpen(false)} />
@@ -466,7 +466,7 @@ export function MembersPage() {
                   description={
                     isMembersFiltered
                       ? 'Aucun membre ne correspond à votre recherche.'
-                      : 'Invitez les personnes qui gèrent le club à rejoindre BasketEasy.'
+                      : 'Invitez les personnes qui gèrent le club à rejoindre Kluvo.'
                   }
                   action={
                     isAdmin && !isMembersFiltered ? (

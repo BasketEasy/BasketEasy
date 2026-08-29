@@ -33,7 +33,7 @@ describe('LandingPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Moins de tableurs, plus de terrain.' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/BasketEasy centralise calendriers/)).toBeInTheDocument();
+    expect(screen.getByText(/Kluvo centralise calendriers/)).toBeInTheDocument();
   });
 
   it('presents shipped features without a "Bientôt" badge', () => {

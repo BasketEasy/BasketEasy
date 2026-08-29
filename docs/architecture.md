@@ -1,4 +1,4 @@
-# BasketEasy — Architecture
+# Kluvo — Architecture
 
 ## Global (detailed)
 

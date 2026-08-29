@@ -1,4 +1,4 @@
-# BasketEasy — Global UI/UX Audit
+# Kluvo — Global UI/UX Audit
 
 Date: 2026-08-11. Scope: `app/` (React + Vite frontend), all pages currently shipped — Landing, Login, Register, Dashboard, Account, My Teams, Club Create, Members (club hub), Team Detail. Based on reading the routing, navigation, and page source directly (see file references throughout); no design changes have been made — this is analysis + proposals only.
 
@@ -65,7 +65,7 @@ See [`current-team-detail.svg`](./wireframes/current-team-detail.svg) for what t
 
 ### 2.3 No empty states — 7+ list views just show blank rows
 
-Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune équipe pour le moment."). Every other table — Membres/Joueurs/Équipes tabs on `MembersPage`, and all four sections on `TeamDetailPage` — falls back to `Pagination`'s terse "Aucun résultat" caption with nothing else. For BasketEasy's actual early-adopter persona (a volunteer setting up a brand-new club), the very first thing they see in most of these tables _is_ the empty state — and it gives them no next step.
+Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune équipe pour le moment."). Every other table — Membres/Joueurs/Équipes tabs on `MembersPage`, and all four sections on `TeamDetailPage` — falls back to `Pagination`'s terse "Aucun résultat" caption with nothing else. For Kluvo's actual early-adopter persona (a volunteer setting up a brand-new club), the very first thing they see in most of these tables _is_ the empty state — and it gives them no next step.
 
 **Fix:** a shared `EmptyState` component (icon + message + primary CTA button, composed from existing `Card`/`Button`) dropped into each table's empty branch. See [`proposed-empty-state.svg`](./wireframes/proposed-empty-state.svg).
 
@@ -83,7 +83,7 @@ Only `MyTeamsPage` has friendly empty-state copy ("Vous n'êtes membre d'aucune 
 
 ### 2.6 Tables have no mobile-collapsed form
 
-`Table` (`packages/@basketeasy/ui/src/components/Table.tsx`) wraps in `overflow-auto` — horizontal scroll — but never collapses to stacked cards on narrow viewports. Every 4–6-column table (Members, roster, events) will require horizontal scrolling on a phone. This compounds with 2.1/2.2: the pages that most need a non-tabular view for usability are also the ones that scroll worst on mobile, and BasketEasy's actual users (volunteer coaches checking a roster from their phone at the gym) are a mobile-heavy audience.
+`Table` (`packages/@basketeasy/ui/src/components/Table.tsx`) wraps in `overflow-auto` — horizontal scroll — but never collapses to stacked cards on narrow viewports. Every 4–6-column table (Members, roster, events) will require horizontal scrolling on a phone. This compounds with 2.1/2.2: the pages that most need a non-tabular view for usability are also the ones that scroll worst on mobile, and Kluvo's actual users (volunteer coaches checking a roster from their phone at the gym) are a mobile-heavy audience.
 
 **Fix:** covered by the same proposals as 2.1 — card/chip/agenda layouts sidestep the problem rather than requiring a separate "responsive table" component.
 

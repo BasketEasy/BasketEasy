@@ -2,13 +2,13 @@
 
 Guidance for Claude Code (and any other agent) working in this repository.
 
-## What BasketEasy is
+## What Kluvo is
 
 A website/app to help amateur basketball clubs manage rosters, attendance, trainings, matches, results, and everything around club organization — launching Loire-Atlantique (CD44, France) first. See [`docs/brand.md`](./docs/brand.md) for brand and [`docs/market-research.md`](./docs/market-research.md) for the market this is built for.
 
 **Positioning:** a companion layer to the FFBB's mandatory federal stack (FBI licensing, e-Marque V2 scoresheets), not a replacement for it — solving what neither the federation nor the generic incumbents (Kalisport, AssoConnect, SportEasy) cover: basketball-specific team-day tooling, multi-club team (CTC/entente) support, and shared municipal gym-slot visibility. Full detail in [`docs/brand.md`](./docs/brand.md).
 
-**Brand:** BasketEasy · _"La gestion d'équipe, simplifiée."_ · orange `#D4622A` / blue-green `#1E5F74` / cream `#FAF5EF` / charcoal `#23201C` · Barlow Condensed (headings) + Inter (body). Full tokens in [`docs/brand.md`](./docs/brand.md).
+**Brand:** Kluvo · _"La gestion d'équipe, simplifiée."_ · orange `#D4622A` / blue-green `#1E5F74` / cream `#FAF5EF` / charcoal `#23201C` · Barlow Condensed (headings) + Inter (body). Full tokens in [`docs/brand.md`](./docs/brand.md).
 
 ## Architecture
 

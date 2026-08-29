@@ -111,7 +111,7 @@ export function LandingPage() {
               Moins de tableurs, plus de terrain.
             </Heading>
             <Text variant="meta" size="lg" className="max-w-xl">
-              BasketEasy centralise calendriers, convocations et présences pour les clubs de basket
+              Kluvo centralise calendriers, convocations et présences pour les clubs de basket
               amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les
               bénévoles, pas pour les DSI.
             </Text>

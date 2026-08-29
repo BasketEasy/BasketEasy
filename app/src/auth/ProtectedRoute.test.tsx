@@ -77,6 +77,6 @@ describe('ProtectedRoute', () => {
 
     renderWithProviders(<ProtectedRoute />, { route: '/dashboard' });
 
-    expect(screen.getByText('BasketEasy')).toBeInTheDocument();
+    expect(screen.getByText('Kluvo')).toBeInTheDocument();
   });
 });

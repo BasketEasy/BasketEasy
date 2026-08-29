@@ -1,4 +1,4 @@
-# BasketEasy — Backend Technology Stack
+# Kluvo — Backend Technology Stack
 
 Builds on `architecture.md`'s backend layer (API Gateway, Auth/Clubs/Teams/Scheduling/Scoresheet/Payments modules, async queue, Postgres/Redis/R2). This fills in the concrete picks and the alternatives considered for each.
 

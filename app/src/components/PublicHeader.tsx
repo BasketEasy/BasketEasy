@@ -20,7 +20,7 @@ export function PublicHeader() {
           to={user ? '/dashboard' : '/'}
           className="font-heading text-2xl font-extrabold text-orange-text no-underline"
         >
-          BasketEasy
+          Kluvo
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           {!isLoading &&
