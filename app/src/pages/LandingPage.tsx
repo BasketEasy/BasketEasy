@@ -240,8 +240,9 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border px-6 py-8 text-center text-sm text-muted">
-        Données hébergées en France · RGPD
+      <footer className="border-t border-border px-6 py-8 text-center">
+        <Text variant="meta">Données hébergées en France · RGPD</Text>
+        <Text variant="meta">© Kluvo 2025–{new Date().getFullYear()} · Tous droits réservés</Text>
       </footer>
     </div>
   );
