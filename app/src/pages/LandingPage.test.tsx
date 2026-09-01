@@ -48,9 +48,9 @@ describe('LandingPage', () => {
     expect(within(upcoming.closest('article')!).getByText('Bientôt')).toBeInTheDocument();
   });
 
-  it('renders the RGPD footer line', () => {
+  it('renders the footer copyright line', () => {
     renderLandingPage();
-    expect(screen.getByText('Données hébergées en France · RGPD')).toBeInTheDocument();
+    expect(screen.getByText(/© Kluvo 2025/)).toBeInTheDocument();
   });
 
   it('shows login/register CTAs when logged out, and navigates to /register on click', async () => {
