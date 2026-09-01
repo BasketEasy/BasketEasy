@@ -9,3 +9,11 @@ body {
   margin: 0;
   font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
 }
+
+/* Installed as a standalone PWA (viewport-fit=cover in index.html), the app
+   draws under the iOS status bar/notch unless something pads for it — the
+   fixed/sticky headers are the only elements that sit at the very top of
+   the viewport, so they're the ones that need the inset. */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
