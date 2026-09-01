@@ -1,6 +1,7 @@
 import {
   type ComponentPropsWithoutRef,
   type ElementRef,
+  type ReactNode,
   forwardRef,
   useCallback,
   useEffect,
@@ -11,6 +12,7 @@ import {
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cn } from '../lib/cn';
 import { focusRing } from '../lib/focusRing';
+import { Badge } from './Badge';
 
 export const Tabs = TabsPrimitive.Root;
 
@@ -95,46 +97,64 @@ export const TabsList = forwardRef<
 });
 TabsList.displayName = 'TabsList';
 
-export const TabsTrigger = forwardRef<
-  ElementRef<typeof TabsPrimitive.Trigger>,
-  ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, forwardedRef) => {
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+export interface TabsTriggerProps extends ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> {
+  /**
+   * A trailing count badge (e.g. a roster/list size next to the tab label),
+   * styled and gapped consistently across every tab bar in the app —
+   * TeamDetailPage's four count-badged tabs used to hand-roll this
+   * (className="gap-2" + an outline/neutral/aria-hidden Badge) at every call
+   * site.
+   */
+  badge?: ReactNode;
+}
 
-  // Radix doesn't scroll a newly-active trigger into view on its own —
-  // without this, tapping a tab that was clipped at the scrollable edge
-  // (see TabsList above) leaves it half-visible after selection instead of
-  // settling fully into frame.
-  useEffect(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const scrollIntoViewIfActive = () => {
-      if (el.getAttribute('data-state') === 'active') {
-        el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
-      }
-    };
-    scrollIntoViewIfActive();
-    const observer = new MutationObserver(scrollIntoViewIfActive);
-    observer.observe(el, { attributes: true, attributeFilter: ['data-state'] });
-    return () => observer.disconnect();
-  }, []);
+export const TabsTrigger = forwardRef<ElementRef<typeof TabsPrimitive.Trigger>, TabsTriggerProps>(
+  ({ className, badge, children, ...props }, forwardedRef) => {
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
 
-  return (
-    <TabsPrimitive.Trigger
-      ref={(node) => {
-        triggerRef.current = node;
-        if (typeof forwardedRef === 'function') forwardedRef(node);
-        else if (forwardedRef) forwardedRef.current = node;
-      }}
-      className={cn(
-        'inline-flex min-h-9 snap-start items-center justify-center whitespace-nowrap rounded-sm px-3 py-2 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-surface data-[state=active]:text-orange-text data-[state=active]:shadow-sm md:py-1.5',
-        focusRing,
-        className,
-      )}
-      {...props}
-    />
-  );
-});
+    // Radix doesn't scroll a newly-active trigger into view on its own —
+    // without this, tapping a tab that was clipped at the scrollable edge
+    // (see TabsList above) leaves it half-visible after selection instead of
+    // settling fully into frame.
+    useEffect(() => {
+      const el = triggerRef.current;
+      if (!el) return;
+      const scrollIntoViewIfActive = () => {
+        if (el.getAttribute('data-state') === 'active') {
+          el.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+        }
+      };
+      scrollIntoViewIfActive();
+      const observer = new MutationObserver(scrollIntoViewIfActive);
+      observer.observe(el, { attributes: true, attributeFilter: ['data-state'] });
+      return () => observer.disconnect();
+    }, []);
+
+    return (
+      <TabsPrimitive.Trigger
+        ref={(node) => {
+          triggerRef.current = node;
+          if (typeof forwardedRef === 'function') forwardedRef(node);
+          else if (forwardedRef) forwardedRef.current = node;
+        }}
+        className={cn(
+          'inline-flex min-h-9 snap-start items-center justify-center whitespace-nowrap rounded-sm px-3 py-2 text-sm font-medium text-charcoal transition-colors data-[state=active]:bg-surface data-[state=active]:text-orange-text data-[state=active]:shadow-sm md:py-1.5',
+          badge != null && 'gap-2',
+          focusRing,
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {badge != null && (
+          <Badge variant="outline" tone="neutral" aria-hidden="true">
+            {badge}
+          </Badge>
+        )}
+      </TabsPrimitive.Trigger>
+    );
+  },
+);
 TabsTrigger.displayName = 'TabsTrigger';
 
 export const TabsContent = forwardRef<

@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
-import { Badge } from './Badge';
 
 const meta: Meta<typeof Tabs> = {
   title: 'Components/Tabs',
@@ -30,29 +29,17 @@ export const OverflowingWithBadges: Story = {
   render: () => (
     <Tabs defaultValue="roster" className="w-[320px]">
       <TabsList>
-        <TabsTrigger value="roster" className="gap-2">
+        <TabsTrigger value="roster" badge={18}>
           Effectif
-          <Badge variant="outline" tone="neutral" aria-hidden="true">
-            18
-          </Badge>
         </TabsTrigger>
-        <TabsTrigger value="clubs" className="gap-2">
+        <TabsTrigger value="clubs" badge={2}>
           Clubs partenaires
-          <Badge variant="outline" tone="neutral" aria-hidden="true">
-            2
-          </Badge>
         </TabsTrigger>
-        <TabsTrigger value="admins" className="gap-2">
+        <TabsTrigger value="admins" badge={3}>
           Administrateurs
-          <Badge variant="outline" tone="neutral" aria-hidden="true">
-            3
-          </Badge>
         </TabsTrigger>
-        <TabsTrigger value="events" className="gap-2">
+        <TabsTrigger value="events" badge={12}>
           Événements
-          <Badge variant="outline" tone="neutral" aria-hidden="true">
-            12
-          </Badge>
         </TabsTrigger>
       </TabsList>
       <TabsContent value="roster" className="mt-4">
