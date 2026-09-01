@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Long enough for a mobile upload over a gym's wifi, short enough not to
@@ -50,5 +55,13 @@ export class StorageService {
   // APIs (including R2) — callers don't need to check existence first.
   async deleteObject(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  // Server-side read for the OCR worker — no presigning needed since the
+  // fetch happens in-process, not from a browser.
+  async getObjectBuffer(key: string): Promise<Buffer> {
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const bytes = await result.Body!.transformToByteArray();
+    return Buffer.from(bytes);
   }
 }
