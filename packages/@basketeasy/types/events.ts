@@ -197,12 +197,16 @@ export interface EventVoteResults {
 }
 
 /**
- * Deliberately a one-member status today — PROCESSING/PARSED/FAILED belong
- * to the future AI-parsing module. An upload-transport failure is
- * client-side-only and never reaches this type; nothing is persisted until
- * the direct-to-R2 upload actually succeeds.
+ * QUEUED/PROCESSING track the async OCR job; PARSED means the LLM returned
+ * internally-consistent data; NEEDS_REVIEW means it returned data but
+ * validation flagged an inconsistency; CONFIRMED means a manager approved
+ * it; FAILED means the job exhausted its retries. See
+ * `./scoresheet-extraction` for the parsed data itself. An upload-transport
+ * failure is client-side-only and never reaches this type; nothing is
+ * persisted until the direct-to-R2 upload actually succeeds.
  */
-export type EventScoresheetStatus = 'UPLOADED';
+export type EventScoresheetStatus =
+  'UPLOADED' | 'QUEUED' | 'PROCESSING' | 'PARSED' | 'NEEDS_REVIEW' | 'CONFIRMED' | 'FAILED';
 
 export interface EventScoresheetUploadUrlRequest {
   contentType: string;

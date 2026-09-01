@@ -4,11 +4,13 @@ import { EventsService } from './events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
+import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 
 describe('EventsService', () => {
   let service: EventsService;
   let teamManagerGuard: { isTeamManager: jest.Mock };
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
+  let scoresheets: { enqueueOcr: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: {
@@ -89,6 +91,7 @@ describe('EventsService', () => {
       getUploadUrl: jest.fn().mockResolvedValue('https://signed.example/upload'),
       deleteObject: jest.fn().mockResolvedValue(undefined),
     };
+    scoresheets = { enqueueOcr: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -96,6 +99,7 @@ describe('EventsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: TeamManagerGuard, useValue: teamManagerGuard },
         { provide: StorageService, useValue: storage },
+        { provide: ScoresheetsService, useValue: scoresheets },
       ],
     }).compile();
 
@@ -2255,6 +2259,7 @@ describe('EventsService', () => {
     it('upserts on confirm — a retried upload updates the one row rather than duplicating it', async () => {
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
       prisma.eventScoresheet.upsert.mockResolvedValue({
+        id: 'sheet-1',
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: new Date('2026-01-01T20:00:00Z'),
@@ -2283,16 +2288,18 @@ describe('EventsService', () => {
         },
       });
       expect(result).toEqual({
-        status: 'UPLOADED',
+        status: 'QUEUED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',
       });
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1');
     });
 
     it('does not attempt to delete anything on a first-ever upload (no previous row)', async () => {
       prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
       prisma.eventScoresheet.findUnique.mockResolvedValue(null);
       prisma.eventScoresheet.upsert.mockResolvedValue({
+        id: 'sheet-1',
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: new Date('2026-01-01T20:00:00Z'),
@@ -2315,6 +2322,7 @@ describe('EventsService', () => {
         storageKey: 'scoresheets/event-1/old.jpg',
       });
       prisma.eventScoresheet.upsert.mockResolvedValue({
+        id: 'sheet-1',
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: new Date('2026-01-01T20:00:00Z'),
@@ -2337,6 +2345,7 @@ describe('EventsService', () => {
         storageKey: 'scoresheets/event-1/abc.jpg',
       });
       prisma.eventScoresheet.upsert.mockResolvedValue({
+        id: 'sheet-1',
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: new Date('2026-01-01T20:00:00Z'),
@@ -2359,6 +2368,7 @@ describe('EventsService', () => {
         storageKey: 'scoresheets/event-1/old.jpg',
       });
       prisma.eventScoresheet.upsert.mockResolvedValue({
+        id: 'sheet-1',
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: new Date('2026-01-01T20:00:00Z'),
@@ -2374,7 +2384,7 @@ describe('EventsService', () => {
           'scoresheets/event-1/new.jpg',
         ),
       ).resolves.toEqual({
-        status: 'UPLOADED',
+        status: 'QUEUED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',
       });

@@ -9,18 +9,19 @@ datasource db {
 }
 
 model User {
-  id            String           @id @default(uuid())
-  email         String           @unique
-  passwordHash  String
-  firstName     String?
-  lastName      String?
-  avatarUrl     String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  memberships   ClubMembership[]
-  refreshTokens RefreshToken[]
-  linkedPlayers Player[]
-  teamAdmins    TeamAdmin[]
+  id                            String                 @id @default(uuid())
+  email                         String                 @unique
+  passwordHash                  String
+  firstName                     String?
+  lastName                      String?
+  avatarUrl                     String?
+  createdAt                     DateTime               @default(now())
+  updatedAt                     DateTime               @updatedAt
+  memberships                   ClubMembership[]
+  refreshTokens                 RefreshToken[]
+  linkedPlayers                 Player[]
+  teamAdmins                    TeamAdmin[]
+  reviewedScoresheetExtractions ScoresheetExtraction[]
 }
 
 model Player {
@@ -299,14 +300,24 @@ model EventVote {
   @@index([eventId, category])
 }
 
-// Deliberately a one-member status enum today: PROCESSING/PARSED/FAILED
-// belong to the future AI-parsing module and would be speculative to add now
-// with no writer for them. An upload-transport failure (network error, bad
-// photo) is client-side-only and never persisted — nothing is written until
-// the direct-to-R2 upload actually succeeds, so "retry" just re-runs the
+// Extended once the AI-parsing module got a real writer (ScoresheetsService/
+// ScoresheetOcrProcessor): QUEUED/PROCESSING track the async BullMQ job,
+// PARSED means the LLM returned internally-consistent data, NEEDS_REVIEW
+// means it returned data but validation flagged an inconsistency (e.g.
+// quarter scores not summing to the total), CONFIRMED means a manager
+// approved the (possibly corrected) data, FAILED means the job exhausted its
+// retries. An upload-transport failure (network error, bad photo) is still
+// client-side-only and never persisted — nothing is written until the
+// direct-to-R2 upload actually succeeds, so "retry" just re-runs the
 // presigned-upload flow.
 enum EventScoresheetStatus {
   UPLOADED
+  QUEUED
+  PROCESSING
+  PARSED
+  NEEDS_REVIEW
+  CONFIRMED
+  FAILED
 }
 
 // One row per MATCH event's e-Marque scoresheet capture (photo or PDF) —
@@ -324,6 +335,36 @@ model EventScoresheet {
   uploadedAt             DateTime              @default(now())
   event                  Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
   uploadedBy             TeamPlayer            @relation(fields: [uploadedByTeamPlayerId], references: [id], onDelete: Cascade)
+  extraction             ScoresheetExtraction?
+}
+
+// The LLM's read of one EventScoresheet's photo/PDF. Its own table (not
+// columns bolted onto EventScoresheet) because it's optional/derived data
+// with its own lifecycle — retried, overwritten, reviewed — distinct from
+// the upload record itself. rawResponse keeps the full LLM JSON as an audit
+// trail even after parsedData gets manager corrections; parsedData is the
+// structured box score consumed by the review endpoint and, later, the
+// frontend: { homeScore, awayScore, quarterScores: [{home, away}], players:
+// [{number, name?, points?, fouls?}] } — fields are nullable/loose since
+// scoresheet photo legibility varies, and validation checks internal
+// consistency rather than rejecting partial data. @@unique on
+// eventScoresheetId means a re-run of the OCR job upserts this same row.
+model ScoresheetExtraction {
+  id                String          @id @default(uuid())
+  eventScoresheetId String          @unique
+  rawResponse       Json
+  parsedData        Json
+  confidence        Float?
+  attemptCount      Int             @default(1)
+  failureReason     String?
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  eventScoresheet   EventScoresheet @relation(fields: [eventScoresheetId], references: [id], onDelete: Cascade)
+  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id])
+
+  @@index([reviewedByUserId])
 }
 
 enum ClubRole {

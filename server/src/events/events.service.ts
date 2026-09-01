@@ -23,6 +23,7 @@ import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
+import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { resolvePagination } from '../common/pagination';
 import { ListEventsDto } from './dto/list-events.dto';
 
@@ -70,6 +71,7 @@ export class EventsService {
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
     private readonly storage: StorageService,
+    private readonly scoresheets: ScoresheetsService,
   ) {}
 
   async listEvents(
@@ -819,7 +821,11 @@ export class EventsService {
     if (previous && previous.storageKey !== storageKey) {
       await this.deleteStorageObjectSafely(previous.storageKey);
     }
-    return this.toEventScoresheet(scoresheet);
+    // Hand off to the scoresheets module's async OCR pipeline now that a
+    // real upload exists — this call sets status to QUEUED, overwriting the
+    // 'UPLOADED' just written above.
+    await this.scoresheets.enqueueOcr(scoresheet.id);
+    return this.toEventScoresheet({ ...scoresheet, status: 'QUEUED' });
   }
 
   // Best-effort: the DB write has already succeeded by the time this runs,
