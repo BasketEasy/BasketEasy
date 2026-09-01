@@ -54,7 +54,13 @@ describe('ScoresheetsService', () => {
       expect(queue.add).toHaveBeenCalledWith(
         'extract',
         { eventScoresheetId: 'sheet-1' },
-        { jobId: 'sheet-1', attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+        {
+          jobId: 'sheet-1',
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
       );
       expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
         where: { id: 'sheet-1' },

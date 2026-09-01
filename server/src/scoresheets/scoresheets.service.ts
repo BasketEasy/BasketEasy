@@ -34,7 +34,15 @@ export class ScoresheetsService {
   // QUEUED with no job ever created and no worker to pick it up.
   // jobId: eventScoresheetId lets BullMQ dedupe — a re-upload while the
   // previous job is still queued/processing replaces it instead of running
-  // two extractions concurrently against the same row.
+  // two extractions concurrently against the same row. Since EventScoresheet
+  // is upserted (one row per event, not one per upload — see
+  // EventsService.confirmScoresheetUpload), the same id is reused across
+  // every re-upload of that event's scoresheet, so BullMQ's dedup-by-jobId
+  // would otherwise also silently block a *later* re-upload made after the
+  // first job already reached a terminal state (Redis keeps a completed/
+  // failed job under its id indefinitely by default) — removeOnComplete/
+  // removeOnFail free the id back up once the job is actually done, so
+  // dedup only ever applies to a genuinely in-flight job.
   async enqueueOcr(eventScoresheetId: string): Promise<void> {
     await this.ocrQueue.add(
       'extract',
@@ -43,6 +51,8 @@ export class ScoresheetsService {
         jobId: eventScoresheetId,
         attempts: OCR_JOB_ATTEMPTS,
         backoff: { type: 'exponential', delay: OCR_JOB_BACKOFF_DELAY_MS },
+        removeOnComplete: true,
+        removeOnFail: true,
       },
     );
     await this.prisma.eventScoresheet.update({
