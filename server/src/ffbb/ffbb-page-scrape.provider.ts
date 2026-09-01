@@ -40,10 +40,15 @@ const FETCH_TIMEOUT_MS = 10_000;
 // budget is spent, the remaining matches simply keep location null.
 const VENUE_RESOLUTION_BUDGET_MS = 15_000;
 
-// Venue field names are unverified against a live detail page (this
-// design's sandbox has no egress to competitions.ffbb.com), so extraction
-// recognizes several plausible spellings instead of betting on one. See
-// docs/superpowers/specs/2026-09-01-ffbb-match-venue-address-design.md.
+// A rencontre's venue is published as `salle`, verified against FFBB's own
+// response shape (see the design spec's "Verified structure" section):
+//   salle: { id, numero, libelle, libelle2, adresse, adresseComplement,
+//            commune: { codePostal, libelle },
+//            cartographie: { latitude, longitude } }
+// The extra spellings below are kept as a hedge: the same venue is served
+// under a second shape elsewhere in FFBB's payloads (`cartographie` carrying
+// `adresse`/`codePostal`/`ville`), and nothing about these names is
+// contractual. Anything unrecognized still yields null rather than a guess.
 const VENUE_NAME_KEYS = [
   'nomSalle',
   'libelleSalle',
@@ -59,6 +64,14 @@ const VENUE_STREET_NUMBER_KEY = 'numeroVoie';
 const VENUE_STREET_NAME_KEY = 'libelleVoie';
 const VENUE_POSTAL_KEYS = ['codePostalSalle', 'codePostal', 'cp'] as const;
 const VENUE_CITY_KEYS = ['villeSalle', 'ville', 'commune', 'libelleCommune'] as const;
+// The locality is *not* on the venue object: FFBB nests it one level down,
+// as `salle.commune.{codePostal,libelle}` (and, on the shapes that carry
+// one, `cartographie.{codePostal,ville}`). Read flat first, then through
+// these — without it an imported address stops at the street, which is not
+// enough to navigate to a gym.
+const VENUE_LOCALITY_CONTAINER_KEYS = ['commune', 'cartographie'] as const;
+/** Inside a `commune`-keyed object, a bare `libelle`/`nom` *is* the city name. */
+const COMMUNE_CONTAINER_KEY_PATTERN = /commune/i;
 const VENUE_KEY_MARKERS = [
   ...VENUE_NAME_KEYS,
   ...VENUE_STREET_KEYS,
@@ -132,11 +145,12 @@ interface RawFfbbMatch {
  * out of its embedded Next.js RSC streaming payload
  * (`self.__next_f.push([...])` script chunks) — no auth needed.
  *
- * Extraction here is verified against a fixture built from the design
- * spec's documented sample payload, not a live fetch: this sandbox's
- * network policy blocks egress to competitions.ffbb.com, so the exact
- * real-world chunk boundaries and field set are unconfirmed pending a real
- * fetch at deploy time. Any shape it doesn't recognize throws
+ * Extraction here is verified against fixtures, not a live fetch: this
+ * sandbox's network policy blocks egress to competitions.ffbb.com. The
+ * venue field names are confirmed against FFBB's own published response
+ * shapes (see the venue design spec's "Verified structure"); the exact
+ * real-world chunk boundaries around them are still unconfirmed pending a
+ * real fetch at deploy time. Any shape it doesn't recognize throws
  * FfbbPageFormatError rather than guessing — this is deliberately the one
  * file expected to need updates when FFBB's frontend changes.
  */
@@ -627,9 +641,8 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // salle-ish key — elsewhere it's as likely to name a club.
       (venueParent && this.readString(object, VENUE_GENERIC_NAME_KEYS) !== null);
     const hasStreet = this.readStreet(object) !== null;
-    const hasLocality =
-      this.readString(object, VENUE_CITY_KEYS) !== null ||
-      this.readString(object, VENUE_POSTAL_KEYS) !== null;
+    const { postal, city } = this.readLocality(object);
+    const hasLocality = city !== null || postal !== null;
     return hasName || (hasStreet && (hasLocality || venueParent));
   }
 
@@ -653,7 +666,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     if (parentKey !== null && VENUE_PARENT_KEY_PATTERN.test(parentKey)) score += 4;
     if (this.readString(object, VENUE_NAME_KEYS) !== null) score += 2;
     if (this.readStreet(object) !== null) score += 1;
-    if (this.readString(object, VENUE_CITY_KEYS) !== null) score += 1;
+    if (this.readLocality(object).city !== null) score += 1;
     return score;
   }
 
@@ -665,17 +678,34 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // On anything not already known to be a venue, `nom`/`libelle` is as
       // likely to be a club's name as a gym's.
       (venueParent ? this.readString(object, VENUE_GENERIC_NAME_KEYS) : null);
-    const locality = [
-      this.readString(object, VENUE_POSTAL_KEYS),
-      this.readString(object, VENUE_CITY_KEYS),
-    ]
-      .filter((part): part is string => part !== null)
-      .join(' ');
+    const { postal, city } = this.readLocality(object);
+    const locality = [postal, city].filter((part): part is string => part !== null).join(' ');
 
     const parts = [name, this.readStreet(object), locality || null].filter(
       (part): part is string => part !== null && part.length > 0,
     );
     return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  /** Postal code and city, read off the venue object itself or out of the nested container FFBB actually puts them in. */
+  private readLocality(object: Record<string, unknown>): {
+    postal: string | null;
+    city: string | null;
+  } {
+    let postal = this.readString(object, VENUE_POSTAL_KEYS);
+    let city = this.readString(object, VENUE_CITY_KEYS);
+    for (const key of VENUE_LOCALITY_CONTAINER_KEYS) {
+      if (postal !== null && city !== null) break;
+      const nested = object[key];
+      if (nested === null || typeof nested !== 'object' || Array.isArray(nested)) continue;
+      const container = nested as Record<string, unknown>;
+      const cityKeys = COMMUNE_CONTAINER_KEY_PATTERN.test(key)
+        ? [...VENUE_CITY_KEYS, ...VENUE_GENERIC_NAME_KEYS]
+        : VENUE_CITY_KEYS;
+      postal ??= this.readString(container, VENUE_POSTAL_KEYS);
+      city ??= this.readString(container, cityKeys);
+    }
+    return { postal, city };
   }
 
   private readStreet(object: Record<string, unknown>): string | null {

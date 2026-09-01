@@ -416,6 +416,23 @@ describe('FfbbPageScrapeProvider', () => {
         '8 boulevard des Sports, 44300 Nantes',
       ],
       [{ horaire: '20:30' }, null],
+      // FFBB's real shape: the locality is nested, never on the venue object.
+      [
+        {
+          libelle: 'SALLE DE LA HERDRIE',
+          adresse: '12 RUE DES SPORTS',
+          commune: { codePostal: '44115', libelle: 'BASSE-GOULAINE' },
+        },
+        'SALLE DE LA HERDRIE, 12 RUE DES SPORTS, 44115 BASSE-GOULAINE',
+      ],
+      // The second shape the same venue is served under elsewhere.
+      [
+        {
+          libelle: 'Gymnase du Loquidy',
+          cartographie: { adresse: '2 rue du Loquidy', codePostal: '44300', ville: 'Nantes' },
+        },
+        'Gymnase du Loquidy, 44300 Nantes',
+      ],
     ])('formats the venue shape %j as %s', async (venue, expected) => {
       const listHtml = pushChunkHtml(
         { data: [rawMatch('m-1')] },
@@ -428,6 +445,35 @@ describe('FfbbPageScrapeProvider', () => {
       });
 
       expect(result.matches[0].location).toBe(expected);
+    });
+
+    it("resolves FFBB's published salle shape in full, locality included", async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      // Field-for-field the shape FFBB's own API publishes for a rencontre's
+      // venue — see the design spec's "Verified structure" section.
+      routeFetch(fetchSpy, listHtml, () =>
+        detailPageHtml({
+          id: '2ba4e0a1-59f4-4a54-9a2e-6b0f4a1c7d20',
+          numero: '044115001',
+          libelle: 'SALLE DE LA HERDRIE',
+          libelle2: '',
+          adresse: '12 RUE DES SPORTS',
+          adresseComplement: 'Complexe sportif de la Herdrie',
+          commune: { codePostal: '44115', libelle: 'BASSE-GOULAINE' },
+          cartographie: { latitude: 47.2081, longitude: -1.4498 },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'SALLE DE LA HERDRIE, 12 RUE DES SPORTS, 44115 BASSE-GOULAINE',
+      );
     });
 
     it("ignores a club's mailing address published as an array element", async () => {

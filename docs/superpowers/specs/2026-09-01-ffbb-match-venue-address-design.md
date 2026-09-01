@@ -101,14 +101,68 @@ fetched**, in three tiers, first hit wins:
 
 No tier hits ⇒ `location: null`. That is a normal result, not an error.
 
+## Verified structure
+
+The field names this design originally shipped as guesses are now
+**confirmed**. `competitions.ffbb.com` is still unreachable from the build
+sandbox (403 on CONNECT, and the same for the Anthropic fetch service), so
+the confirmation comes from FFBB's own published response shapes instead:
+the `ffbb-api-client-v2` and `ffbb-data-client` packages on PyPI are
+generated against live `api.ffbb.app` responses — the same backend the
+`competitions.ffbb.com` front end reads — and both model a rencontre's
+venue identically.
+
+A rencontre carries its venue as **`salle`**:
+
+```jsonc
+"salle": {
+  "id": "2ba4e0a1-…",
+  "numero": "044115001",
+  "libelle": "SALLE DE LA HERDRIE",   // the gym's name
+  "libelle2": "",
+  "adresse": "12 RUE DES SPORTS",     // street line
+  "adresseComplement": "Complexe sportif de la Herdrie",
+  "commune": { "codePostal": "44115", "libelle": "BASSE-GOULAINE" },
+  "cartographie": { "latitude": 47.2081, "longitude": -1.4498 }
+}
+```
+
+Three things this settles:
+
+1. **The venue's name is a bare `libelle`, under the key `salle`** — not
+   `nomSalle`/`libelleSalle`. The hedge held: `libelle` is trusted exactly
+   when the object was reached under a `/salle|gymnase|lieu|equipement/i`
+   key, which is the real shape. `adresse` was likewise already covered.
+2. **The locality is nested, and was being dropped.** `codePostal` and the
+   city are one level below the venue, in `commune` — the extractor read
+   both as flat keys, so against the real payload it produced
+   `«SALLE DE LA HERDRIE, 12 RUE DES SPORTS»` and silently lost
+   `44115 BASSE-GOULAINE`. A street with no city is not enough to navigate
+   to a gym, so locality is now read flat first, then through `commune`
+   (where a bare `libelle` _is_ the city) and `cartographie`. Covered by a
+   test built field-for-field from the shape above.
+3. **The fixture list genuinely has no venue.** FFBB's own fixture-list
+   item model (`PouleRencontreItemModel`: `id`, `numero`, `numeroJournee`,
+   `idPoule`, `competitionId`, `resultatEquipe1/2`, `joue`, `nomEquipe1/2`,
+   `date_rencontre`) carries no `salle` at all, which confirms the premise
+   this whole design rests on — the detail-page fetch is not avoidable.
+
+`adresseComplement` is deliberately **not** appended: it is as often a
+restatement of the gym's name as it is a usable complement, and every
+character competes with the 120-char clamp `Create/UpdateEventDto` accepts
+back. Revisit if real imports come back ambiguous.
+
+Sources: [`ffbb-api-client-v2`](https://pypi.org/project/ffbb-api-client-v2/)
+(`models/salle.py`, `models/rencontres_hit.py`,
+`models/get_competition_response.py`, `models/poule_rencontre_item_model.py`)
+and [`ffbb-data-client`](https://pypi.org/project/ffbb-data-client/).
+
 ## Extracting the venue
 
-The detail page's field names are **unverified** — this sandbox's network
-policy blocks egress to `competitions.ffbb.com` (403 on CONNECT), so, as
-with the original page-scrape work, extraction is written against fixtures
-built from FFBB's documented/observed vocabulary rather than a live fetch,
-and is written to recognize several plausible spellings rather than betting
-on one:
+Extraction still recognizes several spellings rather than betting on one —
+the shape above is verified, but nothing about it is contractual, and the
+same venue appears elsewhere in FFBB's payloads under a `cartographie`
+carrying `adresse`/`codePostal`/`ville`:
 
 - The RSC chunks are scanned for JSON objects that look like a venue: an
   object carrying a street-ish key (`adresse`, `adresse1`, `rue`,
@@ -128,9 +182,10 @@ on one:
   an object whose key is known.
 - The parts found are formatted into one string,
   `«Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine»` —
-  name, street, then `codePostal ville` — skipping any part that's absent
-  and collapsing whitespace. A name-only page yields just the name; a
-  street-only page yields just the street.
+  name, street, then `codePostal ville`, the last two read out of the
+  nested `commune`/`cartographie` when they aren't flat — skipping any
+  part that's absent and collapsing whitespace. A name-only page yields
+  just the name; a street-only page yields just the street.
 - **The fixture list is checked first.** If a match row already carries a
   venue-shaped object (FFBB may start publishing one there; the parent
   spec's sample was truncated), it's used and the detail page is never
@@ -227,10 +282,13 @@ characters.
 
 ## Open questions
 
-1. **The detail page's real field names are unconfirmed** (network-blocked
-   sandbox, as above). The multi-spelling scan is a hedge, not a
-   substitute for one live fetch at deploy time — if it comes back empty,
-   this is one file and one function to correct.
+1. ~~**The detail page's real field names are unconfirmed.**~~ Resolved —
+   see "Verified structure" above. What remains unconfirmed is narrower:
+   whether the _page_ embeds the `salle` object in its RSC payload as the
+   _API_ returns it. The scan is shape-driven rather than path-driven, so
+   a differently-nested but same-named payload still resolves; a page that
+   renders the venue only as pre-formatted HTML text would not, and that
+   is the one case still needing a live fetch to rule out.
 2. **Whether the venue is published as far ahead as the fixture list.** The
    parent spec's one detail-page check (~3 weeks out) found no venue, which
    may mean "not yet set" rather than "not on this page." If venues only
