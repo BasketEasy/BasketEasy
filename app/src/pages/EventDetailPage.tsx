@@ -36,17 +36,38 @@ function isEventDetailTab(value: string | null): value is EventDetailTab {
   return value === 'apercu' || value === 'effectif' || value === 'vote' || value === 'scoresheet';
 }
 
-function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {
+function InfoTile({
+  icon,
+  label,
+  value,
+  // `.tabular` is for digits that line up in a column, so it is opt-in per
+  // tile (the date/time one) rather than applied to every value — most tile
+  // values are free prose (a gym address, an opponent name, notes).
+  tabularValue,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  tabularValue?: boolean;
+}) {
   return (
     <div className="flex gap-2.5 rounded-lg border border-border bg-surface-2 p-3.5">
       <Text as="span" variant="body" tone="structure" className="mt-0.5 shrink-0">
         {icon}
       </Text>
-      <div className="flex flex-col gap-0.5">
+      {/* min-w-0 + break-words: without them a long address or an unbroken
+          notes token stretched the grid cell and the whole page — the only
+          route that still overflowed at 1440px. */}
+      <div className="flex min-w-0 flex-col gap-0.5">
         <Text as="span" variant="label" size="xs" tone="secondary" className="font-bold">
           {label}
         </Text>
-        <Text as="span" variant="body" size="sm" className="tabular">
+        <Text
+          as="span"
+          variant="body"
+          size="sm"
+          className={cn('break-words', tabularValue && 'tabular')}
+        >
           {value}
         </Text>
       </div>
@@ -159,13 +180,16 @@ export function EventDetailPage() {
         </div>
       </div>
 
-      <div className="flex overflow-hidden rounded-lg border border-border shadow-md">
+      <div className="flex flex-col overflow-hidden rounded-lg border border-border shadow-md sm:flex-row">
         <div
           className={cn(
-            'flex w-32 shrink-0 flex-col items-center justify-center gap-1 px-2 py-5 sm:w-36',
+            // Below sm the time block is a full-width band above the teams
+            // instead of a 128px column beside them: at 320px that column
+            // left only ~120px for two avatars and three text runs.
+            'flex w-full shrink-0 flex-row items-center justify-center gap-2 px-2 py-3 sm:w-36 sm:flex-col sm:gap-1 sm:py-5',
             isMatch
               ? 'bg-blue-green text-cream'
-              : 'border-r border-border bg-surface-2 text-charcoal',
+              : 'border-b border-border bg-surface-2 text-charcoal sm:border-b-0 sm:border-r',
           )}
         >
           {event.timeConfirmed ? (
@@ -197,14 +221,14 @@ export function EventDetailPage() {
             {eventTypeLabel(event.type)}
           </Text>
         </div>
-        <div className="flex flex-grow flex-col gap-3.5 bg-surface p-5">
+        <div className="flex min-w-0 flex-grow flex-col gap-3.5 bg-surface p-5">
           {isMatch ? (
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap">
+              <div className="flex min-w-0 items-center gap-3.5">
                 <Avatar>
                   <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
                 </Avatar>
-                <Text tone="inherit" as="span" variant="display">
+                <Text tone="inherit" as="span" variant="display" className="break-words">
                   {team.name}
                 </Text>
               </div>
@@ -217,8 +241,8 @@ export function EventDetailPage() {
               >
                 VS
               </Text>
-              <div className="flex items-center gap-3.5">
-                <Text tone="inherit" as="span" variant="display">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <Text tone="inherit" as="span" variant="display" className="break-words">
                   {event.opponentName}
                 </Text>
                 <Avatar>
@@ -227,11 +251,11 @@ export function EventDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3.5">
+            <div className="flex min-w-0 items-center gap-3.5">
               <Avatar>
                 <AvatarFallback>{teamAvatarInitials(team.name)}</AvatarFallback>
               </Avatar>
-              <Text tone="inherit" as="span" variant="display">
+              <Text tone="inherit" as="span" variant="display" className="break-words">
                 {team.name}
               </Text>
             </div>
@@ -319,6 +343,7 @@ export function EventDetailPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <InfoTile
                 label="Date & heure"
+                tabularValue
                 icon={
                   <svg
                     viewBox="0 0 24 24"

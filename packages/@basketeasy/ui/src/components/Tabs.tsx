@@ -11,7 +11,14 @@ export const TabsList = forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn('inline-flex h-11 items-center rounded-md bg-border/40 p-1 md:h-10', className)}
+    className={cn(
+      // max-w-full + overflow-x-auto: a tab list wider than its container
+      // (four tabs at 320px measured 633px into 288px) scrolls instead of
+      // pushing the page sideways. Wrapping is not an option here — the
+      // fixed h-11/md:h-10 track would clip a second row.
+      'inline-flex h-11 max-w-full items-center overflow-x-auto rounded-md bg-border/40 p-1 md:h-10',
+      className,
+    )}
     {...props}
   />
 ));
