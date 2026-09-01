@@ -35,7 +35,10 @@ module.exports = {
         muted: '#5B564F',
         border: { DEFAULT: '#E7DECF', strong: '#D6C8B2' },
         error: { DEFAULT: '#B23A2E', tint: '#F7EAE8' },
-        success: '#2F7D5C',
+        // `text` mirrors `gold.text`/`error`'s darker-shade pattern: the flat
+        // DEFAULT only measures 4.27:1 on a `/10` tint background, under the
+        // 4.5:1 AA bar for Badge's small text — `text` clears it at 6.4:1.
+        success: { DEFAULT: '#2F7D5C', text: '#245F48' },
       },
       fontFamily: {
         heading: ['"Big Shoulders Display"', '"Arial Narrow"', 'sans-serif'],

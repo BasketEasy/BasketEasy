@@ -350,7 +350,7 @@ export function MatchScoresheetTab({
           tone="danger"
           className="flex h-12 w-12 items-center justify-center rounded-full bg-error-tint"
         >
-          <AlertCircleIcon className="h-6 w-6" />
+          <AlertCircleIcon aria-hidden="true" className="h-6 w-6" />
         </Text>
         <h3 className="font-heading text-lg font-extrabold">L&apos;analyse a échoué</h3>
         {extraction?.failureReason && (

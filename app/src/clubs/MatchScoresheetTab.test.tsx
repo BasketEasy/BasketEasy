@@ -283,8 +283,10 @@ describe('MatchScoresheetTab', () => {
     );
 
     expect(await screen.findByText('96% de confiance')).toBeInTheDocument();
-    expect(screen.getByText('64')).toBeInTheDocument();
-    expect(screen.getByText('58')).toBeInTheDocument();
+    // Rendered twice (a mobile-stacked copy and a desktop side-by-side copy,
+    // toggled with CSS breakpoints rather than JS) — both exist in the DOM.
+    expect(screen.getAllByText('64').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('58').length).toBeGreaterThan(0);
     expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
   });
@@ -326,13 +328,18 @@ describe('MatchScoresheetTab', () => {
     );
 
     const confirmButton = await screen.findByRole('button', { name: /Confirmer ces données/ });
-    expect(confirmButton).toBeDisabled();
+    expect(confirmButton).toHaveAttribute('aria-disabled', 'true');
 
-    const flaggedInput = screen.getByDisplayValue('15');
+    // Each flagged cell gets a distinct accessible name, not a generic one
+    // shared by every correction input on the page.
+    expect(screen.getByRole('spinbutton', { name: 'Q3, Mon équipe' })).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: 'Score par quart-temps' })).toBeInTheDocument();
+
+    const flaggedInput = screen.getByRole('spinbutton', { name: 'Q3, Mon équipe' });
     await user.clear(flaggedInput);
     await user.type(flaggedInput, '18');
 
-    expect(confirmButton).toBeEnabled();
+    expect(confirmButton).not.toHaveAttribute('aria-disabled');
   });
 
   it('hides edit affordances and shows the confirmed footer for a CONFIRMED extraction', async () => {

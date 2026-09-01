@@ -56,7 +56,11 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
     { variant: 'soft', tone: 'muted', class: 'border-border bg-surface-2 text-muted' },
     { variant: 'soft', tone: 'danger', class: 'border-error bg-error-tint text-error' },
     { variant: 'soft', tone: 'accent', class: 'border-gold/35 bg-gold-tint text-gold-text' },
-    { variant: 'soft', tone: 'success', class: 'border-success/30 bg-success/10 text-success' },
+    {
+      variant: 'soft',
+      tone: 'success',
+      class: 'border-success/30 bg-success/10 text-success-text',
+    },
 
     { variant: 'outline', tone: 'brand', class: 'border-orange/40 text-orange-text' },
     { variant: 'outline', tone: 'structure', class: 'border-blue-green/40 text-blue-green' },
