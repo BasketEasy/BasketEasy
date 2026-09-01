@@ -613,13 +613,18 @@ still-open ones plus confirmed two of the original three:
    confirmed: that the _same_ id is returned for the _same_ match on a later
    re-fetch (only fetched once per fixture so far) — needed before trusting
    it as the upsert key in `@@unique([teamId, externalId])`.
-4. **New — venue (`salle`) field location, unresolved.** Not found in either
-   the team-page fixture list or the one per-match detail page checked
-   (an unplayed match ~3 weeks out). Might appear closer to matchday, might
-   live under a different field name, or might not be scraped at all in
-   this design's page-fetch approach. `FfbbMatch.location` should be
-   assumed `null` until this is checked against a near-term or already-
-   played match.
+4. **Venue (`salle`) field location — resolved 2026-09-01, built.** The
+   venue is on the **per-match detail page**, the one behind each fixture
+   row's score column
+   (`.../competitions/<code>/match/<id>`) — not on the team's fixture list,
+   which is why nothing found it here. The import now follows that link per
+   unplayed match and fills `FfbbMatch.location` from it; link validation
+   still doesn't (one fetch, as before). See
+   [`2026-09-01-ffbb-match-venue-address-design.md`](./2026-09-01-ffbb-match-venue-address-design.md).
+   Still open there: the detail page's exact field names, unverified
+   against a live fetch (sandbox egress to competitions.ffbb.com is
+   blocked), and whether FFBB publishes a venue as far ahead as it
+   publishes the fixture.
 5. **New — played-match (`joue: true`) field shape, unresolved.** All 10
    sampled fixtures were unplayed (`resultatEquipe1`/`2: null`); the current
    season for this specific team hadn't started any matches yet as of the

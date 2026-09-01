@@ -16,7 +16,13 @@ export interface FfbbMatch {
   timeConfirmed: boolean;
   opponentLabel: string;
   isHome: boolean;
-  /** Usually null — FFBB rarely publishes a venue this far ahead of matchday. */
+  /**
+   * The venue, as one human-readable French address line ("Salle de la
+   * Herdrie, 12 rue des Sports, 44115 Basse-Goulaine"), read from the
+   * match's own FFBB detail page. Null when the venue couldn't be resolved
+   * (FFBB hasn't published one yet, the detail page didn't parse) or when
+   * the fetch was made without `resolveVenues` — see GetMatchesOptions.
+   */
   location: string | null;
   played: boolean;
 }
@@ -43,6 +49,17 @@ export class FfbbPageFormatError extends Error {
   }
 }
 
+/** Per-call knobs about what a fetch costs us — never about FFBB's page shape, which stays behind the adapter. */
+export interface GetMatchesOptions {
+  /**
+   * Follow each unplayed match's detail page to resolve its venue address.
+   * Off by default: validating a pasted link only needs the team page to
+   * resolve, and paying for one page load per match there would make the
+   * "paste a URL" form wait seconds for data it discards.
+   */
+  resolveVenues?: boolean;
+}
+
 export interface FfbbProvider {
   /**
    * Validates a pasted competitions.ffbb.com team URL. If it matches the
@@ -55,7 +72,12 @@ export interface FfbbProvider {
   /**
    * Matches for one engagement, already normalized (home/away resolved,
    * opponent named). `engagementRef` is the full path string returned by
-   * `parseEngagementRef` — not a bare id.
+   * `parseEngagementRef` — not a bare id. Venue resolution is opt-in via
+   * `options.resolveVenues` and is best-effort: it never fails the call,
+   * it only leaves `location` null.
    */
-  getMatchesForEngagement(engagementRef: string): Promise<FfbbEngagementFetchResult>;
+  getMatchesForEngagement(
+    engagementRef: string,
+    options?: GetMatchesOptions,
+  ): Promise<FfbbEngagementFetchResult>;
 }
