@@ -231,6 +231,19 @@ characters.
    sandbox, as above). The multi-spelling scan is a hedge, not a
    substitute for one live fetch at deploy time — if it comes back empty,
    this is one file and one function to correct.
+
+   **First real-world result (2026-09-01): every import came back with a
+   location of just "Salle".** The page ships its UI labels in the same
+   payload as its data (`"salle": "Salle"`), and a label under a venue key
+   reads exactly like a venue name, so the scan locked onto the label.
+   Fixed by rejecting any value that is nothing but the field's own
+   category word (`GENERIC_VENUE_WORDS`) — a label can no longer be
+   imported as an address. What that fix does **not** yet establish is
+   where the real venue lives, or whether the detail page carries it
+   server-rendered at all rather than fetching it in the browser; until a
+   payload dump settles that, imported matches fall back to "Lieu non
+   communiqué" as before.
+
 2. **Whether the venue is published as far ahead as the fixture list.** The
    parent spec's one detail-page check (~3 weeks out) found no venue, which
    may mean "not yet set" rather than "not on this page." If venues only

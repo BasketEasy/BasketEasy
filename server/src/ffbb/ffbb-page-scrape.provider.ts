@@ -76,6 +76,35 @@ const AWAY_CONTEXT_KEY_PATTERN = /visiteur|visiteuse|exterieur|adverse/i;
 /** A club's, an opponent's or an official's postal address is an address too — never mistake one for the gym. */
 const EXCLUDED_PARENT_KEY_PATTERN = /club|organisme|equipe|engagement|correspondant|arbitre|user/i;
 
+// A rendered page ships its UI labels in the same payload as its data
+// ("salle": "Salle", "adresse": "Adresse"), and a label sitting under a
+// venue key reads exactly like a venue name — that is how imports ended up
+// with a location of just "Salle". A value that is nothing but the category
+// word is a label, never an address.
+const GENERIC_VENUE_WORDS = new Set([
+  'salle',
+  'salles',
+  'gymnase',
+  'gymnases',
+  'lieu',
+  'lieux',
+  'equipement',
+  'equipements',
+  'terrain',
+  'adresse',
+  'adresses',
+  'rue',
+  'voie',
+  'ville',
+  'villes',
+  'commune',
+  'communes',
+  'code postal',
+  'cp',
+  'libelle',
+  'nom',
+]);
+
 /** Guards on the text scan that finds a venue object inside an RSC chunk. */
 const MAX_VENUE_MARKER_SCANS = 40;
 const MAX_ENCLOSING_OBJECT_CANDIDATES = 24;
@@ -692,9 +721,22 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       const value = object[key];
       if (typeof value !== 'string' && typeof value !== 'number') continue;
       const text = String(value).replace(/\s+/g, ' ').trim();
-      if (text.length > 0) return text;
+      if (text.length === 0 || this.isGenericLabel(text)) continue;
+      return text;
     }
     return null;
+  }
+
+  /** True for a value that is just the field's own category word — a UI label the page renders next to the data, not the data. */
+  private isGenericLabel(text: string): boolean {
+    const normalized = text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[:.]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return GENERIC_VENUE_WORDS.has(normalized);
   }
 
   private async runWithConcurrency<T>(

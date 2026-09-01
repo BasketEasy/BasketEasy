@@ -495,6 +495,52 @@ describe('FfbbPageScrapeProvider', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(61);
     });
 
+    it('never imports a UI label map as the venue', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        // The page ships its column headers in the same payload as its data.
+        pushChunkHtml({
+          rencontre: { labels: { salle: 'Salle', adresse: 'Adresse', ville: 'Ville' } },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBeNull();
+    });
+
+    it('reads the real venue even when labels sit beside it in the payload', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          rencontre: {
+            labels: { salle: 'Salle' },
+            salle: {
+              libelle: 'Salle de la Herdrie',
+              adresse: '12 rue des Sports',
+              ville: 'Basse-Goulaine',
+            },
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Salle de la Herdrie, 12 rue des Sports, Basse-Goulaine',
+      );
+    });
+
     it('caps how many detail pages one engagement may fetch', async () => {
       const matches = Array.from({ length: 65 }, (_, i) => rawMatch(`m-${i}`));
       const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);
