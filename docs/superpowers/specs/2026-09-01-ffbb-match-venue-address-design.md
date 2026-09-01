@@ -231,6 +231,37 @@ characters.
    sandbox, as above). The multi-spelling scan is a hedge, not a
    substitute for one live fetch at deploy time — if it comes back empty,
    this is one file and one function to correct.
+
+   **First real-world result (2026-09-01): every import came back with a
+   location of just "Salle".** The page ships its UI labels in the same
+   payload as its data (`"salle": "Salle"`), and a label under a venue key
+   reads exactly like a venue name, so the scan locked onto the label.
+   Fixed by rejecting any value that is nothing but the field's own
+   category word (`GENERIC_VENUE_WORDS`) — a label can no longer be
+   imported as an address.
+
+   **Resolved the same day, against a live page.** A dump of
+   `.../competitions/dm3/match/200000014580569` settled both remaining
+   branches: the venue **is** server-rendered in the RSC payload, and it is
+   published as a typed label/value group, not as a venue-shaped record —
+   which is exactly why a scan looking for `adresse`/`ville`-style keys
+   found nothing but the i18n dictionary:
+
+   ```json
+   {"informations":[{"type":"salle","informations":[
+      {"type":"text","label":"Nom","value":"GYMNASE DE LA CHESNAIE"},
+      {"type":"address","label":"Adresse","value":…}]}]}
+   ```
+
+   That group is now read first (`extractVenueFromInformationGroups`),
+   matched on the group's `type` so a `correspondant` group's postal
+   address can't stand in for the gym; the key-sniffing scan stays as the
+   fallback for any other page shape. The dump also showed the page's own
+   field vocabulary is English (`address`, `room`, `city`), so the key
+   lists carry those spellings too. Still unconfirmed: whether the address
+   item's `value` is always a plain string — it is on the sampled page, and
+   an object is handled as well.
+
 2. **Whether the venue is published as far ahead as the fixture list.** The
    parent spec's one detail-page check (~3 weeks out) found no venue, which
    may mean "not yet set" rather than "not on this page." If venues only

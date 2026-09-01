@@ -495,6 +495,177 @@ describe('FfbbPageScrapeProvider', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(61);
     });
 
+    it('never imports a UI label map as the venue', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        // The page ships its column headers in the same payload as its data.
+        pushChunkHtml({
+          rencontre: { labels: { salle: 'Salle', adresse: 'Adresse', ville: 'Ville' } },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBeNull();
+    });
+
+    it('reads the real venue even when labels sit beside it in the payload', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          rencontre: {
+            labels: { salle: 'Salle' },
+            salle: {
+              libelle: 'Salle de la Herdrie',
+              adresse: '12 rue des Sports',
+              ville: 'Basse-Goulaine',
+            },
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Salle de la Herdrie, 12 rue des Sports, Basse-Goulaine',
+      );
+    });
+
+    // Built from a live competitions.ffbb.com match detail page (2026-09-01):
+    // the venue is published as a typed label/value group, and the page's own
+    // i18n dictionary ("salle":"Salle") sits in the same payload.
+    const realDetailPayload = (addressValue: unknown) => ({
+      data: {
+        informations: [
+          {
+            type: 'salle',
+            informations: [
+              { type: 'text', label: 'Nom', value: 'GYMNASE DE LA CHESNAIE' },
+              { type: 'address', label: 'Adresse', value: addressValue },
+            ],
+          },
+          {
+            type: 'officiels',
+            informations: [{ type: 'text', label: 'Arbitre', value: 'MARTIN Paul' }],
+          },
+        ],
+      },
+      i18nTranslations: { address: 'Adresse', room: 'Salle', salle: 'Salle' },
+    });
+
+    it('reads the venue out of the detail page shape FFBB actually publishes', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml(realDetailPayload('12 RUE DES SPORTS, 44115 BASSE-GOULAINE')),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'GYMNASE DE LA CHESNAIE, 12 RUE DES SPORTS, 44115 BASSE-GOULAINE',
+      );
+    });
+
+    it('reads the same group when the address item holds an object instead of a string', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml(
+          realDetailPayload({
+            address: '12 RUE DES SPORTS',
+            zipCode: '44115',
+            city: 'BASSE-GOULAINE',
+          }),
+        ),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'GYMNASE DE LA CHESNAIE, 12 RUE DES SPORTS, 44115 BASSE-GOULAINE',
+      );
+    });
+
+    it('falls back to the name alone when the group publishes no address yet', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          data: {
+            informations: [
+              {
+                type: 'salle',
+                informations: [{ type: 'text', label: 'Nom', value: 'GYMNASE DE LA CHESNAIE' }],
+              },
+            ],
+          },
+          i18nTranslations: { room: 'Salle', salle: 'Salle' },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe('GYMNASE DE LA CHESNAIE');
+    });
+
+    it('takes the salle group, not another informations group on the same page', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          data: {
+            informations: [
+              {
+                type: 'correspondant',
+                informations: [
+                  { type: 'text', label: 'Nom', value: 'DUPONT Jean' },
+                  { type: 'address', label: 'Adresse', value: '1 RUE DU CLUB, 44000 NANTES' },
+                ],
+              },
+              {
+                type: 'salle',
+                informations: [
+                  { type: 'text', label: 'Nom', value: 'GYMNASE DE LA CHESNAIE' },
+                  { type: 'address', label: 'Adresse', value: '12 RUE DES SPORTS' },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe('GYMNASE DE LA CHESNAIE, 12 RUE DES SPORTS');
+    });
+
     it('caps how many detail pages one engagement may fetch', async () => {
       const matches = Array.from({ length: 65 }, (_, i) => rawMatch(`m-${i}`));
       const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);

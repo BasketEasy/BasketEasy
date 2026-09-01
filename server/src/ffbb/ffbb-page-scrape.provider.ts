@@ -53,12 +53,19 @@ const VENUE_NAME_KEYS = [
 ] as const;
 /** Only trusted on an object already known to be a venue (reached under a salle-ish key) — on anything else, `nom` is as likely to be a club's. */
 const VENUE_GENERIC_NAME_KEYS = ['libelle', 'nom'] as const;
-const VENUE_STREET_KEYS = ['adresseSalle', 'adresse', 'adresse1', 'rue'] as const;
+const VENUE_STREET_KEYS = [
+  'adresseSalle',
+  'adresse',
+  'adresse1',
+  'rue',
+  'address',
+  'street',
+] as const;
 /** FFBB's other address shape: a street split into number + name. Formatted back together rather than read as a plain street key. */
 const VENUE_STREET_NUMBER_KEY = 'numeroVoie';
 const VENUE_STREET_NAME_KEY = 'libelleVoie';
-const VENUE_POSTAL_KEYS = ['codePostalSalle', 'codePostal', 'cp'] as const;
-const VENUE_CITY_KEYS = ['villeSalle', 'ville', 'commune', 'libelleCommune'] as const;
+const VENUE_POSTAL_KEYS = ['codePostalSalle', 'codePostal', 'cp', 'zipCode', 'postalCode'] as const;
+const VENUE_CITY_KEYS = ['villeSalle', 'ville', 'commune', 'libelleCommune', 'city'] as const;
 const VENUE_KEY_MARKERS = [
   ...VENUE_NAME_KEYS,
   ...VENUE_STREET_KEYS,
@@ -75,6 +82,57 @@ const HOME_CONTEXT_KEY_PATTERN = /recevant|receveur|domicile|locaux|hote/i;
 const AWAY_CONTEXT_KEY_PATTERN = /visiteur|visiteuse|exterieur|adverse/i;
 /** A club's, an opponent's or an official's postal address is an address too — never mistake one for the gym. */
 const EXCLUDED_PARENT_KEY_PATTERN = /club|organisme|equipe|engagement|correspondant|arbitre|user/i;
+
+// A rendered page ships its UI labels in the same payload as its data
+// ("salle": "Salle", "adresse": "Adresse"), and a label sitting under a
+// venue key reads exactly like a venue name — that is how imports ended up
+// with a location of just "Salle". A value that is nothing but the category
+// word is a label, never an address.
+const GENERIC_VENUE_WORDS = new Set([
+  'salle',
+  'salles',
+  'gymnase',
+  'gymnases',
+  'lieu',
+  'lieux',
+  'equipement',
+  'equipements',
+  'terrain',
+  'adresse',
+  'adresses',
+  'rue',
+  'voie',
+  'ville',
+  'villes',
+  'commune',
+  'communes',
+  'code postal',
+  'cp',
+  'libelle',
+  'nom',
+]);
+
+// The shape a match detail page actually publishes its venue in, confirmed
+// against a live page (2026-09-01):
+//
+//   {"informations":[{"type":"salle","informations":[
+//      {"type":"text","label":"Nom","value":"GYMNASE DE LA CHESNAIE"},
+//      {"type":"address","label":"Adresse","value":…}]}]}
+//
+// A typed label/value list, not a venue-shaped record — which is why the
+// key-sniffing scan below found only the page's i18n dictionary
+// ("salle":"Salle") and imported that as the address. This group is read
+// first; the key scan stays as the fallback for any other page shape.
+const VENUE_GROUP_TYPE_PATTERN = /^(salle|gymnase|equipement|lieu)$/i;
+const VENUE_ITEM_NAME_LABEL_PATTERN = /nom|salle|gymnase/i;
+const VENUE_ITEM_ADDRESS_TYPE_PATTERN = /address|adresse/i;
+const MAX_INFO_ITEM_DEPTH = 6;
+
+interface InfoItem {
+  type?: unknown;
+  label?: unknown;
+  value?: unknown;
+}
 
 /** Guards on the text scan that finds a venue object inside an RSC chunk. */
 const MAX_VENUE_MARKER_SCANS = 40;
@@ -451,12 +509,117 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
   private async fetchVenue(path: string): Promise<string | null> {
     try {
       const html = await this.fetchPage(path);
-      return this.pickVenue(
-        this.collectVenueCandidatesFromChunks(this.extractNextFPushChunks(html)),
+      const chunks = this.extractNextFPushChunks(html);
+      return (
+        this.extractVenueFromInformationGroups(chunks) ??
+        this.pickVenue(this.collectVenueCandidatesFromChunks(chunks))
       );
     } catch {
       return null;
     }
+  }
+
+  /** The confirmed page shape: an `informations` group typed `salle`, holding label/value items. */
+  private extractVenueFromInformationGroups(chunks: string[]): string | null {
+    for (const chunk of chunks) {
+      const needle = '"salle"';
+      let from = 0;
+      let scans = 0;
+      for (;;) {
+        const at = chunk.indexOf(needle, from);
+        if (at === -1) break;
+        from = at + needle.length;
+        if (scans >= MAX_VENUE_MARKER_SCANS) break;
+        scans += 1;
+        // `"salle"` appears both as the group's `type` value and as a key in
+        // the page's i18n dictionary, so the enclosing object has to prove
+        // it is the group before anything is read out of it.
+        const enclosing = this.parseObjectCovering(chunk, at);
+        if (!enclosing) continue;
+        const venue = this.formatInformationGroup(enclosing);
+        if (venue) return venue;
+      }
+    }
+    return null;
+  }
+
+  private formatInformationGroup(group: Record<string, unknown>): string | null {
+    const type = group.type;
+    if (typeof type !== 'string' || !VENUE_GROUP_TYPE_PATTERN.test(type.trim())) return null;
+
+    const items = this.collectInfoItems(group.informations, [], 0);
+    const name = this.readInfoItem(
+      items,
+      (item) =>
+        typeof item.label === 'string' && VENUE_ITEM_NAME_LABEL_PATTERN.test(item.label.trim()),
+    );
+    const address = this.readInfoItem(
+      items,
+      (item) =>
+        (typeof item.type === 'string' && VENUE_ITEM_ADDRESS_TYPE_PATTERN.test(item.type.trim())) ||
+        (typeof item.label === 'string' && VENUE_ITEM_ADDRESS_TYPE_PATTERN.test(item.label.trim())),
+    );
+
+    const parts = [name, address].filter(
+      (part): part is string => part !== null && part.length > 0,
+    );
+    // The address item sometimes repeats the venue name; don't print it twice.
+    const unique = parts.filter((part, index) => parts.indexOf(part) === index);
+    return unique.length > 0 ? unique.join(', ') : null;
+  }
+
+  private collectInfoItems(value: unknown, out: InfoItem[], depth: number): InfoItem[] {
+    if (depth > MAX_INFO_ITEM_DEPTH || value === null || typeof value !== 'object') return out;
+    if (Array.isArray(value)) {
+      for (const item of value) this.collectInfoItems(item, out, depth + 1);
+      return out;
+    }
+    const object = value as Record<string, unknown>;
+    if ('value' in object) out.push(object as InfoItem);
+    for (const child of Object.values(object)) this.collectInfoItems(child, out, depth + 1);
+    return out;
+  }
+
+  /** An item's `value` is a plain string on this page, but is read as a venue-shaped object too rather than betting on that. */
+  private readInfoItem(items: InfoItem[], matches: (item: InfoItem) => boolean): string | null {
+    for (const item of items) {
+      if (!matches(item)) continue;
+      const { value } = item;
+      if (typeof value === 'string' || typeof value === 'number') {
+        const text = String(value).replace(/\s+/g, ' ').trim();
+        if (text.length > 0 && !this.isGenericLabel(text)) return text;
+        continue;
+      }
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        const formatted = this.formatVenue({
+          object: value as Record<string, unknown>,
+          parentKey: 'salle',
+        });
+        if (formatted) return formatted;
+      }
+    }
+    return null;
+  }
+
+  /** Nearest parseable object enclosing `index`, array element or not — the group is one. */
+  private parseObjectCovering(text: string, index: number): Record<string, unknown> | null {
+    let attempts = 0;
+    for (let i = index; i >= 0; i--) {
+      if (text[i] !== '{') continue;
+      if (attempts >= MAX_ENCLOSING_OBJECT_CANDIDATES) return null;
+      attempts += 1;
+      const objectText = this.readBalancedObject(text, i);
+      if (!objectText || i + objectText.length <= index) continue;
+      try {
+        const parsed: unknown = JSON.parse(objectText);
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        continue;
+      }
+    }
+    return null;
   }
 
   private collectVenueCandidatesFromChunks(chunks: string[]): VenueCandidate[] {
@@ -692,9 +855,22 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       const value = object[key];
       if (typeof value !== 'string' && typeof value !== 'number') continue;
       const text = String(value).replace(/\s+/g, ' ').trim();
-      if (text.length > 0) return text;
+      if (text.length === 0 || this.isGenericLabel(text)) continue;
+      return text;
     }
     return null;
+  }
+
+  /** True for a value that is just the field's own category word — a UI label the page renders next to the data, not the data. */
+  private isGenericLabel(text: string): boolean {
+    const normalized = text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[:.]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return GENERIC_VENUE_WORDS.has(normalized);
   }
 
   private async runWithConcurrency<T>(
