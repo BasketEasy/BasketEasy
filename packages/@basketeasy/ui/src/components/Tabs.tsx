@@ -65,7 +65,7 @@ export const TabsList = forwardRef<
           // scroll-px-6 matches the w-6 fade overlays below, so a snapped or
           // scrollIntoView-ed trigger never ends up partially hidden under
           // its own fade.
-          'inline-flex h-11 max-w-full snap-x snap-mandatory items-center overflow-x-auto scroll-px-6 rounded-md bg-border/40 p-1 [scrollbar-width:none] md:h-10 [&::-webkit-scrollbar]:hidden',
+          'inline-flex h-11 max-w-full snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden scroll-px-6 rounded-md bg-border/40 p-1 [scrollbar-width:none] md:h-10 [&::-webkit-scrollbar]:hidden',
           className,
         )}
         {...props}
