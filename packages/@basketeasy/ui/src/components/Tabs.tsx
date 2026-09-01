@@ -65,7 +65,13 @@ export const TabsList = forwardRef<
           // scroll-px-6 matches the w-6 fade overlays below, so a snapped or
           // scrollIntoView-ed trigger never ends up partially hidden under
           // its own fade.
-          'inline-flex h-11 max-w-full snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden scroll-px-6 rounded-md bg-border/40 p-1 [scrollbar-width:none] md:h-10 [&::-webkit-scrollbar]:hidden',
+          // min-h rather than h: a trigger carrying a Badge (e.g. the count
+          // badges on TeamDetailPage's tabs) is taller than the old fixed
+          // h-11/h-10 track, which silently overflowed and — since only
+          // overflow-x was set — made the browser treat overflow-y as auto
+          // too, producing an unwanted vertical scrollbar. Sizing to content
+          // means there's nothing to overflow.
+          'inline-flex min-h-11 max-w-full snap-x snap-mandatory items-center overflow-x-auto overflow-y-hidden scroll-px-6 rounded-md bg-border/40 p-1 [scrollbar-width:none] md:min-h-10 [&::-webkit-scrollbar]:hidden',
           className,
         )}
         {...props}
