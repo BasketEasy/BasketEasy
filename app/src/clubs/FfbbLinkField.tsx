@@ -42,7 +42,10 @@ export function FfbbLinkField({
   return (
     <div>
       <Label htmlFor={id}>Lien FFBB de l'équipe (facultatif)</Label>
-      <div className="mt-1.5 flex items-center gap-2">
+      {/* min-w-0 on the Input: flex-1 sets flex-basis:0 but leaves
+          min-width:auto, and an input's automatic minimum size is its
+          intrinsic size=20 width (~233px) — which overflowed a 288px row. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <Input
           id={id}
           placeholder={FFBB_TEAM_URL_PLACEHOLDER}
@@ -51,7 +54,7 @@ export function FfbbLinkField({
           disabled={pending}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : helpId}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         {action}
       </div>

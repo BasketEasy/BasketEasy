@@ -192,7 +192,7 @@ function MemberRow({
   if (layout === 'card') {
     return (
       <Card variant="inset" className="flex flex-col gap-2">
-        <Text as="span" variant="label">
+        <Text as="span" variant="label" className="break-all">
           {member.email}
         </Text>
         <Text as="span" variant="meta">

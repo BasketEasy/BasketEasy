@@ -142,7 +142,7 @@ function AppHeaderResolved() {
           const isActive = club.id === activeClubId;
           return (
             <DropdownMenuItem key={club.id} onSelect={() => setActiveClubId(club.id)}>
-              <span className="w-4 text-center" aria-hidden="true">
+              <span className="w-4 shrink-0 text-center" aria-hidden="true">
                 {isActive ? '✓' : ''}
               </span>
               {club.name}

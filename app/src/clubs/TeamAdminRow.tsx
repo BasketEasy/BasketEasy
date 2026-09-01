@@ -52,7 +52,7 @@ export function TeamAdminRow({
   if (layout === 'card') {
     return (
       <Card variant="inset" className="flex flex-col gap-2">
-        <Text as="span" variant="label">
+        <Text as="span" variant="label" className="break-all">
           {admin.email}
         </Text>
         {removeButton}
