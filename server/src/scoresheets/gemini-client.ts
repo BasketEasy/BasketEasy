@@ -7,9 +7,9 @@ import type {
   ScoresheetVisionExtraction,
 } from './scoresheet-vision-client';
 
-// gemini-2.0-flash was retired by Google; 2.5-flash is the current
+// gemini-2.0-flash was retired by Google; 3.6-flash is the current
 // equivalent free-tier vision model with the same structured-output support.
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-3.6-flash';
 
 const PROMPT = `You are reading a French basketball e-Marque scoresheet (feuille de match). \
 Extract the final score for each team, the per-quarter score, and each listed player's jersey \
