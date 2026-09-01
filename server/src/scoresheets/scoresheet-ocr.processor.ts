@@ -1,10 +1,11 @@
+import { Inject } from '@nestjs/common';
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import type { Prisma } from '@prisma/client';
 import type { ParsedScoresheetData } from '@basketeasy/types/scoresheet-extraction';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { GeminiClient } from './gemini-client';
+import { SCORESHEET_VISION_CLIENT, type ScoresheetVisionClient } from './scoresheet-vision-client';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
 import type { ScoresheetOcrJobData } from './scoresheets.service';
 
@@ -47,12 +48,30 @@ function isConsistent(data: ParsedScoresheetData): boolean {
   return true;
 }
 
+// Heuristic, not a model-reported score (Gemini's structured-output mode
+// doesn't return one) — the fraction of leaf fields the model actually
+// populated versus left null, as a rough signal of how legible the source
+// photo was for a reviewer deciding how much to double-check.
+function computeConfidence(data: ParsedScoresheetData): number {
+  const values: unknown[] = [
+    data.homeScore,
+    data.awayScore,
+    ...data.quarterScores.flatMap((q) => [q.home, q.away]),
+    ...data.players.flatMap((p) => [p.number, p.name, p.points, p.fouls]),
+  ];
+  if (values.length === 0) {
+    return 0;
+  }
+  const populated = values.filter((v) => v !== null && v !== undefined).length;
+  return Math.round((populated / values.length) * 100) / 100;
+}
+
 @Processor(SCORESHEET_OCR_QUEUE)
 export class ScoresheetOcrProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-    private readonly gemini: GeminiClient,
+    @Inject(SCORESHEET_VISION_CLIENT) private readonly vision: ScoresheetVisionClient,
   ) {
     super();
   }
@@ -69,8 +88,9 @@ export class ScoresheetOcrProcessor extends WorkerHost {
 
     const buffer = await this.storage.getObjectBuffer(scoresheet.storageKey);
     const contentType = contentTypeForStorageKey(scoresheet.storageKey);
-    const { parsedData, rawResponse } = await this.gemini.extractScoresheet(buffer, contentType);
+    const { parsedData, rawResponse } = await this.vision.extractScoresheet(buffer, contentType);
     const attemptCount = job.attemptsMade + 1;
+    const confidence = computeConfidence(parsedData);
 
     const rawResponseJson = rawResponse as Prisma.InputJsonValue;
     const parsedDataJson = parsedData as unknown as Prisma.InputJsonValue;
@@ -80,11 +100,13 @@ export class ScoresheetOcrProcessor extends WorkerHost {
         eventScoresheetId,
         rawResponse: rawResponseJson,
         parsedData: parsedDataJson,
+        confidence,
         attemptCount,
       },
       update: {
         rawResponse: rawResponseJson,
         parsedData: parsedDataJson,
+        confidence,
         attemptCount,
         failureReason: null,
       },
@@ -104,20 +126,27 @@ export class ScoresheetOcrProcessor extends WorkerHost {
       return;
     }
     const { eventScoresheetId } = job.data;
-    await this.prisma.eventScoresheet.update({
-      where: { id: eventScoresheetId },
-      data: { status: 'FAILED' },
-    });
-    await this.prisma.scoresheetExtraction.upsert({
-      where: { eventScoresheetId },
-      create: {
-        eventScoresheetId,
-        rawResponse: {},
-        parsedData: {},
-        attemptCount: job.attemptsMade,
-        failureReason: error.message,
-      },
-      update: { attemptCount: job.attemptsMade, failureReason: error.message },
-    });
+    try {
+      await this.prisma.eventScoresheet.update({
+        where: { id: eventScoresheetId },
+        data: { status: 'FAILED' },
+      });
+      await this.prisma.scoresheetExtraction.upsert({
+        where: { eventScoresheetId },
+        create: {
+          eventScoresheetId,
+          rawResponse: {},
+          parsedData: {},
+          attemptCount: job.attemptsMade,
+          failureReason: error.message,
+        },
+        update: { attemptCount: job.attemptsMade, failureReason: error.message },
+      });
+    } catch {
+      // Best-effort: the EventScoresheet/Event may have been deleted between
+      // enqueue and this final retry, in which case there's nothing left to
+      // mark FAILED — swallowed so a missing row doesn't surface as an
+      // unhandled rejection inside a BullMQ 'failed' event listener.
+    }
   }
 }

@@ -28,20 +28,27 @@ export class ScoresheetsService {
 
   // Called by EventsService right after confirmScoresheetUpload persists the
   // EventScoresheet row — this module owns the async parsing lifecycle from
-  // here on, EventsService just hands off the id.
+  // here on, EventsService just hands off the id. Enqueues before writing
+  // QUEUED (not after): if the Redis/BullMQ call throws, the row is left at
+  // its previous status (UPLOADED) instead of being permanently stranded at
+  // QUEUED with no job ever created and no worker to pick it up.
+  // jobId: eventScoresheetId lets BullMQ dedupe — a re-upload while the
+  // previous job is still queued/processing replaces it instead of running
+  // two extractions concurrently against the same row.
   async enqueueOcr(eventScoresheetId: string): Promise<void> {
-    await this.prisma.eventScoresheet.update({
-      where: { id: eventScoresheetId },
-      data: { status: 'QUEUED' },
-    });
     await this.ocrQueue.add(
       'extract',
       { eventScoresheetId },
       {
+        jobId: eventScoresheetId,
         attempts: OCR_JOB_ATTEMPTS,
         backoff: { type: 'exponential', delay: OCR_JOB_BACKOFF_DELAY_MS },
       },
     );
+    await this.prisma.eventScoresheet.update({
+      where: { id: eventScoresheetId },
+      data: { status: 'QUEUED' },
+    });
   }
 
   async getExtraction(
@@ -75,6 +82,11 @@ export class ScoresheetsService {
     if (!scoresheet || !scoresheet.extraction) {
       throw new NotFoundException('Aucune extraction à confirmer pour cette feuille de match');
     }
+    // Deliberately doesn't re-run ScoresheetOcrProcessor's isConsistent check
+    // on `corrections` — a manager confirming/editing the data is the human
+    // review step NEEDS_REVIEW exists to route to, so their corrected values
+    // are trusted as ground truth rather than re-validated against the same
+    // heuristic that flagged the original read.
     const extraction = await this.prisma.scoresheetExtraction.update({
       where: { id: scoresheet.extraction.id },
       data: {

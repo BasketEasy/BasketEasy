@@ -26,6 +26,9 @@ CREATE TABLE "ScoresheetExtraction" (
 -- CreateIndex
 CREATE UNIQUE INDEX "ScoresheetExtraction_eventScoresheetId_key" ON "ScoresheetExtraction"("eventScoresheetId");
 
+-- CreateIndex
+CREATE INDEX "ScoresheetExtraction_reviewedByUserId_idx" ON "ScoresheetExtraction"("reviewedByUserId");
+
 -- AddForeignKey
 ALTER TABLE "ScoresheetExtraction" ADD CONSTRAINT "ScoresheetExtraction_eventScoresheetId_fkey" FOREIGN KEY ("eventScoresheetId") REFERENCES "EventScoresheet"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

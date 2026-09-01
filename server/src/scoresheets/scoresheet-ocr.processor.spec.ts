@@ -1,7 +1,7 @@
 import { ScoresheetOcrProcessor } from './scoresheet-ocr.processor';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { GeminiClient } from './gemini-client';
+import type { ScoresheetVisionClient } from './scoresheet-vision-client';
 
 describe('ScoresheetOcrProcessor', () => {
   let processor: ScoresheetOcrProcessor;
@@ -10,7 +10,7 @@ describe('ScoresheetOcrProcessor', () => {
     scoresheetExtraction: { upsert: jest.Mock };
   };
   let storage: { getObjectBuffer: jest.Mock };
-  let gemini: { extractScoresheet: jest.Mock };
+  let vision: { extractScoresheet: jest.Mock };
 
   const consistentData = {
     homeScore: 60,
@@ -36,7 +36,7 @@ describe('ScoresheetOcrProcessor', () => {
       scoresheetExtraction: { upsert: jest.fn() },
     };
     storage = { getObjectBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-image')) };
-    gemini = {
+    vision = {
       extractScoresheet: jest
         .fn()
         .mockResolvedValue({ parsedData: consistentData, rawResponse: consistentData }),
@@ -44,7 +44,7 @@ describe('ScoresheetOcrProcessor', () => {
     processor = new ScoresheetOcrProcessor(
       prisma as unknown as PrismaService,
       storage as unknown as StorageService,
-      gemini as unknown as GeminiClient,
+      vision as unknown as ScoresheetVisionClient,
     );
   });
 
@@ -66,13 +66,13 @@ describe('ScoresheetOcrProcessor', () => {
         data: { status: 'PROCESSING' },
       });
       expect(storage.getObjectBuffer).toHaveBeenCalledWith('scoresheets/event-1/abc.jpg');
-      expect(gemini.extractScoresheet).toHaveBeenCalledWith(
+      expect(vision.extractScoresheet).toHaveBeenCalledWith(
         Buffer.from('fake-image'),
         'image/jpeg',
       );
     });
 
-    it('persists the extraction and marks the scoresheet PARSED when the quarter scores are internally consistent', async () => {
+    it('persists the extraction (including a computed confidence) and marks the scoresheet PARSED when the quarter scores are internally consistent', async () => {
       await processor.process(makeJob());
 
       expect(prisma.scoresheetExtraction.upsert).toHaveBeenCalledWith({
@@ -81,11 +81,13 @@ describe('ScoresheetOcrProcessor', () => {
           eventScoresheetId: 'sheet-1',
           rawResponse: consistentData,
           parsedData: consistentData,
+          confidence: 1,
           attemptCount: 1,
         },
         update: {
           rawResponse: consistentData,
           parsedData: consistentData,
+          confidence: 1,
           attemptCount: 1,
           failureReason: null,
         },
@@ -97,7 +99,7 @@ describe('ScoresheetOcrProcessor', () => {
     });
 
     it('marks the scoresheet NEEDS_REVIEW when the quarter scores do not sum to the total', async () => {
-      gemini.extractScoresheet.mockResolvedValue({
+      vision.extractScoresheet.mockResolvedValue({
         parsedData: { ...consistentData, homeScore: 99 },
         rawResponse: {},
       });
@@ -111,7 +113,7 @@ describe('ScoresheetOcrProcessor', () => {
     });
 
     it('does not flag a review when quarter data is incomplete (nothing to sum-check yet)', async () => {
-      gemini.extractScoresheet.mockResolvedValue({
+      vision.extractScoresheet.mockResolvedValue({
         parsedData: {
           homeScore: 60,
           awayScore: 55,
@@ -127,6 +129,24 @@ describe('ScoresheetOcrProcessor', () => {
         where: { id: 'sheet-1' },
         data: { status: 'PARSED' },
       });
+    });
+
+    it('computes a lower confidence when fewer fields were populated', async () => {
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          homeScore: 60,
+          awayScore: null,
+          quarterScores: [],
+          players: [],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      expect(prisma.scoresheetExtraction.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ create: expect.objectContaining({ confidence: 0.5 }) }),
+      );
     });
   });
 
@@ -167,6 +187,14 @@ describe('ScoresheetOcrProcessor', () => {
       await processor.onFailed(undefined, new Error('boom'));
 
       expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+    });
+
+    it('swallows a missing-row error instead of throwing an unhandled rejection', async () => {
+      prisma.eventScoresheet.update.mockRejectedValue(new Error('Record not found'));
+
+      await expect(
+        processor.onFailed(makeJob({ attemptsMade: 3, opts: { attempts: 3 } }), new Error('boom')),
+      ).resolves.toBeUndefined();
     });
   });
 });

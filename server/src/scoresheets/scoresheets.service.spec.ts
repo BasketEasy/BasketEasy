@@ -40,18 +40,37 @@ describe('ScoresheetsService', () => {
   });
 
   describe('enqueueOcr', () => {
-    it('sets the scoresheet to QUEUED and adds a job for it', async () => {
+    it('adds a deduped job (jobId = eventScoresheetId) before setting the scoresheet to QUEUED', async () => {
+      const calls: string[] = [];
+      queue.add.mockImplementation(async () => {
+        calls.push('add');
+      });
+      prisma.eventScoresheet.update.mockImplementation(async () => {
+        calls.push('update');
+      });
+
       await service.enqueueOcr('sheet-1');
 
+      expect(queue.add).toHaveBeenCalledWith(
+        'extract',
+        { eventScoresheetId: 'sheet-1' },
+        { jobId: 'sheet-1', attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+      );
       expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
         where: { id: 'sheet-1' },
         data: { status: 'QUEUED' },
       });
-      expect(queue.add).toHaveBeenCalledWith(
-        'extract',
-        { eventScoresheetId: 'sheet-1' },
-        { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
-      );
+      // Enqueue must happen first — if it throws, the row should stay at its
+      // previous status rather than being stranded at QUEUED with no job.
+      expect(calls).toEqual(['add', 'update']);
+    });
+
+    it('does not touch the DB when the queue add fails, so the row is not stranded at QUEUED', async () => {
+      queue.add.mockRejectedValue(new Error('Redis unavailable'));
+
+      await expect(service.enqueueOcr('sheet-1')).rejects.toThrow('Redis unavailable');
+
+      expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
     });
   });
 

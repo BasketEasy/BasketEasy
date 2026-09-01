@@ -363,6 +363,8 @@ model ScoresheetExtraction {
   updatedAt         DateTime        @updatedAt
   eventScoresheet   EventScoresheet @relation(fields: [eventScoresheetId], references: [id], onDelete: Cascade)
   reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id])
+
+  @@index([reviewedByUserId])
 }
 
 enum ClubRole {

@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
 import type { ParsedScoresheetData } from '@basketeasy/types/scoresheet-extraction';
+import type {
+  ScoresheetVisionClient,
+  ScoresheetVisionExtraction,
+} from './scoresheet-vision-client';
 
 const MODEL_NAME = 'gemini-2.0-flash';
 
@@ -46,26 +50,34 @@ const RESPONSE_SCHEMA: Schema = {
   required: ['homeScore', 'awayScore', 'quarterScores', 'players'],
 };
 
-export interface GeminiExtractionResult {
-  parsedData: ParsedScoresheetData;
-  rawResponse: unknown;
-}
-
 // Thin wrapper around @google/generative-ai — chosen over Claude/GPT-4V
 // vision for this pipeline because it has a genuinely usable free tier (see
 // docs/backend-stack.md's open "vision provider TBD" decision). Not
 // boot-validated (GEMINI_API_KEY), same "fails only on actual use" pattern
 // as StorageService's R2 vars — an unset key only breaks the OCR job, not
 // the whole app.
+//
+// COMPLIANCE FLAG — not yet signed off: this sends the raw scoresheet photo
+// (player names, jersey numbers) as inline base64 to Google's Gemini API.
+// CLAUDE.md treats France/EU RGPD-compliant hosting as P0 and the R2 bucket
+// is deliberately EU-jurisdiction for that reason, but Gemini's processing
+// region/retention and whether a DPA is in place are undocumented here.
+// Get explicit compliance/legal sign-off on this before shipping real player
+// data through it — swapping providers (or self-hosting a model) is a DI
+// binding change via SCORESHEET_VISION_CLIENT, not a rewrite, if the answer
+// is "not this one".
 @Injectable()
-export class GeminiClient {
+export class GeminiClient implements ScoresheetVisionClient {
   private readonly client: GoogleGenerativeAI;
 
   constructor(config: ConfigService) {
     this.client = new GoogleGenerativeAI(config.get<string>('GEMINI_API_KEY')!);
   }
 
-  async extractScoresheet(imageBuffer: Buffer, mimeType: string): Promise<GeminiExtractionResult> {
+  async extractScoresheet(
+    imageBuffer: Buffer,
+    mimeType: string,
+  ): Promise<ScoresheetVisionExtraction> {
     const model = this.client.getGenerativeModel({
       model: MODEL_NAME,
       generationConfig: {
