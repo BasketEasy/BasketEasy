@@ -35,7 +35,7 @@ describe('GeminiClient', () => {
 
     expect(getGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         generationConfig: expect.objectContaining({ responseMimeType: 'application/json' }),
       }),
     );
