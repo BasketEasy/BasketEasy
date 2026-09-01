@@ -463,6 +463,7 @@ export function EventDetailPage() {
               teamId={teamId!}
               event={event}
               isRostered={isRostered}
+              canManage={canManage}
             />
           </TabsContent>
         )}

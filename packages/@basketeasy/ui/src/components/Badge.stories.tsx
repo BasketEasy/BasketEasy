@@ -27,11 +27,13 @@ export const Matrix: Story = {
     <div className="flex flex-col gap-2">
       {(['solid', 'soft', 'outline'] as const).map((variant) => (
         <div key={variant} className="flex items-center gap-2">
-          {(['brand', 'structure', 'neutral', 'muted', 'danger'] as const).map((tone) => (
-            <Badge key={tone} variant={variant} tone={tone}>
-              {variant}/{tone}
-            </Badge>
-          ))}
+          {(['brand', 'structure', 'neutral', 'muted', 'danger', 'accent', 'success'] as const).map(
+            (tone) => (
+              <Badge key={tone} variant={variant} tone={tone}>
+                {variant}/{tone}
+              </Badge>
+            ),
+          )}
         </div>
       ))}
     </div>

@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { EventScoresheet, TeamEvent } from '@basketeasy/types/events';
+import type { ScoresheetExtraction } from '@basketeasy/types/scoresheet-extraction';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
@@ -31,10 +32,37 @@ const uploadedStatus: EventScoresheet = {
   uploadedAt: '2026-01-01T20:00:00.000Z',
 };
 
+function statusFor(status: EventScoresheet['status']): EventScoresheet {
+  return { status, uploadedByTeamPlayerId: 'tp-1', uploadedAt: '2026-01-01T20:00:00.000Z' };
+}
+
+const parsedData: ScoresheetExtraction['parsedData'] = {
+  homeScore: 64,
+  awayScore: 58,
+  quarterScores: [
+    { home: 14, away: 12 },
+    { home: 16, away: 15 },
+    { home: 18, away: 14 },
+    { home: 16, away: 17 },
+  ],
+  players: [
+    { number: 4, name: 'Karim Belaïd', points: 18, fouls: 2 },
+    { number: 7, name: 'Julie Petit', points: 14, fouls: 3 },
+  ],
+};
+
 function mockStatus(status: EventScoresheet | null) {
   server.use(
     http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
       HttpResponse.json(status),
+    ),
+  );
+}
+
+function mockExtraction(extraction: ScoresheetExtraction | null) {
+  server.use(
+    http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction', () =>
+      HttpResponse.json(extraction),
     ),
   );
 }
@@ -47,7 +75,13 @@ describe('MatchScoresheetTab', () => {
     mockStatus(null);
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={false} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={false}
+        canManage={false}
+      />,
     );
 
     expect(await screen.findByText('Aucune feuille de match pour le moment')).toBeInTheDocument();
@@ -58,7 +92,13 @@ describe('MatchScoresheetTab', () => {
     mockStatus(null);
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     expect(await screen.findByText('Ajoutez la feuille de marque')).toBeInTheDocument();
@@ -69,7 +109,13 @@ describe('MatchScoresheetTab', () => {
     mockStatus(uploadedStatus);
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
@@ -81,7 +127,13 @@ describe('MatchScoresheetTab', () => {
     mockStatus(uploadedStatus);
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={false} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={false}
+        canManage={false}
+      />,
     );
 
     expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
@@ -105,7 +157,13 @@ describe('MatchScoresheetTab', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
@@ -122,7 +180,13 @@ describe('MatchScoresheetTab', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
@@ -153,7 +217,13 @@ describe('MatchScoresheetTab', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
@@ -178,10 +248,142 @@ describe('MatchScoresheetTab', () => {
     );
 
     renderWithProviders(
-      <MatchScoresheetTab clubId="club-1" teamId="team-1" event={matchEvent} isRostered={true} />,
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
     );
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeInTheDocument();
+  });
+
+  it('renders the box score, quarter table, and player table for a PARSED extraction', async () => {
+    mockStatus(statusFor('PARSED'));
+    mockExtraction({
+      status: 'PARSED',
+      parsedData,
+      confidence: 0.96,
+      failureReason: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+    });
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    expect(await screen.findByText('96% de confiance')).toBeInTheDocument();
+    expect(screen.getByText('64')).toBeInTheDocument();
+    expect(screen.getByText('58')).toBeInTheDocument();
+    expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
+  });
+
+  it('flags a quarter-score mismatch and disables confirm until it is fixed', async () => {
+    mockStatus(statusFor('NEEDS_REVIEW'));
+    mockExtraction({
+      status: 'NEEDS_REVIEW',
+      parsedData: {
+        ...parsedData,
+        quarterScores: [
+          { home: 14, away: 12 },
+          { home: 16, away: 15 },
+          { home: 15, away: 14 }, // sums to 61, not 64
+          { home: 16, away: 17 },
+        ],
+      },
+      confidence: 0.62,
+      failureReason: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+    });
+    server.use(
+      http.patch(
+        '/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction/confirm',
+        async ({ request }) => HttpResponse.json({ ...((await request.json()) as object) }),
+      ),
+    );
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    const confirmButton = await screen.findByRole('button', { name: /Confirmer ces données/ });
+    expect(confirmButton).toBeDisabled();
+
+    const flaggedInput = screen.getByDisplayValue('15');
+    await user.clear(flaggedInput);
+    await user.type(flaggedInput, '18');
+
+    expect(confirmButton).toBeEnabled();
+  });
+
+  it('hides edit affordances and shows the confirmed footer for a CONFIRMED extraction', async () => {
+    mockStatus(statusFor('CONFIRMED'));
+    mockExtraction({
+      status: 'CONFIRMED',
+      parsedData,
+      confidence: 0.96,
+      failureReason: null,
+      reviewedByUserId: 'user-1',
+      reviewedAt: '2026-01-01T21:14:00.000Z',
+    });
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    expect(await screen.findByText('Feuille de match confirmée')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Confirmer ces données/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+  });
+
+  it('shows the failure reason and a retry action for a FAILED extraction', async () => {
+    mockStatus(statusFor('FAILED'));
+    mockExtraction({
+      status: 'FAILED',
+      parsedData: null,
+      confidence: null,
+      failureReason: 'Le document est illisible par l’IA.',
+      reviewedByUserId: null,
+      reviewedAt: null,
+    });
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    expect(await screen.findByText("L'analyse a échoué")).toBeInTheDocument();
+    expect(await screen.findByText('Le document est illisible par l’IA.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Relancer l'analyse/ })).toBeInTheDocument();
   });
 });
