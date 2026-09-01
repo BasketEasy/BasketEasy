@@ -1,0 +1,454 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; background: #EFE4D4; font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif; color: #23201C; }
+h1, h2, h3 { line-height: 0.94; margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; }
+a { color: #1E5F74; text-decoration: none; }
+.tabular { font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+
+<div style="width:1720px; min-height:1060px; background:#EFE4D4; padding:28px 32px 40px 32px;">
+
+  <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:22px;">
+    <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Résultats de l'analyse IA &mdash; feuille de match e-Marque</h3>
+    <span style="font-size:13px; color:#5B564F;">Suite de la capture (voir Scoresheet.dc.html) &middot; ce que le manager voit une fois l'analyse automatique revenue.</span>
+  </div>
+
+  <div style="display:flex; gap:28px; align-items:flex-start;">
+
+    <!-- FRAME 1 : PARSED -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">1. Analyse réussie (PARSED)</span>
+      <div style="width:360px; background:#FFFCF7; border:1px solid #E7DECF; border-radius:20px; box-shadow:0 10px 28px rgba(59,42,24,0.11), 0 2px 6px rgba(59,42,24,0.06); padding:22px 20px; display:flex; flex-direction:column; gap:18px;">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E5F74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <h3 style="font-size:19px; font-weight:800;">Feuille de match</h3>
+          </div>
+          <span style="font-size:12.5px; color:#5B564F; padding-left:24px;">AS Basket Nantes vs ES Rezé</span>
+        </div>
+
+        <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:5px 12px; font-size:12.5px; font-weight:700; border:1px solid rgba(30,95,116,0.3); color:#1E5F74; background:#EAF1F3; width:fit-content;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          96% de confiance
+        </span>
+
+        <!-- box score -->
+        <div style="border-radius:12px; background:#FAF5EF; border:1px solid #E7DECF; padding:16px 14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Domicile</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AS Basket Nantes</span>
+            </div>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">64</h2>
+            <span style="font-size:18px; font-weight:700; color:#B8ADA0;">&ndash;</span>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">58</h2>
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; text-align:right;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Extérieur</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ES Rezé</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- quarter scores -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Score par quart-temps</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:11px; font-weight:700; color:#5B564F;"></span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q1</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q2</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q3</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q4</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Nantes</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">18</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px);">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Rezé</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">12</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">15</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">17</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- player stats -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Statistiques joueurs</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">#</span>
+              <span style="padding:6px 8px; font-size:11px; font-weight:700; color:#5B564F;">Joueur</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Pts</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">F</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">4</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Karim Belaïd</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">18</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">2</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">7</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Julie Petit</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">14</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">3</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">11</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Marc Lefèvre</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">9</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">1</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">15</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Yanis Cottreau</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">7</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">4</span>
+            </div>
+          </div>
+          <span style="font-size:11.5px; color:#5B564F; text-align:right;">+ 6 autres joueurs</span>
+        </div>
+
+        <div style="flex-grow:1;"></div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button style="height:44px; border-radius:6px; background:#AA4F22; color:#FAF5EF; border:none; font-size:14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            Confirmer ces données
+          </button>
+          <button style="height:44px; border-radius:6px; background:transparent; border:none; color:#23201C; font-size:14px; font-weight:600;">Voir la photo originale</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAME 2 : NEEDS_REVIEW -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">2. À vérifier (NEEDS_REVIEW)</span>
+      <div style="width:360px; background:#FFFCF7; border:1px solid #E7DECF; border-radius:20px; box-shadow:0 10px 28px rgba(59,42,24,0.11), 0 2px 6px rgba(59,42,24,0.06); padding:22px 20px; display:flex; flex-direction:column; gap:18px;">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E5F74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <h3 style="font-size:19px; font-weight:800;">Feuille de match</h3>
+          </div>
+          <span style="font-size:12.5px; color:#5B564F; padding-left:24px;">AS Basket Nantes vs ES Rezé</span>
+        </div>
+
+        <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:5px 12px; font-size:12.5px; font-weight:700; border:1px solid rgba(192,138,46,0.35); color:#8C5F16; background:#FBF1DC; width:fit-content;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          62% de confiance &middot; à vérifier
+        </span>
+
+        <div style="border-radius:8px; background:#FBF1DC; border:1px solid rgba(192,138,46,0.35); padding:11px 13px; display:flex; flex-direction:column; gap:5px;">
+          <span style="font-size:12.5px; font-weight:700; color:#8C5F16;">2 champs à confirmer avant validation</span>
+          <span style="font-size:12px; color:#6B4E12; line-height:1.5;">&bull; Le 3<sup>e</sup> quart-temps ne totalise pas le score final (61 au lieu de 64).</span>
+          <span style="font-size:12px; color:#6B4E12; line-height:1.5;">&bull; Le nombre de points du n&deg;7 n'a pas pu être lu.</span>
+        </div>
+
+        <!-- box score -->
+        <div style="border-radius:12px; background:#FAF5EF; border:1px solid #E7DECF; padding:16px 14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Domicile</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AS Basket Nantes</span>
+            </div>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">64</h2>
+            <span style="font-size:18px; font-weight:700; color:#B8ADA0;">&ndash;</span>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">58</h2>
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; text-align:right;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Extérieur</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ES Rezé</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- quarter scores, flagged -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Score par quart-temps</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:11px; font-weight:700; color:#5B564F;"></span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q1</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q2</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#8C5F16; text-align:center;">Q3</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q4</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Nantes</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+              <span style="padding:2px; display:flex; justify-content:center;">
+                <span style="display:flex; align-items:center; justify-content:center; gap:2px; background:#FFFFFF; border:1.5px solid #C08A2E; border-radius:5px; padding:3px 2px; width:100%;">
+                  <span class="tabular" style="font-size:13px; font-weight:700; color:#8C5F16;">15</span>
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#C08A2E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </span>
+              </span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px);">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Rezé</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">12</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">15</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">17</span>
+            </div>
+          </div>
+          <span style="font-size:11.5px; color:#8C5F16; line-height:1.5;">Total lu au 3<sup>e</sup> quart-temps&nbsp;: 61. Corrigez la valeur surlignée pour retrouver 64.</span>
+        </div>
+
+        <!-- player stats, one flagged -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Statistiques joueurs</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">#</span>
+              <span style="padding:6px 8px; font-size:11px; font-weight:700; color:#5B564F;">Joueur</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Pts</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">F</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">4</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Karim Belaïd</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">18</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">2</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF; background:#FBF1DC;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">7</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Julie Petit</span>
+              <span style="padding:5px 4px; display:flex; align-items:center; justify-content:center;">
+                <span style="display:flex; align-items:center; justify-content:center; gap:2px; background:#FFFFFF; border:1.5px solid #C08A2E; border-radius:5px; padding:2px 2px; width:100%; height:22px;">
+                  <span style="font-size:12px; font-weight:700; color:#B8ADA0;">?</span>
+                  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#C08A2E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </span>
+              </span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">3</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">11</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Marc Lefèvre</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">9</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">1</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">15</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Yanis Cottreau</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">7</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">4</span>
+            </div>
+          </div>
+          <span style="font-size:11.5px; color:#5B564F; text-align:right;">+ 6 autres joueurs</span>
+        </div>
+
+        <div style="flex-grow:1;"></div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button style="height:44px; border-radius:6px; background:#AA4F22; color:#FAF5EF; border:none; font-size:14px; font-weight:600; opacity:0.45; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            Confirmer ces données
+          </button>
+          <span style="font-size:11.5px; color:#5B564F; text-align:center;">Corrigez les 2 champs surlignés pour activer la validation</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAME 3 : CONFIRMED -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">3. Validée (CONFIRMED)</span>
+      <div style="width:360px; background:#FFFCF7; border:1px solid #E7DECF; border-radius:20px; box-shadow:0 10px 28px rgba(59,42,24,0.11), 0 2px 6px rgba(59,42,24,0.06); padding:22px 20px; display:flex; flex-direction:column; gap:18px;">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E5F74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <h3 style="font-size:19px; font-weight:800;">Feuille de match</h3>
+          </div>
+          <span style="font-size:12.5px; color:#5B564F; padding-left:24px;">AS Basket Nantes vs ES Rezé</span>
+        </div>
+
+        <span style="display:inline-flex; align-items:center; gap:6px; border-radius:9999px; padding:5px 12px; font-size:12.5px; font-weight:700; border:1px solid rgba(47,125,92,0.3); color:#2F7D5C; background:#FFFFFF; width:fit-content;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          Données validées
+        </span>
+
+        <!-- box score -->
+        <div style="border-radius:12px; background:#FAF5EF; border:1px solid #E7DECF; padding:16px 14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Domicile</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">AS Basket Nantes</span>
+            </div>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">64</h2>
+            <span style="font-size:18px; font-weight:700; color:#B8ADA0;">&ndash;</span>
+            <h2 class="tabular" style="font-size:40px; font-weight:800; color:#23201C; padding:0 8px;">58</h2>
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; text-align:right;">
+              <span style="font-size:11.5px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">Extérieur</span>
+              <span style="font-size:13.5px; font-weight:700; color:#23201C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ES Rezé</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- quarter scores -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Score par quart-temps</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:11px; font-weight:700; color:#5B564F;"></span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q1</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q2</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q3</span>
+              <span style="padding:7px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Q4</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px); border-bottom:1px solid #E7DECF;">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Nantes</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">18</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">16</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr repeat(4, 44px);">
+              <span style="padding:7px 10px; font-size:12.5px; font-weight:600; color:#23201C;">Rezé</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">12</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">15</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">14</span>
+              <span class="tabular" style="padding:7px 0; font-size:13px; text-align:center; color:#23201C;">17</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- player stats -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.11em; white-space:nowrap;">Statistiques joueurs</span>
+            <div style="flex-grow:1; height:2px; background:#1E5F74; opacity:0.2;"></div>
+          </div>
+          <div style="border-radius:10px; border:1px solid #E7DECF; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; background:#FAF5EF; border-bottom:1px solid #E7DECF;">
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">#</span>
+              <span style="padding:6px 8px; font-size:11px; font-weight:700; color:#5B564F;">Joueur</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">Pts</span>
+              <span style="padding:6px 0; font-size:11px; font-weight:700; color:#5B564F; text-align:center;">F</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">4</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Karim Belaïd</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">18</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">2</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">7</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Julie Petit</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">14</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">3</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px; border-bottom:1px solid #F1EADF;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">11</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Marc Lefèvre</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">9</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">1</span>
+            </div>
+            <div style="display:grid; grid-template-columns:32px 1fr 40px 32px;">
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#5B564F;">15</span>
+              <span style="padding:8px 8px; font-size:13px; color:#23201C;">Yanis Cottreau</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; font-weight:700; color:#23201C;">7</span>
+              <span class="tabular" style="padding:8px 0; font-size:13px; text-align:center; color:#23201C;">4</span>
+            </div>
+          </div>
+          <span style="font-size:11.5px; color:#5B564F; text-align:right;">+ 6 autres joueurs</span>
+        </div>
+
+        <div style="flex-grow:1;"></div>
+        <div style="border-radius:10px; background:#FAF5EF; border:1px solid #E7DECF; padding:11px 13px; display:flex; align-items:center; gap:10px;">
+          <span style="width:28px; height:28px; border-radius:9999px; background:#EAF1F3; color:#1E5F74; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </span>
+          <div style="display:flex; flex-direction:column; gap:1px;">
+            <span style="font-size:12.5px; font-weight:700; color:#23201C;">Validé par Marc Lefèvre</span>
+            <span style="font-size:11.5px; color:#5B564F;">Aujourd'hui à 21:14</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAME 4 : FAILED -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <span style="font-size:12px; font-weight:700; color:#5B564F; text-transform:uppercase; letter-spacing:0.06em;">4. Échec de l'analyse (FAILED)</span>
+      <div style="width:360px; background:#FFFCF7; border:1px solid #E7DECF; border-radius:20px; box-shadow:0 10px 28px rgba(59,42,24,0.11), 0 2px 6px rgba(59,42,24,0.06); padding:22px 20px; display:flex; flex-direction:column; gap:18px;">
+
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E5F74" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+            <h3 style="font-size:19px; font-weight:800;">Feuille de match</h3>
+          </div>
+          <span style="font-size:12.5px; color:#5B564F; padding-left:24px;">AS Basket Nantes vs ES Rezé</span>
+        </div>
+
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px; padding-top:8px;">
+          <span style="width:48px; height:48px; border-radius:9999px; background:#F7EAE8; color:#B23A2E; display:flex; align-items:center; justify-content:center;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+          </span>
+          <h3 style="font-size:19px; font-weight:800;">L'analyse a échoué</h3>
+        </div>
+
+        <div style="border-radius:8px; background:#F7EAE8; border:1px solid rgba(178,58,46,0.25); padding:12px 14px;">
+          <span style="font-size:13px; color:#B23A2E; line-height:1.5;">Le document est illisible par l'IA (faible luminosité, feuille froissée sur la partie basse).</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:12px; padding:12px; border-radius:10px; background:#FAF5EF; border:1px solid #E7DECF;">
+          <div style="width:52px; height:68px; border-radius:6px; background:#FFFFFF; border:1px solid #D6C8B2; flex-shrink:0; background-image:repeating-linear-gradient(#FFFFFF, #FFFFFF 7px, #E7DECF 8px);"></div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-size:13px; font-weight:600; color:#23201C;">feuille-30-08.jpg</span>
+            <span style="font-size:11.5px; color:#5B564F;">Photo conservée &middot; consultable manuellement</span>
+          </div>
+        </div>
+
+        <span style="font-size:12.5px; color:#5B564F; line-height:1.5;">La photo originale reste archivée avec le match. Vous pouvez relancer l'analyse ou saisir le score à la main depuis l'onglet Match.</span>
+
+        <div style="flex-grow:1;"></div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button style="height:44px; border-radius:6px; background:#AA4F22; color:#FAF5EF; border:none; font-size:14px; font-weight:600;">Relancer l'analyse</button>
+          <button style="height:44px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:14px; font-weight:600;">Voir la photo</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:24px; max-width:1656px; border-radius:8px; border:1.5px dashed #2F6E80; background:#FAF5EF; padding:16px 20px;">
+    <span style="font-size:13px; color:#23201C; line-height:1.6;"><strong style="color:#1E5F74;">État 2, correction en ligne plutôt qu'un formulaire complet&nbsp;:</strong> un champ marqué gold (crayon + bordure) est le seul geste demandé au manager &mdash; il tape la vraie valeur directement dans la case déjà visible à sa place naturelle (la cellule Q3 du tableau, la colonne Pts de la ligne du joueur), sans quitter la mise en page qu'il reconnaît. Un formulaire de ressaisie complet forcerait à retaper 20+ champs déjà corrects pour corriger 2 valeurs. Le bouton de confirmation reste visible mais désactivé (opacité réduite) tant que les champs surlignés ne sont pas résolus &mdash; jamais masqué, pour que l'action cible reste repérable pendant la correction.</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
+</content>
