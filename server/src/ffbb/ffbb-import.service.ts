@@ -11,6 +11,20 @@ import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
 
 type UpsertOutcome = 'created' | 'updated' | 'unchanged';
 
+const MISSING_LOCATION = 'Lieu non communiqué';
+
+// Events are written here through Prisma directly, bypassing the
+// class-validator @MaxLength(120) on Create/UpdateEventDto — so an
+// over-long scraped address would import fine and then make the event
+// uneditable, since EventEditModal re-sends `location` on every save.
+const MAX_LOCATION_LENGTH = 120;
+
+function clampLocation(location: string): string {
+  return location.length <= MAX_LOCATION_LENGTH
+    ? location
+    : `${location.slice(0, MAX_LOCATION_LENGTH - 1).trimEnd()}…`;
+}
+
 /**
  * Pulls every match for every one of a team's linked FFBB engagements and
  * upserts one MATCH Event per match, idempotently. Queries PrismaService
@@ -40,7 +54,15 @@ export class FfbbImportService {
     const matchesByLink: FfbbMatch[][] = [];
     for (const link of links) {
       try {
-        const { matches } = await this.ffbbProvider.getMatchesForEngagement(link.ffbbEngagementRef);
+        // resolveVenues: the venue lives on each match's own FFBB detail
+        // page, not on the fixture list — an import is the one caller that
+        // pays for those extra page loads (link validation doesn't need
+        // them). Best-effort by contract: a match whose venue can't be
+        // resolved comes back with location null and still imports.
+        const { matches } = await this.ffbbProvider.getMatchesForEngagement(
+          link.ffbbEngagementRef,
+          { resolveVenues: true },
+        );
         matchesByLink.push(matches);
       } catch {
         const untouched =
@@ -73,7 +95,13 @@ export class FfbbImportService {
       where: { teamId_externalId: { teamId, externalId: match.id } },
     });
 
-    const location = match.location ?? 'Lieu non communiqué';
+    // Venue resolution is best-effort by design (a detail page can time out
+    // or not publish one yet), so a null never overwrites an address a
+    // previous import already found — otherwise one flaky re-sync would
+    // silently wipe every venue back to the placeholder.
+    const location = match.location
+      ? clampLocation(match.location)
+      : (existing?.location ?? MISSING_LOCATION);
     // FFBB's date_rencontre has no offset; parse it as UTC explicitly
     // rather than relying on the server process's local timezone to
     // interpret an offset-less ISO string.

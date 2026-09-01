@@ -83,6 +83,116 @@ describe('FfbbImportService', () => {
     expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
   });
 
+  it('asks the provider to resolve venues and writes the address to the event', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [
+        match({ location: 'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine' }),
+      ],
+    });
+    prisma.event.findUnique.mockResolvedValue(null);
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(ffbbProvider.getMatchesForEngagement).toHaveBeenCalledWith('ref-1', {
+      resolveVenues: true,
+    });
+    expect(prisma.event.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        location: 'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine',
+      }),
+    });
+  });
+
+  it('fills in the venue on a re-sync of an event imported before FFBB published one', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [match({ location: 'Gymnase du Loquidy, Nantes' })],
+    });
+    prisma.event.findUnique.mockResolvedValue({
+      id: 'event-1',
+      startsAt: new Date('2026-09-20T18:30:00Z'),
+      location: 'Lieu non communiqué',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    });
+
+    const result = await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.update).toHaveBeenCalledWith({
+      where: { id: 'event-1' },
+      data: expect.objectContaining({ location: 'Gymnase du Loquidy, Nantes' }),
+    });
+    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+  });
+
+  it('keeps an already-imported address when a re-sync resolves no venue', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [match({ location: null })],
+    });
+    prisma.event.findUnique.mockResolvedValue({
+      id: 'event-1',
+      startsAt: new Date('2026-09-20T18:30:00Z'),
+      location: 'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    });
+
+    const result = await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.update).not.toHaveBeenCalled();
+    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+  });
+
+  it('clamps an over-long address to what the event DTO will accept back', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      {
+        id: 'link-1',
+        teamId: 'team-1',
+        ffbbEngagementRef: 'ref-1',
+        ffbbEngagementLabel: 'Championnat',
+      },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [match({ location: `Salle ${'très longue '.repeat(20)}Nantes` })],
+    });
+    prisma.event.findUnique.mockResolvedValue(null);
+
+    await service.importSchedule('club-1', 'team-1');
+
+    const { location } = prisma.event.create.mock.calls[0][0].data;
+    expect(location.length).toBeLessThanOrEqual(120);
+    expect(location.endsWith('…')).toBe(true);
+  });
+
   it('updates an existing unplayed event when fields changed, and RSVPs/convocations survive (same id, no delete)', async () => {
     prisma.teamFfbbLink.findMany.mockResolvedValue([
       {

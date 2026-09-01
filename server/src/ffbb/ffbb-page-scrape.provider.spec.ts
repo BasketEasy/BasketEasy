@@ -6,9 +6,41 @@ const OUR_ENGAGEMENT_ID = '200000005346381';
 const ENGAGEMENT_URL = `https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/${OUR_ENGAGEMENT_ID}`;
 const ENGAGEMENT_REF = `ligues/pdl/comites/0044/clubs/pdl0044190/equipes/${OUR_ENGAGEMENT_ID}`;
 
-function pushChunkHtml(payload: unknown): string {
-  const rscText = `2:${JSON.stringify(payload)}\n`;
+function pushChunkHtml(payload: unknown, extraRscText = ''): string {
+  const rscText = `2:${JSON.stringify(payload)}${extraRscText}\n`;
   return `<html><body><script>self.__next_f.push([1,${JSON.stringify(rscText)}])</script></body></html>`;
+}
+
+const DETAIL_PREFIX = 'ligues/pdl/comites/0044/competitions/dm3/match/';
+
+function rawMatch(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    date_rencontre: '2026-09-20T14:00:00',
+    joue: false,
+    idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'BASKET CLUB BASSE GOULAINE' },
+    idEngagementEquipe2: { id: '200000005346379', nom: 'NANTES SULLY BASKET' },
+    ...overrides,
+  };
+}
+
+/** A detail page whose venue sits under a `salle` key, the shape the fixture-list page never carries. */
+function detailPageHtml(venue: Record<string, unknown>, extra: Record<string, unknown> = {}) {
+  return pushChunkHtml({ rencontre: { id: 'whatever', salle: venue, ...extra } });
+}
+
+/** Routes the fixture-list URL to one page and every other URL to a detail page. */
+function routeFetch(
+  fetchSpy: jest.SpyInstance,
+  listHtml: string,
+  detailHtml: (url: string) => string | Response,
+) {
+  fetchSpy.mockImplementation(async (input: unknown) => {
+    const url = String(input);
+    if (url.endsWith(ENGAGEMENT_REF)) return fakeResponse({ text: async () => listHtml });
+    const detail = detailHtml(url);
+    return typeof detail === 'string' ? fakeResponse({ text: async () => detail }) : detail;
+  });
 }
 
 function fakeResponse(
@@ -182,6 +214,299 @@ describe('FfbbPageScrapeProvider', () => {
       await expect(provider.getMatchesForEngagement(ENGAGEMENT_REF)).rejects.toThrow(
         FfbbPageFormatError,
       );
+    });
+  });
+
+  describe('venue resolution', () => {
+    it('leaves location null and fetches nothing extra when resolveVenues is off', async () => {
+      fetchSpy.mockResolvedValue(
+        fakeResponse({ text: async () => pushChunkHtml({ data: [rawMatch('m-1')] }) }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.matches[0].location).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('follows the detail link carried on the match row and formats the venue', async () => {
+      const listHtml = pushChunkHtml({
+        data: [
+          rawMatch('200000014580569', {
+            lien: `https://competitions.ffbb.com/${DETAIL_PREFIX}200000014580569`,
+          }),
+        ],
+      });
+      routeFetch(fetchSpy, listHtml, () =>
+        detailPageHtml({
+          libelleSalle: 'Salle de la Herdrie',
+          adresse: '12 rue des Sports',
+          codePostal: '44115',
+          ville: 'Basse-Goulaine',
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine',
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        2,
+        `https://competitions.ffbb.com/${DETAIL_PREFIX}200000014580569`,
+        expect.anything(),
+      );
+    });
+
+    it('finds the detail link in the page payload when the match row has none', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Gymnase du Loquidy' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe('Gymnase du Loquidy');
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        2,
+        `https://competitions.ffbb.com/${DETAIL_PREFIX}m-1`,
+        expect.anything(),
+      );
+    });
+
+    it("reuses another row's detail path prefix for a match whose own link is missing", async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1'), rawMatch('m-2')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      const fetched: string[] = [];
+      routeFetch(fetchSpy, listHtml, (url) => {
+        fetched.push(url);
+        return detailPageHtml({ libelle: 'Salle Mangin' });
+      });
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches.map((m) => m.location)).toEqual(['Salle Mangin', 'Salle Mangin']);
+      expect(fetched.sort()).toEqual([
+        `https://competitions.ffbb.com/${DETAIL_PREFIX}m-1`,
+        `https://competitions.ffbb.com/${DETAIL_PREFIX}m-2`,
+      ]);
+    });
+
+    it('fetches nothing when the page carries no detail link at all', async () => {
+      fetchSpy.mockResolvedValue(
+        fakeResponse({ text: async () => pushChunkHtml({ data: [rawMatch('m-1')] }) }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('never fetches a detail page for an already-played match', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1', { joue: true }), rawMatch('m-2')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      const fetched: string[] = [];
+      routeFetch(fetchSpy, listHtml, (url) => {
+        fetched.push(url);
+        return detailPageHtml({ libelle: 'Salle Mangin' });
+      });
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBeNull();
+      expect(fetched).toEqual([`https://competitions.ffbb.com/${DETAIL_PREFIX}m-2`]);
+    });
+
+    it('uses a venue carried on the fixture row itself instead of fetching the detail page', async () => {
+      const listHtml = pushChunkHtml(
+        {
+          data: [
+            rawMatch('m-1', {
+              salle: { libelle: 'Salle Jean Guimier', ville: 'Nantes' },
+            }),
+          ],
+        },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Autre salle' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe('Salle Jean Guimier, Nantes');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves one match without a venue when its detail page fails, keeping the others', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1'), rawMatch('m-2'), rawMatch('m-3')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, (url) => {
+        if (url.endsWith('m-1')) throw new Error('network down');
+        if (url.endsWith('m-2')) return fakeResponse({ ok: false, status: 404 });
+        return '<html><body>a page with no payload</body></html>';
+      });
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches.map((m) => m.location)).toEqual([null, null, null]);
+    });
+
+    it('prefers the gym over a club postal address published on the same page', async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          rencontre: {
+            club: { nom: 'BASKET CLUB BASSE GOULAINE', adresse: '1 rue du Club', ville: 'Nantes' },
+            salle: {
+              libelle: 'Salle de la Herdrie',
+              adresse: '12 rue des Sports',
+              ville: 'Basse-Goulaine',
+            },
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Salle de la Herdrie, 12 rue des Sports, Basse-Goulaine',
+      );
+    });
+
+    it.each([
+      [{ nomSalle: 'Complexe sportif' }, 'Complexe sportif'],
+      [{ adresse1: '3 allée des Tilleuls', commune: 'Vertou' }, '3 allée des Tilleuls, Vertou'],
+      [
+        {
+          libelle: 'Salle Pierre de Coubertin',
+          numeroVoie: '5',
+          libelleVoie: 'rue du Stade',
+          cp: '44120',
+        },
+        'Salle Pierre de Coubertin, 5 rue du Stade, 44120',
+      ],
+      [
+        { rue: '8 boulevard des Sports', codePostal: 44300, ville: 'Nantes' },
+        '8 boulevard des Sports, 44300 Nantes',
+      ],
+      [{ horaire: '20:30' }, null],
+    ])('formats the venue shape %j as %s', async (venue, expected) => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml(venue));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(expected);
+    });
+
+    it("ignores a club's mailing address published as an array element", async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          rencontre: {
+            organismes: [
+              {
+                nom: 'BC BASSE GOULAINE',
+                adresse: '1 rue du Club',
+                codePostal: '44115',
+                ville: 'Nantes',
+              },
+            ],
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBeNull();
+    });
+
+    it("picks the home team's gym when the page carries both teams' venues", async () => {
+      const listHtml = pushChunkHtml(
+        { data: [rawMatch('m-1')] },
+        `,{"href":"/${DETAIL_PREFIX}m-1"}`,
+      );
+      routeFetch(fetchSpy, listHtml, () =>
+        pushChunkHtml({
+          rencontre: {
+            // Visiting side first: without side-awareness the tie would be
+            // broken by serialization order and send the team to the wrong gym.
+            equipeVisiteuse: { salle: { libelle: 'Salle des visiteurs', ville: 'Vertou' } },
+            equipeRecevante: { salle: { libelle: 'Salle de la Herdrie', ville: 'Basse-Goulaine' } },
+          },
+        }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe('Salle de la Herdrie, Basse-Goulaine');
+    });
+
+    it('still reads a row-carried venue for matches past the detail-fetch cap', async () => {
+      const matches = Array.from({ length: 62 }, (_, i) =>
+        rawMatch(`m-${i}`, i === 61 ? { salle: { libelle: 'Salle Mangin' } } : {}),
+      );
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Salle du détail' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[61].location).toBe('Salle Mangin');
+      expect(fetchSpy).toHaveBeenCalledTimes(61);
+    });
+
+    it('caps how many detail pages one engagement may fetch', async () => {
+      const matches = Array.from({ length: 65 }, (_, i) => rawMatch(`m-${i}`));
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Salle Mangin' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      // 60 detail pages plus the fixture list itself.
+      expect(fetchSpy).toHaveBeenCalledTimes(61);
+      expect(result.matches.filter((m) => m.location !== null)).toHaveLength(60);
     });
   });
 });

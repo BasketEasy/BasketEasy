@@ -24,11 +24,18 @@ const baseTeam = {
   createdAt: 'x',
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Relative to now, not a fixed date: several assertions below depend on this
+// match not having been played yet (the vote window opens 1h after kickoff
+// and closes 5 days later), so a hardcoded date silently turns into a past
+// match and fails the suite on some later run — same reason MatchVoteTab's
+// fixtures are relative.
 const matchEvent = {
   id: 'event-1',
   teamId: 'team-1',
   type: 'MATCH',
-  startsAt: '2026-08-30T18:00:00.000Z',
+  startsAt: new Date(Date.now() + 2 * DAY_MS).toISOString(),
   location: 'Gymnase Pierre de Coubertin',
   notes: null,
   opponentName: 'ES Rezé',
@@ -213,7 +220,8 @@ describe('EventDetailPage', () => {
   it('hides the Vote tab for a MATCH viewer not both convoked and present, while voting is still open', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     // Base matchEvent fixture: myConvocation false, myRsvpStatus null — not
-    // eligible, and startsAt is in the future so the window hasn't closed.
+    // eligible, and startsAt is in the future (see the fixture) so the
+    // window hasn't closed.
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/events/event-1', () =>
