@@ -14,7 +14,10 @@ import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
 import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
 import { isScoresheetPending, useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
+import { useRetryEventScoresheetExtraction } from './useRetryEventScoresheetExtraction';
 import { Text } from '@basketeasy/ui/text';
+import { toast } from '@basketeasy/ui/toast-store';
+import { getClubErrorMessage } from './clubErrorMessages';
 
 // Must match the allowlist EventsService.getScoresheetUploadUrl enforces
 // server-side — kept in sync by hand since it's four literal strings, not
@@ -173,6 +176,8 @@ export function MatchScoresheetTab({
     error: uploadError,
     reset: resetUpload,
   } = useEventScoresheetUpload(clubId, teamId, event.id);
+  const { mutate: retryAnalysis, isPending: isRetryingAnalysis } =
+    useRetryEventScoresheetExtraction(clubId, teamId, event.id);
   const {
     data: extraction,
     isLoading: isLoadingExtraction,
@@ -224,6 +229,16 @@ export function MatchScoresheetTab({
           return null;
         });
       },
+    });
+  };
+
+  // Success needs no toast: the status cache flips to QUEUED, so the whole
+  // card is replaced by the "analyse en cours" frame — a visible outcome. A
+  // failure leaves the same card in place, and the button that triggered it
+  // can't say what went wrong on its own.
+  const handleRetryAnalysis = () => {
+    retryAnalysis(undefined, {
+      onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
     });
   };
 
@@ -361,13 +376,21 @@ export function MatchScoresheetTab({
           </div>
         )}
         <Text variant="meta" size="xs" className="leading-relaxed">
-          La photo originale reste archivée avec le match. Vous pouvez relancer l&apos;analyse en
-          renvoyant le fichier.
+          La photo originale reste archivée avec le match : vous pouvez relancer l&apos;analyse sans
+          renvoyer le fichier.
         </Text>
         {isRostered && (
           <>
-            <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+            <Button onClick={handleRetryAnalysis} loading={isRetryingAnalysis} className="w-full">
               Relancer l&apos;analyse
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isRetryingAnalysis}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Renvoyer le fichier
             </Button>
             <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
           </>

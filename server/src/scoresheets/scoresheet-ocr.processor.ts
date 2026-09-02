@@ -143,6 +143,21 @@ function computeConfidence(data: ParsedScoresheetData): number {
   return Math.round((populated / values.length) * 100) / 100;
 }
 
+// The provider's message is raw English HTTP detail ("[GoogleGenerativeAI
+// Error]: … [503 Service Unavailable] This model is currently experiencing
+// high demand"), and failureReason is rendered verbatim to a French club
+// manager. A transient saturation is worth naming because the action it calls
+// for differs from an unreadable photo: wait and relaunch, don't re-shoot the
+// sheet.
+const TRANSIENT_PROVIDER_ERROR =
+  /\b(429|500|502|503|504)\b|overload|high demand|unavailable|quota|rate limit|timeout/i;
+
+function failureReasonFor(error: Error): string {
+  return TRANSIENT_PROVIDER_ERROR.test(error.message)
+    ? "Le service d'analyse était momentanément saturé. Relancez l'analyse dans quelques minutes."
+    : error.message;
+}
+
 @Processor(SCORESHEET_OCR_QUEUE)
 export class ScoresheetOcrProcessor extends WorkerHost {
   constructor(
@@ -224,9 +239,9 @@ export class ScoresheetOcrProcessor extends WorkerHost {
           rawResponse: {},
           parsedData: {},
           attemptCount: job.attemptsMade,
-          failureReason: error.message,
+          failureReason: failureReasonFor(error),
         },
-        update: { attemptCount: job.attemptsMade, failureReason: error.message },
+        update: { attemptCount: job.attemptsMade, failureReason: failureReasonFor(error) },
       });
     } catch {
       // Best-effort: the EventScoresheet/Event may have been deleted between

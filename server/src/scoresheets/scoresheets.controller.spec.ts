@@ -11,10 +11,10 @@ const user: RequestUser = { id: 'user-1', email: 'coach@example.com' };
 
 describe('ScoresheetsController', () => {
   let controller: ScoresheetsController;
-  let service: { getExtraction: jest.Mock; confirmExtraction: jest.Mock };
+  let service: { getExtraction: jest.Mock; confirmExtraction: jest.Mock; retryOcr: jest.Mock };
 
   beforeEach(async () => {
-    service = { getExtraction: jest.fn(), confirmExtraction: jest.fn() };
+    service = { getExtraction: jest.fn(), confirmExtraction: jest.fn(), retryOcr: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ScoresheetsController],
@@ -57,6 +57,17 @@ describe('ScoresheetsController', () => {
       await controller.getExtraction('club-1', 'team-1', 'event-1', res);
 
       expect(json).toHaveBeenCalledWith(extraction);
+    });
+  });
+
+  describe('retryExtraction', () => {
+    it('delegates clubId, teamId, eventId and the caller id', async () => {
+      service.retryOcr.mockResolvedValue({ status: 'QUEUED' });
+
+      const result = await controller.retryExtraction('club-1', 'team-1', 'event-1', user);
+
+      expect(service.retryOcr).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+      expect(result).toEqual({ status: 'QUEUED' });
     });
   });
 
