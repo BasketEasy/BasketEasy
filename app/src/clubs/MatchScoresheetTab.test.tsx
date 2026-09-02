@@ -68,7 +68,42 @@ function mockStatus(status: EventScoresheet | null) {
   );
 }
 
+const roster = [
+  {
+    id: 'tp-4',
+    teamId: 'team-1',
+    playerId: 'p-4',
+    firstName: 'Karim',
+    lastName: 'Belaïd',
+    clubId: 'club-1',
+    role: 'PLAYER' as const,
+    createdAt: 'x',
+  },
+  {
+    id: 'tp-7',
+    teamId: 'team-1',
+    playerId: 'p-7',
+    firstName: 'Julie',
+    lastName: 'Petit',
+    clubId: 'club-1',
+    role: 'PLAYER' as const,
+    createdAt: 'x',
+  },
+];
+
+// The extraction card fetches the roster to populate the mapping selects, so
+// every test that renders it needs this handler even when it asserts nothing
+// about the mapping.
+function mockRoster(items = roster) {
+  server.use(
+    http.get('/api/clubs/club-1/teams/team-1/players', () =>
+      HttpResponse.json({ items, total: items.length, page: 1, pageSize: 100 }),
+    ),
+  );
+}
+
 function mockExtraction(extraction: ScoresheetExtraction | null) {
+  mockRoster();
   server.use(
     http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction', () =>
       HttpResponse.json(extraction),
@@ -377,6 +412,189 @@ describe('MatchScoresheetTab', () => {
     expect(screen.getAllByText('58').length).toBeGreaterThan(0);
     expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
+  });
+
+  describe('roster mapping step', () => {
+    const parsedWithOurSide: ParsedScoresheetData = {
+      ...parsedData,
+      scoringPlays: [
+        { team: 'home', jerseyNumber: 4, points: 3, runningScore: 3 },
+        { team: 'home', jerseyNumber: 4, points: 3, runningScore: 6 },
+        { team: 'home', jerseyNumber: 7, points: 2, runningScore: 8 },
+      ],
+    };
+
+    const renderCard = () =>
+      renderWithProviders(
+        <MatchScoresheetTab
+          clubId="club-1"
+          teamId="team-1"
+          event={matchEvent}
+          isRostered={true}
+          canManage={true}
+        />,
+      );
+
+    const withSuggestions = (suggestions: ScoresheetExtraction['suggestedRosterMapping']) => {
+      mockStatus(statusFor('PARSED'));
+      mockExtraction({
+        status: 'PARSED',
+        parsedData: parsedWithOurSide,
+        confidence: 0.96,
+        failureReason: null,
+        reviewedByUserId: null,
+        reviewedAt: null,
+        suggestedRosterMapping: suggestions,
+      });
+    };
+
+    it('seeds each select from the server suggestion and reports how many were recognised', async () => {
+      withSuggestions([
+        { jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' },
+        { jerseyNumber: 7, teamPlayerId: null, sheetName: null },
+      ]);
+
+      renderCard();
+
+      expect(await screen.findByText('Qui est qui')).toBeInTheDocument();
+      expect(screen.getByText('1 numéro sur 2')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Joueur du numéro 4' })).toHaveTextContent(
+        'Karim Belaïd',
+      );
+      expect(screen.getByRole('combobox', { name: 'Joueur du numéro 7' })).toHaveTextContent(
+        'Non attribué',
+      );
+    });
+
+    it('says what an unassigned number will cost rather than blocking the confirm', async () => {
+      withSuggestions([{ jerseyNumber: 4, teamPlayerId: null, sheetName: null }]);
+
+      renderCard();
+
+      // Number 4 scored two threes on our side.
+      expect(
+        await screen.findByText('Ses 6 points ne seront comptés pour personne.'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('nom illisible')).toBeInTheDocument();
+      // A squad can field a licensed guest who isn't in the app, so the
+      // confirm must stay available.
+      expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
+    });
+
+    it('sends only the assigned numbers when confirming', async () => {
+      withSuggestions([
+        { jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' },
+        { jerseyNumber: 7, teamPlayerId: null, sheetName: null },
+      ]);
+      let confirmBody: unknown;
+      server.use(
+        http.patch(
+          '/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction/confirm',
+          async ({ request }) => {
+            confirmBody = await request.json();
+            return HttpResponse.json({
+              status: 'CONFIRMED',
+              parsedData: parsedWithOurSide,
+              confidence: 0.96,
+              failureReason: null,
+              reviewedByUserId: 'user-1',
+              reviewedAt: '2026-01-02T10:00:00.000Z',
+              suggestedRosterMapping: [],
+            });
+          },
+        ),
+      );
+      const user = userEvent.setup();
+
+      renderCard();
+
+      await user.click(await screen.findByRole('button', { name: /Confirmer ces données/ }));
+
+      await waitFor(() =>
+        expect(confirmBody).toEqual({
+          rosterMapping: [{ jerseyNumber: 4, teamPlayerId: 'tp-4' }],
+        }),
+      );
+    });
+
+    it('lets a manager correct a suggestion, and sends the correction', async () => {
+      withSuggestions([{ jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' }]);
+      let confirmBody: unknown;
+      server.use(
+        http.patch(
+          '/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction/confirm',
+          async ({ request }) => {
+            confirmBody = await request.json();
+            return HttpResponse.json({
+              status: 'CONFIRMED',
+              parsedData: parsedWithOurSide,
+              confidence: 0.96,
+              failureReason: null,
+              reviewedByUserId: 'user-1',
+              reviewedAt: '2026-01-02T10:00:00.000Z',
+              suggestedRosterMapping: [],
+            });
+          },
+        ),
+      );
+      const user = userEvent.setup();
+
+      renderCard();
+
+      expect(await screen.findByText('Suggestion retenue')).toBeInTheDocument();
+      await user.click(screen.getByRole('combobox', { name: 'Joueur du numéro 4' }));
+      await user.click(await screen.findByRole('option', { name: 'Julie Petit' }));
+
+      expect(screen.getByText('Corrigé')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /Confirmer ces données/ }));
+
+      await waitFor(() =>
+        expect(confirmBody).toEqual({
+          rosterMapping: [{ jerseyNumber: 4, teamPlayerId: 'tp-7' }],
+        }),
+      );
+    });
+
+    it('does not offer a roster member already taken by another number', async () => {
+      withSuggestions([
+        { jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' },
+        { jerseyNumber: 7, teamPlayerId: null, sheetName: null },
+      ]);
+      const user = userEvent.setup();
+
+      renderCard();
+
+      await user.click(await screen.findByRole('combobox', { name: 'Joueur du numéro 7' }));
+
+      // The server rejects the same player on two numbers; the field
+      // shouldn't offer the collision in the first place.
+      expect(await screen.findByRole('option', { name: 'Karim Belaïd' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+      expect(screen.getByRole('option', { name: 'Julie Petit' })).not.toHaveAttribute(
+        'aria-disabled',
+        'true',
+      );
+    });
+
+    it('hides the mapping step once the sheet is confirmed', async () => {
+      mockStatus(statusFor('CONFIRMED'));
+      mockExtraction({
+        status: 'CONFIRMED',
+        parsedData: parsedWithOurSide,
+        confidence: 0.96,
+        failureReason: null,
+        reviewedByUserId: 'user-1',
+        reviewedAt: '2026-01-02T10:00:00.000Z',
+        suggestedRosterMapping: [{ jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' }],
+      });
+
+      renderCard();
+
+      expect(await screen.findByText('Feuille de match confirmée')).toBeInTheDocument();
+      expect(screen.queryByText('Qui est qui')).not.toBeInTheDocument();
+    });
   });
 
   it('flags a quarter-score mismatch and disables confirm until it is fixed', async () => {
