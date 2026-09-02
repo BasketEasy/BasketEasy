@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import type { Prisma } from '@prisma/client';
@@ -10,14 +15,22 @@ import type {
   ScoresheetTeamSide,
   SuggestedRosterMappingEntry,
 } from '@basketeasy/types/scoresheet-extraction';
+import type { EventScoresheet } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
 
 // BullMQ retries a failed job this many times (exponential backoff, set at
 // enqueue time) before the processor gives up and marks the scoresheet
 // FAILED — see ScoresheetOcrProcessor's 'failed' listener.
-const OCR_JOB_ATTEMPTS = 3;
-const OCR_JOB_BACKOFF_DELAY_MS = 5000;
+//
+// Sized for the failure that actually happens: the vision provider answering
+// 503 "currently experiencing high demand". Those spikes last minutes, so the
+// previous 3 attempts 5s apart burned every retry inside 15 seconds and marked
+// a perfectly readable sheet FAILED. 5 attempts from 30s (30s, 1m, 2m, 4m)
+// spans about 7.5 minutes instead, which is what a temporary spike needs —
+// and a manager can still relaunch by hand afterwards (retryOcr).
+const OCR_JOB_ATTEMPTS = 5;
+const OCR_JOB_BACKOFF_DELAY_MS = 30_000;
 
 export interface ScoresheetOcrJobData {
   eventScoresheetId: string;
@@ -223,6 +236,55 @@ export class ScoresheetsService {
     await this.prisma.eventScoresheet.update({
       where: { id: eventScoresheetId },
       data: { status: 'QUEUED' },
+    });
+  }
+
+  // Re-runs the OCR against the file already archived in R2, so recovering
+  // from a transient provider outage doesn't ask the manager to find the
+  // photo again — the sheet's own storageKey is unchanged, only the job is
+  // new. Same audience as the upload it re-runs (a rostered member, narrowed
+  // here rather than in the guard, mirroring EventsService's scoresheet
+  // routes), since the button sits in the same card.
+  async retryOcr(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<EventScoresheet> {
+    await this.assertEventInTeam(clubId, teamId, eventId);
+    const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
+    if (!myTeamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    const scoresheet = await this.prisma.eventScoresheet.findUnique({ where: { eventId } });
+    if (!scoresheet) {
+      throw new NotFoundException('Aucune feuille de match à analyser pour ce match');
+    }
+    // A confirmed sheet's data is a manager's ground truth, and its
+    // MatchPlayerStat rows are already folded from it — re-reading the photo
+    // over the top of that would silently replace reviewed data with a fresh
+    // guess. Replacing the file is the deliberate way back to square one.
+    if (scoresheet.status === 'CONFIRMED') {
+      throw new BadRequestException(
+        'Cette feuille a déjà été confirmée : renvoyez le fichier pour relancer une analyse',
+      );
+    }
+    await this.enqueueOcr(scoresheet.id);
+    return {
+      status: 'QUEUED',
+      uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
+      uploadedAt: scoresheet.uploadedAt.toISOString(),
+    };
+  }
+
+  // Same "resolved from the caller's own linked Player, never a body-supplied
+  // id" lookup EventsService uses for every self-service scoresheet route —
+  // duplicated rather than imported across modules, like assertEventInTeam
+  // below.
+  private async findMyTeamPlayer(teamId: string, userId: string): Promise<{ id: string } | null> {
+    return this.prisma.teamPlayer.findFirst({
+      where: { teamId, player: { userId } },
+      select: { id: true },
     });
   }
 

@@ -309,6 +309,28 @@ describe('ScoresheetOcrProcessor', () => {
       });
     });
 
+    // failureReason is rendered verbatim to a French club manager, and a
+    // provider saturation calls for a different action (wait, relaunch) than
+    // an unreadable photo (re-shoot it).
+    it('replaces a transient provider error with an actionable French message', async () => {
+      await processor.onFailed(
+        makeJob({ attemptsMade: 3, opts: { attempts: 3 } }),
+        new Error(
+          '[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent: [503 Service Unavailable] This model is currently experiencing high demand.',
+        ),
+      );
+
+      expect(prisma.scoresheetExtraction.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: {
+            attemptCount: 3,
+            failureReason:
+              "Le service d'analyse était momentanément saturé. Relancez l'analyse dans quelques minutes.",
+          },
+        }),
+      );
+    });
+
     it('is a no-op when the job is undefined', async () => {
       await processor.onFailed(undefined, new Error('boom'));
 

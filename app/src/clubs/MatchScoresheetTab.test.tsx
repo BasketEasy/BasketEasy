@@ -702,4 +702,42 @@ describe('MatchScoresheetTab', () => {
     expect(await screen.findByText('Le document est illisible par l’IA.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Relancer l'analyse/ })).toBeInTheDocument();
   });
+
+  // The archived file is still in the bucket, so recovering from a provider
+  // outage re-runs the job rather than asking for the photo again.
+  it('re-runs the analysis on the archived file without a re-upload', async () => {
+    const user = userEvent.setup();
+    mockStatus(statusFor('FAILED'));
+    mockExtraction({
+      status: 'FAILED',
+      parsedData: null,
+      confidence: null,
+      failureReason: "Le service d'analyse était momentanément saturé.",
+      reviewedByUserId: null,
+      reviewedAt: null,
+      suggestedRosterMapping: [],
+    });
+    let retried = false;
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction/retry', () => {
+        retried = true;
+        return HttpResponse.json(statusFor('QUEUED'));
+      }),
+    );
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: /Relancer l'analyse/ }));
+
+    await waitFor(() => expect(retried).toBe(true));
+    expect(await screen.findByText("En file d'attente pour analyse")).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { ParsedScoresheetData } from '@basketeasy/types/scoresheet-extraction';
 import { ScoresheetsService } from './scoresheets.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,7 +14,7 @@ describe('ScoresheetsService', () => {
     event: { findUnique: jest.Mock };
     eventScoresheet: { findUnique: jest.Mock; update: jest.Mock };
     scoresheetExtraction: { update: jest.Mock };
-    teamPlayer: { findMany: jest.Mock };
+    teamPlayer: { findMany: jest.Mock; findFirst: jest.Mock };
     matchPlayerStat: { deleteMany: jest.Mock; createMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -36,7 +36,7 @@ describe('ScoresheetsService', () => {
       event: { findUnique: jest.fn() },
       eventScoresheet: { findUnique: jest.fn(), update: jest.fn() },
       scoresheetExtraction: { update: jest.fn() },
-      teamPlayer: { findMany: jest.fn() },
+      teamPlayer: { findMany: jest.fn(), findFirst: jest.fn() },
       matchPlayerStat: { deleteMany: jest.fn(), createMany: jest.fn() },
       // Runs the callback against the same mock, so assertions on
       // matchPlayerStat/scoresheetExtraction see the transactional writes.
@@ -46,6 +46,7 @@ describe('ScoresheetsService', () => {
     prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
     prisma.event.findUnique.mockResolvedValue(matchEvent);
     prisma.teamPlayer.findMany.mockResolvedValue([]);
+    prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -75,8 +76,8 @@ describe('ScoresheetsService', () => {
         { eventScoresheetId: 'sheet-1' },
         {
           jobId: 'sheet-1',
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
+          attempts: 5,
+          backoff: { type: 'exponential', delay: 30_000 },
           removeOnComplete: true,
           removeOnFail: true,
         },
@@ -96,6 +97,69 @@ describe('ScoresheetsService', () => {
       await expect(service.enqueueOcr('sheet-1')).rejects.toThrow('Redis unavailable');
 
       expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('retryOcr', () => {
+    const uploadedSheet = {
+      id: 'sheet-1',
+      status: 'FAILED',
+      uploadedByTeamPlayerId: 'tp-1',
+      uploadedAt: new Date('2026-09-01T20:00:00Z'),
+    };
+
+    it('re-enqueues the archived file and puts the sheet back in the queue', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue(uploadedSheet);
+
+      const result = await service.retryOcr('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(queue.add).toHaveBeenCalledWith(
+        'extract',
+        { eventScoresheetId: 'sheet-1' },
+        expect.objectContaining({ jobId: 'sheet-1' }),
+      );
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { status: 'QUEUED' },
+      });
+      expect(result).toEqual({
+        status: 'QUEUED',
+        uploadedByTeamPlayerId: 'tp-1',
+        uploadedAt: '2026-09-01T20:00:00.000Z',
+      });
+    });
+
+    it('throws ForbiddenException for a caller who is not on the roster', async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue(null);
+
+      await expect(service.retryOcr('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when nothing has been uploaded to re-read', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue(null);
+
+      await expect(service.retryOcr('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
+    // Re-reading the photo over a manager's reviewed data would replace
+    // ground truth with a fresh guess, and the MatchPlayerStat rows folded
+    // from it with another.
+    it('refuses to re-read a sheet a manager has already confirmed', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        ...uploadedSheet,
+        status: 'CONFIRMED',
+      });
+
+      await expect(service.retryOcr('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
     });
   });
 
