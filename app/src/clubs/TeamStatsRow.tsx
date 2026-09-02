@@ -62,8 +62,7 @@ function AwardBadges({ player }: { player: TeamSeasonPlayerStats }) {
   );
 }
 
-function Repartition({ player }: { player: TeamSeasonPlayerStats }) {
-  const empty = emptyRepartitionLabel(player);
+function Repartition({ player, empty }: { player: TeamSeasonPlayerStats; empty: string | null }) {
   const label = `Répartition des points de ${player.firstName} ${player.lastName}`;
   return (
     <span className="flex items-center gap-3">
@@ -122,6 +121,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
  */
 export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
   const layout = useTableLayout();
+  const emptyReason = emptyRepartitionLabel(player);
 
   if (layout === 'card') {
     return (
@@ -157,9 +157,17 @@ export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
             <Text as="span" variant="eyebrow">
               Répartition des points
             </Text>
-            <Text as="span" variant="label" size="sm" className="tabular">
-              {player.totalPoints} pts
-            </Text>
+            {/* Same distinction the table row makes: "0 pts" would claim a
+                player scored nothing when their sheet was simply unread. */}
+            {emptyReason ? (
+              <Text as="span" variant="meta">
+                {emptyReason}
+              </Text>
+            ) : (
+              <Text as="span" variant="label" size="sm" className="tabular">
+                {player.totalPoints} pts
+              </Text>
+            )}
           </div>
           <PointsRepartitionBar
             className="h-4"
@@ -168,7 +176,7 @@ export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
             twoPointPoints={player.twoPointPoints}
             freeThrowPoints={player.freeThrowPoints}
           />
-          <RepartitionLegend player={player} />
+          {!emptyReason && <RepartitionLegend player={player} />}
         </div>
       </Card>
     );
@@ -189,7 +197,7 @@ export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
       <TableCell className="text-center tabular">{formatCount(player.seasonHighPoints)}</TableCell>
       <TableCell className="text-center tabular">{formatCount(player.seasonHighFouls)}</TableCell>
       <TableCell>
-        <Repartition player={player} />
+        <Repartition player={player} empty={emptyReason} />
       </TableCell>
       <TableCell>
         <AwardBadges player={player} />

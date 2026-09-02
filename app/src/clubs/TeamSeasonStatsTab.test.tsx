@@ -158,6 +158,39 @@ describe('TeamSeasonStatsTab', () => {
     expect(within(row).getByText('Aucun match')).toBeInTheDocument();
   });
 
+  it('says why a card has no bar instead of printing 0 pts', async () => {
+    const desktopWidth = window.innerWidth;
+    window.innerWidth = 390;
+    try {
+      mockStats(
+        stats({
+          players: [
+            player({
+              firstName: 'Nina',
+              lastName: 'Perrin',
+              gamesPlayed: 2,
+              pointsPerGame: null,
+              totalPoints: 0,
+              freeThrowPoints: 0,
+              twoPointPoints: 0,
+              threePointPoints: 0,
+              mvpAwards: 0,
+            }),
+          ],
+        }),
+      );
+
+      renderTab();
+
+      expect(await screen.findByText('Marque non lue')).toBeInTheDocument();
+      expect(screen.queryByText('0 pts')).not.toBeInTheDocument();
+      // A legend of three zeroes says nothing worth the space.
+      expect(screen.queryByText('LF')).not.toBeInTheDocument();
+    } finally {
+      window.innerWidth = desktopWidth;
+    }
+  });
+
   it('renders each record as a card below the desktop breakpoint', async () => {
     // One component, two layouts — the formatting rules (em dash for an
     // unknown average, why a bar is empty) must hold in both.
@@ -178,6 +211,7 @@ describe('TeamSeasonStatsTab', () => {
       // The card carries its own legend, since it is read on its own.
       expect(screen.getByText('LF')).toBeInTheDocument();
       expect(screen.getByText('—')).toBeInTheDocument();
+      expect(screen.getByText('117 pts')).toBeInTheDocument();
     } finally {
       window.innerWidth = desktopWidth;
     }
