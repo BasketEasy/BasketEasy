@@ -31,9 +31,15 @@ import {
   type QuarterMismatch,
 } from './scoresheetConsistency';
 import { useConfirmEventScoresheetExtraction } from './useConfirmEventScoresheetExtraction';
+import { useTeamPlayerList } from './useTeamPlayerList';
+import { ScoresheetRosterMapping, UNASSIGNED } from './ScoresheetRosterMapping';
 
 const FLAGS_SUMMARY_ID = 'scoresheet-flags-summary';
 const CONFIRM_HINT_ID = 'scoresheet-confirm-hint';
+// Well past any real roster, so the mapping's select always offers the whole
+// squad — the same "a team roster is never itself paginated" reasoning
+// TeamDetailPage's card view uses.
+const ROSTER_PAGE_SIZE = 100;
 const quarterMismatchId = (side: 'home' | 'away') => `scoresheet-quarter-mismatch-${side}`;
 
 // One-off icon, only used within this file — a pencil glyph marking a cell as
@@ -435,6 +441,20 @@ export function ScoresheetExtractionCard({
   const [corrections, setCorrections] = useState<ParsedScoresheetData | null>(
     extraction.parsedData,
   );
+  // jersey number → TeamPlayer id (or UNASSIGNED), seeded from the server's
+  // suggestions so the common case is a manager confirming a column of
+  // correct answers rather than filling one in.
+  const [rosterMapping, setRosterMapping] = useState<Record<number, string>>(() =>
+    Object.fromEntries(
+      extraction.suggestedRosterMapping.map((entry) => [
+        entry.jerseyNumber,
+        entry.teamPlayerId ?? UNASSIGNED,
+      ]),
+    ),
+  );
+  // The roster is small and never paginated for this purpose — the mapping
+  // must be able to offer every squad member, not the first page of them.
+  const { data: rosterResult } = useTeamPlayerList(clubId, teamId, { pageSize: ROSTER_PAGE_SIZE });
 
   if (!corrections) {
     return null;
@@ -476,10 +496,12 @@ export function ScoresheetExtractionCard({
     confirm(
       {
         corrections: edited ? corrections : undefined,
-        // Empty until the roster-mapping step lands: this card can't yet say
-        // who wore which number, and an empty mapping is the contract's
-        // "no per-player stats from this sheet" case rather than a guess.
-        rosterMapping: [],
+        rosterMapping: Object.entries(rosterMapping)
+          .filter(([, teamPlayerId]) => teamPlayerId !== UNASSIGNED)
+          .map(([jerseyNumber, teamPlayerId]) => ({
+            jerseyNumber: Number(jerseyNumber),
+            teamPlayerId,
+          })),
       },
       {
         onSuccess: () => toast({ variant: 'success', title: 'Feuille de match confirmée' }),
@@ -535,6 +557,23 @@ export function ScoresheetExtractionCard({
         canManage={canManage && !isReadOnly}
         onChange={updatePlayerStat}
       />
+
+      {/* Waits for the roster rather than rendering selects against an empty
+          option list: a select whose value has no matching option shows blank,
+          so the manager would watch every suggestion appear out of nowhere. */}
+      {!isReadOnly && canManage && event.venue && rosterResult && (
+        <ScoresheetRosterMapping
+          suggestions={extraction.suggestedRosterMapping}
+          roster={rosterResult.items}
+          data={corrections}
+          ourSide={event.venue === 'HOME' ? 'home' : 'away'}
+          value={rosterMapping}
+          onChange={(jerseyNumber, teamPlayerId) =>
+            setRosterMapping((current) => ({ ...current, [jerseyNumber]: teamPlayerId }))
+          }
+          disabled={isPending}
+        />
+      )}
 
       {isReadOnly ? (
         <Card variant="inset" className="flex items-center gap-2.5">

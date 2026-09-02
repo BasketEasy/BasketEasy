@@ -46,6 +46,7 @@ import { TeamRosterCards } from '../clubs/TeamRosterCards';
 import { EventCreateForm } from '../clubs/EventCreateForm';
 import { EventRow } from '../clubs/EventRow';
 import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
+import { TeamSeasonStatsTab } from '../clubs/TeamSeasonStatsTab';
 import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
 import { TeamAdminRow } from '../clubs/TeamAdminRow';
 import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
@@ -165,7 +166,7 @@ const EVENT_SORT_OPTIONS: { value: SortOrder; label: string }[] = [
   { value: 'desc', label: 'Plus lointain d’abord' },
 ];
 
-type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'events';
+type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'stats' | 'events';
 
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
@@ -180,7 +181,9 @@ export function TeamDetailPage() {
         ? 'clubs'
         : tabParam === 'admins'
           ? 'admins'
-          : 'events';
+          : tabParam === 'stats'
+            ? 'stats'
+            : 'events';
   // Clubs partenaires/Administrateurs are management-only tabs, hidden from
   // a rostered player with no manage rights — fall back to Événements (the
   // default for everyone) rather than rendering a tab that isn't in the list.
@@ -188,6 +191,9 @@ export function TeamDetailPage() {
     !canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')
       ? 'events'
       : requestedTab;
+  // Undefined means "the season containing today", which only the server can
+  // resolve — the September-to-August boundary is its rule, not the client's.
+  const [statsSeason, setStatsSeason] = useState<number | undefined>(undefined);
   const backLink = useBackLink();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
@@ -523,10 +529,20 @@ export function TeamDetailPage() {
               Administrateurs
             </TabsTrigger>
           )}
+          <TabsTrigger value="stats">Statistiques</TabsTrigger>
           <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
             Événements
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="stats" className="mt-4">
+          <TeamSeasonStatsTab
+            clubId={clubId!}
+            teamId={teamId!}
+            season={statsSeason}
+            onSeasonChange={setStatsSeason}
+          />
+        </TabsContent>
 
         <TabsContent value="roster" className="mt-4 flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
