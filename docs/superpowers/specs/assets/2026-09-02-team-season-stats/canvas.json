@@ -1,0 +1,69 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1180,
+      "title": "1. Onglet Statistiques — desktop"
+    },
+    {
+      "file": "Mobile.dc.html",
+      "x": 1400,
+      "y": 0,
+      "w": 390,
+      "h": 1460,
+      "title": "2. Onglet Statistiques — mobile (cartes)"
+    },
+    {
+      "file": "RosterMapping.dc.html",
+      "x": 1900,
+      "y": 0,
+      "w": 640,
+      "h": 1240,
+      "title": "4. Feuille de match — correspondance effectif"
+    },
+    {
+      "file": "Empty.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 1000,
+      "h": 680,
+      "title": "3. Onglet Statistiques — aucun match analysé"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "overview",
+      "x": 0,
+      "y": -360,
+      "w": 340,
+      "text": "Kluvo — Statistiques d'équipe sur la saison (spec 2026-09-02).\n\nOrdre de lecture : onglet Statistiques desktop → mobile → état vide → étape de correspondance dans la feuille de match.\n\nMaquettes uniquement, aucun fichier app/server/packages modifié."
+    },
+    {
+      "id": "ramp-tokens",
+      "x": 400,
+      "y": -360,
+      "w": 400,
+      "text": "Barre de répartition : rampe séquentielle d'une seule teinte (blue-green), foncé = tir le plus cher. 3 pts #1E5F74 (= token blue-green existant), 2 pts #3E88A1, LF #82B5C6.\n\nDeux valeurs à tokeniser dans tailwind-preset.cjs : points.two #3E88A1 et points.three-alias / points.free #82B5C6.\n\nValidée en rampe ordinale (monotonie L, écarts ΔL ≥ 0.06, bout clair ≥ 2:1) sur surface ET surface-2. Encodage secondaire obligatoire : écart de 2px couleur surface entre segments, légende toujours présente, totaux en chiffres à côté de la barre — jamais de pourcentage."
+    },
+    {
+      "id": "no-emoji",
+      "x": 860,
+      "y": -360,
+      "w": 400,
+      "text": "Distinctions : la spec et l'issue #78 écrivent 🏆 / 🛡️. Les emoji sont exclus par la direction Parquet (icônes = SVG inline, teinte via `tone`, jamais un glyphe système).\n\nRendu ici en SVG : coupe = Badge soft/accent (gold, le token créé pour l'accent trophée du Vote), bouclier = Badge soft/muted. Aucune couleur nommée hors du composant."
+    },
+    {
+      "id": "mapping-note",
+      "x": 1900,
+      "y": -360,
+      "w": 400,
+      "text": "L'étape reprend le langage déjà posé par les cases signalées de ScoresheetExtractionCard : seul le numéro non résolu passe en gold-tint / bordure gold-text. Les 7 lignes reconnues restent silencieuses — on confirme, on ne ressaisit pas.\n\nUn numéro « Non attribué » ne bloque pas la confirmation (spec : un invité licencié n'est pas dans l'effectif) ; la conséquence est écrite sous le champ."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
