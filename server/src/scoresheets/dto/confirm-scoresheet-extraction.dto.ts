@@ -1,9 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
 import type {
   ConfirmScoresheetExtractionRequest,
   ParsedScoresheetData,
+  ScoresheetTeamSide,
 } from '@basketeasy/types/scoresheet-extraction';
+
+const TEAM_SIDES: ScoresheetTeamSide[] = ['home', 'away'];
 
 class ScoresheetQuarterScoreDto {
   @IsOptional()
@@ -16,6 +19,10 @@ class ScoresheetQuarterScoreDto {
 }
 
 class ScoresheetPlayerStatsDto {
+  @IsOptional()
+  @IsIn(TEAM_SIDES)
+  team!: ScoresheetTeamSide | null;
+
   @IsOptional()
   @IsNumber()
   number!: number | null;
@@ -31,6 +38,23 @@ class ScoresheetPlayerStatsDto {
   @IsOptional()
   @IsNumber()
   fouls!: number | null;
+}
+
+class ScoresheetScoringPlayDto {
+  @IsIn(TEAM_SIDES)
+  team!: ScoresheetTeamSide;
+
+  @IsOptional()
+  @IsNumber()
+  jerseyNumber!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  points!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  runningScore!: number | null;
 }
 
 class ParsedScoresheetDataDto implements ParsedScoresheetData {
@@ -51,6 +75,11 @@ class ParsedScoresheetDataDto implements ParsedScoresheetData {
   @ValidateNested({ each: true })
   @Type(() => ScoresheetPlayerStatsDto)
   players!: ScoresheetPlayerStatsDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ScoresheetScoringPlayDto)
+  scoringPlays!: ScoresheetScoringPlayDto[];
 }
 
 export class ConfirmScoresheetExtractionDto implements ConfirmScoresheetExtractionRequest {

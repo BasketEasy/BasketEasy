@@ -28,7 +28,13 @@ describe('GeminiClient', () => {
   });
 
   it('sends the image as inline base64 data alongside the prompt, requesting structured JSON output', async () => {
-    const parsedData = { homeScore: 60, awayScore: 55, quarterScores: [], players: [] };
+    const parsedData = {
+      homeScore: 60,
+      awayScore: 55,
+      quarterScores: [],
+      players: [],
+      scoringPlays: [],
+    };
     generateContent.mockResolvedValue({ response: { text: () => JSON.stringify(parsedData) } });
 
     const result = await client.extractScoresheet(Buffer.from('fake-image'), 'image/jpeg');
@@ -46,5 +52,28 @@ describe('GeminiClient', () => {
       },
     ]);
     expect(result).toEqual({ parsedData, rawResponse: parsedData });
+  });
+
+  it('asks for the running-score column, where the points notation lives', async () => {
+    generateContent.mockResolvedValue({
+      response: { text: () => JSON.stringify({ scoringPlays: [] }) },
+    });
+
+    await client.extractScoresheet(Buffer.from('fake-image'), 'image/jpeg');
+
+    const [prompt] = generateContent.mock.calls[0][0] as [string];
+    expect(prompt).toContain('MARQUE COURANTE');
+    expect(prompt).toMatch(/circle -> 3 points/);
+    expect(prompt).toMatch(/no circle -> 2 points/);
+    expect(prompt).toMatch(/dot\/point -> 1 point/);
+
+    const schema = getGenerativeModel.mock.calls[0][0].generationConfig.responseSchema;
+    expect(schema.required).toContain('scoringPlays');
+    expect(Object.keys(schema.properties.scoringPlays.items.properties)).toEqual([
+      'team',
+      'jerseyNumber',
+      'points',
+      'runningScore',
+    ]);
   });
 });

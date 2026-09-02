@@ -6,12 +6,38 @@ export interface ScoresheetQuarterScore {
   away: number | null;
 }
 
+/**
+ * Which of the two teams on the sheet a row belongs to. The FFBB sheet's
+ * "Équipe A" is the receiving (home) team, "Équipe B" the visiting (away)
+ * one — the same pairing homeScore/awayScore already use.
+ */
+export type ScoresheetTeamSide = 'home' | 'away';
+
 /** One player's row as read off the scoresheet. */
 export interface ScoresheetPlayerStats {
+  team: ScoresheetTeamSide | null;
   number: number | null;
   name: string | null;
   points: number | null;
   fouls: number | null;
+}
+
+/**
+ * One basket, read off the running-score column ("marque courante") on the
+ * right-hand side of the sheet — the only place points are recorded. Each
+ * pre-printed box is a cumulative team total; the marker strikes the total
+ * reached and writes the scorer's jersey number beside it, the notation
+ * around that number carrying how many points it was worth (see
+ * `ScoresheetPlayerStats.points`, derived from these).
+ */
+export interface ScoresheetScoringPlay {
+  team: ScoresheetTeamSide;
+  /** The jersey number written next to the box, not the box's own number. */
+  jerseyNumber: number | null;
+  /** 1 (free throw), 2 or 3, per the marker's notation. */
+  points: number | null;
+  /** The pre-printed cumulative total the marked box carries. */
+  runningScore: number | null;
 }
 
 /**
@@ -26,6 +52,13 @@ export interface ParsedScoresheetData {
   awayScore: number | null;
   quarterScores: ScoresheetQuarterScore[];
   players: ScoresheetPlayerStats[];
+  /**
+   * Every basket read off the running-score column, in sheet order. The
+   * source of truth for `ScoresheetPlayerStats.points`, which the OCR
+   * worker derives from these rather than trusting a per-player total the
+   * model invented — the left-hand roster block carries no points at all.
+   */
+  scoringPlays: ScoresheetScoringPlay[];
 }
 
 /** The LLM's read of one EventScoresheet, via GET .../scoresheet-extraction. */
