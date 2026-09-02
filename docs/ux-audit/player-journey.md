@@ -4,6 +4,7 @@ Date: 2026-09-02. Scope: the whole logged-in app, re-read from the point of view
 
 Companion artefacts:
 
+- **Implementation plan:** [`./player-first-implementation-plan.md`](./player-first-implementation-plan.md) — the build order for everything below: design-system work first, then ten phases, with the frontend-only ones front-loaded.
 - **Mockups (high-fidelity, real Parquet tokens):** [`./mockups/index.html`](./mockups/index.html) — seven screens, player and manager variants, phone + desktop. PNG renders in [`./mockups/png/`](./mockups/png/).
 - **Flow wireframes:** [`./wireframes/player-golden-journey.svg`](./wireframes/player-golden-journey.svg), [`./wireframes/proposed-player-home.svg`](./wireframes/proposed-player-home.svg), [`./wireframes/proposed-role-split.svg`](./wireframes/proposed-role-split.svg).
 
