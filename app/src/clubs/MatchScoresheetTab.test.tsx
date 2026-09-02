@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { EventScoresheet, TeamEvent } from '@basketeasy/types/events';
-import type { ScoresheetExtraction } from '@basketeasy/types/scoresheet-extraction';
+import type {
+  ParsedScoresheetData,
+  ScoresheetExtraction,
+} from '@basketeasy/types/scoresheet-extraction';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
@@ -36,7 +39,7 @@ function statusFor(status: EventScoresheet['status']): EventScoresheet {
   return { status, uploadedByTeamPlayerId: 'tp-1', uploadedAt: '2026-01-01T20:00:00.000Z' };
 }
 
-const parsedData: ScoresheetExtraction['parsedData'] = {
+const parsedData: ParsedScoresheetData = {
   homeScore: 64,
   awayScore: 58,
   quarterScores: [
@@ -46,8 +49,14 @@ const parsedData: ScoresheetExtraction['parsedData'] = {
     { home: 16, away: 17 },
   ],
   players: [
-    { number: 4, name: 'Karim Belaïd', points: 18, fouls: 2 },
-    { number: 7, name: 'Julie Petit', points: 14, fouls: 3 },
+    { team: 'home', number: 4, name: 'Karim Belaïd', points: 18, fouls: 2 },
+    { team: 'home', number: 7, name: 'Julie Petit', points: 14, fouls: 3 },
+  ],
+  // Points are derived from the running-score column, so a fixture whose
+  // player totals must add up needs the plays that produced them.
+  scoringPlays: [
+    { team: 'home', jerseyNumber: 4, points: 2, runningScore: 2 },
+    { team: 'home', jerseyNumber: 7, points: 3, runningScore: 5 },
   ],
 };
 
@@ -69,6 +78,10 @@ function mockExtraction(extraction: ScoresheetExtraction | null) {
 
 const imageFile = new File(['fake-jpeg-bytes'], 'feuille.jpg', { type: 'image/jpeg' });
 const pdfFile = new File(['fake-pdf-bytes'], 'feuille.pdf', { type: 'application/pdf' });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('MatchScoresheetTab', () => {
   it('shows a read-only empty state for a non-rostered viewer when nothing is uploaded', async () => {
@@ -173,6 +186,79 @@ describe('MatchScoresheetTab', () => {
     await user.click(screen.getByRole('button', { name: 'Envoyer' }));
 
     expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
+  });
+
+  it('lands on the queued state when the confirm returns QUEUED, not just UPLOADED', async () => {
+    // The confirm endpoint hands back QUEUED (it enqueues the OCR job before
+    // responding), so a frame that only knew UPLOADED fell through to the
+    // capture card and looked like the send had done nothing.
+    mockStatus(null);
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet/upload-url', () =>
+        HttpResponse.json({
+          uploadUrl: 'https://r2.example/upload-target',
+          storageKey: 'scoresheets/event-1/abc.jpg',
+        }),
+      ),
+      http.put('https://r2.example/upload-target', () => new HttpResponse(null, { status: 200 })),
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
+        HttpResponse.json(statusFor('QUEUED')),
+      ),
+    );
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
+    );
+
+    const fileInput = await screen.findByLabelText('Choisir un fichier de la feuille de match');
+    await user.upload(fileInput, imageFile);
+    await user.click(await screen.findByRole('button', { name: 'Envoyer' }));
+
+    expect(await screen.findByText('Fichier envoyé')).toBeInTheDocument();
+    expect(screen.queryByText('Ajoutez la feuille de marque')).not.toBeInTheDocument();
+  });
+
+  it('advances from the queued card to the extraction result without a reload', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let statusCalls = 0;
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () => {
+        statusCalls += 1;
+        return HttpResponse.json(statusFor(statusCalls === 1 ? 'PROCESSING' : 'PARSED'));
+      }),
+    );
+    mockExtraction({
+      status: 'PARSED',
+      parsedData,
+      confidence: 0.96,
+      failureReason: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+    });
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    expect(await screen.findByText('Analyse en cours')).toBeInTheDocument();
+
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+
+    await waitFor(() => expect(screen.getByText('96% de confiance')).toBeInTheDocument());
+    expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
   });
 
   it('shows a document placeholder instead of an image preview for a PDF selection', async () => {

@@ -13,6 +13,7 @@ function baseData(overrides: Partial<ParsedScoresheetData> = {}): ParsedScoreshe
       { home: 20, away: 20 },
     ],
     players: [],
+    scoringPlays: [],
     ...overrides,
   };
 }
@@ -62,21 +63,21 @@ describe('findQuarterMismatches', () => {
 describe('findMissingPlayerFields', () => {
   it('flags a player with null points', () => {
     const data = baseData({
-      players: [{ number: 4, name: 'Alice', points: null, fouls: 2 }],
+      players: [{ team: 'home', number: 4, name: 'Alice', points: null, fouls: 2 }],
     });
     expect(findMissingPlayerFields(data)).toEqual([{ playerIndex: 0, field: 'points' }]);
   });
 
   it('flags a player with null fouls', () => {
     const data = baseData({
-      players: [{ number: 4, name: 'Alice', points: 10, fouls: null }],
+      players: [{ team: 'home', number: 4, name: 'Alice', points: 10, fouls: null }],
     });
     expect(findMissingPlayerFields(data)).toEqual([{ playerIndex: 0, field: 'fouls' }]);
   });
 
   it('flags a player missing both points and fouls with two entries', () => {
     const data = baseData({
-      players: [{ number: 4, name: 'Alice', points: null, fouls: null }],
+      players: [{ team: 'home', number: 4, name: 'Alice', points: null, fouls: null }],
     });
     expect(findMissingPlayerFields(data)).toEqual([
       { playerIndex: 0, field: 'points' },
@@ -87,8 +88,8 @@ describe('findMissingPlayerFields', () => {
   it('returns no flags when every player has points and fouls populated', () => {
     const data = baseData({
       players: [
-        { number: 4, name: 'Alice', points: 10, fouls: 2 },
-        { number: 7, name: 'Bob', points: 6, fouls: 1 },
+        { team: 'home', number: 4, name: 'Alice', points: 10, fouls: 2 },
+        { team: 'home', number: 7, name: 'Bob', points: 6, fouls: 1 },
       ],
     });
     expect(findMissingPlayerFields(data)).toEqual([]);
