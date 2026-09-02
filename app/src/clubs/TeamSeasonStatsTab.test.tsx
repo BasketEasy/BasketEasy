@@ -212,6 +212,11 @@ describe('TeamSeasonStatsTab', () => {
       expect(screen.getByText('LF')).toBeInTheDocument();
       expect(screen.getByText('—')).toBeInTheDocument();
       expect(screen.getByText('117 pts')).toBeInTheDocument();
+      // The bar's own segments stay silent on a card: the legend right below
+      // already prints "72" next to the 2-point swatch, so the bar printing
+      // it a second time inside the segment would say the same thing twice.
+      expect(screen.getAllByText('72')).toHaveLength(1);
+      expect(screen.getAllByText('27')).toHaveLength(1);
     } finally {
       window.innerWidth = desktopWidth;
     }

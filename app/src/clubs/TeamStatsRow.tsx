@@ -66,8 +66,13 @@ function Repartition({ player, empty }: { player: TeamSeasonPlayerStats; empty: 
   const label = `Répartition des points de ${player.firstName} ${player.lastName}`;
   return (
     <span className="flex items-center gap-3">
+      {/* Fixed width, not flex-1: the table cell has no width of its own to
+          grow into, and a bar that stretches to fill whatever space is left
+          in the row draws a different length per player for a reason that
+          has nothing to do with their stats. shrink-0 stops the "X pts"
+          label next to it squeezing the bar on a narrow viewport instead. */}
       <PointsRepartitionBar
-        className="flex-1"
+        className="w-48 shrink-0"
         label={label}
         threePointPoints={player.threePointPoints}
         twoPointPoints={player.twoPointPoints}
@@ -175,6 +180,10 @@ export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
             threePointPoints={player.threePointPoints}
             twoPointPoints={player.twoPointPoints}
             freeThrowPoints={player.freeThrowPoints}
+            // RepartitionLegend right below already prints each count next
+            // to its swatch — the bar stays purely visual here so the two
+            // don't repeat the same number.
+            showSegmentCounts={false}
           />
           {!emptyReason && <RepartitionLegend player={player} />}
         </div>

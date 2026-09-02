@@ -69,6 +69,27 @@ describe('PointsRepartitionBar', () => {
     expect(screen.queryByText('1')).not.toBeInTheDocument();
   });
 
+  it('omits every in-bar number when the caller carries its own legend', () => {
+    render(
+      <PointsRepartitionBar
+        label="Répartition"
+        showSegmentCounts={false}
+        threePointPoints={27}
+        twoPointPoints={72}
+        freeThrowPoints={18}
+      />,
+    );
+
+    // A caller pairing the bar with a per-bucket legend shouldn't print the
+    // same number twice — the bar stays purely visual in that case.
+    expect(screen.queryByText('72')).not.toBeInTheDocument();
+    expect(screen.queryByText('27')).not.toBeInTheDocument();
+    // The accessible name still carries the real values either way.
+    expect(screen.getByRole('img')).toHaveAccessibleName(
+      'Répartition : 27 points sur 3 points, 72 points sur 2 points, 18 points sur lancers francs',
+    );
+  });
+
   it('sizes each segment by its share of the total', () => {
     const { container } = render(
       <PointsRepartitionBar

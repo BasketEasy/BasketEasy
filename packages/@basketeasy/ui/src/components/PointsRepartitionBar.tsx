@@ -15,9 +15,14 @@ import { cn } from '../lib/cn';
  * darkest for the most expensive basket, because the three buckets are
  * ordered. Segments are separated by a 2px gap in the surface colour rather
  * than by hue distance, so adjacent steps stay distinguishable for a viewer
- * who can't separate them by colour at all; the counts are always available
- * as text too, in the segment when it is wide enough and in the caller's
- * legend regardless.
+ * who can't separate them by colour at all.
+ *
+ * The counts are always readable in *some* text form, but not necessarily
+ * twice: a caller pairing the bar with its own per-bucket legend (a count
+ * next to each swatch) should set `showSegmentCounts={false}` — printing the
+ * same number both inside a wide segment and again in the legend right below
+ * it is the one thing worth avoiding. Leave it on for a caller with no
+ * per-row legend (e.g. one shared legend above a whole table).
  *
  * A total of zero renders an empty sunk track. That covers both "hasn't
  * played" and "the running-score column was unreadable" — which of the two it
@@ -29,6 +34,8 @@ export interface PointsRepartitionBarProps {
   freeThrowPoints: number;
   /** Accessible name, e.g. "Répartition des points de Camille Roy". */
   label: string;
+  /** Off for a caller that already prints each count in its own legend. */
+  showSegmentCounts?: boolean;
   className?: string;
 }
 
@@ -48,6 +55,7 @@ export function PointsRepartitionBar({
   twoPointPoints,
   freeThrowPoints,
   label,
+  showSegmentCounts = true,
   className,
 }: PointsRepartitionBarProps) {
   const counts = {
@@ -92,7 +100,7 @@ export function PointsRepartitionBar({
               segment.className,
             )}
           >
-            {share >= MIN_SHARE_FOR_INLINE_COUNT ? count : null}
+            {showSegmentCounts && share >= MIN_SHARE_FOR_INLINE_COUNT ? count : null}
           </span>
         );
       })}
