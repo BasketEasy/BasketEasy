@@ -12,7 +12,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate } from './eventDateFormat';
 import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
 import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
-import { useEventScoresheetStatus } from './useEventScoresheetStatus';
+import { isScoresheetPending, useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
 import { Text } from '@basketeasy/ui/text';
 
@@ -179,7 +179,7 @@ export function MatchScoresheetTab({
     isError: isExtractionError,
     refetch: refetchExtraction,
   } = useEventScoresheetExtraction(clubId, teamId, event.id, {
-    enabled: status?.status !== undefined && status.status !== 'UPLOADED',
+    enabled: status ? !isScoresheetPending(status.status) : false,
   });
 
   // Revokes the previous object URL whenever a new file replaces it, and on
@@ -384,8 +384,14 @@ export function MatchScoresheetTab({
     if (isExtractionError) {
       return <QueryError onRetry={() => refetchExtraction()} />;
     }
-    if (isLoadingExtraction || !extraction) {
+    if (isLoadingExtraction) {
       return <SkeletonList rows={3} variant="card" />;
+    }
+    // A terminal status with no extraction row is an inconsistent read, not
+    // a "still analysing" one — surface it as a retryable error instead of
+    // a skeleton that never resolves.
+    if (!extraction) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
     }
     return (
       <ScoresheetExtractionCard

@@ -20,6 +20,7 @@ const corrections = {
   awayScore: 55,
   quarterScores: [],
   players: [],
+  scoringPlays: [],
 };
 
 describe('useConfirmEventScoresheetExtraction', () => {
