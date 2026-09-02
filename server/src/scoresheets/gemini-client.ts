@@ -7,12 +7,14 @@ import type {
   ScoresheetVisionExtraction,
 } from './scoresheet-vision-client';
 
-// gemini-2.0-flash was retired by Google. gemini-3.6-flash requires
-// prepaid billing credits on the Google Cloud project (confirmed via a
-// "prepayment credits are depleted" 429) even at low usage, which doesn't
-// work for a no-billing deployment — 2.5-flash has a genuine free tier with
-// the same structured-output support.
-const MODEL_NAME = 'gemini-2.5-flash';
+// gemini-2.0-flash and gemini-2.5-flash are both retired for this project
+// (404 "no longer available to new users", pointing at gemini-3.6-flash).
+// gemini-3.6-flash requires a billing account linked to the Google Cloud
+// project even for free-tier-quota usage — without one, requests 429 with
+// "prepayment credits are depleted". Set up billing at aistudio.google.com
+// rather than swapping the model again; there is no free-tier model left
+// that works without it.
+const MODEL_NAME = 'gemini-3.6-flash';
 
 const PROMPT = `You are reading a French basketball e-Marque scoresheet (feuille de match). \
 Extract the final score for each team, the per-quarter score, and each listed player's jersey \
