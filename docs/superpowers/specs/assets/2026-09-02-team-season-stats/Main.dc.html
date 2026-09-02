@@ -1,0 +1,314 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+* { box-sizing: border-box; }
+body { margin: 0; background: #EFE4D4; font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif; color: #23201C; }
+h1, h2, h3 { line-height: 0.94; margin: 0; font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; }
+a { color: #1E5F74; text-decoration: none; }
+a:hover { color: #16495B; text-decoration: underline; }
+.tabular { font-variant-numeric: tabular-nums; }
+</style>
+</helmet>
+
+<div style="width:1280px; min-height:1140px; background:#EFE4D4; padding:0 0 56px 0;">
+
+  <!-- App shell top bar (context only) -->
+  <div style="height:56px; background:#FFFCF7; border-bottom:1px solid #E7DECF; display:flex; align-items:center; padding:0 32px; box-shadow:0 1px 2px rgba(59,42,24,0.07);">
+    <span style="font-family:'Big Shoulders Display',sans-serif; font-weight:800; font-size:20px; color:#D4622A; letter-spacing:0.01em;">Kluvo</span>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:24px; font-size:13px; font-weight:600; color:#5B564F;">
+      <span>Tableau de bord</span>
+      <span>Mes équipes</span>
+      <span style="width:32px; height:32px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">IP</span>
+    </div>
+  </div>
+
+  <div style="max-width:1152px; margin:0 auto; padding:24px 32px 0 32px; display:flex; flex-direction:column; gap:20px;">
+
+    <!-- Page header -->
+    <a href="#" style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:#1E5F74; width:fit-content;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l-7 7 7 7"/></svg>
+      AS Basket Nantes
+    </a>
+
+    <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <h1 style="font-size:34px; font-weight:800; color:#23201C;">U15 Filles</h1>
+        <span style="font-size:14px; color:#5B564F;">U15 &middot; Féminin</span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button style="height:40px; padding:0 16px; border-radius:6px; background:#FFFCF7; border:1px solid #D6C8B2; color:#23201C; font-size:14px; font-weight:600;">Modifier</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:inline-flex; align-items:center; min-height:40px; border-radius:6px; background:rgba(231,222,207,0.4); padding:4px; width:fit-content; gap:2px;">
+      <span style="min-height:36px; padding:0 12px; display:flex; align-items:center; gap:8px; color:#23201C; font-weight:500; font-size:14px;">Effectif
+        <span style="display:inline-flex; align-items:center; border-radius:9999px; border:1px solid #E7DECF; padding:1px 10px; font-size:12px; font-weight:600; color:#23201C;">8</span>
+      </span>
+      <span style="min-height:36px; padding:0 12px; display:flex; align-items:center; gap:8px; color:#23201C; font-weight:500; font-size:14px;">Clubs partenaires
+        <span style="display:inline-flex; align-items:center; border-radius:9999px; border:1px solid #E7DECF; padding:1px 10px; font-size:12px; font-weight:600; color:#23201C;">2</span>
+      </span>
+      <span style="min-height:36px; padding:0 12px; display:flex; align-items:center; gap:8px; color:#23201C; font-weight:500; font-size:14px;">Administrateurs
+        <span style="display:inline-flex; align-items:center; border-radius:9999px; border:1px solid #E7DECF; padding:1px 10px; font-size:12px; font-weight:600; color:#23201C;">2</span>
+      </span>
+      <span style="min-height:36px; padding:0 12px; display:flex; align-items:center; border-radius:4px; background:#FFFCF7; color:#AA4F22; font-weight:600; font-size:14px; box-shadow:0 1px 2px rgba(59,42,24,0.07);">Statistiques</span>
+      <span style="min-height:36px; padding:0 12px; display:flex; align-items:center; gap:8px; color:#23201C; font-weight:500; font-size:14px;">Événements
+        <span style="display:inline-flex; align-items:center; border-radius:9999px; border:1px solid #E7DECF; padding:1px 10px; font-size:12px; font-weight:600; color:#23201C;">23</span>
+      </span>
+    </div>
+
+    <!-- Season selector + the "only analysed matches count" caption -->
+    <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; margin-top:4px;">
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span style="font-size:14px; font-weight:700; color:#23201C;">Saison</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; width:220px; height:40px; padding:0 12px; border-radius:6px; border:1px solid #E7DECF; background:#FAF5EF; font-size:14px; color:#23201C;">
+          <span>Saison 2026-2027</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#5B564F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"/></svg>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; padding-bottom:11px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E5F74" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6h.01"/></svg>
+        <span class="tabular" style="font-size:14px; font-weight:700; color:#23201C;">Calculé sur 8 matchs analysés</span>
+        <span style="font-size:14px; color:#5B564F;">&middot; les matchs dont la feuille n'a pas été analysée et confirmée ne comptent pas.</span>
+      </div>
+    </div>
+
+    <!-- Section heading (court-line rule) -->
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:4px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <h3 style="font-size:20px; font-weight:700; text-transform:uppercase; letter-spacing:0.11em; color:#5B564F;">Statistiques individuelles</h3>
+        <span style="height:2px; flex-grow:1; border-radius:2px; background:rgba(30,95,116,0.2);"></span>
+      </div>
+
+      <!-- Legend for the repartition bar + the anti-misreading line -->
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px;">
+        <span style="font-size:13px; color:#5B564F; max-width:620px; line-height:1.45;">
+          La répartition montre <strong style="font-weight:700; color:#23201C;">comment les points ont été marqués</strong>, pas une adresse&nbsp;: la feuille de match ne consigne que les tirs réussis, jamais les tentatives.
+        </span>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <span style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:#5B564F;">
+            <span style="width:12px; height:12px; border-radius:3px; background:#1E5F74;"></span>3 points
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:#5B564F;">
+            <span style="width:12px; height:12px; border-radius:3px; background:#3E88A1;"></span>2 points
+          </span>
+          <span style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:#5B564F;">
+            <span style="width:12px; height:12px; border-radius:3px; background:#82B5C6;"></span>Lancers francs
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats table -->
+    <div style="border-radius:8px; border:1px solid #E7DECF; background:#FFFCF7; overflow:hidden; box-shadow:0 1px 2px rgba(59,42,24,0.07);">
+      <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <thead>
+          <tr style="background:#FFFCF7; border-bottom:1px solid #E7DECF;">
+            <th style="text-align:left; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:212px;">Joueur</th>
+            <th style="text-align:center; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:52px;">MJ</th>
+            <th style="text-align:center; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:68px;">PTS/M</th>
+            <th style="text-align:center; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:64px;">FA/M</th>
+            <th style="text-align:center; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:92px; line-height:1.25;">Meilleur total PTS</th>
+            <th style="text-align:center; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:88px; line-height:1.25;">Meilleur total FA</th>
+            <th style="text-align:left; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px; width:296px;">Répartition des points</th>
+            <th style="text-align:left; padding:8px 12px; color:#5B564F; font-weight:600; font-size:13px;">Distinctions</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          <!-- Row 1 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">CR</span><span style="font-weight:600;">Camille Roy</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">8</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">14,6</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">2,1</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">24</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">4</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:45px; background:#1E5F74; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">27</span>
+                  <span style="width:121px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">72</span>
+                  <span style="width:30px; background:#82B5C6;"></span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">117 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px;">
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:3px 10px; font-size:12px; font-weight:600; border:1px solid rgba(192,138,46,0.35); background:#FBF1DC; color:#8C5F16;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H5a2 2 0 0 0 0 4h1.3"/><path d="M17 5.5h2a2 2 0 0 1 0 4h-1.3"/><path d="M12 14v3.5"/><path d="M9 20h6"/></svg>
+                <span class="tabular">MVP &times;3</span>
+              </span>
+            </td>
+          </tr>
+
+          <!-- Row 2 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">LM</span><span style="font-weight:600;">Léa Martin</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">8</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">11,3</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">1,6</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">19</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">3</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:98px; background:#1E5F74; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">45</span>
+                  <span style="width:78px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">36</span>
+                  <span style="width:20px; background:#82B5C6;"></span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">90 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px;">
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:3px 10px; font-size:12px; font-weight:600; border:1px solid rgba(192,138,46,0.35); background:#FBF1DC; color:#8C5F16;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H5a2 2 0 0 0 0 4h1.3"/><path d="M17 5.5h2a2 2 0 0 1 0 4h-1.3"/><path d="M12 14v3.5"/><path d="M9 20h6"/></svg>
+                <span class="tabular">MVP &times;1</span>
+              </span>
+            </td>
+          </tr>
+
+          <!-- Row 3 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">CD</span><span style="font-weight:600;">Chloé Dubois</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">7</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">8,4</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">2,9</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">15</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">5</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:30px; background:#1E5F74;"></span>
+                  <span style="width:139px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">42</span>
+                  <span style="width:27px; background:#82B5C6;"></span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">59 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px; color:#5B564F;">&mdash;</td>
+          </tr>
+
+          <!-- Row 4 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">MG</span><span style="font-weight:600;">Manon Girard</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">6</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">6,2</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">1,2</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">12</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">3</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:64px; background:#1E5F74; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">12</span>
+                  <span style="width:106px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">20</span>
+                  <span style="width:26px; background:#82B5C6;"></span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">37 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px;">
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:3px 10px; font-size:12px; font-weight:600; border:1px solid #E7DECF; background:#FAF5EF; color:#5B564F;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.2c0 4.3-2.9 7.9-7 8.8-4.1-.9-7-4.5-7-8.8V6l7-2.8Z"/></svg>
+                <span class="tabular">En difficulté &times;1</span>
+              </span>
+            </td>
+          </tr>
+
+          <!-- Row 5 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">SF</span><span style="font-weight:600;">Sarah Fabre</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">5</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">3,8</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">3,4</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">8</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">5</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:145px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">14</span>
+                  <span style="width:53px; background:#82B5C6; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#23201C; font-variant-numeric:tabular-nums;">5</span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">19 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px;">
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:9999px; padding:3px 10px; font-size:12px; font-weight:600; border:1px solid #E7DECF; background:#FAF5EF; color:#5B564F;">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19 6v5.2c0 4.3-2.9 7.9-7 8.8-4.1-.9-7-4.5-7-8.8V6l7-2.8Z"/></svg>
+                <span class="tabular">En difficulté &times;2</span>
+              </span>
+            </td>
+          </tr>
+
+          <!-- Row 6 -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">JB</span><span style="font-weight:600;">Julie Blanc</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">4</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#23201C;">1,5</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">0,8</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">4</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">2</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="display:flex; align-items:stretch; gap:2px; width:200px; height:14px; border-radius:4px; overflow:hidden; background:#FFFCF7;">
+                  <span style="width:131px; background:#3E88A1; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#FFFCF7; font-variant-numeric:tabular-nums;">4</span>
+                  <span style="width:67px; background:#82B5C6; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#23201C; font-variant-numeric:tabular-nums;">2</span>
+                </div>
+                <span class="tabular" style="font-size:13px; font-weight:700; color:#5B564F; white-space:nowrap;">6 pts</span>
+              </div>
+            </td>
+            <td style="padding:12px; color:#5B564F;">&mdash;</td>
+          </tr>
+
+          <!-- Row 7 : played, but the running-score column was unreadable -> null average -->
+          <tr style="border-bottom:1px solid #E7DECF;">
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">NP</span><span style="font-weight:600;">Nina Perrin</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">2</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#5B564F;">&mdash;</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">1,5</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#5B564F;">&mdash;</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">2</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:200px; height:14px; border-radius:4px; background:#E9DDCA;"></div>
+                <span style="font-size:12.5px; color:#5B564F; white-space:nowrap;">Marque non lue</span>
+              </div>
+            </td>
+            <td style="padding:12px; color:#5B564F;">&mdash;</td>
+          </tr>
+
+          <!-- Row 8 : rostered, never played -->
+          <tr>
+            <td style="padding:12px;"><div style="display:flex; align-items:center; gap:10px;"><span style="width:28px; height:28px; border-radius:9999px; background:#1E5F74; color:#FAF5EF; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">AL</span><span style="font-weight:600;">Alice Lemoine</span></div></td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#23201C;">0</td>
+            <td class="tabular" style="padding:12px; text-align:center; font-weight:700; color:#5B564F;">&mdash;</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#5B564F;">&mdash;</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#5B564F;">&mdash;</td>
+            <td class="tabular" style="padding:12px; text-align:center; color:#5B564F;">&mdash;</td>
+            <td style="padding:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:200px; height:14px; border-radius:4px; background:#E9DDCA;"></div>
+                <span style="font-size:12.5px; color:#5B564F; white-space:nowrap;">Aucun match</span>
+              </div>
+            </td>
+            <td style="padding:12px; color:#5B564F;">&mdash;</td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
