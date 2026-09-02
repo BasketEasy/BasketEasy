@@ -185,7 +185,13 @@ describe('ScoresheetsService', () => {
         id: 'sheet-1',
         extraction: { id: 'extraction-1' },
       });
-      const corrections = { homeScore: 61, awayScore: 55, quarterScores: [], players: [] };
+      const corrections = {
+        homeScore: 61,
+        awayScore: 55,
+        quarterScores: [],
+        players: [],
+        scoringPlays: [],
+      };
       prisma.scoresheetExtraction.update.mockResolvedValue({
         parsedData: corrections,
         confidence: null,

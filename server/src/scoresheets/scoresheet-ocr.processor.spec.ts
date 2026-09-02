@@ -22,6 +22,7 @@ describe('ScoresheetOcrProcessor', () => {
       { home: 15, away: 13 },
     ],
     players: [],
+    scoringPlays: [],
   };
 
   beforeEach(() => {
@@ -119,6 +120,130 @@ describe('ScoresheetOcrProcessor', () => {
           awayScore: 55,
           quarterScores: [{ home: null, away: null }],
           players: [],
+          scoringPlays: [],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { status: 'PARSED' },
+      });
+    });
+
+    it('derives each player\u2019s points from the running-score plays, keyed by team and jersey number', async () => {
+      const play = (
+        team: 'home' | 'away',
+        jerseyNumber: number,
+        points: number,
+        runningScore: number,
+      ) => ({ team, jerseyNumber, points, runningScore });
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          homeScore: 8,
+          awayScore: 2,
+          quarterScores: [],
+          players: [
+            { team: 'home', number: 7, name: 'Johan', points: null, fouls: 1 },
+            { team: 'home', number: 9, name: 'Jules', points: null, fouls: 0 },
+            // Same jersey number as a home player, different team.
+            { team: 'away', number: 7, name: 'Marc', points: null, fouls: 2 },
+          ],
+          scoringPlays: [
+            play('home', 7, 3, 3),
+            play('home', 9, 2, 5),
+            play('home', 7, 1, 6),
+            play('home', 7, 2, 8),
+            play('away', 7, 2, 2),
+          ],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      const { parsedData } = prisma.scoresheetExtraction.upsert.mock.calls[0][0].create;
+      expect(parsedData.players).toEqual([
+        { team: 'home', number: 7, name: 'Johan', points: 6, fouls: 1 },
+        { team: 'home', number: 9, name: 'Jules', points: 2, fouls: 0 },
+        { team: 'away', number: 7, name: 'Marc', points: 2, fouls: 2 },
+      ]);
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { status: 'PARSED' },
+      });
+    });
+
+    it('records 0 points for a player whose team scored but who never appears in the running score', async () => {
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          homeScore: null,
+          awayScore: null,
+          quarterScores: [],
+          players: [
+            { team: 'home', number: 4, name: 'Malo', points: null, fouls: 0 },
+            // Away column was never read, so this stays unknown rather than 0.
+            { team: 'away', number: 4, name: 'Arthur', points: null, fouls: 0 },
+          ],
+          scoringPlays: [{ team: 'home', jerseyNumber: 5, points: 2, runningScore: 2 }],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      const { parsedData } = prisma.scoresheetExtraction.upsert.mock.calls[0][0].create;
+      expect(parsedData.players).toEqual([
+        { team: 'home', number: 4, name: 'Malo', points: 0, fouls: 0 },
+        { team: 'away', number: 4, name: 'Arthur', points: null, fouls: 0 },
+      ]);
+    });
+
+    it('marks the scoresheet NEEDS_REVIEW when a team\u2019s running-score plays do not add up to its final score', async () => {
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          ...consistentData,
+          scoringPlays: [{ team: 'home', jerseyNumber: 7, points: 2, runningScore: 2 }],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { status: 'NEEDS_REVIEW' },
+      });
+    });
+
+    it('marks the scoresheet NEEDS_REVIEW when a play is worth an impossible number of points', async () => {
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          ...consistentData,
+          homeScore: null,
+          scoringPlays: [{ team: 'home', jerseyNumber: 7, points: 4, runningScore: 4 }],
+        },
+        rawResponse: {},
+      });
+
+      await processor.process(makeJob());
+
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { status: 'NEEDS_REVIEW' },
+      });
+    });
+
+    it('does not sum-check a team whose running-score column was only partially read', async () => {
+      vision.extractScoresheet.mockResolvedValue({
+        parsedData: {
+          ...consistentData,
+          scoringPlays: [
+            { team: 'home', jerseyNumber: 7, points: 2, runningScore: 2 },
+            { team: 'home', jerseyNumber: null, points: null, runningScore: 4 },
+          ],
         },
         rawResponse: {},
       });
@@ -138,6 +263,7 @@ describe('ScoresheetOcrProcessor', () => {
           awayScore: null,
           quarterScores: [],
           players: [],
+          scoringPlays: [],
         },
         rawResponse: {},
       });
