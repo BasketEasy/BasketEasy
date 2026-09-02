@@ -5,7 +5,7 @@ import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Spinner } from '@basketeasy/ui/icons/spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@basketeasy/ui/tooltip';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { EventRsvpStatus, TeamEvent } from '@basketeasy/types/events';
+import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
 import { useEventRsvpSet } from './useEventRsvpSet';
 import { useEventRsvpClear } from './useEventRsvpClear';
@@ -48,6 +48,18 @@ const ICONS: Record<EventRsvpStatus, ReactNode> = {
 const GENERIC_FALLBACK = 'Une erreur est survenue. Merci de réessayer.';
 
 /**
+ * The only two fields this control reads off an event. Deliberately narrower
+ * than `TeamEvent`: the dashboard agenda hands it a `MyAgendaEvent`, a
+ * different shape carrying the same two facts under a different id field, and
+ * a prop typed to the intersection lets both call sites in without widening
+ * either payload type or casting at the call site.
+ */
+export interface EventRsvpControlEvent {
+  id: string;
+  myRsvpStatus: EventRsvpStatus | null;
+}
+
+/**
  * Inline tri-state RSVP toggle for a rostered team member — single-field,
  * non-destructive, high-frequency, so an inline control rather than a
  * Dialog per CLAUDE.md's "Modals vs. inline editing" guidance. Clicking the
@@ -61,7 +73,7 @@ export function EventRsvpControl({
 }: {
   clubId: string;
   teamId: string;
-  event: TeamEvent;
+  event: EventRsvpControlEvent;
   /**
    * Drops to an icon-only rendering (no short/full label, no hint line) at
    * the `lg` breakpoint and up — used by the agenda card's single-line
