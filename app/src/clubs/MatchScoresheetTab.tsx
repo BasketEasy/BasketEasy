@@ -10,6 +10,8 @@ import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate } from './eventDateFormat';
+import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
+import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
 import { useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
 import { Text } from '@basketeasy/ui/text';
@@ -41,6 +43,28 @@ function UploadIcon({ tone, className, ...props }: IconProps) {
     >
       <path d="M12 16V4M12 4 7.5 8.5M12 4l4.5 4.5" />
       <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
+// Failure glyph for the NEEDS analysis-failed state — same shape already
+// used inline for the upload-transport failure banner, pulled out here so
+// the analysis-failure card (a distinct case: the upload succeeded, the OCR
+// job itself failed) can reuse it too.
+function AlertCircleIcon({ tone, className, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9l6 6M15 9l-6 6" />
     </svg>
   );
 }
@@ -124,11 +148,13 @@ export function MatchScoresheetTab({
   teamId,
   event,
   isRostered,
+  canManage,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   isRostered: boolean;
+  canManage: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -147,6 +173,14 @@ export function MatchScoresheetTab({
     error: uploadError,
     reset: resetUpload,
   } = useEventScoresheetUpload(clubId, teamId, event.id);
+  const {
+    data: extraction,
+    isLoading: isLoadingExtraction,
+    isError: isExtractionError,
+    refetch: refetchExtraction,
+  } = useEventScoresheetExtraction(clubId, teamId, event.id, {
+    enabled: status?.status !== undefined && status.status !== 'UPLOADED',
+  });
 
   // Revokes the previous object URL whenever a new file replaces it, and on
   // unmount — otherwise every selection leaks a blob URL for the page's
@@ -255,7 +289,11 @@ export function MatchScoresheetTab({
     );
   }
 
-  if (status?.status === 'UPLOADED') {
+  if (
+    status?.status === 'UPLOADED' ||
+    status?.status === 'QUEUED' ||
+    status?.status === 'PROCESSING'
+  ) {
     return (
       <Card
         variant="panel"
@@ -269,10 +307,14 @@ export function MatchScoresheetTab({
         >
           <Check className="h-6 w-6" />
         </Text>
-        <h3 className="font-heading text-lg font-extrabold">Fichier envoyé</h3>
+        <h3 className="font-heading text-lg font-extrabold">
+          {status.status === 'PROCESSING' ? 'Analyse en cours' : 'Fichier envoyé'}
+        </h3>
         <Badge variant="soft" tone="structure" size="md" className="w-fit gap-1.5">
           <ClockIcon className="h-3.5 w-3.5" />
-          En file d&apos;attente pour analyse
+          {status.status === 'PROCESSING'
+            ? "Analyse par l'IA en cours"
+            : "En file d'attente pour analyse"}
         </Badge>
         <Text variant="meta" size="xs" className="leading-relaxed">
           Envoyé le {formatEventDate(status.uploadedAt)}. Nous vous préviendrons une fois
@@ -287,6 +329,72 @@ export function MatchScoresheetTab({
           </>
         )}
       </Card>
+    );
+  }
+
+  if (status?.status === 'FAILED') {
+    if (isExtractionError) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
+    }
+    if (isLoadingExtraction) {
+      return <SkeletonList rows={3} variant="card" />;
+    }
+    return (
+      <Card
+        variant="panel"
+        className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
+      >
+        <Text
+          as="span"
+          variant="body"
+          tone="danger"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-error-tint"
+        >
+          <AlertCircleIcon aria-hidden="true" className="h-6 w-6" />
+        </Text>
+        <h3 className="font-heading text-lg font-extrabold">L&apos;analyse a échoué</h3>
+        {extraction?.failureReason && (
+          <div className="w-full rounded-lg border border-error/40 bg-error-tint p-3 text-left">
+            <Text variant="body" size="sm" tone="danger" className="leading-relaxed">
+              {extraction.failureReason}
+            </Text>
+          </div>
+        )}
+        <Text variant="meta" size="xs" className="leading-relaxed">
+          La photo originale reste archivée avec le match. Vous pouvez relancer l&apos;analyse en
+          renvoyant le fichier.
+        </Text>
+        {isRostered && (
+          <>
+            <Button onClick={() => fileInputRef.current?.click()} className="w-full">
+              Relancer l&apos;analyse
+            </Button>
+            <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
+          </>
+        )}
+      </Card>
+    );
+  }
+
+  if (
+    status?.status === 'PARSED' ||
+    status?.status === 'NEEDS_REVIEW' ||
+    status?.status === 'CONFIRMED'
+  ) {
+    if (isExtractionError) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
+    }
+    if (isLoadingExtraction || !extraction) {
+      return <SkeletonList rows={3} variant="card" />;
+    }
+    return (
+      <ScoresheetExtractionCard
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        extraction={extraction}
+        canManage={canManage}
+      />
     );
   }
 
@@ -323,8 +431,7 @@ export function MatchScoresheetTab({
         Choisir un fichier
       </Button>
       <Text as="span" variant="meta" size="xs" className="leading-relaxed">
-        L&apos;analyse automatique (IA) arrive bientôt. Pour l&apos;instant, le fichier est
-        simplement archivé avec le match.
+        Une IA lit automatiquement le score et les statistiques une fois le fichier envoyé.
       </Text>
       <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
     </Card>

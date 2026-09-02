@@ -27,7 +27,15 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
       soft: 'border',
       outline: 'border',
     },
-    tone: { brand: '', structure: '', neutral: '', muted: '', danger: '' },
+    tone: {
+      brand: '',
+      structure: '',
+      neutral: '',
+      muted: '',
+      danger: '',
+      accent: '',
+      success: '',
+    },
   },
   compoundVariants: [
     { variant: 'solid', tone: 'brand', class: 'bg-orange-text text-cream' },
@@ -35,6 +43,8 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
     { variant: 'solid', tone: 'neutral', class: 'bg-charcoal text-cream' },
     { variant: 'solid', tone: 'muted', class: 'bg-muted text-cream' },
     { variant: 'solid', tone: 'danger', class: 'bg-error text-cream' },
+    { variant: 'solid', tone: 'accent', class: 'bg-gold text-cream' },
+    { variant: 'solid', tone: 'success', class: 'bg-success text-cream' },
 
     { variant: 'soft', tone: 'brand', class: 'border-orange/30 bg-orange-tint text-orange-text' },
     {
@@ -45,12 +55,20 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
     { variant: 'soft', tone: 'neutral', class: 'border-border bg-surface-2 text-charcoal' },
     { variant: 'soft', tone: 'muted', class: 'border-border bg-surface-2 text-muted' },
     { variant: 'soft', tone: 'danger', class: 'border-error bg-error-tint text-error' },
+    { variant: 'soft', tone: 'accent', class: 'border-gold/35 bg-gold-tint text-gold-text' },
+    {
+      variant: 'soft',
+      tone: 'success',
+      class: 'border-success/30 bg-success/10 text-success-text',
+    },
 
     { variant: 'outline', tone: 'brand', class: 'border-orange/40 text-orange-text' },
     { variant: 'outline', tone: 'structure', class: 'border-blue-green/40 text-blue-green' },
     { variant: 'outline', tone: 'neutral', class: 'border-border text-charcoal' },
     { variant: 'outline', tone: 'muted', class: 'border-border text-muted' },
     { variant: 'outline', tone: 'danger', class: 'border-error text-error' },
+    { variant: 'outline', tone: 'accent', class: 'border-gold/40 text-gold-text' },
+    { variant: 'outline', tone: 'success', class: 'border-success/40 text-success' },
   ],
   defaultVariants: { variant: 'solid', tone: 'brand', size: 'sm' },
 });
