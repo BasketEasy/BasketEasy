@@ -61,6 +61,21 @@ export interface ParsedScoresheetData {
   scoringPlays: ScoresheetScoringPlay[];
 }
 
+/**
+ * The server's proposal for one jersey number on our side of the sheet,
+ * matched against the roster by the handwritten name the sheet carries.
+ * `teamPlayerId` is null when the name was illegible, absent, or matched
+ * more than one roster member — a suggestion never resolves an ambiguity
+ * silently, it hands it to the manager. Nothing here is persisted until a
+ * confirm sends it back as `rosterMapping`.
+ */
+export interface SuggestedRosterMappingEntry {
+  jerseyNumber: number;
+  teamPlayerId: string | null;
+  /** The name as read off the sheet, shown next to the suggestion. */
+  sheetName: string | null;
+}
+
 /** The LLM's read of one EventScoresheet, via GET .../scoresheet-extraction. */
 export interface ScoresheetExtraction {
   status: EventScoresheetStatus;
@@ -70,13 +85,37 @@ export interface ScoresheetExtraction {
   failureReason: string | null;
   reviewedByUserId: string | null;
   reviewedAt: string | null;
+  /**
+   * One entry per jersey number found on our own side of the sheet, in sheet
+   * order. Empty when there is no parsed data yet.
+   */
+  suggestedRosterMapping: SuggestedRosterMappingEntry[];
+}
+
+/**
+ * One jersey number on our own side of the sheet, tied to the roster member
+ * who wore it in this match. Clubs share jersey sets between teams, so the
+ * pairing is per match rather than a number stored on the player.
+ */
+export interface ScoresheetRosterMappingEntry {
+  jerseyNumber: number;
+  teamPlayerId: string;
 }
 
 /**
  * Confirms the extracted data as ground truth, via
  * PATCH .../scoresheet-extraction/confirm. `corrections`, when present,
  * overwrites parsedData before marking the extraction CONFIRMED.
+ *
+ * `rosterMapping` says who each of our own jersey numbers is, and is what
+ * turns a read of a piece of paper into per-player season stats — confirming
+ * is the one moment a person is looking at both the sheet and the roster.
+ * A jersey number left out of the mapping is legal (a licensed guest who
+ * isn't in the app): its points simply reach no player's total. An empty
+ * array is legal too, and clears the match's stats — the escape hatch for a
+ * sheet whose own-side column was unreadable.
  */
 export interface ConfirmScoresheetExtractionRequest {
   corrections?: ParsedScoresheetData;
+  rosterMapping: ScoresheetRosterMappingEntry[];
 }

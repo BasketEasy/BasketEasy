@@ -473,10 +473,19 @@ export function ScoresheetExtractionCard({
   const handleConfirm = () => {
     if (hasUnresolvedFlags) return;
     const edited = extraction.parsedData && !isSameParsedData(corrections, extraction.parsedData);
-    confirm(edited ? corrections : undefined, {
-      onSuccess: () => toast({ variant: 'success', title: 'Feuille de match confirmée' }),
-      onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
-    });
+    confirm(
+      {
+        corrections: edited ? corrections : undefined,
+        // Empty until the roster-mapping step lands: this card can't yet say
+        // who wore which number, and an empty mapping is the contract's
+        // "no per-player stats from this sheet" case rather than a guess.
+        rosterMapping: [],
+      },
+      {
+        onSuccess: () => toast({ variant: 'success', title: 'Feuille de match confirmée' }),
+        onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+      },
+    );
   };
 
   return (

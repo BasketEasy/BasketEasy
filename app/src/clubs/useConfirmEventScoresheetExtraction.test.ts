@@ -38,6 +38,7 @@ describe('useConfirmEventScoresheetExtraction', () => {
             failureReason: null,
             reviewedByUserId: 'user-1',
             reviewedAt: '2026-01-01T21:00:00.000Z',
+            suggestedRosterMapping: [],
           });
         },
       ),
@@ -49,10 +50,16 @@ describe('useConfirmEventScoresheetExtraction', () => {
       { wrapper },
     );
 
-    result.current.mutate(corrections);
+    result.current.mutate({
+      corrections,
+      rosterMapping: [{ jerseyNumber: 7, teamPlayerId: 'tp-7' }],
+    });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(confirmRequestBody).toEqual({ corrections });
+    expect(confirmRequestBody).toEqual({
+      corrections,
+      rosterMapping: [{ jerseyNumber: 7, teamPlayerId: 'tp-7' }],
+    });
     expect(
       queryClient.getQueryData(eventScoresheetExtractionQueryKey('club-1', 'team-1', 'event-1')),
     ).toEqual({
@@ -62,10 +69,11 @@ describe('useConfirmEventScoresheetExtraction', () => {
       failureReason: null,
       reviewedByUserId: 'user-1',
       reviewedAt: '2026-01-01T21:00:00.000Z',
+      suggestedRosterMapping: [],
     });
   });
 
-  it('sends corrections as undefined when calling mutate with no corrections', async () => {
+  it('sends an empty mapping and no corrections through untouched', async () => {
     let confirmRequestBody: unknown;
     server.use(
       http.patch(
@@ -79,6 +87,7 @@ describe('useConfirmEventScoresheetExtraction', () => {
             failureReason: null,
             reviewedByUserId: 'user-1',
             reviewedAt: '2026-01-01T21:00:00.000Z',
+            suggestedRosterMapping: [],
           });
         },
       ),
@@ -90,9 +99,9 @@ describe('useConfirmEventScoresheetExtraction', () => {
       { wrapper },
     );
 
-    result.current.mutate(undefined);
+    result.current.mutate({ rosterMapping: [] });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(confirmRequestBody).toEqual({});
+    expect(confirmRequestBody).toEqual({ rosterMapping: [] });
   });
 });

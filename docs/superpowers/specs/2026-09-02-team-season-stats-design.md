@@ -195,9 +195,11 @@ After the existing `parsedData`/status write, in the **same transaction**:
 3. `deleteMany({ eventId })`, then `createMany` one row per mapped jersey number, folding
    `parsedData.scoringPlays` filtered to our side into the three point buckets and reading `fouls`
    off the matching `ScoresheetPlayerStats` row.
-4. Jersey numbers present on the sheet but absent from the mapping are skipped silently; mapped
-   numbers absent from the sheet write a row with all-null stats (the manager is asserting the
-   player was on the sheet, and GP should count them).
+4. Jersey numbers present on the sheet but absent from the mapping are skipped silently. A mapped
+   number the running-score column never mentions scored 0 — the manager is asserting they played,
+   and the column was legible enough to say so; it stays null only when our column produced no play
+   at all, per the zero-vs-unknown rule. Fouls come from the roster block independently, so a mapped
+   number with no roster-block row has null fouls whatever its points say.
 
 An empty `rosterMapping` is legal and clears the match's stats — the escape hatch for a sheet whose
 own-side column was unreadable.

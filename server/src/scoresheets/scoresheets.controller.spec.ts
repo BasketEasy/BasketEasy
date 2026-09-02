@@ -63,7 +63,7 @@ describe('ScoresheetsController', () => {
   describe('confirmExtraction', () => {
     it('delegates clubId, teamId, eventId, the caller id, and the DTO', async () => {
       service.confirmExtraction.mockResolvedValue({ status: 'CONFIRMED' });
-      const dto = { corrections: undefined };
+      const dto = { corrections: undefined, rosterMapping: [] };
 
       const result = await controller.confirmExtraction('club-1', 'team-1', 'event-1', dto, user);
 

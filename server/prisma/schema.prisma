@@ -143,6 +143,7 @@ model TeamPlayer {
   votesCast             EventVote[]        @relation("EventVoteVoter")
   votesReceived         EventVote[]        @relation("EventVoteVotedFor")
   uploadedScoresheets   EventScoresheet[]
+  matchStats            MatchPlayerStat[]
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -222,6 +223,7 @@ model Event {
   convocations        EventConvocation[]
   votes               EventVote[]
   scoresheet          EventScoresheet?
+  playerStats         MatchPlayerStat[]
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -365,6 +367,45 @@ model ScoresheetExtraction {
   reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id])
 
   @@index([reviewedByUserId])
+}
+
+// One roster player's line in one match, resolved from a confirmed
+// ScoresheetExtraction. Its own table rather than a JSON field on the
+// extraction because it is the only place the sheet's jersey numbers have
+// been joined to real TeamPlayer rows — a typed, queryable projection of
+// parsedData, which itself stays the verbatim read and is never rewritten by
+// this flow. Only our own side of the sheet gets rows: the opposing squad
+// isn't in any roster this app manages. Rewritten wholesale (deleteMany +
+// createMany in one transaction) each time the extraction is re-confirmed,
+// so a corrected mapping never leaves stale rows behind.
+//
+// Every stat is nullable on the points-parsing spec's zero-vs-unknown rule:
+// an unread column must not report a squad as having scored nothing. A null
+// contributes to neither side of an average. See
+// docs/superpowers/specs/2026-09-02-team-season-stats-design.md.
+model MatchPlayerStat {
+  id               String     @id @default(uuid())
+  eventId          String
+  teamPlayerId     String
+  // The jersey number this row was read under, kept for traceability back to
+  // the sheet — clubs share jersey sets, so the same player can wear a
+  // different number next match. That instability is exactly why the number
+  // lives here per match rather than as a column on TeamPlayer.
+  jerseyNumber     Int?
+  points           Int?
+  fouls            Int?
+  // points split by play value; these three sum to `points` when all are
+  // known. Stored as counts, not percentages — a percentage of a sum of sums
+  // is not the average of per-match percentages.
+  freeThrowPoints  Int?
+  twoPointPoints   Int?
+  threePointPoints Int?
+  createdAt        DateTime   @default(now())
+  event            Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer       TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, teamPlayerId])
+  @@index([teamPlayerId])
 }
 
 enum ClubRole {
