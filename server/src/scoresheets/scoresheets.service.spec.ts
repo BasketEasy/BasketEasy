@@ -139,7 +139,7 @@ describe('ScoresheetsService', () => {
     });
 
     it('returns the parsed data once the extraction exists', async () => {
-      const parsedData = { homeScore: 60, awayScore: 55, quarterScores: [], players: [] };
+      const parsedData = { ...emptyParsedData, homeScore: 60, awayScore: 55 };
       prisma.eventScoresheet.findUnique.mockResolvedValue({
         status: 'PARSED',
         extraction: {
@@ -163,6 +163,53 @@ describe('ScoresheetsService', () => {
         suggestedRosterMapping: [],
       });
     });
+
+    // ScoresheetOcrProcessor's 'failed' listener writes `parsedData: {}` (the
+    // column is non-nullable), so the read path has to report "nothing was
+    // extracted" instead of treating the placeholder as a sheet and indexing
+    // into arrays that aren't there.
+    it('reports a failed extraction as having no parsed data rather than throwing', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'FAILED',
+        extraction: {
+          parsedData: {},
+          confidence: null,
+          failureReason: 'vision timeout',
+          reviewedByUserId: null,
+          reviewedAt: null,
+        },
+      });
+
+      const result = await service.getExtraction('club-1', 'team-1', 'event-1');
+
+      expect(result).toEqual({
+        status: 'FAILED',
+        parsedData: null,
+        confidence: null,
+        failureReason: 'vision timeout',
+        reviewedByUserId: null,
+        reviewedAt: null,
+        suggestedRosterMapping: [],
+      });
+    });
+
+    it('treats a truncated read missing one of the arrays as no parsed data', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'NEEDS_REVIEW',
+        extraction: {
+          parsedData: { homeScore: 60, awayScore: 55, quarterScores: [], players: [] },
+          confidence: 0.4,
+          failureReason: null,
+          reviewedByUserId: null,
+          reviewedAt: null,
+        },
+      });
+
+      const result = await service.getExtraction('club-1', 'team-1', 'event-1');
+
+      expect(result?.parsedData).toBeNull();
+      expect(result?.suggestedRosterMapping).toEqual([]);
+    });
   });
 
   describe('confirmExtraction', () => {
@@ -174,13 +221,26 @@ describe('ScoresheetsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('refuses to confirm a failed extraction that carries no parsed data', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        id: 'sheet-1',
+        extraction: { id: 'extraction-1', parsedData: {} },
+      });
+
+      await expect(
+        service.confirmExtraction('club-1', 'team-1', 'event-1', 'user-1', { rosterMapping: [] }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.scoresheetExtraction.update).not.toHaveBeenCalled();
+      expect(prisma.matchPlayerStat.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('marks the extraction and scoresheet CONFIRMED, recording the reviewer', async () => {
       prisma.eventScoresheet.findUnique.mockResolvedValue({
         id: 'sheet-1',
         extraction: { id: 'extraction-1', parsedData: emptyParsedData },
       });
       prisma.scoresheetExtraction.update.mockResolvedValue({
-        parsedData: { homeScore: 60, awayScore: 55, quarterScores: [], players: [] },
+        parsedData: { ...emptyParsedData, homeScore: 60, awayScore: 55 },
         confidence: null,
         failureReason: null,
         reviewedByUserId: 'user-1',

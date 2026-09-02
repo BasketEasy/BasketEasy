@@ -47,6 +47,26 @@ function ourSideOf(venue: 'HOME' | 'AWAY'): ScoresheetTeamSide {
   return venue === 'HOME' ? 'home' : 'away';
 }
 
+// An extraction row exists even when the OCR job gave up: ScoresheetOcrProcessor's
+// 'failed' listener writes `parsedData: {}` (the column is non-nullable, so there
+// is no null to write), and a truncated model reply can drop one of the arrays on
+// its own. Neither is a sheet, so anything not carrying the three arrays reads as
+// "nothing was extracted" rather than being indexed into.
+function asParsedScoresheetData(value: unknown): ParsedScoresheetData | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const candidate = value as Partial<ParsedScoresheetData>;
+  if (
+    !Array.isArray(candidate.players) ||
+    !Array.isArray(candidate.scoringPlays) ||
+    !Array.isArray(candidate.quarterScores)
+  ) {
+    return null;
+  }
+  return candidate as ParsedScoresheetData;
+}
+
 // Names on the sheet are handwritten and transcribed by a vision model, so
 // they arrive with inconsistent case, accents and punctuation. Fold all three
 // away before comparing; everything else (nicknames, initials, misreads) is
@@ -219,14 +239,16 @@ export class ScoresheetsService {
     if (!scoresheet) {
       return null;
     }
+    const parsedData = asParsedScoresheetData(scoresheet.extraction?.parsedData);
     const suggestedRosterMapping = await this.buildSuggestedRosterMapping(
       teamId,
       event.venue,
-      scoresheet.extraction?.parsedData as ParsedScoresheetData | null | undefined,
+      parsedData,
     );
     return this.toScoresheetExtraction(
       scoresheet.status,
       scoresheet.extraction,
+      parsedData,
       suggestedRosterMapping,
     );
   }
@@ -238,7 +260,7 @@ export class ScoresheetsService {
   private async buildSuggestedRosterMapping(
     teamId: string,
     venue: 'HOME' | 'AWAY' | null,
-    parsedData: ParsedScoresheetData | null | undefined,
+    parsedData: ParsedScoresheetData | null,
   ): Promise<SuggestedRosterMappingEntry[]> {
     if (!parsedData || venue === null) {
       return [];
@@ -304,9 +326,17 @@ export class ScoresheetsService {
     // The confirmed data is what the stats are folded from: a manager's
     // corrections are ground truth, so they win over the model's read here
     // exactly as they do for parsedData itself.
-    const parsedData = (request.corrections ??
-      (scoresheet.extraction
-        .parsedData as unknown as ParsedScoresheetData)) as ParsedScoresheetData;
+    // A FAILED (or partially written) extraction has nothing to fold, so a
+    // confirm on one is refused rather than folded into a squad-wide row of
+    // nulls — unless the manager sent corrections, which are ground truth and
+    // stand in for the read entirely.
+    const parsedData =
+      request.corrections ?? asParsedScoresheetData(scoresheet.extraction.parsedData);
+    if (!parsedData) {
+      throw new BadRequestException(
+        "L'analyse de la feuille n'a produit aucune donnée : relancez-la ou saisissez les corrections avant de confirmer",
+      );
+    }
     await this.assertRosterMappingValid(teamId, request.rosterMapping);
     const stats = foldPlayerStats(parsedData, ourSideOf(event.venue), request.rosterMapping);
 
@@ -346,12 +376,18 @@ export class ScoresheetsService {
       return updated;
     });
 
+    const confirmedParsedData = asParsedScoresheetData(extraction.parsedData);
     const suggestedRosterMapping = await this.buildSuggestedRosterMapping(
       teamId,
       event.venue,
-      extraction.parsedData as unknown as ParsedScoresheetData,
+      confirmedParsedData,
     );
-    return this.toScoresheetExtraction('CONFIRMED', extraction, suggestedRosterMapping);
+    return this.toScoresheetExtraction(
+      'CONFIRMED',
+      extraction,
+      confirmedParsedData,
+      suggestedRosterMapping,
+    );
   }
 
   // Validates the whole mapping before anything is written, in one query
@@ -386,17 +422,17 @@ export class ScoresheetsService {
   private toScoresheetExtraction(
     status: string,
     extraction: {
-      parsedData: unknown;
       confidence: number | null;
       failureReason: string | null;
       reviewedByUserId: string | null;
       reviewedAt: Date | null;
     } | null,
+    parsedData: ParsedScoresheetData | null,
     suggestedRosterMapping: SuggestedRosterMappingEntry[],
   ): ScoresheetExtraction {
     return {
       status: status as ScoresheetExtraction['status'],
-      parsedData: (extraction?.parsedData as ScoresheetExtraction['parsedData']) ?? null,
+      parsedData,
       confidence: extraction?.confidence ?? null,
       failureReason: extraction?.failureReason ?? null,
       reviewedByUserId: extraction?.reviewedByUserId ?? null,
