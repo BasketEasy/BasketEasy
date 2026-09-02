@@ -31,6 +31,16 @@ module.exports = {
         // orange on purpose, so voting doesn't compete visually with the
         // primary-action color. See docs/superpowers/specs/2026-08-27-match-interface-design.md.
         gold: { DEFAULT: '#C08A2E', text: '#8C5F16', tint: '#FBF1DC' },
+        // Points-repartition ramp (PointsRepartitionBar). One hue — the
+        // blue-green that already carries structure — stepped by lightness,
+        // darkest for the most expensive basket. Sequential rather than three
+        // unrelated hues because the three buckets are ordered (3 > 2 > 1),
+        // and a categorical palette would imply they aren't. `three` is the
+        // blue-green DEFAULT value, named separately because the bar's
+        // meaning is its own: a later change to brand blue-green must not
+        // silently reorder the ramp. Contrast is why `free` pairs with
+        // charcoal text while the two darker steps pair with cream.
+        points: { three: '#1E5F74', two: '#3E88A1', free: '#82B5C6' },
         charcoal: '#23201C',
         muted: '#5B564F',
         border: { DEFAULT: '#E7DECF', strong: '#D6C8B2' },
@@ -39,6 +49,13 @@ module.exports = {
         // DEFAULT only measures 4.27:1 on a `/10` tint background, under the
         // 4.5:1 AA bar for Badge's small text — `text` clears it at 6.4:1.
         success: { DEFAULT: '#2F7D5C', text: '#245F48' },
+      },
+      fontSize: {
+        // In-graphic numerals — the counts printed inside a
+        // PointsRepartitionBar segment. text-xs (12px) overflows a 14px-tall
+        // bar, so this is the one step below it, named rather than written as
+        // an arbitrary text-[10px] at the call site.
+        'bar-count': ['0.625rem', { lineHeight: '1' }],
       },
       fontFamily: {
         heading: ['"Big Shoulders Display"', '"Arial Narrow"', 'sans-serif'],

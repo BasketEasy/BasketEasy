@@ -171,6 +171,52 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByText('a@b.com')).not.toBeInTheDocument();
   });
 
+  it('opens the Statistiques tab from the URL and renders the season', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/stats', () =>
+        HttpResponse.json({
+          seasonYear: 2026,
+          seasonStart: '2026-09-01T00:00:00.000Z',
+          seasonEnd: '2027-08-31T23:59:59.999Z',
+          matchesPlayed: 3,
+          availableSeasons: [2026],
+          players: [
+            {
+              teamPlayerId: 'tp-1',
+              firstName: 'Camille',
+              lastName: 'Roy',
+              role: 'PLAYER',
+              gamesPlayed: 3,
+              pointsPerGame: 9.5,
+              foulsPerGame: 1,
+              seasonHighPoints: 14,
+              seasonHighFouls: 2,
+              freeThrowPoints: 3,
+              twoPointPoints: 20,
+              threePointPoints: 6,
+              totalPoints: 29,
+              mvpAwards: 1,
+              worstPlayerAwards: 0,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=stats' });
+
+    expect(await screen.findByText('Camille Roy')).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: /^statistiques$/i, selected: true }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Calculé sur 3 matchs analysés.')).toBeInTheDocument();
+  });
+
   it('lands on the tab named by the ?tab= URL param on initial load', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(

@@ -186,6 +186,14 @@
     "./section-heading": {
       "types": "./src/components/SectionHeading.tsx",
       "default": "./src/components/SectionHeading.tsx"
+    },
+    "./points-repartition-bar": {
+      "types": "./src/components/PointsRepartitionBar.tsx",
+      "default": "./src/components/PointsRepartitionBar.tsx"
+    },
+    "./icons/chart-bars": {
+      "types": "./src/components/icons/ChartBarsIcon.tsx",
+      "default": "./src/components/icons/ChartBarsIcon.tsx"
     }
   },
   "scripts": {
