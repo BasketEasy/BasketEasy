@@ -22,19 +22,6 @@ export function eventVenueLabel(venue: EventVenue): string {
   return eventVenueLabels.get(venue) ?? venue;
 }
 
-// Abbreviated form for the agenda card's narrow (80-96px) time-block column
-// — the full "Entraînement" doesn't fit uppercase with tracking-wide-caps at
-// that width. Only used there; every other surface (dropdowns, table rows)
-// keeps the full word via eventTypeLabel above.
-const EVENT_TYPE_SHORT_LABELS: Record<EventType, string> = {
-  TRAINING: 'Entraîn.',
-  MATCH: 'Match',
-};
-
-export function eventTypeShortLabel(type: EventType): string {
-  return EVENT_TYPE_SHORT_LABELS[type] ?? type;
-}
-
 // The agenda card's "Voir →" link text (both event types link to
 // EventDetailPage now, not just MATCH) — a plain eventTypeLabel() reads
 // awkwardly there ("Voir Match →"), so this phrases it the way a person

@@ -194,6 +194,46 @@
     "./icons/chart-bars": {
       "types": "./src/components/icons/ChartBarsIcon.tsx",
       "default": "./src/components/icons/ChartBarsIcon.tsx"
+    },
+    "./time-block": {
+      "types": "./src/components/TimeBlock.tsx",
+      "default": "./src/components/TimeBlock.tsx"
+    },
+    "./segmented-control": {
+      "types": "./src/components/SegmentedControl.tsx",
+      "default": "./src/components/SegmentedControl.tsx"
+    },
+    "./response-meter": {
+      "types": "./src/components/ResponseMeter.tsx",
+      "default": "./src/components/ResponseMeter.tsx"
+    },
+    "./avatar-group": {
+      "types": "./src/components/AvatarGroup.tsx",
+      "default": "./src/components/AvatarGroup.tsx"
+    },
+    "./stat-tile": {
+      "types": "./src/components/StatTile.tsx",
+      "default": "./src/components/StatTile.tsx"
+    },
+    "./tab-bar": {
+      "types": "./src/components/TabBar.tsx",
+      "default": "./src/components/TabBar.tsx"
+    },
+    "./icons/home": {
+      "types": "./src/components/icons/HomeIcon.tsx",
+      "default": "./src/components/icons/HomeIcon.tsx"
+    },
+    "./icons/user": {
+      "types": "./src/components/icons/UserIcon.tsx",
+      "default": "./src/components/icons/UserIcon.tsx"
+    },
+    "./icons/route": {
+      "types": "./src/components/icons/RouteIcon.tsx",
+      "default": "./src/components/icons/RouteIcon.tsx"
+    },
+    "./icons/bell": {
+      "types": "./src/components/icons/BellIcon.tsx",
+      "default": "./src/components/icons/BellIcon.tsx"
     }
   },
   "scripts": {
