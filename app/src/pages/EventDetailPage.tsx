@@ -17,7 +17,7 @@ import { eventTypeLabel } from '../clubs/eventLabels';
 import { EventVenueBadge } from '../clubs/EventVenueBadge';
 import { EventEditModal } from '../clubs/EventEditModal';
 import { EventDeleteModal } from '../clubs/EventDeleteModal';
-import { EventLogisticsSection } from '../clubs/EventLogisticsSection';
+import { EventLogisticsCard } from '../clubs/EventLogisticsCard';
 import { EventRsvpControl } from '../clubs/EventRsvpControl';
 import { EventRosterTab } from '../clubs/EventRosterTab';
 import { MatchScoresheetTab } from '../clubs/MatchScoresheetTab';
@@ -442,7 +442,7 @@ export function EventDetailPage() {
             </div>
           </div>
 
-          <EventLogisticsSection
+          <EventLogisticsCard
             clubId={clubId!}
             teamId={teamId!}
             event={event}

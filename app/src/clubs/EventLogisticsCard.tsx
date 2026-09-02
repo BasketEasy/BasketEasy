@@ -4,7 +4,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { RouteIcon } from '@basketeasy/ui/icons/route';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { EventLogisticsField, TeamEvent } from '@basketeasy/types/events';
@@ -12,6 +12,8 @@ import { getClubErrorMessage } from './clubErrorMessages';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
 import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLogisticsLabels';
 import { getInitials } from './getInitials';
+import { MapPinIcon } from './eventDetailIcons';
+import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { Text } from '@basketeasy/ui/text';
@@ -144,20 +146,73 @@ function LogisticsFieldRow({
 }
 
 /**
- * Aperçu tab's Logistique section (`Main.dc.html:152-190`) — equipment
- * carrier assignment for an event. Originally MATCH-only; now shared by
- * both event types, since a TRAINING session has the same "who's bringing
- * it" logistics need for scrimmage bibs and balls. Only the jersey-slot
- * label/question differ per type ("Maillots" vs "Chasubles", see
- * eventLogisticsFieldLabel) — the layout and the self-assign/manager-
- * reassign mechanics are identical for both. Reuses `useEventConvocations`
- * for the roster (teamPlayerId/firstName/lastName + `isMe`, already fetched
- * elsewhere in this module for the same shape) rather than a new roster
- * endpoint — fetched eagerly (not lazily, unlike the RSVP/convocation
- * breakdowns) since `isMe` is needed up front just to decide whether to
- * show the "Changer" control at all, before any select is opened.
+ * The venue row that opens the card: where it is, and one tap to get there.
+ *
+ * `location` is free text, so this is one line and a search link — no
+ * geocoding, no distance, no embedded map (`player-journey.md` §6.9 rules all
+ * three out). « Comment j'y vais ? » is a player's third question and, until
+ * this row existed, the address was a plain `InfoTile` of text with nothing
+ * to tap.
  */
-export function EventLogisticsSection({
+function EventVenueRow({ event }: { event: TeamEvent }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
+      <Text
+        as="span"
+        variant="body"
+        tone="structure"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
+      >
+        <MapPinIcon size={19} />
+      </Text>
+      <div className="flex min-w-0 flex-col gap-px">
+        <Text as="span" variant="label" size="sm" className="break-words font-bold">
+          {event.location}
+        </Text>
+        <Text as="span" variant="meta" size="xs">
+          {event.type === 'MATCH' ? 'Lieu de la rencontre' : 'Lieu de la séance'}
+        </Text>
+      </div>
+      <div className="ml-auto">
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={eventItineraryHref(event.location)}
+            target="_blank"
+            rel="noreferrer"
+            className="gap-1.5"
+          >
+            <RouteIcon className="h-4 w-4 shrink-0" />
+            Itinéraire
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Where the event is, and who brings what — one card, three rows.
+ *
+ * It backs two blocks that ask the same question from opposite ends: the
+ * player's « S'y rendre » (how do I get there, and is it me carrying the
+ * jerseys?) and the manager's « Logistique » (is the kit covered?). Both were
+ * previously split between an `InfoTile` grid and a separate Logistique
+ * section, one tab apart from each other.
+ *
+ * Shared by both event types, since a TRAINING has the same "who's bringing
+ * it" need for scrimmage bibs and balls; only the jersey-slot label differs
+ * ("Maillots" vs "Chasubles", see `eventLogisticsFieldLabel`). The section
+ * heading is the caller's, so each role can name the block for what it does.
+ *
+ * Reuses `useEventConvocations` for the roster (teamPlayerId/firstName/
+ * lastName + `isMe`, already fetched elsewhere in this module for the same
+ * shape) rather than a new roster endpoint — fetched eagerly (not lazily,
+ * unlike the RSVP/convocation breakdowns) since `isMe` is needed up front
+ * just to decide whether to show the "Changer" control at all. That query is
+ * deliberately *not* a branch of this card: every row renders from the event
+ * itself, and a failed roster fetch only costs the reassignment options.
+ */
+export function EventLogisticsCard({
   clubId,
   teamId,
   event,
@@ -179,30 +234,28 @@ export function EventLogisticsSection({
   }));
 
   return (
-    <div className="flex flex-col gap-3.5">
-      <SectionHeading>Logistique</SectionHeading>
-      <Card variant="flush">
-        <LogisticsFieldRow
-          clubId={clubId}
-          teamId={teamId}
-          event={event}
-          field="JERSEYS"
-          myTeamPlayerId={myTeamPlayerId}
-          canManage={canManage}
-          isRostered={isRostered}
-          rosterOptions={rosterOptions}
-        />
-        <LogisticsFieldRow
-          clubId={clubId}
-          teamId={teamId}
-          event={event}
-          field="BALLS"
-          myTeamPlayerId={myTeamPlayerId}
-          canManage={canManage}
-          isRostered={isRostered}
-          rosterOptions={rosterOptions}
-        />
-      </Card>
-    </div>
+    <Card variant="flush">
+      <EventVenueRow event={event} />
+      <LogisticsFieldRow
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        field="JERSEYS"
+        myTeamPlayerId={myTeamPlayerId}
+        canManage={canManage}
+        isRostered={isRostered}
+        rosterOptions={rosterOptions}
+      />
+      <LogisticsFieldRow
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        field="BALLS"
+        myTeamPlayerId={myTeamPlayerId}
+        canManage={canManage}
+        isRostered={isRostered}
+        rosterOptions={rosterOptions}
+      />
+    </Card>
   );
 }

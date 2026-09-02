@@ -3,7 +3,7 @@ import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 
 /**
  * Shared jersey/ball field icons — the same SVG paths back both the full
- * Logistique row (EventLogisticsSection, sized up) and the agenda's mini
+ * Logistique row (EventLogisticsCard, sized up) and the agenda's mini
  * chips (EventLogisticsMiniChips, sized down), so the two contexts never
  * drift on which icon represents which field.
  */

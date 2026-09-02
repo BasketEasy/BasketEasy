@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import type { EventConvocationRosterEntry, TeamEvent } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
-import { EventLogisticsSection } from './EventLogisticsSection';
+import { EventLogisticsCard } from './EventLogisticsCard';
 
 const roster: EventConvocationRosterEntry[] = [
   {
@@ -70,11 +70,11 @@ function mockLogisticsPatch() {
   return () => requestBody;
 }
 
-describe('EventLogisticsSection', () => {
+describe('EventLogisticsCard', () => {
   it('labels the jersey slot "Maillots" for a MATCH event and "Chasubles" for a TRAINING event', async () => {
     mockRoster();
     const { unmount } = renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent({ type: 'MATCH' })}
@@ -87,7 +87,7 @@ describe('EventLogisticsSection', () => {
     unmount();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent({ type: 'TRAINING' })}
@@ -107,7 +107,7 @@ describe('EventLogisticsSection', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent()}
@@ -129,7 +129,7 @@ describe('EventLogisticsSection', () => {
     mockRoster();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent()}
@@ -148,7 +148,7 @@ describe('EventLogisticsSection', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent({
@@ -176,7 +176,7 @@ describe('EventLogisticsSection', () => {
     mockRoster();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent({
@@ -200,7 +200,7 @@ describe('EventLogisticsSection', () => {
     const user = userEvent.setup();
 
     renderWithProviders(
-      <EventLogisticsSection
+      <EventLogisticsCard
         clubId="club-1"
         teamId="team-1"
         event={baseEvent({

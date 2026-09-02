@@ -3,7 +3,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 
 /**
- * One axis, four values — the only four permutations that actually occur.
+ * `variant` is the step on the surface ladder — four values, the only four
+ * permutations that actually occur. `tone` (below) is the second axis.
  *
  * Padding is deliberately coupled to the variant rather than split into its
  * own prop: every `inset` in the app is p-3, every `panel` is p-5, and
@@ -23,16 +24,31 @@ const cardVariants = cva('rounded-lg border border-border', {
       panel: 'bg-surface p-5 shadow-md',
       flush: 'overflow-hidden bg-surface shadow-sm',
     },
+    /**
+     * Meaning, not fill — the second axis, added for the one card that has
+     * to read as *the* thing on the screen: the event page's decision band,
+     * where a convoked player answers. Orange is the direction's rare, sharp
+     * accent, so `brand` stays rare by construction: it is a tone a card
+     * opts into, never a tint a call site paints on with `bg-orange-tint`.
+     *
+     * Declared after `variant` on purpose. cva emits variant classes in
+     * declaration order and `cn` (tailwind-merge) keeps the last of two
+     * conflicting utilities, so a tone's background wins over the variant's.
+     */
+    tone: {
+      neutral: '',
+      brand: 'border-orange/40 bg-orange-tint',
+    },
   },
-  defaultVariants: { variant: 'raised' },
+  defaultVariants: { variant: 'raised', tone: 'neutral' },
 });
 
 export interface CardProps
   extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof cardVariants> {}
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ className, variant, ...props }, ref) => (
-    <div ref={ref} className={cn(cardVariants({ variant }), className)} {...props} />
+  ({ className, variant, tone, ...props }, ref) => (
+    <div ref={ref} className={cn(cardVariants({ variant, tone }), className)} {...props} />
   ),
 );
 Card.displayName = 'Card';
