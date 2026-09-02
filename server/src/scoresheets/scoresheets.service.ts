@@ -4,7 +4,11 @@ import { Queue } from 'bullmq';
 import type { Prisma } from '@prisma/client';
 import type {
   ConfirmScoresheetExtractionRequest,
+  ParsedScoresheetData,
   ScoresheetExtraction,
+  ScoresheetRosterMappingEntry,
+  ScoresheetTeamSide,
+  SuggestedRosterMappingEntry,
 } from '@basketeasy/types/scoresheet-extraction';
 import { PrismaService } from '../prisma/prisma.service';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
@@ -17,6 +21,147 @@ const OCR_JOB_BACKOFF_DELAY_MS = 5000;
 
 export interface ScoresheetOcrJobData {
   eventScoresheetId: string;
+}
+
+// A roster member as far as the mapping code is concerned.
+interface RosterEntry {
+  id: string;
+  lastName: string;
+}
+
+// One player's stats folded out of a confirmed sheet, before it becomes a row.
+interface FoldedPlayerStat {
+  teamPlayerId: string;
+  jerseyNumber: number;
+  points: number | null;
+  fouls: number | null;
+  freeThrowPoints: number | null;
+  twoPointPoints: number | null;
+  threePointPoints: number | null;
+}
+
+// The sheet's Équipe A is the receiving team, Équipe B the visitor — the same
+// pairing homeScore/awayScore already use — so the event's own venue says
+// which column is ours without asking the manager a second time.
+function ourSideOf(venue: 'HOME' | 'AWAY'): ScoresheetTeamSide {
+  return venue === 'HOME' ? 'home' : 'away';
+}
+
+// Names on the sheet are handwritten and transcribed by a vision model, so
+// they arrive with inconsistent case, accents and punctuation. Fold all three
+// away before comparing; everything else (nicknames, initials, misreads) is
+// left for the manager to resolve rather than guessed at.
+function normalizeName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+// Only 1 (free throw), 2 and 3 are scorable — anything else means the
+// notation around a jersey number was misread, and the play is dropped rather
+// than folded into a total it would corrupt. Same rule ScoresheetOcrProcessor
+// checks for consistency.
+const PLAY_POINT_BUCKETS: Record<number, keyof PointBuckets> = {
+  1: 'freeThrowPoints',
+  2: 'twoPointPoints',
+  3: 'threePointPoints',
+};
+
+interface PointBuckets {
+  freeThrowPoints: number;
+  twoPointPoints: number;
+  threePointPoints: number;
+}
+
+// Turns the confirmed sheet plus the manager's mapping into one row per mapped
+// player. Only our own side is folded: the opposing squad isn't in any roster
+// this app manages.
+//
+// Zero versus unknown, carried over from the points-parsing spec: a mapped
+// player with no play of their own scored 0 — but only once at least one play
+// was read for our side at all. If our column came back empty, their points
+// stay null, so an unreadable running score reports "unknown" rather than
+// reporting a whole squad as having scored nothing.
+function foldPlayerStats(
+  data: ParsedScoresheetData,
+  ourSide: ScoresheetTeamSide,
+  rosterMapping: ScoresheetRosterMappingEntry[],
+): FoldedPlayerStat[] {
+  const buckets = new Map<number, PointBuckets>();
+  let ourSideHasPlays = false;
+  for (const play of data.scoringPlays) {
+    if (play.team !== ourSide || play.jerseyNumber === null || play.points === null) {
+      continue;
+    }
+    const bucket = PLAY_POINT_BUCKETS[play.points];
+    if (!bucket) {
+      continue;
+    }
+    ourSideHasPlays = true;
+    const totals = buckets.get(play.jerseyNumber) ?? {
+      freeThrowPoints: 0,
+      twoPointPoints: 0,
+      threePointPoints: 0,
+    };
+    totals[bucket] += play.points;
+    buckets.set(play.jerseyNumber, totals);
+  }
+
+  // Fouls are the one stat genuinely read off the left-hand roster block —
+  // its five-cell grid is a thing to look at, unlike points — so they are
+  // copied as-is, with no matching row meaning unknown rather than zero.
+  const foulsByNumber = new Map<number, number | null>();
+  for (const row of data.players) {
+    if (row.team === ourSide && row.number !== null) {
+      foulsByNumber.set(row.number, row.fouls);
+    }
+  }
+
+  return rosterMapping.map((entry) => {
+    const totals = buckets.get(entry.jerseyNumber);
+    if (!totals) {
+      const unscored = ourSideHasPlays ? 0 : null;
+      return {
+        teamPlayerId: entry.teamPlayerId,
+        jerseyNumber: entry.jerseyNumber,
+        points: unscored,
+        fouls: foulsByNumber.get(entry.jerseyNumber) ?? null,
+        freeThrowPoints: unscored,
+        twoPointPoints: unscored,
+        threePointPoints: unscored,
+      };
+    }
+    return {
+      teamPlayerId: entry.teamPlayerId,
+      jerseyNumber: entry.jerseyNumber,
+      points: totals.freeThrowPoints + totals.twoPointPoints + totals.threePointPoints,
+      fouls: foulsByNumber.get(entry.jerseyNumber) ?? null,
+      ...totals,
+    };
+  });
+}
+
+// The sheet writes a full name in no fixed order ("DUPONT Jean", "Jean
+// Dupont"), so match on the surname appearing as a whole token rather than on
+// the string as a whole. A surname shared by two roster members resolves to
+// nothing: an ambiguity goes to the manager, it is never broken by picking
+// the first hit.
+function suggestTeamPlayerId(sheetName: string | null, roster: RosterEntry[]): string | null {
+  if (!sheetName) {
+    return null;
+  }
+  const tokens = new Set(normalizeName(sheetName).split(' ').filter(Boolean));
+  if (tokens.size === 0) {
+    return null;
+  }
+  const matches = roster.filter((entry) => {
+    const lastName = normalizeName(entry.lastName);
+    return lastName.length > 0 && tokens.has(lastName);
+  });
+  return matches.length === 1 ? matches[0].id : null;
 }
 
 @Injectable()
@@ -66,7 +211,7 @@ export class ScoresheetsService {
     teamId: string,
     eventId: string,
   ): Promise<ScoresheetExtraction | null> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const scoresheet = await this.prisma.eventScoresheet.findUnique({
       where: { eventId },
       include: { extraction: true },
@@ -74,7 +219,63 @@ export class ScoresheetsService {
     if (!scoresheet) {
       return null;
     }
-    return this.toScoresheetExtraction(scoresheet.status, scoresheet.extraction);
+    const suggestedRosterMapping = await this.buildSuggestedRosterMapping(
+      teamId,
+      event.venue,
+      scoresheet.extraction?.parsedData as ParsedScoresheetData | null | undefined,
+    );
+    return this.toScoresheetExtraction(
+      scoresheet.status,
+      scoresheet.extraction,
+      suggestedRosterMapping,
+    );
+  }
+
+  // One suggestion per jersey number our own side of the sheet carries, in
+  // sheet order. Computed on read rather than stored: it is a proposal about
+  // the current roster, so it must follow a roster that changed since the
+  // sheet was parsed rather than freeze the roster as it was.
+  private async buildSuggestedRosterMapping(
+    teamId: string,
+    venue: 'HOME' | 'AWAY' | null,
+    parsedData: ParsedScoresheetData | null | undefined,
+  ): Promise<SuggestedRosterMappingEntry[]> {
+    if (!parsedData || venue === null) {
+      return [];
+    }
+    const ourSide = ourSideOf(venue);
+    const sheetRows = parsedData.players.filter(
+      (player) => player.team === ourSide && player.number !== null,
+    );
+    if (sheetRows.length === 0) {
+      return [];
+    }
+    const roster = await this.prisma.teamPlayer.findMany({
+      where: { teamId },
+      select: { id: true, player: { select: { lastName: true } } },
+    });
+    const rosterEntries: RosterEntry[] = roster.map((entry) => ({
+      id: entry.id,
+      lastName: entry.player.lastName,
+    }));
+    const seen = new Set<number>();
+    const suggestions: SuggestedRosterMappingEntry[] = [];
+    for (const row of sheetRows) {
+      const jerseyNumber = row.number as number;
+      // A number read twice on one sheet is one player misread as two rows;
+      // suggesting them twice would only offer the manager a duplicate the
+      // confirm endpoint then rejects.
+      if (seen.has(jerseyNumber)) {
+        continue;
+      }
+      seen.add(jerseyNumber);
+      suggestions.push({
+        jerseyNumber,
+        teamPlayerId: suggestTeamPlayerId(row.name, rosterEntries),
+        sheetName: row.name,
+      });
+    }
+    return suggestions;
   }
 
   async confirmExtraction(
@@ -84,7 +285,7 @@ export class ScoresheetsService {
     reviewerUserId: string,
     request: ConfirmScoresheetExtractionRequest,
   ): Promise<ScoresheetExtraction> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const scoresheet = await this.prisma.eventScoresheet.findUnique({
       where: { eventId },
       include: { extraction: true },
@@ -92,26 +293,94 @@ export class ScoresheetsService {
     if (!scoresheet || !scoresheet.extraction) {
       throw new NotFoundException('Aucune extraction à confirmer pour cette feuille de match');
     }
-    // Deliberately doesn't re-run ScoresheetOcrProcessor's isConsistent check
-    // on `corrections` — a manager confirming/editing the data is the human
-    // review step NEEDS_REVIEW exists to route to, so their corrected values
-    // are trusted as ground truth rather than re-validated against the same
-    // heuristic that flagged the original read.
-    const extraction = await this.prisma.scoresheetExtraction.update({
-      where: { id: scoresheet.extraction.id },
-      data: {
-        ...(request.corrections
-          ? { parsedData: request.corrections as unknown as Prisma.InputJsonValue }
-          : {}),
-        reviewedByUserId: reviewerUserId,
-        reviewedAt: new Date(),
-      },
+    // EventsService keeps venue non-null on every MATCH, so this can only
+    // fire on data that predates that rule — refuse rather than pick a side
+    // and silently credit the opposing squad's points to our roster.
+    if (event.venue === null) {
+      throw new BadRequestException(
+        'Le lieu du match (domicile ou extérieur) doit être renseigné avant de confirmer la feuille',
+      );
+    }
+    // The confirmed data is what the stats are folded from: a manager's
+    // corrections are ground truth, so they win over the model's read here
+    // exactly as they do for parsedData itself.
+    const parsedData = (request.corrections ??
+      (scoresheet.extraction
+        .parsedData as unknown as ParsedScoresheetData)) as ParsedScoresheetData;
+    await this.assertRosterMappingValid(teamId, request.rosterMapping);
+    const stats = foldPlayerStats(parsedData, ourSideOf(event.venue), request.rosterMapping);
+
+    // One transaction: a confirm either records the review, the status and
+    // the stats it implies, or none of them. Half-confirming would leave a
+    // CONFIRMED sheet whose stats are the previous mapping's.
+    const extraction = await this.prisma.$transaction(async (tx) => {
+      // Deliberately doesn't re-run ScoresheetOcrProcessor's isConsistent
+      // check on `corrections` — a manager confirming/editing the data is the
+      // human review step NEEDS_REVIEW exists to route to, so their corrected
+      // values are trusted as ground truth rather than re-validated against
+      // the same heuristic that flagged the original read.
+      const updated = await tx.scoresheetExtraction.update({
+        where: { id: scoresheet.extraction!.id },
+        data: {
+          ...(request.corrections
+            ? { parsedData: request.corrections as unknown as Prisma.InputJsonValue }
+            : {}),
+          reviewedByUserId: reviewerUserId,
+          reviewedAt: new Date(),
+        },
+      });
+      await tx.eventScoresheet.update({
+        where: { id: scoresheet.id },
+        data: { status: 'CONFIRMED' },
+      });
+      // Replaced wholesale rather than upserted: a re-confirm that drops a
+      // player from the mapping must drop their row too, not leave the
+      // previous read's stats behind under a mapping that no longer claims
+      // them.
+      await tx.matchPlayerStat.deleteMany({ where: { eventId } });
+      if (stats.length > 0) {
+        await tx.matchPlayerStat.createMany({
+          data: stats.map((stat) => ({ eventId, ...stat })),
+        });
+      }
+      return updated;
     });
-    await this.prisma.eventScoresheet.update({
-      where: { id: scoresheet.id },
-      data: { status: 'CONFIRMED' },
+
+    const suggestedRosterMapping = await this.buildSuggestedRosterMapping(
+      teamId,
+      event.venue,
+      extraction.parsedData as unknown as ParsedScoresheetData,
+    );
+    return this.toScoresheetExtraction('CONFIRMED', extraction, suggestedRosterMapping);
+  }
+
+  // Validates the whole mapping before anything is written, in one query
+  // rather than one per entry. Same shape as EventsService.setEventConvocations'
+  // "every id must be on this team's own roster" check.
+  private async assertRosterMappingValid(
+    teamId: string,
+    rosterMapping: ScoresheetRosterMappingEntry[],
+  ): Promise<void> {
+    const teamPlayerIds = rosterMapping.map((entry) => entry.teamPlayerId);
+    if (new Set(teamPlayerIds).size !== teamPlayerIds.length) {
+      throw new BadRequestException('Un même joueur ne peut pas être associé à deux numéros');
+    }
+    const jerseyNumbers = rosterMapping.map((entry) => entry.jerseyNumber);
+    if (new Set(jerseyNumbers).size !== jerseyNumbers.length) {
+      throw new BadRequestException('Un même numéro ne peut pas être associé à deux joueurs');
+    }
+    if (teamPlayerIds.length === 0) {
+      return;
+    }
+    const found = await this.prisma.teamPlayer.findMany({
+      where: { teamId, id: { in: teamPlayerIds } },
+      select: { id: true },
     });
-    return this.toScoresheetExtraction('CONFIRMED', extraction);
+    if (found.length !== teamPlayerIds.length) {
+      throw new BadRequestException(
+        "Un joueur sélectionné n'appartient pas à l'effectif de l'équipe",
+      );
+    }
   }
 
   private toScoresheetExtraction(
@@ -123,6 +392,7 @@ export class ScoresheetsService {
       reviewedByUserId: string | null;
       reviewedAt: Date | null;
     } | null,
+    suggestedRosterMapping: SuggestedRosterMappingEntry[],
   ): ScoresheetExtraction {
     return {
       status: status as ScoresheetExtraction['status'],
@@ -131,6 +401,7 @@ export class ScoresheetsService {
       failureReason: extraction?.failureReason ?? null,
       reviewedByUserId: extraction?.reviewedByUserId ?? null,
       reviewedAt: extraction?.reviewedAt?.toISOString() ?? null,
+      suggestedRosterMapping,
     };
   }
 
@@ -138,7 +409,14 @@ export class ScoresheetsService {
   // defense-in-depth re-verification pattern (see CLAUDE.md's Teams module
   // section), kept local since this module doesn't otherwise depend on
   // EventsService.
-  private async assertEventInTeam(clubId: string, teamId: string, eventId: string): Promise<void> {
+  // Returns the fetched row rather than just asserting, the same way
+  // EventsService.assertEventInTeam does — both callers need the event's own
+  // venue to know which column of the sheet is ours.
+  private async assertEventInTeam(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+  ): Promise<{ venue: 'HOME' | 'AWAY' | null }> {
     const clubTeam = await this.prisma.clubTeam.findUnique({
       where: { clubId_teamId: { clubId, teamId } },
     });
@@ -152,5 +430,6 @@ export class ScoresheetsService {
     if (event.type !== 'MATCH') {
       throw new BadRequestException('La feuille de match ne concerne que les matchs');
     }
+    return { venue: event.venue };
   }
 }

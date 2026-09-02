@@ -241,6 +241,7 @@ describe('MatchScoresheetTab', () => {
       failureReason: null,
       reviewedByUserId: null,
       reviewedAt: null,
+      suggestedRosterMapping: [],
     });
 
     renderWithProviders(
@@ -356,6 +357,7 @@ describe('MatchScoresheetTab', () => {
       failureReason: null,
       reviewedByUserId: null,
       reviewedAt: null,
+      suggestedRosterMapping: [],
     });
 
     renderWithProviders(
@@ -394,6 +396,7 @@ describe('MatchScoresheetTab', () => {
       failureReason: null,
       reviewedByUserId: null,
       reviewedAt: null,
+      suggestedRosterMapping: [],
     });
     server.use(
       http.patch(
@@ -437,6 +440,7 @@ describe('MatchScoresheetTab', () => {
       failureReason: null,
       reviewedByUserId: 'user-1',
       reviewedAt: '2026-01-01T21:14:00.000Z',
+      suggestedRosterMapping: [],
     });
 
     renderWithProviders(
@@ -463,6 +467,7 @@ describe('MatchScoresheetTab', () => {
       failureReason: 'Le document est illisible par l’IA.',
       reviewedByUserId: null,
       reviewedAt: null,
+      suggestedRosterMapping: [],
     });
 
     renderWithProviders(

@@ -55,6 +55,10 @@
     "./scoresheet-extraction": {
       "types": "./scoresheet-extraction.ts",
       "default": "./scoresheet-extraction.ts"
+    },
+    "./team-stats": {
+      "types": "./team-stats.ts",
+      "default": "./team-stats.ts"
     }
   },
   "scripts": {

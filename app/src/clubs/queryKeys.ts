@@ -42,6 +42,8 @@ export const eventScoresheetExtractionQueryKey = (
   teamId: string,
   eventId: string,
 ) => ['clubs', clubId, 'teams', teamId, 'events', eventId, 'scoresheet-extraction'] as const;
+export const teamSeasonStatsQueryKey = (clubId: string, teamId: string, season?: number) =>
+  ['clubs', clubId, 'teams', teamId, 'stats', season ?? 'current'] as const;
 export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins'] as const;
 export const teamFfbbLinksQueryKey = (clubId: string, teamId: string) =>
