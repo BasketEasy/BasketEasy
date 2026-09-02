@@ -46,7 +46,7 @@ function mockMembersEndpoint(clubId: string, memberEmail: string) {
 
 // jsdom's default innerWidth (1024) already lands above the desktop
 // breakpoint, so most tests exercise the inline-nav path for free; only the
-// burger-menu test below needs to override it. AppHeader only reads
+// narrow-screen tests below need to override it. AppHeader only reads
 // innerWidth at mount (its resize listener isn't under test here), so
 // setting the property is enough — no need to dispatch a resize event.
 function setViewportWidth(width: number) {
@@ -64,18 +64,31 @@ describe('AppHeader', () => {
 
   it('is not shown on public pages', () => {
     renderWithProviders(<App />, { route: '/' });
-    expect(screen.queryByLabelText(/menu/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /aller au contenu/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mon compte/i })).not.toBeInTheDocument();
   });
 
-  it('shows navigation links inline on a desktop-width screen, and Tableau de bord navigates there', async () => {
+  it('shows navigation links inline on a desktop-width screen, and Mes équipes navigates there', async () => {
     mockSession();
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
-    expect(screen.queryByLabelText(/menu/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: /créer un club/i }));
+    await user.click(screen.getByRole('link', { name: 'Mes équipes' }));
+    expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
+  });
+
+  it('no longer carries Créer un club in the primary nav — it lives in the account menu', async () => {
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /mon compte/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /créer un club/i }));
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
@@ -223,7 +236,7 @@ describe('AppHeader', () => {
     expect(screen.queryByText('member-club1@x.com')).not.toBeInTheDocument();
   });
 
-  it('does not list a club, or show the switcher or Effectif, when the user is only a MEMBER there — Créer un club still shows', async () => {
+  it('does not list a club, or show the switcher or Effectif, when the user is only a MEMBER there', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs', () =>
@@ -236,7 +249,6 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
     expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /effectif/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
   });
 
   it('shows a Mes équipes link to a plain MEMBER (who has no Effectif entry) and it navigates to their teams', async () => {
@@ -292,65 +304,46 @@ describe('AppHeader', () => {
     expect(screen.getAllByRole('link', { name: /^effectif$/i })).toHaveLength(1);
   });
 
-  it('falls back to a burger menu on a narrow (mobile-width) screen', async () => {
+  it('has no burger on a narrow screen — AppBottomNav is the navigation there', async () => {
     setViewportWidth(375);
     mockSession();
-    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
 
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText(/menu/i));
-
-    await user.click(screen.getByRole('link', { name: /créer un club/i }));
-    expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^menu$/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
+    // The header's own links are the desktop presentation; below the
+    // breakpoint the bottom bar carries them instead.
+    expect(screen.queryByRole('link', { name: 'Tableau de bord' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Navigation principale' }),
+    ).toBeInTheDocument();
   });
 
-  it('offers the account menu inside the mobile panel', async () => {
+  it('keeps the account menu reachable on a narrow screen, without a panel to open first', async () => {
     setViewportWidth(375);
     mockSession();
-    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
 
     expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
   });
 
-  it('closes the mobile menu when the backdrop behind it is clicked', async () => {
+  it('keeps the club switcher on a narrow screen — with the panel gone it is the only way to change club', async () => {
     setViewportWidth(375);
-    mockSession();
-    const user = userEvent.setup();
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs', () =>
+        HttpResponse.json([{ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' }]),
+      ),
+    );
+
     renderWithProviders(<App />, { route: '/dashboard' });
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('mobile-menu-backdrop'));
-
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
-  });
-
-  it('closes the mobile menu when Escape is pressed', async () => {
-    setViewportWidth(375);
-    mockSession();
-    const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
-
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /coc basket/i })).toBeInTheDocument();
   });
 
   it('renders navigation as links, not buttons', () => {

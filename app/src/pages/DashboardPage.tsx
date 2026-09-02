@@ -22,6 +22,7 @@ import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAccount } from '../auth/useAccount';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
+import { useHasManageRights } from '../clubs/useHasManageRights';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { formatEventDate } from '../clubs/eventDateFormat';
@@ -113,6 +114,11 @@ export function DashboardPage() {
     isRefetching: isTeamsRefetching,
   } = useMyTeamList();
   const adminClubs = useAdminClubs();
+  // A plain rostered player (no club-admin rights, no TeamAdmin grant
+  // anywhere) sees a leaner, agenda-first set of tiles instead of the
+  // manager-oriented ones, which would only ever read 0 for them. The
+  // derivation is shared with the bottom tab bar's role split.
+  const { hasManageRights } = useHasManageRights();
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
@@ -124,10 +130,6 @@ export function DashboardPage() {
   const managedTeamCount = teams?.filter((team) => team.isTeamAdmin).length ?? 0;
   const upcomingEvents = dashboard?.upcomingEvents ?? [];
   const greetingName = user?.firstName ?? user?.email;
-  // A plain rostered player (no club-admin rights, no TeamAdmin grant
-  // anywhere) sees a leaner, agenda-first set of tiles instead of the
-  // manager-oriented ones, which would only ever read 0 for them.
-  const hasManageRights = managedTeamCount > 0 || adminClubs.length > 0;
   const rosterRoleByTeamId = useMemo(
     () => new Map((teams ?? []).map((team) => [team.teamId, team.rosterRole])),
     [teams],

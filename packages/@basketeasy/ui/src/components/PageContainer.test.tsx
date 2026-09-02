@@ -37,6 +37,16 @@ describe('PageContainer', () => {
     expect(screen.getByRole('main')).not.toHaveClass('min-h-screen');
   });
 
+  it('reserves clearance for the bottom tab bar by default, below the breakpoint where the bar renders', () => {
+    render(<PageContainer>Contenu</PageContainer>);
+    expect(screen.getByRole('main')).toHaveClass('max-md:pb-24');
+  });
+
+  it('drops that clearance when asked — a public page has no bar to clear', () => {
+    render(<PageContainer bottomNav={false}>Contenu</PageContainer>);
+    expect(screen.getByRole('main')).not.toHaveClass('max-md:pb-24');
+  });
+
   it('merges a custom className', () => {
     render(<PageContainer className="bg-cream">Contenu</PageContainer>);
     expect(screen.getByRole('main')).toHaveClass('bg-cream');

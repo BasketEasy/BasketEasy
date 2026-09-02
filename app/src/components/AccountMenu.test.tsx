@@ -44,6 +44,19 @@ describe('AccountMenu', () => {
     );
   });
 
+  it('carries Créer un club, which left the primary navigation', async () => {
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<AccountMenu />);
+
+    await user.click(screen.getByRole('button', { name: 'Mon compte' }));
+
+    expect(await screen.findByRole('menuitem', { name: 'Créer un club' })).toHaveAttribute(
+      'href',
+      '/clubs/new',
+    );
+  });
+
   it('logs out when "Se déconnecter" is chosen', async () => {
     mockSession();
     server.use(http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })));
