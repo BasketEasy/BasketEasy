@@ -15,7 +15,8 @@ import { useLogout } from '../auth/mutations';
 /**
  * The one place logout lives, reachable from every protected page via
  * AppHeader — previously logout only existed as a button on DashboardPage,
- * so /account or any team page had no way to sign out.
+ * so /account or any team page had no way to sign out. It also holds what
+ * the primary navigation gave up: « Créer un club ».
  */
 export function AccountMenu() {
   const { user } = useAccount();
@@ -35,6 +36,12 @@ export function AccountMenu() {
         <DropdownMenuLabel className="break-all">{user?.email}</DropdownMenuLabel>
         <DropdownMenuItem asChild>
           <Link to="/account">Mon profil</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          {/* Out of the primary navigation, where it held a permanent slot
+              that never applied to a licensee and applies once in an admin's
+              lifetime — see docs/ux-audit/player-journey.md §4.2. */}
+          <Link to="/clubs/new">Créer un club</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/about">À propos</Link>

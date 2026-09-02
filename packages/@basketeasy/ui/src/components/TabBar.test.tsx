@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TabBar, TabBarItem } from './TabBar';
 import { HomeIcon } from './icons/HomeIcon';
+import { TrophyIcon } from './icons/TrophyIcon';
 import { UserIcon } from './icons/UserIcon';
 
 describe('TabBar', () => {
@@ -41,6 +42,26 @@ describe('TabBarItem', () => {
 
     expect(screen.getByRole('button', { name: 'Résultats' })).toBeInTheDocument();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
+  it('dims a disabled item and keeps it out of the pointer/tab order, for a slot with nowhere to go yet', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <TabBarItem
+        icon={<TrophyIcon />}
+        label="Résultats"
+        disabled
+        aria-label="Résultats (bientôt disponible)"
+        onClick={onClick}
+      />,
+    );
+
+    const item = screen.getByRole('button', { name: 'Résultats (bientôt disponible)' });
+    expect(item).toBeDisabled();
+    expect(item).toHaveClass('disabled:opacity-50');
+    await user.click(item);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it('renders the caller-supplied element with asChild, so routing stays outside the design system', () => {
