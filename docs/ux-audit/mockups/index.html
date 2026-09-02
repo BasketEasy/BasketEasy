@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kluvo — planches « player-first »</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+:root {
+  --ground: #EFE4D4;
+  --surface: #FFFCF7;
+  --surface-2: #FAF5EF;
+  --sunk: #E9DDCA;
+  --orange: #D4622A;
+  --orange-text: #AA4F22;
+  --orange-hover: #95441C;
+  --orange-tint: #FBEDE4;
+  --blue-green: #1E5F74;
+  --blue-green-2: #2F6E80;
+  --blue-green-tint: #EAF1F3;
+  --gold: #C08A2E;
+  --gold-text: #8C5F16;
+  --gold-tint: #FBF1DC;
+  --points-three: #1E5F74;
+  --points-two: #3E88A1;
+  --points-free: #82B5C6;
+  --charcoal: #23201C;
+  --muted: #5B564F;
+  --border: #E7DECF;
+  --border-strong: #D6C8B2;
+  --error: #B23A2E;
+  --error-tint: #F7EAE8;
+  --success: #2F7D5C;
+  --success-text: #245F48;
+  --shadow-sm: 0 1px 2px rgba(59, 42, 24, 0.07);
+  --shadow-md: 0 2px 6px rgba(59, 42, 24, 0.08), 0 1px 2px rgba(59, 42, 24, 0.05);
+  --shadow-lg: 0 10px 28px rgba(59, 42, 24, 0.11), 0 2px 6px rgba(59, 42, 24, 0.06);
+  --nav-active: inset 0 -2px 0 #D4622A;
+  /* PROPOSED token — nav-active mirrored for a bottom tab bar. */
+  --nav-active-top: inset 0 2px 0 #D4622A;
+  --segment-active: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+  --tracking-wide-caps: 0.13em;
+  --tracking-section: 0.11em;
+  --tracking-eyebrow: 0.08em;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: #DED0BB;
+  color: var(--charcoal);
+  font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+h1, h2, h3, h4 { font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif; margin: 0; }
+h1, h2, h3 { line-height: 0.94; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* ---------- Spec-sheet chrome (not part of the product UI) ---------- */
+.sheet-head {
+  padding: 28px 32px 20px;
+  background: var(--charcoal);
+  color: var(--surface-2);
+}
+.sheet-head .kicker {
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide-caps);
+  font-size: 13px;
+  color: var(--orange);
+}
+.sheet-head h1 { font-size: 34px; font-weight: 800; margin-top: 6px; }
+.sheet-head p { margin: 10px 0 0; max-width: 78ch; color: #CFC3B0; font-size: 13px; }
+.sheet-head .crumbs { margin-top: 12px; font-size: 12px; color: #9E948A; }
+.sheet { padding: 28px 32px 48px; }
+.row { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.caption {
+  font-family: 'Big Shoulders Display', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-section);
+  font-size: 15px;
+  color: #4A423A;
+}
+.caption span { display: block; font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; color: #6D6459; margin-top: 3px; max-width: 46ch; }
+.note {
+  border: 1px dashed var(--blue-green);
+  background: var(--blue-green-tint);
+  border-radius: 8px;
+  padding: 14px 16px;
+  max-width: 440px;
+}
+.note h4 { font-size: 16px; font-weight: 700; color: var(--blue-green); text-transform: uppercase; letter-spacing: var(--tracking-section); }
+.note ul { margin: 8px 0 0; padding-left: 18px; }
+.note li { margin-bottom: 6px; font-size: 12.5px; }
+.note code { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; background: #FFFFFFAA; padding: 1px 4px; border-radius: 3px; }
+.tag-new { display: inline-block; background: var(--orange-text); color: var(--surface-2); border-radius: 999px; font-size: 10px; font-weight: 700; padding: 1px 7px; vertical-align: 2px; margin-left: 6px; letter-spacing: .04em; }
+
+/* ---------- Device frames ---------- */
+.phone {
+  width: 390px;
+  border: 10px solid #2B2722;
+  border-radius: 34px;
+  overflow: hidden;
+  background: var(--ground);
+  box-shadow: var(--shadow-lg);
+}
+.desktop {
+  width: 980px;
+  border: 8px solid #2B2722;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--ground);
+  box-shadow: var(--shadow-lg);
+}
+.screen { display: flex; flex-direction: column; background: var(--ground); }
+.statusbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 18px 3px; font-size: 11px; font-weight: 700; color: var(--charcoal);
+  background: var(--surface);
+}
+.appbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 16px 12px; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.wordmark { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 24px; color: var(--orange-text); }
+.appbar-ctx { font-size: 12px; color: var(--muted); }
+.avatar {
+  width: 34px; height: 34px; border-radius: 999px; background: var(--blue-green);
+  color: var(--surface-2); display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex: none;
+}
+.avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+.avatar.lg { width: 44px; height: 44px; font-size: 14px; }
+.avatar.ghost { background: var(--sunk); color: var(--muted); }
+.body { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+
+/* ---------- Bottom tab bar ---------- */
+.tabbar {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.tabbar a {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 2px 7px; text-decoration: none; color: var(--muted);
+  font-size: 11px; font-weight: 700;
+}
+.tabbar a.active { background: var(--orange-tint); color: var(--orange-text); box-shadow: var(--nav-active-top); }
+.tabbar svg { width: 22px; height: 22px; }
+.tabbar a { position: relative; }
+.tabbar .pip i {
+  position: absolute; top: 5px; left: calc(50% + 5px);
+  background: var(--orange-text); color: var(--surface-2);
+  border-radius: 999px; font-size: 9px; font-style: normal; font-weight: 700;
+  min-width: 15px; height: 15px; line-height: 15px; text-align: center; padding: 0 3px;
+}
+
+/* ---------- Product primitives (mirrors @basketeasy/ui) ---------- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-sm); }
+.card.flush { overflow: hidden; }
+.card.panel { padding: 20px; box-shadow: var(--shadow-md); }
+.card.inset { background: var(--surface-2); padding: 12px; }
+.card-pad { padding: 14px; }
+
+.section-heading { display: flex; align-items: center; gap: 14px; }
+.section-heading h3 {
+  font-size: 19px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: var(--tracking-section); color: var(--muted); white-space: nowrap;
+}
+.section-heading .rule { height: 2px; flex: 1 1 auto; border-radius: 2px; background: rgba(30, 95, 116, 0.2); }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; font-size: 11px; font-weight: 600; padding: 2px 10px; white-space: nowrap; }
+.badge.md { font-size: 12px; font-weight: 700; padding: 4px 12px; }
+.badge.solid-brand { background: var(--orange-text); color: var(--surface-2); }
+.badge.solid-structure { background: var(--blue-green); color: var(--surface-2); }
+.badge.solid-success { background: var(--success); color: var(--surface-2); }
+.badge.solid-danger { background: var(--error); color: var(--surface-2); }
+.badge.soft-brand { background: var(--orange-tint); color: var(--orange-text); border: 1px solid rgba(212, 98, 42, 0.3); }
+.badge.soft-structure { background: var(--blue-green-tint); color: var(--blue-green); border: 1px solid rgba(30, 95, 116, 0.25); }
+.badge.soft-accent { background: var(--gold-tint); color: var(--gold-text); border: 1px solid rgba(192, 138, 46, 0.35); }
+.badge.soft-success { background: rgba(47, 125, 92, 0.1); color: var(--success-text); border: 1px solid rgba(47, 125, 92, 0.3); }
+.badge.soft-neutral { background: var(--surface-2); color: var(--charcoal); border: 1px solid var(--border); }
+.badge.outline-neutral { border: 1px solid var(--border); color: var(--charcoal); }
+.badge.outline-muted { border: 1px solid var(--border); color: var(--muted); }
+.badge svg { width: 12px; height: 12px; flex: none; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 6px; font-size: 14px; font-weight: 500; height: 44px; padding: 0 16px;
+  border: 0; text-decoration: none; cursor: default; font-family: inherit;
+}
+.btn.primary { background: var(--orange-text); color: var(--surface-2); box-shadow: var(--shadow-sm); }
+.btn.secondary { background: var(--blue-green); color: var(--surface-2); }
+.btn.outline { background: var(--surface); color: var(--charcoal); border: 1px solid var(--border-strong); }
+.btn.ghost { background: transparent; color: var(--charcoal); }
+.btn.sm { height: 36px; font-size: 13px; padding: 0 12px; }
+.btn.block { width: 100%; }
+.btn svg { width: 16px; height: 16px; }
+
+.text-meta { font-size: 13px; color: var(--muted); }
+.text-meta.xs { font-size: 12px; }
+.text-label { font-size: 14px; font-weight: 600; }
+.eyebrow {
+  font-family: 'Big Shoulders Display', sans-serif; font-weight: 700; text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow); font-size: 12px; color: var(--muted);
+}
+.display { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; }
+
+/* Time block — the Parquet signature element. */
+.eventcard { display: flex; }
+.timeblock {
+  width: 80px; flex: none; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px; padding: 14px 4px;
+}
+.timeblock.match { background: var(--blue-green); color: var(--surface-2); }
+.timeblock.training { background: var(--surface-2); color: var(--charcoal); border-right: 1px solid var(--border); }
+.timeblock .t { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 27px; line-height: 1; font-variant-numeric: tabular-nums; }
+.timeblock .k { font-family: 'Big Shoulders Display', sans-serif; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: var(--tracking-wide-caps); opacity: .85; }
+.eventcard .content { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* Tri-state RSVP segmented control (mirrors EventRsvpControl). */
+.rsvp { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--sunk); }
+.rsvp button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 44px; padding: 0 10px; font: inherit; font-size: 12.5px; font-weight: 700;
+  white-space: nowrap; background: var(--surface); color: var(--muted); border: 0; cursor: default;
+}
+.rsvp button + button { border-left: 1px solid var(--border-strong); }
+.rsvp button svg { width: 16px; height: 16px; }
+.rsvp button.on-going { background: var(--success); color: var(--surface-2); box-shadow: var(--segment-active); }
+.rsvp button.on-maybe { background: var(--blue-green); color: var(--surface-2); box-shadow: var(--segment-active); }
+.rsvp button.on-no { background: var(--error); color: var(--surface-2); box-shadow: var(--segment-active); }
+.rsvp.full { display: flex; width: 100%; }
+.eventcard .rsvp.full button { padding: 0 4px; font-size: 12px; gap: 4px; }
+.eventcard .rsvp.full button svg { width: 14px; height: 14px; }
+.rsvp.full button { flex: 1 1 0; }
+
+/* Segmented view toggle / tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow: hidden; }
+.tabs a {
+  padding: 9px 12px 8px; font-size: 13px; font-weight: 700; color: var(--muted);
+  text-decoration: none; white-space: nowrap;
+}
+.tabs a.active { color: var(--orange-text); box-shadow: var(--nav-active); }
+.tabs .count { font-size: 11px; background: var(--sunk); color: var(--muted); border-radius: 999px; padding: 1px 6px; margin-left: 5px; }
+
+/* Attendance meter */
+.meter { height: 8px; border-radius: 999px; background: var(--sunk); overflow: hidden; display: flex; }
+.meter i { display: block; height: 100%; }
+.meter .go { background: var(--success); }
+.meter .may { background: var(--blue-green-2); }
+.meter .no { background: var(--error); }
+
+/* Points repartition bar (mirrors PointsRepartitionBar) */
+.pts { display: flex; height: 14px; border-radius: 3px; overflow: hidden; }
+.pts i { display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; font-weight: 700; font-style: normal; }
+.pts .p3 { background: var(--points-three); color: var(--surface-2); }
+.pts .p2 { background: var(--points-two); color: var(--surface-2); }
+.pts .p1 { background: var(--points-free); color: var(--charcoal); }
+
+.divider { height: 1px; background: var(--border); }
+.avstack { display: flex; align-items: center; }
+.avstack > * { margin-left: -7px; border: 2px solid var(--surface); }
+.avstack > *:first-child { margin-left: 0; }
+.rowline { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
+.rowline:first-child { border-top: 0; }
+.spacer { flex: 1 1 auto; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.stack.tight { gap: 6px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-sm); padding: 12px 14px; }
+.tile .v { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.hero-alert { border: 1px solid rgba(212, 98, 42, .35); background: var(--orange-tint); border-radius: 8px; padding: 12px 14px; }
+.infotile { display: flex; gap: 10px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; padding: 12px; }
+.infotile svg { width: 18px; height: 18px; color: var(--blue-green); flex: none; margin-top: 2px; }
+.scoreline { display: flex; align-items: center; gap: 12px; }
+.scoreline .sc { font-family: 'Big Shoulders Display', sans-serif; font-weight: 800; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.desk-header { display: flex; align-items: center; gap: 18px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.desk-nav { display: flex; gap: 4px; margin-left: auto; align-items: center; }
+.desk-nav a { padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--charcoal); text-decoration: none; }
+.desk-nav a.active { background: var(--orange-tint); color: var(--orange-text); box-shadow: var(--nav-active); }
+.desk-body { padding: 22px 24px 30px; display: flex; flex-direction: column; gap: 20px; }
+.cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start; }
+.strike { text-decoration: line-through; opacity: .55; }
+.kill { border: 1px dashed var(--error); background: var(--error-tint); border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--error); }
+</style>
+  </head>
+  <body>
+    <header class="sheet-head">
+      <div class="kicker">Kluvo · UX audit · Contact sheet</div>
+      <h1>Kluvo — planches « player-first »</h1>
+      <p>Sept planches haute fidélité et trois wireframes de flux pour la refonte centrée joueur. Les variantes joueur et manager sont montrées côte à côte partout où l’écran diffère.</p>
+      <div class="crumbs">docs/ux-audit/mockups/ · généré le 2 septembre 2026</div>
+    </header>
+    <main class="sheet">
+<style>
+  .sheetcard { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-md); overflow: hidden; margin-bottom: 26px; }
+  .sheetcard-head { display: flex; gap: 20px; align-items: flex-start; padding: 18px 20px; border-bottom: 1px solid var(--border); }
+  .sheetcard-head h2 { font-size: 25px; font-weight: 800; margin: 6px 0 0; }
+  .sheetcard-head p { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 80ch; }
+  .sheetcard-head .links { margin-left: auto; display: flex; gap: 8px; flex: none; }
+  .sheetcard img { display: block; width: 100%; height: auto; background: var(--sunk); }
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; }
+  .swatch { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .swatch i { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--border-strong); display: block; }
+</style>
+
+<div class="card panel" style="margin-bottom:26px">
+  <div class="stack">
+    <div class="section-heading"><h3>Comment lire ces planches</h3><span class="rule"></span></div>
+    <div class="text-meta">
+      Chaque planche est un fichier HTML autonome, rendu avec les jetons réels de
+      <code>packages/@basketeasy/ui/tailwind-preset.cjs</code> et les deux polices Parquet (Big Shoulders Display,
+      Atkinson Hyperlegible). Les téléphones sont à 390&nbsp;px, les vues desktop à 980&nbsp;px. Les encadrés
+      <span style="color:var(--blue-green);font-weight:700">bleu-vert</span> expliquent ce qui change par rapport au code
+      actuel (avec les références <code>fichier:ligne</code>)&nbsp;; les encadrés
+      <span style="color:var(--orange-text);font-weight:700">orange</span> listent ce que l’API ne sait pas encore servir.
+      L’analyse complète&nbsp;: <a href="../player-journey.md" style="color:var(--blue-green);font-weight:700">docs/ux-audit/player-journey.md</a>.
+    </div>
+    <div class="legend">
+      <span class="swatch"><i style="background:#EFE4D4"></i>ground <code>#EFE4D4</code></span><span class="swatch"><i style="background:#FFFCF7"></i>surface <code>#FFFCF7</code></span><span class="swatch"><i style="background:#FAF5EF"></i>surface-2 <code>#FAF5EF</code></span><span class="swatch"><i style="background:#E9DDCA"></i>sunk <code>#E9DDCA</code></span><span class="swatch"><i style="background:#D4622A"></i>orange <code>#D4622A</code></span><span class="swatch"><i style="background:#AA4F22"></i>orange-text <code>#AA4F22</code></span><span class="swatch"><i style="background:#1E5F74"></i>blue-green <code>#1E5F74</code></span><span class="swatch"><i style="background:#2F7D5C"></i>success <code>#2F7D5C</code></span><span class="swatch"><i style="background:#B23A2E"></i>error <code>#B23A2E</code></span><span class="swatch"><i style="background:#C08A2E"></i>gold <code>#C08A2E</code></span>
+    </div>
+  </div>
+</div>
+
+
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-brand">Joueur</span>
+      <h2>Ma semaine — accueil joueur</h2>
+      <p>Le nouvel écran d’atterrissage&nbsp;: prochain rendez-vous, réponses attendues (RSVP sur place), 14 prochains jours, «&nbsp;après le match&nbsp;». Mobile 390&nbsp;px + desktop.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./player-home.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/player-home.png">PNG</a>
+    </div>
+  </div>
+  <a href="./player-home.html"><img src="./png/player-home.png" alt="Ma semaine — accueil joueur" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-brand">Joueur</span>
+      <h2>Match — vue joueuse</h2>
+      <p>Convocation et réponse au-dessus de la ligne de flottaison, puis «&nbsp;s’y rendre&nbsp;», puis «&nbsp;qui vient&nbsp;?&nbsp;». Plus aucun onglet.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./player-event-detail.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/player-event-detail.png">PNG</a>
+    </div>
+  </div>
+  <a href="./player-event-detail.html"><img src="./png/player-event-detail.png" alt="Match — vue joueuse" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-structure">Coach</span>
+      <h2>Match — vue coach / manager</h2>
+      <p>La même page côté pilotage&nbsp;: convoqués, sans-réponse, relance, logistique, feuille de match.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./manager-event-detail.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/manager-event-detail.png">PNG</a>
+    </div>
+  </div>
+  <a href="./manager-event-detail.html"><img src="./png/manager-event-detail.png" alt="Match — vue coach / manager" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-brand">Joueur</span>
+      <h2>Mon équipe — vue joueuse</h2>
+      <p>Trois onglets (Agenda / Effectif / Mes stats), agenda répondable sur place, statistiques personnelles avant le classement.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./player-team.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/player-team.png">PNG</a>
+    </div>
+  </div>
+  <a href="./player-team.html"><img src="./png/player-team.png" alt="Mon équipe — vue joueuse" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-structure">Coach</span>
+      <h2>Équipe — vue coach / admin</h2>
+      <p>Les cinq onglets conservés, une bande «&nbsp;à traiter&nbsp;», des compteurs de réponse par carte. Mobile + desktop.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./admin-team.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/admin-team.png">PNG</a>
+    </div>
+  </div>
+  <a href="./admin-team.html"><img src="./png/admin-team.png" alt="Équipe — vue coach / admin" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge soft-neutral">Les deux</span>
+      <h2>Navigation mobile</h2>
+      <p>Le burger d’aujourd’hui contre une barre d’onglets basse à quatre entrées, déclinée par rôle, plus le menu de compte qui récupère «&nbsp;Créer un club&nbsp;».</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./mobile-nav.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/mobile-nav.png">PNG</a>
+    </div>
+  </div>
+  <a href="./mobile-nav.html"><img src="./png/mobile-nav.png" alt="Navigation mobile" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge solid-structure">Coach</span>
+      <h2>Accueil — coach / admin de club</h2>
+      <p>Le pendant manager de «&nbsp;Ma semaine&nbsp;»&nbsp;: «&nbsp;à traiter&nbsp;» d’abord, les quatre tuiles conservées dessous. Mobile + desktop.</p>
+    </div>
+    <div class="links">
+      <a class="btn primary sm" href="./admin-home.html">Ouvrir la maquette</a>
+      <a class="btn outline sm" href="./png/admin-home.png">PNG</a>
+    </div>
+  </div>
+  <a href="./admin-home.html"><img src="./png/admin-home.png" alt="Accueil — coach / admin de club" loading="lazy" /></a>
+</section>
+
+<div class="card panel" style="margin:34px 0 26px">
+  <div class="section-heading"><h3>Wireframes de flux</h3><span class="rule"></span></div>
+</div>
+
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge soft-neutral">Wireframe</span>
+      <h2>Boucle hebdomadaire du joueur</h2>
+      <p>Le parcours réel, aujourd’hui contre proposé, avec le nombre de taps par étape.</p>
+    </div>
+    <div class="links"><a class="btn outline sm" href="../wireframes/player-golden-journey.svg">Ouvrir le SVG</a></div>
+  </div>
+  <a href="../wireframes/player-golden-journey.svg"><img src="../wireframes/player-golden-journey.svg" alt="Boucle hebdomadaire du joueur" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge soft-neutral">Wireframe</span>
+      <h2>Structure de « Ma semaine »</h2>
+      <p>Ce que chaque bloc répond, et d’où vient sa donnée.</p>
+    </div>
+    <div class="links"><a class="btn outline sm" href="../wireframes/proposed-player-home.svg">Ouvrir le SVG</a></div>
+  </div>
+  <a href="../wireframes/proposed-player-home.svg"><img src="../wireframes/proposed-player-home.svg" alt="Structure de « Ma semaine »" loading="lazy" /></a>
+</section>
+<section class="sheetcard">
+  <div class="sheetcard-head">
+    <div>
+      <span class="badge soft-neutral">Wireframe</span>
+      <h2>Séparation joueur / manager</h2>
+      <p>Quels écrans se dédoublent, lesquels restent communs.</p>
+    </div>
+    <div class="links"><a class="btn outline sm" href="../wireframes/proposed-role-split.svg">Ouvrir le SVG</a></div>
+  </div>
+  <a href="../wireframes/proposed-role-split.svg"><img src="../wireframes/proposed-role-split.svg" alt="Séparation joueur / manager" loading="lazy" /></a>
+</section>
+</main>
+  </body>
+</html>

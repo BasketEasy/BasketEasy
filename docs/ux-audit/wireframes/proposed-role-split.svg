@@ -1,0 +1,102 @@
+<svg viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', Inter, Arial, sans-serif">
+  <rect width="1000" height="700" fill="#EFE4D4"/>
+
+  <text x="24" y="40" font-size="24" font-weight="800" fill="#23201C" font-family="'Big Shoulders Display', 'Arial Narrow', sans-serif">SÉPARATION JOUEUR / MANAGER</text>
+  <text x="24" y="62" font-size="12.5" fill="#5B564F">Quels écrans se dédoublent réellement, lesquels restent communs, et ce que le manager ne perd pas.</text>
+
+  <!-- table -->
+  <rect x="24" y="86" width="952" height="34" rx="6" fill="#1E5F74"/>
+  <text x="40" y="108" font-size="12" font-weight="700" fill="#FAF5EF">Surface</text>
+  <text x="300" y="108" font-size="12" font-weight="700" fill="#FAF5EF">Joueur / parent</text>
+  <text x="580" y="108" font-size="12" font-weight="700" fill="#FAF5EF">Coach / admin</text>
+  <text x="850" y="108" font-size="12" font-weight="700" fill="#FAF5EF">Nature du partage</text>
+
+  <g font-size="11.5" fill="#23201C">
+    <rect x="24" y="120" width="952" height="52" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="40" y="142" font-weight="700">/dashboard</text>
+    <text x="40" y="160" fill="#5B564F">DashboardPage.tsx</text>
+    <text x="300" y="142">« Ma semaine » : RDV, à répondre,</text>
+    <text x="300" y="160" fill="#5B564F">14 jours, après le match</text>
+    <text x="580" y="142">« Accueil » : à traiter, cette semaine,</text>
+    <text x="580" y="160" fill="#5B564F">4 tuiles, cartes d’équipe</text>
+    <rect x="846" y="130" width="118" height="20" rx="10" fill="#FBEDE4" stroke="#D4622A" stroke-opacity="0.3"/>
+    <text x="856" y="144" fill="#AA4F22" font-weight="700">Deux écrans</text>
+
+    <rect x="24" y="172" width="952" height="52" fill="#FAF5EF" stroke="#E7DECF"/>
+    <text x="40" y="194" font-weight="700">Détail d’un événement</text>
+    <text x="40" y="212" fill="#5B564F">EventDetailPage.tsx</text>
+    <text x="300" y="194">Bande décision (convocation + RSVP),</text>
+    <text x="300" y="212" fill="#5B564F">s’y rendre, qui vient, notes</text>
+    <text x="580" y="194">Bande pilotage (convoqués, relance),</text>
+    <text x="580" y="212" fill="#5B564F">logistique, effectif, feuille de match</text>
+    <rect x="846" y="182" width="118" height="20" rx="10" fill="#EAF1F3" stroke="#1E5F74" stroke-opacity="0.3"/>
+    <text x="856" y="196" fill="#1E5F74" font-weight="700">Même page</text>
+
+    <rect x="24" y="224" width="952" height="52" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="40" y="246" font-weight="700">Page équipe</text>
+    <text x="40" y="264" fill="#5B564F">TeamDetailPage.tsx</text>
+    <text x="300" y="246">3 onglets : Agenda · Effectif · Mes stats</text>
+    <text x="300" y="264" fill="#5B564F">pas de bascule Agenda/Liste</text>
+    <text x="580" y="246">5 onglets, inchangés, + bande « à traiter »</text>
+    <text x="580" y="264" fill="#5B564F">et compteurs de réponse par carte</text>
+    <rect x="846" y="234" width="118" height="20" rx="10" fill="#EAF1F3" stroke="#1E5F74" stroke-opacity="0.3"/>
+    <text x="856" y="248" fill="#1E5F74" font-weight="700">Même page</text>
+
+    <rect x="24" y="276" width="952" height="52" fill="#FAF5EF" stroke="#E7DECF"/>
+    <text x="40" y="298" font-weight="700">Navigation mobile</text>
+    <text x="40" y="316" fill="#5B564F">AppHeader.tsx</text>
+    <text x="300" y="298">Ma semaine · Mon équipe ·</text>
+    <text x="300" y="316" fill="#5B564F">Résultats · Profil</text>
+    <text x="580" y="298">Accueil · Équipes · Club · Profil</text>
+    <text x="580" y="316" fill="#5B564F">+ sélecteur de club dans le header</text>
+    <rect x="846" y="286" width="118" height="20" rx="10" fill="#FBEDE4" stroke="#D4622A" stroke-opacity="0.3"/>
+    <text x="856" y="300" fill="#AA4F22" font-weight="700">Même barre</text>
+
+    <rect x="24" y="328" width="952" height="52" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="40" y="350" font-weight="700">Statistiques d’équipe</text>
+    <text x="40" y="368" fill="#5B564F">TeamSeasonStatsTab.tsx</text>
+    <text x="300" y="350">« Mes stats » : carte personnelle,</text>
+    <text x="300" y="368" fill="#5B564F">puis classement, sa ligne marquée</text>
+    <text x="580" y="350">« Statistiques » : le tableau complet</text>
+    <text x="580" y="368" fill="#5B564F">d’aujourd’hui, inchangé</text>
+    <rect x="846" y="338" width="118" height="20" rx="10" fill="#EAF1F3" stroke="#1E5F74" stroke-opacity="0.3"/>
+    <text x="856" y="352" fill="#1E5F74" font-weight="700">Même onglet</text>
+
+    <rect x="24" y="380" width="952" height="52" fill="#FAF5EF" stroke="#E7DECF"/>
+    <text x="40" y="402" font-weight="700">Effectif du club, import,</text>
+    <text x="40" y="420" fill="#5B564F">clubs partenaires, admins</text>
+    <text x="300" y="410" fill="#5B564F">Jamais affiché (déjà le cas aujourd’hui)</text>
+    <text x="580" y="410">Inchangé</text>
+    <rect x="846" y="390" width="118" height="20" rx="10" fill="#FAF5EF" stroke="#D6C8B2"/>
+    <text x="856" y="404" fill="#5B564F" font-weight="700">Manager seul</text>
+  </g>
+
+  <!-- annotation -->
+  <g>
+    <rect x="24" y="452" width="470" height="224" rx="6" fill="#EAF1F3" stroke="#1E5F74" stroke-dasharray="4 3"/>
+    <text x="40" y="476" font-size="13" font-weight="700" fill="#1E5F74">Comment le rôle est résolu — rien de neuf</text>
+    <text x="40" y="500" font-size="12" fill="#23201C">Les trois signaux existent déjà côté client :</text>
+    <text x="40" y="522" font-size="12" fill="#23201C">· useIsClubAdmin(clubId) — admin de club</text>
+    <text x="40" y="542" font-size="12" fill="#23201C">· useIsTeamManager(clubId, teamId) — admin d’équipe</text>
+    <text x="40" y="562" font-size="12" fill="#23201C">· useMyTeamList() → rosterRole !== null — rosterisé</text>
+    <text x="40" y="586" font-size="12" fill="#23201C">TeamDetailPage et EventDetailPage s’en servent déjà</text>
+    <text x="40" y="604" font-size="12" fill="#23201C">pour masquer des onglets et des boutons. La refonte</text>
+    <text x="40" y="622" font-size="12" fill="#23201C">n’ajoute aucun concept d’autorisation : elle change</text>
+    <text x="40" y="640" font-size="12" fill="#23201C">l’ordre et le vocabulaire, pas le contrôle d’accès.</text>
+    <text x="40" y="664" font-size="11.5" fill="#5B564F">Le coach rosterisé (TeamPlayer.role = COACH) voit les deux.</text>
+  </g>
+
+  <g>
+    <rect x="506" y="452" width="470" height="224" rx="6" fill="#F7EAE8" stroke="#B23A2E" stroke-dasharray="4 3"/>
+    <text x="522" y="476" font-size="13" font-weight="700" fill="#B23A2E">Le persona qui n’a aucune place aujourd’hui</text>
+    <text x="522" y="500" font-size="12" fill="#23201C">Le parent d’un U13 ne peut pas exister dans le modèle :</text>
+    <text x="522" y="522" font-size="12" fill="#23201C">Player.userId est un lien 1–1 vers un User, et la</text>
+    <text x="522" y="542" font-size="12" fill="#23201C">contrainte @@unique([clubId, userId]) interdit qu’un</text>
+    <text x="522" y="562" font-size="12" fill="#23201C">même compte porte deux enfants du même club.</text>
+    <text x="522" y="586" font-size="12" fill="#23201C">V1 : assumer que le compte de l’enfant est tenu par le</text>
+    <text x="522" y="604" font-size="12" fill="#23201C">parent — c’est déjà l’usage réel chez les concurrents —</text>
+    <text x="522" y="622" font-size="12" fill="#23201C">et écrire la copie en conséquence (« vous » et non « ton »).</text>
+    <text x="522" y="646" font-size="12" fill="#23201C">Vrai correctif : un modèle PlayerGuardian (P2, self-service</text>
+    <text x="522" y="664" font-size="12" fill="#23201C">parent/joueur de docs/feature-set.md).</text>
+  </g>
+</svg>

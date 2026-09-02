@@ -1,0 +1,121 @@
+<svg viewBox="0 0 1000 780" xmlns="http://www.w3.org/2000/svg" font-family="'Atkinson Hyperlegible', Inter, Arial, sans-serif">
+  <rect width="1000" height="780" fill="#EFE4D4"/>
+
+  <text x="24" y="40" font-size="24" font-weight="800" fill="#23201C" font-family="'Big Shoulders Display', 'Arial Narrow', sans-serif">BOUCLE HEBDOMADAIRE DU JOUEUR</text>
+  <text x="24" y="62" font-size="12.5" fill="#5B564F">Léa Moreau, seniors féminines. Mercredi soir, dans le gymnase, une main libre. « Je suis convoquée samedi ? À quelle heure ? J'ai répondu ? »</text>
+
+  <!-- ============ lane 1: today ============ -->
+  <rect x="24" y="86" width="952" height="252" rx="8" fill="#FAF5EF" stroke="#E7DECF"/>
+  <rect x="24" y="86" width="6" height="252" fill="#B23A2E"/>
+  <text x="44" y="112" font-size="15" font-weight="700" fill="#B23A2E">Aujourd’hui — 6 taps, 3 écrans, aucune réponse possible avant le 4e</text>
+
+  <g font-size="11.5" fill="#23201C">
+    <!-- step 1 -->
+    <rect x="44" y="128" width="152" height="76" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="56" y="148" font-weight="700">1 · /dashboard</text>
+    <text x="56" y="166" fill="#5B564F">2 tuiles de compteurs,</text>
+    <text x="56" y="182" fill="#5B564F">puis « Cette semaine ».</text>
+    <text x="56" y="198" fill="#B23A2E">Fenêtre 7 jours.</text>
+
+    <path d="M200 166h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="232" y="128" width="152" height="76" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="244" y="148" font-weight="700">2 · tap sur la ligne</text>
+    <text x="244" y="166" fill="#5B564F">Le lien pointe la page</text>
+    <text x="244" y="182" fill="#5B564F">ÉQUIPE, pas l’événement</text>
+    <text x="244" y="198" fill="#B23A2E">(DashboardPage.tsx:49)</text>
+
+    <path d="M388 166h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="420" y="128" width="152" height="76" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="432" y="148" font-weight="700">3 · onglet Événements</text>
+    <text x="432" y="166" fill="#5B564F">2 contrôles segmentés</text>
+    <text x="432" y="182" fill="#5B564F">avant le contenu, puis</text>
+    <text x="432" y="198" fill="#B23A2E">retrouver la bonne carte.</text>
+
+    <path d="M576 166h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="608" y="128" width="152" height="76" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="620" y="148" font-weight="700">4 · RSVP sur la carte</text>
+    <text x="620" y="166" fill="#5B564F">Enfin répondable.</text>
+    <text x="620" y="182" fill="#2F7D5C">✓ boucle bouclée</text>
+
+    <path d="M764 166h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="796" y="128" width="156" height="76" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="808" y="148" font-weight="700">5-6 · « Voir le match »</text>
+    <text x="808" y="166" fill="#5B564F">pour le lieu, puis onglet</text>
+    <text x="808" y="182" fill="#5B564F">Effectif pour « qui vient ».</text>
+  </g>
+
+  <!-- dead ends -->
+  <g font-size="11.5">
+    <rect x="44" y="220" width="908" height="100" rx="6" fill="#F7EAE8" stroke="#B23A2E" stroke-dasharray="4 3"/>
+    <text x="60" y="242" font-size="12.5" font-weight="700" fill="#B23A2E">Ce qui n’est atteignable par aucun chemin</text>
+    <text x="60" y="264" fill="#23201C">· Le match du samedi suivant : hors de la fenêtre now → +7 j du tableau de bord (dashboard.service.ts:7).</text>
+    <text x="60" y="282" fill="#23201C">· Le résultat du match joué : le score ne vit que dans ParsedScoresheetData, derrière la confirmation d’un manager.</text>
+    <text x="60" y="300" fill="#23201C">· Le vote MVP : sa fenêtre dure 5 jours après le match — un match passé n’apparaît jamais sur l’accueil.</text>
+  </g>
+
+  <!-- ============ lane 2: proposed ============ -->
+  <rect x="24" y="356" width="952" height="212" rx="8" fill="#FAF5EF" stroke="#E7DECF"/>
+  <rect x="24" y="356" width="6" height="212" fill="#2F7D5C"/>
+  <text x="44" y="382" font-size="15" font-weight="700" fill="#245F48">Proposé — 1 tap pour répondre, 2 pour tout savoir</text>
+
+  <g font-size="11.5" fill="#23201C">
+    <rect x="44" y="398" width="212" height="90" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <rect x="44" y="398" width="6" height="90" fill="#D4622A"/>
+    <text x="62" y="418" font-weight="700">1 · « Ma semaine »</text>
+    <text x="62" y="436" fill="#5B564F">Prochain rendez-vous en tête,</text>
+    <text x="62" y="452" fill="#5B564F">« À répondre (2) » juste après,</text>
+    <text x="62" y="468" fill="#5B564F">chaque carte porte son RSVP.</text>
+    <text x="62" y="484" fill="#245F48">Réponse : 1 tap.</text>
+
+    <path d="M260 443h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="292" y="398" width="212" height="90" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="310" y="418" font-weight="700">2 · Détail du match</text>
+    <text x="310" y="436" fill="#5B564F">Convocation + réponse en haut,</text>
+    <text x="310" y="452" fill="#5B564F">« s’y rendre » (itinéraire) puis</text>
+    <text x="310" y="468" fill="#5B564F">« qui vient ? » sans onglet.</text>
+
+    <path d="M508 443h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="540" y="398" width="200" height="90" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="558" y="418" font-weight="700">3 · Après le match</text>
+    <text x="558" y="436" fill="#5B564F">Score, mes points, mes fautes,</text>
+    <text x="558" y="452" fill="#5B564F">« Votes ouverts · N j » sur</text>
+    <text x="558" y="468" fill="#5B564F">l’accueil et l’onglet Résultats.</text>
+
+    <path d="M744 443h28" stroke="#5B564F" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <rect x="776" y="398" width="176" height="90" rx="6" fill="#FFFCF7" stroke="#E7DECF"/>
+    <text x="794" y="418" font-weight="700">4 · Mes stats</text>
+    <text x="794" y="436" fill="#5B564F">Carte personnelle d’abord,</text>
+    <text x="794" y="452" fill="#5B564F">classement de l’équipe ensuite,</text>
+    <text x="794" y="468" fill="#5B564F">sa ligne marquée.</text>
+  </g>
+
+  <g font-size="11.5">
+    <rect x="44" y="500" width="908" height="52" rx="6" fill="#EAF1F3" stroke="#1E5F74" stroke-dasharray="4 3"/>
+    <text x="60" y="522" font-size="12.5" font-weight="700" fill="#1E5F74">La barre d’onglets basse rend les 4 étapes atteignables depuis n’importe où</text>
+    <text x="60" y="542" fill="#23201C">Ma semaine · Mon équipe · Résultats · Profil — au lieu d’un burger qui cache la nav et n’indique jamais où l’on se trouve.</text>
+  </g>
+
+  <!-- annotation -->
+  <g>
+    <rect x="24" y="586" width="952" height="170" rx="6" fill="#EAF1F3" stroke="#1E5F74" stroke-dasharray="4 3"/>
+    <text x="40" y="612" font-size="13" font-weight="700" fill="#1E5F74">Ce que ce diagramme fixe</text>
+    <text x="40" y="636" font-size="12" fill="#23201C">Le défaut structurel n’est pas visuel : l’application est construite autour du club (créer, administrer, lister), et le</text>
+    <text x="40" y="656" font-size="12" fill="#23201C">licencié — l’écrasante majorité des comptes — traverse ces surfaces d’administration pour atteindre les trois</text>
+    <text x="40" y="676" font-size="12" fill="#23201C">informations qui le concernent. Rien n’est supprimé au manager : les vues outillées (tableau paginé, clubs</text>
+    <text x="40" y="696" font-size="12" fill="#23201C">partenaires, administrateurs, convocations) restent intactes, elles cessent seulement d’être le chemin par défaut.</text>
+    <text x="40" y="724" font-size="12" fill="#5B564F">Détail, personas et liste priorisée : docs/ux-audit/player-journey.md · maquettes : docs/ux-audit/mockups/index.html</text>
+  </g>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5B564F"/>
+    </marker>
+  </defs>
+</svg>

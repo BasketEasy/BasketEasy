@@ -1,5 +1,7 @@
 # Kluvo — Global UI/UX Audit
 
+> **Follow-up pass:** every item below has since shipped. [`player-journey.md`](./player-journey.md) (2026-09-02) re-reads the app from the plain licensee's point of view and supersedes parts of this document's framing — see its §0 for what still holds and what it replaces. High-fidelity mockups for that pass: [`mockups/index.html`](./mockups/index.html).
+
 Date: 2026-08-11. Scope: `app/` (React + Vite frontend), all pages currently shipped — Landing, Login, Register, Dashboard, Account, My Teams, Club Create, Members (club hub), Team Detail. Based on reading the routing, navigation, and page source directly (see file references throughout); no design changes have been made — this is analysis + proposals only.
 
 ## 1. How pages are reached today
