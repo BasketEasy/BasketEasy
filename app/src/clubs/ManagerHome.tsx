@@ -134,6 +134,7 @@ export function ManagerHome({
                 key={event.eventId}
                 event={event}
                 isRostered={isRostered(event.teamId)}
+                showRsvpSummary
               />
             ))
           ) : (

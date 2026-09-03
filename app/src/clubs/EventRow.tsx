@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { ResponseMeter } from '@basketeasy/ui/response-meter';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate, formatEventDateOnly } from './eventDateFormat';
@@ -100,6 +101,18 @@ export function EventRow({
           <EventVoteBadge event={event} />
           <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
+          {event.rsvpSummary.rosterSize > 0 && (
+            // At-a-glance now that rsvpSummary arrives on the event itself —
+            // the breakdowns below still lazy-fetch, but only for the names,
+            // not for these counts.
+            <ResponseMeter
+              going={event.rsvpSummary.going}
+              maybe={event.rsvpSummary.maybe}
+              notGoing={event.rsvpSummary.notGoing}
+              pending={event.rsvpSummary.pending}
+              size="sm"
+            />
+          )}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
         </div>

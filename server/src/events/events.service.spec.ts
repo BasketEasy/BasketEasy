@@ -160,6 +160,16 @@ describe('EventsService', () => {
             timeConfirmed: true,
             myRsvpStatus: null,
             myConvocation: false,
+            rsvpSummary: {
+              rosterSize: 0,
+              convoked: 0,
+              answering: 0,
+              going: 0,
+              maybe: 0,
+              notGoing: 0,
+              pending: 0,
+              isConvocationScoped: false,
+            },
             logistics: { jerseys: null, balls: null },
           },
         ],
@@ -229,15 +239,19 @@ describe('EventsService', () => {
 
       const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
 
-      // One shared findMyTeamPlayer lookup, plus one findMany per concern —
-      // never one query per event and never a duplicate teamPlayer lookup
-      // for the two concerns.
+      // resolveMyEventState: one shared findMyTeamPlayer lookup, plus one
+      // findMany per concern — never one query per event and never a
+      // duplicate teamPlayer lookup for the two concerns. rsvpSummary's
+      // sibling resolveEventRosterSummaries adds one more findMany per
+      // concern (batch-wide, not per-caller) plus one teamPlayer.count — see
+      // the dedicated "resolves rsvpSummary" test below for that helper's
+      // own bounded-query assertions.
       expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
-      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(2);
       expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
         where: { teamPlayerId: 'tp-1', eventId: { in: ['event-1', 'event-2'] } },
       });
-      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(2);
       expect(prisma.eventConvocation.findMany).toHaveBeenCalledWith({
         where: { teamPlayerId: 'tp-1', eventId: { in: ['event-1', 'event-2'] } },
       });
@@ -245,6 +259,111 @@ describe('EventsService', () => {
       expect(result.items[0].myConvocation).toBe(true);
       expect(result.items[1].myRsvpStatus).toBeNull();
       expect(result.items[1].myConvocation).toBe(false);
+    });
+
+    it('resolves rsvpSummary for the whole roster in a bounded number of queries, regardless of batch size', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      // teamPlayer.findFirst defaults to null (beforeEach), so
+      // resolveMyEventState short-circuits without touching
+      // eventRsvp/eventConvocation.findMany — every call to those mocks
+      // below is exclusively resolveEventRosterSummaries's.
+      prisma.teamPlayer.count.mockResolvedValue(5);
+      const createdAt = new Date('2026-01-01');
+      prisma.event.findMany.mockResolvedValue([
+        {
+          id: 'event-a',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-05'),
+          createdAt,
+        },
+        {
+          id: 'event-b',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-12'),
+          createdAt,
+        },
+        {
+          id: 'event-c',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-19'),
+          createdAt,
+        },
+      ]);
+      prisma.event.count.mockResolvedValue(3);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-a', teamPlayerId: 'tp-1', status: 'GOING' },
+        { eventId: 'event-a', teamPlayerId: 'tp-2', status: 'GOING' },
+        { eventId: 'event-a', teamPlayerId: 'tp-3', status: 'MAYBE' },
+        { eventId: 'event-a', teamPlayerId: 'tp-4', status: 'NOT_GOING' },
+        { eventId: 'event-b', teamPlayerId: 'tp-1', status: 'GOING' },
+        // Not convoked for event-b — must not count toward its scoped total.
+        { eventId: 'event-b', teamPlayerId: 'tp-3', status: 'GOING' },
+        { eventId: 'event-c', teamPlayerId: 'tp-1', status: 'GOING' },
+        { eventId: 'event-c', teamPlayerId: 'tp-2', status: 'MAYBE' },
+      ]);
+      prisma.eventConvocation.findMany.mockResolvedValue([
+        // event-a: fully convoked (all 5 roster spots called up).
+        { eventId: 'event-a', teamPlayerId: 'tp-1' },
+        { eventId: 'event-a', teamPlayerId: 'tp-2' },
+        { eventId: 'event-a', teamPlayerId: 'tp-3' },
+        { eventId: 'event-a', teamPlayerId: 'tp-4' },
+        { eventId: 'event-a', teamPlayerId: 'tp-5' },
+        // event-b: partially convoked (2 of 5).
+        { eventId: 'event-b', teamPlayerId: 'tp-1' },
+        { eventId: 'event-b', teamPlayerId: 'tp-2' },
+        // event-c: nobody convoked yet.
+      ]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      // One roster-size count and one findMany per concern — for the whole
+      // 3-event batch, not one query per event.
+      expect(prisma.teamPlayer.count).toHaveBeenCalledTimes(1);
+      expect(prisma.teamPlayer.count).toHaveBeenCalledWith({ where: { teamId: 'team-1' } });
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-a', 'event-b', 'event-c'] } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      });
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-a', 'event-b', 'event-c'] } },
+        select: { eventId: true, teamPlayerId: true },
+      });
+
+      expect(result.items[0].rsvpSummary).toEqual({
+        rosterSize: 5,
+        convoked: 5,
+        answering: 5,
+        going: 2,
+        maybe: 1,
+        notGoing: 1,
+        pending: 1,
+        isConvocationScoped: true,
+      });
+      expect(result.items[1].rsvpSummary).toEqual({
+        rosterSize: 5,
+        convoked: 2,
+        answering: 2,
+        going: 1,
+        maybe: 0,
+        notGoing: 0,
+        pending: 1,
+        isConvocationScoped: true,
+      });
+      expect(result.items[2].rsvpSummary).toEqual({
+        rosterSize: 5,
+        convoked: 0,
+        answering: 5,
+        going: 1,
+        maybe: 1,
+        notGoing: 0,
+        pending: 3,
+        isConvocationScoped: false,
+      });
     });
 
     it('filters by from/to date range', async () => {
@@ -1332,9 +1451,23 @@ describe('EventsService', () => {
 
       expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
       expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
-      expect(prisma.eventRsvp.findMany).not.toHaveBeenCalled();
       expect(prisma.eventConvocation.findUnique).toHaveBeenCalledWith({
         where: { eventId_teamPlayerId: { eventId: 'event-1', teamPlayerId: 'tp-1' } },
+      });
+      // The only extra cost is resolveEventRosterSummaries's fixed, bounded
+      // 3 queries (one each, for this single event) needed to return a
+      // fresh whole-roster rsvpSummary — not a per-event or per-roster-size
+      // blow-up.
+      expect(prisma.teamPlayer.count).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      });
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+        select: { eventId: true, teamPlayerId: true },
       });
     });
   });
@@ -1386,7 +1519,16 @@ describe('EventsService', () => {
 
       expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
       expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
-      expect(prisma.eventRsvp.findMany).not.toHaveBeenCalled();
+      // Same fixed, bounded resolveEventRosterSummaries cost as setMyRsvp —
+      // one query per concern for this single event, needed for a fresh
+      // whole-roster rsvpSummary.
+      expect(prisma.teamPlayer.count).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      });
+      expect(prisma.eventConvocation.findMany).toHaveBeenCalledTimes(1);
     });
   });
 
