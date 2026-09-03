@@ -18,8 +18,10 @@ import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import type { ActionItem } from '@basketeasy/types/my-dashboard';
 import type { TeamEvent } from '@basketeasy/types/events';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
+import { ActionItemsBand } from './ActionItemsBand';
 import { EventCreateForm } from './EventCreateForm';
 import { EventRow } from './EventRow';
 import { TeamEventsAgenda } from './TeamEventsAgenda';
@@ -27,14 +29,20 @@ import { EVENT_SORT_OPTIONS } from './teamFilterOptions';
 
 /**
  * The Événements tab body — extracted verbatim from `TeamDetailPage` (no
- * behaviour or visual change). See `TeamRosterTab` for why data fetching
- * stays in the page.
+ * behaviour or visual change, aside from phase 9's `actionItems` band). See
+ * `TeamRosterTab` for why data fetching stays in the page.
+ *
+ * `teamActionItems` is `TeamDetailPage`'s `GET /me/dashboard` fetch, already
+ * filtered down to this team's own items (`item.teamId === teamId`) — the
+ * manager's team-scoped « à traiter », matching `admin-team.html`'s mockup
+ * placement between the period toggle and the event list.
  */
 export function TeamEventsTab({
   clubId,
   teamId,
   canManageTeam,
   isRostered,
+  teamActionItems,
   isAddEventOpen,
   setIsAddEventOpen,
   eventsViewMode,
@@ -67,6 +75,7 @@ export function TeamEventsTab({
   teamId: string;
   canManageTeam: boolean;
   isRostered: boolean;
+  teamActionItems: ActionItem[];
   isAddEventOpen: boolean;
   setIsAddEventOpen: (open: boolean) => void;
   eventsViewMode: 'agenda' | 'table';
@@ -187,6 +196,8 @@ export function TeamEventsTab({
           />
         </div>
       )}
+
+      <ActionItemsBand items={teamActionItems} />
 
       <Card>
         <CardContent className="flex flex-col gap-4">

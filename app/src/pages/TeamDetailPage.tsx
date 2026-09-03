@@ -20,6 +20,7 @@ import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
+import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { TeamRosterTab } from '../clubs/TeamRosterTab';
 import { TeamClubsTab } from '../clubs/TeamClubsTab';
@@ -76,6 +77,17 @@ export function TeamDetailPage() {
   // nothing to RSVP for, and vice versa for a rostered non-admin.
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
+
+  // « À traiter » (phase 9) — only a manager has anything here (the server
+  // gates actionItems on admin/TeamAdmin status), so the fetch is skipped
+  // entirely for a rostered player viewing the same page. No custom
+  // from/to: the default 7-day window is also what every action-item kind's
+  // own window is bounded by (`DashboardService`), independent of it.
+  const { data: dashboard } = useMyAgenda(undefined, { enabled: canManageTeam });
+  const teamActionItems = useMemo(
+    () => (dashboard?.actionItems ?? []).filter((item) => item.teamId === teamId),
+    [dashboard, teamId],
+  );
 
   const {
     data: team,
@@ -525,6 +537,7 @@ export function TeamDetailPage() {
               teamId={teamId!}
               canManageTeam={canManageTeam}
               isRostered={isRostered}
+              teamActionItems={teamActionItems}
               isAddEventOpen={isAddEventOpen}
               setIsAddEventOpen={setIsAddEventOpen}
               eventsViewMode={eventsViewMode}

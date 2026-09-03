@@ -8,7 +8,7 @@ import type {
   EventType,
   EventVenue,
 } from '@basketeasy/types/events';
-import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
+import type { ActionItem, MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
@@ -16,6 +16,32 @@ import { deriveMatchResult } from '../common/match-result';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_AGENDA_WINDOW_DAYS = 7;
+// Phase 9's four "à traiter" windows — each independent of the agenda
+// from/to params the caller may have sent (those shape upcomingEvents, not
+// this), so a player's 14-day window or the manager's plain 7-day default
+// never accidentally widens or narrows what counts as "imminent" here.
+const ACTION_ITEM_CONVOCATION_WINDOW_DAYS = 7;
+const ACTION_ITEM_RSVP_WINDOW_DAYS = 2;
+const ACTION_ITEM_PAST_SCORESHEET_WINDOW_DAYS = 14;
+const ACTION_ITEM_PLAYERS_WITHOUT_ACCOUNT_LIMIT = 5;
+// Across all four kinds combined — never an unpaginated list. Prioritized in
+// the order the kinds are built: convocations, then pending RSVPs, then
+// unconfirmed scoresheets, then accountless players.
+const ACTION_ITEM_TOTAL_CAP = 8;
+
+function formatWeekdayLabel(date: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(date);
+}
+
+type ActionItemEventTeam = { name: string; clubTeams: { club: { id: string; name: string } }[] };
+type ActionItemEvent = {
+  id: string;
+  teamId: string;
+  type: EventType;
+  startsAt: Date;
+  opponentName: string | null;
+  team: ActionItemEventTeam;
+};
 
 @Injectable()
 export class DashboardService {
@@ -94,6 +120,14 @@ export class DashboardService {
         this.resolveMatchResults(events, teamPlayerIds),
       ]);
 
+    const actionItems = await this.resolveActionItems(
+      adminGrants.map((g) => g.teamId),
+      adminClubIds,
+      memberClubIds,
+      events,
+      rsvpSummaries,
+    );
+
     return {
       totalPlayers,
       upcomingEvents: events.map((event) =>
@@ -108,6 +142,210 @@ export class DashboardService {
           myStatsByEventId.get(event.id) ?? null,
         ),
       ),
+      actionItems,
+    };
+  }
+
+  // The manager's « À traiter » band (docs/ux-audit/player-journey.md §6.6).
+  // Sibling to the three resolvers above, same early-return shape — but
+  // gated on "does this caller manage anything" rather than teamIds.length,
+  // since teamIds also includes teams the caller is merely rostered on and a
+  // plain rostered player must never see this band. adminGrantTeamIds/
+  // adminClubIds are exactly what getDashboard already resolved — no new
+  // membership query.
+  private async resolveActionItems(
+    adminGrantTeamIds: string[],
+    adminClubIds: string[],
+    memberClubIds: Set<string>,
+    events: ActionItemEvent[],
+    rsvpSummaries: Map<string, EventRsvpSummary>,
+  ): Promise<ActionItem[]> {
+    if (adminGrantTeamIds.length === 0 && adminClubIds.length === 0) {
+      return [];
+    }
+
+    const now = new Date();
+    // "Admin/TeamAdmin teams" expressed once and reused by both the two
+    // fresh queries below (as a Prisma filter) and the JS filter over the
+    // already-fetched `events` batch for EVENT_PENDING_RSVPS — a team the
+    // caller merely plays on, with no admin role anywhere, matches neither.
+    const managedTeamFilter = {
+      OR: [
+        { teamId: { in: adminGrantTeamIds } },
+        { team: { clubTeams: { some: { clubId: { in: adminClubIds } } } } },
+      ],
+    };
+    const adminGrantTeamIdSet = new Set(adminGrantTeamIds);
+    const adminClubIdSet = new Set(adminClubIds);
+    const isManagedTeamEvent = (event: ActionItemEvent) =>
+      adminGrantTeamIdSet.has(event.teamId) ||
+      event.team.clubTeams.some((ct) => adminClubIdSet.has(ct.club.id));
+
+    const eventTeamInclude = {
+      team: {
+        include: {
+          clubTeams: {
+            include: { club: true },
+            orderBy: [{ isOwner: 'desc' as const }, { createdAt: 'asc' as const }],
+          },
+        },
+      },
+    };
+
+    const [matchesWithoutConvocations, matchesWithoutConfirmedScoresheet, playersWithoutAccount] =
+      await Promise.all([
+        // Kind 1: upcoming MATCHes with zero convocations — filtered in
+        // Prisma (`convocations: { none: {} }`), not fetched-then-diffed.
+        this.prisma.event.findMany({
+          where: {
+            type: 'MATCH',
+            startsAt: {
+              gte: now,
+              lte: new Date(now.getTime() + ACTION_ITEM_CONVOCATION_WINDOW_DAYS * DAY_IN_MS),
+            },
+            convocations: { none: {} },
+            ...managedTeamFilter,
+          },
+          include: eventTeamInclude,
+          orderBy: { startsAt: 'asc' },
+        }),
+        // Kind 3: already-played MATCHes with no CONFIRMED scoresheet.
+        // `isNot` on an optional to-one relation matches both "no scoresheet
+        // at all" and "a scoresheet that isn't CONFIRMED yet" — exactly the
+        // union this item is for.
+        this.prisma.event.findMany({
+          where: {
+            type: 'MATCH',
+            startsAt: {
+              gte: new Date(now.getTime() - ACTION_ITEM_PAST_SCORESHEET_WINDOW_DAYS * DAY_IN_MS),
+              lte: now,
+            },
+            scoresheet: { isNot: { status: 'CONFIRMED' } },
+            ...managedTeamFilter,
+          },
+          include: eventTeamInclude,
+          orderBy: { startsAt: 'desc' },
+        }),
+        // Kind 4: genuinely unbounded by date, so it needs its own explicit
+        // cap rather than a window.
+        this.prisma.player.findMany({
+          where: { clubId: { in: adminClubIds }, userId: null },
+          take: ACTION_ITEM_PLAYERS_WITHOUT_ACCOUNT_LIMIT,
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            club: { select: { id: true, name: true } },
+          },
+        }),
+      ]);
+
+    // Kind 2: reuses the roster-wide rsvpSummaries already computed above
+    // for this same `events` batch — no second, parallel aggregate query —
+    // narrowed here to the tighter ±2-day "imminent" slice and to managed
+    // teams only.
+    const rsvpWindowEnd = new Date(now.getTime() + ACTION_ITEM_RSVP_WINDOW_DAYS * DAY_IN_MS);
+    const eventsPendingRsvp = events.filter(
+      (event) =>
+        event.startsAt >= now &&
+        event.startsAt <= rsvpWindowEnd &&
+        isManagedTeamEvent(event) &&
+        (rsvpSummaries.get(event.id)?.pending ?? 0) > 0,
+    );
+
+    const items: ActionItem[] = [
+      ...matchesWithoutConvocations.map((event) =>
+        this.toMatchWithoutConvocationsItem(event, memberClubIds),
+      ),
+      ...eventsPendingRsvp.map((event) =>
+        this.toEventPendingRsvpsItem(event, memberClubIds, rsvpSummaries.get(event.id)),
+      ),
+      ...matchesWithoutConfirmedScoresheet.map((event) =>
+        this.toMatchWithoutConfirmedScoresheetItem(event, memberClubIds),
+      ),
+      ...playersWithoutAccount.map((player) => this.toPlayerWithoutAccountItem(player)),
+    ];
+    return items.slice(0, ACTION_ITEM_TOTAL_CAP);
+  }
+
+  private pickEventClub(
+    team: ActionItemEventTeam,
+    memberClubIds: Set<string>,
+  ): { id: string; name: string } {
+    return (
+      team.clubTeams.find((ct) => memberClubIds.has(ct.club.id))?.club ?? team.clubTeams[0].club
+    );
+  }
+
+  private toMatchWithoutConvocationsItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    return {
+      kind: 'MATCH_WITHOUT_CONVOCATIONS',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `Match contre ${event.opponentName ?? "l'adversaire"} ${formatWeekdayLabel(event.startsAt)} — personne n'a encore été convoqué.`,
+    };
+  }
+
+  private toEventPendingRsvpsItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+    summary: EventRsvpSummary | undefined,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    const pending = summary?.pending ?? 0;
+    const subject =
+      event.type === 'MATCH'
+        ? `Match contre ${event.opponentName ?? "l'adversaire"}`
+        : 'Entraînement';
+    return {
+      kind: 'EVENT_PENDING_RSVPS',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `${subject} ${formatWeekdayLabel(event.startsAt)} — ${pending} joueur${pending > 1 ? 's' : ''} n'${pending > 1 ? 'ont' : 'a'} pas encore répondu.`,
+    };
+  }
+
+  private toMatchWithoutConfirmedScoresheetItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    return {
+      kind: 'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `Match contre ${event.opponentName ?? "l'adversaire"} ${formatWeekdayLabel(event.startsAt)} — feuille de match non confirmée.`,
+    };
+  }
+
+  private toPlayerWithoutAccountItem(player: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    club: { id: string; name: string };
+  }): ActionItem {
+    return {
+      kind: 'PLAYERS_WITHOUT_ACCOUNT',
+      clubId: player.club.id,
+      clubName: player.club.name,
+      teamId: null,
+      teamName: null,
+      eventId: null,
+      message: `${player.firstName} ${player.lastName} (${player.club.name}) n'a pas encore de compte Kluvo.`,
     };
   }
 
