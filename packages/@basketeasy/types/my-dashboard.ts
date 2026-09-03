@@ -1,5 +1,7 @@
 import type {
   EventLogisticsAssignee,
+  EventMatchPlayerStats,
+  EventMatchResult,
   EventRsvpStatus,
   EventRsvpSummary,
   EventType,
@@ -38,6 +40,10 @@ export interface MyAgendaEvent {
     jerseys: EventLogisticsAssignee | null;
     balls: EventLogisticsAssignee | null;
   };
+  /** Mirrors TeamEvent.result — see its doc-comment for the null cases. */
+  result: EventMatchResult | null;
+  /** Mirrors TeamEvent.myMatchStats. */
+  myMatchStats: EventMatchPlayerStats | null;
 }
 
 export interface MyDashboardSummary {

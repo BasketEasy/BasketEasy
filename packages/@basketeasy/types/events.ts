@@ -43,6 +43,28 @@ export interface EventRsvpSummary {
   isConvocationScoped: boolean;
 }
 
+/**
+ * A MATCH's final score, derived from the **confirmed** ScoresheetExtraction
+ * plus the event's own venue — never from an unconfirmed read, and never
+ * invented when a confirmed sheet's score is somehow still null. See
+ * `deriveMatchResult` (`server/src/common/match-result.ts`).
+ */
+export interface EventMatchResult {
+  ourScore: number;
+  theirScore: number;
+  outcome: 'WIN' | 'LOSS' | 'DRAW';
+}
+
+/**
+ * The caller's own per-match line, folded from `MatchPlayerStat` — see
+ * CLAUDE.md's Team stats module for the zero-vs-unknown rule each field
+ * already follows (null means unread, never 0).
+ */
+export interface EventMatchPlayerStats {
+  points: number | null;
+  fouls: number | null;
+}
+
 export interface TeamEvent {
   id: string;
   teamId: string;
@@ -77,6 +99,15 @@ export interface TeamEvent {
     jerseys: EventLogisticsAssignee | null;
     balls: EventLogisticsAssignee | null;
   };
+  /**
+   * Null for TRAINING, for a MATCH with no confirmed scoresheet, or for a
+   * confirmed one whose score is somehow still null — never invented. A
+   * player must never see an unconfirmed score, so this is only ever
+   * populated from a CONFIRMED ScoresheetExtraction.
+   */
+  result: EventMatchResult | null;
+  /** The caller's own line for this match; null under the same conditions as `result`, or when the caller isn't the player mapped on the sheet. */
+  myMatchStats: EventMatchPlayerStats | null;
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';
