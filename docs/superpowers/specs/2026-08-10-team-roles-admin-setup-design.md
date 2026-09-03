@@ -40,9 +40,9 @@ deferred).
 - RSVP/convocations by role (e.g. "coaches see X, players see Y") — no such distinction
   exists yet in the Events module and isn't added here.
 - A UI role picker with more than two values — `TeamMemberRole` is a fixed two-value enum,
-  matching `ClubRole`'s precedent (`docs/superpowers/plans/2026-08-08-club-join-player-roster.md`
-  §Global Constraints: "no coach/parent/président/trésorier yet" — this spec is what turns
-  "coach" from deferred into built, but only the label, not a permissions system per role).
+  matching `ClubRole`'s precedent ("no coach/parent/président/trésorier yet" — this spec is
+  what turns "coach" from deferred into built, but only the label, not a permissions system
+  per role).
 
 ## Data model (Prisma)
 
