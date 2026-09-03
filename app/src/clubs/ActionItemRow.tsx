@@ -22,8 +22,11 @@ export function ActionItemRow({ item }: { item: ActionItem }) {
       : null;
 
   return (
-    <Card variant="inset" className="flex flex-wrap items-center justify-between gap-3">
-      <Text as="span" variant="body" size="sm" className="min-w-0 flex-1">
+    <Card
+      variant="inset"
+      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <Text as="span" variant="body" size="sm" className="min-w-0 sm:flex-1">
         {item.message}
       </Text>
       {item.kind === 'MATCH_WITHOUT_CONVOCATIONS' && item.teamId && item.eventId && (
