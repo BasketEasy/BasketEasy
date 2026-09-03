@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { cn } from '@basketeasy/ui/cn';
+import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
 import { Button } from '@basketeasy/ui/button';
@@ -24,34 +26,60 @@ import { useMyAgenda } from '../clubs/useMyAgenda';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { formatEventDate } from '../clubs/eventDateFormat';
 import { eventTypeLabel } from '../clubs/eventLabels';
-import { eventRsvpStatusLabel } from '../clubs/eventRsvpLabels';
+import { EventRsvpControl } from '../clubs/EventRsvpControl';
 
+/**
+ * One upcoming event on the home screen. The card is a plain container, not
+ * a Link: a rostered viewer answers here, and an interactive control nested
+ * inside an anchor is invalid HTML that breaks both keyboard activation and
+ * screen-reader semantics. The title/meta block is the link, the RSVP
+ * control is its sibling.
+ *
+ * The affordance sits on the Link, not on the container: only the
+ * title/meta block navigates, so lighting the whole row on hover promised a
+ * navigation click that answering the RSVP would never deliver. Underline
+ * on hover is the same signal TextLink already uses for "this goes
+ * somewhere". The container is a Card `inset` rather than a hand-written
+ * `border bg-surface-2 p-3` — that variant exists precisely so a row nested
+ * in an already-raised card steps down the surface ladder by name.
+ */
 function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: boolean }) {
   return (
-    <Link
-      to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
-      state={{ origin: { from: 'dashboard' } }}
-      className="flex w-full flex-col gap-1 rounded-md border border-border bg-surface-2 p-3 text-left transition hover:border-orange"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <Text as="span" variant="label">
-          {event.teamName}
+    <Card variant="inset" className="flex w-full flex-col gap-2">
+      {/* Straight to the event, not to the team's Événements tab: landing on
+          the team page cost three taps and a visual search through a list
+          before a player could answer the one event they were told about. */}
+      <Link
+        to={`/clubs/${event.clubId}/teams/${event.teamId}/events/${event.eventId}`}
+        state={{ origin: { from: 'dashboard' } }}
+        className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
+      >
+        <span className="flex flex-wrap items-center gap-2">
+          <Text
+            as="span"
+            variant="label"
+            className="group-hover:underline group-focus-visible:underline"
+          >
+            {event.teamName}
+          </Text>
+          <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
+            {eventTypeLabel(event.type)}
+          </Badge>
+          {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
+        </span>
+        <Text as="span" variant="meta">
+          {formatEventDate(event.startsAt)} · {event.location}
+          {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
         </Text>
-        <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
-          {eventTypeLabel(event.type)}
-        </Badge>
-        {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
-      </div>
-      <Text as="span" variant="meta">
-        {formatEventDate(event.startsAt)} · {event.location}
-        {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
-      </Text>
+      </Link>
       {isRostered && (
-        <Text as="span" variant="label" size="sm" tone={event.myRsvpStatus ? 'secondary' : 'brand'}>
-          Ma réponse : {eventRsvpStatusLabel(event.myRsvpStatus)}
-        </Text>
+        <EventRsvpControl
+          clubId={event.clubId}
+          teamId={event.teamId}
+          event={{ id: event.eventId, myRsvpStatus: event.myRsvpStatus }}
+        />
       )}
-    </Link>
+    </Card>
   );
 }
 

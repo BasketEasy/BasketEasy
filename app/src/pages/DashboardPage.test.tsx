@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -178,7 +179,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: /voir l.équipe/i })).toBeInTheDocument();
   });
 
-  it('makes agenda rows openable in a new tab', async () => {
+  it('links an agenda row straight to the event, not to the team page', async () => {
     server.use(
       http.get('/api/me/dashboard', () =>
         HttpResponse.json({
@@ -202,7 +203,7 @@ describe('DashboardPage', () => {
     renderLoggedIn();
 
     const row = await screen.findByRole('link', { name: /U15 Filles/ });
-    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1?tab=events');
+    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1/events/event-1');
   });
 
   it('shows an empty state when the user has no teams', async () => {
@@ -230,7 +231,7 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Joueur')).toBeInTheDocument();
   });
 
-  it('shows the RSVP status and convocation badge on an agenda event, and counts events awaiting a response', async () => {
+  it('shows the RSVP control and convocation badge on an agenda event, and counts events awaiting a response', async () => {
     server.use(
       http.get('/api/me/dashboard', () =>
         HttpResponse.json({
@@ -271,12 +272,112 @@ describe('DashboardPage', () => {
     renderLoggedInAsPlayer();
 
     expect(await screen.findByText('Convoqué')).toBeInTheDocument();
-    expect(screen.getByText('Ma réponse : En attente')).toBeInTheDocument();
-    expect(screen.getByText('Ma réponse : Présent')).toBeInTheDocument();
     expect(screen.getByText(/vs Les Aigles/)).toBeInTheDocument();
+
+    // One control per rostered row, each reflecting that row's own answer.
+    const [unanswered, answered] = screen.getAllByRole('group', { name: 'Ma réponse' });
+    expect(within(unanswered).getByRole('button', { name: 'Présent' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(
+      within(answered).getByRole('button', { name: 'Présent', pressed: true }),
+    ).toBeInTheDocument();
 
     // Only event-1 is unanswered — event-2 already has a RSVP.
     const statValues = screen.getAllByText(/^\d+$/).map((el) => el.textContent);
     expect(statValues).toEqual(expect.arrayContaining(['2', '1']));
+  });
+  it('lets a rostered player answer an agenda event without leaving the home screen', async () => {
+    let requestBody: unknown;
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [
+            {
+              eventId: 'event-1',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              type: 'MATCH',
+              startsAt: '2026-08-12T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+              opponentName: 'Les Aigles',
+              myRsvpStatus: null,
+              myConvocation: true,
+            },
+          ],
+        }),
+      ),
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json({ id: 'event-1', myRsvpStatus: 'GOING' });
+      }),
+    );
+    renderLoggedInAsPlayer();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Présent' }));
+
+    await waitFor(() => expect(requestBody).toEqual({ status: 'GOING' }));
+  });
+
+  it('shows no RSVP control to a manager who is not on the event team roster', async () => {
+    server.use(
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          {
+            teamId: 'team-1',
+            teamName: 'U15 Filles',
+            category: 'U15',
+            gender: 'WOMEN',
+            clubId: 'club-1',
+            clubName: 'COC Basket',
+            isTeamAdmin: true,
+            rosterRole: null,
+          },
+        ]),
+      ),
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [
+            {
+              eventId: 'event-1',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              type: 'MATCH',
+              startsAt: '2026-08-12T18:00:00.000Z',
+              location: 'Gymnase A',
+              notes: null,
+              opponentName: 'Les Aigles',
+              myRsvpStatus: null,
+              myConvocation: false,
+            },
+          ],
+        }),
+      ),
+    );
+    renderLoggedIn();
+
+    await screen.findByRole('link', { name: /U15 Filles/ });
+    expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
+  });
+
+  it('shows an error, not an empty state, when the agenda fails to load', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({ message: 'Erreur serveur' }, { status: 500 }),
+      ),
+    );
+    renderLoggedIn();
+
+    expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+    expect(screen.queryByText('Rien de prévu cette semaine')).not.toBeInTheDocument();
   });
 });

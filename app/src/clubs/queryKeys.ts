@@ -51,5 +51,13 @@ export const teamFfbbLinksQueryKey = (clubId: string, teamId: string) =>
 export const teamAdminCandidatesQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins', 'eligible'] as const;
 export const myTeamsQueryKey = ['me', 'teams'] as const;
+/**
+ * Prefix shared by every /me/dashboard query. The full key carries the
+ * from/to window, so a mutation that changes the dashboard's contents has to
+ * invalidate this prefix — invalidating `myDashboardQueryKey()` alone would
+ * only match the caller that passed no params, leaving a 14-day window (or
+ * any other) stale on screen.
+ */
+export const myDashboardQueryKeyPrefix = ['me', 'dashboard'] as const;
 export const myDashboardQueryKey = (params?: GetDashboardParams) =>
-  ['me', 'dashboard', params ?? {}] as const;
+  [...myDashboardQueryKeyPrefix, params ?? {}] as const;

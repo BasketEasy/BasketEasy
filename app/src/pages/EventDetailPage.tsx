@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -91,6 +91,7 @@ export function EventDetailPage() {
     teamId: string;
     eventId: string;
   }>();
+  const { state: navState } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
   const activeTab: EventDetailTab = isEventDetailTab(requestedTab) ? requestedTab : 'apercu';
@@ -137,7 +138,9 @@ export function EventDetailPage() {
           description="Cet événement n’existe plus ou a été supprimé."
           action={
             <Button asChild>
-              <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`}>{team?.name}</Link>
+              <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`} state={navState}>
+                {team?.name}
+              </Link>
             </Button>
           }
         />
@@ -164,8 +167,15 @@ export function EventDetailPage() {
 
   return (
     <PageContainer size="lg">
+      {/* The origin recorded on the way in (e.g. from the dashboard agenda,
+          which now links straight to the event) is handed on to the team
+          page, so TeamDetailPage's origin-aware back link still resolves to
+          where the journey actually started instead of falling back to
+          /my-teams. */}
       <Button asChild variant="ghost" className="self-start">
-        <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`}>← {team.name}</Link>
+        <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`} state={navState}>
+          ← {team.name}
+        </Link>
       </Button>
 
       <div className="flex flex-col gap-2.5">
