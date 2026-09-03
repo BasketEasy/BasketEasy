@@ -23,6 +23,7 @@ const player = (overrides: Partial<TeamSeasonPlayerStats> = {}): TeamSeasonPlaye
   totalPoints: 117,
   mvpAwards: 3,
   worstPlayerAwards: 0,
+  isMe: false,
   ...overrides,
 });
 
@@ -220,6 +221,72 @@ describe('TeamSeasonStatsTab', () => {
     } finally {
       window.innerWidth = desktopWidth;
     }
+  });
+
+  it("renders a personal card above the squad ranking for the caller's own row", async () => {
+    mockStats(
+      stats({
+        players: [
+          player({ teamPlayerId: 'tp-me', firstName: 'Léa', lastName: 'Moreau', isMe: true }),
+          player({ teamPlayerId: 'tp-2', firstName: 'Camille', lastName: 'Roy', isMe: false }),
+        ],
+      }),
+    );
+
+    renderTab();
+
+    expect(await screen.findByText('Mes stats')).toBeInTheDocument();
+    // The personal card and the squad row both carry the player's name — one
+    // in the card header, one in the ranking below it.
+    expect(screen.getAllByText('Léa Moreau').length).toBeGreaterThan(0);
+    // The squad row for the caller's own line is marked, the other is not.
+    const rows = screen.getAllByText(/^(Léa Moreau|Camille Roy)$/).map((el) => el.closest('tr'));
+    const myRow = rows.find((row) => row?.textContent?.includes('Léa Moreau'));
+    const otherRow = rows.find((row) => row?.textContent?.includes('Camille Roy'));
+    expect(within(myRow as HTMLElement).getByText('vous')).toBeInTheDocument();
+    expect(within(otherRow as HTMLElement).queryByText('vous')).not.toBeInTheDocument();
+  });
+
+  it('never claims 0 points for a player who has never played this season', async () => {
+    mockStats(
+      stats({
+        players: [
+          player({
+            teamPlayerId: 'tp-me',
+            firstName: 'Léa',
+            lastName: 'Moreau',
+            isMe: true,
+            gamesPlayed: 0,
+            pointsPerGame: null,
+            foulsPerGame: null,
+            seasonHighPoints: null,
+            seasonHighFouls: null,
+            totalPoints: 0,
+            freeThrowPoints: 0,
+            twoPointPoints: 0,
+            threePointPoints: 0,
+            mvpAwards: 0,
+          }),
+        ],
+      }),
+    );
+
+    renderTab();
+
+    expect(await screen.findByText('Mes stats')).toBeInTheDocument();
+    // "Aucun match" (never played) rather than "Marque non lue" (played, but
+    // the sheet couldn't be read), and never a bare 0.
+    expect(screen.getAllByText('Aucun match').length).toBeGreaterThan(0);
+    expect(screen.queryByText('0 pts')).not.toBeInTheDocument();
+  });
+
+  it('skips the personal card entirely for a caller with no roster row on this team', async () => {
+    mockStats(stats({ players: [player({ isMe: false })] }));
+
+    renderTab();
+
+    await screen.findByText('Camille Roy');
+    expect(screen.queryByText('Mes stats')).not.toBeInTheDocument();
   });
 
   it('reports a season change to its owner', async () => {

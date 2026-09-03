@@ -32,6 +32,7 @@ const openMatchEvent: TeamEvent = {
   isImported: false,
   timeConfirmed: true,
   myConvocation: true,
+  rsvpSummary: { rosterSize: 0, convoked: 0, answering: 0, going: 0, maybe: 0, notGoing: 0, pending: 0, isConvocationScoped: false },
   logistics: { jerseys: null, balls: null },
 };
 

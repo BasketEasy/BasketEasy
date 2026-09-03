@@ -7,7 +7,7 @@ describe('DashboardService', () => {
   let prisma: {
     clubMembership: { findMany: jest.Mock };
     teamAdmin: { findMany: jest.Mock };
-    teamPlayer: { findMany: jest.Mock };
+    teamPlayer: { findMany: jest.Mock; groupBy: jest.Mock };
     player: { count: jest.Mock };
     event: { findMany: jest.Mock };
     eventRsvp: { findMany: jest.Mock };
@@ -18,7 +18,7 @@ describe('DashboardService', () => {
     prisma = {
       clubMembership: { findMany: jest.fn() },
       teamAdmin: { findMany: jest.fn() },
-      teamPlayer: { findMany: jest.fn() },
+      teamPlayer: { findMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
       player: { count: jest.fn() },
       event: { findMany: jest.fn() },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
@@ -81,6 +81,12 @@ describe('DashboardService', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: 'Les Aigles',
+        venue: 'HOME',
+        recurrenceId: null,
+        externalId: null,
+        timeConfirmed: true,
+        jerseysTeamPlayerId: null,
+        ballsTeamPlayerId: null,
         team: {
           name: 'U15 Filles',
           clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }],
@@ -107,8 +113,23 @@ describe('DashboardService', () => {
         location: 'Gymnase A',
         notes: null,
         opponentName: 'Les Aigles',
+        venue: 'HOME',
+        recurrenceId: null,
         myRsvpStatus: null,
         myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        isImported: false,
+        timeConfirmed: true,
+        logistics: { jerseys: null, balls: null },
       },
     ]);
   });
@@ -198,5 +219,89 @@ describe('DashboardService', () => {
 
     expect(result.upcomingEvents[0].clubId).toBe('club-2');
     expect(result.upcomingEvents[0].clubName).toBe('Partner Club');
+  });
+
+  it('resolves rsvpSummary across a multi-team agenda batch in three bounded queries, per-team roster sizes kept separate', async () => {
+    mockEmptyMemberships();
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      { id: 'tp-1', teamId: 'team-1' },
+      { id: 'tp-2', teamId: 'team-2' },
+    ]);
+    const eventFixture = (id: string, teamId: string, teamName: string) => ({
+      id,
+      teamId,
+      type: 'TRAINING' as const,
+      startsAt: new Date('2026-08-12T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      venue: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      jerseysTeamPlayerId: null,
+      ballsTeamPlayerId: null,
+      team: { name: teamName, clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }] },
+    });
+    prisma.event.findMany.mockResolvedValue([
+      eventFixture('event-1', 'team-1', 'U15 Filles'),
+      eventFixture('event-2', 'team-2', 'U18 Garçons'),
+    ]);
+    // team-1 has 5 roster spots, team-2 has 2 — a per-event summary must use
+    // its own team's roster size, never the other team's.
+    prisma.teamPlayer.groupBy.mockResolvedValue([
+      { teamId: 'team-1', _count: { _all: 5 } },
+      { teamId: 'team-2', _count: { _all: 2 } },
+    ]);
+    prisma.eventRsvp.findMany.mockResolvedValue([
+      { eventId: 'event-1', teamPlayerId: 'tp-a', status: 'GOING' },
+      { eventId: 'event-2', teamPlayerId: 'tp-b', status: 'MAYBE' },
+    ]);
+    prisma.eventConvocation.findMany.mockResolvedValue([]);
+
+    const result = await service.getDashboard('user-1');
+
+    // One groupBy for every team's roster size at once, one findMany per
+    // concern for the whole batch — never one query per event or per team.
+    expect(prisma.teamPlayer.groupBy).toHaveBeenCalledTimes(1);
+    expect(prisma.teamPlayer.groupBy).toHaveBeenCalledWith({
+      by: ['teamId'],
+      where: { teamId: { in: ['team-1', 'team-2'] } },
+      _count: { _all: true },
+    });
+    expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventId: { in: ['event-1', 'event-2'] } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      }),
+    );
+    expect(prisma.eventConvocation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventId: { in: ['event-1', 'event-2'] } },
+        select: { eventId: true, teamPlayerId: true },
+      }),
+    );
+
+    const [event1, event2] = result.upcomingEvents;
+    expect(event1.rsvpSummary).toEqual({
+      rosterSize: 5,
+      convoked: 0,
+      answering: 5,
+      going: 1,
+      maybe: 0,
+      notGoing: 0,
+      pending: 4,
+      isConvocationScoped: false,
+    });
+    expect(event2.rsvpSummary).toEqual({
+      rosterSize: 2,
+      convoked: 0,
+      answering: 2,
+      going: 0,
+      maybe: 1,
+      notGoing: 0,
+      pending: 1,
+      isConvocationScoped: false,
+    });
   });
 });

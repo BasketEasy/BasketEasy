@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
+import { ResponseMeter } from '@basketeasy/ui/response-meter';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { TimeBlock } from '@basketeasy/ui/time-block';
 import type { TeamEvent } from '@basketeasy/types/events';
@@ -83,6 +84,20 @@ function AgendaEventCard({
               <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
               <EventVoteBadge event={event} />
             </div>
+            {event.rsvpSummary.rosterSize > 0 && (
+              // Visible to the same audience as the event itself — see
+              // EventRsvpBreakdown's doc comment — and no longer behind a
+              // click: rsvpSummary now arrives on the event, so the squad's
+              // answers read at a glance instead of needing the roster
+              // breakdown opened first.
+              <ResponseMeter
+                going={event.rsvpSummary.going}
+                maybe={event.rsvpSummary.maybe}
+                notGoing={event.rsvpSummary.notGoing}
+                pending={event.rsvpSummary.pending}
+                size="sm"
+              />
+            )}
             {isRostered && (
               <EventRsvpControl clubId={clubId} teamId={teamId} event={event} compactOnDesktop />
             )}
