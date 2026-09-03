@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { renderWithProviders } from '../testUtils';
 import { EventDecisionBand } from './EventDecisionBand';
-import { countEventRoster, type EventRosterRow } from './useEventRoster';
+import { countEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
 
 function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
   return {
@@ -39,7 +39,7 @@ function counts(convokedCount: number) {
   return countEventRoster(rows);
 }
 
-function renderBand(event: TeamEvent, rosterCounts = counts(12)) {
+function renderBand(event: TeamEvent, rosterCounts: EventRosterCounts | null = counts(12)) {
   return renderWithProviders(
     <EventDecisionBand clubId="club-1" teamId="team-1" event={event} counts={rosterCounts} />,
   );
