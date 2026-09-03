@@ -33,22 +33,33 @@ import { EventRsvpControl } from '../clubs/EventRsvpControl';
  * a Link: a rostered viewer answers here, and an interactive control nested
  * inside an anchor is invalid HTML that breaks both keyboard activation and
  * screen-reader semantics. The title/meta block is the link, the RSVP
- * control is its sibling, and the container keeps the hover affordance so
- * the two still read as one row.
+ * control is its sibling.
+ *
+ * The affordance sits on the Link, not on the container: only the
+ * title/meta block navigates, so lighting the whole row on hover promised a
+ * navigation click that answering the RSVP would never deliver. Underline
+ * on hover is the same signal TextLink already uses for "this goes
+ * somewhere". The container is a Card `inset` rather than a hand-written
+ * `border bg-surface-2 p-3` — that variant exists precisely so a row nested
+ * in an already-raised card steps down the surface ladder by name.
  */
 function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: boolean }) {
   return (
-    <div className="flex w-full flex-col gap-2 rounded-md border border-border bg-surface-2 p-3 transition focus-within:border-orange hover:border-orange">
+    <Card variant="inset" className="flex w-full flex-col gap-2">
       {/* Straight to the event, not to the team's Événements tab: landing on
           the team page cost three taps and a visual search through a list
           before a player could answer the one event they were told about. */}
       <Link
         to={`/clubs/${event.clubId}/teams/${event.teamId}/events/${event.eventId}`}
         state={{ origin: { from: 'dashboard' } }}
-        className={cn('flex flex-col gap-1 rounded-sm text-left', focusRing)}
+        className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
       >
         <span className="flex flex-wrap items-center gap-2">
-          <Text as="span" variant="label">
+          <Text
+            as="span"
+            variant="label"
+            className="group-hover:underline group-focus-visible:underline"
+          >
             {event.teamName}
           </Text>
           <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
@@ -68,7 +79,7 @@ function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: bo
           event={{ id: event.eventId, myRsvpStatus: event.myRsvpStatus }}
         />
       )}
-    </div>
+    </Card>
   );
 }
 
