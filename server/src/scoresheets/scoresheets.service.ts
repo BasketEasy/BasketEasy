@@ -18,6 +18,7 @@ import type {
 import type { EventScoresheet } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
+import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 
 // BullMQ retries a failed job this many times (exponential backoff, set at
 // enqueue time) before the processor gives up and marks the scoresheet
@@ -58,26 +59,6 @@ interface FoldedPlayerStat {
 // which column is ours without asking the manager a second time.
 function ourSideOf(venue: 'HOME' | 'AWAY'): ScoresheetTeamSide {
   return venue === 'HOME' ? 'home' : 'away';
-}
-
-// An extraction row exists even when the OCR job gave up: ScoresheetOcrProcessor's
-// 'failed' listener writes `parsedData: {}` (the column is non-nullable, so there
-// is no null to write), and a truncated model reply can drop one of the arrays on
-// its own. Neither is a sheet, so anything not carrying the three arrays reads as
-// "nothing was extracted" rather than being indexed into.
-function asParsedScoresheetData(value: unknown): ParsedScoresheetData | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const candidate = value as Partial<ParsedScoresheetData>;
-  if (
-    !Array.isArray(candidate.players) ||
-    !Array.isArray(candidate.scoringPlays) ||
-    !Array.isArray(candidate.quarterScores)
-  ) {
-    return null;
-  }
-  return candidate as ParsedScoresheetData;
 }
 
 // Names on the sheet are handwritten and transcribed by a vision model, so
