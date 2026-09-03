@@ -10,7 +10,7 @@ import { Text } from '@basketeasy/ui/text';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
-import { eventRsvpStatusLabel } from './eventRsvpLabels';
+import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRoster, type EventRosterRow } from './useEventRoster';
@@ -27,13 +27,13 @@ function RsvpBadge({ status }: { status: EventRsvpStatus | null }) {
   if (status === null) {
     return (
       <Badge variant="outline" tone="muted">
-        Sans réponse
+        {eventRsvpAnswerLabel(null)}
       </Badge>
     );
   }
   return (
     <Badge variant="soft" tone={RSVP_TONE[status]}>
-      {eventRsvpStatusLabel(status)}
+      {eventRsvpAnswerLabel(status)}
     </Badge>
   );
 }

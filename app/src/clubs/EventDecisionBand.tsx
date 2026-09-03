@@ -4,7 +4,7 @@ import { Text } from '@basketeasy/ui/text';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
 import { EventRsvpControl } from './EventRsvpControl';
-import { eventRsvpStatusLabel } from './eventRsvpLabels';
+import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import type { EventRosterCounts } from './useEventRoster';
 
 /**
@@ -77,7 +77,7 @@ export function EventDecisionBand({
       <Text variant="meta" size="xs">
         {event.myRsvpStatus === null
           ? 'Vous n’avez pas encore répondu.'
-          : `Votre réponse : ${eventRsvpStatusLabel(event.myRsvpStatus).toLowerCase()}.`}
+          : `Votre réponse : ${eventRsvpAnswerLabel(event.myRsvpStatus).toLowerCase()}.`}
       </Text>
       <EventRsvpControl clubId={clubId} teamId={teamId} event={event} fullWidth className="mt-1" />
     </Card>

@@ -12,7 +12,7 @@ import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
-import { eventRsvpStatusLabel } from './eventRsvpLabels';
+import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
 
@@ -65,11 +65,11 @@ function AttendanceRow({ row }: { row: EventRosterRow }) {
       <span className="ml-auto shrink-0">
         {row.rsvpStatus === null ? (
           <Badge variant="outline" tone="muted">
-            Sans réponse
+            {eventRsvpAnswerLabel(null)}
           </Badge>
         ) : (
           <Badge variant="soft" tone={RSVP_TONE[row.rsvpStatus]}>
-            {eventRsvpStatusLabel(row.rsvpStatus)}
+            {eventRsvpAnswerLabel(row.rsvpStatus)}
           </Badge>
         )}
       </span>
