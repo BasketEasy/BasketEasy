@@ -25,15 +25,46 @@ describe('TeamStatsController', () => {
   });
 
   it('passes the requested season through', async () => {
-    await controller.getTeamSeasonStats('club-1', 'team-1', { season: 2025 });
+    await controller.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      { season: 2025 },
+      { id: 'user-1', email: 'a@example.com' },
+    );
 
-    expect(service.getTeamSeasonStats).toHaveBeenCalledWith('club-1', 'team-1', 2025);
+    expect(service.getTeamSeasonStats).toHaveBeenCalledWith('club-1', 'team-1', 'user-1', 2025);
   });
 
   it('leaves the season undefined so the service picks the current one', async () => {
-    const result = await controller.getTeamSeasonStats('club-1', 'team-1', {});
+    const result = await controller.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      {},
+      { id: 'user-1', email: 'a@example.com' },
+    );
 
-    expect(service.getTeamSeasonStats).toHaveBeenCalledWith('club-1', 'team-1', undefined);
+    expect(service.getTeamSeasonStats).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'user-1',
+      undefined,
+    );
     expect(result).toEqual({ seasonYear: 2026 });
+  });
+
+  it("passes the caller's id through so the service can resolve isMe", async () => {
+    await controller.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      {},
+      { id: 'user-caller', email: 'a@example.com' },
+    );
+
+    expect(service.getTeamSeasonStats).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'user-caller',
+      undefined,
+    );
   });
 });
