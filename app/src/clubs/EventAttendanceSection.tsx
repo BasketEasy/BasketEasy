@@ -30,7 +30,7 @@ const RSVP_TONE: Record<EventRsvpStatus, NonNullable<BadgeProps['tone']>> = {
  * is `role="img"` and says the same thing to a screen reader, so this line is
  * the sighted reader's copy of it, never the only one.
  */
-export function attendanceSummary(counts: EventRosterCounts): string {
+function attendanceSummary(counts: EventRosterCounts): string {
   const scope = counts.isConvocationScoped
     ? `sur ${counts.answering} convoqué·es`
     : `sur ${counts.answering} inscrit·es`;
