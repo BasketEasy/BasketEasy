@@ -5,14 +5,23 @@ import { focusRing } from '../lib/focusRing';
 import { Text } from './Text';
 
 /**
- * The bottom tab bar's shell — a fixed row of icon-over-label targets pinned
- * to the bottom of the viewport, which is where a thumb is when a phone is
- * held low in a badly-lit gym.
+ * The bottom tab bar's shell — a row of icon-over-label targets pinned to
+ * the bottom of the viewport, which is where a thumb is when a phone is held
+ * low in a badly-lit gym.
  *
  * Presentational only: it knows nothing about routes, roles or which item is
  * current. `TabBarItem`'s `asChild` takes a router `NavLink`, so navigation
  * stays in `app/` and the look stays here — the same split `Button` and
  * `TextLink` already use.
+ *
+ * `position: sticky`, not `fixed`: a `fixed` bottom bar is pinned to the
+ * *layout* viewport, and iOS Safari's own chrome (address bar, bottom
+ * toolbar) can auto-hide to reveal more of the *visual* viewport without the
+ * layout viewport growing to match — the fixed bar then stays put at the old,
+ * shorter bottom, leaving a gap of page background beneath it. A `sticky`
+ * element sitting last in a full-height flex column (see `ProtectedRoute`) is
+ * still in normal document flow, so it tracks the real, current bottom
+ * instead.
  *
  * `safe-area-bottom` (declared in the app's stylesheet next to
  * `safe-area-top`, which the headers use) keeps the row clear of the iOS home
@@ -31,7 +40,7 @@ export const TabBar = forwardRef<HTMLElement, TabBarProps>(
       ref={ref}
       aria-label={ariaLabel}
       className={cn(
-        'safe-area-bottom fixed inset-x-0 bottom-0 z-30 grid auto-cols-fr grid-flow-col',
+        'safe-area-bottom sticky bottom-0 z-30 grid auto-cols-fr grid-flow-col',
         'border-t border-border bg-surface',
         className,
       )}

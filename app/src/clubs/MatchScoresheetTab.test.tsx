@@ -306,7 +306,7 @@ describe('MatchScoresheetTab', () => {
     await act(() => vi.advanceTimersByTimeAsync(5000));
 
     await waitFor(() => expect(screen.getByText('96% de confiance')).toBeInTheDocument());
-    expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Karim Belaïd')).toBeInTheDocument();
   });
 
   it('shows a document placeholder instead of an image preview for a PDF selection', async () => {
@@ -420,9 +420,11 @@ describe('MatchScoresheetTab', () => {
     expect(await screen.findByText('96% de confiance')).toBeInTheDocument();
     // Rendered twice (a mobile-stacked copy and a desktop side-by-side copy,
     // toggled with CSS breakpoints rather than JS) — both exist in the DOM.
-    expect(screen.getAllByText('64').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('58').length).toBeGreaterThan(0);
-    expect(screen.getByText('Karim Belaïd')).toBeInTheDocument();
+    // A manager can edit every field in place, so the box score is an input,
+    // not static text.
+    expect(screen.getAllByDisplayValue('64').length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue('58').length).toBeGreaterThan(0);
+    expect(screen.getByDisplayValue('Karim Belaïd')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
   });
 
