@@ -39,7 +39,12 @@ describe('App routing', () => {
 
     renderWithProviders(<App />, { route: '/login' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    // A player's dashboard shows no e-mail line (`DashboardPage` renders it
+    // manager-only now) — the account menu is the role-agnostic "logged in"
+    // signal.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
   });
 
   it('renders a 404 in place, rather than redirecting to the landing page, for an unknown route', () => {
@@ -81,10 +86,10 @@ describe('App routing', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /bonjour, alex/i })).toBeInTheDocument(),
     );
-    expect(screen.getByText('a@b.com')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /mon compte/i }));
-    await user.click(await screen.findByRole('menuitem', { name: /se déconnecter/i }));
+    expect(await screen.findByText('a@b.com')).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: /se déconnecter/i }));
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /se connecter/i })).toBeInTheDocument(),
