@@ -7,8 +7,7 @@ import { HomeIcon } from '@basketeasy/ui/icons/home';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UserIcon } from '@basketeasy/ui/icons/user';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
-import { useActiveClub } from '../auth/useActiveClub';
-import { useAdminClubs } from '../clubs/useAdminClubs';
+import { useActiveAdminClub } from '../clubs/useActiveAdminClub';
 import { useHasManageRights } from '../clubs/useHasManageRights';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useMyTeamList } from '../clubs/useMyTeamList';
@@ -58,16 +57,22 @@ function BottomNavItem({
  */
 export function AppBottomNav() {
   const isDesktop = useIsDesktopViewport();
+
+  // The viewport branch is its own component so the desktop case mounts no
+  // hooks at all: the bar's data (`/me/teams`, `/me/dashboard`, the club
+  // list) backs items nobody above the breakpoint will ever see, and this is
+  // mounted in ProtectedRoute — i.e. on every protected route. Same split as
+  // AppHeader/AppHeaderResolved.
+  if (isDesktop) return null;
+
+  return <AppBottomNavResolved />;
+}
+
+function AppBottomNavResolved() {
   const { hasManageRights, isResolving } = useHasManageRights();
   const { data: teams } = useMyTeamList();
   const { data: dashboard } = useMyAgenda();
-  const adminClubs = useAdminClubs();
-  const { activeClubId: contextActiveClubId } = useActiveClub();
-
-  // Same fallback the header's switcher uses: the first admin club covers the
-  // one-render gap before ActiveClubProvider's default-selection effect runs,
-  // and resolves to the club that effect is about to pick anyway.
-  const activeClubId = contextActiveClubId ?? adminClubs[0]?.id ?? null;
+  const { activeClubId } = useActiveAdminClub();
 
   const myTeams = teams ?? [];
   // Rostered teams only: an event on a team the viewer merely administers is
@@ -80,7 +85,7 @@ export function AppBottomNav() {
     (event) => rosteredTeamIds.has(event.teamId) && event.myRsvpStatus === null,
   ).length;
 
-  if (isDesktop || isResolving) return null;
+  if (isResolving) return null;
 
   const soleTeam = myTeams.length === 1 ? myTeams[0] : undefined;
 
@@ -100,7 +105,10 @@ export function AppBottomNav() {
         <BottomNavItem
           to="/my-teams"
           icon={<UsersIcon className="h-5 w-5" />}
-          label={hasManageRights ? 'Équipes' : myTeams.length > 1 ? 'Mes équipes' : 'Mon équipe'}
+          // Plural unless there is exactly one team — a player with none at
+          // all lands on an empty /my-teams, which « Mon équipe » would have
+          // promised them a team they don't have.
+          label={hasManageRights ? 'Équipes' : myTeams.length === 1 ? 'Mon équipe' : 'Mes équipes'}
         />
       ) : (
         // A player with exactly one team goes straight to it: /my-teams would
@@ -113,6 +121,9 @@ export function AppBottomNav() {
         />
       )}
 
+      {/* `useActiveAdminClub` resolves the id against the caller's own admin
+          clubs, so this is « Club » only for someone who can actually open
+          that roster — not for anyone the context happens to hold an id for. */}
       {activeClubId ? (
         <BottomNavItem
           to={`/clubs/${activeClubId}/members`}

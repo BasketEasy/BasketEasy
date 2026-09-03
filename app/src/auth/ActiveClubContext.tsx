@@ -18,9 +18,15 @@ export function ActiveClubProvider({ children }: { children: ReactNode }) {
   // dependency array to just `adminClubs` — no need to also depend on
   // `activeClubId`, and setting the same id back is a no-op re-render since
   // React bails out on an unchanged primitive value.
+  //
+  // An empty list clears the selection rather than keeping it. This provider
+  // sits above the router and is never unmounted by a logout, so an id held
+  // through "no admin clubs" survives into the next session in the same tab:
+  // a plain player signing in after an admin would inherit that club and be
+  // offered links into a club they cannot open (a 403 on click-through).
   useEffect(() => {
-    if (adminClubs.length === 0) return;
     setActiveClubId((current) => {
+      if (adminClubs.length === 0) return null;
       if (current && adminClubs.some((club) => club.id === current)) {
         return current;
       }

@@ -23,8 +23,11 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { hasEr
   render() {
     if (!this.state.hasError) return this.props.children;
 
+    // No bottom-bar clearance: this replaces the whole tree, tab bar
+    // included, and on a centered page the reserved padding would only push
+    // the message off the vertical axis.
     return (
-      <PageContainer size="md" centered>
+      <PageContainer size="md" centered bottomNav={false}>
         <div className="flex flex-col items-center gap-4 text-center">
           <Heading as="h1">Une erreur est survenue</Heading>
           <Text variant="meta">

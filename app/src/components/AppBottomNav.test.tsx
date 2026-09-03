@@ -78,7 +78,12 @@ function mockAgenda(events: { eventId: string; teamId: string; myRsvpStatus: str
 }
 
 describe('AppBottomNav', () => {
-  afterEach(() => setViewportWidth(1024));
+  afterEach(() => {
+    setViewportWidth(1024);
+    // The "fetches nothing above the breakpoint" test subscribes to MSW's
+    // request stream; listeners outlive resetHandlers().
+    server.events.removeAllListeners();
+  });
 
   it("gives a player with one team a direct link to it, and no destination that doesn't apply to them", async () => {
     setViewportWidth(390);
@@ -109,6 +114,22 @@ describe('AppBottomNav', () => {
 
     renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
 
+    expect(await screen.findByRole('link', { name: 'Mes équipes' })).toHaveAttribute(
+      'href',
+      '/my-teams',
+    );
+    expect(screen.queryByRole('link', { name: 'Mon équipe' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the plural for a player who is on no team at all', async () => {
+    setViewportWidth(390);
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockTeams([]);
+
+    renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+    // /my-teams is empty for them, so « Mon équipe » would name a team they
+    // don't have.
     expect(await screen.findByRole('link', { name: 'Mes équipes' })).toHaveAttribute(
       'href',
       '/my-teams',
@@ -199,6 +220,23 @@ describe('AppBottomNav', () => {
         screen.queryByRole('navigation', { name: 'Navigation principale' }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it('fetches nothing above the breakpoint — the bar is mounted on every protected route', async () => {
+    setViewportWidth(1280);
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+
+    const requested: string[] = [];
+    server.events.on('request:start', ({ request }) => {
+      requested.push(new URL(request.url).pathname);
+    });
+
+    renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+    // The session request is the account provider's, not the bar's.
+    await waitFor(() => expect(requested).toContain('/api/auth/me'));
+    expect(requested).not.toContain('/api/me/teams');
+    expect(requested).not.toContain('/api/me/dashboard');
   });
 
   it('waits for the role to resolve rather than mounting the player layout and relabelling it a beat later', async () => {

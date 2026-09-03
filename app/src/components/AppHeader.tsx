@@ -11,6 +11,7 @@ import {
 } from '@basketeasy/ui/dropdown-menu';
 import { cn } from '@basketeasy/ui/cn';
 import { useAdminClubs } from '../clubs/useAdminClubs';
+import { useActiveAdminClub } from '../clubs/useActiveAdminClub';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useAccount } from '../auth/useAccount';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
@@ -86,13 +87,8 @@ function AppHeaderResolved() {
   const isDesktop = useIsDesktopViewport();
   const { user } = useAccount();
   const adminClubs = useAdminClubs();
-  const { activeClubId: contextActiveClubId, setActiveClubId } = useActiveClub();
-  // Falls back to the first admin club so the chip/Effectif link never show a
-  // stale "no club" state during the one-render gap between adminClubs
-  // loading and ActiveClubProvider's own default-selection effect running —
-  // it always resolves to the same club that effect is about to set anyway.
-  const activeClubId = contextActiveClubId ?? adminClubs[0]?.id ?? null;
-  const activeClub = adminClubs.find((club) => club.id === activeClubId);
+  const { setActiveClubId } = useActiveClub();
+  const { activeClub, activeClubId } = useActiveAdminClub();
 
   // Non-navigating: opens/closes the switcher panel and lets an admin
   // change ActiveClubContext's active club. Navigation to a club's roster is

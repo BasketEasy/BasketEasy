@@ -40,4 +40,24 @@ describe('Toast', () => {
     );
     expect(screen.getByTestId('toast-root')).toHaveClass('border-error');
   });
+
+  it('leaves the bottom strip tappable: the always-mounted viewport takes no pointer events, the toast itself does', () => {
+    render(
+      <ToastProvider>
+        <Toast open data-testid="toast-root">
+          <ToastDescription>Enregistré</ToastDescription>
+        </Toast>
+        <ToastViewport data-testid="toast-viewport" />
+      </ToastProvider>,
+    );
+    // The viewport is a full-width box over the same strip as the fixed tab
+    // bar, at a higher z-index, mounted whether or not a toast is showing —
+    // so it must not intercept taps meant for the bar.
+    const viewport = screen.getByTestId('toast-viewport');
+    expect(viewport).toHaveClass('pointer-events-none');
+    // …and it sits above the bar's clearance below the desktop breakpoint,
+    // so a visible toast never covers the navigation.
+    expect(viewport).toHaveClass('max-md:bottom-24');
+    expect(screen.getByTestId('toast-root')).toHaveClass('pointer-events-auto');
+  });
 });

@@ -6,20 +6,40 @@ import { focusRing } from '../lib/focusRing';
 
 export const ToastProvider = ToastPrimitive.Provider;
 
+/**
+ * The viewport is always mounted, empty or not, and it is a full-width box
+ * pinned to the same bottom strip the app's fixed tab bar occupies — at a
+ * higher z-index. Two rules keep it from eating taps meant for the bar:
+ *
+ * - `pointer-events-none` here, re-enabled per toast on `Toast` itself, so
+ *   the empty box is transparent to touches instead of swallowing the lower
+ *   part of every tab item.
+ * - `max-md:bottom-24` lifts a *visible* toast clear of the bar below the
+ *   desktop breakpoint — the same 96px `PageContainer`'s `bottomNav`
+ *   clearance reserves, so a toast never covers the navigation it may be
+ *   telling the reader about.
+ */
 export const ToastViewport = forwardRef<
   ElementRef<typeof ToastPrimitive.Viewport>,
   ComponentPropsWithoutRef<typeof ToastPrimitive.Viewport>
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Viewport
     ref={ref}
-    className={cn('fixed bottom-0 right-0 z-50 flex w-full max-w-sm flex-col gap-2 p-6', className)}
+    className={cn(
+      'pointer-events-none fixed bottom-0 right-0 z-50 flex w-full max-w-sm flex-col gap-2 p-6',
+      'max-md:bottom-24',
+      className,
+    )}
     {...props}
   />
 ));
 ToastViewport.displayName = 'ToastViewport';
 
 const toastVariants = cva(
-  'relative flex w-full items-start gap-3 rounded-lg border p-4 shadow-lg',
+  // `pointer-events-auto` restores what the viewport turns off: the toast
+  // itself is interactive (it carries a close button), the empty box it
+  // floats in is not.
+  'pointer-events-auto relative flex w-full items-start gap-3 rounded-lg border p-4 shadow-lg',
   {
     variants: {
       variant: {
