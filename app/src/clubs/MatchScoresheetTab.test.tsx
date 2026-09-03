@@ -28,6 +28,8 @@ const matchEvent: TeamEvent = {
   myConvocation: true,
   rsvpSummary: { rosterSize: 0, convoked: 0, answering: 0, going: 0, maybe: 0, notGoing: 0, pending: 0, isConvocationScoped: false },
   logistics: { jerseys: null, balls: null },
+  result: null,
+  myMatchStats: null,
 };
 
 const uploadedStatus: EventScoresheet = {

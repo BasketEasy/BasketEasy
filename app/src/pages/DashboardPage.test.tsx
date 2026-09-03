@@ -292,7 +292,10 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+    // Two independent queries hit the same failing endpoint here: "Cette
+    // semaine" and, since phase 8, ManagerHome's own "Après le match" —
+    // both surface their own error, not a shared one.
+    expect(await screen.findAllByText('Chargement impossible')).toHaveLength(2);
     expect(screen.queryByText('Rien de prévu cette semaine')).not.toBeInTheDocument();
   });
 });

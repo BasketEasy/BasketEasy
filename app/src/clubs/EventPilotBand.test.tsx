@@ -34,6 +34,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     isImported: false,
     timeConfirmed: true,
     logistics: { jerseys: null, balls: null },
+    result: null,
+    myMatchStats: null,
     ...overrides,
   };
 }

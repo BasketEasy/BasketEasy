@@ -1,16 +1,14 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
-import { eventDayKey, formatDayHeading, formatEventDate } from './eventDateFormat';
+import { eventDayKey, formatDayHeading } from './eventDateFormat';
 import { MyAgendaEventCard } from './MyAgendaEventCard';
+import { PastMatchesSection } from './PastMatchesSection';
 import { pastMatchesWindowParams } from './myAgendaWindow';
 import { useMyAgenda } from './useMyAgenda';
 
@@ -32,35 +30,6 @@ function groupByDay(events: MyAgendaEvent[]): [string, MyAgendaEvent[]][] {
     }
   }
   return Array.from(groups.entries());
-}
-
-/**
- * One played match on « Après le match ». `MyAgendaEvent` carries no
- * `result` yet (that's phase 8) — this is a link back to the match, not an
- * invented score.
- */
-function PastMatchRow({ match }: { match: MyAgendaEvent }) {
-  return (
-    <Card variant="inset" className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <Text as="span" variant="label" size="sm">
-          {formatEventDate(match.startsAt)}
-          {match.opponentName ? ` · vs ${match.opponentName}` : ''}
-        </Text>
-        <Text as="span" variant="meta" size="xs">
-          {match.teamName} · {match.location}
-        </Text>
-      </div>
-      <TextLink asChild tone="brand">
-        <Link
-          to={`/clubs/${match.clubId}/teams/${match.teamId}/events/${match.eventId}`}
-          state={{ origin: { from: 'dashboard' } }}
-        >
-          Voir →
-        </Link>
-      </TextLink>
-    </Card>
-  );
 }
 
 /**
@@ -169,31 +138,13 @@ export function PlayerHome({
         </section>
       )}
 
-      {pastMatchesQuery.isError ? (
-        <section className="flex flex-col gap-3.5">
-          <SectionHeading as="h2">Après le match</SectionHeading>
-          <QueryError
-            onRetry={() => pastMatchesQuery.refetch()}
-            isRetrying={pastMatchesQuery.isRefetching}
-          />
-        </section>
-      ) : pastMatchesQuery.isLoading ? (
-        <section className="flex flex-col gap-3.5">
-          <SectionHeading as="h2">Après le match</SectionHeading>
-          <SkeletonList rows={1} variant="card" />
-        </section>
-      ) : (
-        pastMatches.length > 0 && (
-          <section className="flex flex-col gap-3.5">
-            <SectionHeading as="h2">Après le match</SectionHeading>
-            <div className="flex flex-col gap-2">
-              {pastMatches.map((match) => (
-                <PastMatchRow key={match.eventId} match={match} />
-              ))}
-            </div>
-          </section>
-        )
-      )}
+      <PastMatchesSection
+        matches={pastMatches}
+        isLoading={pastMatchesQuery.isLoading}
+        isError={pastMatchesQuery.isError}
+        onRetry={() => pastMatchesQuery.refetch()}
+        isRefetching={pastMatchesQuery.isRefetching}
+      />
     </>
   );
 }
