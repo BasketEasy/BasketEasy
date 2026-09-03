@@ -3,6 +3,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
+import { ResponseMeter } from '@basketeasy/ui/response-meter';
 import { Text } from '@basketeasy/ui/text';
 import { TimeBlock } from '@basketeasy/ui/time-block';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
@@ -31,19 +32,24 @@ import { EventRsvpControl } from './EventRsvpControl';
  * screen" — `Card`'s `tone` prop, per the phase-3 precedent), and a
  * full-width RSVP control since it is the one action on the card.
  *
- * `MyAgendaEvent` doesn't carry `timeConfirmed` yet
- * (`docs/ux-audit/player-first-implementation-plan.md` §6.1, phase 7), so the
- * hero's `TimeBlock` always renders a confirmed time — every event on
- * today's dashboard payload has a real kickoff.
+ * `showRsvpSummary` renders the squad-wide `ResponseMeter` on the
+ * `size="default"` card only — `ManagerHome`'s "Cette semaine" list opts in,
+ * `PlayerHome` doesn't: a player's own row already carries her personal RSVP
+ * control, and a squad-wide meter on every row of a to-do list would be
+ * noise where the manager's list has no such control of its own to compete
+ * with. The hero card never shows it regardless of the flag — it's the
+ * player's one most-important event, not a squad view.
  */
 export function MyAgendaEventCard({
   event,
   isRostered,
   size = 'default',
+  showRsvpSummary = false,
 }: {
   event: MyAgendaEvent;
   isRostered: boolean;
   size?: 'default' | 'hero';
+  showRsvpSummary?: boolean;
 }) {
   const isCalledUp = isRostered && event.myConvocation;
   const eventHref = `/clubs/${event.clubId}/teams/${event.teamId}/events/${event.eventId}`;
@@ -52,7 +58,12 @@ export function MyAgendaEventCard({
   if (size === 'hero') {
     return (
       <Card variant="flush" tone={isCalledUp ? 'brand' : 'neutral'} className="flex w-full">
-        <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed size="md" />
+        <TimeBlock
+          type={event.type}
+          startsAt={event.startsAt}
+          timeConfirmed={event.timeConfirmed}
+          size="md"
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3.5 sm:p-4">
           <Link
             to={eventHref}
@@ -117,6 +128,15 @@ export function MyAgendaEventCard({
           {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
         </Text>
       </Link>
+      {showRsvpSummary && event.rsvpSummary.rosterSize > 0 && (
+        <ResponseMeter
+          going={event.rsvpSummary.going}
+          maybe={event.rsvpSummary.maybe}
+          notGoing={event.rsvpSummary.notGoing}
+          pending={event.rsvpSummary.pending}
+          size="sm"
+        />
+      )}
       {isRostered && (
         <EventRsvpControl clubId={event.clubId} teamId={event.teamId} event={rsvpEvent} />
       )}
