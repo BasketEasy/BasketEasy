@@ -25,6 +25,7 @@ import { TeamRosterTab } from '../clubs/TeamRosterTab';
 import { TeamClubsTab } from '../clubs/TeamClubsTab';
 import { TeamAdminsTab } from '../clubs/TeamAdminsTab';
 import { TeamEventsTab } from '../clubs/TeamEventsTab';
+import { TeamAgendaTab } from '../clubs/TeamAgendaTab';
 import { ROSTER_SORT_OPTIONS, TEAM_CLUB_SORT_OPTIONS } from '../clubs/teamFilterOptions';
 import { TeamSeasonStatsTab } from '../clubs/TeamSeasonStatsTab';
 import { TeamEditModal } from '../clubs/TeamEditModal';
@@ -273,6 +274,10 @@ export function TeamDetailPage() {
   const refetchEventsView = eventsViewMode === 'agenda' ? refetchAgendaEvents : refetchEvents;
   const isEventsEmpty =
     (eventsViewMode === 'agenda' ? agendaEventsResult?.total : eventsResult?.total) === 0;
+  // The player's Agenda tab (TeamAgendaTab) always reads the agenda fetch,
+  // regardless of eventsViewMode/eventsViewMode's manager-only table state —
+  // it has no table view to fall back to.
+  const isAgendaEmpty = agendaEventsResult?.total === 0;
 
   // The card view reads the full unfiltered roster, the table view reads the
   // paginated/filtered one — so "is the roster empty" (and its loading
@@ -390,23 +395,41 @@ export function TeamDetailPage() {
         }
       >
         <TabsList>
-          <TabsTrigger value="roster" badge={allTeamPlayers.length}>
-            Effectif
-          </TabsTrigger>
-          {canManageTeam && (
-            <TabsTrigger value="clubs" badge={teamClubsResult?.total ?? 0}>
-              Clubs partenaires
-            </TabsTrigger>
+          {canManageTeam ? (
+            // Manager: the five tabs stay exactly as they are, in the order
+            // they've always been in — the desktop power view this revamp
+            // deliberately doesn't touch (docs/ux-audit/player-journey.md
+            // §4.4).
+            <>
+              <TabsTrigger value="roster" badge={allTeamPlayers.length}>
+                Effectif
+              </TabsTrigger>
+              <TabsTrigger value="clubs" badge={teamClubsResult?.total ?? 0}>
+                Clubs partenaires
+              </TabsTrigger>
+              <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
+                Administrateurs
+              </TabsTrigger>
+              <TabsTrigger value="stats">Statistiques</TabsTrigger>
+              <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
+                Événements
+              </TabsTrigger>
+            </>
+          ) : (
+            // Player: three tabs, agenda-first — the two management-only
+            // tabs (Clubs partenaires, Administrateurs) were never in this
+            // list. "Agenda" and "Mes stats" reuse the same "events"/"stats"
+            // tab ids as the manager view (so ?tab= and the default fallback
+            // keep working unchanged); only the label, order and — for
+            // "events" — the rendered content differ.
+            <>
+              <TabsTrigger value="events">Agenda</TabsTrigger>
+              <TabsTrigger value="roster" badge={allTeamPlayers.length}>
+                Effectif
+              </TabsTrigger>
+              <TabsTrigger value="stats">Mes stats</TabsTrigger>
+            </>
           )}
-          {canManageTeam && (
-            <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
-              Administrateurs
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="stats">Statistiques</TabsTrigger>
-          <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
-            Événements
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="stats" className="mt-4">
@@ -496,39 +519,55 @@ export function TeamDetailPage() {
         )}
 
         <TabsContent value="events">
-          <TeamEventsTab
-            clubId={clubId!}
-            teamId={teamId!}
-            canManageTeam={canManageTeam}
-            isRostered={isRostered}
-            isAddEventOpen={isAddEventOpen}
-            setIsAddEventOpen={setIsAddEventOpen}
-            eventsViewMode={eventsViewMode}
-            toggleEventsViewMode={toggleEventsViewMode}
-            agendaPeriod={agendaPeriod}
-            toggleAgendaPeriod={toggleAgendaPeriod}
-            eventsSearch={eventsSearch}
-            setEventsSearch={setEventsSearch}
-            eventsFrom={eventsFrom}
-            setEventsFrom={setEventsFrom}
-            eventsTo={eventsTo}
-            setEventsTo={setEventsTo}
-            eventsSortOrder={eventsSortOrder}
-            setEventsSortOrder={setEventsSortOrder}
-            setEventsPage={setEventsPage}
-            eventsPageSize={eventsPageSize}
-            setEventsPageSize={setEventsPageSize}
-            isEventsFiltered={isEventsFiltered}
-            isEventsViewError={isEventsViewError}
-            isLoadingEventsView={isLoadingEventsView}
-            isEventsViewRefetching={isEventsViewRefetching}
-            refetchEventsView={refetchEventsView}
-            isEventsEmpty={isEventsEmpty}
-            agendaEvents={agendaEvents}
-            events={events}
-            eventsResult={eventsResult}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
+          {canManageTeam ? (
+            <TeamEventsTab
+              clubId={clubId!}
+              teamId={teamId!}
+              canManageTeam={canManageTeam}
+              isRostered={isRostered}
+              isAddEventOpen={isAddEventOpen}
+              setIsAddEventOpen={setIsAddEventOpen}
+              eventsViewMode={eventsViewMode}
+              toggleEventsViewMode={toggleEventsViewMode}
+              agendaPeriod={agendaPeriod}
+              toggleAgendaPeriod={toggleAgendaPeriod}
+              eventsSearch={eventsSearch}
+              setEventsSearch={setEventsSearch}
+              eventsFrom={eventsFrom}
+              setEventsFrom={setEventsFrom}
+              eventsTo={eventsTo}
+              setEventsTo={setEventsTo}
+              eventsSortOrder={eventsSortOrder}
+              setEventsSortOrder={setEventsSortOrder}
+              setEventsPage={setEventsPage}
+              eventsPageSize={eventsPageSize}
+              setEventsPageSize={setEventsPageSize}
+              isEventsFiltered={isEventsFiltered}
+              isEventsViewError={isEventsViewError}
+              isLoadingEventsView={isLoadingEventsView}
+              isEventsViewRefetching={isEventsViewRefetching}
+              refetchEventsView={refetchEventsView}
+              isEventsEmpty={isEventsEmpty}
+              agendaEvents={agendaEvents}
+              events={events}
+              eventsResult={eventsResult}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          ) : (
+            <TeamAgendaTab
+              clubId={clubId!}
+              teamId={teamId!}
+              isRostered={isRostered}
+              agendaPeriod={agendaPeriod}
+              toggleAgendaPeriod={toggleAgendaPeriod}
+              isLoading={isLoadingAgendaEvents}
+              isError={isAgendaEventsError}
+              isRefetching={isAgendaEventsRefetching}
+              refetch={refetchAgendaEvents}
+              isEmpty={isAgendaEmpty}
+              agendaEvents={agendaEvents}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </PageContainer>
