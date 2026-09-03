@@ -40,7 +40,7 @@ function LogisticsMiniChip({
  * The agenda card's jersey/ball mini-chip pair (`AgendaCard.dc.html:77-86`)
  * — shared between the table row (EventRow) and card (TeamEventsAgenda)
  * views of the agenda so the assigned/unassigned copy and icon branching
- * lives in one place, matching EventLogisticsSection's conventions
+ * lives in one place, matching EventLogisticsCard's conventions
  * ("Non assigné", the check mark on an assigned slot) rather than
  * re-deriving them per call site. Renders for both event types — `eventType`
  * only changes the jersey-slot label ("Maillots" vs "Chasubles"), the

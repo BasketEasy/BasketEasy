@@ -46,10 +46,22 @@ export function EventConvocationModal({
   clubId,
   teamId,
   eventId,
+  triggerLabel = 'Gérer la convocation',
+  triggerVariant = 'outline',
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /**
+   * Copy only, never a look: the agenda row says "Gérer la convocation" next
+   * to a dozen other events, while the event page's pilot band — where the
+   * group is the subject of the whole card — says "Modifier la convocation"
+   * or, before anyone has been called up, "Convoquer le groupe". Same dialog,
+   * same mutation; only the sentence on the button changes.
+   */
+  triggerLabel?: string;
+  /** The trigger's `Button` variant — the pilot band's call-up is its primary action. */
+  triggerVariant?: 'default' | 'outline';
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -145,7 +157,7 @@ export function EventConvocationModal({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Gérer la convocation</Button>
+        <Button variant={triggerVariant}>{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

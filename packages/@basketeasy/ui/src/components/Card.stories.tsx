@@ -23,3 +23,13 @@ export const Default: Story = {
     </Card>
   ),
 };
+
+export const BrandTone: Story = {
+  name: 'Brand tone (decision band)',
+  render: () => (
+    <Card variant="panel" tone="brand" className="w-80">
+      <CardTitle>Vous êtes convoqué·e</CardTitle>
+      <CardDescription>Le coach vous a retenu·e dans le groupe des 12.</CardDescription>
+    </Card>
+  ),
+};

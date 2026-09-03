@@ -50,3 +50,41 @@ export function toDatetimeLocalValue(isoDate: string): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+const dayFullFormatter = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+/** Formats an ISO date string as a full, spelled-out day, e.g. "Samedi 5 septembre 2026" — the event detail hero's date line, where the time-of-day is already carried by the TimeBlock beside it. */
+export function formatEventDayFull(isoDate: string): string {
+  const label = dayFullFormatter.format(new Date(isoDate));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long is left before an event, as the countdown a coach reads on the
+ * pilot band ("J-3"). Null once the day itself has passed — a negative "J+2"
+ * would say nothing a past match's own date does not already say.
+ *
+ * Counted in whole local calendar days, not in 24h slices, so an event
+ * tomorrow evening reads "J-1" from this morning rather than "J-2".
+ */
+export function eventCountdownLabel(isoDate: string, now: Date = new Date()): string | null {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date(isoDate)) - startOfDay(now)) / DAY_MS);
+  if (days < 0) {
+    return null;
+  }
+  if (days === 0) {
+    return 'Aujourd’hui';
+  }
+  if (days === 1) {
+    return 'Demain';
+  }
+  return `J-${days}`;
+}

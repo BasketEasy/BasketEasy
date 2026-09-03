@@ -70,10 +70,22 @@ export function EventRsvpControl({
   teamId,
   event,
   compactOnDesktop = false,
+  fullWidth = false,
+  className,
 }: {
   clubId: string;
   teamId: string;
   event: EventRsvpControlEvent;
+  /**
+   * Stretches the group to its container and shares the width equally between
+   * the three options — what the decision band on the event page needs, where
+   * this is the one action on the card and a thumb reaching the right-hand
+   * option should not have to aim. Layout only: no colour, size or weight
+   * changes with it.
+   */
+  fullWidth?: boolean;
+  /** Layout classes for the wrapper (margins, alignment). Composition only. */
+  className?: string;
   /**
    * Drops to an icon-only rendering (no short/full label, no hint line) at
    * the `lg` breakpoint and up — used by the agenda card's single-line
@@ -118,7 +130,7 @@ export function EventRsvpControl({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col gap-1.5">
+      <div className={cn('flex flex-col gap-1.5', className)}>
         {/* A short label (e.g. "Oui") stays visible at every breakpoint —
             icon-only below md left touch users with no reliable way to
             learn what a button means, since a hover tooltip never fires on
@@ -127,7 +139,10 @@ export function EventRsvpControl({
         <div
           role="group"
           aria-label="Ma réponse"
-          className="flex w-fit max-w-full flex-wrap overflow-hidden rounded-md border border-border bg-sunk"
+          className={cn(
+            'flex max-w-full flex-wrap overflow-hidden rounded-md border border-border bg-sunk',
+            fullWidth ? 'w-full' : 'w-fit',
+          )}
         >
           {EVENT_RSVP_STATUS_OPTIONS.map((option, index) => {
             const active = event.myRsvpStatus === option.value;
@@ -150,6 +165,10 @@ export function EventRsvpControl({
                       'disabled:pointer-events-none disabled:opacity-50',
                       focusRing,
                       index > 0 && 'border-l border-border-strong',
+                      // basis-0 so grow splits the row into three equal
+                      // thirds rather than growing each button from its own
+                      // label width ("Peut-être" is twice "Oui").
+                      fullWidth && 'basis-0',
                       compactOnDesktop && 'lg:w-11 lg:px-0',
                       active
                         ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')

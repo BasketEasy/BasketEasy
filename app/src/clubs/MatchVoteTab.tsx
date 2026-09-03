@@ -319,7 +319,7 @@ function MatchVoteResultsCard({
  * selection per category, WORST optional) alongside the results card, per
  * the match interface spec's Voting visibility section. No new roster
  * endpoint: reuses useEventConvocations for the candidate list
- * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsSection.
+ * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsCard.
  *
  * Three states, keyed off the vote window (opens 1h after kickoff, closes
  * 5 days after — see voteWindow.ts):

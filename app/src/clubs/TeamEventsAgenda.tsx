@@ -20,9 +20,9 @@ import { TextLink } from '@basketeasy/ui/text-link';
  * right: location (+ opponent for MATCH) with the "Voir →" link underneath.
  * Everything else (notes, the full RSVP/convocation breakdown,
  * Modifier/Supprimer, convocation management) lives on the detail page for
- * BOTH event types, not just MATCH — EventDetailPage and its Effectif tab
- * (EventRosterTab) cover TRAINING exactly the same way, so the agenda card
- * doesn't need to duplicate any of it here. EventRow (the table view) is a
+ * BOTH event types, not just MATCH — EventDetailPage's « Qui vient ? » /
+ * « Effectif de la séance » block covers TRAINING exactly the same way, so
+ * the agenda card doesn't need to duplicate any of it here. EventRow (the table view) is a
  * different surface with room to spare and still carries those inline.
  */
 function AgendaEventCard({
