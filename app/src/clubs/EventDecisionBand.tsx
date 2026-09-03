@@ -65,7 +65,7 @@ export function EventDecisionBand({
       id={id}
       variant="panel"
       tone={event.myConvocation ? 'brand' : 'neutral'}
-      className="flex flex-col gap-2"
+      className="flex scroll-mt-20 flex-col gap-2"
     >
       {event.myConvocation && (
         <Badge variant="solid" tone="brand" size="md" className="w-fit gap-1.5">
@@ -79,13 +79,7 @@ export function EventDecisionBand({
           ? 'Vous n’avez pas encore répondu.'
           : `Votre réponse : ${eventRsvpStatusLabel(event.myRsvpStatus).toLowerCase()}.`}
       </Text>
-      <EventRsvpControl
-        clubId={clubId}
-        teamId={teamId}
-        event={event}
-        fullWidth
-        className="mt-1"
-      />
+      <EventRsvpControl clubId={clubId} teamId={teamId} event={event} fullWidth className="mt-1" />
     </Card>
   );
 }

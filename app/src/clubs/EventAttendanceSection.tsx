@@ -46,7 +46,8 @@ const ORDER: Record<string, number> = { GOING: 0, MAYBE: 1, NOT_GOING: 2, null: 
 
 function sortForDisplay(rows: EventRosterRow[]): EventRosterRow[] {
   return [...rows].sort(
-    (a, b) => ORDER[String(a.rsvpStatus)] - ORDER[String(b.rsvpStatus)] ||
+    (a, b) =>
+      ORDER[String(a.rsvpStatus)] - ORDER[String(b.rsvpStatus)] ||
       a.lastName.localeCompare(b.lastName, 'fr'),
   );
 }
@@ -123,7 +124,9 @@ export function EventAttendanceSection({
 
     // Whoever the counts are about: the convoked group once one exists, the
     // whole roster before that — so the list never contradicts the meter.
-    const listed = sortForDisplay(counts.isConvocationScoped ? rows.filter((r) => r.convoked) : rows);
+    const listed = sortForDisplay(
+      counts.isConvocationScoped ? rows.filter((r) => r.convoked) : rows,
+    );
     const going = listed.filter((row) => row.rsvpStatus === 'GOING');
     const visible = showAll ? listed : listed.slice(0, PREVIEW_ROWS);
 
@@ -152,7 +155,12 @@ export function EventAttendanceSection({
           <div className="border-t border-border p-1.5 text-center">
             {/* A disclosure, not a link: the tab this list used to live in is
                 gone, so there is no other page left to send anyone to. */}
-            <Button variant="ghost" size="sm" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-expanded={showAll}
+              onClick={() => setShowAll((v) => !v)}
+            >
               {showAll
                 ? 'Masquer la liste'
                 : `Voir les ${listed.length} ${counts.isConvocationScoped ? 'convoqué·es' : 'inscrit·es'}`}

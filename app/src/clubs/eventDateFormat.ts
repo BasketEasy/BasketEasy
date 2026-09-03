@@ -81,7 +81,7 @@ export function eventCountdownLabel(isoDate: string, now: Date = new Date()): st
     return null;
   }
   if (days === 0) {
-    return "Aujourd'hui";
+    return 'Aujourd’hui';
   }
   if (days === 1) {
     return 'Demain';
