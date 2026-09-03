@@ -1,17 +1,26 @@
 import { Link } from 'react-router-dom';
+import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
+import { PointsRepartitionBar } from '@basketeasy/ui/points-repartition-bar';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
+import { StatTile } from '@basketeasy/ui/stat-tile';
 import { Text } from '@basketeasy/ui/text';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ChartBarsIcon } from '@basketeasy/ui/icons/chart-bars';
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import type { TeamSeasonPlayerStats } from '@basketeasy/types/team-stats';
+import { getInitials } from './getInitials';
 import { useTeamSeasonStats } from './useTeamSeasonStats';
-import { TeamStatsRow } from './TeamStatsRow';
+import { AwardBadges, TeamStatsRow } from './TeamStatsRow';
+import { emptyRepartitionLabel, formatAverage, formatCount } from './teamStatsFormat';
+import { teamMemberRoleLabel } from './teamLabels';
 
 const COLUMNS = [
   'Joueur',
@@ -59,6 +68,98 @@ function RepartitionLegend() {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * The requesting player's own season, above the squad ranking — resolved via
+ * `isMe` (`TeamSeasonPlayerStats.isMe`, `docs/ux-audit/player-journey.md`
+ * §3.10/§6.5: the client cannot derive it, since it never learns its own
+ * `teamPlayerId` on this screen otherwise).
+ *
+ * Deliberately absent: a jersey number (the mockup shows one, but a stable
+ * per-player jersey number doesn't exist — clubs share jersey sets between
+ * teams, see `CLAUDE.md`'s Teams module and `player-journey.md` §7 item 4/§6.5's
+ * note — so the card is cut down to what the roster actually knows: name and
+ * role) and MPG/season-high-minutes (no source of playing time exists yet,
+ * same rule as the squad table below).
+ */
+function MyStatsCard({ player }: { player: TeamSeasonPlayerStats }) {
+  const emptyReason = emptyRepartitionLabel(player);
+  return (
+    <Card variant="panel" className="flex flex-col gap-4">
+      <div className="flex items-center gap-2.5">
+        <Avatar size="md">
+          <AvatarFallback tone={player.role === 'COACH' ? 'brand' : 'structure'}>
+            {getInitials(player.firstName, player.lastName)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex flex-col gap-0.5">
+          <Text as="span" variant="display" size="lg">
+            {player.firstName} {player.lastName}
+          </Text>
+          <Text as="span" variant="meta" size="xs">
+            {teamMemberRoleLabel(player.role)} · vos statistiques cette saison
+          </Text>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <StatTile
+          size="sm"
+          icon={<CalendarIcon aria-hidden="true" className="h-4 w-4" />}
+          label="MJ"
+          value={player.gamesPlayed}
+        />
+        <StatTile
+          size="sm"
+          icon={<ChartBarsIcon aria-hidden="true" className="h-4 w-4" />}
+          label="PTS/M"
+          value={formatAverage(player.pointsPerGame)}
+        />
+        <StatTile
+          size="sm"
+          icon={<TrophyIcon aria-hidden="true" className="h-4 w-4" />}
+          label="Meilleur total"
+          value={formatCount(player.seasonHighPoints)}
+        />
+        <StatTile
+          size="sm"
+          icon={<ShieldIcon aria-hidden="true" className="h-4 w-4" />}
+          label="FA/M"
+          value={formatAverage(player.foulsPerGame)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <Text as="span" variant="eyebrow">
+            Répartition de vos points
+          </Text>
+          {emptyReason ? (
+            <Text as="span" variant="meta">
+              {emptyReason}
+            </Text>
+          ) : (
+            <Text as="span" variant="label" size="sm" className="tabular">
+              {player.totalPoints} pts
+            </Text>
+          )}
+        </div>
+        <PointsRepartitionBar
+          className="h-4"
+          label={`Répartition des points de ${player.firstName} ${player.lastName}`}
+          threePointPoints={player.threePointPoints}
+          twoPointPoints={player.twoPointPoints}
+          freeThrowPoints={player.freeThrowPoints}
+        />
+        {/* The "not an address" sentence is a CLAUDE.md module rule, not a
+            style choice — reused verbatim rather than rewritten here. */}
+        {!emptyReason && <RepartitionLegend />}
+      </div>
+
+      <AwardBadges player={player} />
+    </Card>
   );
 }
 
@@ -127,8 +228,23 @@ export function TeamSeasonStatsTab({
     );
   }
 
+  // The caller's own roster row, when they have one — absent for a viewer who
+  // isn't rostered on this team at all (e.g. a club admin with no Player
+  // link), in which case the personal card is simply skipped rather than
+  // rendered against a row that doesn't exist. A rostered player who has
+  // never played still has a row here (the roster is fetched in full), just
+  // with every average at "—" and the bar empty.
+  const myStats = data.players.find((player) => player.isMe);
+
   return (
     <div className="flex flex-col gap-5">
+      {myStats && (
+        <div className="flex flex-col gap-2.5">
+          <SectionHeading>Mes stats</SectionHeading>
+          <MyStatsCard player={myStats} />
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end gap-5">
         <SelectField
           label="Saison"

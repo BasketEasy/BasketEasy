@@ -1118,9 +1118,10 @@ describe('TeamDetailPage', () => {
         await screen.findByRole('tab', { name: 'Mes stats', selected: true }),
       ).toBeInTheDocument();
       expect(screen.queryByRole('tab', { name: /^statistiques$/i })).not.toBeInTheDocument();
-      // This phase ships only the squad-ranking half — the same table a
-      // manager sees, with no isMe-dependent personal card (that's phase 6,
-      // blocked on a server field this phase must not add).
+      // The squad-ranking table renders regardless of role. This fixture's
+      // row carries no isMe (the field a real server always sends, per
+      // phase 6) so there is nothing to mark as "vous" and no personal card
+      // above it — the graceful case of a response with no caller-owned row.
       expect(await screen.findByText('Léa Moreau')).toBeInTheDocument();
       expect(screen.queryByText('vous')).not.toBeInTheDocument();
     });
