@@ -140,7 +140,47 @@ function StatusBadge({ extraction }: { extraction: ScoresheetExtraction }) {
  * names past recognition, on the one screen whose whole job is identifying
  * who's who. Side-by-side returns once there's room for it.
  */
-function BoxScore({ data, event }: { data: ParsedScoresheetData; event: TeamEvent }) {
+function BoxScoreValue({
+  value,
+  editable,
+  label,
+  onChange,
+}: {
+  value: number | null;
+  editable: boolean;
+  label: string;
+  onChange: (value: number | null) => void;
+}) {
+  if (!editable) {
+    return (
+      <Text variant="display" size="3xl" className="tabular-nums">
+        {value ?? '–'}
+      </Text>
+    );
+  }
+  return (
+    <Input
+      type="number"
+      aria-label={label}
+      placeholder="?"
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      className="h-11 w-16 text-center text-3xl font-heading font-extrabold tabular-nums md:h-12 md:w-20"
+    />
+  );
+}
+
+function BoxScore({
+  data,
+  event,
+  canManage,
+  onChange,
+}: {
+  data: ParsedScoresheetData;
+  event: TeamEvent;
+  canManage: boolean;
+  onChange: (side: 'home' | 'away', value: number | null) => void;
+}) {
   const homeLabel = event.venue === 'AWAY' ? (event.opponentName ?? 'Extérieur') : 'Mon équipe';
   const awayLabel = event.venue === 'AWAY' ? 'Mon équipe' : (event.opponentName ?? 'Extérieur');
   return (
@@ -155,20 +195,31 @@ function BoxScore({ data, event }: { data: ParsedScoresheetData; event: TeamEven
         <Text variant="label" size="sm" title={homeLabel}>
           {homeLabel}
         </Text>
-        <Text variant="display" size="3xl" className="tabular-nums md:hidden">
-          {data.homeScore ?? '–'}
-        </Text>
+        <div className="md:hidden">
+          <BoxScoreValue
+            value={data.homeScore}
+            editable={canManage}
+            label={`Score, ${homeLabel}`}
+            onChange={(value) => onChange('home', value)}
+          />
+        </div>
       </div>
       <div className="hidden items-center gap-2 md:flex">
-        <Text variant="display" size="3xl" className="tabular-nums">
-          {data.homeScore ?? '–'}
-        </Text>
+        <BoxScoreValue
+          value={data.homeScore}
+          editable={canManage}
+          label={`Score, ${homeLabel}`}
+          onChange={(value) => onChange('home', value)}
+        />
         <Text variant="body" size="lg" tone="secondary">
           &ndash;
         </Text>
-        <Text variant="display" size="3xl" className="tabular-nums">
-          {data.awayScore ?? '–'}
-        </Text>
+        <BoxScoreValue
+          value={data.awayScore}
+          editable={canManage}
+          label={`Score, ${awayLabel}`}
+          onChange={(value) => onChange('away', value)}
+        />
       </div>
       <div className="flex flex-col items-center gap-0.5 md:items-end md:text-right">
         <Text variant="eyebrow" size="xs">
@@ -177,9 +228,14 @@ function BoxScore({ data, event }: { data: ParsedScoresheetData; event: TeamEven
         <Text variant="label" size="sm" title={awayLabel}>
           {awayLabel}
         </Text>
-        <Text variant="display" size="3xl" className="tabular-nums md:hidden">
-          {data.awayScore ?? '–'}
-        </Text>
+        <div className="md:hidden">
+          <BoxScoreValue
+            value={data.awayScore}
+            editable={canManage}
+            label={`Score, ${awayLabel}`}
+            onChange={(value) => onChange('away', value)}
+          />
+        </div>
       </div>
     </Card>
   );
@@ -213,14 +269,14 @@ function FlaggedNumberCell({
   label: string;
   describedBy?: string;
 }) {
-  if (!flagged) {
-    return (
-      <Text as="span" variant="body" size="sm" className="tabular-nums">
-        {value ?? '?'}
-      </Text>
-    );
-  }
   if (!editable) {
+    if (!flagged) {
+      return (
+        <Text as="span" variant="body" size="sm" className="tabular-nums">
+          {value ?? '?'}
+        </Text>
+      );
+    }
     return (
       <Text as="span" variant="body" size="sm" tone="accent" className="tabular-nums font-bold">
         {value ?? '?'}
@@ -228,7 +284,12 @@ function FlaggedNumberCell({
     );
   }
   return (
-    <div className="flex items-center justify-center gap-1 rounded-md border-2 border-gold-text bg-surface px-1">
+    <div
+      className={cn(
+        'flex items-center justify-center gap-1 rounded-md border-2 border-transparent px-1',
+        flagged && 'border-gold-text bg-surface',
+      )}
+    >
       <Input
         type="number"
         aria-label={label}
@@ -238,7 +299,7 @@ function FlaggedNumberCell({
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
         className="h-11 w-14 border-0 bg-transparent p-0 text-center text-base tabular-nums md:h-9 md:w-12 md:text-sm"
       />
-      <PencilIcon aria-hidden="true" className="h-3 w-3 shrink-0 text-gold-text" />
+      {flagged && <PencilIcon aria-hidden="true" className="h-3 w-3 shrink-0 text-gold-text" />}
     </div>
   );
 }
@@ -335,16 +396,78 @@ function QuarterScoreTable({
   );
 }
 
+function PlayerNumberCell({
+  value,
+  editable,
+  label,
+  onChange,
+}: {
+  value: number | null;
+  editable: boolean;
+  label: string;
+  onChange: (value: number | null) => void;
+}) {
+  if (!editable) {
+    return (
+      <Text as="span" variant="body" size="sm" tone="secondary" className="tabular-nums">
+        {value ?? '?'}
+      </Text>
+    );
+  }
+  return (
+    <Input
+      type="number"
+      aria-label={label}
+      placeholder="?"
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      className="h-11 w-12 border-0 bg-transparent p-0 text-center text-base tabular-nums md:h-9 md:w-10 md:text-sm"
+    />
+  );
+}
+
+function PlayerNameCell({
+  value,
+  editable,
+  label,
+  onChange,
+}: {
+  value: string | null;
+  editable: boolean;
+  label: string;
+  onChange: (value: string | null) => void;
+}) {
+  if (!editable) {
+    return <Text as="span">{value ?? '?'}</Text>;
+  }
+  return (
+    <Input
+      type="text"
+      aria-label={label}
+      placeholder="?"
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
+      className="h-11 w-full border-0 bg-transparent p-0 text-base md:h-9 md:text-sm"
+    />
+  );
+}
+
 function PlayerStatsTable({
   data,
   missingFields,
   canManage,
   onChange,
+  onIdentityChange,
 }: {
   data: ParsedScoresheetData;
   missingFields: MissingPlayerField[];
   canManage: boolean;
   onChange: (playerIndex: number, field: 'points' | 'fouls', value: number | null) => void;
+  onIdentityChange: (
+    playerIndex: number,
+    field: 'number' | 'name',
+    value: number | string | null,
+  ) => void;
 }) {
   const isFlagged = (playerIndex: number, field: MissingPlayerField['field']) =>
     missingFields.some((m) => m.playerIndex === playerIndex && m.field === field);
@@ -376,10 +499,22 @@ function PlayerStatsTable({
             const playerLabel = player.name ?? `n° ${player.number ?? '?'}`;
             return (
               <TableRow key={i}>
-                <TableCell className="text-center tabular-nums text-muted">
-                  {player.number ?? '?'}
+                <TableCell className="p-1 text-center">
+                  <PlayerNumberCell
+                    value={player.number}
+                    editable={canManage}
+                    label={`Numéro, ${playerLabel}`}
+                    onChange={(value) => onIdentityChange(i, 'number', value)}
+                  />
                 </TableCell>
-                <RowHeader>{player.name ?? '?'}</RowHeader>
+                <RowHeader>
+                  <PlayerNameCell
+                    value={player.name}
+                    editable={canManage}
+                    label={`Nom, ${playerLabel}`}
+                    onChange={(value) => onIdentityChange(i, 'name', value)}
+                  />
+                </RowHeader>
                 <TableCell className="p-1 text-center">
                   <FlaggedNumberCell
                     value={player.points}
@@ -412,13 +547,16 @@ function PlayerStatsTable({
 /**
  * The card shown once an uploaded scoresheet has come back from the OCR
  * pipeline as PARSED, NEEDS_REVIEW, or CONFIRMED (FAILED is a separate,
- * simpler card — see MatchScoresheetTab). Flagged cells (a quarter-sum
- * mismatch, a null player stat) are individually editable by a team manager;
- * the confirm button stays visible but disabled while any flag remains, so
- * the target action is never hidden mid-correction — matching the design
- * rationale recorded in ScoresheetResults.dc.html: a manager types the real
- * value directly into the cell where it already belongs, rather than
- * re-entering 20+ already-correct fields in a fresh form.
+ * simpler card — see MatchScoresheetTab). Every field of the parsed data
+ * (box score, quarter scores, player number/name/points/fouls) is directly
+ * editable in place by a team manager; a cell auto-flagged by
+ * `scoresheetConsistency` (a quarter-sum mismatch, a null player stat) is
+ * additionally highlighted so a manager knows where the OCR read is
+ * unreliable. The confirm button stays visible but disabled while any flag
+ * remains, so the target action is never hidden mid-correction — matching
+ * the design rationale recorded in ScoresheetResults.dc.html: a manager
+ * types the real value directly into the cell where it already belongs,
+ * rather than re-entering 20+ already-correct fields in a fresh form.
  */
 export function ScoresheetExtractionCard({
   clubId,
@@ -490,6 +628,27 @@ export function ScoresheetExtractionCard({
     });
   };
 
+  const updatePlayerIdentity = (
+    playerIndex: number,
+    field: 'number' | 'name',
+    value: number | string | null,
+  ) => {
+    setCorrections((current) => {
+      if (!current) return current;
+      const players = current.players.map((p, i) =>
+        i === playerIndex ? { ...p, [field]: value } : p,
+      );
+      return { ...current, players };
+    });
+  };
+
+  const updateBoxScore = (side: 'home' | 'away', value: number | null) => {
+    setCorrections((current) => {
+      if (!current) return current;
+      return { ...current, [side === 'home' ? 'homeScore' : 'awayScore']: value };
+    });
+  };
+
   const handleConfirm = () => {
     if (hasUnresolvedFlags) return;
     const edited = extraction.parsedData && !isSameParsedData(corrections, extraction.parsedData);
@@ -541,7 +700,12 @@ export function ScoresheetExtractionCard({
         )}
       </div>
 
-      <BoxScore data={corrections} event={event} />
+      <BoxScore
+        data={corrections}
+        event={event}
+        canManage={canManage && !isReadOnly}
+        onChange={updateBoxScore}
+      />
 
       <QuarterScoreTable
         data={corrections}
@@ -556,6 +720,7 @@ export function ScoresheetExtractionCard({
         missingFields={missingFields}
         canManage={canManage && !isReadOnly}
         onChange={updatePlayerStat}
+        onIdentityChange={updatePlayerIdentity}
       />
 
       {/* Waits for the roster rather than rendering selects against an empty
