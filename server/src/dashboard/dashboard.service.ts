@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type {
   EventLogisticsAssignee,
+  EventMatchPlayerStats,
+  EventMatchResult,
   EventRsvpStatus,
   EventRsvpSummary,
   EventType,
@@ -9,6 +11,8 @@ import type {
 import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
+import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
+import { deriveMatchResult } from '../common/match-result';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_AGENDA_WINDOW_DAYS = 7;
@@ -83,10 +87,12 @@ export class DashboardService {
     const rsvpStatuses = new Map(rsvps.map((r) => [r.eventId, r.status as EventRsvpStatus]));
     const convokedEventIds = new Set(convocations.map((c) => c.eventId));
 
-    const [rsvpSummaries, logisticsAssignees] = await Promise.all([
-      this.resolveEventRosterSummaries(teamIds, events),
-      this.resolveLogisticsAssignees(events),
-    ]);
+    const [rsvpSummaries, logisticsAssignees, { resultsByEventId, myStatsByEventId }] =
+      await Promise.all([
+        this.resolveEventRosterSummaries(teamIds, events),
+        this.resolveLogisticsAssignees(events),
+        this.resolveMatchResults(events, teamPlayerIds),
+      ]);
 
     return {
       totalPlayers,
@@ -98,6 +104,8 @@ export class DashboardService {
           convokedEventIds.has(event.id),
           this.rsvpSummaryOrZero(event.id, rsvpSummaries),
           logisticsAssignees,
+          resultsByEventId.get(event.id) ?? null,
+          myStatsByEventId.get(event.id) ?? null,
         ),
       ),
     };
@@ -142,6 +150,60 @@ export class DashboardService {
       events.map((e) => [e.id, rosterSizeByTeamId.get(e.teamId) ?? 0]),
     );
     return computeEventRsvpSummaries(eventIds, rosterSizeByEventId, rsvps, convocations);
+  }
+
+  // Whole-batch match-result projection, spanning however many teams the
+  // agenda covers — cheaper here than EventsService's twin because
+  // getDashboard already fetches teamPlayerIds (every TeamPlayer row the
+  // caller holds, across every team) for the RSVP resolution above; this
+  // reuses it rather than re-deriving a per-team TeamPlayer lookup. Two
+  // queries total (one eventScoresheet.findMany scoped to CONFIRMED sheets,
+  // one matchPlayerStat.findMany scoped to the caller's own roster rows),
+  // regardless of how many events or teams are in the batch. A caller holds
+  // at most one TeamPlayer row per team, and one event belongs to one team,
+  // so at most one matching stat row can exist per event — no risk of
+  // crediting one event with another team's row. See CLAUDE.md's
+  // Scoresheets module: only CONFIRMED sheets ever populate a result, so a
+  // player never sees an unconfirmed score.
+  private async resolveMatchResults(
+    events: { id: string; venue: EventVenue | null }[],
+    teamPlayerIds: string[],
+  ): Promise<{
+    resultsByEventId: Map<string, EventMatchResult>;
+    myStatsByEventId: Map<string, EventMatchPlayerStats>;
+  }> {
+    const eventIds = events.map((e) => e.id);
+    if (eventIds.length === 0) {
+      return { resultsByEventId: new Map(), myStatsByEventId: new Map() };
+    }
+    const venueByEventId = new Map(events.map((e) => [e.id, e.venue]));
+    const [confirmedScoresheets, myStats] = await Promise.all([
+      this.prisma.eventScoresheet.findMany({
+        where: { eventId: { in: eventIds }, status: 'CONFIRMED' },
+        include: { extraction: true },
+      }),
+      teamPlayerIds.length > 0
+        ? this.prisma.matchPlayerStat.findMany({
+            where: { eventId: { in: eventIds }, teamPlayerId: { in: teamPlayerIds } },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const resultsByEventId = new Map<string, EventMatchResult>();
+    for (const scoresheet of confirmedScoresheets) {
+      const parsedData = asParsedScoresheetData(scoresheet.extraction?.parsedData);
+      const result = deriveMatchResult(venueByEventId.get(scoresheet.eventId) ?? null, parsedData);
+      if (result) {
+        resultsByEventId.set(scoresheet.eventId, result);
+      }
+    }
+
+    const myStatsByEventId = new Map<string, EventMatchPlayerStats>();
+    for (const stat of myStats) {
+      myStatsByEventId.set(stat.eventId, { points: stat.points, fouls: stat.fouls });
+    }
+
+    return { resultsByEventId, myStatsByEventId };
   }
 
   // Same fallback reasoning as EventsService's twin: every id passed to
@@ -228,6 +290,8 @@ export class DashboardService {
     myConvocation: boolean,
     rsvpSummary: EventRsvpSummary,
     logisticsAssignees: Map<string, EventLogisticsAssignee>,
+    result: EventMatchResult | null,
+    myMatchStats: EventMatchPlayerStats | null,
   ): MyAgendaEvent {
     // Prefer the club the caller actually belongs to (see
     // TeamsService.toMyTeamSummary for the same navigation-safety reasoning),
@@ -263,6 +327,8 @@ export class DashboardService {
           ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
           : null,
       },
+      result,
+      myMatchStats,
     };
   }
 }
