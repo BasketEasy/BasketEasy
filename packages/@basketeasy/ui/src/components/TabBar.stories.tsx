@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { TabBar, TabBarItem } from './TabBar';
+import { BuildingIcon } from './icons/BuildingIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { HomeIcon } from './icons/HomeIcon';
 import { TrophyIcon } from './icons/TrophyIcon';
@@ -39,8 +40,29 @@ export const ManagerBar: Story = {
   render: () => (
     <TabBar ariaLabel="Navigation principale">
       <TabBarItem icon={<HomeIcon className="h-5 w-5" />} label="Accueil" count={4} />
-      <TabBarItem icon={<TrophyIcon className="h-5 w-5" />} label="Équipes" active />
-      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Club" />
+      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Équipes" active />
+      <TabBarItem icon={<BuildingIcon className="h-5 w-5" />} label="Club" />
+      <TabBarItem icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+    </TabBar>
+  ),
+};
+
+/**
+ * A slot the product has reserved but cannot route yet: disabled and dimmed,
+ * rather than a link to somewhere it isn't. The explanation belongs in the
+ * item's own accessible name, since the label has no room for it.
+ */
+export const UnavailableItem: Story = {
+  render: () => (
+    <TabBar ariaLabel="Navigation principale">
+      <TabBarItem icon={<HomeIcon className="h-5 w-5" />} label="Ma semaine" active />
+      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Mon équipe" />
+      <TabBarItem
+        icon={<TrophyIcon className="h-5 w-5" />}
+        label="Résultats"
+        disabled
+        aria-label="Résultats (bientôt disponible)"
+      />
       <TabBarItem icon={<UserIcon className="h-5 w-5" />} label="Profil" />
     </TabBar>
   ),

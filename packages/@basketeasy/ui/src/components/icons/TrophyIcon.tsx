@@ -1,6 +1,6 @@
 import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
-/** Teams (Équipes, Mes équipes). */
+/** A trophy: teams (Équipes, Mes équipes) and match results (Résultats). */
 export function TrophyIcon({ tone, className, ...props }: IconProps) {
   return (
     <svg

@@ -54,7 +54,11 @@ export interface TabBarItemProps extends ButtonHTMLAttributes<HTMLButtonElement>
   /** An outstanding count — answers owed, items to handle. Zero renders nothing. */
   count?: number;
   active?: boolean;
-  /** Render a caller-supplied element (a `NavLink`) instead of a button. */
+  /**
+   * Render a caller-supplied element (a `NavLink`) instead of a button. The
+   * inherited `disabled` attribute only applies to the button form — the
+   * shape a slot the product has reserved but cannot route yet takes.
+   */
   asChild?: boolean;
 }
 
@@ -62,6 +66,11 @@ const itemClasses = (active: boolean) =>
   cn(
     'flex min-h-11 flex-col items-center justify-center gap-1 px-1 py-2 no-underline transition-colors',
     focusRing,
+    // A slot the product has reserved but cannot route yet renders as a
+    // disabled button rather than a link to somewhere it isn't: dimmed so it
+    // never reads as tappable, and left to the DS to express, since a call
+    // site may not name a look of its own.
+    'disabled:pointer-events-none disabled:opacity-50',
     active
       ? 'bg-orange-tint text-orange-text shadow-nav-active-top'
       : 'text-muted hover:bg-surface-2',
