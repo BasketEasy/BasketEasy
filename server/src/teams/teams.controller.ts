@@ -14,13 +14,14 @@ import {
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
-import type { FfbbImportResult, TeamFfbbLink } from '@basketeasy/types/ffbb';
+import type { FfbbImportResult, PouleResults, TeamFfbbLink } from '@basketeasy/types/ffbb';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
+import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -39,6 +40,7 @@ export class TeamsController {
   constructor(
     private readonly teamsService: TeamsService,
     private readonly ffbbImportService: FfbbImportService,
+    private readonly ffbbPouleService: FfbbPouleService,
   ) {}
 
   @Post()
@@ -198,6 +200,16 @@ export class TeamsController {
     @Param('teamId') teamId: string,
   ): Promise<FfbbImportResult> {
     return this.ffbbImportService.importSchedule(clubId, teamId);
+  }
+
+  @Get(':teamId/ffbb-poule-results')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  getFfbbPouleResults(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<PouleResults> {
+    return this.ffbbPouleService.getPouleResults(clubId, teamId);
   }
 
   @Get(':teamId/admins')

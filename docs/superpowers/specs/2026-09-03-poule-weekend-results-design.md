@@ -1,6 +1,6 @@
 # Poule weekend results
 
-Status: draft (loop 1 — poule URL confirmed by hand, payload shape still open)
+Status: implemented (loop 2 — payload shape confirmed against a real captured page)
 Date: 2026-09-03
 
 ## Why
@@ -50,49 +50,67 @@ fixtures.
 
 ## Where the poule reference comes from
 
-**Resolved this loop — the URL shape is confirmed, by hand, against a live page** (this sandbox still
-has no egress to `competitions.ffbb.com`; a teammate opened the real site and supplied it):
+**Resolved — confirmed against a real captured page**, not a guess. A teammate opened
+`https://competitions.ffbb.com/ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186&journee=1`
+in a phone browser and saved the full page HTML (this sandbox still has no egress to
+`competitions.ffbb.com`). Its embedded RSC payload was inspected directly (same
+`self.__next_f.push(...)`-chunk-of-JSON architecture the calendar-import spec found on the team page),
+and its exact field shapes were cross-checked against `Fimeo/ffbb-api-ts`
+(a reverse-engineered FFBB API client on GitHub — reachable from this sandbox, unlike
+`competitions.ffbb.com` itself — whose `Rencontre`/`Poule`/`Classement` interfaces matched the captured
+payload's fields byte-for-byte). Findings, each closing one of the previous revision's open questions:
 
-```
-https://competitions.ffbb.com/ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186&journee=1
-```
+1. **URL shape, confirmed exactly:**
+   `ligues/<ligueCode>/comites/<comiteCode>/competitions/<competitionCode>?phase=<phaseId>&poule=<pouleId>&journee=<n>`
+   — `phase`/`poule`/`journee` are query parameters on the same competition page every match detail
+   link's prefix already resolves to (`MATCH_DETAIL_PATH_REGEX`), not a separate `/classement` path.
+2. **The query parameters don't scope what's returned — the whole phase comes back in one fetch.**
+   The captured page's `journee` was `1` and its `poule` was one specific poule id, but the embedded
+   payload contained **all five poules in the phase** (A through E), each with **all ten journées** of
+   its full-season `rencontres`, not just journée 1. So `phase`/`poule`/`journee` are UI-selection state
+   for which tab the page opens on, not a server-side filter — meaning **one fetch gets everything**:
+   the whole poule's season of matches and its standings, no per-journée fetch loop needed. `poule` is
+   still required to know _which_ of the five returned poules is ours, and `phase` to resolve the page
+   at all, so both stay part of `pouleRef`; `journee` is dropped from the stored ref (see below) since
+   it does nothing the fetch needs.
+3. **Every `rencontre` object carries its own `idPoule` and `competitionId` (= phase id).** Confirmed
+   both directly in the captured payload and in `ffbb-api-ts`'s `Rencontre` type
+   (`idPoule: string` — the captured raw payload gives the richer `{id, nom}` shape; `Poule.id`/
+   `Phase.id` line up with the same values). This means `pouleRef` needs **no second fetch to
+   discover** — every match `FfbbPageScrapeProvider.getMatchesForEngagement` already pulls for a
+   team's own calendar carries its poule id and phase id inline, sitting unread next to the
+   already-extracted `numeroJournee`.
+4. **The standings row shape (`Classement`), confirmed via `ffbb-api-ts`'s type, since every
+   `classements` array in the captured page was empty** (that poule's season hadn't started — journée 1,
+   every match still `joue: false`):
+   ```typescript
+   interface Classement {
+     id: string;
+     idEngagement?: { nom: string; id: string };
+     matchJoues: string; // numeric fields are FFBB-API strings, same as resultatEquipe1/2 elsewhere
+     points: string;
+     position: string;
+     gagnes: string;
+     perdus: string;
+   }
+   ```
+   No points-for/points-against or draws field exists (basketball has no draws) — confirms the design's
+   original `{played, won, lost, points}` shape needed no points-differential column. **Residual risk,
+   stated plainly:** this shape comes from a third-party client's reverse-engineering, not from a
+   captured page with actual rows in it (none existed to capture — nobody's poule has played a match
+   yet this early in the season). Treat `FfbbPageScrapeProvider`'s classement parsing as unverified
+   against a populated example until one is captured; it fails closed (`FfbbPageFormatError`) rather
+   than guessing if the fields it expects aren't there.
 
-This changes the original guess in two ways, both load-bearing for the data model below:
-
-1. **It's the competition's own page, not a `/classement` sub-path.** `ligues/<x>/comites/<y>/competitions/<code>` — the same prefix already parsed out of every match detail link
-   (`MATCH_DETAIL_PATH_REGEX`) — resolves directly, with `phase`/`poule`/`journee` as **query
-   parameters**, not further path segments. So the "try `.../classement`" plan in the previous
-   revision of this section is wrong and is replaced by the shape above.
-2. **A poule sits under a `phase` inside a `competition`, and both need their own ids.** `dm3` alone
-   is the competition (division), not the poule — confirming Open question 2 below the coarser way:
-   `<code>` is coarser than a poule, and `phase`/`poule` are what actually scope it. Both are FFBB
-   internal numeric ids (`200000002897998`, `200000003056186` — the same id shape as
-   `TeamFfbbLink.ffbbEngagementRef`'s trailing engagement id), not human-readable, so there is no way
-   to construct them from a competition code alone — they have to be **read off already-fetched data**,
-   the same way `opponentLabel`/`isHome` are read off `idEngagementEquipe1`/`2` today.
-
-**Still open, now narrower (see Open questions):** where `phase`/`poule` ids are readable from. The
-working hypothesis, consistent with how `numeroJournee` already surfaces on every `FfbbMatch` in the
-team-page payload (see the calendar-import spec's research section): each `rencontre` object likely
-carries its own `idPhase`/`idPoule` (or similarly named) fields alongside `numeroJournee`, the same
-object that already yields `id`, `date_rencontre`, `joue`, `idEngagementEquipe1/2`. If so, no second
-fetch is needed to *discover* the poule ref — it's sitting in the payload the calendar import already
-pulls, just not extracted yet. **What a live fetch still needs to confirm:** the exact field names for
-`phase`/`poule`, whether `journee` on the standings URL is required (does omitting it default to "the
-current/latest journée," or 400/redirect?), and the embedded RSC payload shape at that URL (does it
-carry the classement for the whole season plus that one journée's results, or does classement need its
-own fetch without `journee` set?).
-
-**Proposed data shape**, updated for the confirmed query-param structure: capture a `pouleRef` as the
-**full resolvable URL** (`ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>`, `journee`
-omitted so the provider can pick "latest" itself once that's confirmed) — same "store the whole
-resolvable reference, not a bare id" discipline `TeamFfbbLink.ffbbEngagementRef` already established.
+**`pouleRef` is stored as the full resolvable path+query, `journee` omitted** (point 2 above — the
+provider always wants the whole poule, so there's nothing for a stored `journee` to pin):
+`ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>`.
 
 ## Data model (Prisma)
 
 No new table. Poule data is fetched live and rendered, never persisted — same "don't store what we
 don't own" posture as the rest of the FFBB integration (imported `Event`s are the one exception,
-because those become entities *we* manage RSVP/convocations on top of; a poule standings row is never
+because those become entities _we_ manage RSVP/convocations on top of; a poule standings row is never
 going to be edited or annotated inside BasketEasy, so there's nothing a table would buy beyond a
 cache). `Team` gains one derived field, not a column: `pouleRef`, read off the most recent FFBB
 import rather than stored — see Service logic.
@@ -143,13 +161,24 @@ export interface FfbbProvider {
 }
 ```
 
-`FfbbEngagementFetchResult` gains `pouleRef: string | null` (null when `phase`/`poule` ids can't be
-read off any fetched match — e.g. a team with no matches yet this season, or a competition shape where
-they genuinely aren't present). Building it needs two things `FfbbPageScrapeProvider.getMatchesForEngagement`
-doesn't extract today: the `ligues/.../competitions/<code>` prefix (already computed for
-`MATCH_DETAIL_PATH_REGEX`, currently discarded after venue resolution) and each raw match object's
-`phase`/`poule` id fields (exact key names TBD — see Open questions), which aren't read at all yet
-because nothing needed them before this spec.
+`FfbbEngagementFetchResult` gains `pouleRef: string | null` (null only when a team has zero matches
+fetched — e.g. no fixtures published yet this season — so there's no `rencontre` object to read
+`idPoule`/`competitionId` off at all). Built from the first fetched match: the `ligues/.../competitions/<code>`
+prefix (already computed for `MATCH_DETAIL_PATH_REGEX`, previously discarded after venue resolution)
+plus that match's own `idPoule.id` and `competitionId.id` (phase), composed into
+`ligues/<x>/comites/<y>/competitions/<code>?phase=<phaseId>&poule=<pouleId>`.
+
+`getPouleStandings(pouleRef)`'s implementation fetches the competition page at `pouleRef` once, parses
+the RSC payload for the `phases[0].poules` array, finds the one entry whose `id` matches the `poule`
+query param on `pouleRef`, and maps only that poule's `rencontres`/`classements` — the other four
+poules in the same fetch are discarded, never surfaced past the adapter. Standings map
+`Classement.idEngagement.id === ourEngagementId` (the trailing id of the `TeamFfbbLink.ffbbEngagementRef`
+this `pouleRef` was derived from) to `isOurTeam`; sorted by `position` ascending. Latest results are
+every `rencontre` with `joue: true` whose `numeroJournee` equals the highest `numeroJournee` among
+`joue: true` matches in the poule (so a still-unplayed match sharing that journée number, e.g. a
+postponement, is excluded from "results" — it has no score to show). An empty `classements`/no
+`joue: true` matches yet (the common case early in a season, per point 4 above) is not an error: both
+arrays come back empty and the frontend's empty-within-data copy handles it (see Frontend).
 
 ### `FfbbPouleService` (new, `server/src/ffbb`)
 
@@ -171,9 +200,9 @@ the existing "Importer le calendrier" action.
 
 ## API surface
 
-| Method | Route                                              | Guard          | Returns             |
-| ------ | --------------------------------------------------- | -------------- | -------------------- |
-| GET    | `clubs/:clubId/teams/:teamId/ffbb-poule-results`     | `JwtAuthGuard` | `PouleResults`       |
+| Method | Route                                            | Guard          | Returns        |
+| ------ | ------------------------------------------------ | -------------- | -------------- |
+| GET    | `clubs/:clubId/teams/:teamId/ffbb-poule-results` | `JwtAuthGuard` | `PouleResults` |
 
 Same read audience as the team's events/stats — no write route, this is a pass-through read. `404`
 when the team has no `TeamFfbbLink`, so the frontend can render the panel's "link a competition first"
@@ -219,7 +248,11 @@ export interface PouleResults {
 - **`PouleResultsPanel`** (`app/src/clubs/`): branches `error → loading → empty → data`, per
   `CLAUDE.md`'s query-branch rule — "empty" here specifically means "team has no `TeamFfbbLink`," with
   a `TextLink` to the team-info FFBB-linking section; "error" is the wrapped-`FfbbPageFormatError`
-  case above, not indistinguishable from empty.
+  case above, not indistinguishable from empty. Within the `data` state, `standings`/`latestResults`
+  each independently render their own small "pas encore de classement"/"aucun résultat pour le moment"
+  line when empty (the common case before a poule's first journée is played, confirmed by the captured
+  page — see "Where the poule reference comes from") rather than the whole panel falling back to the
+  no-link empty state, which would misreport a real link as missing.
 - Standings render as a `ResponsiveTable` (rank implicit from array order, team/played/won/lost/points
   columns, `.tabular` on the numeric ones), the row for `isOurTeam` visually distinguished — not with
   a new colour at the call site (`CLAUDE.md`'s closed-prop-API rule), but by giving `ResponsiveTable`'s
@@ -235,49 +268,36 @@ export interface PouleResults {
 
 ## Testing
 
-- `FfbbPageScrapeProvider`: `pouleRef` extraction from a match detail link (already-covered
-  regex, new assertion on what's kept); `getPouleStandings` fixture-driven once a real fetch confirms
-  the target page's shape (blocked — see Open questions).
+- `FfbbPageScrapeProvider`: `pouleRef` built correctly from a match's `idPoule`/`competitionId` plus the
+  detail-link prefix; `getPouleStandings` against a captured-fixture-derived payload (the poule this
+  spec's research used, with its 5-poule/10-journée shape, trimmed to fixture size) — selects only the
+  matching poule id out of the five returned, maps `Classement` fields, computes `isOurTeam` off the
+  engagement id, derives latest-journée results correctly when some matches in that journée are still
+  `joue: false`, and returns empty arrays (not an error) for a not-yet-started poule; a payload missing
+  the expected shape throws `FfbbPageFormatError` rather than guessing.
 - `FfbbPouleService`: no-link team 404s; multiple-links team picks the most recent; provider error
   wraps to the typed failure response, not a raw throw.
-- Frontend: `PouleResultsPanel` error/loading/empty/data branches; `isOurTeam`/`involvesOurTeam`
-  visual distinction present; refresh button triggers a refetch and toasts only on failure.
+- Frontend: `PouleResultsPanel` error/loading/empty/data branches; empty standings/results within the
+  `data` state render their own small copy rather than falling back to the no-link empty state;
+  `isOurTeam`/`involvesOurTeam` visual distinction present; refresh button triggers a refetch and
+  toasts only on failure.
 
-## Open questions (resolve before implementation start)
+## Research findings (resolved — see "Where the poule reference comes from")
 
-1. **URL shape — resolved this loop.** Was "does a standings page exist at all," now confirmed:
-   `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>&journee=<n>`, a real URL from the
-   live site. **Still open, narrower:** the embedded RSC payload's shape at that URL — same class of
-   unknown the calendar-import spec resolved for the team page (plain JSON objects inside
-   `self.__next_f.push(...)` chunks, or something else entirely for this page). **This still blocks
-   writing `FfbbPageScrapeProvider`'s poule-standings extraction logic** — everything else in this spec
-   (service layer, API surface, frontend) can be built and tested against a mocked `FfbbProvider` in the
-   meantime. A follow-up session with live egress is fetching this now (per the calendar-import spec's
-   own research method: fetch with a browser-like `Referer`/`Origin`/User-Agent, extract the
-   `self.__next_f.push(...)` chunks, `JSON.parse` each candidate object) — when it reports back, replace
-   this whole section and the Data model's field list with the confirmed shape rather than layering
-   another guess on top.
-2. **Where `phase`/`poule` ids are read from — narrowed, not yet confirmed.** `dm3` (the competition
-   code) is confirmed coarser than a poule (see "Where the poule reference comes from"), so `phase`/
-   `poule` ids are required and must come from somewhere already fetched. Working hypothesis: each raw
-   match object in the team-page payload carries its own `idPhase`/`idPoule` (exact key names
-   unconfirmed) alongside the already-known `numeroJournee`. The live-egress session should check the
-   raw match objects it already has (the same ones venue resolution already parses) for these fields
-   before assuming a second fetch is needed.
-3. **Whether `journee` is required on the URL, and how "latest completed matchday" is found.** Does
-   omitting `journee` default to the most recent one, or is it mandatory? If mandatory, does the page
-   (at any single `journee` value) also expose the full-season classement, or does classement need its
-   own fetch? If neither, this needs deriving client-side: fetch each journée in turn (or a range) and
-   pick the highest with every match `joue: true`. Affects `FfbbPouleResult.matchdayLabel`'s reliability
-   and whether `getPouleStandings` needs to make one fetch or several.
-4. **Rate limiting / robots.txt for this page specifically** — not checked, same caveat the
-   calendar-import spec noted for the team page ("no documented rate limits... more brittle than even
-   the REST API would have been").
+The previous revision's four open questions are now closed:
 
-Given open questions 1–3 all resolve from the same live fetch, the recommended implementation order is
-unchanged from the previous revision: land the service/API/frontend layers now against a mocked
-`FfbbProvider` (so the feature is demoable and reviewable), and treat the real
-`FfbbPageScrapeProvider.getPouleStandings` implementation as a follow-up loop once the live-egress
-session's findings land — same two-step pattern the venue-resolution spec
-([`2026-09-01-ffbb-match-venue-address-design.md`](./2026-09-01-ffbb-match-venue-address-design.md))
-used successfully.
+1. **URL shape** — confirmed exactly from a captured real page (above).
+2. **Where `phase`/`poule` ids come from** — confirmed: every already-fetched `rencontre` object
+   carries its own `idPoule`/`competitionId`, no second fetch needed.
+3. **Whether `journee` is required / how "latest" is found** — resolved the other way: `journee`
+   filters nothing (the whole poule's season comes back regardless), so "latest completed matchday" is
+   derived client-side from the one fetch's full `rencontres` list, and `journee` is dropped from the
+   stored `pouleRef` entirely.
+4. **Rate limiting / robots.txt** — still genuinely unchecked; unchanged risk, noted here rather than
+   re-stated as open, since nothing this loop's research could resolve it.
+
+One thing is still unverified rather than resolved: the `Classement` row shape (point 4 in "Where the
+poule reference comes from") comes from a third-party client's type declarations, not from a captured
+page with actual standings rows in it — every poule sampled so far is pre-season. `FfbbPageScrapeProvider`
+is written to fail loud (`FfbbPageFormatError`) rather than silently mis-map if a populated classement
+turns out to use different field names once one is captured later in the season.

@@ -91,6 +91,11 @@ const routeDefs = [
   ['GET', '/api/clubs/:clubId/teams/:teamId/ffbb-links', () => []],
   [
     'GET',
+    '/api/clubs/:clubId/teams/:teamId/ffbb-poule-results',
+    () => ({ status: 404, body: { message: 'No FFBB link on this team' } }),
+  ],
+  [
+    'GET',
     '/api/clubs/:clubId/teams/:teamId/events/:eventId/votes',
     () => ({
       best: [],

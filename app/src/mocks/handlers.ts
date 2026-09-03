@@ -56,6 +56,13 @@ export const handlers = [
   // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
 
+  // Default: no FFBB link, matching the ffbb-links default above — renders
+  // PouleResultsPanel's empty state (no error code). Poule-focused tests
+  // override it with server.use(...).
+  http.get('/api/clubs/:clubId/teams/:teamId/ffbb-poule-results', () =>
+    HttpResponse.json({ message: 'No FFBB link on this team' }, { status: 404 }),
+  ),
+
   // Default: no votes cast. MatchWinnersCard auto-fetches this for every
   // past MATCH event once its vote window has closed, so any agenda/table
   // view rendering such an event queries it even when the test isn't

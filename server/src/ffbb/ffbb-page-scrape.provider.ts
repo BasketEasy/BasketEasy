@@ -4,6 +4,9 @@ import {
   FfbbEngagementFetchResult,
   FfbbMatch,
   FfbbPageFormatError,
+  FfbbPouleResult,
+  FfbbPouleStandings,
+  FfbbPouleTeamStanding,
   FfbbProvider,
   GetMatchesOptions,
 } from './ffbb-provider';
@@ -27,6 +30,21 @@ const TRAILING_ENGAGEMENT_ID_PATTERN = /\/equipes\/(\d+)\/?$/;
 // to shape (see the parent spec's "never parse an FFBB identifier" rule).
 const MATCH_DETAIL_PATH_PATTERN =
   /(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+\/match\/([A-Za-z0-9-]+))/g;
+
+// Strips a match detail path's own `/match/<id>` tail, leaving the
+// competition page's own path — the same prefix a poule standings page
+// resolves at, just with `?phase=<id>&poule=<id>` appended (see
+// docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md).
+const COMPETITION_PATH_FROM_DETAIL_PATTERN = /^(.*)\/match\/[^/]+$/;
+
+// The poule standings/results page — confirmed against a real captured
+// page (2026-09-03): `phase`/`poule` are FFBB's own internal numeric ids,
+// read off an already-fetched match's `idPoule`/`competitionId` fields
+// rather than derived from the competition code. `journee` is deliberately
+// not part of a stored pouleRef: the query parameter filters nothing (the
+// whole poule's season comes back in one fetch regardless of its value).
+const POULE_PAGE_PATTERN =
+  /^(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+)\?phase=(\d+)&poule=(\d+)$/;
 
 // Bounds on the extra page loads venue resolution costs us: FFBB publishes
 // no rate limit or terms, so an import of a full season stays a handful of
@@ -172,9 +190,37 @@ interface RawFfbbMatch {
   id?: unknown;
   date_rencontre?: unknown;
   joue?: unknown;
+  numeroJournee?: unknown;
+  resultatEquipe1?: unknown;
+  resultatEquipe2?: unknown;
   idEngagementEquipe1?: { id?: unknown; nom?: unknown } | null;
   idEngagementEquipe2?: { id?: unknown; nom?: unknown } | null;
+  // Confirmed present on a poule page's rencontre objects (2026-09-03
+  // capture); not yet confirmed on the team-engagement page's own rencontre
+  // objects, which this same interface also types — if a future capture
+  // shows they're absent there, derivePouleRef below simply returns null for
+  // that engagement (see its own comment) rather than mis-deriving a ref.
+  idPoule?: { id?: unknown; nom?: unknown } | null;
+  competitionId?: { id?: unknown } | null;
   [key: string]: unknown;
+}
+
+/** A poule's standings row — see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md, confirmed via Fimeo/ffbb-api-ts's Classement type since every classements array captured so far is empty (pre-season). */
+interface RawFfbbClassement {
+  id?: unknown;
+  idEngagement?: { id?: unknown; nom?: unknown } | null;
+  matchJoues?: unknown;
+  points?: unknown;
+  position?: unknown;
+  gagnes?: unknown;
+  perdus?: unknown;
+}
+
+interface RawFfbbPoule {
+  id?: unknown;
+  nom?: unknown;
+  rencontres?: unknown;
+  classements?: unknown;
 }
 
 /**
@@ -223,12 +269,75 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
 
     const matches: FfbbMatch[] = rawMatches.map((raw) => this.toFfbbMatch(raw, engagementId));
     const competitionLabel = this.extractCompetitionLabel(rawMatches);
+    const pouleRef = this.derivePouleRef(rawMatches, chunks);
 
     if (options.resolveVenues) {
       await this.resolveVenues(matches, rawMatches, chunks);
     }
 
-    return { competitionLabel, matches };
+    return { competitionLabel, matches, pouleRef };
+  }
+
+  async getPouleStandings(pouleRef: string, ourEngagementId: string): Promise<FfbbPouleStandings> {
+    const refMatch = POULE_PAGE_PATTERN.exec(pouleRef.trim());
+    if (!refMatch) {
+      throw new FfbbPageFormatError(`Not a valid FFBB poule ref: "${pouleRef}"`);
+    }
+    const pouleId = refMatch[3];
+
+    const html = await this.fetchPage(pouleRef);
+    const chunks = this.extractNextFPushChunks(html);
+    const poules = this.extractRawPoules(chunks);
+
+    const poule = poules.find((p) => String(p.id) === pouleId);
+    if (!poule) {
+      throw new FfbbPageFormatError(`Poule ${pouleId} not found in FFBB competition payload`);
+    }
+
+    return {
+      standings: this.toStandings(poule.classements, ourEngagementId),
+      latestResults: this.toLatestResults(poule.rencontres, ourEngagementId),
+    };
+  }
+
+  /**
+   * `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>` — the
+   * whole poule standings reference, built entirely from data this same
+   * fetch already pulled (see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md):
+   * a match detail link anywhere in the page gives the competition prefix,
+   * and any one raw match's own idPoule/competitionId gives the two ids. A
+   * team plays in exactly one poule per engagement, so it doesn't matter
+   * which fetched match supplies the ids.
+   */
+  private derivePouleRef(rawMatches: RawFfbbMatch[], chunks: string[]): string | null {
+    let competitionPrefix: string | null = null;
+    outer: for (const chunk of chunks) {
+      for (const [, path] of chunk.matchAll(MATCH_DETAIL_PATH_PATTERN)) {
+        const prefixMatch = COMPETITION_PATH_FROM_DETAIL_PATTERN.exec(path);
+        if (prefixMatch) {
+          competitionPrefix = prefixMatch[1];
+          break outer;
+        }
+      }
+    }
+    if (!competitionPrefix) return null;
+
+    for (const raw of rawMatches) {
+      const pouleId = this.readNestedId(raw.idPoule);
+      const phaseId = this.readNestedId(raw.competitionId);
+      if (pouleId && phaseId) {
+        return `${competitionPrefix}?phase=${phaseId}&poule=${pouleId}`;
+      }
+    }
+    return null;
+  }
+
+  private readNestedId(value: unknown): string | null {
+    if (value && typeof value === 'object' && 'id' in value) {
+      const id = (value as { id?: unknown }).id;
+      return typeof id === 'string' ? id : null;
+    }
+    return null;
   }
 
   private get baseUrl(): string {
@@ -328,12 +437,57 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     const marker = '"data":[';
     const markerIndex = chunk.indexOf(marker);
     if (markerIndex === -1) return null;
-    const arrayStart = markerIndex + marker.length - 1; // position of the opening '['
+    const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
+    if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
+      return null;
+    }
+    // A false positive on "data":[...] with no match-shaped entries (e.g. an
+    // unrelated array) — only trust arrays whose entries actually look like
+    // matches.
+    if (
+      !parsed.every((entry) => 'id' in (entry as object) && 'date_rencontre' in (entry as object))
+    ) {
+      return null;
+    }
+    return parsed as RawFfbbMatch[];
+  }
 
+  /** Finds `"poules":[...]` in a decoded RSC chunk and parses the array. A false positive worth ruling out here specifically: FFBB's page also ships a lightweight index with the same key holding bare id *strings*, not poule objects (see the design spec's research notes) — the shape check below rejects that array and lets the caller keep scanning. */
+  private extractPoulesArray(chunk: string): RawFfbbPoule[] | null {
+    const marker = '"poules":[';
+    const markerIndex = chunk.indexOf(marker);
+    if (markerIndex === -1) return null;
+    const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
+    if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
+      return null;
+    }
+    if (
+      !parsed.every(
+        (entry) =>
+          'id' in (entry as object) &&
+          'nom' in (entry as object) &&
+          'rencontres' in (entry as object) &&
+          'classements' in (entry as object),
+      )
+    ) {
+      return null;
+    }
+    return parsed as RawFfbbPoule[];
+  }
+
+  private extractRawPoules(chunks: string[]): RawFfbbPoule[] {
+    for (const chunk of chunks) {
+      const poules = this.extractPoulesArray(chunk);
+      if (poules) return poules;
+    }
+    throw new FfbbPageFormatError('Could not find a poule-data array in the FFBB page payload');
+  }
+
+  /** Parses a bracket-balanced JSON array starting at `arrayStart` (which must point at the opening `[`), respecting strings and escapes. Returns null if unterminated, malformed, or not actually an array. Shared by every RSC-array extractor in this file — only the marker searched for and the per-entry shape validation differ between them. */
+  private parseArrayAt(chunk: string, arrayStart: number): unknown[] | null {
     let depth = 0;
     let inString = false;
-    let i = arrayStart;
-    for (; i < chunk.length; i++) {
+    for (let i = arrayStart; i < chunk.length; i++) {
       const ch = chunk[i];
       if (inString) {
         if (ch === '\\') {
@@ -353,28 +507,116 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
           const arrayText = chunk.slice(arrayStart, i + 1);
           try {
             const parsed: unknown = JSON.parse(arrayText);
-            if (
-              !Array.isArray(parsed) ||
-              parsed.some((entry) => typeof entry !== 'object' || entry === null)
-            ) {
-              return null;
-            }
-            // A false positive on "data":[...] with no match-shaped
-            // entries (e.g. an unrelated array) — only trust arrays whose
-            // entries actually look like matches.
-            if (
-              !parsed.every(
-                (entry) => 'id' in (entry as object) && 'date_rencontre' in (entry as object),
-              )
-            ) {
-              return null;
-            }
-            return parsed as RawFfbbMatch[];
+            return Array.isArray(parsed) ? parsed : null;
           } catch {
             return null;
           }
         }
       }
+    }
+    return null;
+  }
+
+  /** Maps raw classement rows to standings, sorted by FFBB's own `position`. A malformed row (missing team identity or a non-numeric stat) is skipped rather than failing the whole listing — one bad row shouldn't hide the other nine. */
+  private toStandings(rawClassements: unknown, ourEngagementId: string): FfbbPouleTeamStanding[] {
+    if (!Array.isArray(rawClassements)) return [];
+
+    const rows: { position: number; standing: FfbbPouleTeamStanding }[] = [];
+    for (const entry of rawClassements) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const raw = entry as RawFfbbClassement;
+      const engagement = raw.idEngagement;
+      const teamLabel =
+        engagement && typeof engagement === 'object'
+          ? (engagement as { nom?: unknown }).nom
+          : undefined;
+      const teamId =
+        engagement && typeof engagement === 'object'
+          ? (engagement as { id?: unknown }).id
+          : undefined;
+      const played = this.toNumber(raw.matchJoues);
+      const won = this.toNumber(raw.gagnes);
+      const lost = this.toNumber(raw.perdus);
+      const points = this.toNumber(raw.points);
+      const position = this.toNumber(raw.position);
+      if (
+        typeof teamLabel !== 'string' ||
+        played === null ||
+        won === null ||
+        lost === null ||
+        points === null ||
+        position === null
+      ) {
+        continue;
+      }
+      rows.push({
+        position,
+        standing: {
+          teamLabel,
+          played,
+          won,
+          lost,
+          points,
+          isOurTeam: String(teamId) === ourEngagementId,
+        },
+      });
+    }
+    return rows.sort((a, b) => a.position - b.position).map((row) => row.standing);
+  }
+
+  /** Every result from the poule's highest journée with at least one played match. A postponed match sharing that journée number is excluded — it has no score to show. */
+  private toLatestResults(rawRencontres: unknown, ourEngagementId: string): FfbbPouleResult[] {
+    if (!Array.isArray(rawRencontres)) return [];
+
+    const played = rawRencontres.filter(
+      (entry): entry is RawFfbbMatch =>
+        typeof entry === 'object' && entry !== null && (entry as RawFfbbMatch).joue === true,
+    );
+    if (played.length === 0) return [];
+
+    let latestJournee: number | null = null;
+    for (const raw of played) {
+      const journee = this.toNumber(raw.numeroJournee);
+      if (journee !== null && (latestJournee === null || journee > latestJournee)) {
+        latestJournee = journee;
+      }
+    }
+    if (latestJournee === null) return [];
+
+    const results: FfbbPouleResult[] = [];
+    for (const raw of played) {
+      if (this.toNumber(raw.numeroJournee) !== latestJournee) continue;
+      const home = raw.idEngagementEquipe1;
+      const away = raw.idEngagementEquipe2;
+      const homeScore = this.toNumber(raw.resultatEquipe1);
+      const awayScore = this.toNumber(raw.resultatEquipe2);
+      if (
+        !home ||
+        typeof home.nom !== 'string' ||
+        !away ||
+        typeof away.nom !== 'string' ||
+        homeScore === null ||
+        awayScore === null
+      ) {
+        continue;
+      }
+      results.push({
+        matchdayLabel: `Journée ${latestJournee}`,
+        homeLabel: home.nom,
+        awayLabel: away.nom,
+        homeScore,
+        awayScore,
+        involvesOurTeam: String(home.id) === ourEngagementId || String(away.id) === ourEngagementId,
+      });
+    }
+    return results;
+  }
+
+  /** FFBB's own numeric fields are strings on this API — accepts either. */
+  private toNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+      return Number(value);
     }
     return null;
   }
