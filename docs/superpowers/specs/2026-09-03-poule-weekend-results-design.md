@@ -1,6 +1,6 @@
 # Poule weekend results
 
-Status: draft (research incomplete — see Open questions)
+Status: draft (loop 1 — poule URL confirmed by hand, payload shape still open)
 Date: 2026-09-03
 
 ## Why
@@ -25,9 +25,10 @@ fixtures.
 
 **In scope:**
 
-- `FfbbProvider.getPouleStandings(competitionRef)`: given a competition/poule reference (see
-  "Where the poule reference comes from" below), returns every team's current standing (rank, played,
-  won, lost, points) plus the most recently completed matchday's results (both scores, not just ours).
+- `FfbbProvider.getPouleStandings(pouleRef)`: given a poule reference (see
+  "Where the poule reference comes from" below — a competition code plus its `phase`/`poule` ids),
+  returns every team's current standing (rank, played, won, lost, points) plus the most recently
+  completed matchday's results (both scores, not just ours).
 - A read-only **"Résultats de la poule"** panel on the team's Agenda, scoped to the weekend just
   passed, plus a full standings table.
 - A manual refresh, mirroring the existing FFBB calendar import's manual-button pattern — no
@@ -49,28 +50,43 @@ fixtures.
 
 ## Where the poule reference comes from
 
-**This is the open design risk this spec can't fully close without live egress to
-`competitions.ffbb.com`, which this sandbox doesn't have** (confirmed by a failed `WebFetch` against
-the same example URL the calendar-import spec used — `EGRESS_BLOCKED`). What's already established by
-the calendar-import work, reused here rather than re-derived:
+**Resolved this loop — the URL shape is confirmed, by hand, against a live page** (this sandbox still
+has no egress to `competitions.ffbb.com`; a teammate opened the real site and supplied it):
 
-- Every match's per-match detail page URL is `ligues/<x>/comites/<y>/competitions/<code>/match/<id>`
-  (`server/src/ffbb/ffbb-page-scrape.provider.ts`, `MATCH_DETAIL_PATH_REGEX`) — already extracted
-  today for venue resolution. The `<code>` segment (e.g. `dm3`) is very likely the poule/competition
-  identifier FFBB itself uses, and it's already sitting in data this codebase parses; it just isn't
-  captured anywhere yet.
-- A competition/poule label is already read off the team page when present
-  (`COMPETITION_LABEL_CANDIDATE_KEYS`: `libelleCompetition`, `libellePoule`, etc.) — confirming the
-  concept exists in FFBB's own data, just not yet surfaced as a fetchable standings endpoint.
+```
+https://competitions.ffbb.com/ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186&journee=1
+```
 
-**Proposed (needs confirming against a live fetch before implementation):** capture that `<code>`
-segment as `competitionRef` (full path `ligues/<x>/comites/<y>/competitions/<code>`, same "store the
-full resolvable path, not a bare code" discipline as `TeamFfbbLink.ffbbEngagementRef`) the next time a
-team's matches are fetched, and try a `.../competitions/<code>/classement` page (the French word for
-"standings," matching FFBB's own site navigation) as the standings source. If that path 404s or
-doesn't parse the way expected, this whole feature is blocked until a real fetch confirms the correct
-path — this is a research spike, not a known-working target, unlike the original calendar-import
-scrape which had a confirmed working URL before the data model was written.
+This changes the original guess in two ways, both load-bearing for the data model below:
+
+1. **It's the competition's own page, not a `/classement` sub-path.** `ligues/<x>/comites/<y>/competitions/<code>` — the same prefix already parsed out of every match detail link
+   (`MATCH_DETAIL_PATH_REGEX`) — resolves directly, with `phase`/`poule`/`journee` as **query
+   parameters**, not further path segments. So the "try `.../classement`" plan in the previous
+   revision of this section is wrong and is replaced by the shape above.
+2. **A poule sits under a `phase` inside a `competition`, and both need their own ids.** `dm3` alone
+   is the competition (division), not the poule — confirming Open question 2 below the coarser way:
+   `<code>` is coarser than a poule, and `phase`/`poule` are what actually scope it. Both are FFBB
+   internal numeric ids (`200000002897998`, `200000003056186` — the same id shape as
+   `TeamFfbbLink.ffbbEngagementRef`'s trailing engagement id), not human-readable, so there is no way
+   to construct them from a competition code alone — they have to be **read off already-fetched data**,
+   the same way `opponentLabel`/`isHome` are read off `idEngagementEquipe1`/`2` today.
+
+**Still open, now narrower (see Open questions):** where `phase`/`poule` ids are readable from. The
+working hypothesis, consistent with how `numeroJournee` already surfaces on every `FfbbMatch` in the
+team-page payload (see the calendar-import spec's research section): each `rencontre` object likely
+carries its own `idPhase`/`idPoule` (or similarly named) fields alongside `numeroJournee`, the same
+object that already yields `id`, `date_rencontre`, `joue`, `idEngagementEquipe1/2`. If so, no second
+fetch is needed to *discover* the poule ref — it's sitting in the payload the calendar import already
+pulls, just not extracted yet. **What a live fetch still needs to confirm:** the exact field names for
+`phase`/`poule`, whether `journee` on the standings URL is required (does omitting it default to "the
+current/latest journée," or 400/redirect?), and the embedded RSC payload shape at that URL (does it
+carry the classement for the whole season plus that one journée's results, or does classement need its
+own fetch without `journee` set?).
+
+**Proposed data shape**, updated for the confirmed query-param structure: capture a `pouleRef` as the
+**full resolvable URL** (`ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>`, `journee`
+omitted so the provider can pick "latest" itself once that's confirmed) — same "store the whole
+resolvable reference, not a bare id" discipline `TeamFfbbLink.ffbbEngagementRef` already established.
 
 ## Data model (Prisma)
 
@@ -78,7 +94,7 @@ No new table. Poule data is fetched live and rendered, never persisted — same 
 don't own" posture as the rest of the FFBB integration (imported `Event`s are the one exception,
 because those become entities *we* manage RSVP/convocations on top of; a poule standings row is never
 going to be edited or annotated inside BasketEasy, so there's nothing a table would buy beyond a
-cache). `Team` gains one derived field, not a column: `competitionRef`, read off the most recent FFBB
+cache). `Team` gains one derived field, not a column: `pouleRef`, read off the most recent FFBB
 import rather than stored — see Service logic.
 
 ## Service logic
@@ -116,20 +132,24 @@ export interface FfbbProvider {
   // ...existing methods...
 
   /**
-   * Standings and latest results for the poule a competitionRef belongs to.
-   * competitionRef is the full path captured alongside a team's matches (see
-   * FfbbEngagementFetchResult.competitionRef below) — not a bare code, same
-   * "store the resolvable path" rule as parseEngagementRef.
+   * Standings and latest results for one poule. pouleRef is the full
+   * resolvable path+query captured alongside a team's matches (see
+   * FfbbEngagementFetchResult.pouleRef below) —
+   * `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>`,
+   * never a bare code/id, same "store the whole resolvable reference" rule
+   * parseEngagementRef already follows for TeamFfbbLink.ffbbEngagementRef.
    */
-  getPouleStandings(competitionRef: string): Promise<FfbbPouleStandings>;
+  getPouleStandings(pouleRef: string): Promise<FfbbPouleStandings>;
 }
 ```
 
-`FfbbEngagementFetchResult` gains `competitionRef: string | null` (null when the `<code>` segment
-couldn't be extracted from any match's detail-page link — e.g. a team with no matches yet this
-season). `FfbbPageScrapeProvider.getMatchesForEngagement` already builds
-`MATCH_DETAIL_PATH_REGEX` matches internally; this only needs to keep the `ligues/.../competitions/<code>`
-prefix it currently discards, not a new fetch.
+`FfbbEngagementFetchResult` gains `pouleRef: string | null` (null when `phase`/`poule` ids can't be
+read off any fetched match — e.g. a team with no matches yet this season, or a competition shape where
+they genuinely aren't present). Building it needs two things `FfbbPageScrapeProvider.getMatchesForEngagement`
+doesn't extract today: the `ligues/.../competitions/<code>` prefix (already computed for
+`MATCH_DETAIL_PATH_REGEX`, currently discarded after venue resolution) and each raw match object's
+`phase`/`poule` id fields (exact key names TBD — see Open questions), which aren't read at all yet
+because nothing needed them before this spec.
 
 ### `FfbbPouleService` (new, `server/src/ffbb`)
 
@@ -139,10 +159,10 @@ prefix it currently discards, not a new fetch.
    `:clubId` owns the target before touching it).
 2. Load the team's `TeamFfbbLink`s; 404 if none. If more than one (a team in both a championship and a
    cup — see the calendar-import spec's "Multiple competitions per team"), use the most recently
-   created link's `competitionRef` — a cup poule's standings aren't meaningful the way a league poule's
+   created link's `pouleRef` — a cup poule's standings aren't meaningful the way a league poule's
    are, and asking the coach to pick isn't worth building for a case CLAUDE.md's `TeamFfbbLink` docs
    already flag as the rarer one.
-3. `FfbbProvider.getPouleStandings(competitionRef)`, wrapping any `FfbbPageFormatError` into a typed
+3. `FfbbProvider.getPouleStandings(pouleRef)`, wrapping any `FfbbPageFormatError` into a typed
    response the frontend renders as "Impossible de récupérer les résultats de la poule pour le
    moment" rather than a raw 500 — matching the calendar import's own failure-surfacing convention.
 
@@ -215,7 +235,7 @@ export interface PouleResults {
 
 ## Testing
 
-- `FfbbPageScrapeProvider`: `competitionRef` extraction from a match detail link (already-covered
+- `FfbbPageScrapeProvider`: `pouleRef` extraction from a match detail link (already-covered
   regex, new assertion on what's kept); `getPouleStandings` fixture-driven once a real fetch confirms
   the target page's shape (blocked — see Open questions).
 - `FfbbPouleService`: no-link team 404s; multiple-links team picks the most recent; provider error
@@ -225,31 +245,39 @@ export interface PouleResults {
 
 ## Open questions (resolve before implementation start)
 
-1. **Does a standings/results page exist at a scrapeable URL, and what shape is its RSC payload?**
-   Unresolved — this sandbox has no egress to `competitions.ffbb.com` (confirmed via a failed
-   `WebFetch`, `EGRESS_BLOCKED`, against the same example URL the calendar-import spec used
-   successfully from a sandbox that did have egress). Needs a session with working egress to fetch a
-   real `.../competitions/<code>/classement`-shaped URL (exact path TBD — "classement" is a guess based
-   on FFBB's own site language, not confirmed) and inspect the embedded RSC JSON, the same way the
-   calendar-import spec's research section did for the team page. **This blocks writing
-   `FfbbPageScrapeProvider`'s poule-standings extraction logic** — everything else in this spec (the
-   service layer, API surface, frontend) can be built and tested against a mocked `FfbbProvider` in the
-   meantime, with the real adapter landing once the page shape is confirmed.
-2. **Whether `<code>` (e.g. `dm3`) is really the poule identifier or something coarser** (e.g. a whole
-   division, of which our poule is one group among several). If it's coarser, `getPouleStandings` would
-   return every poule in the division mixed together — needs a poule-scoping field in the fetched data
-   to filter on, not yet confirmed present or absent.
-3. **Whether FFBB's site exposes a "most recent completed matchday" grouping directly**, or whether
-   this needs to be derived client-side from a flat results list by finding the highest `numeroJournee`
-   with all matches `joue: true`. Affects `FfbbPouleResult.matchdayLabel`'s reliability.
-4. **Rate limiting / robots.txt for a standings page specifically** — not checked, same caveat the
+1. **URL shape — resolved this loop.** Was "does a standings page exist at all," now confirmed:
+   `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>&journee=<n>`, a real URL from the
+   live site. **Still open, narrower:** the embedded RSC payload's shape at that URL — same class of
+   unknown the calendar-import spec resolved for the team page (plain JSON objects inside
+   `self.__next_f.push(...)` chunks, or something else entirely for this page). **This still blocks
+   writing `FfbbPageScrapeProvider`'s poule-standings extraction logic** — everything else in this spec
+   (service layer, API surface, frontend) can be built and tested against a mocked `FfbbProvider` in the
+   meantime. A follow-up session with live egress is fetching this now (per the calendar-import spec's
+   own research method: fetch with a browser-like `Referer`/`Origin`/User-Agent, extract the
+   `self.__next_f.push(...)` chunks, `JSON.parse` each candidate object) — when it reports back, replace
+   this whole section and the Data model's field list with the confirmed shape rather than layering
+   another guess on top.
+2. **Where `phase`/`poule` ids are read from — narrowed, not yet confirmed.** `dm3` (the competition
+   code) is confirmed coarser than a poule (see "Where the poule reference comes from"), so `phase`/
+   `poule` ids are required and must come from somewhere already fetched. Working hypothesis: each raw
+   match object in the team-page payload carries its own `idPhase`/`idPoule` (exact key names
+   unconfirmed) alongside the already-known `numeroJournee`. The live-egress session should check the
+   raw match objects it already has (the same ones venue resolution already parses) for these fields
+   before assuming a second fetch is needed.
+3. **Whether `journee` is required on the URL, and how "latest completed matchday" is found.** Does
+   omitting `journee` default to the most recent one, or is it mandatory? If mandatory, does the page
+   (at any single `journee` value) also expose the full-season classement, or does classement need its
+   own fetch? If neither, this needs deriving client-side: fetch each journée in turn (or a range) and
+   pick the highest with every match `joue: true`. Affects `FfbbPouleResult.matchdayLabel`'s reliability
+   and whether `getPouleStandings` needs to make one fetch or several.
+4. **Rate limiting / robots.txt for this page specifically** — not checked, same caveat the
    calendar-import spec noted for the team page ("no documented rate limits... more brittle than even
    the REST API would have been").
 
-Given open question 1 blocks the one piece of code that actually talks to FFBB, the recommended
-implementation order is: land the service/API/frontend layers now against a mocked `FfbbProvider` (so
-the feature is demoable and reviewable), and treat the real `FfbbPageScrapeProvider.getPouleStandings`
-implementation as a follow-up loop once a session with live egress confirms the page shape — same
-two-step pattern the venue-resolution spec
+Given open questions 1–3 all resolve from the same live fetch, the recommended implementation order is
+unchanged from the previous revision: land the service/API/frontend layers now against a mocked
+`FfbbProvider` (so the feature is demoable and reviewable), and treat the real
+`FfbbPageScrapeProvider.getPouleStandings` implementation as a follow-up loop once the live-egress
+session's findings land — same two-step pattern the venue-resolution spec
 ([`2026-09-01-ffbb-match-venue-address-design.md`](./2026-09-01-ffbb-match-venue-address-design.md))
 used successfully.
