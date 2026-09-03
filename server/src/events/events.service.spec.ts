@@ -37,6 +37,7 @@ describe('EventsService', () => {
     };
     eventVote: { findMany: jest.Mock; upsert: jest.Mock };
     eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
+    matchPlayerStat: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -71,6 +72,7 @@ describe('EventsService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         upsert: jest.fn(),
       },
+      matchPlayerStat: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
     };
     // Default: the caller has no roster row on the team, so
@@ -171,6 +173,8 @@ describe('EventsService', () => {
               isConvocationScoped: false,
             },
             logistics: { jerseys: null, balls: null },
+            result: null,
+            myMatchStats: null,
           },
         ],
         total: 1,
@@ -364,6 +368,146 @@ describe('EventsService', () => {
         pending: 3,
         isConvocationScoped: false,
       });
+    });
+
+    function matchEventFixture(id: string, venue: 'HOME' | 'AWAY') {
+      return {
+        id,
+        teamId: 'team-1',
+        type: 'MATCH' as const,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: 'ES Rezé',
+        venue,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+    }
+
+    function confirmedScoresheetFixture(
+      eventId: string,
+      homeScore: number | null,
+      awayScore: number | null,
+    ) {
+      return {
+        eventId,
+        status: 'CONFIRMED',
+        extraction: {
+          parsedData: { homeScore, awayScore, quarterScores: [], players: [], scoringPlays: [] },
+        },
+      };
+    }
+
+    it('resolves a WIN result from a CONFIRMED scoresheet for a HOME match, in a bounded number of queries regardless of batch size', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([
+        matchEventFixture('event-1', 'HOME'),
+        matchEventFixture('event-2', 'HOME'),
+      ]);
+      prisma.event.count.mockResolvedValue(2);
+      prisma.eventScoresheet.findMany.mockResolvedValue([
+        confirmedScoresheetFixture('event-1', 62, 58),
+      ]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      // resolveMatchResults: one eventScoresheet.findMany scoped to
+      // CONFIRMED, plus matchPlayerStat.findMany skipped entirely since the
+      // caller has no roster row (teamPlayer.findFirst defaults to null —
+      // resolveMatchResults itself never calls teamPlayer.findFirst, it
+      // takes resolveMyEventState's already-resolved myTeamPlayerId instead,
+      // so this doesn't add a second lookup).
+      expect(prisma.eventScoresheet.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1', 'event-2'] }, status: 'CONFIRMED' },
+        include: { extraction: true },
+      });
+      expect(prisma.matchPlayerStat.findMany).not.toHaveBeenCalled();
+      // Confirms resolveMatchResults doesn't re-derive the caller's
+      // TeamPlayer: still exactly the one call resolveMyEventState already
+      // makes for this whole request, not two.
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledTimes(1);
+      expect(result.items[0].result).toEqual({ ourScore: 62, theirScore: 58, outcome: 'WIN' });
+      expect(result.items[1].result).toBeNull();
+    });
+
+    it('mirrors ourScore/theirScore for an AWAY match', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([matchEventFixture('event-1', 'AWAY')]);
+      prisma.event.count.mockResolvedValue(1);
+      prisma.eventScoresheet.findMany.mockResolvedValue([
+        confirmedScoresheetFixture('event-1', 58, 62),
+      ]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(result.items[0].result).toEqual({ ourScore: 62, theirScore: 58, outcome: 'WIN' });
+    });
+
+    it('returns result: null when the match has no CONFIRMED scoresheet — a player must never see an unconfirmed score', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([matchEventFixture('event-1', 'HOME')]);
+      prisma.event.count.mockResolvedValue(1);
+      // The eventScoresheet.findMany call itself is scoped to status:
+      // CONFIRMED, so an UPLOADED/QUEUED/NEEDS_REVIEW sheet is simply never
+      // among the rows this query returns.
+      prisma.eventScoresheet.findMany.mockResolvedValue([]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(result.items[0].result).toBeNull();
+    });
+
+    it('returns result: null for a TRAINING event', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([
+        {
+          id: 'event-1',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: new Date('2026-01-05T18:00:00.000Z'),
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: null,
+          venue: null,
+          recurrenceId: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.event.count.mockResolvedValue(1);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(result.items[0].result).toBeNull();
+    });
+
+    it("resolves myMatchStats from the caller's own MatchPlayerStat row when rostered", async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([matchEventFixture('event-1', 'HOME')]);
+      prisma.event.count.mockResolvedValue(1);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.matchPlayerStat.findMany.mockResolvedValue([
+        { eventId: 'event-1', points: 12, fouls: 2 },
+      ]);
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(prisma.matchPlayerStat.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] }, teamPlayerId: 'tp-1' },
+      });
+      expect(result.items[0].myMatchStats).toEqual({ points: 12, fouls: 2 });
+    });
+
+    it('myMatchStats is null, and matchPlayerStat is never queried, when the caller has no roster row on the team', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findMany.mockResolvedValue([matchEventFixture('event-1', 'HOME')]);
+      prisma.event.count.mockResolvedValue(1);
+      // teamPlayer.findFirst defaults to null (beforeEach).
+
+      const result = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(prisma.matchPlayerStat.findMany).not.toHaveBeenCalled();
+      expect(result.items[0].myMatchStats).toBeNull();
     });
 
     it('filters by from/to date range', async () => {

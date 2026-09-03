@@ -558,6 +558,8 @@ describe('TeamDetailPage', () => {
           isConvocationScoped: false,
         },
         logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
       },
     ];
     let createCalled = false;
@@ -600,6 +602,8 @@ describe('TeamDetailPage', () => {
             isConvocationScoped: false,
           },
           logistics: { jerseys: null, balls: null },
+          result: null,
+          myMatchStats: null,
         };
         events = [...events, created];
         return HttpResponse.json([created]);
@@ -653,6 +657,8 @@ describe('TeamDetailPage', () => {
           isConvocationScoped: false,
         },
         logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
       },
     ];
     server.use(
@@ -731,6 +737,8 @@ describe('TeamDetailPage', () => {
         isConvocationScoped: false,
       },
       logistics: { jerseys: null, balls: null },
+      result: null,
+      myMatchStats: null,
     };
     const pastEvent = {
       ...upcomingEvent,
@@ -1086,6 +1094,8 @@ describe('TeamDetailPage', () => {
           isConvocationScoped: false,
         },
         logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
       };
       server.use(
         http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),

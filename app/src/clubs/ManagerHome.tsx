@@ -20,6 +20,9 @@ import { useAdminClubs } from './useAdminClubs';
 import { useMyTeamList } from './useMyTeamList';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from './teamLabels';
 import { MyAgendaEventCard } from './MyAgendaEventCard';
+import { PastMatchesSection } from './PastMatchesSection';
+import { pastMatchesWindowParams } from './myAgendaWindow';
+import { useMyAgenda } from './useMyAgenda';
 
 function TeamCard({ team }: { team: MyTeamSummary }) {
   return (
@@ -53,13 +56,20 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
 }
 
 /**
- * The manager's « Accueil » — unchanged from the pre-split `DashboardPage`
- * other than living in its own file. Four tiles (including the club-scoped
- * "Joueurs au total" `dashboard.service.ts` documents), « Cette semaine », and
- * the team-card grid are all kept verbatim: the player-first revamp turns the
- * player's landing screen into a to-do list, but a manager's four numbers and
- * her team roster are not the thing this pass found broken
+ * The manager's « Accueil » — the four tiles (including the club-scoped
+ * "Joueurs au total" `dashboard.service.ts` documents), « Cette semaine »,
+ * and the team-card grid are all kept verbatim from the pre-split
+ * `DashboardPage`: the player-first revamp turns the player's landing
+ * screen into a to-do list, but a manager's four numbers and her team
+ * roster are not the thing this pass found broken
  * (`docs/ux-audit/player-journey.md` §4.1) — only the player's screen was.
+ *
+ * « Après le match » (phase 8) is new here — the pre-phase-8 manager home had
+ * no post-match surface at all, even though a manager is exactly who needs
+ * the link back to a just-played match to go confirm its scoresheet. Same
+ * `PastMatchesSection` the player home renders, reading its own
+ * `pastMatchesWindowParams()`-windowed `useMyAgenda()` query independently of
+ * the "Cette semaine" query above — see `PastMatchesSection`'s doc-comment.
  */
 export function ManagerHome({
   dashboard,
@@ -90,6 +100,15 @@ export function ManagerHome({
     [teams],
   );
   const isRostered = (teamId: string) => rosterRoleByTeamId.get(teamId) != null;
+
+  // Computed once per mount, not inline — see PlayerHome's identical comment:
+  // pastMatchesWindowParams() stamps from/to with new Date(), so recomputing
+  // it every render would shift the query key and refetch forever.
+  const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
+  const pastMatchesQuery = useMyAgenda(pastWindow);
+  const pastMatches = (pastMatchesQuery.data?.upcomingEvents ?? []).filter(
+    (event) => event.type === 'MATCH',
+  );
 
   return (
     <>
@@ -169,6 +188,14 @@ export function ManagerHome({
           />
         )}
       </div>
+
+      <PastMatchesSection
+        matches={pastMatches}
+        isLoading={pastMatchesQuery.isLoading}
+        isError={pastMatchesQuery.isError}
+        onRetry={() => pastMatchesQuery.refetch()}
+        isRefetching={pastMatchesQuery.isRefetching}
+      />
     </>
   );
 }

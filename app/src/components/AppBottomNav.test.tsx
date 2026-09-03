@@ -116,17 +116,30 @@ describe('AppBottomNav', () => {
     expect(screen.queryByRole('link', { name: 'Mon équipe' })).not.toBeInTheDocument();
   });
 
-  it('holds the Résultats slot as an unavailable item rather than pointing it at a route that does not exist yet', async () => {
+  it('sends a player with no club-admin destination to /results in the third slot', async () => {
     setViewportWidth(390);
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     mockTeams([team()]);
 
     renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
 
-    const results = await screen.findByRole('button', { name: /Résultats/ });
-    expect(results).toBeDisabled();
-    expect(results).toHaveAccessibleName('Résultats (bientôt disponible)');
-    expect(screen.queryByRole('link', { name: /Résultats/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Résultats' })).toHaveAttribute(
+      'href',
+      '/results',
+    );
+  });
+
+  it('also sends a TeamAdmin-only manager (no club-ADMIN membership) to /results — they have no club roster to reach either', async () => {
+    setViewportWidth(390);
+    mockSession([]);
+    mockTeams([team({ isTeamAdmin: true, rosterRole: null })]);
+
+    renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+    expect(await screen.findByRole('link', { name: 'Résultats' })).toHaveAttribute(
+      'href',
+      '/results',
+    );
   });
 
   it('swaps the third item for the active club and relabels the first two for a club admin', async () => {
@@ -147,7 +160,7 @@ describe('AppBottomNav', () => {
       '/clubs/club-1/members',
     );
     expect(screen.getByRole('link', { name: 'Profil' })).toHaveAttribute('href', '/account');
-    expect(screen.queryByRole('button', { name: /Résultats/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Résultats/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Ma semaine' })).not.toBeInTheDocument();
   });
 

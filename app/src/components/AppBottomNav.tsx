@@ -120,22 +120,12 @@ export function AppBottomNav() {
           label="Club"
         />
       ) : (
-        // « Résultats » is phase 8: the post-match surface has no route, and
-        // no existing screen shows a player their results. Pointing the slot
-        // at the nearest page would lie on every tap, and inventing a route
-        // would 404 — so the slot is held, visibly unavailable, and phase 8
-        // swaps this one element for a link.
-        //
-        // It is also where a team manager with no club-admin rights lands:
-        // they have no club roster to reach, so they get the player's third
-        // item rather than a « Club » that goes nowhere.
-        <TabBarItem
-          icon={<TrophyIcon className="h-5 w-5" />}
-          label="Résultats"
-          disabled
-          aria-label="Résultats (bientôt disponible)"
-          title="Les résultats de vos matchs arriveront bientôt ici."
-        />
+        // A player has no club-admin destination to put here, and a team
+        // manager who isn't a club ADMIN has no club roster to reach either
+        // — both personas get « Résultats » (phase 8's post-match surface,
+        // /results) in this slot instead of a « Club » that would go
+        // nowhere for them.
+        <BottomNavItem to="/results" icon={<TrophyIcon className="h-5 w-5" />} label="Résultats" />
       )}
 
       <BottomNavItem to="/account" icon={<UserIcon className="h-5 w-5" />} label="Profil" />
