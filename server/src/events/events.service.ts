@@ -12,6 +12,7 @@ import type {
   EventLogisticsField,
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
+  EventRsvpSummary,
   EventScoresheet,
   EventScoresheetUploadUrlResponse,
   EventUpdateScope,
@@ -25,6 +26,7 @@ import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { resolvePagination } from '../common/pagination';
+import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { ListEventsDto } from './dto/list-events.dto';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -115,6 +117,7 @@ export class EventsService {
       eventIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(events);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
     return {
       items: events.map((e) =>
         this.toTeamEvent(
@@ -122,6 +125,7 @@ export class EventsService {
           rsvpStatuses.get(e.id) ?? null,
           convokedEventIds.has(e.id),
           logisticsAssignees,
+          this.rsvpSummaryOrZero(e.id, rsvpSummaries),
         ),
       ),
       total,
@@ -145,11 +149,13 @@ export class EventsService {
       eventId,
     ]);
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
     return this.toTeamEvent(
       event,
       rsvpStatuses.get(eventId) ?? null,
       convokedEventIds.has(eventId),
       logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
     );
   }
 
@@ -208,8 +214,15 @@ export class EventsService {
     // A freshly created event never has a jersey/ball assignee yet (those
     // columns aren't part of create data), so there's nothing to resolve —
     // an empty map short-circuits every lookup in toTeamEvent to null.
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
     return events.map((e) =>
-      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id), new Map()),
+      this.toTeamEvent(
+        e,
+        rsvpStatuses.get(e.id) ?? null,
+        convokedEventIds.has(e.id),
+        new Map(),
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
+      ),
     );
   }
 
@@ -311,12 +324,14 @@ export class EventsService {
       updatedIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
     return updated.map((e) =>
       this.toTeamEvent(
         e,
         rsvpStatuses.get(e.id) ?? null,
         convokedEventIds.has(e.id),
         logisticsAssignees,
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
       ),
     );
   }
@@ -392,12 +407,14 @@ export class EventsService {
       updatedIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
     return updated.map((e) =>
       this.toTeamEvent(
         e,
         rsvpStatuses.get(e.id) ?? null,
         convokedEventIds.has(e.id),
         logisticsAssignees,
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
       ),
     );
   }
@@ -409,10 +426,12 @@ export class EventsService {
   //
   // The resulting myRsvpStatus is already known from the write itself (it's
   // exactly `status`), and the event row doesn't change from the write —
-  // so this only needs one extra read (the caller's convocation flag)
-  // rather than re-validating the event and re-resolving the caller's
+  // so this avoids re-validating the event and re-resolving the caller's
   // TeamPlayer a second time through a shared helper, which used to turn a
-  // single RSVP write into ~9 DB round trips.
+  // single RSVP write into ~9 DB round trips. It does still pay
+  // resolveEventRosterSummaries's fixed, bounded cost (3 queries) to return
+  // a fresh whole-roster rsvpSummary reflecting the write just made — that
+  // one is unavoidable, not a regression of the round-trip fix above.
   async setMyRsvp(
     clubId: string,
     teamId: string,
@@ -432,7 +451,14 @@ export class EventsService {
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    return this.toTeamEvent(event, status, myConvocation, logisticsAssignees);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    return this.toTeamEvent(
+      event,
+      status,
+      myConvocation,
+      logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+    );
   }
 
   // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
@@ -453,7 +479,14 @@ export class EventsService {
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    return this.toTeamEvent(event, null, myConvocation, logisticsAssignees);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    return this.toTeamEvent(
+      event,
+      null,
+      myConvocation,
+      logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+    );
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
@@ -584,11 +617,13 @@ export class EventsService {
       eventId,
     ]);
     const logisticsAssignees = await this.resolveLogisticsAssignees([updated]);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
     return this.toTeamEvent(
       updated,
       rsvpStatuses.get(eventId) ?? null,
       convokedEventIds.has(eventId),
       logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
     );
   }
 
@@ -958,6 +993,60 @@ export class EventsService {
     };
   }
 
+  // Resolves the whole roster's RSVP/convocation aggregate for a bounded set
+  // of events on one team, in at most three queries total (one
+  // teamPlayer.count shared by every event on this team — they all belong
+  // to the same team, so one roster size answers for all of them — plus one
+  // findMany per concern) regardless of how many event ids are passed.
+  // Sibling to resolveMyEventState above, not a replacement: that helper
+  // resolves the caller's own RSVP/convocation state, this resolves the
+  // whole roster's aggregate. See computeEventRsvpSummaries for the
+  // per-event math, ported from app/src/clubs/useEventRoster.ts's
+  // countEventRoster.
+  private async resolveEventRosterSummaries(
+    teamId: string,
+    eventIds: string[],
+  ): Promise<Map<string, EventRsvpSummary>> {
+    if (eventIds.length === 0) {
+      return new Map();
+    }
+    const [rosterSize, rsvps, convocations] = await Promise.all([
+      this.prisma.teamPlayer.count({ where: { teamId } }),
+      this.prisma.eventRsvp.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      }),
+      this.prisma.eventConvocation.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true },
+      }),
+    ]);
+    const rosterSizeByEventId = new Map(eventIds.map((id) => [id, rosterSize]));
+    return computeEventRsvpSummaries(eventIds, rosterSizeByEventId, rsvps, convocations);
+  }
+
+  // resolveEventRosterSummaries always populates an entry for every id it's
+  // given (see its eventIds.length === 0 short-circuit above) — this just
+  // spares every call site a non-null assertion for a case that can't
+  // happen, falling back to an all-zero summary if it somehow did.
+  private rsvpSummaryOrZero(
+    eventId: string,
+    summaries: Map<string, EventRsvpSummary>,
+  ): EventRsvpSummary {
+    return (
+      summaries.get(eventId) ?? {
+        rosterSize: 0,
+        convoked: 0,
+        answering: 0,
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+        pending: 0,
+        isConvocationScoped: false,
+      }
+    );
+  }
+
   // Resolves the set of event ids a THIS_AND_FUTURE/ALL scope applies to:
   // every row sharing the target event's recurrenceId, additionally bounded
   // to startsAt >= the target's own startsAt for THIS_AND_FUTURE.
@@ -1009,6 +1098,7 @@ export class EventsService {
     myRsvpStatus: EventRsvpStatus | null,
     myConvocation: boolean,
     logisticsAssignees: Map<string, EventLogisticsAssignee>,
+    rsvpSummary: EventRsvpSummary,
   ): TeamEvent {
     return {
       id: event.id,
@@ -1025,6 +1115,7 @@ export class EventsService {
       timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
       myConvocation,
+      rsvpSummary,
       // Populated for both event types — the jersey slot is just labeled
       // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
       // frontend, see eventLogisticsFieldLabel.
