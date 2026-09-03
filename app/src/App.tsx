@@ -14,6 +14,7 @@ import { AccountPage } from './pages/AccountPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
+import { ResultsPage } from './pages/ResultsPage';
 import { AboutPage } from './pages/AboutPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
+          <Route path="/results" element={<ResultsPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />
           <Route path="/clubs/:clubId/members" element={<MembersPage />} />
           <Route path="/clubs/:clubId/import-players" element={<PlayerImportPage />} />

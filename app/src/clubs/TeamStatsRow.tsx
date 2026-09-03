@@ -9,34 +9,9 @@ import { ShieldIcon } from '@basketeasy/ui/icons/shield';
 import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import type { TeamSeasonPlayerStats } from '@basketeasy/types/team-stats';
 import { getInitials } from './getInitials';
+import { emptyRepartitionLabel, formatAverage, formatCount } from './teamStatsFormat';
 
-/**
- * An average with no known value renders as an em dash, never as 0 — a player
- * whose only match had an unreadable running-score column has no measured
- * average, and printing 0 would claim they scored nothing.
- */
-function formatAverage(value: number | null): string {
-  return value === null ? '—' : value.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
-}
-
-function formatCount(value: number | null): string {
-  return value === null ? '—' : String(value);
-}
-
-/**
- * Why the bar is empty, which only this component can tell apart: a player who
- * has played but whose points never came back legible is a different thing
- * from one who has not played at all, and a bare empty track would read as the
- * second in both cases.
- */
-function emptyRepartitionLabel(player: TeamSeasonPlayerStats): string | null {
-  if (player.totalPoints > 0) {
-    return null;
-  }
-  return player.gamesPlayed === 0 ? 'Aucun match' : 'Marque non lue';
-}
-
-function AwardBadges({ player }: { player: TeamSeasonPlayerStats }) {
+export function AwardBadges({ player }: { player: TeamSeasonPlayerStats }) {
   if (player.mvpAwards === 0 && player.worstPlayerAwards === 0) {
     return (
       <Text as="span" variant="meta">
@@ -99,9 +74,16 @@ function PlayerIdentity({ player, large }: { player: TeamSeasonPlayerStats; larg
           {getInitials(player.firstName, player.lastName)}
         </AvatarFallback>
       </Avatar>
-      <Text as="span" variant="label" size={large ? 'lg' : 'md'} className="flex-grow">
-        {player.firstName} {player.lastName}
-      </Text>
+      <span className="flex flex-grow flex-wrap items-center gap-1.5">
+        <Text as="span" variant="label" size={large ? 'lg' : 'md'}>
+          {player.firstName} {player.lastName}
+        </Text>
+        {player.isMe && (
+          <Badge variant="soft" tone="brand" size="sm">
+            vous
+          </Badge>
+        )}
+      </span>
     </>
   );
 }
@@ -130,7 +112,11 @@ export function TeamStatsRow({ player }: { player: TeamSeasonPlayerStats }) {
 
   if (layout === 'card') {
     return (
-      <Card variant="inset" className="flex flex-col gap-3">
+      <Card
+        variant="inset"
+        tone={player.isMe ? 'brand' : 'neutral'}
+        className="flex flex-col gap-3"
+      >
         <div className="flex items-center gap-2.5">
           <PlayerIdentity player={player} large />
           <AwardBadges player={player} />

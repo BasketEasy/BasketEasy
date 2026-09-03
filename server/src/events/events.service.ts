@@ -10,8 +10,11 @@ import type {
   EventConvocationRosterEntry,
   EventLogisticsAssignee,
   EventLogisticsField,
+  EventMatchPlayerStats,
+  EventMatchResult,
   EventRecurrenceRequest,
   EventRsvpRosterEntry,
+  EventRsvpSummary,
   EventScoresheet,
   EventScoresheetUploadUrlResponse,
   EventUpdateScope,
@@ -25,6 +28,9 @@ import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { resolvePagination } from '../common/pagination';
+import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
+import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
+import { deriveMatchResult } from '../common/match-result';
 import { ListEventsDto } from './dto/list-events.dto';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -109,12 +115,17 @@ export class EventsService {
     ]);
 
     const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(
+    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
       teamId,
       userId,
       eventIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(events);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      events,
+      myTeamPlayerId,
+    );
     return {
       items: events.map((e) =>
         this.toTeamEvent(
@@ -122,6 +133,9 @@ export class EventsService {
           rsvpStatuses.get(e.id) ?? null,
           convokedEventIds.has(e.id),
           logisticsAssignees,
+          this.rsvpSummaryOrZero(e.id, rsvpSummaries),
+          resultsByEventId.get(e.id) ?? null,
+          myStatsByEventId.get(e.id) ?? null,
         ),
       ),
       total,
@@ -141,15 +155,25 @@ export class EventsService {
     userId: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
-      eventId,
-    ]);
+    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
+      teamId,
+      userId,
+      [eventId],
+    );
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      [event],
+      myTeamPlayerId,
+    );
     return this.toTeamEvent(
       event,
       rsvpStatuses.get(eventId) ?? null,
       convokedEventIds.has(eventId),
       logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+      resultsByEventId.get(eventId) ?? null,
+      myStatsByEventId.get(eventId) ?? null,
     );
   }
 
@@ -200,7 +224,7 @@ export class EventsService {
       ),
     );
     const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(
+    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
       teamId,
       userId,
       eventIds,
@@ -208,8 +232,25 @@ export class EventsService {
     // A freshly created event never has a jersey/ball assignee yet (those
     // columns aren't part of create data), so there's nothing to resolve —
     // an empty map short-circuits every lookup in toTeamEvent to null.
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
+    // Likewise: a just-created event can't have a confirmed scoresheet yet,
+    // so this always resolves to empty maps — kept for the same "same call
+    // sites, called alongside" consistency the rsvpSummaries call above
+    // documents, not because it can find anything here.
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      events,
+      myTeamPlayerId,
+    );
     return events.map((e) =>
-      this.toTeamEvent(e, rsvpStatuses.get(e.id) ?? null, convokedEventIds.has(e.id), new Map()),
+      this.toTeamEvent(
+        e,
+        rsvpStatuses.get(e.id) ?? null,
+        convokedEventIds.has(e.id),
+        new Map(),
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
+        resultsByEventId.get(e.id) ?? null,
+        myStatsByEventId.get(e.id) ?? null,
+      ),
     );
   }
 
@@ -305,18 +346,26 @@ export class EventsService {
       ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
     );
     const updatedIds = updated.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(
+    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
       teamId,
       userId,
       updatedIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      updated,
+      myTeamPlayerId,
+    );
     return updated.map((e) =>
       this.toTeamEvent(
         e,
         rsvpStatuses.get(e.id) ?? null,
         convokedEventIds.has(e.id),
         logisticsAssignees,
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
+        resultsByEventId.get(e.id) ?? null,
+        myStatsByEventId.get(e.id) ?? null,
       ),
     );
   }
@@ -386,18 +435,26 @@ export class EventsService {
       }),
     );
     const updatedIds = updated.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(
+    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
       teamId,
       userId,
       updatedIds,
     );
     const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      updated,
+      myTeamPlayerId,
+    );
     return updated.map((e) =>
       this.toTeamEvent(
         e,
         rsvpStatuses.get(e.id) ?? null,
         convokedEventIds.has(e.id),
         logisticsAssignees,
+        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
+        resultsByEventId.get(e.id) ?? null,
+        myStatsByEventId.get(e.id) ?? null,
       ),
     );
   }
@@ -409,10 +466,12 @@ export class EventsService {
   //
   // The resulting myRsvpStatus is already known from the write itself (it's
   // exactly `status`), and the event row doesn't change from the write —
-  // so this only needs one extra read (the caller's convocation flag)
-  // rather than re-validating the event and re-resolving the caller's
+  // so this avoids re-validating the event and re-resolving the caller's
   // TeamPlayer a second time through a shared helper, which used to turn a
-  // single RSVP write into ~9 DB round trips.
+  // single RSVP write into ~9 DB round trips. It does still pay
+  // resolveEventRosterSummaries's fixed, bounded cost (3 queries) to return
+  // a fresh whole-roster rsvpSummary reflecting the write just made — that
+  // one is unavoidable, not a regression of the round-trip fix above.
   async setMyRsvp(
     clubId: string,
     teamId: string,
@@ -432,7 +491,20 @@ export class EventsService {
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    return this.toTeamEvent(event, status, myConvocation, logisticsAssignees);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      [event],
+      teamPlayer.id,
+    );
+    return this.toTeamEvent(
+      event,
+      status,
+      myConvocation,
+      logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+      resultsByEventId.get(eventId) ?? null,
+      myStatsByEventId.get(eventId) ?? null,
+    );
   }
 
   // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
@@ -453,7 +525,20 @@ export class EventsService {
     });
     const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
     const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    return this.toTeamEvent(event, null, myConvocation, logisticsAssignees);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      [event],
+      teamPlayer.id,
+    );
+    return this.toTeamEvent(
+      event,
+      null,
+      myConvocation,
+      logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+      resultsByEventId.get(eventId) ?? null,
+      myStatsByEventId.get(eventId) ?? null,
+    );
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
@@ -584,11 +669,22 @@ export class EventsService {
       eventId,
     ]);
     const logisticsAssignees = await this.resolveLogisticsAssignees([updated]);
+    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
+    // Reuses myTeamPlayer, already resolved above for the self-action check
+    // — not resolveMyEventState's own copy — so this route still costs only
+    // one teamPlayer.findFirst call, not two.
+    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
+      [updated],
+      myTeamPlayer?.id ?? null,
+    );
     return this.toTeamEvent(
       updated,
       rsvpStatuses.get(eventId) ?? null,
       convokedEventIds.has(eventId),
       logisticsAssignees,
+      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
+      resultsByEventId.get(eventId) ?? null,
+      myStatsByEventId.get(eventId) ?? null,
     );
   }
 
@@ -936,13 +1032,20 @@ export class EventsService {
     teamId: string,
     userId: string,
     eventIds: string[],
-  ): Promise<{ rsvpStatuses: Map<string, EventRsvpStatus>; convokedEventIds: Set<string> }> {
+  ): Promise<{
+    rsvpStatuses: Map<string, EventRsvpStatus>;
+    convokedEventIds: Set<string>;
+    // Handed back so resolveMatchResults (see below) can reuse this same
+    // lookup instead of re-querying teamPlayer.findFirst a second time for
+    // the same caller/team pair.
+    myTeamPlayerId: string | null;
+  }> {
     if (eventIds.length === 0) {
-      return { rsvpStatuses: new Map(), convokedEventIds: new Set() };
+      return { rsvpStatuses: new Map(), convokedEventIds: new Set(), myTeamPlayerId: null };
     }
     const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
     if (!teamPlayer) {
-      return { rsvpStatuses: new Map(), convokedEventIds: new Set() };
+      return { rsvpStatuses: new Map(), convokedEventIds: new Set(), myTeamPlayerId: null };
     }
     const [rsvps, convocations] = await Promise.all([
       this.prisma.eventRsvp.findMany({
@@ -955,7 +1058,119 @@ export class EventsService {
     return {
       rsvpStatuses: new Map(rsvps.map((r) => [r.eventId, r.status])),
       convokedEventIds: new Set(convocations.map((c) => c.eventId)),
+      myTeamPlayerId: teamPlayer.id,
     };
+  }
+
+  // Resolves the whole roster's RSVP/convocation aggregate for a bounded set
+  // of events on one team, in at most three queries total (one
+  // teamPlayer.count shared by every event on this team — they all belong
+  // to the same team, so one roster size answers for all of them — plus one
+  // findMany per concern) regardless of how many event ids are passed.
+  // Sibling to resolveMyEventState above, not a replacement: that helper
+  // resolves the caller's own RSVP/convocation state, this resolves the
+  // whole roster's aggregate. See computeEventRsvpSummaries for the
+  // per-event math, ported from app/src/clubs/useEventRoster.ts's
+  // countEventRoster.
+  private async resolveEventRosterSummaries(
+    teamId: string,
+    eventIds: string[],
+  ): Promise<Map<string, EventRsvpSummary>> {
+    if (eventIds.length === 0) {
+      return new Map();
+    }
+    const [rosterSize, rsvps, convocations] = await Promise.all([
+      this.prisma.teamPlayer.count({ where: { teamId } }),
+      this.prisma.eventRsvp.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      }),
+      this.prisma.eventConvocation.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true },
+      }),
+    ]);
+    const rosterSizeByEventId = new Map(eventIds.map((id) => [id, rosterSize]));
+    return computeEventRsvpSummaries(eventIds, rosterSizeByEventId, rsvps, convocations);
+  }
+
+  // Resolves the projected match result and the caller's own per-match line
+  // for a bounded set of events on one team, in at most two queries total
+  // (one eventScoresheet.findMany scoped to CONFIRMED sheets, plus one
+  // matchPlayerStat.findMany — skipped entirely when the caller isn't
+  // rostered) regardless of how many event ids are passed. Takes an
+  // already-resolved myTeamPlayerId rather than re-deriving it via
+  // findMyTeamPlayer: every call site already resolves the caller's
+  // TeamPlayer for this team (resolveMyEventState, or the RSVP/logistics
+  // write's own lookup) — re-querying it here would silently regress the
+  // per-request bounded-query property those call sites already guarantee
+  // and their specs already assert.
+  //
+  // A player must never see an unconfirmed score (CLAUDE.md, Scoresheets
+  // module) — only CONFIRMED sheets are read here, and parsedData is never
+  // trusted directly: deriveMatchResult still checks it via
+  // asParsedScoresheetData/the venue it's given. TRAINING events and
+  // MATCHes with no confirmed sheet simply have no scoresheet row and never
+  // populate the maps.
+  private async resolveMatchResults(
+    events: Pick<EventRow, 'id' | 'venue'>[],
+    myTeamPlayerId: string | null,
+  ): Promise<{
+    resultsByEventId: Map<string, EventMatchResult>;
+    myStatsByEventId: Map<string, EventMatchPlayerStats>;
+  }> {
+    const eventIds = events.map((e) => e.id);
+    if (eventIds.length === 0) {
+      return { resultsByEventId: new Map(), myStatsByEventId: new Map() };
+    }
+    const venueByEventId = new Map(events.map((e) => [e.id, e.venue]));
+    const confirmedScoresheets = await this.prisma.eventScoresheet.findMany({
+      where: { eventId: { in: eventIds }, status: 'CONFIRMED' },
+      include: { extraction: true },
+    });
+
+    const resultsByEventId = new Map<string, EventMatchResult>();
+    for (const scoresheet of confirmedScoresheets) {
+      const parsedData = asParsedScoresheetData(scoresheet.extraction?.parsedData);
+      const result = deriveMatchResult(venueByEventId.get(scoresheet.eventId) ?? null, parsedData);
+      if (result) {
+        resultsByEventId.set(scoresheet.eventId, result);
+      }
+    }
+
+    const myStatsByEventId = new Map<string, EventMatchPlayerStats>();
+    if (myTeamPlayerId) {
+      const myStats = await this.prisma.matchPlayerStat.findMany({
+        where: { eventId: { in: eventIds }, teamPlayerId: myTeamPlayerId },
+      });
+      for (const stat of myStats) {
+        myStatsByEventId.set(stat.eventId, { points: stat.points, fouls: stat.fouls });
+      }
+    }
+
+    return { resultsByEventId, myStatsByEventId };
+  }
+
+  // resolveEventRosterSummaries always populates an entry for every id it's
+  // given (see its eventIds.length === 0 short-circuit above) — this just
+  // spares every call site a non-null assertion for a case that can't
+  // happen, falling back to an all-zero summary if it somehow did.
+  private rsvpSummaryOrZero(
+    eventId: string,
+    summaries: Map<string, EventRsvpSummary>,
+  ): EventRsvpSummary {
+    return (
+      summaries.get(eventId) ?? {
+        rosterSize: 0,
+        convoked: 0,
+        answering: 0,
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+        pending: 0,
+        isConvocationScoped: false,
+      }
+    );
   }
 
   // Resolves the set of event ids a THIS_AND_FUTURE/ALL scope applies to:
@@ -1009,6 +1224,9 @@ export class EventsService {
     myRsvpStatus: EventRsvpStatus | null,
     myConvocation: boolean,
     logisticsAssignees: Map<string, EventLogisticsAssignee>,
+    rsvpSummary: EventRsvpSummary,
+    result: EventMatchResult | null,
+    myMatchStats: EventMatchPlayerStats | null,
   ): TeamEvent {
     return {
       id: event.id,
@@ -1025,6 +1243,9 @@ export class EventsService {
       timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
       myConvocation,
+      rsvpSummary,
+      result,
+      myMatchStats,
       // Populated for both event types — the jersey slot is just labeled
       // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
       // frontend, see eventLogisticsFieldLabel.

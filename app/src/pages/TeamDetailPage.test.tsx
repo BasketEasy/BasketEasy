@@ -296,7 +296,7 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
   });
 
-  it('falls back to Événements when a MEMBER requests the Clubs/Administrateurs tab directly via the URL', async () => {
+  it('falls back to Agenda when a MEMBER requests the Clubs/Administrateurs tab directly via the URL', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
@@ -311,9 +311,10 @@ describe('TeamDetailPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
 
-    expect(
-      await screen.findByRole('tab', { name: 'Événements', selected: true }),
-    ).toBeInTheDocument();
+    // The "clubs" tab isn't in this MEMBER's (player's) tab list at all, so
+    // the underlying "events" tab is selected — labelled "Agenda", not
+    // "Événements", for a player (§4.4 of the player-journey doc).
+    expect(await screen.findByRole('tab', { name: 'Agenda', selected: true })).toBeInTheDocument();
   });
 
   it('lets a TeamAdmin who is not a club admin manage the roster and events', async () => {
@@ -546,7 +547,19 @@ describe('TeamDetailPage', () => {
         isImported: false,
         timeConfirmed: true,
         myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
         logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
       },
     ];
     let createCalled = false;
@@ -578,7 +591,19 @@ describe('TeamDetailPage', () => {
           isImported: false,
           timeConfirmed: true,
           myConvocation: false,
+          rsvpSummary: {
+            rosterSize: 0,
+            convoked: 0,
+            answering: 0,
+            going: 0,
+            maybe: 0,
+            notGoing: 0,
+            pending: 0,
+            isConvocationScoped: false,
+          },
           logistics: { jerseys: null, balls: null },
+          result: null,
+          myMatchStats: null,
         };
         events = [...events, created];
         return HttpResponse.json([created]);
@@ -602,6 +627,53 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
   });
 
+  it('shows the à traiter band on the manager Événements tab, scoped to this team’s own items', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [],
+          actionItems: [
+            {
+              kind: 'MATCH_WITHOUT_CONVOCATIONS',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-1',
+              teamName: 'U15 Garçons',
+              eventId: 'event-1',
+              message: "Match contre l'ES Rezé samedi — personne n'a encore été convoqué.",
+            },
+            // A different team's item must never leak onto this team's page.
+            {
+              kind: 'PLAYERS_WITHOUT_ACCOUNT',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-2',
+              teamName: 'Autre équipe',
+              eventId: null,
+              message: "Jeanne Martin n'a pas encore de compte Kluvo.",
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText(/personne n'a encore été convoqué/)).toBeInTheDocument();
+    expect(screen.queryByText(/jeanne martin/i)).not.toBeInTheDocument();
+  });
+
   it('toggles the Événements tab between agenda view and table view, resetting the table filters on each switch', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     const requestedSearches: string[] = [];
@@ -621,7 +693,19 @@ describe('TeamDetailPage', () => {
         isImported: false,
         timeConfirmed: true,
         myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
         logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
       },
     ];
     server.use(
@@ -689,7 +773,19 @@ describe('TeamDetailPage', () => {
       isImported: false,
       timeConfirmed: true,
       myConvocation: false,
+      rsvpSummary: {
+        rosterSize: 0,
+        convoked: 0,
+        answering: 0,
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+        pending: 0,
+        isConvocationScoped: false,
+      },
       logistics: { jerseys: null, balls: null },
+      result: null,
+      myMatchStats: null,
     };
     const pastEvent = {
       ...upcomingEvent,
@@ -957,5 +1053,204 @@ describe('TeamDetailPage', () => {
     await user.click(screen.getByRole('link', { name: /^← mes équipes$/i }));
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
+  });
+
+  describe('player role (no manage rights)', () => {
+    function mockRostered() {
+      server.use(
+        http.get('/api/me/teams', () =>
+          HttpResponse.json([
+            {
+              teamId: 'team-1',
+              teamName: baseTeam.name,
+              category: baseTeam.category,
+              gender: baseTeam.gender,
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              isTeamAdmin: false,
+              rosterRole: 'PLAYER',
+            },
+          ]),
+        ),
+      );
+    }
+
+    it('shows three tabs — Agenda (default), Effectif, Mes stats — with no Agenda/Liste toggle', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      // Agenda is the default, selected tab — same route as the manager's
+      // Événements default, just relabelled and reordered first.
+      expect(
+        await screen.findByRole('tab', { name: 'Agenda', selected: true }),
+      ).toBeInTheDocument();
+      // Trailing digit is the (aria-hidden) roster-count badge's text —
+      // stripped so this compares labels, not label+badge.
+      const tabs = (await screen.findAllByRole('tab')).map((tab) =>
+        tab.textContent?.replace(/\d+$/, ''),
+      );
+      expect(tabs).toEqual(['Agenda', 'Effectif', 'Mes stats']);
+      expect(screen.queryByRole('tab', { name: /clubs partenaires/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /^administrateurs$/i })).not.toBeInTheDocument();
+
+      // No Agenda/Liste power-view toggle — a player never gets the manager's
+      // paginated table.
+      expect(screen.queryByRole('button', { name: 'Liste' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Agenda' })).not.toBeInTheDocument();
+      // À venir/Passés stays — real content-scoping, not a power-user escape
+      // hatch.
+      expect(screen.getByRole('button', { name: 'À venir' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Passés' })).toBeInTheDocument();
+    });
+
+    it('carries an inline RSVP control on each agenda card for a rostered player', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      const upcomingEvent = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: futureIso(1),
+        location: 'Gymnase du Vigneau',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+      };
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () =>
+          HttpResponse.json(paginated([upcomingEvent])),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Gymnase du Vigneau')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Ma réponse' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Présent' })).toBeInTheDocument();
+    });
+
+    it('shows an error state (not an empty state) when the player Agenda tab fails to load', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+      expect(screen.queryByText('Aucun événement')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+    });
+
+    it('labels the Statistiques tab "Mes stats" for a player and still renders the season table', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/stats', () =>
+          HttpResponse.json({
+            seasonYear: 2026,
+            seasonStart: '2026-09-01T00:00:00.000Z',
+            seasonEnd: '2027-08-31T23:59:59.999Z',
+            matchesPlayed: 1,
+            availableSeasons: [2026],
+            players: [
+              {
+                teamPlayerId: 'tp-1',
+                firstName: 'Léa',
+                lastName: 'Moreau',
+                role: 'PLAYER',
+                gamesPlayed: 1,
+                pointsPerGame: 11,
+                foulsPerGame: 2,
+                seasonHighPoints: 11,
+                seasonHighFouls: 2,
+                freeThrowPoints: 2,
+                twoPointPoints: 6,
+                threePointPoints: 3,
+                totalPoints: 11,
+                mvpAwards: 1,
+                worstPlayerAwards: 0,
+              },
+            ],
+          }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=stats' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Mes stats', selected: true }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /^statistiques$/i })).not.toBeInTheDocument();
+      // The squad-ranking table renders regardless of role. This fixture's
+      // row carries no isMe (the field a real server always sends, per
+      // phase 6) so there is nothing to mark as "vous" and no personal card
+      // above it — the graceful case of a response with no caller-owned row.
+      expect(await screen.findByText('Léa Moreau')).toBeInTheDocument();
+      expect(screen.queryByText('vous')).not.toBeInTheDocument();
+    });
+
+    it('still shows the Effectif tab for a player, with no roster-management controls', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await goToTab(user, /^effectif$/i);
+      expect(await screen.findByText('Alex Dupont')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+    });
   });
 });

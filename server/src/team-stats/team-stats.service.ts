@@ -62,6 +62,7 @@ export class TeamStatsService {
   async getTeamSeasonStats(
     clubId: string,
     teamId: string,
+    userId: string,
     seasonYear?: number,
   ): Promise<TeamSeasonStats> {
     await this.assertTeamInClub(clubId, teamId);
@@ -79,7 +80,7 @@ export class TeamStatsService {
         select: {
           id: true,
           role: true,
-          player: { select: { firstName: true, lastName: true } },
+          player: { select: { firstName: true, lastName: true, userId: true } },
         },
       }),
       this.prisma.matchPlayerStat.findMany({
@@ -133,6 +134,7 @@ export class TeamStatsService {
             firstName: member.player.firstName,
             lastName: member.player.lastName,
             role: member.role,
+            isMe: member.player.userId === userId,
           },
           rowsByPlayer.get(member.id) ?? [],
           awardsByPlayer.get(member.id) ?? { mvp: 0, worst: 0 },
@@ -181,7 +183,13 @@ export class TeamStatsService {
 }
 
 function toPlayerStats(
-  member: { teamPlayerId: string; firstName: string; lastName: string; role: TeamMemberRole },
+  member: {
+    teamPlayerId: string;
+    firstName: string;
+    lastName: string;
+    role: TeamMemberRole;
+    isMe: boolean;
+  },
   rows: StatRow[],
   awards: { mvp: number; worst: number },
 ): TeamSeasonPlayerStats {

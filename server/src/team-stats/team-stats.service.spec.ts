@@ -37,10 +37,15 @@ describe('TeamStatsService', () => {
     event: { findMany: jest.Mock };
   };
 
-  const rosterMember = (id: string, lastName: string, firstName = 'Prénom') => ({
+  const rosterMember = (
+    id: string,
+    lastName: string,
+    firstName = 'Prénom',
+    userId: string | null = null,
+  ) => ({
     id,
     role: 'PLAYER',
-    player: { firstName, lastName },
+    player: { firstName, lastName, userId },
   });
 
   const statRow = (
@@ -83,13 +88,13 @@ describe('TeamStatsService', () => {
   it('404s when the team does not belong to the club in the route', async () => {
     prisma.clubTeam.findUnique.mockResolvedValue(null);
 
-    await expect(service.getTeamSeasonStats('club-1', 'team-1', 2026)).rejects.toThrow(
+    await expect(service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026)).rejects.toThrow(
       NotFoundException,
     );
   });
 
   it('queries only the requested season window', async () => {
-    await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(prisma.matchPlayerStat.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -119,7 +124,7 @@ describe('TeamStatsService', () => {
       statRow('tp-2', 'event-1', { points: null, fouls: null }),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
     const [dupont, martin] = result.players;
 
     expect(dupont.pointsPerGame).toBe(10);
@@ -139,7 +144,7 @@ describe('TeamStatsService', () => {
       statRow('tp-1', 'event-3', { points: 11 }),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.players[0].pointsPerGame).toBe(10.7);
   });
@@ -152,7 +157,7 @@ describe('TeamStatsService', () => {
       statRow('tp-1', 'event-3', { points: 21, fouls: 1 }),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.players[0].seasonHighPoints).toBe(21);
     expect(result.players[0].seasonHighFouls).toBe(4);
@@ -175,7 +180,7 @@ describe('TeamStatsService', () => {
       }),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
     const player = result.players[0];
 
     expect(player.freeThrowPoints).toBe(2);
@@ -187,7 +192,7 @@ describe('TeamStatsService', () => {
   it('includes a roster member with no data at all, at zero', async () => {
     prisma.teamPlayer.findMany.mockResolvedValue([rosterMember('tp-1', 'Dupont')]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.players).toEqual([
       expect.objectContaining({
@@ -207,7 +212,7 @@ describe('TeamStatsService', () => {
       { votedTeamPlayerId: 'tp-1', category: 'WORST', _count: { _all: 1 } },
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     // No stat rows anywhere, yet the distinctions are real.
     expect(result.players[0]).toEqual(
@@ -216,7 +221,7 @@ describe('TeamStatsService', () => {
   });
 
   it('never reads who cast a vote', async () => {
-    await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     const [args] = prisma.eventVote.groupBy.mock.calls[0];
     expect(JSON.stringify(args)).not.toContain('voterTeamPlayerId');
@@ -229,7 +234,7 @@ describe('TeamStatsService', () => {
       statRow('tp-1', 'event-2'),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.matchesPlayed).toBe(2);
   });
@@ -247,7 +252,7 @@ describe('TeamStatsService', () => {
       statRow('tp-tie', 'event-1', { points: 8 }),
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.players.map((player) => player.lastName)).toEqual([
       'Martin',
@@ -265,7 +270,7 @@ describe('TeamStatsService', () => {
       { startsAt: new Date('2026-12-01T18:00:00.000Z') },
     ]);
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1', 2026);
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none', 2026);
 
     expect(result.availableSeasons).toEqual([2026, 2025]);
     jest.useRealTimers();
@@ -274,10 +279,40 @@ describe('TeamStatsService', () => {
   it('defaults to the season containing today when none is given', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-10-15T00:00:00.000Z'));
 
-    const result = await service.getTeamSeasonStats('club-1', 'team-1');
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-none');
 
     expect(result.seasonYear).toBe(2026);
     expect(result.seasonStart).toBe('2026-09-01T00:00:00.000Z');
     jest.useRealTimers();
+  });
+
+  it("flags the caller's own roster row isMe, and every other row false", async () => {
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      rosterMember('tp-1', 'Dupont', 'Prénom', 'user-caller'),
+      rosterMember('tp-2', 'Martin', 'Prénom', 'user-other'),
+    ]);
+
+    const result = await service.getTeamSeasonStats('club-1', 'team-1', 'user-caller', 2026);
+
+    const dupont = result.players.find((player) => player.teamPlayerId === 'tp-1');
+    const martin = result.players.find((player) => player.teamPlayerId === 'tp-2');
+    expect(dupont?.isMe).toBe(true);
+    expect(martin?.isMe).toBe(false);
+  });
+
+  it('flags every row false for a caller with no roster row on this team (e.g. a club admin)', async () => {
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      rosterMember('tp-1', 'Dupont', 'Prénom', 'user-someone'),
+      rosterMember('tp-2', 'Martin', 'Prénom', null),
+    ]);
+
+    const result = await service.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      'user-admin-no-roster',
+      2026,
+    );
+
+    expect(result.players.every((player) => player.isMe === false)).toBe(true);
   });
 });

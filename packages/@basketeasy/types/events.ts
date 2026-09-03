@@ -16,6 +16,55 @@ export type EventRsvpStatus = 'GOING' | 'NOT_GOING' | 'MAYBE';
  */
 export type EventUpdateScope = 'THIS' | 'THIS_AND_FUTURE' | 'ALL';
 
+/**
+ * A whole-roster RSVP/convocation aggregate for one event — mirrors
+ * `EventRosterCounts` (`app/src/clubs/useEventRoster.ts`) field-for-field so
+ * a future consumer can treat them identically, but is resolved server-side
+ * for a batch of events without a per-event roster fetch (see
+ * `EventsService`/`DashboardService`). `useEventRoster`'s per-member roster
+ * (names, avatars) is still the source for the single-event page; this is
+ * for list/card contexts that only need the counts.
+ */
+export interface EventRsvpSummary {
+  /** Everyone on the team's roster. */
+  rosterSize: number;
+  convoked: number;
+  /** The people the response counts below are about — see `isConvocationScoped`. */
+  answering: number;
+  going: number;
+  maybe: number;
+  notGoing: number;
+  pending: number;
+  /**
+   * True once anyone has been called up: the response counts then describe
+   * the convoked group only. Before a call-up exists they describe the
+   * whole roster instead.
+   */
+  isConvocationScoped: boolean;
+}
+
+/**
+ * A MATCH's final score, derived from the **confirmed** ScoresheetExtraction
+ * plus the event's own venue — never from an unconfirmed read, and never
+ * invented when a confirmed sheet's score is somehow still null. See
+ * `deriveMatchResult` (`server/src/common/match-result.ts`).
+ */
+export interface EventMatchResult {
+  ourScore: number;
+  theirScore: number;
+  outcome: 'WIN' | 'LOSS' | 'DRAW';
+}
+
+/**
+ * The caller's own per-match line, folded from `MatchPlayerStat` — see
+ * CLAUDE.md's Team stats module for the zero-vs-unknown rule each field
+ * already follows (null means unread, never 0).
+ */
+export interface EventMatchPlayerStats {
+  points: number | null;
+  fouls: number | null;
+}
+
 export interface TeamEvent {
   id: string;
   teamId: string;
@@ -34,6 +83,8 @@ export interface TeamEvent {
   myRsvpStatus: EventRsvpStatus | null;
   /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
   myConvocation: boolean;
+  /** The whole roster's RSVP/convocation breakdown, for list/card contexts — see EventRsvpSummary. */
+  rsvpSummary: EventRsvpSummary;
   /** True for an event created by the FFBB calendar import, false for a manually-created one. */
   isImported: boolean;
   /** False when FFBB's kickoff time was still its "not yet confirmed" placeholder; always true for a manual event. */
@@ -48,6 +99,15 @@ export interface TeamEvent {
     jerseys: EventLogisticsAssignee | null;
     balls: EventLogisticsAssignee | null;
   };
+  /**
+   * Null for TRAINING, for a MATCH with no confirmed scoresheet, or for a
+   * confirmed one whose score is somehow still null — never invented. A
+   * player must never see an unconfirmed score, so this is only ever
+   * populated from a CONFIRMED ScoresheetExtraction.
+   */
+  result: EventMatchResult | null;
+  /** The caller's own line for this match; null under the same conditions as `result`, or when the caller isn't the player mapped on the sheet. */
+  myMatchStats: EventMatchPlayerStats | null;
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';

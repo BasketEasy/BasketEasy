@@ -1,10 +1,47 @@
 import { Injectable } from '@nestjs/common';
-import type { EventRsvpStatus, EventType } from '@basketeasy/types/events';
-import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
+import type {
+  EventLogisticsAssignee,
+  EventMatchPlayerStats,
+  EventMatchResult,
+  EventRsvpStatus,
+  EventRsvpSummary,
+  EventType,
+  EventVenue,
+} from '@basketeasy/types/events';
+import type { ActionItem, MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
+import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
+import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
+import { deriveMatchResult } from '../common/match-result';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_AGENDA_WINDOW_DAYS = 7;
+// Phase 9's four "à traiter" windows — each independent of the agenda
+// from/to params the caller may have sent (those shape upcomingEvents, not
+// this), so a player's 14-day window or the manager's plain 7-day default
+// never accidentally widens or narrows what counts as "imminent" here.
+const ACTION_ITEM_CONVOCATION_WINDOW_DAYS = 7;
+const ACTION_ITEM_RSVP_WINDOW_DAYS = 2;
+const ACTION_ITEM_PAST_SCORESHEET_WINDOW_DAYS = 14;
+const ACTION_ITEM_PLAYERS_WITHOUT_ACCOUNT_LIMIT = 5;
+// Across all four kinds combined — never an unpaginated list. Prioritized in
+// the order the kinds are built: convocations, then pending RSVPs, then
+// unconfirmed scoresheets, then accountless players.
+const ACTION_ITEM_TOTAL_CAP = 8;
+
+function formatWeekdayLabel(date: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(date);
+}
+
+type ActionItemEventTeam = { name: string; clubTeams: { club: { id: string; name: string } }[] };
+type ActionItemEvent = {
+  id: string;
+  teamId: string;
+  type: EventType;
+  startsAt: Date;
+  opponentName: string | null;
+  team: ActionItemEventTeam;
+};
 
 @Injectable()
 export class DashboardService {
@@ -76,6 +113,21 @@ export class DashboardService {
     const rsvpStatuses = new Map(rsvps.map((r) => [r.eventId, r.status as EventRsvpStatus]));
     const convokedEventIds = new Set(convocations.map((c) => c.eventId));
 
+    const [rsvpSummaries, logisticsAssignees, { resultsByEventId, myStatsByEventId }] =
+      await Promise.all([
+        this.resolveEventRosterSummaries(teamIds, events),
+        this.resolveLogisticsAssignees(events),
+        this.resolveMatchResults(events, teamPlayerIds),
+      ]);
+
+    const actionItems = await this.resolveActionItems(
+      adminGrants.map((g) => g.teamId),
+      adminClubIds,
+      memberClubIds,
+      events,
+      rsvpSummaries,
+    );
+
     return {
       totalPlayers,
       upcomingEvents: events.map((event) =>
@@ -84,9 +136,366 @@ export class DashboardService {
           memberClubIds,
           rsvpStatuses.get(event.id) ?? null,
           convokedEventIds.has(event.id),
+          this.rsvpSummaryOrZero(event.id, rsvpSummaries),
+          logisticsAssignees,
+          resultsByEventId.get(event.id) ?? null,
+          myStatsByEventId.get(event.id) ?? null,
         ),
       ),
+      actionItems,
     };
+  }
+
+  // The manager's « À traiter » band (docs/ux-audit/player-journey.md §6.6).
+  // Sibling to the three resolvers above, same early-return shape — but
+  // gated on "does this caller manage anything" rather than teamIds.length,
+  // since teamIds also includes teams the caller is merely rostered on and a
+  // plain rostered player must never see this band. adminGrantTeamIds/
+  // adminClubIds are exactly what getDashboard already resolved — no new
+  // membership query.
+  private async resolveActionItems(
+    adminGrantTeamIds: string[],
+    adminClubIds: string[],
+    memberClubIds: Set<string>,
+    events: ActionItemEvent[],
+    rsvpSummaries: Map<string, EventRsvpSummary>,
+  ): Promise<ActionItem[]> {
+    if (adminGrantTeamIds.length === 0 && adminClubIds.length === 0) {
+      return [];
+    }
+
+    const now = new Date();
+    // "Admin/TeamAdmin teams" expressed once and reused by both the two
+    // fresh queries below (as a Prisma filter) and the JS filter over the
+    // already-fetched `events` batch for EVENT_PENDING_RSVPS — a team the
+    // caller merely plays on, with no admin role anywhere, matches neither.
+    const managedTeamFilter = {
+      OR: [
+        { teamId: { in: adminGrantTeamIds } },
+        { team: { clubTeams: { some: { clubId: { in: adminClubIds } } } } },
+      ],
+    };
+    const adminGrantTeamIdSet = new Set(adminGrantTeamIds);
+    const adminClubIdSet = new Set(adminClubIds);
+    const isManagedTeamEvent = (event: ActionItemEvent) =>
+      adminGrantTeamIdSet.has(event.teamId) ||
+      event.team.clubTeams.some((ct) => adminClubIdSet.has(ct.club.id));
+
+    const eventTeamInclude = {
+      team: {
+        include: {
+          clubTeams: {
+            include: { club: true },
+            orderBy: [{ isOwner: 'desc' as const }, { createdAt: 'asc' as const }],
+          },
+        },
+      },
+    };
+
+    const [matchesWithoutConvocations, matchesWithoutConfirmedScoresheet, playersWithoutAccount] =
+      await Promise.all([
+        // Kind 1: upcoming MATCHes with zero convocations — filtered in
+        // Prisma (`convocations: { none: {} }`), not fetched-then-diffed.
+        this.prisma.event.findMany({
+          where: {
+            type: 'MATCH',
+            startsAt: {
+              gte: now,
+              lte: new Date(now.getTime() + ACTION_ITEM_CONVOCATION_WINDOW_DAYS * DAY_IN_MS),
+            },
+            convocations: { none: {} },
+            ...managedTeamFilter,
+          },
+          include: eventTeamInclude,
+          orderBy: { startsAt: 'asc' },
+        }),
+        // Kind 3: already-played MATCHes with no CONFIRMED scoresheet.
+        // `isNot` on an optional to-one relation matches both "no scoresheet
+        // at all" and "a scoresheet that isn't CONFIRMED yet" — exactly the
+        // union this item is for.
+        this.prisma.event.findMany({
+          where: {
+            type: 'MATCH',
+            startsAt: {
+              gte: new Date(now.getTime() - ACTION_ITEM_PAST_SCORESHEET_WINDOW_DAYS * DAY_IN_MS),
+              lte: now,
+            },
+            scoresheet: { isNot: { status: 'CONFIRMED' } },
+            ...managedTeamFilter,
+          },
+          include: eventTeamInclude,
+          orderBy: { startsAt: 'desc' },
+        }),
+        // Kind 4: genuinely unbounded by date, so it needs its own explicit
+        // cap rather than a window.
+        this.prisma.player.findMany({
+          where: { clubId: { in: adminClubIds }, userId: null },
+          take: ACTION_ITEM_PLAYERS_WITHOUT_ACCOUNT_LIMIT,
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            club: { select: { id: true, name: true } },
+          },
+        }),
+      ]);
+
+    // Kind 2: reuses the roster-wide rsvpSummaries already computed above
+    // for this same `events` batch — no second, parallel aggregate query —
+    // narrowed here to the tighter ±2-day "imminent" slice and to managed
+    // teams only.
+    const rsvpWindowEnd = new Date(now.getTime() + ACTION_ITEM_RSVP_WINDOW_DAYS * DAY_IN_MS);
+    const eventsPendingRsvp = events.filter(
+      (event) =>
+        event.startsAt >= now &&
+        event.startsAt <= rsvpWindowEnd &&
+        isManagedTeamEvent(event) &&
+        (rsvpSummaries.get(event.id)?.pending ?? 0) > 0,
+    );
+
+    const items: ActionItem[] = [
+      ...matchesWithoutConvocations.map((event) =>
+        this.toMatchWithoutConvocationsItem(event, memberClubIds),
+      ),
+      ...eventsPendingRsvp.map((event) =>
+        this.toEventPendingRsvpsItem(event, memberClubIds, rsvpSummaries.get(event.id)),
+      ),
+      ...matchesWithoutConfirmedScoresheet.map((event) =>
+        this.toMatchWithoutConfirmedScoresheetItem(event, memberClubIds),
+      ),
+      ...playersWithoutAccount.map((player) => this.toPlayerWithoutAccountItem(player)),
+    ];
+    return items.slice(0, ACTION_ITEM_TOTAL_CAP);
+  }
+
+  private pickEventClub(
+    team: ActionItemEventTeam,
+    memberClubIds: Set<string>,
+  ): { id: string; name: string } {
+    return (
+      team.clubTeams.find((ct) => memberClubIds.has(ct.club.id))?.club ?? team.clubTeams[0].club
+    );
+  }
+
+  private toMatchWithoutConvocationsItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    return {
+      kind: 'MATCH_WITHOUT_CONVOCATIONS',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `Match contre ${event.opponentName ?? "l'adversaire"} ${formatWeekdayLabel(event.startsAt)} — personne n'a encore été convoqué.`,
+    };
+  }
+
+  private toEventPendingRsvpsItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+    summary: EventRsvpSummary | undefined,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    const pending = summary?.pending ?? 0;
+    const subject =
+      event.type === 'MATCH'
+        ? `Match contre ${event.opponentName ?? "l'adversaire"}`
+        : 'Entraînement';
+    return {
+      kind: 'EVENT_PENDING_RSVPS',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `${subject} ${formatWeekdayLabel(event.startsAt)} — ${pending} joueur${pending > 1 ? 's' : ''} n'${pending > 1 ? 'ont' : 'a'} pas encore répondu.`,
+    };
+  }
+
+  private toMatchWithoutConfirmedScoresheetItem(
+    event: ActionItemEvent,
+    memberClubIds: Set<string>,
+  ): ActionItem {
+    const club = this.pickEventClub(event.team, memberClubIds);
+    return {
+      kind: 'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+      clubId: club.id,
+      clubName: club.name,
+      teamId: event.teamId,
+      teamName: event.team.name,
+      eventId: event.id,
+      message: `Match contre ${event.opponentName ?? "l'adversaire"} ${formatWeekdayLabel(event.startsAt)} — feuille de match non confirmée.`,
+    };
+  }
+
+  private toPlayerWithoutAccountItem(player: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    club: { id: string; name: string };
+  }): ActionItem {
+    return {
+      kind: 'PLAYERS_WITHOUT_ACCOUNT',
+      clubId: player.club.id,
+      clubName: player.club.name,
+      teamId: null,
+      teamName: null,
+      eventId: null,
+      message: `${player.firstName} ${player.lastName} (${player.club.name}) n'a pas encore de compte Kluvo.`,
+    };
+  }
+
+  // Whole-roster RSVP/convocation aggregate for a batch of events that can
+  // span *several* teams (unlike EventsService's equivalent, which always
+  // has one team in hand): one teamPlayer.groupBy for every team's roster
+  // size at once, plus one findMany per concern, unscoped by teamPlayerId
+  // (the caller's own RSVP/convocation state above already needed that
+  // scoping; this wants everyone's). Three queries total, regardless of how
+  // many events or teams are in the batch — same bounded shape as
+  // EventsService.resolveEventRosterSummaries, adapted for a multi-team
+  // agenda instead of one team's event list. See computeEventRsvpSummaries
+  // for the shared per-event math (ported from
+  // app/src/clubs/useEventRoster.ts's countEventRoster).
+  private async resolveEventRosterSummaries(
+    teamIds: string[],
+    events: { id: string; teamId: string }[],
+  ): Promise<Map<string, EventRsvpSummary>> {
+    const eventIds = events.map((e) => e.id);
+    if (eventIds.length === 0) {
+      return new Map();
+    }
+    const [rosterCounts, rsvps, convocations] = await Promise.all([
+      this.prisma.teamPlayer.groupBy({
+        by: ['teamId'],
+        where: { teamId: { in: teamIds } },
+        _count: { _all: true },
+      }),
+      this.prisma.eventRsvp.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true, status: true },
+      }),
+      this.prisma.eventConvocation.findMany({
+        where: { eventId: { in: eventIds } },
+        select: { eventId: true, teamPlayerId: true },
+      }),
+    ]);
+    const rosterSizeByTeamId = new Map(rosterCounts.map((r) => [r.teamId, r._count._all]));
+    const rosterSizeByEventId = new Map(
+      events.map((e) => [e.id, rosterSizeByTeamId.get(e.teamId) ?? 0]),
+    );
+    return computeEventRsvpSummaries(eventIds, rosterSizeByEventId, rsvps, convocations);
+  }
+
+  // Whole-batch match-result projection, spanning however many teams the
+  // agenda covers — cheaper here than EventsService's twin because
+  // getDashboard already fetches teamPlayerIds (every TeamPlayer row the
+  // caller holds, across every team) for the RSVP resolution above; this
+  // reuses it rather than re-deriving a per-team TeamPlayer lookup. Two
+  // queries total (one eventScoresheet.findMany scoped to CONFIRMED sheets,
+  // one matchPlayerStat.findMany scoped to the caller's own roster rows),
+  // regardless of how many events or teams are in the batch. A caller holds
+  // at most one TeamPlayer row per team, and one event belongs to one team,
+  // so at most one matching stat row can exist per event — no risk of
+  // crediting one event with another team's row. See CLAUDE.md's
+  // Scoresheets module: only CONFIRMED sheets ever populate a result, so a
+  // player never sees an unconfirmed score.
+  private async resolveMatchResults(
+    events: { id: string; venue: EventVenue | null }[],
+    teamPlayerIds: string[],
+  ): Promise<{
+    resultsByEventId: Map<string, EventMatchResult>;
+    myStatsByEventId: Map<string, EventMatchPlayerStats>;
+  }> {
+    const eventIds = events.map((e) => e.id);
+    if (eventIds.length === 0) {
+      return { resultsByEventId: new Map(), myStatsByEventId: new Map() };
+    }
+    const venueByEventId = new Map(events.map((e) => [e.id, e.venue]));
+    const [confirmedScoresheets, myStats] = await Promise.all([
+      this.prisma.eventScoresheet.findMany({
+        where: { eventId: { in: eventIds }, status: 'CONFIRMED' },
+        include: { extraction: true },
+      }),
+      teamPlayerIds.length > 0
+        ? this.prisma.matchPlayerStat.findMany({
+            where: { eventId: { in: eventIds }, teamPlayerId: { in: teamPlayerIds } },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const resultsByEventId = new Map<string, EventMatchResult>();
+    for (const scoresheet of confirmedScoresheets) {
+      const parsedData = asParsedScoresheetData(scoresheet.extraction?.parsedData);
+      const result = deriveMatchResult(venueByEventId.get(scoresheet.eventId) ?? null, parsedData);
+      if (result) {
+        resultsByEventId.set(scoresheet.eventId, result);
+      }
+    }
+
+    const myStatsByEventId = new Map<string, EventMatchPlayerStats>();
+    for (const stat of myStats) {
+      myStatsByEventId.set(stat.eventId, { points: stat.points, fouls: stat.fouls });
+    }
+
+    return { resultsByEventId, myStatsByEventId };
+  }
+
+  // Same fallback reasoning as EventsService's twin: every id passed to
+  // resolveEventRosterSummaries gets an entry (its own eventIds.length === 0
+  // short-circuit aside), so this only spares call sites a non-null
+  // assertion for a case that can't happen.
+  private rsvpSummaryOrZero(
+    eventId: string,
+    summaries: Map<string, EventRsvpSummary>,
+  ): EventRsvpSummary {
+    return (
+      summaries.get(eventId) ?? {
+        rosterSize: 0,
+        convoked: 0,
+        answering: 0,
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+        pending: 0,
+        isConvocationScoped: false,
+      }
+    );
+  }
+
+  // Identical to EventsService.resolveLogisticsAssignees — teamPlayer ids
+  // are globally unique, so this needs no team-scoping and duplicates
+  // cleanly across modules rather than importing across them, matching this
+  // codebase's established re-derive-rather-than-import convention (see
+  // CLAUDE.md's Events module section).
+  private async resolveLogisticsAssignees(
+    events: { jerseysTeamPlayerId: string | null; ballsTeamPlayerId: string | null }[],
+  ): Promise<Map<string, EventLogisticsAssignee>> {
+    const teamPlayerIds = new Set<string>();
+    for (const event of events) {
+      if (event.jerseysTeamPlayerId) {
+        teamPlayerIds.add(event.jerseysTeamPlayerId);
+      }
+      if (event.ballsTeamPlayerId) {
+        teamPlayerIds.add(event.ballsTeamPlayerId);
+      }
+    }
+    if (teamPlayerIds.size === 0) {
+      return new Map();
+    }
+    const teamPlayers = await this.prisma.teamPlayer.findMany({
+      where: { id: { in: Array.from(teamPlayerIds) } },
+      include: { player: true },
+    });
+    return new Map(
+      teamPlayers.map((tp) => [
+        tp.id,
+        { teamPlayerId: tp.id, firstName: tp.player.firstName, lastName: tp.player.lastName },
+      ]),
+    );
   }
 
   private resolveRange(from?: string, to?: string): { from: Date; to: Date } {
@@ -106,11 +515,21 @@ export class DashboardService {
       location: string;
       notes: string | null;
       opponentName: string | null;
+      venue: EventVenue | null;
+      recurrenceId: string | null;
+      externalId: string | null;
+      timeConfirmed: boolean;
+      jerseysTeamPlayerId: string | null;
+      ballsTeamPlayerId: string | null;
       team: { name: string; clubTeams: { club: { id: string; name: string } }[] };
     },
     memberClubIds: Set<string>,
     myRsvpStatus: EventRsvpStatus | null,
     myConvocation: boolean,
+    rsvpSummary: EventRsvpSummary,
+    logisticsAssignees: Map<string, EventLogisticsAssignee>,
+    result: EventMatchResult | null,
+    myMatchStats: EventMatchPlayerStats | null,
   ): MyAgendaEvent {
     // Prefer the club the caller actually belongs to (see
     // TeamsService.toMyTeamSummary for the same navigation-safety reasoning),
@@ -129,8 +548,25 @@ export class DashboardService {
       location: event.location,
       notes: event.notes,
       opponentName: event.opponentName,
+      venue: event.venue,
+      recurrenceId: event.recurrenceId,
       myRsvpStatus,
       myConvocation,
+      rsvpSummary,
+      // Same derivation EventsService uses, not a stored column — see
+      // schema.prisma's comment on Event.externalId.
+      isImported: event.externalId !== null,
+      timeConfirmed: event.timeConfirmed,
+      logistics: {
+        jerseys: event.jerseysTeamPlayerId
+          ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
+          : null,
+        balls: event.ballsTeamPlayerId
+          ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
+          : null,
+      },
+      result,
+      myMatchStats,
     };
   }
 }
