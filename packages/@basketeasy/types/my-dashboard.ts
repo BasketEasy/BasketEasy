@@ -46,10 +46,40 @@ export interface MyAgendaEvent {
   myMatchStats: EventMatchPlayerStats | null;
 }
 
+/**
+ * The four things a manager might need to go do, none of which is otherwise
+ * surfaced anywhere in one round trip today — see `DashboardService`'s
+ * resolver for the exact, deliberately bounded query behind each kind.
+ */
+export type ActionItemKind =
+  | 'MATCH_WITHOUT_CONVOCATIONS'
+  | 'EVENT_PENDING_RSVPS'
+  | 'MATCH_WITHOUT_CONFIRMED_SCORESHEET'
+  | 'PLAYERS_WITHOUT_ACCOUNT';
+
+/** One row of the manager's « À traiter » band — `docs/ux-audit/player-journey.md` §6.6. */
+export interface ActionItem {
+  kind: ActionItemKind;
+  clubId: string;
+  clubName: string;
+  /** Null for PLAYERS_WITHOUT_ACCOUNT, which isn't scoped to a team. */
+  teamId: string | null;
+  teamName: string | null;
+  /** Null for PLAYERS_WITHOUT_ACCOUNT, which isn't scoped to an event. */
+  eventId: string | null;
+  /** Human-readable French sentence, fully formed server-side — the frontend renders it verbatim. */
+  message: string;
+}
+
 export interface MyDashboardSummary {
   upcomingEvents: MyAgendaEvent[];
   /** Distinct players across the clubs the caller administers. */
   totalPlayers: number;
+  /**
+   * Capped at a small total across all four kinds (see `DashboardService`) —
+   * never an unpaginated list. Empty for a caller with no manage rights.
+   */
+  actionItems: ActionItem[];
 }
 
 export interface GetDashboardParams {
