@@ -74,9 +74,8 @@ The mockups are not a mood board — they're the literal target. Every artboard'
 [`docs/superpowers/specs/assets/2026-08-27-match-interface/`](./assets/2026-08-27-match-interface/)
 (`Main.dc.html`, `AgendaCard.dc.html`, `Roster.dc.html`, `Vote.dc.html`, `Scoresheet.dc.html`,
 `MobileDetail.dc.html`, `canvas.json` for artboard sizing) — the same source published to the
-design canvas at `https://claude.ai/code/artifact/b80ff86b-6f3d-4842-a3dd-001c20cd0d50`. The
-plan (`docs/superpowers/plans/2026-08-27-match-interface.md`) references specific line ranges
-in these files task by task. Rules for using them, binding on every implementation task:
+design canvas at `https://claude.ai/code/artifact/b80ff86b-6f3d-4842-a3dd-001c20cd0d50`. Rules
+for using them, binding on every implementation task:
 
 - **Copy values, don't approximate them.** Every hex color, `px` measurement, `font-weight`,
   `letter-spacing`, and border-radius in a `.dc.html` file traces to a real design decision.
