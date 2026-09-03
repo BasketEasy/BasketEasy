@@ -1,0 +1,52 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/members": { "items": [], "total": 0, "page": 1, "pageSize": 25 },
+  "GET /api/clubs/club-1/players": {
+    "items": [
+      {
+        "id": "player-1",
+        "clubId": "club-1",
+        "firstName": "Théo",
+        "lastName": "Dupont",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": null,
+        "birthDate": null,
+        "gender": null,
+        "licenseType": null,
+        "createdAt": "2026-01-01"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/players/player-1/invite": { "status": "NONE", "expiresAt": null },
+  "POST /api/clubs/club-1/players/player-1/invite": {
+    "token": "abc123",
+    "url": "http://localhost:5173/invite/abc123",
+    "expiresAt": "2026-09-10T00:00:00.000Z"
+  },
+  "GET /api/invites/abc123": {
+    "playerFirstName": "Théo",
+    "playerLastName": "Dupont",
+    "clubName": "ASC Nantes"
+  }
+}
