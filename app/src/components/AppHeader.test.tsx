@@ -73,7 +73,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     await user.click(screen.getByRole('link', { name: 'Mes équipes' }));
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
@@ -84,7 +86,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /mon compte/i }));
@@ -103,7 +107,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     const chip = await screen.findByRole('button', { name: /coc basket/i });
     expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
@@ -137,7 +143,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await user.click(await screen.findByRole('button', { name: /coc basket/i }));
     expect(await screen.findByRole('menuitem', { name: /coc basket/i })).toBeInTheDocument();
 
@@ -165,7 +173,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     // Defaults to the first admin club.
     const chip = await screen.findByRole('button', { name: /coc basket/i });
@@ -198,7 +208,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('link', { name: /^effectif$/i }));
 
     expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
@@ -224,7 +236,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     await user.click(await screen.findByRole('button', { name: /coc basket/i }));
     await user.click(screen.getByRole('menuitem', { name: /es nantes/i }));
@@ -246,7 +260,9 @@ describe('AppHeader', () => {
 
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /effectif/i })).not.toBeInTheDocument();
   });
@@ -273,7 +289,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('link', { name: /mes équipes/i }));
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
@@ -298,7 +316,9 @@ describe('AppHeader', () => {
 
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await screen.findByRole('button', { name: /coc basket/i });
 
     expect(screen.getAllByRole('link', { name: /^effectif$/i })).toHaveLength(1);
@@ -309,7 +329,9 @@ describe('AppHeader', () => {
     mockSession();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     expect(screen.queryByRole('button', { name: /^menu$/i })).not.toBeInTheDocument();
     expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
@@ -326,7 +348,9 @@ describe('AppHeader', () => {
     mockSession();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
   });
@@ -342,7 +366,9 @@ describe('AppHeader', () => {
 
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     expect(await screen.findByRole('button', { name: /coc basket/i })).toBeInTheDocument();
   });
 
