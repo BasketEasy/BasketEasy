@@ -135,6 +135,10 @@
       "types": "./src/components/icons/Check.tsx",
       "default": "./src/components/icons/Check.tsx"
     },
+    "./icons/chevron-right": {
+      "types": "./src/components/icons/ChevronRightIcon.tsx",
+      "default": "./src/components/icons/ChevronRightIcon.tsx"
+    },
     "./tooltip": {
       "types": "./src/components/Tooltip.tsx",
       "default": "./src/components/Tooltip.tsx"

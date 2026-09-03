@@ -8,6 +8,7 @@ import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { SortOrder } from '@basketeasy/types/pagination';
+import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { useBackLink } from '../clubs/backLink';
 import { useTeamShow } from '../clubs/useTeamShow';
 import { TeamDeleteModal } from '../clubs/TeamDeleteModal';
@@ -71,6 +72,11 @@ export function TeamDetailPage() {
   // resolve — the September-to-August boundary is its rule, not the client's.
   const [statsSeason, setStatsSeason] = useState<number | undefined>(undefined);
   const backLink = useBackLink();
+  // On a phone the bottom bar is the way back (a persistent, always-visible
+  // tab), so a second "back" control at the top of the page is redundant —
+  // and, per feedback, was the "nav button that makes no sense on mobile" on
+  // every page carrying it. Desktop keeps it: there is no bottom bar there.
+  const isDesktop = useIsDesktopViewport();
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -352,9 +358,11 @@ export function TeamDetailPage() {
 
   return (
     <PageContainer size="lg">
-      <Button asChild variant="ghost" className="self-start">
-        <Link to={backLink.to}>{backLink.label}</Link>
-      </Button>
+      {isDesktop && (
+        <Button asChild variant="ghost" className="self-start">
+          <Link to={backLink.to}>{backLink.label}</Link>
+        </Button>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

@@ -1055,6 +1055,24 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
   });
 
+  it('hides the back link on a narrow screen — the bottom bar is the way back there', async () => {
+    setViewportWidth(375);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([]))),
+      http.get('/api/me/teams', () => HttpResponse.json([])),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    expect(screen.queryByRole('link', { name: /^← mes équipes$/i })).not.toBeInTheDocument();
+  });
+
   describe('player role (no manage rights)', () => {
     function mockRostered() {
       server.use(

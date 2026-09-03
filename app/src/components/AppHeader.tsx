@@ -37,12 +37,16 @@ interface AppHeaderProps {
  * Nav for every protected page — mounted once in ProtectedRoute so it's
  * guaranteed a logged-in user, rather than re-checking that here.
  *
- * On a phone the header is no longer the navigation: `AppBottomNav` is, and
- * the burger panel this header used to open is gone. What stays here is what
- * a bottom bar has no room for and no business holding — the brand mark, the
- * club switcher (the admin's context), and the account menu.
+ * On a phone there is no top bar at all: `AppBottomNav` is the only
+ * navigation, and everything the header used to hold for a phone (the club
+ * switcher, "Créer un club", logout) lives on `/account` instead — reachable
+ * from the bottom bar's Profil tab. This component renders nothing below the
+ * desktop breakpoint.
  */
 export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
+  const isDesktop = useIsDesktopViewport();
+  if (!isDesktop) return null;
+
   if (isResolving) {
     return (
       <header className="safe-area-top border-b border-border">
@@ -83,7 +87,6 @@ function HeaderLink({ to, children }: { to: string; children: ReactNode }) {
 }
 
 function AppHeaderResolved() {
-  const isDesktop = useIsDesktopViewport();
   const { user } = useAccount();
   const adminClubs = useAdminClubs();
   const { activeClubId: contextActiveClubId, setActiveClubId } = useActiveClub();
@@ -96,12 +99,10 @@ function AppHeaderResolved() {
 
   // Non-navigating: opens/closes the switcher panel and lets an admin
   // change ActiveClubContext's active club. Navigation to a club's roster is
-  // the separate "Effectif" link on desktop and the bottom bar's « Club »
-  // item on mobile, not this chip/panel — see
-  // docs/ux-audit/scoping-plan.md's item 3 for the resolved click model.
-  //
-  // Rendered at every width: with the burger panel gone, this is the only
-  // place an admin on a phone can change which club they are looking at.
+  // the separate "Effectif" link, not this chip/panel — see
+  // docs/ux-audit/scoping-plan.md's item 3 for the resolved click model. On a
+  // phone the equivalent switcher lives on `/account` instead (this header
+  // doesn't render there at all).
   const switcher = adminClubs.length > 0 && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -137,10 +138,7 @@ function AppHeaderResolved() {
         Aller au contenu
       </a>
       <nav
-        // Below the desktop breakpoint the primary navigation is AppBottomNav,
-        // which carries that name; this header then holds only the club
-        // context and the account, and two landmarks may not share a name.
-        aria-label={isDesktop ? 'Navigation principale' : 'Club et compte'}
+        aria-label="Navigation principale"
         className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4"
       >
         <div className="flex flex-wrap items-center gap-3">
@@ -154,15 +152,9 @@ function AppHeaderResolved() {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-1">
-          {isDesktop && (
-            <>
-              <HeaderLink to="/dashboard">Tableau de bord</HeaderLink>
-              <HeaderLink to="/my-teams">Mes équipes</HeaderLink>
-              {activeClubId && (
-                <HeaderLink to={`/clubs/${activeClubId}/members`}>Effectif</HeaderLink>
-              )}
-            </>
-          )}
+          <HeaderLink to="/dashboard">Tableau de bord</HeaderLink>
+          <HeaderLink to="/my-teams">Mes équipes</HeaderLink>
+          {activeClubId && <HeaderLink to={`/clubs/${activeClubId}/members`}>Effectif</HeaderLink>}
           <AccountMenu />
         </div>
       </nav>

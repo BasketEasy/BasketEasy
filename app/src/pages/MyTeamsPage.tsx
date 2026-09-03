@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
+import { cn } from '@basketeasy/ui/cn';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,9 @@ import {
   DialogTrigger,
 } from '@basketeasy/ui/dialog';
 import { EmptyState } from '@basketeasy/ui/empty-state';
+import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Heading } from '@basketeasy/ui/heading';
+import { ChevronRightIcon } from '@basketeasy/ui/icons/chevron-right';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SelectField } from '@basketeasy/ui/select-field';
@@ -39,29 +42,28 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       {team.rosterRole && <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>}
     </>
   );
-  const viewLink = (
-    <Link
-      to={`/clubs/${team.clubId}/teams/${team.teamId}`}
-      state={{ origin: { from: 'my-teams' } }}
-    >
-      Voir
-    </Link>
-  );
+  // A team admin lands on the agenda, same as always. A player with no
+  // manage rights here almost always opened this for their stats — send
+  // them straight there instead of the extra tap through Agenda first.
+  const href = `/clubs/${team.clubId}/teams/${team.teamId}${team.isTeamAdmin ? '' : '?tab=stats'}`;
+  const linkState = { origin: { from: 'my-teams' as const } };
 
   if (layout === 'card') {
     return (
-      <Card variant="inset" className="flex flex-col gap-2">
-        <Text as="span" variant="label">
-          {team.teamName}
-        </Text>
-        <Text as="span" variant="meta">
-          {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-        </Text>
-        <div className="flex flex-wrap items-center gap-1">{badges}</div>
-        <Button asChild variant="outline" className="self-start">
-          {viewLink}
-        </Button>
-      </Card>
+      <Link to={href} state={linkState} className={cn('block rounded-lg no-underline', focusRing)}>
+        <Card variant="inset" className="flex flex-row items-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Text as="span" variant="label">
+              {team.teamName}
+            </Text>
+            <Text as="span" variant="meta">
+              {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
+            </Text>
+            <div className="flex flex-wrap items-center gap-1">{badges}</div>
+          </div>
+          <ChevronRightIcon tone="secondary" className="h-5 w-5 shrink-0" aria-hidden="true" />
+        </Card>
+      </Link>
     );
   }
 
@@ -75,7 +77,9 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
       <TableCell className="flex flex-wrap items-center gap-1">{badges}</TableCell>
       <TableCell>
         <Button asChild variant="outline">
-          {viewLink}
+          <Link to={href} state={linkState}>
+            Voir
+          </Link>
         </Button>
       </TableCell>
     </TableRow>

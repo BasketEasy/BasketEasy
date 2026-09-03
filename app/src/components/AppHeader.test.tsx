@@ -324,52 +324,20 @@ describe('AppHeader', () => {
     expect(screen.getAllByRole('link', { name: /^effectif$/i })).toHaveLength(1);
   });
 
-  it('has no burger on a narrow screen — AppBottomNav is the navigation there', async () => {
+  it('renders nothing on a narrow screen — AppBottomNav is the only navigation there', async () => {
     setViewportWidth(375);
     mockSession();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
-    );
-
-    expect(screen.queryByRole('button', { name: /^menu$/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
-    // The header's own links are the desktop presentation; below the
-    // breakpoint the bottom bar carries them instead.
-    expect(screen.queryByRole('link', { name: 'Tableau de bord' })).not.toBeInTheDocument();
     expect(
       await screen.findByRole('navigation', { name: 'Navigation principale' }),
     ).toBeInTheDocument();
-  });
-
-  it('keeps the account menu reachable on a narrow screen, without a panel to open first', async () => {
-    setViewportWidth(375);
-    mockSession();
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
-    );
-
-    expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
-  });
-
-  it('keeps the club switcher on a narrow screen — with the panel gone it is the only way to change club', async () => {
-    setViewportWidth(375);
-    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
-    server.use(
-      http.get('/api/clubs', () =>
-        HttpResponse.json([{ id: 'club-1', name: 'COC Basket', createdAt: '2026-01-01' }]),
-      ),
-    );
-
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
-    );
-    expect(await screen.findByRole('button', { name: /coc basket/i })).toBeInTheDocument();
+    // No header at all: no account menu trigger, no brand link, no skip
+    // link — the club switcher, "Créer un club" and logout all moved to
+    // /account, reachable from the bottom bar's Profil tab.
+    expect(screen.queryByRole('button', { name: /mon compte/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tableau de bord' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /aller au contenu/i })).not.toBeInTheDocument();
   });
 
   it('renders navigation as links, not buttons', () => {

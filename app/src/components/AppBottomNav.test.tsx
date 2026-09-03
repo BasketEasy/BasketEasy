@@ -92,10 +92,12 @@ describe('AppBottomNav', () => {
 
     expect(screen.getByRole('link', { name: 'Ma semaine' })).toHaveAttribute('href', '/dashboard');
     // Straight to the team, not through /my-teams — which for one team is a
-    // whole page rendering a single row with a "Voir" button.
+    // whole page rendering a single row with a "Voir" button — and straight
+    // to its stats tab, since this player has no manage rights to fall back
+    // to Agenda for.
     expect(screen.getByRole('link', { name: 'Mon équipe' })).toHaveAttribute(
       'href',
-      '/clubs/club-1/teams/team-1',
+      '/clubs/club-1/teams/team-1?tab=stats',
     );
     expect(screen.getByRole('link', { name: 'Profil' })).toHaveAttribute('href', '/account');
     expect(screen.queryByRole('link', { name: 'Club' })).not.toBeInTheDocument();

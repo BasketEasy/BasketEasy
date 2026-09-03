@@ -33,7 +33,10 @@ function BottomNavItem({
   count?: number;
 }) {
   const { pathname } = useLocation();
-  const isActive = pathname === to || pathname.startsWith(`${to}/`);
+  // `to` may carry a `?search` (e.g. the solo-team shortcut's `?tab=stats`),
+  // which `pathname` never does — compare against the path portion only.
+  const path = to.split('?')[0];
+  const isActive = pathname === path || pathname.startsWith(`${path}/`);
 
   return (
     <TabBarItem asChild icon={icon} label={label} count={count} active={isActive}>
@@ -103,11 +106,12 @@ export function AppBottomNav() {
           label={hasManageRights ? 'Équipes' : myTeams.length > 1 ? 'Mes équipes' : 'Mon équipe'}
         />
       ) : (
-        // A player with exactly one team goes straight to it: /my-teams would
-        // be a whole destination rendering a one-row list with a "Voir"
-        // button — a click-through page standing in for a link.
+        // A player with exactly one team goes straight to it — /my-teams
+        // would be a whole destination rendering a one-row list with a "Voir"
+        // button, a click-through page standing in for a link — and straight
+        // to its stats tab, the screen a player opens this for most often.
         <BottomNavItem
-          to={`/clubs/${soleTeam.clubId}/teams/${soleTeam.teamId}`}
+          to={`/clubs/${soleTeam.clubId}/teams/${soleTeam.teamId}?tab=stats`}
           icon={<UsersIcon className="h-5 w-5" />}
           label="Mon équipe"
         />

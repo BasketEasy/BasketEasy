@@ -129,7 +129,7 @@ describe('MyTeamsPage', () => {
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 
-  it('renders cards instead of a table below the desktop breakpoint, with Voir still navigating', async () => {
+  it('renders clickable cards instead of a table below the desktop breakpoint', async () => {
     setViewportWidth(375);
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
@@ -167,7 +167,8 @@ describe('MyTeamsPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('link', { name: /voir/i }));
+    // The whole card is the link now — no separate "Voir" button.
+    await user.click(screen.getByRole('link', { name: /u15 garçons/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });
