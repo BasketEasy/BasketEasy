@@ -8,7 +8,7 @@ describe('DashboardService', () => {
     clubMembership: { findMany: jest.Mock };
     teamAdmin: { findMany: jest.Mock };
     teamPlayer: { findMany: jest.Mock; groupBy: jest.Mock };
-    player: { count: jest.Mock };
+    player: { count: jest.Mock; findMany: jest.Mock };
     event: { findMany: jest.Mock };
     eventRsvp: { findMany: jest.Mock };
     eventConvocation: { findMany: jest.Mock };
@@ -21,8 +21,8 @@ describe('DashboardService', () => {
       clubMembership: { findMany: jest.fn() },
       teamAdmin: { findMany: jest.fn() },
       teamPlayer: { findMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
-      player: { count: jest.fn() },
-      event: { findMany: jest.fn() },
+      player: { count: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+      event: { findMany: jest.fn().mockResolvedValue([]) },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
       eventConvocation: { findMany: jest.fn().mockResolvedValue([]) },
       eventScoresheet: { findMany: jest.fn().mockResolvedValue([]) },
@@ -47,7 +47,7 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard('user-1');
 
-    expect(result).toEqual({ totalPlayers: 0, upcomingEvents: [] });
+    expect(result).toEqual({ totalPlayers: 0, upcomingEvents: [], actionItems: [] });
     expect(prisma.player.count).not.toHaveBeenCalled();
     expect(prisma.event.findMany).not.toHaveBeenCalled();
   });
@@ -425,6 +425,265 @@ describe('DashboardService', () => {
 
       expect(prisma.matchPlayerStat.findMany).not.toHaveBeenCalled();
       expect(result.upcomingEvents[0].myMatchStats).toBeNull();
+    });
+  });
+
+  describe('action items', () => {
+    const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+    /**
+     * `prisma.event.findMany` backs three different queries in one
+     * `getDashboard` call: the main range-scoped agenda fetch, and the two
+     * fresh action-item queries (MATCH_WITHOUT_CONVOCATIONS filters on
+     * `convocations`, MATCH_WITHOUT_CONFIRMED_SCORESHEET on `scoresheet`) —
+     * so a single `mockResolvedValue` can't answer all three differently.
+     * Dispatches on which filter key is present in `where`.
+     */
+    function mockEventFindManyByQuery(responses: {
+      main?: unknown[];
+      convocations?: unknown[];
+      scoresheet?: unknown[];
+    }) {
+      prisma.event.findMany.mockImplementation((args: { where: Record<string, unknown> }) => {
+        if (args.where.convocations) {
+          return Promise.resolve(responses.convocations ?? []);
+        }
+        if (args.where.scoresheet) {
+          return Promise.resolve(responses.scoresheet ?? []);
+        }
+        return Promise.resolve(responses.main ?? []);
+      });
+    }
+
+    function mockAdminOfClub(clubId = 'club-1') {
+      prisma.clubMembership.findMany
+        .mockResolvedValueOnce([{ clubId }])
+        .mockResolvedValueOnce([{ clubId }]);
+      prisma.teamAdmin.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+    }
+
+    /**
+     * EVENT_PENDING_RSVPS reuses the *already-fetched* main agenda batch
+     * (`events`/`rsvpSummaries`) rather than a fresh query — but that main
+     * batch is only fetched at all when `teamIds` is non-empty (see
+     * `getDashboard`'s `teamIds.length > 0 ? … : Promise.resolve([])`), so
+     * these tests also need a `TeamAdmin` grant, not just club membership.
+     */
+    function mockAdminOfClubAndTeam(clubId = 'club-1', teamId = 'team-1') {
+      mockAdminOfClub(clubId);
+      prisma.teamAdmin.findMany.mockResolvedValue([{ teamId }]);
+    }
+
+    it('flags an upcoming MATCH with zero convocations (MATCH_WITHOUT_CONVOCATIONS)', async () => {
+      mockAdminOfClub();
+      mockEventFindManyByQuery({
+        convocations: [matchEventFixture('event-1', 'team-1', 'U15 Filles', 'HOME')],
+      });
+
+      const result = await service.getDashboard('user-1');
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ type: 'MATCH', convocations: { none: {} } }),
+        }),
+      );
+      expect(result.actionItems).toEqual([
+        expect.objectContaining({
+          kind: 'MATCH_WITHOUT_CONVOCATIONS',
+          clubId: 'club-1',
+          teamId: 'team-1',
+          eventId: 'event-1',
+          message: expect.stringContaining('convoqué'),
+        }),
+      ]);
+    });
+
+    it('does not flag a MATCH that already has at least one convocation', async () => {
+      mockAdminOfClub();
+      // The Prisma-level `convocations: { none: {} }` filter means a
+      // genuinely-convoked match is simply absent from this query's result.
+      mockEventFindManyByQuery({ convocations: [] });
+
+      const result = await service.getDashboard('user-1');
+
+      expect(result.actionItems).toEqual([]);
+    });
+
+    it('flags an imminent event with a pending roster response (EVENT_PENDING_RSVPS), reusing the already-computed rsvpSummary rather than a second aggregate', async () => {
+      mockAdminOfClubAndTeam();
+      const soon = new Date(Date.now() + DAY_IN_MS); // within the ±2-day window
+      prisma.event.findMany.mockImplementation((args: { where: Record<string, unknown> }) => {
+        if (args.where.convocations || args.where.scoresheet) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([
+          { ...matchEventFixture('event-1', 'team-1', 'U15 Filles', 'HOME'), startsAt: soon },
+        ]);
+      });
+      // Roster of 3, one GOING — two pending — computed once by
+      // resolveEventRosterSummaries and reused, not re-queried.
+      prisma.teamPlayer.groupBy.mockResolvedValue([{ teamId: 'team-1', _count: { _all: 3 } }]);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-1', teamPlayerId: 'tp-a', status: 'GOING' },
+      ]);
+
+      const result = await service.getDashboard('user-1');
+
+      expect(result.actionItems).toEqual([
+        expect.objectContaining({
+          kind: 'EVENT_PENDING_RSVPS',
+          teamId: 'team-1',
+          eventId: 'event-1',
+          message: expect.stringContaining('répondu'),
+        }),
+      ]);
+    });
+
+    it('does not flag an event outside the ±2-day pending-RSVP window even with pending responses', async () => {
+      mockAdminOfClubAndTeam();
+      const farOut = new Date(Date.now() + 5 * DAY_IN_MS);
+      prisma.event.findMany.mockImplementation((args: { where: Record<string, unknown> }) => {
+        if (args.where.convocations || args.where.scoresheet) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([
+          { ...matchEventFixture('event-1', 'team-1', 'U15 Filles', 'HOME'), startsAt: farOut },
+        ]);
+      });
+      prisma.teamPlayer.groupBy.mockResolvedValue([{ teamId: 'team-1', _count: { _all: 3 } }]);
+
+      const result = await service.getDashboard('user-1');
+
+      expect(result.actionItems.filter((item) => item.kind === 'EVENT_PENDING_RSVPS')).toEqual([]);
+    });
+
+    it('flags a played MATCH with no CONFIRMED scoresheet (MATCH_WITHOUT_CONFIRMED_SCORESHEET)', async () => {
+      mockAdminOfClub();
+      mockEventFindManyByQuery({
+        scoresheet: [matchEventFixture('event-1', 'team-1', 'U15 Filles', 'HOME')],
+      });
+
+      const result = await service.getDashboard('user-1');
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            type: 'MATCH',
+            scoresheet: { isNot: { status: 'CONFIRMED' } },
+          }),
+        }),
+      );
+      expect(result.actionItems).toEqual([
+        expect.objectContaining({
+          kind: 'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+          teamId: 'team-1',
+          eventId: 'event-1',
+          message: expect.stringContaining('confirmée'),
+        }),
+      ]);
+    });
+
+    it('does not flag a played MATCH once it has a CONFIRMED scoresheet', async () => {
+      mockAdminOfClub();
+      // The Prisma-level `isNot: { status: 'CONFIRMED' }` filter means a
+      // confirmed match is simply absent from this query's result.
+      mockEventFindManyByQuery({ scoresheet: [] });
+
+      const result = await service.getDashboard('user-1');
+
+      expect(result.actionItems).toEqual([]);
+    });
+
+    it('flags a Player with no linked account, capped at 5 (PLAYERS_WITHOUT_ACCOUNT)', async () => {
+      mockAdminOfClub();
+      prisma.player.findMany.mockResolvedValue([
+        {
+          id: 'p-1',
+          firstName: 'Jeanne',
+          lastName: 'Martin',
+          club: { id: 'club-1', name: 'COC Basket' },
+        },
+      ]);
+
+      const result = await service.getDashboard('user-1');
+
+      expect(prisma.player.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clubId: { in: ['club-1'] }, userId: null },
+          take: 5,
+        }),
+      );
+      expect(result.actionItems).toEqual([
+        expect.objectContaining({
+          kind: 'PLAYERS_WITHOUT_ACCOUNT',
+          clubId: 'club-1',
+          teamId: null,
+          eventId: null,
+          message: expect.stringContaining('Jeanne Martin'),
+        }),
+      ]);
+    });
+
+    it('never computes action items for a caller with no admin club and no TeamAdmin grant', async () => {
+      mockEmptyMemberships();
+      // Rostered as a plain player only — teamIds is non-empty, but that
+      // must not be enough on its own.
+      prisma.teamPlayer.findMany.mockResolvedValue([{ id: 'tp-1', teamId: 'team-1' }]);
+      prisma.event.findMany.mockResolvedValue([
+        matchEventFixture('event-1', 'team-1', 'U15 Filles', 'HOME'),
+      ]);
+
+      const result = await service.getDashboard('user-1');
+
+      expect(prisma.player.findMany).not.toHaveBeenCalled();
+      expect(result.actionItems).toEqual([]);
+    });
+
+    it('caps the combined action item count across all four kinds, prioritized convocations > pending RSVPs > scoresheets > accountless players', async () => {
+      mockAdminOfClubAndTeam();
+      const soon = new Date(Date.now() + DAY_IN_MS);
+      const withoutConvocations = [
+        matchEventFixture('conv-1', 'team-1', 'U15 Filles', 'HOME'),
+        matchEventFixture('conv-2', 'team-1', 'U15 Filles', 'HOME'),
+        matchEventFixture('conv-3', 'team-1', 'U15 Filles', 'HOME'),
+      ];
+      const withoutScoresheet = [
+        matchEventFixture('sheet-1', 'team-1', 'U15 Filles', 'HOME'),
+        matchEventFixture('sheet-2', 'team-1', 'U15 Filles', 'HOME'),
+        matchEventFixture('sheet-3', 'team-1', 'U15 Filles', 'HOME'),
+      ];
+      prisma.event.findMany.mockImplementation((args: { where: Record<string, unknown> }) => {
+        if (args.where.convocations) return Promise.resolve(withoutConvocations);
+        if (args.where.scoresheet) return Promise.resolve(withoutScoresheet);
+        return Promise.resolve([
+          { ...matchEventFixture('pending-1', 'team-1', 'U15 Filles', 'HOME'), startsAt: soon },
+          { ...matchEventFixture('pending-2', 'team-1', 'U15 Filles', 'HOME'), startsAt: soon },
+        ]);
+      });
+      prisma.teamPlayer.groupBy.mockResolvedValue([{ teamId: 'team-1', _count: { _all: 3 } }]);
+      // Both pending events get zero responses -> pending > 0 for both.
+      prisma.player.findMany.mockResolvedValue([
+        { id: 'p-1', firstName: 'A', lastName: 'A', club: { id: 'club-1', name: 'COC Basket' } },
+        { id: 'p-2', firstName: 'B', lastName: 'B', club: { id: 'club-1', name: 'COC Basket' } },
+        { id: 'p-3', firstName: 'C', lastName: 'C', club: { id: 'club-1', name: 'COC Basket' } },
+      ]);
+
+      const result = await service.getDashboard('user-1');
+
+      // 3 convocations + 2 pending + 3 scoresheets + 3 players = 11 raw items,
+      // capped to 8 and never re-fetched page by page.
+      expect(result.actionItems).toHaveLength(8);
+      expect(result.actionItems.map((item) => item.kind)).toEqual([
+        'MATCH_WITHOUT_CONVOCATIONS',
+        'MATCH_WITHOUT_CONVOCATIONS',
+        'MATCH_WITHOUT_CONVOCATIONS',
+        'EVENT_PENDING_RSVPS',
+        'EVENT_PENDING_RSVPS',
+        'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+        'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+        'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
+      ]);
     });
   });
 });
