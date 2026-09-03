@@ -31,7 +31,15 @@ export function ProtectedRoute() {
     // page background below the bar.
     <div className="safe-area-top flex min-h-dvh flex-col">
       <AppHeader />
-      <div className="flex flex-1 flex-col">
+      {/* min-w-0: without it this flex item (and PageContainer's <main>
+          inside it, itself a flex item here for the first time now that
+          Outlet is wrapped) refuses to shrink below its content's intrinsic
+          width — a wide unwrapped row (e.g. TeamDetailPage's five-tab
+          TabsList) then pushes the whole flex-col chain wider than the
+          viewport, which is what forces mobile Safari/Chrome to zoom the
+          entire page out instead of letting TabsList's own overflow-x-auto
+          scroll it in place. */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <Outlet />
       </div>
       {/* Mounted beside the header, and only here: the bar is the primary
