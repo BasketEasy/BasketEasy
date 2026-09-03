@@ -19,6 +19,7 @@ import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAdminClubs } from './useAdminClubs';
 import { useMyTeamList } from './useMyTeamList';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from './teamLabels';
+import { ActionItemsBand } from './ActionItemsBand';
 import { MyAgendaEventCard } from './MyAgendaEventCard';
 import { PastMatchesSection } from './PastMatchesSection';
 import { pastMatchesWindowParams } from './myAgendaWindow';
@@ -70,6 +71,11 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
  * `PastMatchesSection` the player home renders, reading its own
  * `pastMatchesWindowParams()`-windowed `useMyAgenda()` query independently of
  * the "Cette semaine" query above — see `PastMatchesSection`'s doc-comment.
+ *
+ * « À traiter » (phase 9) renders above the stat tiles — the first thing a
+ * manager sees, per `player-first-implementation-plan.md` §2 Phase 9 — and
+ * only when `dashboard.actionItems` isn't empty (`ActionItemsBand` renders
+ * nothing otherwise, so no extra branch is needed here).
  */
 export function ManagerHome({
   dashboard,
@@ -112,6 +118,8 @@ export function ManagerHome({
 
   return (
     <>
+      <ActionItemsBand items={dashboard?.actionItems ?? []} />
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile
           icon={<TrophyIcon className="h-4 w-4" />}
