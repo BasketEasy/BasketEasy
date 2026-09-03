@@ -661,7 +661,7 @@ describe('MembersPage', () => {
     });
   });
 
-  it('renders the Équipes tab as cards below the desktop breakpoint, with Gérer still navigating', async () => {
+  it('renders the Équipes tab as clickable cards below the desktop breakpoint', async () => {
     setViewportWidth(375);
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
@@ -696,7 +696,8 @@ describe('MembersPage', () => {
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('link', { name: /gérer/i }));
+    // The whole card is the link now — no separate "Gérer" button.
+    await user.click(screen.getByRole('link', { name: /u15 garçons/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
 });

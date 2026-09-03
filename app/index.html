@@ -2,7 +2,17 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- interactive-widget=resizes-content: the fixed bottom tab bar is
+         positioned against the layout viewport, which on-screen keyboards
+         used to leave untouched (the visual viewport shrank instead),
+         making the bar appear to float mid-screen or drift off-bottom
+         while a form field was focused. This tells supporting browsers to
+         resize the layout viewport itself when the keyboard opens, so
+         "bottom: 0" keeps meaning the actual visible bottom. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <title>Kluvo — La gestion d'équipe, simplifiée.</title>
     <meta
       name="description"

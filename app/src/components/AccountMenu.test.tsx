@@ -57,6 +57,45 @@ describe('AccountMenu', () => {
     );
   });
 
+  it('hides Créer un club for a pure player (rostered, admin nowhere)', async () => {
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'chris@example.com',
+          firstName: 'Chris',
+          lastName: 'Rillesen',
+          avatarUrl: null,
+          memberships: [{ clubId: 'club-1', role: 'MEMBER' }],
+        }),
+      ),
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          {
+            teamId: 'team-1',
+            teamName: 'U15',
+            category: 'U15',
+            gender: 'MEN',
+            clubId: 'club-1',
+            clubName: 'COC Basket',
+            isTeamAdmin: false,
+            rosterRole: 'PLAYER',
+          },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<AccountMenu />);
+
+    await user.click(screen.getByRole('button', { name: 'Mon compte' }));
+
+    await waitFor(() => expect(screen.getByText('chris@example.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByRole('menuitem', { name: 'Créer un club' })).not.toBeInTheDocument(),
+    );
+  });
+
   it('logs out when "Se déconnecter" is chosen', async () => {
     mockSession();
     server.use(http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })));

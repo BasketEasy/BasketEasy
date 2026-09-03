@@ -40,4 +40,16 @@ describe('Toast', () => {
     );
     expect(screen.getByTestId('toast-root')).toHaveClass('border-error');
   });
+
+  it("stacks above Dialog's overlay (z-50) — a toast fired from an open dialog must stay readable", () => {
+    render(
+      <ToastProvider>
+        <Toast open data-testid="toast-root">
+          <ToastDescription>Enregistré</ToastDescription>
+        </Toast>
+        <ToastViewport data-testid="toast-viewport" />
+      </ToastProvider>,
+    );
+    expect(screen.getByTestId('toast-viewport')).toHaveClass('z-[60]');
+  });
 });

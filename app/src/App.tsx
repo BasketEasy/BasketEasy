@@ -15,7 +15,6 @@ import { TeamDetailPage } from './pages/TeamDetailPage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
 import { ResultsPage } from './pages/ResultsPage';
-import { AboutPage } from './pages/AboutPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 export default function App() {
@@ -31,7 +30,6 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/about" element={<AboutPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/results" element={<ResultsPage />} />
