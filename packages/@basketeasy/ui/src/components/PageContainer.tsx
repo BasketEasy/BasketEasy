@@ -9,7 +9,14 @@ const pageContainerVariants = cva('mx-auto flex flex-col gap-6 px-4 py-10 sm:px-
       lg: 'max-w-6xl',
     },
     centered: {
-      true: 'min-h-screen justify-center',
+      // dvh, not vh: on mobile Safari 100vh includes the area hidden behind
+      // the collapsible address bar, so a centered page can end up taller
+      // than the actually-visible viewport — the same class of bug
+      // Dialog's own max-h-[calc(100dvh-2rem)] exists to avoid. That extra
+      // height makes an otherwise non-scrolling page scrollable by a few
+      // px, which is what triggers iOS's "fixed" elements (the bottom tab
+      // bar) to visibly detach during the address-bar collapse/expand.
+      true: 'min-h-dvh justify-center',
       false: '',
     },
     /**

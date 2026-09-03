@@ -29,12 +29,12 @@ describe('PageContainer', () => {
 
   it('applies centered layout classes when centered', () => {
     render(<PageContainer centered>Contenu</PageContainer>);
-    expect(screen.getByRole('main')).toHaveClass('min-h-screen', 'justify-center');
+    expect(screen.getByRole('main')).toHaveClass('min-h-dvh', 'justify-center');
   });
 
   it('does not apply centered layout classes by default', () => {
     render(<PageContainer>Contenu</PageContainer>);
-    expect(screen.getByRole('main')).not.toHaveClass('min-h-screen');
+    expect(screen.getByRole('main')).not.toHaveClass('min-h-dvh');
   });
 
   it('reserves clearance for the bottom tab bar by default, below the breakpoint where the bar renders', () => {
