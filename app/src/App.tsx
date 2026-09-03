@@ -6,6 +6,7 @@ import { PublicOnlyRoute } from './auth/PublicOnlyRoute';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { InviteAcceptPage } from './pages/InviteAcceptPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClubCreatePage } from './pages/ClubCreatePage';
 import { MembersPage } from './pages/MembersPage';
@@ -22,6 +23,7 @@ export default function App() {
     <AppErrorBoundary>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/invite/:token" element={<InviteAcceptPage />} />
 
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ClubsService } from './clubs.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -26,6 +27,7 @@ describe('ClubsService', () => {
       delete: jest.Mock;
       count: jest.Mock;
     };
+    playerInvite: { findUnique: jest.Mock; upsert: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -50,6 +52,7 @@ describe('ClubsService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
+      playerInvite: { findUnique: jest.fn(), upsert: jest.fn() },
       $transaction: jest.fn((arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
@@ -58,7 +61,11 @@ describe('ClubsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClubsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ClubsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<ClubsService>(ClubsService);
@@ -701,6 +708,85 @@ describe('ClubsService', () => {
       ]);
 
       expect(result).toEqual({ created: 1, updated: 1, conflicts: 0 });
+    });
+  });
+
+  describe('createPlayerInvite', () => {
+    it('rejects a player already linked to an account', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        userId: 'user-1',
+      });
+
+      await expect(service.createPlayerInvite('club-1', 'p1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.playerInvite.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts an invite for an unlinked player and returns its link', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1', userId: null });
+      prisma.playerInvite.upsert.mockResolvedValue({});
+
+      const result = await service.createPlayerInvite('club-1', 'p1');
+
+      expect(prisma.playerInvite.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { playerId: 'p1' },
+          create: expect.objectContaining({ playerId: 'p1' }),
+          update: expect.objectContaining({ acceptedAt: null }),
+        }),
+      );
+      expect(result.token).toEqual(expect.any(String));
+      expect(result.url).toContain(`/invite/${result.token}`);
+    });
+  });
+
+  describe('getPlayerInviteStatus', () => {
+    beforeEach(() => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1', userId: null });
+    });
+
+    it('reports NONE when no invite has ever been generated', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue(null);
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'NONE',
+        expiresAt: null,
+      });
+    });
+
+    it('reports ACCEPTED once the invite has been claimed', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue({
+        acceptedAt: new Date(),
+        expiresAt: new Date(Date.now() + 1000),
+      });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'ACCEPTED',
+        expiresAt: null,
+      });
+    });
+
+    it('reports EXPIRED once the invite is past its expiry', async () => {
+      const expiresAt = new Date(Date.now() - 1000);
+      prisma.playerInvite.findUnique.mockResolvedValue({ acceptedAt: null, expiresAt });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'EXPIRED',
+        expiresAt: expiresAt.toISOString(),
+      });
+    });
+
+    it('reports PENDING for a live, unclaimed invite', async () => {
+      const expiresAt = new Date(Date.now() + 1000);
+      prisma.playerInvite.findUnique.mockResolvedValue({ acceptedAt: null, expiresAt });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'PENDING',
+        expiresAt: expiresAt.toISOString(),
+      });
     });
   });
 });

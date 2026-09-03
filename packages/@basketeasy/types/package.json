@@ -59,6 +59,10 @@
     "./team-stats": {
       "types": "./team-stats.ts",
       "default": "./team-stats.ts"
+    },
+    "./player-invites": {
+      "types": "./player-invites.ts",
+      "default": "./player-invites.ts"
     }
   },
   "scripts": {
