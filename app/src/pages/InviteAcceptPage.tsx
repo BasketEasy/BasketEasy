@@ -8,7 +8,7 @@ import { InviteAcceptForm } from '../invites/InviteAcceptForm';
 export function InviteAcceptPage() {
   const { token = '' } = useParams<{ token: string }>();
   return (
-    <PageContainer size="md" centered bottomNav={false}>
+    <PageContainer size="md" centered>
       <InviteAcceptForm token={token} />
     </PageContainer>
   );
