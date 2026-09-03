@@ -39,6 +39,12 @@ const avatarFallbackVariants = cva(
         structure: 'bg-blue-green text-cream',
         brand: 'bg-orange text-cream',
         placeholder: 'border-2 border-dashed border-border-strong bg-sunk text-muted',
+        /**
+         * A count rather than a person — AvatarGroup's "+N" overflow chip.
+         * Not `placeholder`: its dashed outline means "we don't know who
+         * this is", which is the opposite of what the chip says.
+         */
+        muted: 'bg-sunk text-muted',
         /** For an avatar sitting on a brand-filled surface, where the fill inverts. */
         inverse: 'bg-surface-2 text-orange-text',
       },

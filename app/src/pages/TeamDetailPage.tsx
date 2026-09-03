@@ -3,8 +3,6 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Button } from '@basketeasy/ui/button';
-import { cn } from '@basketeasy/ui/cn';
-import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { Heading } from '@basketeasy/ui/heading';
@@ -19,6 +17,7 @@ import {
 import { FormField } from '@basketeasy/ui/form-field';
 import { Input } from '@basketeasy/ui/input';
 import { Pagination } from '@basketeasy/ui/pagination';
+import { SegmentedControl } from '@basketeasy/ui/segmented-control';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -66,61 +65,6 @@ import { Text } from '@basketeasy/ui/text';
 const LINKING_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-
-/**
- * Two-option segmented control for a view-mode toggle (roster cards/table,
- * events agenda/table) — same visual/interaction pattern as
- * EventRsvpControl's segmented control (role="group" of buttons,
- * aria-pressed, shadow-segment-active on the pressed option), adapted for a
- * plain two-state toggle instead of a tri-state selectable value. Reuses the
- * existing toggleXViewMode callback as-is: since there are only ever two
- * states, clicking the inactive option is exactly what that toggle already
- * does (flip state, reset the table view's filters); clicking the active
- * option is a no-op.
- */
-function ViewModeToggle<T extends string>({
-  ariaLabel,
-  value,
-  options,
-  onToggle,
-}: {
-  ariaLabel: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onToggle: () => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={ariaLabel}
-      className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
-    >
-      {options.map((option, index) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => {
-              if (!active) onToggle();
-            }}
-            className={cn(
-              'flex min-h-11 items-center justify-center whitespace-nowrap px-3.5 text-sm font-semibold transition-colors',
-              focusRing,
-              index > 0 && 'border-l border-border-strong',
-              active
-                ? 'bg-blue-green text-cream shadow-segment-active'
-                : 'bg-surface text-muted hover:bg-sunk',
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 const TEAM_CLUB_SORT_OPTIONS: {
   value: string;
@@ -567,10 +511,12 @@ export function TeamDetailPage() {
                 </DialogContent>
               </Dialog>
             )}
-            <ViewModeToggle
+            <SegmentedControl
               ariaLabel="Affichage de l'effectif"
               value={rosterViewMode}
-              onToggle={toggleRosterViewMode}
+              onChange={(next) => {
+                if (next !== rosterViewMode) toggleRosterViewMode();
+              }}
               options={[
                 { value: 'cards', label: 'Cartes' },
                 { value: 'table', label: 'Tableau' },
@@ -845,10 +791,12 @@ export function TeamDetailPage() {
                 </DialogContent>
               </Dialog>
             )}
-            <ViewModeToggle
+            <SegmentedControl
               ariaLabel="Affichage des événements"
               value={eventsViewMode}
-              onToggle={toggleEventsViewMode}
+              onChange={(next) => {
+                if (next !== eventsViewMode) toggleEventsViewMode();
+              }}
               options={[
                 { value: 'agenda', label: 'Agenda' },
                 { value: 'table', label: 'Liste' },
@@ -857,10 +805,12 @@ export function TeamDetailPage() {
           </div>
 
           {eventsViewMode === 'agenda' && (
-            <ViewModeToggle
+            <SegmentedControl
               ariaLabel="Période"
               value={agendaPeriod}
-              onToggle={toggleAgendaPeriod}
+              onChange={(next) => {
+                if (next !== agendaPeriod) toggleAgendaPeriod();
+              }}
               options={[
                 { value: 'upcoming', label: 'À venir' },
                 { value: 'past', label: 'Passés' },

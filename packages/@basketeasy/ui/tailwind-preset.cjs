@@ -70,6 +70,13 @@ module.exports = {
         md: '0 2px 6px rgba(59, 42, 24, 0.08), 0 1px 2px rgba(59, 42, 24, 0.05)',
         lg: '0 10px 28px rgba(59, 42, 24, 0.11), 0 2px 6px rgba(59, 42, 24, 0.06)',
         'nav-active': 'inset 0 -2px 0 #D4622A',
+        // The bottom tab bar's active item. Not `nav-active`: that one is
+        // `inset 0 -2px 0`, a rule along the *bottom* edge, which is where a
+        // top navigation's underline belongs. In a bar pinned to the bottom
+        // of the viewport the same rule would be drawn against the edge of
+        // the screen and read as a stray line, so the mirrored inset puts it
+        // along the top edge, between the bar and the content it covers.
+        'nav-active-top': 'inset 0 2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
       },
       minWidth: {

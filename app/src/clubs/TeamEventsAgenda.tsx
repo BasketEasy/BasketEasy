@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
-import { cn } from '@basketeasy/ui/cn';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { TimeBlock } from '@basketeasy/ui/time-block';
 import type { TeamEvent } from '@basketeasy/types/events';
-import { eventDayKey, formatDayHeading, formatEventTime } from './eventDateFormat';
-import { eventDetailLinkLabel, eventTypeShortLabel } from './eventLabels';
+import { eventDayKey, formatDayHeading } from './eventDateFormat';
+import { eventDetailLinkLabel } from './eventLabels';
 import { EventLogisticsMiniChips } from './EventLogisticsMiniChips';
 import { EventVenueBadge } from './EventVenueBadge';
 import { EventVoteBadge } from './EventVoteBadge';
@@ -40,48 +40,7 @@ function AgendaEventCard({
 
   return (
     <Card variant="flush" className="flex flex-row">
-      <div
-        className={cn(
-          'flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 py-4 sm:w-24',
-          isMatch
-            ? 'bg-blue-green text-cream'
-            : 'border-r border-border bg-surface-2 text-charcoal',
-        )}
-      >
-        {event.timeConfirmed ? (
-          <Text
-            tone="inherit"
-            as="span"
-            variant="display"
-            size="2xl"
-            className="tabular leading-none sm:text-3xl"
-          >
-            {formatEventTime(event.startsAt)}
-          </Text>
-        ) : (
-          // w-full + text-center (rather than letting the span shrink-to-fit
-          // and get centered by the flex column) keeps this two-word label
-          // from overflowing the narrow time-block column and getting
-          // clipped by the card's overflow-hidden — it was rendering as a
-          // mangled fragment ("ONFIRME") on a narrow viewport before this.
-          <Text
-            as="span"
-            variant="eyebrow"
-            tone="inherit"
-            className="w-full break-words px-0.5 text-center leading-tight tracking-wide-caps"
-          >
-            à confirmer
-          </Text>
-        )}
-        <Text
-          as="span"
-          variant="eyebrow"
-          tone="inherit"
-          className="min-w-0 max-w-full truncate opacity-80 tracking-wide-caps"
-        >
-          {eventTypeShortLabel(event.type)}
-        </Text>
-      </div>
+      <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed={event.timeConfirmed} />
       <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-4">
           {/* Left column: badge/logistics cluster on top, RSVP underneath.

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Text } from '@basketeasy/ui/text';
@@ -10,6 +10,7 @@ import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
+import { StatTile } from '@basketeasy/ui/stat-tile';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -24,24 +25,6 @@ import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../club
 import { formatEventDate } from '../clubs/eventDateFormat';
 import { eventTypeLabel } from '../clubs/eventLabels';
 import { eventRsvpStatusLabel } from '../clubs/eventRsvpLabels';
-
-function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 text-muted">
-          {icon}
-          <Text as="span" variant="meta" tone="inherit">
-            {label}
-          </Text>
-        </div>
-        <Text as="span" variant="display" size="3xl">
-          {value}
-        </Text>
-      </CardContent>
-    </Card>
-  );
-}
 
 function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: boolean }) {
   return (

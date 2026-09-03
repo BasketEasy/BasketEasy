@@ -17,3 +17,10 @@ body {
 .safe-area-top {
   padding-top: env(safe-area-inset-top);
 }
+
+/* The mirror of the above for the bottom tab bar (TabBar), which is fixed to
+   the bottom of the viewport and would otherwise sit under the iOS home
+   indicator. */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
