@@ -49,7 +49,7 @@ export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
 
   if (isResolving) {
     return (
-      <header className="safe-area-top border-b border-border">
+      <header className="border-b border-border">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
           <Text as="span" variant="display" size="2xl" tone="brand">
             Kluvo
@@ -130,7 +130,7 @@ function AppHeaderResolved() {
   );
 
   return (
-    <header className="safe-area-top relative border-b border-border bg-surface">
+    <header className="relative border-b border-border bg-surface">
       <a
         href="#contenu"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-20 focus:rounded-md focus:bg-surface focus:px-4 focus:py-2 focus:shadow-lg"
