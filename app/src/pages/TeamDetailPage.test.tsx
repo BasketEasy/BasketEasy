@@ -627,6 +627,53 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
   });
 
+  it('shows the à traiter band on the manager Événements tab, scoped to this team’s own items', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [],
+          actionItems: [
+            {
+              kind: 'MATCH_WITHOUT_CONVOCATIONS',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-1',
+              teamName: 'U15 Garçons',
+              eventId: 'event-1',
+              message: "Match contre l'ES Rezé samedi — personne n'a encore été convoqué.",
+            },
+            // A different team's item must never leak onto this team's page.
+            {
+              kind: 'PLAYERS_WITHOUT_ACCOUNT',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-2',
+              teamName: 'Autre équipe',
+              eventId: null,
+              message: "Jeanne Martin n'a pas encore de compte Kluvo.",
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText(/personne n'a encore été convoqué/)).toBeInTheDocument();
+    expect(screen.queryByText(/jeanne martin/i)).not.toBeInTheDocument();
+  });
+
   it('toggles the Événements tab between agenda view and table view, resetting the table filters on each switch', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     const requestedSearches: string[] = [];
