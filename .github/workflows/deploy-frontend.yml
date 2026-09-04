@@ -32,6 +32,11 @@ jobs:
 
       - run: pnpm --filter @basketeasy/app build
 
+      # wrangler-action tries "pnpm add wrangler" if it can't find an existing
+      # install, which fails in a pnpm workspace (adds to root, needs -w).
+      # Installing it globally first avoids that auto-install path entirely.
+      - run: npm install -g wrangler
+
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
