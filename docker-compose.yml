@@ -56,12 +56,14 @@ services:
       # verification/reset links land in the server log instead of an inbox —
       # which is how these flows are exercised locally.
       BREVO_API_KEY: ${BREVO_API_KEY:-}
-      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@kluvo.fr}
+      # From stays no-reply; replies go to the monitored mailbox instead.
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@kluvo.net}
+      MAIL_REPLY_TO_EMAIL: ${MAIL_REPLY_TO_EMAIL:-contact@kluvo.net}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Kluvo}
       # Web Push. Empty disables push; the frontend then hides its toggle.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
-      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:no-reply@kluvo.fr}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@kluvo.net}
     ports:
       - '3000:3000'
     depends_on:
