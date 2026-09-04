@@ -60,7 +60,7 @@ describe('FfbbPouleService', () => {
       matches: [],
       pouleRef: 'ligues/pdl/comites/0044/competitions/dm3?phase=1&poule=2',
     });
-    ffbbProvider.getPouleStandings.mockResolvedValue({ standings: [], latestResults: [] });
+    ffbbProvider.getPouleStandings.mockResolvedValue({ standings: [], matchdays: [] });
 
     await service.getPouleResults('club-1', 'team-1');
 
@@ -80,7 +80,7 @@ describe('FfbbPouleService', () => {
       matches: [],
       pouleRef: 'ligues/pdl/comites/0044/competitions/dm3?phase=1&poule=2',
     });
-    ffbbProvider.getPouleStandings.mockResolvedValue({ standings: [], latestResults: [] });
+    ffbbProvider.getPouleStandings.mockResolvedValue({ standings: [], matchdays: [] });
 
     await service.getPouleResults('club-1', 'team-1');
 
@@ -90,7 +90,7 @@ describe('FfbbPouleService', () => {
     );
   });
 
-  it('returns the combined competitionLabel/standings/latestResults', async () => {
+  it('returns the combined competitionLabel/standings/matchdays', async () => {
     stubTeamInClub();
     prisma.teamFfbbLink.findFirst.mockResolvedValue({
       id: 'link-1',
@@ -102,21 +102,25 @@ describe('FfbbPouleService', () => {
       pouleRef: 'ligues/pdl/comites/0044/competitions/dm3?phase=1&poule=2',
     });
     const standings = [{ teamLabel: 'Us', played: 3, won: 2, lost: 1, points: 5, isOurTeam: true }];
-    const latestResults = [
+    const matchdays = [
       {
         matchdayLabel: 'Journée 2',
-        homeLabel: 'Us',
-        awayLabel: 'Them',
-        homeScore: 68,
-        awayScore: 61,
-        involvesOurTeam: true,
+        results: [
+          {
+            homeLabel: 'Us',
+            awayLabel: 'Them',
+            homeScore: 68,
+            awayScore: 61,
+            involvesOurTeam: true,
+          },
+        ],
       },
     ];
-    ffbbProvider.getPouleStandings.mockResolvedValue({ standings, latestResults });
+    ffbbProvider.getPouleStandings.mockResolvedValue({ standings, matchdays });
 
     const result = await service.getPouleResults('club-1', 'team-1');
 
-    expect(result).toEqual({ competitionLabel: 'Seniors M D3', standings, latestResults });
+    expect(result).toEqual({ competitionLabel: 'Seniors M D3', standings, matchdays });
   });
 
   it('wraps a null pouleRef into the friendly not-available error', async () => {

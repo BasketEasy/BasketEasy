@@ -1,0 +1,176 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors M",
+    "category": "SENIORS",
+    "gender": "MEN",
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [
+    { "id": "link-1", "ffbbEngagementLabel": "Seniors M D3" }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/ffbb-poule-results": {
+    "competitionLabel": "Seniors M D3, Poule E",
+    "standings": [
+      {
+        "teamLabel": "Vertou Basket Club",
+        "played": 5,
+        "won": 4,
+        "lost": 1,
+        "points": 9,
+        "isOurTeam": false
+      },
+      {
+        "teamLabel": "Basket Club Basse Goulaine",
+        "played": 5,
+        "won": 3,
+        "lost": 2,
+        "points": 8,
+        "isOurTeam": true
+      },
+      {
+        "teamLabel": "Nantes Sully Basket",
+        "played": 5,
+        "won": 2,
+        "lost": 3,
+        "points": 7,
+        "isOurTeam": false
+      },
+      {
+        "teamLabel": "AS Rezé Basket",
+        "played": 5,
+        "won": 1,
+        "lost": 4,
+        "points": 6,
+        "isOurTeam": false
+      }
+    ],
+    "matchdays": [
+      {
+        "matchdayLabel": "Journée 5",
+        "results": [
+          {
+            "homeLabel": "Nantes Sully Basket",
+            "awayLabel": "Basket Club Basse Goulaine",
+            "homeScore": 50,
+            "awayScore": 62,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "Vertou Basket Club",
+            "awayLabel": "AS Rezé Basket",
+            "homeScore": 66,
+            "awayScore": 40,
+            "involvesOurTeam": false
+          }
+        ]
+      },
+      {
+        "matchdayLabel": "Journée 4",
+        "results": [
+          {
+            "homeLabel": "Basket Club Basse Goulaine",
+            "awayLabel": "Vertou Basket Club",
+            "homeScore": 59,
+            "awayScore": 63,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "AS Rezé Basket",
+            "awayLabel": "Nantes Sully Basket",
+            "homeScore": 48,
+            "awayScore": 55,
+            "involvesOurTeam": false
+          }
+        ]
+      },
+      {
+        "matchdayLabel": "Journée 3",
+        "results": [
+          {
+            "homeLabel": "Basket Club Basse Goulaine",
+            "awayLabel": "Nantes Sully Basket",
+            "homeScore": 68,
+            "awayScore": 61,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "AS Rezé Basket",
+            "awayLabel": "Vertou Basket Club",
+            "homeScore": 52,
+            "awayScore": 70,
+            "involvesOurTeam": false
+          }
+        ]
+      },
+      {
+        "matchdayLabel": "Journée 2",
+        "results": [
+          {
+            "homeLabel": "Vertou Basket Club",
+            "awayLabel": "Basket Club Basse Goulaine",
+            "homeScore": 58,
+            "awayScore": 55,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "Nantes Sully Basket",
+            "awayLabel": "AS Rezé Basket",
+            "homeScore": 64,
+            "awayScore": 49,
+            "involvesOurTeam": false
+          }
+        ]
+      },
+      {
+        "matchdayLabel": "Journée 1",
+        "results": [
+          {
+            "homeLabel": "Basket Club Basse Goulaine",
+            "awayLabel": "AS Rezé Basket",
+            "homeScore": 71,
+            "awayScore": 45,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "Vertou Basket Club",
+            "awayLabel": "Nantes Sully Basket",
+            "homeScore": 60,
+            "awayScore": 57,
+            "involvesOurTeam": false
+          }
+        ]
+      }
+    ]
+  }
+}

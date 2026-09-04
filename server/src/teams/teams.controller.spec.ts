@@ -299,7 +299,7 @@ describe('TeamsController', () => {
     ffbbPouleService.getPouleResults.mockResolvedValue({
       competitionLabel: 'Seniors M D3',
       standings: [],
-      latestResults: [],
+      matchdays: [],
     });
 
     const result = await controller.getFfbbPouleResults('club-1', 'team-1');

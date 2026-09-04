@@ -4,6 +4,7 @@ import {
   FfbbEngagementFetchResult,
   FfbbMatch,
   FfbbPageFormatError,
+  FfbbPouleMatchday,
   FfbbPouleResult,
   FfbbPouleStandings,
   FfbbPouleTeamStanding,
@@ -152,6 +153,12 @@ interface InfoItem {
   value?: unknown;
 }
 
+/** Bounds how many `"data":[` occurrences extractDataArray will try before giving up on a chunk. */
+const MAX_DATA_ARRAY_SCANS = 20;
+
+/** Bounds how many `"poules":[` occurrences extractPoulesArray will try before giving up on a chunk. */
+const MAX_POULES_ARRAY_SCANS = 20;
+
 /** Guards on the text scan that finds a venue object inside an RSC chunk. */
 const MAX_VENUE_MARKER_SCANS = 40;
 const MAX_ENCLOSING_OBJECT_CANDIDATES = 24;
@@ -196,10 +203,12 @@ interface RawFfbbMatch {
   idEngagementEquipe1?: { id?: unknown; nom?: unknown } | null;
   idEngagementEquipe2?: { id?: unknown; nom?: unknown } | null;
   // Confirmed present on a poule page's rencontre objects (2026-09-03
-  // capture); not yet confirmed on the team-engagement page's own rencontre
-  // objects, which this same interface also types — if a future capture
-  // shows they're absent there, derivePouleRef below simply returns null for
-  // that engagement (see its own comment) rather than mis-deriving a ref.
+  // capture). Confirmed ABSENT on the team-engagement page's own rencontre
+  // objects (2026-09-04 capture) — that page carries the poule id only on
+  // its separate `dataEngagement` object (see derivePouleRef/
+  // extractEngagementPouleId), never per-match. Kept on this shared
+  // interface because getPouleStandings's own rencontre rows (via
+  // RawFfbbPoule.rencontres) do carry it.
   idPoule?: { id?: unknown; nom?: unknown } | null;
   competitionId?: { id?: unknown } | null;
   [key: string]: unknown;
@@ -236,13 +245,14 @@ interface RawFfbbPoule {
  * out of its embedded Next.js RSC streaming payload
  * (`self.__next_f.push([...])` script chunks) — no auth needed.
  *
- * Extraction here is verified against a fixture built from the design
- * spec's documented sample payload, not a live fetch: this sandbox's
- * network policy blocks egress to competitions.ffbb.com, so the exact
- * real-world chunk boundaries and field set are unconfirmed pending a real
- * fetch at deploy time. Any shape it doesn't recognize throws
- * FfbbPageFormatError rather than guessing — this is deliberately the one
- * file expected to need updates when FFBB's frontend changes.
+ * Extraction here is verified against fixtures built from real captured
+ * pages (2026-09-01 match detail, 2026-09-03 poule standings, 2026-09-04
+ * team engagement — sandbox egress to competitions.ffbb.com is blocked, so
+ * captures were taken outside it and copied in as literal fixture text, not
+ * re-derived from the design spec's guessed shape). Any shape it doesn't
+ * recognize throws FfbbPageFormatError rather than guessing — this is
+ * deliberately the one file expected to need updates when FFBB's frontend
+ * changes.
  */
 @Injectable()
 export class FfbbPageScrapeProvider implements FfbbProvider {
@@ -296,7 +306,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
 
     return {
       standings: this.toStandings(poule.classements, ourEngagementId),
-      latestResults: this.toLatestResults(poule.rencontres, ourEngagementId),
+      matchdays: this.toMatchdays(poule.rencontres, ourEngagementId),
     };
   }
 
@@ -305,9 +315,12 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
    * whole poule standings reference, built entirely from data this same
    * fetch already pulled (see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md):
    * a match detail link anywhere in the page gives the competition prefix,
-   * and any one raw match's own idPoule/competitionId gives the two ids. A
-   * team plays in exactly one poule per engagement, so it doesn't matter
-   * which fetched match supplies the ids.
+   * any one raw match's own competitionId gives the phase id, and the page's
+   * `dataEngagement` object gives the poule id (see its own comment — a raw
+   * match row never carries idPoule on a team's own engagement page,
+   * confirmed against a live page 2026-09-04). A team plays in exactly one
+   * poule per engagement, so it doesn't matter which fetched match supplies
+   * the phase id.
    */
   private derivePouleRef(rawMatches: RawFfbbMatch[], chunks: string[]): string | null {
     let competitionPrefix: string | null = null;
@@ -322,12 +335,41 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     }
     if (!competitionPrefix) return null;
 
+    const pouleId = this.extractEngagementPouleId(chunks);
+    if (!pouleId) return null;
+
     for (const raw of rawMatches) {
-      const pouleId = this.readNestedId(raw.idPoule);
       const phaseId = this.readNestedId(raw.competitionId);
-      if (pouleId && phaseId) {
+      if (phaseId) {
         return `${competitionPrefix}?phase=${phaseId}&poule=${pouleId}`;
       }
+    }
+    return null;
+  }
+
+  /**
+   * The team's own poule id, read off the page's `dataEngagement.idPoule`
+   * object — the RSC payload's summary of the engagement itself, distinct
+   * from its `data` array of matches. Confirmed against a live page
+   * (2026-09-04): none of that array's rencontre rows carry an `idPoule`
+   * field, only this sibling object does.
+   */
+  private extractEngagementPouleId(chunks: string[]): string | null {
+    const marker = '"dataEngagement":{';
+    for (const chunk of chunks) {
+      const markerIndex = chunk.indexOf(marker);
+      if (markerIndex === -1) continue;
+      const objectText = this.readBalancedObject(chunk, markerIndex + marker.length - 1);
+      if (!objectText) continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(objectText);
+      } catch {
+        continue;
+      }
+      if (typeof parsed !== 'object' || parsed === null) continue;
+      const pouleId = this.readNestedId((parsed as { idPoule?: unknown }).idPoule);
+      if (pouleId) return pouleId;
     }
     return null;
   }
@@ -432,47 +474,79 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return null;
   }
 
-  /** Finds `"data":[...]` in a decoded RSC chunk and parses the array, respecting nested brackets/strings. Returns null if this chunk doesn't contain one. */
+  /**
+   * Finds `"data":[...]` in a decoded RSC chunk and parses the array,
+   * respecting nested brackets/strings. A team's own page ships more than
+   * one array under this key before the match list — confirmed live
+   * (2026-09-04): a `"data":[...]` full of the club's *other* teams (a
+   * competition switcher, shaped nothing like a match) sits earlier in the
+   * same chunk. So a shape mismatch keeps scanning forward for the next
+   * occurrence rather than giving up on the whole chunk.
+   */
   private extractDataArray(chunk: string): RawFfbbMatch[] | null {
     const marker = '"data":[';
-    const markerIndex = chunk.indexOf(marker);
-    if (markerIndex === -1) return null;
-    const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
-    if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
-      return null;
+    let searchFrom = 0;
+    let scans = 0;
+    for (;;) {
+      if (scans >= MAX_DATA_ARRAY_SCANS) return null;
+      scans += 1;
+      const markerIndex = chunk.indexOf(marker, searchFrom);
+      if (markerIndex === -1) return null;
+      searchFrom = markerIndex + marker.length;
+      const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
+      if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
+        continue;
+      }
+      // A false positive on "data":[...] with no match-shaped entries (e.g.
+      // an unrelated array) — only trust arrays whose entries actually look
+      // like matches.
+      if (
+        !parsed.every((entry) => 'id' in (entry as object) && 'date_rencontre' in (entry as object))
+      ) {
+        continue;
+      }
+      return parsed as RawFfbbMatch[];
     }
-    // A false positive on "data":[...] with no match-shaped entries (e.g. an
-    // unrelated array) — only trust arrays whose entries actually look like
-    // matches.
-    if (
-      !parsed.every((entry) => 'id' in (entry as object) && 'date_rencontre' in (entry as object))
-    ) {
-      return null;
-    }
-    return parsed as RawFfbbMatch[];
   }
 
-  /** Finds `"poules":[...]` in a decoded RSC chunk and parses the array. A false positive worth ruling out here specifically: FFBB's page also ships a lightweight index with the same key holding bare id *strings*, not poule objects (see the design spec's research notes) — the shape check below rejects that array and lets the caller keep scanning. */
+  /**
+   * Finds `"poules":[...]` in a decoded RSC chunk and parses the array. A
+   * false positive worth ruling out here specifically: FFBB's page ships
+   * more than one array under this same key before the real one — a
+   * lightweight index holding bare id *strings*, and a second holding
+   * poule objects with only `id`/`nom` (no `rencontres`/`classements`) —
+   * all three confirmed to live in the *same* single RSC chunk on a live
+   * page (2026-09-04), not separate ones. So a shape mismatch keeps
+   * scanning forward for the next occurrence in this chunk rather than
+   * giving up on it.
+   */
   private extractPoulesArray(chunk: string): RawFfbbPoule[] | null {
     const marker = '"poules":[';
-    const markerIndex = chunk.indexOf(marker);
-    if (markerIndex === -1) return null;
-    const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
-    if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
-      return null;
+    let searchFrom = 0;
+    let scans = 0;
+    for (;;) {
+      if (scans >= MAX_POULES_ARRAY_SCANS) return null;
+      scans += 1;
+      const markerIndex = chunk.indexOf(marker, searchFrom);
+      if (markerIndex === -1) return null;
+      searchFrom = markerIndex + marker.length;
+      const parsed = this.parseArrayAt(chunk, markerIndex + marker.length - 1);
+      if (!parsed || parsed.some((entry) => typeof entry !== 'object' || entry === null)) {
+        continue;
+      }
+      if (
+        !parsed.every(
+          (entry) =>
+            'id' in (entry as object) &&
+            'nom' in (entry as object) &&
+            'rencontres' in (entry as object) &&
+            'classements' in (entry as object),
+        )
+      ) {
+        continue;
+      }
+      return parsed as RawFfbbPoule[];
     }
-    if (
-      !parsed.every(
-        (entry) =>
-          'id' in (entry as object) &&
-          'nom' in (entry as object) &&
-          'rencontres' in (entry as object) &&
-          'classements' in (entry as object),
-      )
-    ) {
-      return null;
-    }
-    return parsed as RawFfbbPoule[];
   }
 
   private extractRawPoules(chunks: string[]): RawFfbbPoule[] {
@@ -564,33 +638,24 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return rows.sort((a, b) => a.position - b.position).map((row) => row.standing);
   }
 
-  /** Every result from the poule's highest journée with at least one played match. A postponed match sharing that journée number is excluded — it has no score to show. */
-  private toLatestResults(rawRencontres: unknown, ourEngagementId: string): FfbbPouleResult[] {
+  /** Every played journée, most recent first — a played match with no journée number is dropped rather than mis-grouped. */
+  private toMatchdays(rawRencontres: unknown, ourEngagementId: string): FfbbPouleMatchday[] {
     if (!Array.isArray(rawRencontres)) return [];
 
     const played = rawRencontres.filter(
       (entry): entry is RawFfbbMatch =>
         typeof entry === 'object' && entry !== null && (entry as RawFfbbMatch).joue === true,
     );
-    if (played.length === 0) return [];
 
-    let latestJournee: number | null = null;
+    const byJournee = new Map<number, FfbbPouleResult[]>();
     for (const raw of played) {
       const journee = this.toNumber(raw.numeroJournee);
-      if (journee !== null && (latestJournee === null || journee > latestJournee)) {
-        latestJournee = journee;
-      }
-    }
-    if (latestJournee === null) return [];
-
-    const results: FfbbPouleResult[] = [];
-    for (const raw of played) {
-      if (this.toNumber(raw.numeroJournee) !== latestJournee) continue;
       const home = raw.idEngagementEquipe1;
       const away = raw.idEngagementEquipe2;
       const homeScore = this.toNumber(raw.resultatEquipe1);
       const awayScore = this.toNumber(raw.resultatEquipe2);
       if (
+        journee === null ||
         !home ||
         typeof home.nom !== 'string' ||
         !away ||
@@ -600,16 +665,24 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       ) {
         continue;
       }
-      results.push({
-        matchdayLabel: `Journée ${latestJournee}`,
+      const result: FfbbPouleResult = {
         homeLabel: home.nom,
         awayLabel: away.nom,
         homeScore,
         awayScore,
         involvesOurTeam: String(home.id) === ourEngagementId || String(away.id) === ourEngagementId,
-      });
+      };
+      const results = byJournee.get(journee);
+      if (results) {
+        results.push(result);
+      } else {
+        byJournee.set(journee, [result]);
+      }
     }
-    return results;
+
+    return [...byJournee.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([journee, results]) => ({ matchdayLabel: `Journée ${journee}`, results }));
   }
 
   /** FFBB's own numeric fields are strings on this API — accepts either. */

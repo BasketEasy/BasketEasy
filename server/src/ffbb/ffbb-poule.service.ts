@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { PouleResults } from '@basketeasy/types/ffbb';
 import { PrismaService } from '../prisma/prisma.service';
 import { FFBB_PROVIDER, FfbbPageFormatError, FfbbProvider } from './ffbb-provider';
@@ -18,6 +18,8 @@ const POULE_FETCH_FAILED_MESSAGE =
  */
 @Injectable()
 export class FfbbPouleService {
+  private readonly logger = new Logger(FfbbPouleService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
@@ -57,13 +59,19 @@ export class FfbbPouleService {
       if (!pouleRef) {
         throw new FfbbPageFormatError('No poule reference available yet for this engagement');
       }
-      const { standings, latestResults } = await this.ffbbProvider.getPouleStandings(
+      const { standings, matchdays } = await this.ffbbProvider.getPouleStandings(
         pouleRef,
         ourEngagementId,
       );
-      return { competitionLabel, standings, latestResults };
+      return { competitionLabel, standings, matchdays };
     } catch (err) {
       if (err instanceof FfbbPageFormatError) {
+        // The 404 response tells the coach nothing actionable by design —
+        // this is the only place the real scrape failure (wrong FFBB page
+        // shape, WAF block, stale ref, …) is ever recorded.
+        this.logger.warn(
+          `FFBB poule fetch failed for team ${teamId} (engagement ${link.ffbbEngagementRef}): ${err.message}`,
+        );
         throw new NotFoundException({
           message: POULE_FETCH_FAILED_MESSAGE,
           code: 'FFBB_POULE_UNAVAILABLE',

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { PouleResults } from '@basketeasy/types/ffbb';
 import { server } from '../mocks/server';
@@ -26,14 +27,30 @@ function results(overrides: Partial<PouleResults> = {}): PouleResults {
         isOurTeam: true,
       },
     ],
-    latestResults: [
+    matchdays: [
       {
         matchdayLabel: 'Journée 3',
-        homeLabel: 'Basket Club Basse Goulaine',
-        awayLabel: 'Nantes Sully Basket',
-        homeScore: 68,
-        awayScore: 61,
-        involvesOurTeam: true,
+        results: [
+          {
+            homeLabel: 'Basket Club Basse Goulaine',
+            awayLabel: 'Nantes Sully Basket',
+            homeScore: 68,
+            awayScore: 61,
+            involvesOurTeam: true,
+          },
+        ],
+      },
+      {
+        matchdayLabel: 'Journée 2',
+        results: [
+          {
+            homeLabel: 'AS Rezé Basket',
+            awayLabel: 'Basket Club Basse Goulaine',
+            homeScore: 55,
+            awayScore: 50,
+            involvesOurTeam: true,
+          },
+        ],
       },
     ],
     ...overrides,
@@ -88,15 +105,41 @@ describe('PouleResultsPanel', () => {
 
     renderPanel();
 
-    expect((await screen.findAllByText('Basket Club Basse Goulaine')).length).toBe(2);
+    expect((await screen.findAllByText('Basket Club Basse Goulaine')).length).toBe(3);
     expect(screen.getByText('Vertou Basket Club')).toBeInTheDocument();
     expect(screen.getByText('Nantes Sully Basket')).toBeInTheDocument();
     expect(screen.getAllByText('nous').length).toBeGreaterThan(0);
     expect(screen.getByText('Journée 3')).toBeInTheDocument();
+    expect(screen.getByText('Journée 2')).toBeInTheDocument();
+  });
+
+  it('shows only the most recent journées by default, revealing the rest on demand', async () => {
+    mockResults(
+      results({
+        matchdays: [
+          { matchdayLabel: 'Journée 4', results: [] },
+          { matchdayLabel: 'Journée 3', results: [] },
+          { matchdayLabel: 'Journée 2', results: [] },
+          { matchdayLabel: 'Journée 1', results: [] },
+        ],
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderPanel();
+
+    expect(await screen.findByText('Journée 4')).toBeInTheDocument();
+    expect(screen.getByText('Journée 3')).toBeInTheDocument();
+    expect(screen.getByText('Journée 2')).toBeInTheDocument();
+    expect(screen.queryByText('Journée 1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Voir les journées précédentes' }));
+
+    await waitFor(() => expect(screen.getByText('Journée 1')).toBeInTheDocument());
   });
 
   it('renders its own empty copy for standings/results without falling back to the no-link empty state', async () => {
-    mockResults(results({ standings: [], latestResults: [] }));
+    mockResults(results({ standings: [], matchdays: [] }));
 
     renderPanel();
 
