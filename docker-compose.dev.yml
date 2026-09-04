@@ -56,6 +56,12 @@ services:
       NEON_DIRECT_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-secret-change-me}
+      # Dev only gets what dev needs (no R2/Gemini here, same convention),
+      # but FRONTEND_URL matters even locally: it is the origin of every
+      # verification and password-reset link, and with no BREVO_API_KEY set
+      # those links are printed to this container's log rather than sent —
+      # which is how both flows are exercised without a Brevo account.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     ports:
       - '3000:3000'
     volumes:

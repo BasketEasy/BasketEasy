@@ -13,7 +13,6 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
       HttpResponse.json({
         id: 'user-1',
         email: 'a@b.com',
-        emailVerified: true,
         firstName: 'Alix',
         lastName: 'Martin',
         avatarUrl: null,

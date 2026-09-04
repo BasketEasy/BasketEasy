@@ -6,6 +6,8 @@
     "firstName": "Camille",
     "lastName": "Martin",
     "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
     "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
   },
   "GET /api/clubs": [

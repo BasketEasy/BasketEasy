@@ -48,6 +48,20 @@ services:
       # Scoresheet OCR (Gemini vision) — like the R2_* vars above, unset
       # only fails an actual OCR job, not server boot.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Every e-mailed and pushed deep link is built from this: the app
+      # stores notification links as frontend-relative paths and prefixes
+      # them at send time. Without it, links in e-mail point at localhost.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Brevo transactional e-mail. Empty binds the logging mail client, so
+      # verification/reset links land in the server log instead of an inbox —
+      # which is how these flows are exercised locally.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@kluvo.fr}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Kluvo}
+      # Web Push. Empty disables push; the frontend then hides its toggle.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:no-reply@kluvo.fr}
     ports:
       - '3000:3000'
     depends_on:

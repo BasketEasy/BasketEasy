@@ -1,0 +1,63 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "camille.martin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": false,
+    "emailNotificationsEnabled": true,
+    "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [
+      {
+        "id": "notif-1",
+        "type": "EVENT_CONVOCATION",
+        "title": "Vous êtes convoqué·e — U15 M",
+        "body": "Vous êtes convoqué·e pour le match contre ASVEL du samedi 12 septembre à 20:30 à Gymnase Léo Lagrange. Merci d’indiquer votre présence.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-1",
+        "readAt": null,
+        "createdAt": "2026-09-04T11:48:00.000Z"
+      },
+      {
+        "id": "notif-2",
+        "type": "SCORESHEET_READY",
+        "title": "Feuille de match analysée",
+        "body": "La feuille de match a été lue. Vérifiez les statistiques puis validez-les.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-2",
+        "readAt": null,
+        "createdAt": "2026-09-04T09:00:00.000Z"
+      },
+      {
+        "id": "notif-3",
+        "type": "EVENT_CANCELLED",
+        "title": "3 séances annulées — U15 M",
+        "body": "3 occurrences de cette série ont été annulées, à partir du mardi 8 septembre à 18:30.",
+        "deepLink": "/clubs/club-1/teams/team-1",
+        "readAt": null,
+        "createdAt": "2026-09-03T09:00:00.000Z"
+      },
+      {
+        "id": "notif-4",
+        "type": "SCORESHEET_FAILED",
+        "title": "Échec de l’analyse de la feuille de match",
+        "body": "Le service d'analyse était momentanément saturé. Relancez l'analyse dans quelques minutes.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-3",
+        "readAt": "2026-08-26T14:00:00.000Z",
+        "createdAt": "2026-08-26T13:30:00.000Z"
+      }
+    ],
+    "unreadCount": 3
+  }
+}

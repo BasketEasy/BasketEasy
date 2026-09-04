@@ -1,13 +1,15 @@
+import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import type { AppNotification } from '@basketeasy/types/notifications';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { NotificationBell } from './NotificationBell';
 
-const convocation = {
+const convocation: AppNotification = {
   id: 'notif-1',
-  type: 'EVENT_CONVOCATION' as const,
+  type: 'EVENT_CONVOCATION',
   title: 'Vous êtes convoqué·e — U15 M',
   body: 'Match contre ASVEL, samedi 12 septembre à 20:30.',
   deepLink: '/clubs/club-1/teams/team-1/events/event-1',
@@ -15,7 +17,7 @@ const convocation = {
   createdAt: new Date().toISOString(),
 };
 
-function mockNotifications(items: (typeof convocation)[], unreadCount: number) {
+function mockNotifications(items: AppNotification[], unreadCount: number) {
   server.use(http.get('/api/me/notifications', () => HttpResponse.json({ items, unreadCount })));
 }
 
