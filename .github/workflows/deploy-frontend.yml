@@ -1,4 +1,4 @@
-name: Deploy Frontend (Cloudflare Pages)
+name: Deploy Frontend (Cloudflare Workers static assets)
 
 on:
   push:
@@ -41,4 +41,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 403b067b71c882785373b8b329d2bccc
-          command: pages deploy app/dist --project-name=kluvo
+          workingDirectory: app
+          command: deploy
