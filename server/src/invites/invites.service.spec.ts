@@ -12,7 +12,7 @@ describe('InvitesService', () => {
     clubMembership: { upsert: jest.Mock };
     $transaction: jest.Mock;
   };
-  let authService: { register: jest.Mock };
+  let authService: { register: jest.Mock; me: jest.Mock };
 
   const validInvite = {
     id: 'invite-1',
@@ -34,7 +34,7 @@ describe('InvitesService', () => {
       clubMembership: { upsert: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
-    authService = { register: jest.fn() };
+    authService = { register: jest.fn(), me: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,7 +86,11 @@ describe('InvitesService', () => {
       authService.register.mockResolvedValue({
         accessToken: 'access',
         refreshToken: 'refresh',
-        user: { id: 'user-1' },
+        user: { id: 'user-1', memberships: [] },
+      });
+      authService.me.mockResolvedValue({
+        id: 'user-1',
+        memberships: [{ clubId: 'club-1', role: 'MEMBER' }],
       });
       prisma.player.updateMany.mockResolvedValue({ count: 1 });
 
@@ -106,10 +110,11 @@ describe('InvitesService', () => {
         where: { id: 'invite-1' },
         data: { acceptedAt: expect.any(Date) },
       });
+      expect(authService.me).toHaveBeenCalledWith('user-1');
       expect(result).toEqual({
         accessToken: 'access',
         refreshToken: 'refresh',
-        user: { id: 'user-1' },
+        user: { id: 'user-1', memberships: [{ clubId: 'club-1', role: 'MEMBER' }] },
       });
     });
 

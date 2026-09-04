@@ -10,6 +10,7 @@ import {
 } from '@basketeasy/ui/dialog';
 import { Input } from '@basketeasy/ui/input';
 import { Loader } from '@basketeasy/ui/loader';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { Player } from '@basketeasy/types/players';
@@ -35,7 +36,12 @@ const STATUS_LABEL: Record<PlayerInviteState, string> = {
 export function PlayerInviteDialog({ clubId, player }: { clubId: string; player: Player }) {
   const [isOpen, setIsOpen] = useState(false);
   const [link, setLink] = useState<PlayerInviteLink | null>(null);
-  const { data: status, isLoading } = usePlayerInviteStatus(clubId, player.id, isOpen);
+  const {
+    data: status,
+    isLoading,
+    isError,
+    refetch,
+  } = usePlayerInviteStatus(clubId, player.id, isOpen);
   const { mutate: generateInvite, isPending } = usePlayerInvite(clubId, player.id);
 
   const handleOpenChange = (open: boolean) => {
@@ -94,6 +100,8 @@ export function PlayerInviteDialog({ clubId, player }: { clubId: string; player:
               Ce lien expire le {new Date(link.expiresAt).toLocaleDateString('fr-FR')}.
             </Text>
           </div>
+        ) : isError ? (
+          <QueryError onRetry={() => refetch()} />
         ) : isLoading ? (
           <Loader>Chargement…</Loader>
         ) : (

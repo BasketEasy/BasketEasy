@@ -111,4 +111,22 @@ describe('PlayerInviteDialog', () => {
 
     expect(await screen.findByText(/déjà lié à un compte/i)).toBeInTheDocument();
   });
+
+  it('shows a query error instead of an empty status when the invite status fails to load', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/players/p1/invite', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole('button', { name: /^inviter$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/chargement impossible/i);
+    expect(
+      screen.queryByRole('button', { name: /générer un lien d'invitation/i }),
+    ).not.toBeInTheDocument();
+  });
 });
