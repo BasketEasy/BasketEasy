@@ -23,3 +23,38 @@ export interface FfbbImportResult {
   updated: number;
   unchanged: number;
 }
+
+/** One team's row in a poule's standings table. */
+export interface PouleTeamStanding {
+  teamLabel: string;
+  played: number;
+  won: number;
+  lost: number;
+  points: number;
+  /** True for our own team's row — the frontend highlights it. */
+  isOurTeam: boolean;
+}
+
+/** One final score from the poule's most recently completed matchday. */
+export interface PouleResult {
+  /** e.g. "Journée 3". Shared by every entry in the same PouleResults response. */
+  matchdayLabel: string;
+  homeLabel: string;
+  awayLabel: string;
+  homeScore: number;
+  awayScore: number;
+  /** True when either side is our own team — the frontend highlights it. */
+  involvesOurTeam: boolean;
+}
+
+/**
+ * A team's whole poule, read live from FFBB — never persisted (see
+ * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md). Empty
+ * `standings`/`latestResults` is not an error: it's the normal shape before
+ * a poule's first journée has been played.
+ */
+export interface PouleResults {
+  competitionLabel: string | null;
+  standings: PouleTeamStanding[];
+  latestResults: PouleResult[];
+}

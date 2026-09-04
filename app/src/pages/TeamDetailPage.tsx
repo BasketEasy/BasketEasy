@@ -32,6 +32,7 @@ import { ROSTER_SORT_OPTIONS, TEAM_CLUB_SORT_OPTIONS } from '../clubs/teamFilter
 import { TeamSeasonStatsTab } from '../clubs/TeamSeasonStatsTab';
 import { TeamEditModal } from '../clubs/TeamEditModal';
 import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
+import { PouleResultsPanel } from '../clubs/PouleResultsPanel';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { Text } from '@basketeasy/ui/text';
@@ -539,56 +540,59 @@ export function TeamDetailPage() {
         )}
 
         <TabsContent value="events">
-          {canManageTeam ? (
-            <TeamEventsTab
-              clubId={clubId!}
-              teamId={teamId!}
-              canManageTeam={canManageTeam}
-              isRostered={isRostered}
-              teamActionItems={teamActionItems}
-              isAddEventOpen={isAddEventOpen}
-              setIsAddEventOpen={setIsAddEventOpen}
-              eventsViewMode={eventsViewMode}
-              toggleEventsViewMode={toggleEventsViewMode}
-              agendaPeriod={agendaPeriod}
-              toggleAgendaPeriod={toggleAgendaPeriod}
-              eventsSearch={eventsSearch}
-              setEventsSearch={setEventsSearch}
-              eventsFrom={eventsFrom}
-              setEventsFrom={setEventsFrom}
-              eventsTo={eventsTo}
-              setEventsTo={setEventsTo}
-              eventsSortOrder={eventsSortOrder}
-              setEventsSortOrder={setEventsSortOrder}
-              setEventsPage={setEventsPage}
-              eventsPageSize={eventsPageSize}
-              setEventsPageSize={setEventsPageSize}
-              isEventsFiltered={isEventsFiltered}
-              isEventsViewError={isEventsViewError}
-              isLoadingEventsView={isLoadingEventsView}
-              isEventsViewRefetching={isEventsViewRefetching}
-              refetchEventsView={refetchEventsView}
-              isEventsEmpty={isEventsEmpty}
-              agendaEvents={agendaEvents}
-              events={events}
-              eventsResult={eventsResult}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-            />
-          ) : (
-            <TeamAgendaTab
-              clubId={clubId!}
-              teamId={teamId!}
-              isRostered={isRostered}
-              agendaPeriod={agendaPeriod}
-              toggleAgendaPeriod={toggleAgendaPeriod}
-              isLoading={isLoadingAgendaEvents}
-              isError={isAgendaEventsError}
-              isRefetching={isAgendaEventsRefetching}
-              refetch={refetchAgendaEvents}
-              isEmpty={isAgendaEmpty}
-              agendaEvents={agendaEvents}
-            />
-          )}
+          <div className="flex flex-col gap-6">
+            {canManageTeam ? (
+              <TeamEventsTab
+                clubId={clubId!}
+                teamId={teamId!}
+                canManageTeam={canManageTeam}
+                isRostered={isRostered}
+                teamActionItems={teamActionItems}
+                isAddEventOpen={isAddEventOpen}
+                setIsAddEventOpen={setIsAddEventOpen}
+                eventsViewMode={eventsViewMode}
+                toggleEventsViewMode={toggleEventsViewMode}
+                agendaPeriod={agendaPeriod}
+                toggleAgendaPeriod={toggleAgendaPeriod}
+                eventsSearch={eventsSearch}
+                setEventsSearch={setEventsSearch}
+                eventsFrom={eventsFrom}
+                setEventsFrom={setEventsFrom}
+                eventsTo={eventsTo}
+                setEventsTo={setEventsTo}
+                eventsSortOrder={eventsSortOrder}
+                setEventsSortOrder={setEventsSortOrder}
+                setEventsPage={setEventsPage}
+                eventsPageSize={eventsPageSize}
+                setEventsPageSize={setEventsPageSize}
+                isEventsFiltered={isEventsFiltered}
+                isEventsViewError={isEventsViewError}
+                isLoadingEventsView={isLoadingEventsView}
+                isEventsViewRefetching={isEventsViewRefetching}
+                refetchEventsView={refetchEventsView}
+                isEventsEmpty={isEventsEmpty}
+                agendaEvents={agendaEvents}
+                events={events}
+                eventsResult={eventsResult}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
+            ) : (
+              <TeamAgendaTab
+                clubId={clubId!}
+                teamId={teamId!}
+                isRostered={isRostered}
+                agendaPeriod={agendaPeriod}
+                toggleAgendaPeriod={toggleAgendaPeriod}
+                isLoading={isLoadingAgendaEvents}
+                isError={isAgendaEventsError}
+                isRefetching={isAgendaEventsRefetching}
+                refetch={refetchAgendaEvents}
+                isEmpty={isAgendaEmpty}
+                agendaEvents={agendaEvents}
+              />
+            )}
+            <PouleResultsPanel clubId={clubId!} teamId={teamId!} />
+          </div>
         </TabsContent>
       </Tabs>
     </PageContainer>

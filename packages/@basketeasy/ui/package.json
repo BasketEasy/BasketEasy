@@ -131,6 +131,10 @@
       "types": "./src/components/icons/Spinner.tsx",
       "default": "./src/components/icons/Spinner.tsx"
     },
+    "./icons/refresh": {
+      "types": "./src/components/icons/RefreshIcon.tsx",
+      "default": "./src/components/icons/RefreshIcon.tsx"
+    },
     "./icons/check": {
       "types": "./src/components/icons/Check.tsx",
       "default": "./src/components/icons/Check.tsx"

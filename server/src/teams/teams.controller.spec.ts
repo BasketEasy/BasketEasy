@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
+import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -30,6 +31,7 @@ describe('TeamsController', () => {
     removeFfbbLink: jest.Mock;
   };
   let ffbbImportService: { importSchedule: jest.Mock };
+  let ffbbPouleService: { getPouleResults: jest.Mock };
 
   beforeEach(async () => {
     service = {
@@ -54,12 +56,14 @@ describe('TeamsController', () => {
       removeFfbbLink: jest.fn(),
     };
     ffbbImportService = { importSchedule: jest.fn() };
+    ffbbPouleService = { getPouleResults: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TeamsController],
       providers: [
         { provide: TeamsService, useValue: service },
         { provide: FfbbImportService, useValue: ffbbImportService },
+        { provide: FfbbPouleService, useValue: ffbbPouleService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -289,5 +293,18 @@ describe('TeamsController', () => {
 
     expect(ffbbImportService.importSchedule).toHaveBeenCalledWith('club-1', 'team-1');
     expect(result.created).toBe(8);
+  });
+
+  it('getFfbbPouleResults delegates clubId and teamId to the poule service', async () => {
+    ffbbPouleService.getPouleResults.mockResolvedValue({
+      competitionLabel: 'Seniors M D3',
+      standings: [],
+      latestResults: [],
+    });
+
+    const result = await controller.getFfbbPouleResults('club-1', 'team-1');
+
+    expect(ffbbPouleService.getPouleResults).toHaveBeenCalledWith('club-1', 'team-1');
+    expect(result.competitionLabel).toBe('Seniors M D3');
   });
 });

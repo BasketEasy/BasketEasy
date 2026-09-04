@@ -217,6 +217,272 @@ describe('FfbbPageScrapeProvider', () => {
     });
   });
 
+  describe('pouleRef', () => {
+    // Confirmed shape (2026-09-03 capture): a match's own idPoule/competitionId
+    // plus any match detail link's competition prefix compose the ref — no
+    // second fetch. See docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+    it('derives it from a match detail link plus a raw match idPoule/competitionId', async () => {
+      const html = pushChunkHtml({
+        data: [
+          {
+            id: '200000014580569',
+            date_rencontre: '2026-09-20T14:00:00',
+            joue: false,
+            idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+            idEngagementEquipe2: { id: '200000005346379', nom: 'THEM' },
+            idPoule: { id: '200000003056186', nom: 'Poule A' },
+            competitionId: { id: '200000002897998' },
+          },
+        ],
+        // A detail link anywhere in the page's chunks supplies the competition
+        // prefix — same field the venue-resolution code path already reads.
+        detailLink: `${DETAIL_PREFIX}200000014580569`,
+      });
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBe(
+        'ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186',
+      );
+    });
+
+    it('is null when no fetched match carries idPoule/competitionId', async () => {
+      const html = pushChunkHtml({
+        data: [
+          {
+            id: '1',
+            date_rencontre: '2026-09-20T14:00:00',
+            joue: false,
+            idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+            idEngagementEquipe2: { id: '2', nom: 'THEM' },
+          },
+        ],
+        detailLink: `${DETAIL_PREFIX}1`,
+      });
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBeNull();
+    });
+
+    it('is null when the page carries no match detail link at all', async () => {
+      const html = pushChunkHtml({
+        data: [
+          {
+            id: '1',
+            date_rencontre: '2026-09-20T14:00:00',
+            joue: false,
+            idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+            idEngagementEquipe2: { id: '2', nom: 'THEM' },
+            idPoule: { id: '200000003056186', nom: 'Poule A' },
+            competitionId: { id: '200000002897998' },
+          },
+        ],
+      });
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBeNull();
+    });
+
+    it('is null when the fetch returned zero matches', async () => {
+      const html = pushChunkHtml({ data: [] });
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBeNull();
+    });
+  });
+
+  describe('getPouleStandings', () => {
+    const POULE_REF =
+      'ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186';
+    const OUR_ID = OUR_ENGAGEMENT_ID;
+
+    function poulePageHtml(poules: unknown[]): string {
+      return pushChunkHtml({ poules });
+    }
+
+    function classementRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'c1',
+        idEngagement: { id: OUR_ID, nom: 'BASKET CLUB BASSE GOULAINE' },
+        matchJoues: '3',
+        points: '5',
+        position: '2',
+        gagnes: '2',
+        perdus: '1',
+        ...overrides,
+      };
+    }
+
+    it('rejects a pouleRef that is not the confirmed shape', async () => {
+      await expect(provider.getPouleStandings('not-a-poule-ref', OUR_ID)).rejects.toThrow(
+        FfbbPageFormatError,
+      );
+    });
+
+    it('throws when no poule in the fetched payload matches the ref', async () => {
+      const html = poulePageHtml([
+        { id: 'some-other-poule', nom: 'Poule Z', rencontres: [], classements: [] },
+      ]);
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      await expect(provider.getPouleStandings(POULE_REF, OUR_ID)).rejects.toThrow(
+        FfbbPageFormatError,
+      );
+    });
+
+    it('rejects the lightweight bare-id poules index and keeps scanning later chunks for the real one', async () => {
+      // FFBB ships a summary object earlier in the stream whose "poules" key
+      // holds bare id strings, not poule objects (see the design spec's
+      // research notes) — a different self.__next_f.push chunk than the
+      // fully hydrated one, mirroring how getMatchesForEngagement's own
+      // multi-chunk fallback already works for "data":[...].
+      const indexChunk = `1:${JSON.stringify({ poules: ['200000003056186', '200000003056187'] })}\n`;
+      const detailChunk = `2:${JSON.stringify({
+        poules: [
+          { id: '200000003056186', nom: 'Poule A', rencontres: [], classements: [classementRow()] },
+        ],
+      })}\n`;
+      const html =
+        `<html><body>` +
+        `<script>self.__next_f.push([1,${JSON.stringify(indexChunk)}])</script>` +
+        `<script>self.__next_f.push([1,${JSON.stringify(detailChunk)}])</script>` +
+        `</body></html>`;
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result.standings).toHaveLength(1);
+    });
+
+    it('maps and sorts standings by position, flagging our own team', async () => {
+      const html = poulePageHtml([
+        {
+          id: '200000003056186',
+          nom: 'Poule A',
+          rencontres: [],
+          classements: [
+            classementRow({
+              id: 'c1',
+              idEngagement: { id: 'someone-else', nom: 'Vertou Basket Club' },
+              position: '1',
+              points: '6',
+            }),
+            classementRow({ id: 'c2', position: '2', points: '5' }),
+          ],
+        },
+      ]);
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result.standings).toEqual([
+        {
+          teamLabel: 'Vertou Basket Club',
+          played: 3,
+          won: 2,
+          lost: 1,
+          points: 6,
+          isOurTeam: false,
+        },
+        {
+          teamLabel: 'BASKET CLUB BASSE GOULAINE',
+          played: 3,
+          won: 2,
+          lost: 1,
+          points: 5,
+          isOurTeam: true,
+        },
+      ]);
+    });
+
+    it('skips a malformed classement row rather than failing the whole listing', async () => {
+      const html = poulePageHtml([
+        {
+          id: '200000003056186',
+          nom: 'Poule A',
+          rencontres: [],
+          classements: [classementRow({ id: 'bad', matchJoues: 'not-a-number' }), classementRow()],
+        },
+      ]);
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result.standings).toHaveLength(1);
+    });
+
+    it('returns empty standings/results for a poule whose season has not started', async () => {
+      const html = poulePageHtml([
+        { id: '200000003056186', nom: 'Poule A', rencontres: [], classements: [] },
+      ]);
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result).toEqual({ standings: [], latestResults: [] });
+    });
+
+    it('derives latestResults from the highest journée with a played match, excluding a postponed match sharing that journée', async () => {
+      const html = poulePageHtml([
+        {
+          id: '200000003056186',
+          nom: 'Poule A',
+          classements: [],
+          rencontres: [
+            {
+              id: 'm1',
+              numeroJournee: '2',
+              joue: true,
+              resultatEquipe1: 68,
+              resultatEquipe2: 61,
+              idEngagementEquipe1: { id: OUR_ID, nom: 'BASKET CLUB BASSE GOULAINE' },
+              idEngagementEquipe2: { id: 'x', nom: 'NANTES SULLY BASKET' },
+            },
+            {
+              id: 'm2',
+              numeroJournee: '2',
+              joue: false,
+              resultatEquipe1: null,
+              resultatEquipe2: null,
+              idEngagementEquipe1: { id: 'y', nom: 'AS Rezé Basket' },
+              idEngagementEquipe2: { id: 'z', nom: 'Vertou Basket Club' },
+            },
+            {
+              id: 'm0',
+              numeroJournee: '1',
+              joue: true,
+              resultatEquipe1: 40,
+              resultatEquipe2: 30,
+              idEngagementEquipe1: { id: 'y', nom: 'AS Rezé Basket' },
+              idEngagementEquipe2: { id: 'z', nom: 'Vertou Basket Club' },
+            },
+          ],
+        },
+      ]);
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result.latestResults).toEqual([
+        {
+          matchdayLabel: 'Journée 2',
+          homeLabel: 'BASKET CLUB BASSE GOULAINE',
+          awayLabel: 'NANTES SULLY BASKET',
+          homeScore: 68,
+          awayScore: 61,
+          involvesOurTeam: true,
+        },
+      ]);
+    });
+  });
+
   describe('venue resolution', () => {
     it('leaves location null and fetches nothing extra when resolveVenues is off', async () => {
       fetchSpy.mockResolvedValue(

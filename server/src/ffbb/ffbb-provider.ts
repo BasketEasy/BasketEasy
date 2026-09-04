@@ -39,6 +39,44 @@ export interface FfbbMatch {
 export interface FfbbEngagementFetchResult {
   competitionLabel: string | null;
   matches: FfbbMatch[];
+  /**
+   * `ligues/<x>/comites/<y>/competitions/<code>?phase=<phaseId>&poule=<pouleId>`
+   * — the full resolvable reference to this engagement's poule standings
+   * page, read off the first fetched match's own `idPoule`/`competitionId`
+   * fields (no second fetch needed). Null only when zero matches were
+   * fetched at all (nothing published yet this season) — see
+   * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+   */
+  pouleRef: string | null;
+}
+
+/** One team's row in a poule's standings — see FfbbProvider.getPouleStandings. */
+export interface FfbbPouleTeamStanding {
+  teamLabel: string;
+  played: number;
+  won: number;
+  lost: number;
+  points: number;
+  /** True for the team identified by getPouleStandings's ourEngagementId. */
+  isOurTeam: boolean;
+}
+
+/** One final score from the poule's most recently completed matchday. */
+export interface FfbbPouleResult {
+  /** e.g. "Journée 3" — shared by every entry in the same fetch's latestResults. */
+  matchdayLabel: string;
+  homeLabel: string;
+  awayLabel: string;
+  homeScore: number;
+  awayScore: number;
+  /** True when either side is the team identified by ourEngagementId. */
+  involvesOurTeam: boolean;
+}
+
+export interface FfbbPouleStandings {
+  standings: FfbbPouleTeamStanding[];
+  /** Every result from the highest journée with at least one played match. Empty before a poule's first journée is played — not an error. */
+  latestResults: FfbbPouleResult[];
 }
 
 /** Thrown by FfbbProvider implementations on any fetch/parse failure — never let a partial or garbage result propagate. */
@@ -80,4 +118,14 @@ export interface FfbbProvider {
     engagementRef: string,
     options?: GetMatchesOptions,
   ): Promise<FfbbEngagementFetchResult>;
+
+  /**
+   * Standings and latest results for one poule. `pouleRef` is the full
+   * resolvable path+query from FfbbEngagementFetchResult.pouleRef — never a
+   * bare code/id, same "store the whole resolvable reference" rule
+   * parseEngagementRef follows for TeamFfbbLink.ffbbEngagementRef.
+   * `ourEngagementId` is the trailing numeric id of the TeamFfbbLink this
+   * pouleRef came from, used to flag isOurTeam/involvesOurTeam.
+   */
+  getPouleStandings(pouleRef: string, ourEngagementId: string): Promise<FfbbPouleStandings>;
 }
