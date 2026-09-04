@@ -181,6 +181,34 @@ describe('FfbbPageScrapeProvider', () => {
       );
     });
 
+    it('skips an earlier mismatched "data":[...] array (e.g. the club\'s other teams) and finds the real match list', async () => {
+      // Confirmed shape (2026-09-04 capture of a real team engagement page,
+      // see PR description): a "data":[...] array listing the club's other
+      // teams (competition switcher, no date_rencontre field) sits earlier
+      // in the very same chunk as the real match list — the original bug
+      // this repros: extractDataArray only checked the first occurrence and
+      // gave up rather than continuing to scan.
+      const otherTeamsArray = JSON.stringify([
+        { id: 'x', numeroEquipe: '1', categorie: 'SE', competition: 'PNF' },
+      ]);
+      const matchesArray = JSON.stringify([
+        {
+          id: '1',
+          date_rencontre: '2026-09-20T14:00:00',
+          joue: false,
+          idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+          idEngagementEquipe2: { id: '2', nom: 'THEM' },
+        },
+      ]);
+      const rscText = `2:{"data":${otherTeamsArray}}\n3:{"data":${matchesArray}}\n`;
+      const html = `<html><body><script>self.__next_f.push([1,${JSON.stringify(rscText)}])</script></body></html>`;
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.matches).toHaveLength(1);
+    });
+
     it('throws FfbbPageFormatError when a match references neither side of the engagement', async () => {
       const html = pushChunkHtml({
         data: [
@@ -218,10 +246,12 @@ describe('FfbbPageScrapeProvider', () => {
   });
 
   describe('pouleRef', () => {
-    // Confirmed shape (2026-09-03 capture): a match's own idPoule/competitionId
-    // plus any match detail link's competition prefix compose the ref — no
-    // second fetch. See docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
-    it('derives it from a match detail link plus a raw match idPoule/competitionId', async () => {
+    // Confirmed shape (2026-09-04 capture of a real team engagement page,
+    // see PR description): rencontre rows in the page's own `data` array
+    // never carry `idPoule` — only a sibling `dataEngagement.idPoule` object
+    // does. `competitionId` (the phase id) IS still on the match row. See
+    // docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+    it('derives it from a match detail link, a raw match competitionId, and dataEngagement.idPoule', async () => {
       const html = pushChunkHtml({
         data: [
           {
@@ -230,10 +260,10 @@ describe('FfbbPageScrapeProvider', () => {
             joue: false,
             idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
             idEngagementEquipe2: { id: '200000005346379', nom: 'THEM' },
-            idPoule: { id: '200000003056186', nom: 'Poule A' },
             competitionId: { id: '200000002897998' },
           },
         ],
+        dataEngagement: { idPoule: { id: '200000003056186', nom: 'Poule A' } },
         // A detail link anywhere in the page's chunks supplies the competition
         // prefix — same field the venue-resolution code path already reads.
         detailLink: `${DETAIL_PREFIX}200000014580569`,
@@ -247,7 +277,28 @@ describe('FfbbPageScrapeProvider', () => {
       );
     });
 
-    it('is null when no fetched match carries idPoule/competitionId', async () => {
+    it('is null when dataEngagement carries no idPoule', async () => {
+      const html = pushChunkHtml({
+        data: [
+          {
+            id: '1',
+            date_rencontre: '2026-09-20T14:00:00',
+            joue: false,
+            idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+            idEngagementEquipe2: { id: '2', nom: 'THEM' },
+            competitionId: { id: '200000002897998' },
+          },
+        ],
+        detailLink: `${DETAIL_PREFIX}1`,
+      });
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBeNull();
+    });
+
+    it('is null when no fetched match carries a resolvable competitionId', async () => {
       const html = pushChunkHtml({
         data: [
           {
@@ -258,6 +309,7 @@ describe('FfbbPageScrapeProvider', () => {
             idEngagementEquipe2: { id: '2', nom: 'THEM' },
           },
         ],
+        dataEngagement: { idPoule: { id: '200000003056186', nom: 'Poule A' } },
         detailLink: `${DETAIL_PREFIX}1`,
       });
       fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
@@ -276,10 +328,10 @@ describe('FfbbPageScrapeProvider', () => {
             joue: false,
             idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
             idEngagementEquipe2: { id: '2', nom: 'THEM' },
-            idPoule: { id: '200000003056186', nom: 'Poule A' },
             competitionId: { id: '200000002897998' },
           },
         ],
+        dataEngagement: { idPoule: { id: '200000003056186', nom: 'Poule A' } },
       });
       fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
 
@@ -338,11 +390,9 @@ describe('FfbbPageScrapeProvider', () => {
     });
 
     it('rejects the lightweight bare-id poules index and keeps scanning later chunks for the real one', async () => {
-      // FFBB ships a summary object earlier in the stream whose "poules" key
-      // holds bare id strings, not poule objects (see the design spec's
-      // research notes) — a different self.__next_f.push chunk than the
-      // fully hydrated one, mirroring how getMatchesForEngagement's own
-      // multi-chunk fallback already works for "data":[...].
+      // A different self.__next_f.push chunk than the fully hydrated one,
+      // mirroring how getMatchesForEngagement's own multi-chunk fallback
+      // already works for "data":[...].
       const indexChunk = `1:${JSON.stringify({ poules: ['200000003056186', '200000003056187'] })}\n`;
       const detailChunk = `2:${JSON.stringify({
         poules: [
@@ -354,6 +404,34 @@ describe('FfbbPageScrapeProvider', () => {
         `<script>self.__next_f.push([1,${JSON.stringify(indexChunk)}])</script>` +
         `<script>self.__next_f.push([1,${JSON.stringify(detailChunk)}])</script>` +
         `</body></html>`;
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
+
+      expect(result.standings).toHaveLength(1);
+    });
+
+    it('keeps scanning past multiple mismatched "poules" arrays within the SAME chunk', async () => {
+      // Confirmed shape (2026-09-04 capture of a real poule standings page,
+      // see PR description): all three "poules":[...] occurrences — a
+      // bare-id index, an id/nom-only summary, and the fully hydrated array
+      // — live in one single self.__next_f.push chunk, not separate ones.
+      const chunk =
+        `1:${JSON.stringify({ poules: ['200000003056186', '200000003056187'] })}\n` +
+        `2:${JSON.stringify({
+          poules: [{ id: '200000003056186', nom: 'Poule A' }],
+        })}\n` +
+        `3:${JSON.stringify({
+          poules: [
+            {
+              id: '200000003056186',
+              nom: 'Poule A',
+              rencontres: [],
+              classements: [classementRow()],
+            },
+          ],
+        })}\n`;
+      const html = `<html><body><script>self.__next_f.push([1,${JSON.stringify(chunk)}])</script></body></html>`;
       fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
 
       const result = await provider.getPouleStandings(POULE_REF, OUR_ID);

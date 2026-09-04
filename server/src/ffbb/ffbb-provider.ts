@@ -42,10 +42,11 @@ export interface FfbbEngagementFetchResult {
   /**
    * `ligues/<x>/comites/<y>/competitions/<code>?phase=<phaseId>&poule=<pouleId>`
    * — the full resolvable reference to this engagement's poule standings
-   * page, read off the first fetched match's own `idPoule`/`competitionId`
-   * fields (no second fetch needed). Null only when zero matches were
-   * fetched at all (nothing published yet this season) — see
-   * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+   * page, read off the page's own `dataEngagement.idPoule` plus a fetched
+   * match's `competitionId` (no second fetch needed) — see
+   * FfbbPageScrapeProvider.derivePouleRef. Null when no poule id or match
+   * detail link could be found at all (nothing published yet this season)
+   * — see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
    */
   pouleRef: string | null;
 }
