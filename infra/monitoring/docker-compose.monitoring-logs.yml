@@ -1,0 +1,18 @@
+# Kluvo — overlay OPTIONNEL : logs `server` + `caddy` vers Cockpit (Loki).
+#
+#   cd /opt/kluvo
+#   cp monitoring/alloy/optional/logs.alloy monitoring/alloy/logs.alloy
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.monitoring.yml \
+#                  -f docker-compose.monitoring-logs.yml up -d
+#
+# Séparé de l'overlay métriques pour deux raisons : les logs poussés vers
+# Cockpit sont facturés à l'usage (cf. docs/ops/monitoring.md §9), et lire les
+# logs des conteneurs impose de monter le socket Docker dans Alloy — un accès
+# root de fait sur l'hôte, qu'on ne donne pas par défaut à un agent qui n'en a
+# pas besoin pour les métriques.
+
+services:
+  alloy:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro

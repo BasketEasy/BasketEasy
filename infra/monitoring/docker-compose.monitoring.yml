@@ -1,0 +1,62 @@
+# Kluvo — overlay de monitoring applicatif (Postgres + Redis → Scaleway Cockpit).
+#
+# À déployer sur kluvo-back, à côté du docker-compose.yml de prod (/opt/kluvo),
+# et à lancer comme overlay du MÊME projet Compose pour que les exporters
+# résolvent `postgres` / `redis` par nom de service sur le réseau existant :
+#
+#   cd /opt/kluvo
+#   docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# `scaleway-vmagent` (métriques natives de l'instance : CPU/RAM/disque/réseau)
+# ne voit que la VM, jamais l'intérieur des conteneurs — d'où ces deux
+# exporters, scrapés localement par Grafana Alloy qui pousse vers Cockpit.
+#
+# Aucun port n'est publié : tout le scrape se fait sur le réseau interne du
+# projet Compose. Voir docs/ops/monitoring.md pour la procédure complète.
+
+services:
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    environment:
+      # Pointe sur la base réellement utilisée en prod. Si la prod bascule sur
+      # une base managée (Neon), remplacer l'hôte/les identifiants ici — le
+      # reste de la chaîne (Alloy → Cockpit) ne bouge pas.
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}?sslmode=disable
+    depends_on:
+      - postgres
+    expose:
+      - '9187'
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      - redis
+    expose:
+      - '9121'
+
+  alloy:
+    image: grafana/alloy:v1.4.2
+    restart: unless-stopped
+    # Alloy charge tous les fichiers .alloy du répertoire passé en argument —
+    # d'où le montage d'un dossier plutôt que d'un fichier : activer les logs
+    # (§3) revient à déposer un fichier de plus dedans, sans toucher au reste.
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy
+    env_file:
+      - ./monitoring/.env.monitoring
+    volumes:
+      - ./monitoring/alloy:/etc/alloy:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - postgres-exporter
+      - redis-exporter
+
+volumes:
+  alloy_data:

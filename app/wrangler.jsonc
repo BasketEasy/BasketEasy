@@ -1,13 +1,21 @@
 {
   "name": "kluvo",
+  // Le Worker ne sert que ce que les assets statiques ne couvrent pas (voir
+  // worker/index.ts) ; `main` est là pour porter le Cron Trigger de
+  // health-check, cf. docs/ops/monitoring.md §5.
+  "main": "worker/index.ts",
   "compatibility_date": "2026-09-04",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
-  "routes": [
-    { "pattern": "kluvo.net", "custom_domain": true }
-  ],
+  "routes": [{ "pattern": "kluvo.net", "custom_domain": true }],
   "workers_dev": false,
-  "preview_urls": false
+  "preview_urls": false,
+  // Toutes les 5 min : assez fin pour repérer une panne rapidement, très
+  // loin des quotas gratuits (~8 600 déclenchements/mois).
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": { "HEALTH_CHECK_URL": "https://api.kluvo.net/api/health" },
+  "analytics_engine_datasets": [{ "binding": "HEALTH_AE", "dataset": "kluvo_health" }]
 }

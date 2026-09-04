@@ -28,6 +28,7 @@ packages/
     types/        Shared TypeScript types/DTOs between server and app,
                   exposed as package.json subpath exports (no barrel index.ts)
 docs/             Architecture, stack rationale, brand, feature set, market research
+infra/            Prod-host config kept in the repo (monitoring exporters + agent)
 .github/
   workflows/      CI: lint, format check, test, build, Docker build
 ```

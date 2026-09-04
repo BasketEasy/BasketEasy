@@ -1,0 +1,50 @@
+// Kluvo — logs des conteneurs `server` et `caddy` vers Cockpit (Loki).
+//
+// OPTIONNEL et facturé à l'usage : ce fichier n'est PAS chargé tant qu'il
+// reste dans optional/. Pour l'activer :
+//   cp monitoring/alloy/optional/logs.alloy monitoring/alloy/logs.alloy
+// et relancer avec l'overlay docker-compose.monitoring-logs.yml, qui monte le
+// socket Docker dont ces trois composants ont besoin.
+//
+// Variables attendues : COCKPIT_LOGS_PUSH_URL, COCKPIT_PUSH_TOKEN.
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "30s"
+}
+
+discovery.relabel "kluvo_containers" {
+  targets = discovery.docker.containers.targets
+
+  // Ne remonter que l'API et le reverse-proxy : Postgres/Redis sont déjà
+  // couverts par leurs exporters, et leurs logs n'apportent rien de plus.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/.*(server|caddy).*"
+    action        = "keep"
+  }
+
+  // Le nom Docker arrive préfixé d'un "/" — on le retire pour que le label
+  // soit requêtable tel quel dans Grafana Explore.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "kluvo" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.kluvo_containers.output
+  forward_to = [loki.write.cockpit.receiver]
+}
+
+loki.write "cockpit" {
+  endpoint {
+    url = sys.env("COCKPIT_LOGS_PUSH_URL")
+
+    headers = {
+      "X-Token" = sys.env("COCKPIT_PUSH_TOKEN"),
+    }
+  }
+}

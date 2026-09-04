@@ -1,0 +1,40 @@
+// Kluvo — scrape des exporters Postgres/Redis, push vers Scaleway Cockpit.
+//
+// Variables attendues (voir monitoring/.env.monitoring, monté via env_file) :
+//   COCKPIT_METRICS_PUSH_URL  URL de push Prometheus relevée dans Cockpit
+//   COCKPIT_PUSH_TOKEN        token Cockpit avec la permission "push"
+//
+// Intervalle de scrape volontairement à 60s : tout ce qui transite par un
+// agent tiers est facturé à l'usage par Cockpit (les métriques natives de
+// l'instance, elles, sont gratuites), et 60s suffit largement pour Kluvo.
+
+prometheus.scrape "postgres" {
+  targets         = [{ __address__ = "postgres-exporter:9187" }]
+  job_name        = "postgres"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.cockpit.receiver]
+}
+
+prometheus.scrape "redis" {
+  targets         = [{ __address__ = "redis-exporter:9121" }]
+  job_name        = "redis"
+  scrape_interval = "60s"
+  forward_to      = [prometheus.remote_write.cockpit.receiver]
+}
+
+prometheus.remote_write "cockpit" {
+  // `instance` est posé ici plutôt que par cible : une seule instance
+  // héberge toute la stack, et l'étiquette sert surtout à distinguer ces
+  // séries de celles poussées par scaleway-vmagent.
+  external_labels = {
+    instance = "kluvo-back",
+  }
+
+  endpoint {
+    url = sys.env("COCKPIT_METRICS_PUSH_URL")
+
+    headers = {
+      "X-Token" = sys.env("COCKPIT_PUSH_TOKEN"),
+    }
+  }
+}
