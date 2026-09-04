@@ -4,6 +4,7 @@ import {
   FfbbEngagementFetchResult,
   FfbbMatch,
   FfbbPageFormatError,
+  FfbbPouleMatchday,
   FfbbPouleResult,
   FfbbPouleStandings,
   FfbbPouleTeamStanding,
@@ -305,7 +306,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
 
     return {
       standings: this.toStandings(poule.classements, ourEngagementId),
-      latestResults: this.toLatestResults(poule.rencontres, ourEngagementId),
+      matchdays: this.toMatchdays(poule.rencontres, ourEngagementId),
     };
   }
 
@@ -637,33 +638,24 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return rows.sort((a, b) => a.position - b.position).map((row) => row.standing);
   }
 
-  /** Every result from the poule's highest journée with at least one played match. A postponed match sharing that journée number is excluded — it has no score to show. */
-  private toLatestResults(rawRencontres: unknown, ourEngagementId: string): FfbbPouleResult[] {
+  /** Every played journée, most recent first — a played match with no journée number is dropped rather than mis-grouped. */
+  private toMatchdays(rawRencontres: unknown, ourEngagementId: string): FfbbPouleMatchday[] {
     if (!Array.isArray(rawRencontres)) return [];
 
     const played = rawRencontres.filter(
       (entry): entry is RawFfbbMatch =>
         typeof entry === 'object' && entry !== null && (entry as RawFfbbMatch).joue === true,
     );
-    if (played.length === 0) return [];
 
-    let latestJournee: number | null = null;
+    const byJournee = new Map<number, FfbbPouleResult[]>();
     for (const raw of played) {
       const journee = this.toNumber(raw.numeroJournee);
-      if (journee !== null && (latestJournee === null || journee > latestJournee)) {
-        latestJournee = journee;
-      }
-    }
-    if (latestJournee === null) return [];
-
-    const results: FfbbPouleResult[] = [];
-    for (const raw of played) {
-      if (this.toNumber(raw.numeroJournee) !== latestJournee) continue;
       const home = raw.idEngagementEquipe1;
       const away = raw.idEngagementEquipe2;
       const homeScore = this.toNumber(raw.resultatEquipe1);
       const awayScore = this.toNumber(raw.resultatEquipe2);
       if (
+        journee === null ||
         !home ||
         typeof home.nom !== 'string' ||
         !away ||
@@ -673,16 +665,24 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       ) {
         continue;
       }
-      results.push({
-        matchdayLabel: `Journée ${latestJournee}`,
+      const result: FfbbPouleResult = {
         homeLabel: home.nom,
         awayLabel: away.nom,
         homeScore,
         awayScore,
         involvesOurTeam: String(home.id) === ourEngagementId || String(away.id) === ourEngagementId,
-      });
+      };
+      const results = byJournee.get(journee);
+      if (results) {
+        results.push(result);
+      } else {
+        byJournee.set(journee, [result]);
+      }
     }
-    return results;
+
+    return [...byJournee.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([journee, results]) => ({ matchdayLabel: `Journée ${journee}`, results }));
   }
 
   /** FFBB's own numeric fields are strings on this API — accepts either. */

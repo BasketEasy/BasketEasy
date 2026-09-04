@@ -504,10 +504,10 @@ describe('FfbbPageScrapeProvider', () => {
 
       const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
 
-      expect(result).toEqual({ standings: [], latestResults: [] });
+      expect(result).toEqual({ standings: [], matchdays: [] });
     });
 
-    it('derives latestResults from the highest journée with a played match, excluding a postponed match sharing that journée', async () => {
+    it('groups results by journée, most recent first, excluding a postponed match sharing a journée', async () => {
       const html = poulePageHtml([
         {
           id: '200000003056186',
@@ -548,14 +548,30 @@ describe('FfbbPageScrapeProvider', () => {
 
       const result = await provider.getPouleStandings(POULE_REF, OUR_ID);
 
-      expect(result.latestResults).toEqual([
+      expect(result.matchdays).toEqual([
         {
           matchdayLabel: 'Journée 2',
-          homeLabel: 'BASKET CLUB BASSE GOULAINE',
-          awayLabel: 'NANTES SULLY BASKET',
-          homeScore: 68,
-          awayScore: 61,
-          involvesOurTeam: true,
+          results: [
+            {
+              homeLabel: 'BASKET CLUB BASSE GOULAINE',
+              awayLabel: 'NANTES SULLY BASKET',
+              homeScore: 68,
+              awayScore: 61,
+              involvesOurTeam: true,
+            },
+          ],
+        },
+        {
+          matchdayLabel: 'Journée 1',
+          results: [
+            {
+              homeLabel: 'AS Rezé Basket',
+              awayLabel: 'Vertou Basket Club',
+              homeScore: 40,
+              awayScore: 30,
+              involvesOurTeam: false,
+            },
+          ],
         },
       ]);
     });

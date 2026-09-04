@@ -26,14 +26,30 @@ function results(overrides: Partial<PouleResults> = {}): PouleResults {
         isOurTeam: true,
       },
     ],
-    latestResults: [
+    matchdays: [
       {
         matchdayLabel: 'Journée 3',
-        homeLabel: 'Basket Club Basse Goulaine',
-        awayLabel: 'Nantes Sully Basket',
-        homeScore: 68,
-        awayScore: 61,
-        involvesOurTeam: true,
+        results: [
+          {
+            homeLabel: 'Basket Club Basse Goulaine',
+            awayLabel: 'Nantes Sully Basket',
+            homeScore: 68,
+            awayScore: 61,
+            involvesOurTeam: true,
+          },
+        ],
+      },
+      {
+        matchdayLabel: 'Journée 2',
+        results: [
+          {
+            homeLabel: 'AS Rezé Basket',
+            awayLabel: 'Basket Club Basse Goulaine',
+            homeScore: 55,
+            awayScore: 50,
+            involvesOurTeam: true,
+          },
+        ],
       },
     ],
     ...overrides,
@@ -88,15 +104,16 @@ describe('PouleResultsPanel', () => {
 
     renderPanel();
 
-    expect((await screen.findAllByText('Basket Club Basse Goulaine')).length).toBe(2);
+    expect((await screen.findAllByText('Basket Club Basse Goulaine')).length).toBe(3);
     expect(screen.getByText('Vertou Basket Club')).toBeInTheDocument();
     expect(screen.getByText('Nantes Sully Basket')).toBeInTheDocument();
     expect(screen.getAllByText('nous').length).toBeGreaterThan(0);
     expect(screen.getByText('Journée 3')).toBeInTheDocument();
+    expect(screen.getByText('Journée 2')).toBeInTheDocument();
   });
 
   it('renders its own empty copy for standings/results without falling back to the no-link empty state', async () => {
-    mockResults(results({ standings: [], latestResults: [] }));
+    mockResults(results({ standings: [], matchdays: [] }));
 
     renderPanel();
 

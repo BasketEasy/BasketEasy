@@ -59,11 +59,11 @@ export class FfbbPouleService {
       if (!pouleRef) {
         throw new FfbbPageFormatError('No poule reference available yet for this engagement');
       }
-      const { standings, latestResults } = await this.ffbbProvider.getPouleStandings(
+      const { standings, matchdays } = await this.ffbbProvider.getPouleStandings(
         pouleRef,
         ourEngagementId,
       );
-      return { competitionLabel, standings, latestResults };
+      return { competitionLabel, standings, matchdays };
     } catch (err) {
       if (err instanceof FfbbPageFormatError) {
         // The 404 response tells the coach nothing actionable by design —

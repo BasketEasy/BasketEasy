@@ -62,10 +62,8 @@ export interface FfbbPouleTeamStanding {
   isOurTeam: boolean;
 }
 
-/** One final score from the poule's most recently completed matchday. */
+/** One final score from a poule matchday. */
 export interface FfbbPouleResult {
-  /** e.g. "Journée 3" — shared by every entry in the same fetch's latestResults. */
-  matchdayLabel: string;
   homeLabel: string;
   awayLabel: string;
   homeScore: number;
@@ -74,10 +72,16 @@ export interface FfbbPouleResult {
   involvesOurTeam: boolean;
 }
 
+/** Every result from one played journée, grouped under its own label (e.g. "Journée 3"). */
+export interface FfbbPouleMatchday {
+  matchdayLabel: string;
+  results: FfbbPouleResult[];
+}
+
 export interface FfbbPouleStandings {
   standings: FfbbPouleTeamStanding[];
-  /** Every result from the highest journée with at least one played match. Empty before a poule's first journée is played — not an error. */
-  latestResults: FfbbPouleResult[];
+  /** Every played journée, most recent first. Empty before a poule's first journée is played — not an error. */
+  matchdays: FfbbPouleMatchday[];
 }
 
 /** Thrown by FfbbProvider implementations on any fetch/parse failure — never let a partial or garbage result propagate. */

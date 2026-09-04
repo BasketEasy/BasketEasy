@@ -89,57 +89,61 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
 
       <div className="flex flex-col gap-2.5">
         <Text as="span" variant="eyebrow">
-          Derniers résultats
+          Résultats
         </Text>
-        {data.latestResults.length === 0 ? (
+        {data.matchdays.length === 0 ? (
           <Text as="p" variant="meta">
             Aucun résultat pour le moment.
           </Text>
         ) : (
-          <div className="flex flex-col gap-2">
-            <Text as="span" variant="meta">
-              {data.latestResults[0].matchdayLabel}
-            </Text>
-            <div className="flex flex-col gap-1.5">
-              {data.latestResults.map((result, index) => (
-                <div
-                  key={`${result.homeLabel}-${result.awayLabel}-${index}`}
-                  className={
-                    result.involvesOurTeam
-                      ? 'flex items-center justify-between gap-3 rounded-md border border-orange/40 bg-orange-tint px-3 py-2'
-                      : 'flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2'
-                  }
-                >
-                  <Text
-                    as="span"
-                    variant="label"
-                    size="sm"
-                    tone={result.involvesOurTeam ? 'brand' : undefined}
-                    className="min-w-0 flex-1 truncate"
-                  >
-                    {result.homeLabel}
-                  </Text>
-                  <Text
-                    as="span"
-                    variant="display"
-                    size="sm"
-                    tone={result.involvesOurTeam ? 'brand' : undefined}
-                    className="tabular shrink-0"
-                  >
-                    {result.homeScore} – {result.awayScore}
-                  </Text>
-                  <Text
-                    as="span"
-                    variant="label"
-                    size="sm"
-                    tone={result.involvesOurTeam ? 'brand' : undefined}
-                    className="min-w-0 flex-1 truncate text-right"
-                  >
-                    {result.awayLabel}
-                  </Text>
+          <div className="flex flex-col gap-4">
+            {data.matchdays.map((matchday) => (
+              <div key={matchday.matchdayLabel} className="flex flex-col gap-2">
+                <Text as="span" variant="meta">
+                  {matchday.matchdayLabel}
+                </Text>
+                <div className="flex flex-col gap-1.5">
+                  {matchday.results.map((result, index) => (
+                    <div
+                      key={`${result.homeLabel}-${result.awayLabel}-${index}`}
+                      className={
+                        result.involvesOurTeam
+                          ? 'flex items-center justify-between gap-3 rounded-md border border-orange/40 bg-orange-tint px-3 py-2'
+                          : 'flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2'
+                      }
+                    >
+                      <Text
+                        as="span"
+                        variant="label"
+                        size="sm"
+                        tone={result.involvesOurTeam ? 'brand' : undefined}
+                        className="min-w-0 flex-1 truncate"
+                      >
+                        {result.homeLabel}
+                      </Text>
+                      <Text
+                        as="span"
+                        variant="display"
+                        size="sm"
+                        tone={result.involvesOurTeam ? 'brand' : undefined}
+                        className="tabular shrink-0"
+                      >
+                        {result.homeScore} – {result.awayScore}
+                      </Text>
+                      <Text
+                        as="span"
+                        variant="label"
+                        size="sm"
+                        tone={result.involvesOurTeam ? 'brand' : undefined}
+                        className="min-w-0 flex-1 truncate text-right"
+                      >
+                        {result.awayLabel}
+                      </Text>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
