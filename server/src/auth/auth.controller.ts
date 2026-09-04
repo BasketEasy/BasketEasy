@@ -20,7 +20,12 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser, RequestUser } from './decorators/current-user.decorator';
-import { assertSameOrigin, readRefreshCookie, setRefreshCookie } from './session-cookie.util';
+import {
+  REFRESH_COOKIE_NAME,
+  assertSameOrigin,
+  readRefreshCookie,
+  setRefreshCookie,
+} from './session-cookie.util';
 
 @Controller('auth')
 export class AuthController {
@@ -83,7 +88,7 @@ export class AuthController {
     if (rawToken) {
       await this.authService.logout(rawToken);
     }
-    res.clearCookie('refresh_token', { path: '/api/auth' });
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/auth' });
   }
 
   @Get('me')

@@ -39,7 +39,13 @@ export class InvitesService {
 
     await this.linkAcceptedInvite(invite.id, invite.playerId, invite.player.clubId, user.id);
 
-    return { accessToken, refreshToken, user };
+    // Re-fetch: authService.register()'s `user` was captured before
+    // linkAcceptedInvite() granted the ClubMembership, so it would otherwise
+    // carry an empty memberships list into a response the frontend caches
+    // indefinitely (sessionQueryKey, staleTime: Infinity).
+    const linkedUser = await this.authService.me(user.id);
+
+    return { accessToken, refreshToken, user: linkedUser };
   }
 
   private async linkAcceptedInvite(
