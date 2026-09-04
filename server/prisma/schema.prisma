@@ -25,23 +25,44 @@ model User {
 }
 
 model Player {
-  id            String       @id @default(uuid())
+  id            String        @id @default(uuid())
   firstName     String
   lastName      String
   clubId        String
   userId        String?
-  nationalId    String?      @unique
+  nationalId    String?       @unique
   licenseNumber String?
   birthDate     DateTime?
   gender        Gender?
   licenseType   String?
-  createdAt     DateTime     @default(now())
-  club          Club         @relation(fields: [clubId], references: [id])
-  user          User?        @relation(fields: [userId], references: [id])
+  createdAt     DateTime      @default(now())
+  club          Club          @relation(fields: [clubId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
   teamPlayers   TeamPlayer[]
+  invite        PlayerInvite?
 
   @@unique([clubId, userId])
   @@index([clubId])
+}
+
+// A one-time link an admin generates for a player with no linked account yet
+// (Player.userId: null), so the player can create their own account and get
+// linked to their existing roster entry instead of an admin having to do it
+// manually via PlayerEditForm's "compte lié" dropdown — see
+// docs/superpowers/specs/2026-09-03-player-invite-design.md. @@unique on
+// playerId means generating a new invite upserts this same row (a fresh
+// token/expiry, acceptedAt reset to null) rather than accumulating history,
+// same convention as EventScoresheet's @@unique on eventId. tokenHash (never
+// the raw token) is stored, mirroring RefreshToken's hashing convention — the
+// raw token only ever exists in the generated URL and the visitor's request.
+model PlayerInvite {
+  id         String    @id @default(uuid())
+  playerId   String    @unique
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
 model Club {

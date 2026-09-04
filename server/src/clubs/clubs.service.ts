@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, Gender } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember, ClubMemberSortBy } from '@basketeasy/types/club-members';
 import type {
@@ -13,17 +15,28 @@ import type {
   Player,
   PlayerSortBy,
 } from '@basketeasy/types/players';
+import type { PlayerInviteLink, PlayerInviteStatus } from '@basketeasy/types/player-invites';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
+import { hashToken } from '../common/token-hash';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
+// A generated invite link is valid for a week — long enough for a player to
+// notice it (text/WhatsApp/email, sent by whatever channel the admin uses;
+// there is no transactional-email sending wired up yet), short enough that a
+// stale, unused link stops being a standing way into the club.
+const PLAYER_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class ClubsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async createClub(userId: string, data: { name: string; ffbbClubCode?: string }): Promise<Club> {
     try {
@@ -397,11 +410,62 @@ export class ClubsService {
     await this.prisma.player.delete({ where: { id: playerId } });
   }
 
-  private async findPlayerInClub(clubId: string, playerId: string): Promise<void> {
+  // Generates (or regenerates) a one-time invite link for a player with no
+  // linked account yet. @@unique on PlayerInvite.playerId means this upserts
+  // the same row — a fresh token invalidates whatever link was generated
+  // before it, same "regenerate replaces" convention as
+  // ScoresheetsService.retryOcr. The raw token is only ever returned here;
+  // everywhere else (getPlayerInviteStatus, InvitesService) only sees its hash.
+  async createPlayerInvite(clubId: string, playerId: string): Promise<PlayerInviteLink> {
+    const player = await this.findPlayerInClub(clubId, playerId);
+    if (player.userId) {
+      throw new BadRequestException('Ce joueur est déjà lié à un compte');
+    }
+
+    const rawToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + PLAYER_INVITE_TTL_MS);
+    await this.prisma.playerInvite.upsert({
+      where: { playerId },
+      create: { playerId, tokenHash: hashToken(rawToken), expiresAt },
+      update: { tokenHash: hashToken(rawToken), expiresAt, acceptedAt: null },
+    });
+
+    return {
+      token: rawToken,
+      url: this.buildInviteUrl(rawToken),
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  async getPlayerInviteStatus(clubId: string, playerId: string): Promise<PlayerInviteStatus> {
+    await this.findPlayerInClub(clubId, playerId);
+    const invite = await this.prisma.playerInvite.findUnique({ where: { playerId } });
+    if (!invite) {
+      return { status: 'NONE', expiresAt: null };
+    }
+    if (invite.acceptedAt) {
+      return { status: 'ACCEPTED', expiresAt: null };
+    }
+    if (invite.expiresAt < new Date()) {
+      return { status: 'EXPIRED', expiresAt: invite.expiresAt.toISOString() };
+    }
+    return { status: 'PENDING', expiresAt: invite.expiresAt.toISOString() };
+  }
+
+  private buildInviteUrl(token: string): string {
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    return `${frontendUrl}/invite/${token}`;
+  }
+
+  private async findPlayerInClub(
+    clubId: string,
+    playerId: string,
+  ): Promise<{ id: string; clubId: string; userId: string | null }> {
     const existing = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!existing || existing.clubId !== clubId) {
       throw new NotFoundException('Player not found');
     }
+    return existing;
   }
 
   private toPlayer(player: {

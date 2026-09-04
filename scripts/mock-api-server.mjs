@@ -12,6 +12,14 @@
 // Then point Vite's dev server proxy at it (default target is already
 // http://localhost:3000, see app/vite.config.ts) and drive it with Playwright.
 //
+// Reusable fixtures for common scenarios (an authenticated admin session, a
+// populated roster, etc.) live under scripts/fixtures/ — check there before
+// hand-rolling a new fixtures file. `authenticated-admin-session.json` is the
+// base session/club bootstrap most authenticated-screen screenshots need;
+// copy it as a starting point for a new scenario-specific fixture (this
+// server loads exactly one --fixtures file, so a scenario file repeats the
+// session block rather than composing several files).
+//
 // Fixtures file format — a flat JSON object keyed by "METHOD /path", path
 // matched literally (including any resolved ids), e.g.:
 //   {

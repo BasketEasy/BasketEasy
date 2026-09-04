@@ -14,6 +14,7 @@ import {
 import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { ImportPlayersResult, Player } from '@basketeasy/types/players';
+import type { PlayerInviteLink, PlayerInviteStatus } from '@basketeasy/types/player-invites';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
@@ -138,5 +139,25 @@ export class ClubsController {
     @Param('playerId') playerId: string,
   ): Promise<void> {
     return this.clubsService.deletePlayer(clubId, playerId);
+  }
+
+  @Post(':clubId/players/:playerId/invite')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  createPlayerInvite(
+    @Param('clubId') clubId: string,
+    @Param('playerId') playerId: string,
+  ): Promise<PlayerInviteLink> {
+    return this.clubsService.createPlayerInvite(clubId, playerId);
+  }
+
+  @Get(':clubId/players/:playerId/invite')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  getPlayerInviteStatus(
+    @Param('clubId') clubId: string,
+    @Param('playerId') playerId: string,
+  ): Promise<PlayerInviteStatus> {
+    return this.clubsService.getPlayerInviteStatus(clubId, playerId);
   }
 }

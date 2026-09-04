@@ -16,6 +16,7 @@ import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { PlayerEditForm } from './PlayerEditForm';
+import { PlayerInviteDialog } from './PlayerInviteDialog';
 import { usePlayerDelete } from './usePlayerDelete';
 import { getClubErrorMessage } from './clubErrorMessages';
 
@@ -60,6 +61,7 @@ export function PlayerRow({
           />
         </DialogContent>
       </Dialog>
+      {!player.userId && <PlayerInviteDialog clubId={clubId} player={player} />}
       <Button
         variant="destructive"
         loading={isDeleting}

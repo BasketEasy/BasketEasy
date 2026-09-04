@@ -15,8 +15,22 @@ description: Render a UI change and capture a screenshot when there's no live Po
    same default empty/zero shapes as `app/src/mocks/handlers.ts`.
 
 2. **Need specific data for the scenario** (e.g. a named club, a populated roster, an
-   event with RSVPs)? Write a fixtures file keyed `"METHOD /path": <body>` — path is
-   the literal resolved path, no `:param` placeholders:
+   event with RSVPs)? **Check `scripts/fixtures/` first** — committed, reusable fixture
+   files for scenarios that come up repeatedly:
+
+   - `authenticated-admin-session.json` — the base session/club bootstrap almost every
+     authenticated-screen screenshot needs (`POST /auth/refresh`, `GET /auth/me`,
+     `GET /clubs`, `GET /clubs/club-1`). Pass it directly when that's all you need, or
+     copy it as the starting point for a new scenario file.
+   - `player-invite.json` — an authenticated admin session plus one unlinked player and
+     the invite-generation/accept endpoints (roster invite dialog, `/invite/:token`
+     accept page).
+
+   Reuse one of these unmodified when it already fits; extend a copy (adding routes,
+   changing names) when it's close but not quite right; only write a fresh one from
+   scratch when the scenario shares nothing with what's there. A fixtures file is a flat
+   JSON object keyed `"METHOD /path": <body>` — path is the literal resolved path, no
+   `:param` placeholders:
 
    ```json
    {
@@ -36,8 +50,12 @@ description: Render a UI change and capture a screenshot when there's no live Po
    ```
 
    An entry can also be `{ "status": 404, "body": { ... } }` to mock an error. Pass it
-   with `pnpm mock-api -- --fixtures ./scratchpad/fixtures.json`. Put the fixtures file
-   in the scratchpad directory, not the repo.
+   with `pnpm mock-api -- --fixtures scripts/fixtures/<file>.json` (a committed fixture)
+   or `pnpm mock-api -- --fixtures ./scratchpad/fixtures.json` (a one-off you don't
+   expect to reuse — the server only loads a single `--fixtures` file, so a new
+   scenario file repeats the session block rather than composing several). If the
+   scenario looks reusable for future screenshots, commit it under `scripts/fixtures/`
+   instead of leaving it in scratchpad.
 
 3. **Start the Vite dev server**:
 

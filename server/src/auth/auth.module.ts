@@ -12,6 +12,6 @@ import { TeamManagerGuard } from './guards/team-manager.guard';
   imports: [PassportModule, JwtModule.register({})],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, ClubRolesGuard, TeamManagerGuard],
-  exports: [JwtAuthGuard, ClubRolesGuard, TeamManagerGuard],
+  exports: [AuthService, JwtAuthGuard, ClubRolesGuard, TeamManagerGuard],
 })
 export class AuthModule {}

@@ -1,0 +1,20 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  }
+}

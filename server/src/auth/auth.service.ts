@@ -3,9 +3,10 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { randomBytes, randomUUID, createHash } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import type { ClubMembershipInfo, User } from '@basketeasy/types/auth';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashToken } from '../common/token-hash';
 import { REFRESH_TOKEN_TTL_MS } from './auth.constants';
 
 const ACCESS_TOKEN_TTL = '15m';
@@ -88,7 +89,7 @@ export class AuthService {
     );
 
     const rawRefreshToken = randomBytes(32).toString('hex');
-    const tokenHash = this.hashToken(rawRefreshToken);
+    const tokenHash = hashToken(rawRefreshToken);
 
     await this.prisma.refreshToken.create({
       data: {
@@ -100,10 +101,6 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken: rawRefreshToken };
-  }
-
-  private hashToken(rawToken: string): string {
-    return createHash('sha256').update(rawToken).digest('hex');
   }
 
   // Single validated accessor for the access-token signing secret, mirroring
@@ -119,7 +116,7 @@ export class AuthService {
   }
 
   async refresh(rawToken: string): Promise<TokenPair> {
-    const tokenHash = this.hashToken(rawToken);
+    const tokenHash = hashToken(rawToken);
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
 
     if (!stored || stored.expiresAt < new Date()) {
@@ -149,7 +146,7 @@ export class AuthService {
   }
 
   async logout(rawToken: string): Promise<void> {
-    const tokenHash = this.hashToken(rawToken);
+    const tokenHash = hashToken(rawToken);
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
 
     if (!stored) {
