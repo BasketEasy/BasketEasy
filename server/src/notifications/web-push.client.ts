@@ -46,7 +46,7 @@ export class WebPushClient implements PushClient {
 
     // `subject` must be a mailto: or https: URL identifying the sender; push
     // services reject the request without it.
-    const subject = this.config.get<string>('VAPID_SUBJECT') || 'mailto:no-reply@kluvo.fr';
+    const subject = this.config.get<string>('VAPID_SUBJECT') || 'mailto:contact@kluvo.net';
 
     try {
       await webpush.sendNotification(

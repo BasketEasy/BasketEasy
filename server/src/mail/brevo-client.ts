@@ -32,7 +32,7 @@ export class BrevoClient implements MailClient {
       },
       body: JSON.stringify({
         sender: {
-          email: this.config.get<string>('MAIL_FROM_EMAIL') || 'no-reply@kluvo.fr',
+          email: this.config.get<string>('MAIL_FROM_EMAIL') || 'contact@kluvo.net',
           name: this.config.get<string>('MAIL_FROM_NAME') || 'Kluvo',
         },
         to: [{ email: message.to }],
