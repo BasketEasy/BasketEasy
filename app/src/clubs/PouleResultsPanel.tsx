@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -14,11 +15,21 @@ import { PouleStandingRow } from './PouleStandingRow';
 
 const STANDINGS_COLUMNS = ['#', 'Équipe', 'J', 'G', 'P', 'Pts'] as const;
 
+// Only the most recent journées are shown by default — a full season can run
+// 10+ journées, which is a lot of games to scroll past for the case that
+// matters most (the standings and the last couple of results). "Voir les
+// journées précédentes" reveals the rest; no pagination/fetch involved, the
+// whole poule already arrived in one response.
+const DEFAULT_VISIBLE_MATCHDAYS = 3;
+
 /**
  * A team's whole poule — federation data read live from FFBB, never
- * something this app owns, which is why it's a panel on the Agenda tab
+ * something this app owns, which is why it's a panel on the Statistiques tab
+ * (alongside the team's own season stats — both answer "how are we doing")
  * rather than a tab of its own (see
  * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md).
+ * Originally lived at the bottom of the Agenda tab; moved after real usage
+ * showed it buried below a (often long) event list there.
  *
  * Branches error → loading → empty → data, per CLAUDE.md's query-branch
  * rule. "Empty" here specifically means "no FFBB competition linked yet" (a
@@ -32,6 +43,7 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
     clubId,
     teamId,
   );
+  const [showAllMatchdays, setShowAllMatchdays] = useState(false);
 
   const isNoLinkYet = error instanceof ApiError && error.status === 404 && !error.code;
 
@@ -89,6 +101,27 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
 
       <div className="flex flex-col gap-2.5">
         <Text as="span" variant="eyebrow">
+          Classement
+        </Text>
+        {data.standings.length === 0 ? (
+          <Text as="p" variant="meta">
+            Le classement n&apos;est pas encore disponible.
+          </Text>
+        ) : (
+          <ResponsiveTable columns={STANDINGS_COLUMNS}>
+            {data.standings.map((standing, index) => (
+              <PouleStandingRow
+                key={`${standing.teamLabel}-${index}`}
+                rank={index + 1}
+                standing={standing}
+              />
+            ))}
+          </ResponsiveTable>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <Text as="span" variant="eyebrow">
           Résultats
         </Text>
         {data.matchdays.length === 0 ? (
@@ -97,7 +130,10 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
           </Text>
         ) : (
           <div className="flex flex-col gap-4">
-            {data.matchdays.map((matchday) => (
+            {(showAllMatchdays
+              ? data.matchdays
+              : data.matchdays.slice(0, DEFAULT_VISIBLE_MATCHDAYS)
+            ).map((matchday) => (
               <div key={matchday.matchdayLabel} className="flex flex-col gap-2">
                 <Text as="span" variant="meta">
                   {matchday.matchdayLabel}
@@ -144,28 +180,12 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
                 </div>
               </div>
             ))}
+            {!showAllMatchdays && data.matchdays.length > DEFAULT_VISIBLE_MATCHDAYS && (
+              <Button variant="outline" size="sm" onClick={() => setShowAllMatchdays(true)}>
+                Voir les journées précédentes
+              </Button>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2.5">
-        <Text as="span" variant="eyebrow">
-          Classement
-        </Text>
-        {data.standings.length === 0 ? (
-          <Text as="p" variant="meta">
-            Le classement n&apos;est pas encore disponible.
-          </Text>
-        ) : (
-          <ResponsiveTable columns={STANDINGS_COLUMNS}>
-            {data.standings.map((standing, index) => (
-              <PouleStandingRow
-                key={`${standing.teamLabel}-${index}`}
-                rank={index + 1}
-                standing={standing}
-              />
-            ))}
-          </ResponsiveTable>
         )}
       </div>
     </div>

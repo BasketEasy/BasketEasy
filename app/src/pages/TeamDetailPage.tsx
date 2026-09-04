@@ -454,12 +454,15 @@ export function TeamDetailPage() {
         </TabsList>
 
         <TabsContent value="stats" className="mt-4">
-          <TeamSeasonStatsTab
-            clubId={clubId!}
-            teamId={teamId!}
-            season={statsSeason}
-            onSeasonChange={setStatsSeason}
-          />
+          <div className="flex flex-col gap-6">
+            <PouleResultsPanel clubId={clubId!} teamId={teamId!} />
+            <TeamSeasonStatsTab
+              clubId={clubId!}
+              teamId={teamId!}
+              season={statsSeason}
+              onSeasonChange={setStatsSeason}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="roster">
@@ -591,7 +594,6 @@ export function TeamDetailPage() {
                 agendaEvents={agendaEvents}
               />
             )}
-            <PouleResultsPanel clubId={clubId!} teamId={teamId!} />
           </div>
         </TabsContent>
       </Tabs>

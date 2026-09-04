@@ -44,38 +44,76 @@
     "standings": [
       {
         "teamLabel": "Vertou Basket Club",
-        "played": 3,
-        "won": 3,
-        "lost": 0,
-        "points": 6,
+        "played": 5,
+        "won": 4,
+        "lost": 1,
+        "points": 9,
         "isOurTeam": false
       },
       {
         "teamLabel": "Basket Club Basse Goulaine",
-        "played": 3,
-        "won": 2,
-        "lost": 1,
-        "points": 5,
+        "played": 5,
+        "won": 3,
+        "lost": 2,
+        "points": 8,
         "isOurTeam": true
       },
       {
         "teamLabel": "Nantes Sully Basket",
-        "played": 3,
-        "won": 1,
-        "lost": 2,
-        "points": 4,
+        "played": 5,
+        "won": 2,
+        "lost": 3,
+        "points": 7,
         "isOurTeam": false
       },
       {
         "teamLabel": "AS Rezé Basket",
-        "played": 3,
-        "won": 0,
-        "lost": 3,
-        "points": 3,
+        "played": 5,
+        "won": 1,
+        "lost": 4,
+        "points": 6,
         "isOurTeam": false
       }
     ],
     "matchdays": [
+      {
+        "matchdayLabel": "Journée 5",
+        "results": [
+          {
+            "homeLabel": "Nantes Sully Basket",
+            "awayLabel": "Basket Club Basse Goulaine",
+            "homeScore": 50,
+            "awayScore": 62,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "Vertou Basket Club",
+            "awayLabel": "AS Rezé Basket",
+            "homeScore": 66,
+            "awayScore": 40,
+            "involvesOurTeam": false
+          }
+        ]
+      },
+      {
+        "matchdayLabel": "Journée 4",
+        "results": [
+          {
+            "homeLabel": "Basket Club Basse Goulaine",
+            "awayLabel": "Vertou Basket Club",
+            "homeScore": 59,
+            "awayScore": 63,
+            "involvesOurTeam": true
+          },
+          {
+            "homeLabel": "AS Rezé Basket",
+            "awayLabel": "Nantes Sully Basket",
+            "homeScore": 48,
+            "awayScore": 55,
+            "involvesOurTeam": false
+          }
+        ]
+      },
       {
         "matchdayLabel": "Journée 3",
         "results": [
