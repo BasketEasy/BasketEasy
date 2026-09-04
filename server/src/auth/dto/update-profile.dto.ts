@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import type { UpdateProfileRequest } from '@basketeasy/types/auth';
 
 export class UpdateProfileDto implements UpdateProfileRequest {
@@ -32,4 +32,12 @@ export class UpdateProfileDto implements UpdateProfileRequest {
   @MinLength(1)
   @MaxLength(2048)
   avatarUrl?: string | null;
+
+  // IsOptional (not ValidateIf) is right here: unlike firstName/lastName the
+  // column is non-nullable with a default, so an explicit null has no
+  // meaning to let through — IsOptional rejecting it alongside undefined is
+  // exactly the behaviour wanted.
+  @IsOptional()
+  @IsBoolean()
+  emailNotificationsEnabled?: boolean;
 }

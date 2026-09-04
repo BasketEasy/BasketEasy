@@ -18,6 +18,7 @@ import type { PlayerInviteLink, PlayerInviteStatus } from '@basketeasy/types/pla
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { ClubsService } from './clubs.service';
@@ -35,7 +36,12 @@ import { LinkFfbbClubDto } from './dto/link-ffbb-club.dto';
 export class ClubsController {
   constructor(private readonly clubsService: ClubsService) {}
 
+  // One of the three EmailVerifiedGuard routes: creating a club makes the
+  // caller its ADMIN, i.e. hands them authority over other people's data, so
+  // the address behind the account has to be one somebody has proved they can
+  // receive at. See the guard for the full rationale.
   @Post()
+  @UseGuards(EmailVerifiedGuard)
   createClub(@CurrentUser() user: RequestUser, @Body() dto: CreateClubDto): Promise<Club> {
     return this.clubsService.createClub(user.id, dto);
   }
@@ -67,8 +73,10 @@ export class ClubsController {
     return this.clubsService.removeFfbbLink(clubId);
   }
 
+  // Gated on a verified address: adding a member is granting someone else
+  // access to this club's roster. See EmailVerifiedGuard.
   @Post(':clubId/members')
-  @UseGuards(ClubRolesGuard)
+  @UseGuards(ClubRolesGuard, EmailVerifiedGuard)
   @ClubRoles('ADMIN')
   addMember(@Param('clubId') clubId: string, @Body() dto: AddClubMemberDto): Promise<ClubMember> {
     return this.clubsService.addMember(clubId, dto.email);

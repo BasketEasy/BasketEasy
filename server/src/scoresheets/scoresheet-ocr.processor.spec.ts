@@ -2,15 +2,18 @@ import { ScoresheetOcrProcessor } from './scoresheet-ocr.processor';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import type { ScoresheetVisionClient } from './scoresheet-vision-client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('ScoresheetOcrProcessor', () => {
   let processor: ScoresheetOcrProcessor;
   let prisma: {
-    eventScoresheet: { findUniqueOrThrow: jest.Mock; update: jest.Mock };
+    eventScoresheet: { findUniqueOrThrow: jest.Mock; update: jest.Mock; findUnique: jest.Mock };
     scoresheetExtraction: { upsert: jest.Mock };
+    clubMembership: { findFirst: jest.Mock };
   };
   let storage: { getObjectBuffer: jest.Mock };
   let vision: { extractScoresheet: jest.Mock };
+  let notifications: { notify: jest.Mock };
 
   const consistentData = {
     homeScore: 60,
@@ -33,8 +36,18 @@ describe('ScoresheetOcrProcessor', () => {
           storageKey: 'scoresheets/event-1/abc.jpg',
         }),
         update: jest.fn(),
+        // Backs notifyUploader's own lookup, which runs after every
+        // successful and every finally-failed job.
+        findUnique: jest.fn().mockResolvedValue({
+          eventId: 'event-1',
+          uploadedBy: {
+            player: { userId: 'user-1' },
+            team: { id: 'team-1', clubTeams: [{ clubId: 'club-1', isOwner: true }] },
+          },
+        }),
       },
       scoresheetExtraction: { upsert: jest.fn() },
+      clubMembership: { findFirst: jest.fn().mockResolvedValue({ clubId: 'club-1' }) },
     };
     storage = { getObjectBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-image')) };
     vision = {
@@ -42,10 +55,12 @@ describe('ScoresheetOcrProcessor', () => {
         .fn()
         .mockResolvedValue({ parsedData: consistentData, rawResponse: consistentData }),
     };
+    notifications = { notify: jest.fn().mockResolvedValue(undefined) };
     processor = new ScoresheetOcrProcessor(
       prisma as unknown as PrismaService,
       storage as unknown as StorageService,
       vision as unknown as ScoresheetVisionClient,
+      notifications as unknown as NotificationsService,
     );
   });
 

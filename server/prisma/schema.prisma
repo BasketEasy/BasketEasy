@@ -9,19 +9,136 @@ datasource db {
 }
 
 model User {
-  id                            String                 @id @default(uuid())
-  email                         String                 @unique
+  id                            String                   @id @default(uuid())
+  email                         String                   @unique
   passwordHash                  String
   firstName                     String?
   lastName                      String?
   avatarUrl                     String?
-  createdAt                     DateTime               @default(now())
-  updatedAt                     DateTime               @updatedAt
+  // Null until the address is confirmed through an EmailVerificationToken.
+  // Only EmailVerifiedGuard's three gated routes read it (club creation and
+  // the two admin grants) — everything else works unverified, so a player
+  // invited to a roster who mistyped their address is never locked out of
+  // their own team.
+  emailVerifiedAt               DateTime?
+  // Opt-out for notification e-mails. In-app Notification rows are always
+  // written regardless: this is a delivery-channel preference, not a
+  // "don't tell me" one, so turning it off never loses a convocation.
+  emailNotificationsEnabled     Boolean                  @default(true)
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
   memberships                   ClubMembership[]
   refreshTokens                 RefreshToken[]
   linkedPlayers                 Player[]
   teamAdmins                    TeamAdmin[]
   reviewedScoresheetExtractions ScoresheetExtraction[]
+  notifications                 Notification[]
+  emailVerificationTokens       EmailVerificationToken[]
+  passwordResetTokens           PasswordResetToken[]
+  pushSubscriptions             PushSubscription[]
+}
+
+// The two single-use links a user can be sent by e-mail. Both store only
+// `tokenHash` (never the raw token), the same convention as RefreshToken and
+// PlayerInvite: the raw value exists only inside the e-mailed URL and the
+// visitor's request, so a leaked database can't be used to take over an
+// account.
+//
+// They stay two tables rather than one `SingleUseToken` with a `purpose`
+// column: their lifetimes differ by an order of magnitude (24h vs 1h), a
+// consumed password reset revokes every RefreshToken while a consumed
+// verification doesn't, and a shared table would turn "consume a token for
+// purpose X" into a runtime check the type system can do instead.
+//
+// `consumedAt` rather than deleting the row keeps a *reused* link
+// distinguishable from an *expired* one, so the API can tell the visitor
+// which of the two happened.
+model EmailVerificationToken {
+  id     String @id @default(uuid())
+  userId String
+  // The address this token confirms, snapshotted at send time. A user who
+  // changes their e-mail before clicking an older link must not have that
+  // link verify the new address, so confirmEmail compares this against the
+  // account's current address and refuses on a mismatch.
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum NotificationType {
+  EVENT_CONVOCATION
+  EVENT_CANCELLED
+  SCORESHEET_READY
+  SCORESHEET_FAILED
+}
+
+// One in-app notification addressed to one user.
+//
+// `title`/`body` are denormalised on purpose — finished French sentences
+// composed by whichever module emitted the notification, rendered verbatim,
+// the same contract as Dashboard's ActionItem.message. A notification about
+// an event that has since been deleted or renamed still reads correctly, and
+// no read path has to join across every domain module that can emit one.
+//
+// `deepLink` is a frontend-relative path (e.g.
+// /clubs/<id>/teams/<id>/events/<id>), never an absolute URL: the same value
+// is handed to react-router for an in-app click and prefixed with
+// FRONTEND_URL for the e-mailed and pushed copies. Storing the origin would
+// bake one deploy's hostname into rows that outlive it.
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  deepLink  String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The list query ("my notifications, newest first") and the badge query
+  // ("how many of mine are unread") are the only two reads, and each gets
+  // its own composite index.
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+// One browser's Web Push subscription. `endpoint` is globally unique (it is
+// the push service's own URL for that browser instance), so re-subscribing
+// from the same browser upserts this row rather than accumulating duplicates
+// — the same "@@unique on the natural key" convention as PlayerInvite.playerId.
+//
+// A subscription is deleted, not marked stale, when the push service answers
+// 404/410: that response means the browser is gone for good, and a row that
+// can never be delivered to has no value to keep.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Player {

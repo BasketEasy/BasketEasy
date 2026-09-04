@@ -6,6 +6,7 @@ import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 
 describe('TeamsController', () => {
   let controller: TeamsController;
@@ -71,6 +72,8 @@ describe('TeamsController', () => {
       .overrideGuard(ClubRolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(TeamManagerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(EmailVerifiedGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

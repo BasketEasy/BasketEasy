@@ -63,6 +63,14 @@
     "./player-invites": {
       "types": "./player-invites.ts",
       "default": "./player-invites.ts"
+    },
+    "./notifications": {
+      "types": "./notifications.ts",
+      "default": "./notifications.ts"
+    },
+    "./account-security": {
+      "types": "./account-security.ts",
+      "default": "./account-security.ts"
     }
   },
   "scripts": {

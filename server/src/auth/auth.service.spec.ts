@@ -61,6 +61,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
       });
       prisma.refreshToken.create.mockResolvedValue({});
 
@@ -80,6 +82,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
     });
@@ -128,6 +132,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
       prisma.refreshToken.create.mockResolvedValue({});
@@ -141,6 +147,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
     });
@@ -314,6 +322,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: 'https://example.com/avatar.png',
+        emailVerifiedAt: new Date('2026-09-01T10:00:00.000Z'),
+        emailNotificationsEnabled: true,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
 
@@ -325,6 +335,9 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: 'https://example.com/avatar.png',
+        // A confirmed address is projected as a boolean, never the timestamp.
+        emailVerified: true,
+        emailNotificationsEnabled: true,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
     });
@@ -344,6 +357,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: false,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
 
@@ -363,6 +378,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: false,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
     });
@@ -374,6 +391,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
 

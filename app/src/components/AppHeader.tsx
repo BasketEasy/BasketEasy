@@ -15,6 +15,7 @@ import { useActiveClub } from '../auth/useActiveClub';
 import { useAccount } from '../auth/useAccount';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { AccountMenu } from './AccountMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { Text } from '@basketeasy/ui/text';
 
 interface AppHeaderProps {
@@ -155,6 +156,10 @@ function AppHeaderResolved() {
           <HeaderLink to="/dashboard">Tableau de bord</HeaderLink>
           <HeaderLink to="/my-teams">Mes équipes</HeaderLink>
           {activeClubId && <HeaderLink to={`/clubs/${activeClubId}/members`}>Effectif</HeaderLink>}
+          {/* A sibling of AccountMenu, not an item inside it: notifications
+              are a destination of their own, and an unread count buried
+              behind an avatar defeats the point of having one. */}
+          <NotificationBell />
           <AccountMenu />
         </div>
       </nav>

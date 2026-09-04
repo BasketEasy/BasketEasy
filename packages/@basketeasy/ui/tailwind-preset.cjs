@@ -84,6 +84,14 @@ module.exports = {
         // min-w-[14rem] at the DropdownMenuContent call site.
         menu: '14rem',
       },
+      width: {
+        // The notification bell's dropdown. Wider than a plain action menu
+        // (min-w-menu) because its rows carry a full sentence of body copy,
+        // not a one-word label; narrower than a dialog because it is still an
+        // overlay hanging off a header button. Capped by max-w-menu-available
+        // at the call site, so it never runs off a narrow viewport.
+        notifications: '24rem',
+      },
       maxWidth: {
         // Radix Popper measures the space left in the viewport on the side it
         // placed the content and exposes it as this custom property. Capping

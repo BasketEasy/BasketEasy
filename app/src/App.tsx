@@ -7,6 +7,10 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { InviteAcceptPage } from './pages/InviteAcceptPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { VerifyEmailPage } from './pages/VerifyEmailPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ClubCreatePage } from './pages/ClubCreatePage';
 import { MembersPage } from './pages/MembersPage';
@@ -23,16 +27,24 @@ export default function App() {
     <AppErrorBoundary>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        {/* Top level, beside /invite/:token and for the same reason: each of
+            these is opened from an inbox and must work regardless of session
+            state — PublicOnlyRoute would bounce a visitor who still holds a
+            stale session straight to the dashboard mid-recovery. */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
+        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/clubs/new" element={<ClubCreatePage />} />

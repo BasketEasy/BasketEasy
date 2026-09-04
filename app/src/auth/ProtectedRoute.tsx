@@ -2,6 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAccount } from './useAccount';
 import { AppHeader } from '../components/AppHeader';
 import { AppBottomNav } from '../components/AppBottomNav';
+import { EmailVerificationBanner } from './EmailVerificationBanner';
 
 export function ProtectedRoute() {
   const { user, isLoading } = useAccount();
@@ -31,6 +32,11 @@ export function ProtectedRoute() {
     // page background below the bar.
     <div className="safe-area-top flex min-h-dvh flex-col">
       <AppHeader />
+      {/* The one place that renders on every protected page at *both*
+          breakpoints — inside AppHeader the banner would be invisible on a
+          phone, inside AppBottomNav invisible on a desktop. It renders
+          nothing once the address is confirmed. */}
+      <EmailVerificationBanner />
       {/* min-w-0: without it this flex item (and PageContainer's <main>
           inside it, itself a flex item here for the first time now that
           Outlet is wrapped) refuses to shrink below its content's intrinsic

@@ -177,7 +177,12 @@ export class AuthService {
 
   async updateProfile(
     userId: string,
-    data: { firstName?: string; lastName?: string; avatarUrl?: string | null },
+    data: {
+      firstName?: string;
+      lastName?: string;
+      avatarUrl?: string | null;
+      emailNotificationsEnabled?: boolean;
+    },
   ): Promise<User> {
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -201,6 +206,8 @@ export class AuthService {
       firstName: string | null;
       lastName: string | null;
       avatarUrl: string | null;
+      emailVerifiedAt: Date | null;
+      emailNotificationsEnabled: boolean;
     },
     memberships: ClubMembershipInfo[],
   ): User {
@@ -210,6 +217,11 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       avatarUrl: user.avatarUrl,
+      // A boolean, not the timestamp: nothing in the UI shows *when* the
+      // address was confirmed, only whether the banner and
+      // EmailVerifiedGuard's gated actions still apply.
+      emailVerified: Boolean(user.emailVerifiedAt),
+      emailNotificationsEnabled: user.emailNotificationsEnabled,
       memberships,
     };
   }
