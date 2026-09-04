@@ -36,3 +36,4 @@ jobs:
             cd /opt/kluvo
             docker compose pull server
             docker compose up -d
+            docker system prune -af
