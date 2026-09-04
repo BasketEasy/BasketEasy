@@ -147,5 +147,12 @@ export const apiClient = {
       method: 'PATCH',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  // A body on DELETE is unusual but valid, and one endpoint needs it: a Web
+  // Push endpoint is a full https URL up to 2 KB long, which does not survive
+  // being a path segment. Optional, so every other caller is unchanged.
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: 'DELETE',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
 };

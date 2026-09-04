@@ -23,3 +23,24 @@ export function getAuthErrorMessage(err: unknown): string {
   }
   return GENERIC_ERROR;
 }
+
+/**
+ * The verification/reset flows, whose 400 means something specific: the link
+ * itself is spent or expired, not that a field was mistyped. Telling a
+ * visitor "certaines informations sont invalides" when they clicked a
+ * day-old e-mail link sends them looking for a typo that isn't there, so
+ * these get their own map rather than an override on the one above.
+ */
+export function getAccountSecurityErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    switch (err.status) {
+      case 400:
+        return 'Ce lien est invalide ou a expiré. Demandez-en un nouveau.';
+      case 429:
+        return 'Trop de demandes. Merci de patienter quelques minutes.';
+      default:
+        return GENERIC_ERROR;
+    }
+  }
+  return GENERIC_ERROR;
+}

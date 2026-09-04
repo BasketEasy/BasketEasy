@@ -16,6 +16,8 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
         firstName: 'Alix',
         lastName: 'Martin',
         avatarUrl: null,
+        emailVerified: true,
+        emailNotificationsEnabled: true,
         memberships,
       }),
     ),

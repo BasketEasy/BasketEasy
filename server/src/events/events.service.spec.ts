@@ -5,14 +5,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('EventsService', () => {
   let service: EventsService;
   let teamManagerGuard: { isTeamManager: jest.Mock };
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
+  let notifications: { notify: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
+    team: { findUnique: jest.Mock };
     event: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -44,6 +47,9 @@ describe('EventsService', () => {
   beforeEach(async () => {
     prisma = {
       clubTeam: { findUnique: jest.fn() },
+      // Backs notifyNewlyConvoked / notifyCancellation, which name the team
+      // in the notification title.
+      team: { findUnique: jest.fn().mockResolvedValue({ name: 'U15 M' }) },
       event: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -94,6 +100,7 @@ describe('EventsService', () => {
       deleteObject: jest.fn().mockResolvedValue(undefined),
     };
     scoresheets = { enqueueOcr: jest.fn().mockResolvedValue(undefined) };
+    notifications = { notify: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -102,6 +109,7 @@ describe('EventsService', () => {
         { provide: TeamManagerGuard, useValue: teamManagerGuard },
         { provide: StorageService, useValue: storage },
         { provide: ScoresheetsService, useValue: scoresheets },
+        { provide: NotificationsService, useValue: notifications },
       ],
     }).compile();
 
@@ -1414,6 +1422,83 @@ describe('EventsService', () => {
       expect(prisma.event.deleteMany).not.toHaveBeenCalled();
     });
 
+    it('notifies the convoked players, and gathers them before the cascade wipes the list', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        opponentName: 'ASVEL',
+        recurrenceId: null,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+      prisma.eventConvocation.findMany.mockResolvedValue([
+        { teamPlayer: { player: { userId: 'user-2' } } },
+        // No account behind this roster entry — filtered out, not notified.
+        { teamPlayer: { player: { userId: null } } },
+      ]);
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      const convocationReadOrder = prisma.eventConvocation.findMany.mock.invocationCallOrder[0];
+      const deleteOrder = prisma.event.deleteMany.mock.invocationCallOrder[0];
+      // EventConvocation cascade-deletes with its Event: read after the
+      // delete and there is nobody left to tell.
+      expect(convocationReadOrder).toBeLessThan(deleteOrder);
+
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({
+          userId: 'user-2',
+          type: 'EVENT_CANCELLED',
+          // The team's calendar, not the event — the event no longer exists.
+          deepLink: '/clubs/club-1/teams/team-1',
+        }),
+      ]);
+    });
+
+    it('sends one summary notification for a whole series, not one per occurrence', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        opponentName: null,
+        recurrenceId: 'rec-1',
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+      prisma.event.findMany.mockResolvedValue(
+        Array.from({ length: 12 }, (_, index) => ({ id: `event-${index + 1}` })),
+      );
+      prisma.eventConvocation.findMany.mockResolvedValue([
+        { teamPlayer: { player: { userId: 'user-2' } } },
+        // Same player convoked to several occurrences — deduplicated.
+        { teamPlayer: { player: { userId: 'user-2' } } },
+      ]);
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1', 'ALL');
+
+      expect(notifications.notify).toHaveBeenCalledTimes(1);
+      const batch = notifications.notify.mock.calls[0][0];
+      expect(batch).toHaveLength(1);
+      expect(batch[0].title).toContain('12 séances annulées');
+    });
+
+    it('notifies nobody when nobody had been convoked', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        opponentName: null,
+        recurrenceId: null,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
     it('deletes only this event by default (scope THIS)', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue({
@@ -1818,6 +1903,53 @@ describe('EventsService', () => {
         where: { eventId: 'event-1', teamPlayerId: { notIn: [] } },
       });
       expect(prisma.eventConvocation.upsert).not.toHaveBeenCalled();
+    });
+
+    it('notifies only the players who were not already convoked', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(2);
+      // tp-1 was already on the call-up; only tp-2 is news.
+      prisma.eventConvocation.findMany.mockResolvedValue([{ teamPlayerId: 'tp-1' }]);
+      prisma.teamPlayer.findMany.mockResolvedValueOnce([{ player: { userId: 'user-2' } }]);
+
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1');
+
+      expect(prisma.teamPlayer.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ['tp-2'] } },
+        select: { player: { select: { userId: true } } },
+      });
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({
+          userId: 'user-2',
+          type: 'EVENT_CONVOCATION',
+          deepLink: '/clubs/club-1/teams/team-1/events/event-1',
+        }),
+      ]);
+    });
+
+    it('notifies nobody when a manager re-saves an unchanged call-up', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(2);
+      prisma.eventConvocation.findMany.mockResolvedValue([
+        { teamPlayerId: 'tp-1' },
+        { teamPlayerId: 'tp-2' },
+      ]);
+
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1');
+
+      // This endpoint is a full replace a manager re-submits on every tweak;
+      // without the diff, every save would re-notify the whole roster.
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('skips a newly convoked player who has no account to notify', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(1);
+      prisma.eventConvocation.findMany.mockResolvedValue([]);
+      // Player.userId is nullable — a rostered player who never claimed an
+      // account has nobody behind them.
+      prisma.teamPlayer.findMany.mockResolvedValueOnce([{ player: { userId: null } }]);
+
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1'], 'user-1');
+
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 

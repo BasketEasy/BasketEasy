@@ -3,6 +3,7 @@ import { Slot, Slottable } from '@radix-ui/react-slot';
 import { cn } from '../lib/cn';
 import { focusRing } from '../lib/focusRing';
 import { Text } from './Text';
+import { CountBadge } from './CountBadge';
 
 /**
  * The bottom tab bar's shell — a row of icon-over-label targets pinned to
@@ -96,14 +97,9 @@ export const TabBarItem = forwardRef<HTMLButtonElement, TabBarItemProps>(
       <>
         <span className="relative flex items-center justify-center">
           {icon}
-          {showCount && (
-            <span
-              aria-hidden="true"
-              className="absolute -right-3 -top-1 min-w-4 rounded-full bg-orange-text px-1 text-center text-bar-count font-bold leading-4 tabular text-cream"
-            >
-              {count}
-            </span>
-          )}
+          {/* Positioning is the call site's (it overlaps *this* icon); the
+              look is CountBadge's, shared with the header's bell. */}
+          <CountBadge count={count ?? 0} className="absolute -right-3 -top-1" />
         </span>
         <Text as="span" variant="label" size="xs" tone="inherit">
           {label}

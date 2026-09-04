@@ -9,6 +9,7 @@ import type {
 } from '@basketeasy/types/scoresheet-extraction';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { SCORESHEET_VISION_CLIENT, type ScoresheetVisionClient } from './scoresheet-vision-client';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
 import type { ScoresheetOcrJobData } from './scoresheets.service';
@@ -164,8 +165,92 @@ export class ScoresheetOcrProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     @Inject(SCORESHEET_VISION_CLIENT) private readonly vision: ScoresheetVisionClient,
+    private readonly notifications: NotificationsService,
   ) {
     super();
+  }
+
+  /**
+   * Tells whoever uploaded the sheet how the read went.
+   *
+   * The uploader specifically, not the team's managers: OCR runs minutes
+   * after an upload nobody else is waiting on, and this is the one person
+   * who asked for it and who will do the confirming. `EventScoresheet`
+   * records them as a TeamPlayer, so the account behind it is resolved
+   * through Player.userId — null for a rostered player with no account,
+   * in which case there is nobody to notify and this is a no-op.
+   *
+   * Best-effort throughout: a notification must never turn a successful OCR
+   * job into a failed one, nor add a second failure on top of a failed one.
+   */
+  private async notifyUploader(
+    eventScoresheetId: string,
+    outcome: { type: 'SCORESHEET_READY' | 'SCORESHEET_FAILED'; title: string; body: string },
+  ): Promise<void> {
+    try {
+      const scoresheet = await this.prisma.eventScoresheet.findUnique({
+        where: { id: eventScoresheetId },
+        select: {
+          eventId: true,
+          uploadedBy: {
+            select: {
+              player: { select: { userId: true } },
+              team: {
+                select: { id: true, clubTeams: { select: { clubId: true, isOwner: true } } },
+              },
+            },
+          },
+        },
+      });
+
+      const userId = scoresheet?.uploadedBy.player.userId;
+      if (!scoresheet || !userId) return;
+
+      const clubId = await this.resolveNavigationClubId(userId, scoresheet.uploadedBy.team);
+      if (!clubId) return;
+
+      await this.notifications.notify([
+        {
+          userId,
+          type: outcome.type,
+          title: outcome.title,
+          body: outcome.body,
+          deepLink: `/clubs/${clubId}/teams/${scoresheet.uploadedBy.team.id}/events/${scoresheet.eventId}`,
+        },
+      ]);
+    } catch {
+      // The event, the scoresheet or the roster entry may have been deleted
+      // between enqueue and here. Swallowed for the same reason onFailed's
+      // own writes are: a missing row must not surface as an unhandled
+      // rejection inside a BullMQ event listener.
+    }
+  }
+
+  /**
+   * Picks the club to put in the deep link for a CTC-shared team: the one the
+   * recipient actually belongs to, falling back to the owning club. Same
+   * reasoning as TeamsService.toMyTeamSummary and DashboardService's agenda —
+   * linking through a club the reader has no membership in would 403 in
+   * ClubRolesGuard the moment they tapped the notification.
+   */
+  private async resolveNavigationClubId(
+    userId: string,
+    team: { clubTeams: { clubId: string; isOwner: boolean }[] },
+  ): Promise<string | null> {
+    const clubIds = team.clubTeams.map((link) => link.clubId);
+    if (clubIds.length === 0) return null;
+
+    const membership = await this.prisma.clubMembership.findFirst({
+      where: { userId, clubId: { in: clubIds } },
+      select: { clubId: true },
+    });
+
+    return (
+      membership?.clubId ??
+      team.clubTeams.find((link) => link.isOwner)?.clubId ??
+      clubIds[0] ??
+      null
+    );
   }
 
   async process(job: Job<ScoresheetOcrJobData>): Promise<void> {
@@ -212,9 +297,18 @@ export class ScoresheetOcrProcessor extends WorkerHost {
         failureReason: null,
       },
     });
+    const consistent = isConsistent(parsedData);
     await this.prisma.eventScoresheet.update({
       where: { id: eventScoresheetId },
-      data: { status: isConsistent(parsedData) ? 'PARSED' : 'NEEDS_REVIEW' },
+      data: { status: consistent ? 'PARSED' : 'NEEDS_REVIEW' },
+    });
+
+    await this.notifyUploader(eventScoresheetId, {
+      type: 'SCORESHEET_READY',
+      title: 'Feuille de match analysée',
+      body: consistent
+        ? 'La feuille de match a été lue. Vérifiez les statistiques puis validez-les.'
+        : 'La feuille de match a été lue, mais certains totaux ne concordent pas. Une relecture est nécessaire avant validation.',
     });
   }
 
@@ -242,6 +336,14 @@ export class ScoresheetOcrProcessor extends WorkerHost {
           failureReason: failureReasonFor(error),
         },
         update: { attemptCount: job.attemptsMade, failureReason: failureReasonFor(error) },
+      });
+      await this.notifyUploader(eventScoresheetId, {
+        type: 'SCORESHEET_FAILED',
+        title: 'Échec de l’analyse de la feuille de match',
+        // The same actionable French string the review screen renders — it
+        // already explains what to do next (usually "relancez l'analyse dans
+        // quelques minutes"), so there is nothing to add here.
+        body: failureReasonFor(error),
       });
     } catch {
       // Best-effort: the EventScoresheet/Event may have been deleted between

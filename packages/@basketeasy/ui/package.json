@@ -31,6 +31,10 @@
       "types": "./src/components/Button.tsx",
       "default": "./src/components/Button.tsx"
     },
+    "./count-badge": {
+      "types": "./src/components/CountBadge.tsx",
+      "default": "./src/components/CountBadge.tsx"
+    },
     "./badge": {
       "types": "./src/components/Badge.tsx",
       "default": "./src/components/Badge.tsx"

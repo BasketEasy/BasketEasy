@@ -20,6 +20,7 @@ function renderLoggedIn() {
       HttpResponse.json({
         id: 'user-1',
         email: 'a@b.com',
+        emailVerified: true,
         firstName: 'Chris',
         lastName: 'Rillesen',
         avatarUrl: null,
@@ -41,6 +42,7 @@ function renderLoggedInAsPlayer() {
       HttpResponse.json({
         id: 'user-1',
         email: 'a@b.com',
+        emailVerified: true,
         firstName: 'Chris',
         lastName: 'Rillesen',
         avatarUrl: null,

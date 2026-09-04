@@ -45,14 +45,19 @@ describe('useAccount', () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
       ),
     );
 
     const { result } = renderHook(() => useAccount(), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.user).toEqual({ id: 'user-1', email: 'a@b.com', memberships: [] });
+    expect(result.current.user).toEqual({
+      id: 'user-1',
+      email: 'a@b.com',
+      emailVerified: true,
+      memberships: [],
+    });
   });
 
   it('restores the session exactly once under React.StrictMode double-invoked mount effects (regression: single-use refresh token race)', async () => {
@@ -72,7 +77,12 @@ describe('useAccount', () => {
         return HttpResponse.json({ message: 'Invalid refresh token' }, { status: 401 });
       }),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'strict@b.com', memberships: [] }),
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'strict@b.com',
+          emailVerified: true,
+          memberships: [],
+        }),
       ),
     );
 
@@ -80,7 +90,12 @@ describe('useAccount', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.user).toEqual({ id: 'user-1', email: 'strict@b.com', memberships: [] });
+    expect(result.current.user).toEqual({
+      id: 'user-1',
+      email: 'strict@b.com',
+      emailVerified: true,
+      memberships: [],
+    });
     expect(refreshCallCount).toBe(1);
   });
 });

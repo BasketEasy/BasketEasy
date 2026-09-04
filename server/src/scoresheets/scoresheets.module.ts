@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StorageModule } from '../storage/storage.module';
 import { QueueModule } from '../queue/queue.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ScoresheetsController } from './scoresheets.controller';
 import { ScoresheetsService } from './scoresheets.service';
 import { ScoresheetOcrProcessor } from './scoresheet-ocr.processor';
@@ -9,7 +10,7 @@ import { GeminiClient } from './gemini-client';
 import { SCORESHEET_VISION_CLIENT } from './scoresheet-vision-client';
 
 @Module({
-  imports: [AuthModule, StorageModule, QueueModule],
+  imports: [AuthModule, StorageModule, QueueModule, NotificationsModule],
   controllers: [ScoresheetsController],
   providers: [
     ScoresheetsService,

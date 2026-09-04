@@ -14,6 +14,8 @@ function wrapperWithUser(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER'
             firstName: null,
             lastName: null,
             avatarUrl: null,
+            emailVerified: true,
+            emailNotificationsEnabled: true,
             memberships,
           },
           isLoading: false,

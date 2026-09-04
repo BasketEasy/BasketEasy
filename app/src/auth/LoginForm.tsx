@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { TextLink } from '@basketeasy/ui/text-link';
 import { Link } from 'react-router-dom';
 import { useLogin } from './mutations';
 import { getAuthErrorMessage } from './errorMessages';
@@ -75,6 +76,10 @@ export function LoginForm() {
           <Button asChild type="button" variant="ghost">
             <Link to="/register">Créer un compte</Link>
           </Button>
+
+          <TextLink asChild className="self-center">
+            <Link to="/forgot-password">Mot de passe oublié ?</Link>
+          </TextLink>
         </form>
       </CardContent>
     </Card>

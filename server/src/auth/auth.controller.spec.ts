@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AccountSecurityService } from './account-security.service';
 
 function buildReq(headers: Record<string, string> = {}): Request {
   return {
@@ -23,6 +24,12 @@ describe('AuthController', () => {
     me: jest.Mock;
     updateProfile: jest.Mock;
   };
+  let accountSecurity: {
+    sendVerificationEmail: jest.Mock;
+    confirmEmail: jest.Mock;
+    requestPasswordReset: jest.Mock;
+    resetPassword: jest.Mock;
+  };
   let res: { cookie: jest.Mock; clearCookie: jest.Mock };
 
   async function buildController(cookieSecure: string | undefined): Promise<AuthController> {
@@ -30,6 +37,7 @@ describe('AuthController', () => {
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: service },
+        { provide: AccountSecurityService, useValue: accountSecurity },
         {
           provide: ConfigService,
           useValue: {
@@ -50,6 +58,12 @@ describe('AuthController', () => {
       logout: jest.fn(),
       me: jest.fn(),
       updateProfile: jest.fn(),
+    };
+    accountSecurity = {
+      sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      confirmEmail: jest.fn().mockResolvedValue(undefined),
+      requestPasswordReset: jest.fn().mockResolvedValue(undefined),
+      resetPassword: jest.fn().mockResolvedValue(undefined),
     };
     res = { cookie: jest.fn(), clearCookie: jest.fn() };
 

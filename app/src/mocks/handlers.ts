@@ -18,6 +18,30 @@ export const handlers = [
 
   http.post('/api/auth/logout', () => new HttpResponse(null, { status: 200 })),
 
+  // Default: an empty, fully-read notification feed. Mounted on every
+  // protected page (the header bell polls it, and AccountPage's preferences
+  // card reads the unread count), so most tests rely on this default rather
+  // than stubbing it; notification-focused tests override it with
+  // server.use(...).
+  http.get('/api/me/notifications', () => HttpResponse.json({ items: [], unreadCount: 0 })),
+  http.patch(
+    '/api/me/notifications/:notificationId/read',
+    () => new HttpResponse(null, { status: 204 }),
+  ),
+  http.post('/api/me/notifications/read-all', () => new HttpResponse(null, { status: 204 })),
+
+  // Default: no VAPID key configured, matching a deployment with no push
+  // credentials — NotificationPreferencesCard then hides its push control
+  // rather than offering a subscription nothing could deliver to.
+  http.get('/api/me/push-subscriptions/public-key', () => HttpResponse.json({ publicKey: null })),
+
+  // The account-security endpoints all answer 204 with no body, whether or
+  // not the address exists — see server/src/auth/auth.controller.ts.
+  http.post('/api/auth/verify-email/request', () => new HttpResponse(null, { status: 204 })),
+  http.post('/api/auth/verify-email/confirm', () => new HttpResponse(null, { status: 204 })),
+  http.post('/api/auth/password-reset/request', () => new HttpResponse(null, { status: 204 })),
+  http.post('/api/auth/password-reset/confirm', () => new HttpResponse(null, { status: 204 })),
+
   // Default: no clubs. Tests exercising the nav's per-club links override
   // this with server.use(...).
   http.get('/api/clubs', () => HttpResponse.json([])),

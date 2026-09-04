@@ -29,6 +29,7 @@ describe('App routing', () => {
         HttpResponse.json({
           id: 'user-1',
           email: 'a@b.com',
+          emailVerified: true,
           firstName: 'Alex',
           lastName: 'Dupont',
           avatarUrl: null,

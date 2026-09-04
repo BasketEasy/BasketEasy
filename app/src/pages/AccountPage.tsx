@@ -9,6 +9,7 @@ import { useActiveClub } from '../auth/useActiveClub';
 import { useLogout } from '../auth/mutations';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useShowCreateClub } from '../clubs/useShowCreateClub';
+import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 
 /**
  * The profile page is also where the top bar's mobile-only job lives now:
@@ -35,6 +36,8 @@ export function AccountPage() {
           <AccountProfileForm />
         </CardContent>
       </Card>
+
+      <NotificationPreferencesCard />
 
       {adminClubs.length > 0 && (
         <Card>

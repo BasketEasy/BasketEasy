@@ -17,7 +17,11 @@ import type { AccessTokenResponse, RefreshResponse, User } from '@basketeasy/typ
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ConfirmEmailDto } from './dto/confirm-email.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthService } from './auth.service';
+import { AccountSecurityService } from './account-security.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser, RequestUser } from './decorators/current-user.decorator';
 import {
@@ -31,6 +35,7 @@ import {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly accountSecurity: AccountSecurityService,
     private readonly config: ConfigService,
   ) {}
 
@@ -46,6 +51,14 @@ export class AuthController {
       dto.password,
     );
     setRefreshCookie(res, this.config, refreshToken);
+
+    // Fire-and-forget: a new account is usable immediately (only
+    // EmailVerifiedGuard's three routes need a confirmed address), so waiting
+    // on the mail provider would delay the registration response for no gain,
+    // and a provider outage must not fail a registration that has already
+    // committed. The user can always ask for another link from /account.
+    void this.accountSecurity.sendVerificationEmail(user.id);
+
     return { accessToken, user };
   }
 
@@ -101,5 +114,52 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateMe(@CurrentUser() user: RequestUser, @Body() dto: UpdateProfileDto): Promise<User> {
     return this.authService.updateProfile(user.id, dto);
+  }
+
+  // --- E-mail verification and password reset ---
+  //
+  // Every one of these answers 204 with no body. For the two password-reset
+  // routes that is load-bearing: a public endpoint that responded differently
+  // for a known and an unknown address would be a user-enumeration oracle.
+  // The two verification routes follow suit for consistency — the visitor's
+  // page says what happened, the status code doesn't have to.
+  //
+  // Only the "request" half of verification is authenticated: confirming runs
+  // from an inbox link, which the visitor may well open in a browser with no
+  // session (a different device from the one they registered on).
+
+  @Post('verify-email/request')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  async requestEmailVerification(
+    @Req() req: Request,
+    @CurrentUser() user: RequestUser,
+  ): Promise<void> {
+    assertSameOrigin(req, this.config);
+    await this.accountSecurity.sendVerificationEmail(user.id);
+  }
+
+  @Post('verify-email/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async confirmEmail(@Req() req: Request, @Body() dto: ConfirmEmailDto): Promise<void> {
+    assertSameOrigin(req, this.config);
+    await this.accountSecurity.confirmEmail(dto.token);
+  }
+
+  @Post('password-reset/request')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async requestPasswordReset(
+    @Req() req: Request,
+    @Body() dto: RequestPasswordResetDto,
+  ): Promise<void> {
+    assertSameOrigin(req, this.config);
+    await this.accountSecurity.requestPasswordReset(dto.email);
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetPassword(@Req() req: Request, @Body() dto: ResetPasswordDto): Promise<void> {
+    assertSameOrigin(req, this.config);
+    await this.accountSecurity.resetPassword(dto.token, dto.password);
   }
 }

@@ -16,7 +16,12 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   server.use(
     http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
     http.get('/api/auth/me', () =>
-      HttpResponse.json({ id: 'user-1', email: 'lea@example.fr', memberships }),
+      HttpResponse.json({
+        id: 'user-1',
+        email: 'lea@example.fr',
+        emailVerified: true,
+        memberships,
+      }),
     ),
   );
 }

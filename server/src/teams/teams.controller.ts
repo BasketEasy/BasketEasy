@@ -18,6 +18,7 @@ import type { FfbbImportResult, PouleResults, TeamFfbbLink } from '@basketeasy/t
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
@@ -231,8 +232,10 @@ export class TeamsController {
     return this.teamsService.listEligibleAdmins(clubId, teamId);
   }
 
+  // Gated on a verified address: a TeamAdmin grant hands someone else the
+  // roster, the events and the team's info. See EmailVerifiedGuard.
   @Post(':teamId/admins')
-  @UseGuards(TeamManagerGuard)
+  @UseGuards(TeamManagerGuard, EmailVerifiedGuard)
   addTeamAdmin(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

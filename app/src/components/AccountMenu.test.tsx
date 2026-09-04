@@ -13,6 +13,7 @@ function mockSession() {
       HttpResponse.json({
         id: 'user-1',
         email: 'chris@example.com',
+        emailVerified: true,
         firstName: 'Chris',
         lastName: 'Rillesen',
         avatarUrl: null,
@@ -64,6 +65,7 @@ describe('AccountMenu', () => {
         HttpResponse.json({
           id: 'user-1',
           email: 'chris@example.com',
+          emailVerified: true,
           firstName: 'Chris',
           lastName: 'Rillesen',
           avatarUrl: null,

@@ -115,6 +115,18 @@ const routeDefs = [
   ],
   ['GET', '/api/me/teams', () => []],
   ['GET', '/api/me/dashboard', () => ({ totalPlayers: 0, upcomingEvents: [] })],
+  // Polled on every protected page by the header bell, so it needs a default
+  // even for screenshots that aren't about notifications.
+  ['GET', '/api/me/notifications', () => ({ items: [], unreadCount: 0 })],
+  ['PATCH', '/api/me/notifications/:notificationId/read', () => ({ status: 204, body: null })],
+  ['POST', '/api/me/notifications/read-all', () => ({ status: 204, body: null })],
+  // Null key = no VAPID configured, which is what a screenshot run has:
+  // NotificationPreferencesCard then hides its push control.
+  ['GET', '/api/me/push-subscriptions/public-key', () => ({ publicKey: null })],
+  ['POST', '/api/auth/verify-email/request', () => ({ status: 204, body: null })],
+  ['POST', '/api/auth/verify-email/confirm', () => ({ status: 204, body: null })],
+  ['POST', '/api/auth/password-reset/request', () => ({ status: 204, body: null })],
+  ['POST', '/api/auth/password-reset/confirm', () => ({ status: 204, body: null })],
 ].map(([method, pattern, handler]) => ({ method, handler, ...compile(pattern) }));
 
 function send(res, status, body) {

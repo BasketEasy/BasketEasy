@@ -31,7 +31,9 @@ import { resolvePagination } from '../common/pagination';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ListEventsDto } from './dto/list-events.dto';
+import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
@@ -78,6 +80,7 @@ export class EventsService {
     private readonly teamManagerGuard: TeamManagerGuard,
     private readonly storage: StorageService,
     private readonly scoresheets: ScoresheetsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async listEvents(
@@ -383,8 +386,68 @@ export class EventsService {
     }
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
+
+    // Gathered before the delete, not after: EventConvocation cascade-deletes
+    // with its Event, so once deleteMany has run there is nothing left to
+    // tell us who was expecting to be there. Same "side-effect work happens
+    // before the delete" shape as deleteScoresheetObjects below.
+    const recipientUserIds = await this.resolveCancellationRecipients(teamId, ids);
+
     await this.deleteScoresheetObjects(ids);
     await this.prisma.event.deleteMany({ where: { id: { in: ids } } });
+
+    await this.notifyCancellation(clubId, teamId, event, ids.length, recipientUserIds);
+  }
+
+  // Everyone convoked to any of the events being cancelled, deduplicated by
+  // user. Deliberately the convoked list rather than the whole roster: a
+  // cancellation is only news to someone who was expecting to play, and
+  // notifying an entire roster about a training two of them were called up
+  // for is noise that trains people to ignore the bell.
+  private async resolveCancellationRecipients(
+    teamId: string,
+    eventIds: string[],
+  ): Promise<string[]> {
+    const convocations = await this.prisma.eventConvocation.findMany({
+      where: { eventId: { in: eventIds }, teamPlayer: { teamId } },
+      select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
+    });
+
+    return [
+      ...new Set(
+        convocations
+          .map((row) => row.teamPlayer.player.userId)
+          .filter((userId): userId is string => userId !== null),
+      ),
+    ];
+  }
+
+  private async notifyCancellation(
+    clubId: string,
+    teamId: string,
+    event: EventRow,
+    cancelledCount: number,
+    userIds: string[],
+  ): Promise<void> {
+    if (userIds.length === 0) return;
+
+    const team = await this.prisma.team.findUnique({
+      where: { id: teamId },
+      select: { name: true },
+    });
+    const copy = cancellationNotification(team?.name ?? 'votre équipe', event, cancelledCount);
+
+    await this.notifications.notify(
+      userIds.map((userId) => ({
+        userId,
+        type: 'EVENT_CANCELLED' as const,
+        title: copy.title,
+        body: copy.body,
+        // The team's calendar, not the event: the event no longer exists, so
+        // its own page would 404 the moment the reader tapped through.
+        deepLink: `/clubs/${clubId}/teams/${teamId}`,
+      })),
+    );
   }
 
   // EventScoresheet's onDelete: Cascade removes the DB row automatically
@@ -579,7 +642,7 @@ export class EventsService {
     teamPlayerIds: string[],
     userId: string,
   ): Promise<EventConvocationRosterEntry[]> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
 
     if (teamPlayerIds.length > 0) {
       const rosterCount = await this.prisma.teamPlayer.count({
@@ -591,6 +654,19 @@ export class EventsService {
         );
       }
     }
+
+    // Read the current list *before* the replace, so only players who
+    // weren't already convoked get told. This endpoint is a full replace
+    // that a manager re-submits every time they adjust the list, so without
+    // this diff every save would re-notify the whole call-up.
+    const alreadyConvoked = new Set(
+      (
+        await this.prisma.eventConvocation.findMany({
+          where: { eventId },
+          select: { teamPlayerId: true },
+        })
+      ).map((row) => row.teamPlayerId),
+    );
 
     await this.prisma.$transaction([
       this.prisma.eventConvocation.deleteMany({
@@ -605,9 +681,60 @@ export class EventsService {
       ),
     ]);
 
+    await this.notifyNewlyConvoked(
+      clubId,
+      teamId,
+      event,
+      teamPlayerIds.filter((id) => !alreadyConvoked.has(id)),
+    );
+
     // No re-assertEventInTeam here — already verified above in this same
     // call, unlike listEventConvocations's own public entry point.
     return this.fetchConvocationRoster(teamId, eventId, userId);
+  }
+
+  // Notifying is a side effect of the convocation, never a precondition for
+  // it: NotificationsService.notify only awaits the in-app row write and
+  // hands e-mail/push off to a fire-and-forget path of its own, so a mail or
+  // push outage can't roll back a call-up a manager has already made.
+  private async notifyNewlyConvoked(
+    clubId: string,
+    teamId: string,
+    event: EventRow,
+    newlyConvokedTeamPlayerIds: string[],
+  ): Promise<void> {
+    if (newlyConvokedTeamPlayerIds.length === 0) return;
+
+    const [team, recipients] = await Promise.all([
+      this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+      this.prisma.teamPlayer.findMany({
+        where: { id: { in: newlyConvokedTeamPlayerIds } },
+        select: { player: { select: { userId: true } } },
+      }),
+    ]);
+
+    // Player.userId is nullable — a rostered player who has never claimed an
+    // account (the dashboard's own PLAYERS_WITHOUT_ACCOUNT action item) has
+    // nobody to notify, so they're filtered out rather than skipped later.
+    const userIds = [
+      ...new Set(
+        recipients
+          .map((entry) => entry.player.userId)
+          .filter((userId): userId is string => userId !== null),
+      ),
+    ];
+    if (userIds.length === 0) return;
+
+    const copy = convocationNotification(team?.name ?? 'votre équipe', event);
+    await this.notifications.notify(
+      userIds.map((userId) => ({
+        userId,
+        type: 'EVENT_CONVOCATION' as const,
+        title: copy.title,
+        body: copy.body,
+        deepLink: `/clubs/${clubId}/teams/${teamId}/events/${event.id}`,
+      })),
+    );
   }
 
   // Full roster (not just convoked players) so a manager sees who they
