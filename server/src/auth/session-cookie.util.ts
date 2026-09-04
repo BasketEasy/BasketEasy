@@ -52,7 +52,10 @@ export function assertSameOrigin(req: Request, config: ConfigService): void {
     if (fetchSite === 'same-origin' || fetchSite === 'none') {
       return;
     }
-    if (fetchSite === 'cross-site' && req.headers.origin === frontendOrigin) {
+    // 'same-site' shows up when frontend and API are sibling subdomains of
+    // the same registrable domain (kluvo.net / api.kluvo.net) rather than
+    // fully unrelated hosts — still requires the Origin to match exactly.
+    if ((fetchSite === 'cross-site' || fetchSite === 'same-site') && req.headers.origin === frontendOrigin) {
       return;
     }
     throw new ForbiddenException('Cross-site request rejected');
