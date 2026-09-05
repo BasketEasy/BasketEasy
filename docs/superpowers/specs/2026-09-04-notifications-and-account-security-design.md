@@ -45,7 +45,7 @@ These were put to the product owner before implementation.
 
 One value serves three consumers: react-router for an in-app click, an `<a href>` in an e-mail, and
 `notificationclick` in the service worker. Storing the origin would bake one deploy's hostname into
-rows that outlive it — `basketeasy.pages.dev` today, something else after a domain move, and every
+rows that outlive it — `kluvo.net` today, something else after a domain move, and every
 historical notification silently pointing at the wrong place. `MailService.absoluteUrl()` is the
 single place the prefix is applied, resolved from `FRONTEND_URL` **per send**.
 

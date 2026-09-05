@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { REFRESH_REUSE_GRACE_MS } from './auth.constants';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -225,14 +226,14 @@ describe('AuthService', () => {
       await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
     });
 
-    it('revokes the whole family and throws when a revoked token is reused', async () => {
+    it('revokes the whole family and throws when a revoked token is reused well outside the grace window', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         id: 'rt-1',
         userId: 'user-1',
         familyId: 'family-1',
         tokenHash: 'hash-1',
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-        revokedAt: new Date(),
+        revokedAt: new Date(Date.now() - REFRESH_REUSE_GRACE_MS - 1000),
       });
       // CAS claim on the (already-revoked) row matches nothing.
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -248,12 +249,16 @@ describe('AuthService', () => {
         where: { familyId: 'family-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
     });
 
-    it('revokes the whole family and throws when two concurrent requests race on the same token', async () => {
-      // Simulates the race: the row is still unrevoked when read, but the CAS
-      // claim loses (another request already claimed it), so this must be
-      // treated as reuse rather than silently issuing a second token pair.
+    it('issues a fresh token pair instead of logging out when two concurrent requests race on the same token', async () => {
+      // Simulates two tabs (or a tab plus an installed PWA) restoring a
+      // session at once: the row is still unrevoked when read, but the CAS
+      // claim loses because the other request claimed it a moment earlier.
+      // Within the grace window this must NOT revoke the family or log the
+      // user out — that was the bug reported ("leave the page and come back
+      // and I'm logged out").
       prisma.refreshToken.findUnique.mockResolvedValue({
         id: 'rt-1',
         userId: 'user-1',
@@ -263,14 +268,19 @@ describe('AuthService', () => {
         revokedAt: null,
       });
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
-      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 2 });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+      prisma.refreshToken.create.mockResolvedValue({});
 
-      await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
-      expect(prisma.refreshToken.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { familyId: 'family-1', revokedAt: null },
-        data: { revokedAt: expect.any(Date) },
-      });
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      const result = await service.refresh('raw-token');
+
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ familyId: 'family-1', userId: 'user-1' }),
+        }),
+      );
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(result.refreshToken).toEqual(expect.any(String));
     });
 
     it('throws UnauthorizedException when the CAS claim succeeds but the owning user no longer exists', async () => {

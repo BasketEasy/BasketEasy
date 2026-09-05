@@ -33,10 +33,10 @@ export function readRefreshCookie(req: Request): string | undefined {
   return req.cookies?.[REFRESH_COOKIE_NAME];
 }
 
-// The frontend (basketeasy.pages.dev) and API (basketeasy.onrender.com) are
-// different sites in production, so the refresh cookie must be `sameSite:
-// 'none'` to be sent at all — which means `sameSite` does none of the CSRF
-// work here. This check is the actual defense: a page the victim visits
+// The frontend (kluvo.net, Cloudflare Workers) and API (api.kluvo.net,
+// Scaleway) are different origins in production, so the refresh cookie must
+// be `sameSite: 'none'` to be sent at all — which means `sameSite` does none
+// of the CSRF work here. This check is the actual defense: a page the victim visits
 // could auto-submit a hidden cross-site form/fetch to a cookie-setting
 // endpoint (e.g. planting the attacker's session via /api/auth/login, or an
 // invite accept), so every such endpoint must only accept same-origin

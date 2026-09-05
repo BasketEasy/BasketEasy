@@ -211,7 +211,10 @@ describe('AppHeader', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole('link', { name: /^effectif$/i }));
+    // The link's target club comes from the resolved active club (GET
+    // /clubs, gated on the session), so wait for it rather than the account
+    // button alone before clicking.
+    await user.click(await screen.findByRole('link', { name: /^effectif$/i }));
 
     expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
     expect(await screen.findByText('member-club1@x.com')).toBeInTheDocument();
