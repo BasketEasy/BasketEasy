@@ -156,17 +156,25 @@ export class AccountSecurityService {
   /**
    * Anti-enumeration timing pad for an unknown address in requestPasswordReset.
    *
-   * Mirrors the shape of the known-address path's extra work — a
-   * throttle-shaped lookup plus the randomBytes+hashToken computation a real
-   * token goes through — without writing a PasswordResetToken row (there is
-   * no user to own it) or sending mail. The lookup key is random on every
-   * call so it can never collide with a real token's hash.
+   * Mirrors the shape of the known-address path's extra work: a
+   * throttle-shaped lookup, the randomBytes+hashToken computation a real
+   * token goes through, and — matching the non-throttled case's
+   * `passwordResetToken.create`, which review on issue #143 pointed out this
+   * was missing — a write against the same table, via an `updateMany` keyed
+   * on a random id that can never match an existing row. That exercises the
+   * table's write path (planning, locking) without inserting a row (there is
+   * no user to own it) or sending mail. Every random value here is generated
+   * fresh per call so it can never collide with a real token or row.
    */
   private async padUnknownAddressResetTiming(): Promise<void> {
     const dummyTokenHash = hashToken(randomBytes(32).toString('hex'));
     await this.prisma.passwordResetToken.findFirst({
       where: { tokenHash: dummyTokenHash },
       select: { id: true },
+    });
+    await this.prisma.passwordResetToken.updateMany({
+      where: { id: randomBytes(16).toString('hex') },
+      data: { tokenHash: dummyTokenHash },
     });
   }
 

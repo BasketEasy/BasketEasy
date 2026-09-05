@@ -373,6 +373,30 @@ export class EventsService {
     );
   }
 
+  // Retries a Serializable transaction on Postgres's serialization failure
+  // (Prisma P2034) — the expected, intended outcome when two concurrent
+  // requests race on the same rows (a genuine double-click, issue #141's own
+  // scenario), not an error condition either caller should see. Without a
+  // retry, the loser of the race would get a raw 500 instead of the request
+  // simply re-reading the winner's already-committed state and succeeding.
+  private async runSerializableTransaction<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.prisma.$transaction(fn, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        const isSerializationFailure =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isSerializationFailure || attempt === maxAttempts) throw error;
+      }
+    }
+    throw new Error('unreachable');
+  }
+
   async deleteEvent(
     clubId: string,
     teamId: string,
@@ -403,31 +427,30 @@ export class EventsService {
     // a cancellation notice. Because EventConvocation cascade-deletes with
     // its Event, the read has to happen before deleteMany, but "before" is
     // only race-free when both live in the same isolated transaction as
-    // setEventConvocations's own read+write.
-    const recipientUserIds = await this.prisma.$transaction(
-      async (tx) => {
-        const convocations = await tx.eventConvocation.findMany({
-          where: { eventId: { in: ids }, teamPlayer: { teamId } },
-          select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
-        });
+    // setEventConvocations's own read+write. runSerializableTransaction
+    // retries the (expected, occasional) loser of that race instead of
+    // surfacing a serialization failure as a 500.
+    const recipientUserIds = await this.runSerializableTransaction(async (tx) => {
+      const convocations = await tx.eventConvocation.findMany({
+        where: { eventId: { in: ids }, teamPlayer: { teamId } },
+        select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
+      });
 
-        await tx.event.deleteMany({ where: { id: { in: ids } } });
+      await tx.event.deleteMany({ where: { id: { in: ids } } });
 
-        // Everyone convoked to any of the events being cancelled, deduplicated
-        // by user. Deliberately the convoked list rather than the whole
-        // roster: a cancellation is only news to someone who was expecting to
-        // play, and notifying an entire roster about a training two of them
-        // were called up for is noise that trains people to ignore the bell.
-        return [
-          ...new Set(
-            convocations
-              .map((row) => row.teamPlayer.player.userId)
-              .filter((userId): userId is string => userId !== null),
-          ),
-        ];
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      // Everyone convoked to any of the events being cancelled, deduplicated
+      // by user. Deliberately the convoked list rather than the whole
+      // roster: a cancellation is only news to someone who was expecting to
+      // play, and notifying an entire roster about a training two of them
+      // were called up for is noise that trains people to ignore the bell.
+      return [
+        ...new Set(
+          convocations
+            .map((row) => row.teamPlayer.player.userId)
+            .filter((userId): userId is string => userId !== null),
+        ),
+      ];
+    });
 
     await this.notifyCancellation(clubId, teamId, event, ids.length, recipientUserIds);
   }
@@ -671,38 +694,35 @@ export class EventsService {
     // pre-existing list before either commits and both fire
     // notifications for the same "newly convoked" players. Postgres
     // aborts the loser of the race with a serialization failure rather
-    // than letting it commit against data that shifted under it — the
-    // caller sees an error and, if it retries, reads the winner's
-    // already-applied state, so at most one request ends up notifying
-    // any given player. Without this, the read-before-transaction shape
-    // let both requests diff against the same stale "already convoked"
-    // set.
-    const newlyConvokedIds = await this.prisma.$transaction(
-      async (tx) => {
-        const alreadyConvoked = new Set(
-          (
-            await tx.eventConvocation.findMany({
-              where: { eventId },
-              select: { teamPlayerId: true },
-            })
-          ).map((row) => row.teamPlayerId),
-        );
+    // than letting it commit against data that shifted under it, and
+    // runSerializableTransaction retries that loser transparently — a
+    // genuine double-click still succeeds once (rather than 500ing) and
+    // still ends up notifying each newly-convoked player exactly once.
+    // Without this, the read-before-transaction shape let both requests
+    // diff against the same stale "already convoked" set.
+    const newlyConvokedIds = await this.runSerializableTransaction(async (tx) => {
+      const alreadyConvoked = new Set(
+        (
+          await tx.eventConvocation.findMany({
+            where: { eventId },
+            select: { teamPlayerId: true },
+          })
+        ).map((row) => row.teamPlayerId),
+      );
 
-        await tx.eventConvocation.deleteMany({
-          where: { eventId, teamPlayerId: { notIn: teamPlayerIds } },
+      await tx.eventConvocation.deleteMany({
+        where: { eventId, teamPlayerId: { notIn: teamPlayerIds } },
+      });
+      for (const teamPlayerId of teamPlayerIds) {
+        await tx.eventConvocation.upsert({
+          where: { eventId_teamPlayerId: { eventId, teamPlayerId } },
+          create: { eventId, teamPlayerId },
+          update: {},
         });
-        for (const teamPlayerId of teamPlayerIds) {
-          await tx.eventConvocation.upsert({
-            where: { eventId_teamPlayerId: { eventId, teamPlayerId } },
-            create: { eventId, teamPlayerId },
-            update: {},
-          });
-        }
+      }
 
-        return teamPlayerIds.filter((id) => !alreadyConvoked.has(id));
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+      return teamPlayerIds.filter((id) => !alreadyConvoked.has(id));
+    });
 
     await this.notifyNewlyConvoked(clubId, teamId, event, newlyConvokedIds);
 

@@ -198,10 +198,11 @@ describe('AccountSecurityService', () => {
       expect(mail.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
-    it('still does throttle-shaped and hash-shaped work for an unknown address (issue #143)', async () => {
+    it('still does throttle-shaped, hash-shaped, and write-shaped work for an unknown address (issue #143)', async () => {
       // Otherwise the known/unknown paths differ by exactly the DB round
-      // trips and hashing the real path does — a timing side-channel that
-      // reveals which addresses have accounts even though both answer 204.
+      // trips, hashing, and the create() write the real path does — a timing
+      // side-channel that reveals which addresses have accounts even though
+      // both answer 204.
       prisma.user.findUnique.mockResolvedValue(null);
 
       await service.requestPasswordReset('inconnu@example.com');
@@ -211,7 +212,14 @@ describe('AccountSecurityService', () => {
       // A dummy hash of a random token, never the address itself or a value
       // that could collide with a real stored token.
       expect(dummyLookup.where.tokenHash).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/));
-      // And still no row is written or e-mail sent for it.
+
+      // A write against the same table the real create() would hit,
+      // targeting an id that can never match a real row.
+      expect(prisma.passwordResetToken.updateMany).toHaveBeenCalledTimes(1);
+      const dummyWrite = prisma.passwordResetToken.updateMany.mock.calls[0][0];
+      expect(dummyWrite.where.id).toEqual(expect.stringMatching(/^[0-9a-f]{32}$/));
+
+      // And still no row is actually created or e-mail sent for it.
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
