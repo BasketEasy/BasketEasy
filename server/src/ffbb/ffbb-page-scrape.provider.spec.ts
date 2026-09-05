@@ -277,6 +277,37 @@ describe('FfbbPageScrapeProvider', () => {
       );
     });
 
+    it('keeps scanning past an earlier dataEngagement marker with no idPoule within the SAME chunk', async () => {
+      // Mirrors the "skips an earlier mismatched data array" and "keeps
+      // scanning past multiple mismatched poules arrays" tests above: a
+      // chunk can carry more than one "dataEngagement":{ object, and the
+      // first one failing to yield an idPoule must not stop the scan.
+      const chunk =
+        `1:${JSON.stringify({ dataEngagement: { nom: 'no idPoule on this one' } })}\n` +
+        `2:${JSON.stringify({
+          data: [
+            {
+              id: '1',
+              date_rencontre: '2026-09-20T14:00:00',
+              joue: false,
+              idEngagementEquipe1: { id: OUR_ENGAGEMENT_ID, nom: 'US' },
+              idEngagementEquipe2: { id: '2', nom: 'THEM' },
+              competitionId: { id: '200000002897998' },
+            },
+          ],
+          dataEngagement: { idPoule: { id: '200000003056186', nom: 'Poule A' } },
+          detailLink: `${DETAIL_PREFIX}1`,
+        })}\n`;
+      const html = `<html><body><script>self.__next_f.push([1,${JSON.stringify(chunk)}])</script></body></html>`;
+      fetchSpy.mockResolvedValue(fakeResponse({ text: async () => html }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF);
+
+      expect(result.pouleRef).toBe(
+        'ligues/pdl/comites/0044/competitions/dm3?phase=200000002897998&poule=200000003056186',
+      );
+    });
+
     it('is null when dataEngagement carries no idPoule', async () => {
       const html = pushChunkHtml({
         data: [

@@ -159,6 +159,9 @@ const MAX_DATA_ARRAY_SCANS = 20;
 /** Bounds how many `"poules":[` occurrences extractPoulesArray will try before giving up on a chunk. */
 const MAX_POULES_ARRAY_SCANS = 20;
 
+/** Bounds how many `"dataEngagement":{` occurrences extractEngagementPouleId will try before giving up on a chunk. */
+const MAX_ENGAGEMENT_POULE_ID_SCANS = 20;
+
 /** Guards on the text scan that finds a venue object inside an RSC chunk. */
 const MAX_VENUE_MARKER_SCANS = 40;
 const MAX_ENCLOSING_OBJECT_CANDIDATES = 24;
@@ -352,24 +355,34 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
    * object — the RSC payload's summary of the engagement itself, distinct
    * from its `data` array of matches. Confirmed against a live page
    * (2026-09-04): none of that array's rencontre rows carry an `idPoule`
-   * field, only this sibling object does.
+   * field, only this sibling object does. A shape mismatch (unparseable, or
+   * missing `idPoule`) keeps scanning forward for the next occurrence of the
+   * marker within the same chunk rather than giving up on it — the same
+   * fragility extractDataArray/extractPoulesArray were fixed for.
    */
   private extractEngagementPouleId(chunks: string[]): string | null {
     const marker = '"dataEngagement":{';
     for (const chunk of chunks) {
-      const markerIndex = chunk.indexOf(marker);
-      if (markerIndex === -1) continue;
-      const objectText = this.readBalancedObject(chunk, markerIndex + marker.length - 1);
-      if (!objectText) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(objectText);
-      } catch {
-        continue;
+      let searchFrom = 0;
+      let scans = 0;
+      for (;;) {
+        if (scans >= MAX_ENGAGEMENT_POULE_ID_SCANS) break;
+        scans += 1;
+        const markerIndex = chunk.indexOf(marker, searchFrom);
+        if (markerIndex === -1) break;
+        searchFrom = markerIndex + marker.length;
+        const objectText = this.readBalancedObject(chunk, markerIndex + marker.length - 1);
+        if (!objectText) continue;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(objectText);
+        } catch {
+          continue;
+        }
+        if (typeof parsed !== 'object' || parsed === null) continue;
+        const pouleId = this.readNestedId((parsed as { idPoule?: unknown }).idPoule);
+        if (pouleId) return pouleId;
       }
-      if (typeof parsed !== 'object' || parsed === null) continue;
-      const pouleId = this.readNestedId((parsed as { idPoule?: unknown }).idPoule);
-      if (pouleId) return pouleId;
     }
     return null;
   }
