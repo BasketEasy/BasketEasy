@@ -73,7 +73,11 @@ describe('DashboardPage — manager view', () => {
     renderLoggedIn();
 
     await waitFor(() => expect(screen.getByText('Bonjour, Chris')).toBeInTheDocument());
-    expect(screen.getByText('a@b.com')).toBeInTheDocument();
+    // The e-mail line only renders once hasManageRights resolves (it's
+    // manager-only), which itself waits on GET /clubs — a query that in turn
+    // waits on the session restore, so it lands a render or two after the
+    // greeting rather than in the same one.
+    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
   });
 
   it('shows stat tiles computed from teams, admin clubs, and the dashboard summary', async () => {
@@ -150,8 +154,11 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    await waitFor(() => expect(requestUrl).toBeDefined());
-    expect(requestUrl!.searchParams.get('from')).toBeNull();
+    // The very first request can still be the player-windowed one, fired
+    // before hasManageRights resolves — wait for the manager-mode refetch
+    // (no from/to) that follows once GET /clubs answers, rather than
+    // asserting on whichever request happened to land first.
+    await waitFor(() => expect(requestUrl?.searchParams.get('from')).toBeNull());
     expect(requestUrl!.searchParams.get('to')).toBeNull();
   });
 
@@ -296,8 +303,10 @@ describe('DashboardPage — manager view', () => {
 
     // Two independent queries hit the same failing endpoint here: "Cette
     // semaine" and, since phase 8, ManagerHome's own "Après le match" —
-    // both surface their own error, not a shared one.
-    expect(await screen.findAllByText('Chargement impossible')).toHaveLength(2);
+    // both surface their own error, not a shared one. The manager-only
+    // second one only mounts once hasManageRights resolves, so wait for the
+    // full count rather than whichever renders first.
+    await waitFor(() => expect(screen.getAllByText('Chargement impossible')).toHaveLength(2));
     expect(screen.queryByText('Rien de prévu cette semaine')).not.toBeInTheDocument();
   });
 });
