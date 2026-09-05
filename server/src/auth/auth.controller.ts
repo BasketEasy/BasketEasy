@@ -118,11 +118,14 @@ export class AuthController {
 
   // --- E-mail verification and password reset ---
   //
-  // Every one of these answers 204 with no body. For the two password-reset
-  // routes that is load-bearing: a public endpoint that responded differently
-  // for a known and an unknown address would be a user-enumeration oracle.
-  // The two verification routes follow suit for consistency — the visitor's
-  // page says what happened, the status code doesn't have to.
+  // The two password-reset routes always answer 204 with no body, regardless
+  // of whether the address is known — load-bearing, since a public endpoint
+  // that responded differently for a known and an unknown address would be a
+  // user-enumeration oracle. Verification doesn't need that guarantee: the
+  // token is a private link e-mailed to the account itself, not tied to a
+  // public address lookup, so `confirmEmail` reports failure directly
+  // (BadRequestException, 400) for an invalid, expired, or address-mismatched
+  // token — see account-security.service.ts.
   //
   // Only the "request" half of verification is authenticated: confirming runs
   // from an inbox link, which the visitor may well open in a browser with no

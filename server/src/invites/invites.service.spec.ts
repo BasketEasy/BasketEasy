@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { INVITE_ALREADY_ACCEPTED_CODE } from '@basketeasy/types/player-invites';
 import { InvitesService } from './invites.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -54,10 +55,19 @@ describe('InvitesService', () => {
       await expect(service.getPreview('bad-token')).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it('throws for an already-accepted invite', async () => {
+    it('throws a distinct conflict for an already-accepted invite', async () => {
       prisma.playerInvite.findUnique.mockResolvedValue({ ...validInvite, acceptedAt: new Date() });
 
-      await expect(service.getPreview('token')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.getPreview('token')).rejects.toBeInstanceOf(ConflictException);
+      try {
+        await service.getPreview('token');
+        fail('expected getPreview to throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(ConflictException);
+        expect((err as ConflictException).getResponse()).toMatchObject({
+          code: INVITE_ALREADY_ACCEPTED_CODE,
+        });
+      }
     });
 
     it('throws for an expired invite', async () => {

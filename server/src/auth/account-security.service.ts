@@ -120,6 +120,14 @@ export class AccountSecurityService {
       select: { id: true, email: true },
     });
     if (!user) {
+      // The response is identical either way (204, no token, no e-mail), but
+      // an unknown address returning right after this one findUnique — next
+      // to a known address going on to a throttle lookup, a token hash, and
+      // a row write — is a timing side-channel of its own (issue #143). Pad
+      // it with equivalent-shaped work, not a sleep(): the same
+      // throttle-shaped lookup and the same randomBytes+hashToken the real
+      // path below computes, just discarded instead of written or e-mailed.
+      await this.padUnknownAddressResetTiming();
       this.logger.debug('Password reset requested for an unknown address');
       return;
     }
@@ -143,6 +151,31 @@ export class AccountSecurityService {
       () => this.mail.sendPasswordResetEmail(user.email, rawToken),
       `password reset e-mail to ${user.email}`,
     );
+  }
+
+  /**
+   * Anti-enumeration timing pad for an unknown address in requestPasswordReset.
+   *
+   * Mirrors the shape of the known-address path's extra work: a
+   * throttle-shaped lookup, the randomBytes+hashToken computation a real
+   * token goes through, and — matching the non-throttled case's
+   * `passwordResetToken.create`, which review on issue #143 pointed out this
+   * was missing — a write against the same table, via an `updateMany` keyed
+   * on a random id that can never match an existing row. That exercises the
+   * table's write path (planning, locking) without inserting a row (there is
+   * no user to own it) or sending mail. Every random value here is generated
+   * fresh per call so it can never collide with a real token or row.
+   */
+  private async padUnknownAddressResetTiming(): Promise<void> {
+    const dummyTokenHash = hashToken(randomBytes(32).toString('hex'));
+    await this.prisma.passwordResetToken.findFirst({
+      where: { tokenHash: dummyTokenHash },
+      select: { id: true },
+    });
+    await this.prisma.passwordResetToken.updateMany({
+      where: { id: randomBytes(16).toString('hex') },
+      data: { tokenHash: dummyTokenHash },
+    });
   }
 
   /**

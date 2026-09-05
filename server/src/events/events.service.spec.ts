@@ -79,7 +79,17 @@ describe('EventsService', () => {
         upsert: jest.fn(),
       },
       matchPlayerStat: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
+      // Supports both $transaction call shapes used by EventsService: the
+      // array form (a batch of prepared queries) and the interactive
+      // callback form (setEventConvocations, which needs to read then write
+      // inside one transaction) — the callback is invoked with `prisma`
+      // itself standing in for the `tx` client, since these mocks have no
+      // real distinct transaction client.
+      $transaction: jest.fn((opsOrFn: unknown) =>
+        typeof opsOrFn === 'function'
+          ? (opsOrFn as (tx: unknown) => Promise<unknown>)(prisma)
+          : Promise.all(opsOrFn as unknown[]),
+      ),
     };
     // Default: the caller has no roster row on the team, so
     // resolveMyRsvpStatuses/resolveMyConvocationStatuses short-circuit to an
@@ -1589,6 +1599,75 @@ describe('EventsService', () => {
       });
     });
 
+    it('serializes against a racing convocation change so a player added moments before the delete is still notified (issue #142)', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        opponentName: null,
+        recurrenceId: null,
+        startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      });
+      prisma.teamPlayer.count.mockResolvedValue(1);
+      // teamPlayer.findMany backs two different call sites: setEventConvocations'
+      // notifyNewlyConvoked recipient lookup (`where.id.in`) and its roster
+      // re-fetch (`where.teamId`) — branch on the shape, same as the #141 test.
+      prisma.teamPlayer.findMany.mockImplementation(async (args: { where?: unknown }) => {
+        const where = args?.where as { id?: unknown } | undefined;
+        if (where?.id) {
+          return [{ player: { userId: 'user-2' } }];
+        }
+        return [];
+      });
+
+      // A fake row set standing in for the EventConvocation table, so
+      // deleteEvent's recipient read can actually observe a still-committing
+      // convocation write — the thing the pre-fix code (an unlocked read run
+      // outside any transaction) could race against and miss.
+      const convoked = new Set<string>();
+      prisma.eventConvocation.findMany.mockImplementation(async (args: { select?: unknown }) => {
+        const select = args?.select as { teamPlayer?: { select?: { player?: unknown } } };
+        // deleteEvent's shape selects the nested player; setEventConvocations'
+        // own read selects just the teamPlayerId.
+        if (select?.teamPlayer?.select?.player) {
+          return Array.from(convoked).map(() => ({ teamPlayer: { player: { userId: 'user-2' } } }));
+        }
+        return Array.from(convoked).map((teamPlayerId) => ({ teamPlayerId }));
+      });
+      prisma.eventConvocation.upsert.mockImplementation(
+        async ({ create }: { create: { teamPlayerId: string } }) => {
+          convoked.add(create.teamPlayerId);
+          return {};
+        },
+      );
+
+      // Stands in for Postgres's Serializable isolation actually serializing
+      // the two transactions: only one interactive transaction body runs at
+      // a time, so deleteEvent's read only happens after setEventConvocations'
+      // write has fully committed — exactly what the fix relies on so a
+      // player convoked moments before the delete isn't missed.
+      let chain: Promise<unknown> = Promise.resolve();
+      prisma.$transaction.mockImplementation((opsOrFn: unknown) => {
+        if (typeof opsOrFn !== 'function') return Promise.all(opsOrFn as unknown[]);
+        const run = chain.then(() => (opsOrFn as (tx: unknown) => Promise<unknown>)(prisma));
+        chain = run.catch(() => undefined);
+        return run;
+      });
+
+      await Promise.all([
+        service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1'], 'user-1'),
+        service.deleteEvent('club-1', 'team-1', 'event-1'),
+      ]);
+
+      // The convocation write serialized before the delete's recipient read,
+      // so the cancellation notice reaches the player who was just called up
+      // — not silently dropped as it would be with a stale, unlocked read.
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({ userId: 'user-2', type: 'EVENT_CANCELLED' }),
+      ]);
+    });
+
     it('scope ALL deletes every event in the series', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue({
@@ -1950,6 +2029,70 @@ describe('EventsService', () => {
       await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1'], 'user-1');
 
       expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('notifies each newly convoked player only once when two identical PATCHes race (issue #141)', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(2);
+      // teamPlayer.findMany backs two different call sites here:
+      // notifyNewlyConvoked's recipient lookup (`where.id.in`) and
+      // fetchConvocationRoster's full-roster fetch (`where.teamId`) — branch
+      // on the shape so each gets what it needs.
+      prisma.teamPlayer.findMany.mockImplementation(async (args: { where?: unknown }) => {
+        const where = args?.where as { id?: unknown } | undefined;
+        if (where?.id) {
+          return [{ player: { userId: 'user-2' } }];
+        }
+        return [];
+      });
+
+      // A fake row set standing in for the DB table, so the "read the
+      // existing list" step can actually observe a prior transaction's
+      // write — the thing the pre-fix code (read before the transaction)
+      // could never do.
+      const convoked = new Set<string>();
+      prisma.eventConvocation.findMany.mockImplementation(async () =>
+        Array.from(convoked).map((teamPlayerId) => ({ teamPlayerId })),
+      );
+      prisma.eventConvocation.deleteMany.mockImplementation(
+        async ({ where }: { where: { teamPlayerId: { notIn: string[] } } }) => {
+          const keep = new Set(where.teamPlayerId.notIn);
+          for (const id of Array.from(convoked)) {
+            if (!keep.has(id)) convoked.delete(id);
+          }
+          return { count: 0 };
+        },
+      );
+      prisma.eventConvocation.upsert.mockImplementation(
+        async ({ create }: { create: { teamPlayerId: string } }) => {
+          convoked.add(create.teamPlayerId);
+          return {};
+        },
+      );
+
+      // Stands in for Postgres's Serializable isolation actually
+      // serializing the two transactions: only one interactive
+      // transaction body runs at a time, so the second call's read only
+      // happens after the first has fully committed its write — exactly
+      // what the fix relies on to make the read-then-write atomic.
+      let chain: Promise<unknown> = Promise.resolve();
+      prisma.$transaction.mockImplementation((opsOrFn: unknown) => {
+        if (typeof opsOrFn !== 'function') return Promise.all(opsOrFn as unknown[]);
+        const run = chain.then(() => (opsOrFn as (tx: unknown) => Promise<unknown>)(prisma));
+        chain = run.catch(() => undefined);
+        return run;
+      });
+
+      // Both requests are the *same* logical submission (double-click,
+      // client retry) carrying the same call-up.
+      await Promise.all([
+        service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1'),
+        service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-1', 'tp-2'], 'user-1'),
+      ]);
+
+      // Only the transaction that commits first finds tp-1/tp-2 new; the
+      // second reads a list that already contains both, so nobody is
+      // notified twice for one logical submission.
+      expect(notifications.notify).toHaveBeenCalledTimes(1);
     });
   });
 

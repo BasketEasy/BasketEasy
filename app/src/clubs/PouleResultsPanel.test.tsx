@@ -113,7 +113,7 @@ describe('PouleResultsPanel', () => {
     expect(screen.getByText('Journée 2')).toBeInTheDocument();
   });
 
-  it('shows only the most recent journées by default, revealing the rest on demand', async () => {
+  it('shows only the most recent journées by default, revealing the rest on demand, and re-collapses on a second click', async () => {
     mockResults(
       results({
         matchdays: [
@@ -133,9 +133,25 @@ describe('PouleResultsPanel', () => {
     expect(screen.getByText('Journée 2')).toBeInTheDocument();
     expect(screen.queryByText('Journée 1')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Voir les journées précédentes' }));
+    const toggle = screen.getByRole('button', { name: 'Voir les journées précédentes' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-controls');
+
+    await user.click(toggle);
 
     await waitFor(() => expect(screen.getByText('Journée 1')).toBeInTheDocument());
+    const collapseToggle = screen.getByRole('button', {
+      name: 'Masquer les journées précédentes',
+    });
+    expect(collapseToggle).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(collapseToggle);
+
+    await waitFor(() => expect(screen.queryByText('Journée 1')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Voir les journées précédentes' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
   it('renders its own empty copy for standings/results without falling back to the no-link empty state', async () => {
