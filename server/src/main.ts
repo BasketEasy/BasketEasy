@@ -7,8 +7,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    // FRONTEND_URL: basketeasy.pages.dev (prod) is a different site from
-    // basketeasy.onrender.com (API), so this can't be same-origin-only.
+    // FRONTEND_URL: kluvo.net (Cloudflare Workers, prod) is a different
+    // origin from api.kluvo.net (API, Scaleway), so this can't be
+    // same-origin-only.
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true, // required for the refresh cookie to be sent cross-site
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
