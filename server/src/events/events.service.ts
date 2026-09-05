@@ -655,38 +655,46 @@ export class EventsService {
       }
     }
 
-    // Read the current list *before* the replace, so only players who
-    // weren't already convoked get told. This endpoint is a full replace
-    // that a manager re-submits every time they adjust the list, so without
-    // this diff every save would re-notify the whole call-up.
-    const alreadyConvoked = new Set(
-      (
-        await this.prisma.eventConvocation.findMany({
-          where: { eventId },
-          select: { teamPlayerId: true },
-        })
-      ).map((row) => row.teamPlayerId),
+    // Read the current list *and* perform the replace inside one
+    // Serializable transaction, so two near-simultaneous PATCHes (a
+    // double-click, a client retry) can't both read the same
+    // pre-existing list before either commits and both fire
+    // notifications for the same "newly convoked" players. Postgres
+    // aborts the loser of the race with a serialization failure rather
+    // than letting it commit against data that shifted under it — the
+    // caller sees an error and, if it retries, reads the winner's
+    // already-applied state, so at most one request ends up notifying
+    // any given player. Without this, the read-before-transaction shape
+    // let both requests diff against the same stale "already convoked"
+    // set.
+    const newlyConvokedIds = await this.prisma.$transaction(
+      async (tx) => {
+        const alreadyConvoked = new Set(
+          (
+            await tx.eventConvocation.findMany({
+              where: { eventId },
+              select: { teamPlayerId: true },
+            })
+          ).map((row) => row.teamPlayerId),
+        );
+
+        await tx.eventConvocation.deleteMany({
+          where: { eventId, teamPlayerId: { notIn: teamPlayerIds } },
+        });
+        for (const teamPlayerId of teamPlayerIds) {
+          await tx.eventConvocation.upsert({
+            where: { eventId_teamPlayerId: { eventId, teamPlayerId } },
+            create: { eventId, teamPlayerId },
+            update: {},
+          });
+        }
+
+        return teamPlayerIds.filter((id) => !alreadyConvoked.has(id));
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
-    await this.prisma.$transaction([
-      this.prisma.eventConvocation.deleteMany({
-        where: { eventId, teamPlayerId: { notIn: teamPlayerIds } },
-      }),
-      ...teamPlayerIds.map((teamPlayerId) =>
-        this.prisma.eventConvocation.upsert({
-          where: { eventId_teamPlayerId: { eventId, teamPlayerId } },
-          create: { eventId, teamPlayerId },
-          update: {},
-        }),
-      ),
-    ]);
-
-    await this.notifyNewlyConvoked(
-      clubId,
-      teamId,
-      event,
-      teamPlayerIds.filter((id) => !alreadyConvoked.has(id)),
-    );
+    await this.notifyNewlyConvoked(clubId, teamId, event, newlyConvokedIds);
 
     // No re-assertEventInTeam here — already verified above in this same
     // call, unlike listEventConvocations's own public entry point.
