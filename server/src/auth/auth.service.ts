@@ -7,7 +7,7 @@ import { randomBytes, randomUUID } from 'crypto';
 import type { ClubMembershipInfo, User } from '@basketeasy/types/auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashToken } from '../common/token-hash';
-import { REFRESH_TOKEN_TTL_MS } from './auth.constants';
+import { REFRESH_REUSE_GRACE_MS, REFRESH_TOKEN_TTL_MS } from './auth.constants';
 
 const ACCESS_TOKEN_TTL = '15m';
 
@@ -129,7 +129,21 @@ export class AuthService {
     });
 
     if (claimed.count === 0) {
-      // Lost the race, or this is a genuine reuse of an already-revoked token — either way, treat as reuse.
+      // Lost the CAS: either a concurrent legitimate request already claimed
+      // this exact token (revokedAt was null on our read, so the claim just
+      // happened — "now"), or this is a resubmission of a token revoked
+      // earlier (use its actual revokedAt). Either way, within
+      // REFRESH_REUSE_GRACE_MS of that revocation this is treated as a
+      // same-client race rather than theft — see the constant's doc comment.
+      const revokedAt = stored.revokedAt ?? new Date();
+      if (Date.now() - revokedAt.getTime() < REFRESH_REUSE_GRACE_MS) {
+        const user = await this.prisma.user.findUnique({ where: { id: stored.userId } });
+        if (!user) {
+          throw new UnauthorizedException('Invalid refresh token');
+        }
+        return this.issueTokenPair(user.id, user.email, stored.familyId);
+      }
+
       await this.prisma.refreshToken.updateMany({
         where: { familyId: stored.familyId, revokedAt: null },
         data: { revokedAt: new Date() },
