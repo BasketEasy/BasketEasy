@@ -97,4 +97,35 @@ describe('InviteAcceptForm', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/déjà utilisée|déjà lié/i);
   });
+
+  it('warns an already-authenticated visitor that submitting will replace their session', async () => {
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'admin@example.com',
+          emailVerified: true,
+          firstName: 'Jean',
+          lastName: 'Dupont',
+          avatarUrl: null,
+          memberships: [],
+        }),
+      ),
+      http.get('/api/invites/abc123', () =>
+        HttpResponse.json({
+          playerFirstName: 'Théo',
+          playerLastName: 'Dupont',
+          clubName: 'ASVEL',
+        }),
+      ),
+    );
+
+    renderForm();
+
+    await screen.findByText(/rejoindre asvel/i);
+
+    expect(await screen.findByText(/admin@example\.com/)).toBeInTheDocument();
+    expect(screen.getByText(/déconnectera de votre session actuelle/i)).toBeInTheDocument();
+  });
 });

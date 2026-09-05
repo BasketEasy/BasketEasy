@@ -10,6 +10,7 @@ import { Loader } from '@basketeasy/ui/loader';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { Text } from '@basketeasy/ui/text';
 import { ApiError } from '../api/client';
+import { useAccount } from '../auth/useAccount';
 import { useInvitePreview } from './useInvitePreview';
 import { useAcceptPlayerInvite } from './useAcceptPlayerInvite';
 import { getInviteErrorMessage } from './inviteErrorMessages';
@@ -23,6 +24,13 @@ type AcceptFormValues = z.infer<typeof acceptSchema>;
 
 export function InviteAcceptForm({ token }: { token: string }) {
   const navigate = useNavigate();
+  // /invite/:token sits outside both PublicOnlyRoute and ProtectedRoute (see
+  // InviteAcceptPage) so it works for a logged-out visitor — but that also
+  // means an already-authenticated visitor (e.g. a club admin testing their
+  // own invite link) can land here. Submitting still unconditionally
+  // overwrites the session (see useAcceptPlayerInvite), so warn them up
+  // front rather than silently signing them out.
+  const { user: currentUser } = useAccount();
   const {
     data: preview,
     isLoading,
@@ -100,6 +108,14 @@ export function InviteAcceptForm({ token }: { token: string }) {
           Vous avez été invité·e en tant que {preview.playerFirstName} {preview.playerLastName}.
           Créez votre compte pour accéder à votre espace joueur.
         </Text>
+        {currentUser && (
+          <Alert className="mb-4">
+            <AlertDescription>
+              Vous êtes actuellement connecté·e avec le compte {currentUser.email}. Créer ce nouveau
+              compte vous déconnectera de votre session actuelle.
+            </AlertDescription>
+          </Alert>
+        )}
         <form
           noValidate
           onSubmit={(e) => {
