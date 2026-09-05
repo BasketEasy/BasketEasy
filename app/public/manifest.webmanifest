@@ -2,7 +2,7 @@
   "name": "Kluvo",
   "short_name": "Kluvo",
   "description": "Kluvo centralise calendriers, convocations et présences pour les clubs de basket amateurs.",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#EFE4D4",
