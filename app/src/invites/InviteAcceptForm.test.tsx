@@ -24,6 +24,23 @@ describe('InviteAcceptForm', () => {
     expect(screen.queryByRole('button', { name: /réessayer/i })).not.toBeInTheDocument();
   });
 
+  it('shows a distinct already-accepted message with a login link when the preview 409s', async () => {
+    server.use(
+      http.get('/api/invites/abc123', () =>
+        HttpResponse.json(
+          { message: 'Cette invitation a déjà été acceptée', code: 'INVITE_ALREADY_ACCEPTED' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderForm();
+
+    expect(await screen.findByText(/déjà un compte/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /connectez-vous/i })).toHaveAttribute('href', '/login');
+    expect(screen.queryByRole('button', { name: /réessayer/i })).not.toBeInTheDocument();
+  });
+
   it('offers a retry on a transient failure (not a 404)', async () => {
     server.use(
       http.get('/api/invites/abc123', () =>
@@ -96,6 +113,35 @@ describe('InviteAcceptForm', () => {
     await user.click(screen.getByRole('button', { name: /créer mon compte/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/déjà utilisée|déjà lié/i);
+  });
+
+  it('shows the already-accepted notice with a login link when submit races an accepted invite', async () => {
+    server.use(
+      http.get('/api/invites/abc123', () =>
+        HttpResponse.json({
+          playerFirstName: 'Théo',
+          playerLastName: 'Dupont',
+          clubName: 'ASVEL',
+        }),
+      ),
+      http.post('/api/invites/abc123/accept', () =>
+        HttpResponse.json(
+          { message: 'Cette invitation a déjà été acceptée', code: 'INVITE_ALREADY_ACCEPTED' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderForm();
+
+    await screen.findByText(/rejoindre asvel/i);
+    await user.type(screen.getByLabelText(/adresse e-mail/i), 'theo@example.com');
+    await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /créer mon compte/i }));
+
+    expect(await screen.findByText(/déjà un compte/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /connectez-vous/i })).toHaveAttribute('href', '/login');
   });
 
   it('warns an already-authenticated visitor that submitting will replace their session', async () => {

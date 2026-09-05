@@ -1,6 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
-import type { PlayerInvitePreview } from '@basketeasy/types/player-invites';
+import {
+  INVITE_ALREADY_ACCEPTED_CODE,
+  type PlayerInvitePreview,
+} from '@basketeasy/types/player-invites';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { hashToken } from '../common/token-hash';
@@ -85,8 +88,19 @@ export class InvitesService {
       include: { player: { include: { club: true } } },
     });
 
-    if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) {
+    if (!invite || invite.expiresAt < new Date()) {
       throw new NotFoundException('Invitation invalide ou expirée');
+    }
+
+    // Distinct from the generic 404 above: reaching this point means the
+    // token did exist and was valid at some point, so revealing "already
+    // accepted" here doesn't create a way to probe for unknown tokens — only
+    // a token that once worked can produce this response.
+    if (invite.acceptedAt) {
+      throw new ConflictException({
+        message: 'Cette invitation a déjà été acceptée',
+        code: INVITE_ALREADY_ACCEPTED_CODE,
+      });
     }
 
     return invite;
