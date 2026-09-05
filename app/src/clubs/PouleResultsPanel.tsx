@@ -9,6 +9,7 @@ import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
 import { RefreshIcon } from '@basketeasy/ui/icons/refresh';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
+import type { PouleMatchday } from '@basketeasy/types/ffbb';
 import { ApiError } from '../api/client';
 import { usePouleResults } from './usePouleResults';
 import { PouleStandingRow } from './PouleStandingRow';
@@ -21,6 +22,58 @@ const STANDINGS_COLUMNS = ['#', 'Équipe', 'J', 'G', 'P', 'Pts'] as const;
 // journées précédentes" reveals the rest; no pagination/fetch involved, the
 // whole poule already arrived in one response.
 const DEFAULT_VISIBLE_MATCHDAYS = 3;
+
+const PREVIOUS_MATCHDAYS_ID = 'poule-previous-matchdays';
+
+function MatchdayGroup({ matchday }: { matchday: PouleMatchday }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Text as="span" variant="meta">
+        {matchday.matchdayLabel}
+      </Text>
+      <div className="flex flex-col gap-1.5">
+        {matchday.results.map((result, index) => (
+          <div
+            key={`${result.homeLabel}-${result.awayLabel}-${index}`}
+            className={
+              result.involvesOurTeam
+                ? 'flex items-center justify-between gap-3 rounded-md border border-orange/40 bg-orange-tint px-3 py-2'
+                : 'flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2'
+            }
+          >
+            <Text
+              as="span"
+              variant="label"
+              size="sm"
+              tone={result.involvesOurTeam ? 'brand' : undefined}
+              className="min-w-0 flex-1 truncate"
+            >
+              {result.homeLabel}
+            </Text>
+            <Text
+              as="span"
+              variant="display"
+              size="sm"
+              tone={result.involvesOurTeam ? 'brand' : undefined}
+              className="tabular shrink-0"
+            >
+              {result.homeScore} – {result.awayScore}
+            </Text>
+            <Text
+              as="span"
+              variant="label"
+              size="sm"
+              tone={result.involvesOurTeam ? 'brand' : undefined}
+              className="min-w-0 flex-1 truncate text-right"
+            >
+              {result.awayLabel}
+            </Text>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * A team's whole poule — federation data read live from FFBB, never
@@ -130,60 +183,30 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
           </Text>
         ) : (
           <div className="flex flex-col gap-4">
-            {(showAllMatchdays
-              ? data.matchdays
-              : data.matchdays.slice(0, DEFAULT_VISIBLE_MATCHDAYS)
-            ).map((matchday) => (
-              <div key={matchday.matchdayLabel} className="flex flex-col gap-2">
-                <Text as="span" variant="meta">
-                  {matchday.matchdayLabel}
-                </Text>
-                <div className="flex flex-col gap-1.5">
-                  {matchday.results.map((result, index) => (
-                    <div
-                      key={`${result.homeLabel}-${result.awayLabel}-${index}`}
-                      className={
-                        result.involvesOurTeam
-                          ? 'flex items-center justify-between gap-3 rounded-md border border-orange/40 bg-orange-tint px-3 py-2'
-                          : 'flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 px-3 py-2'
-                      }
-                    >
-                      <Text
-                        as="span"
-                        variant="label"
-                        size="sm"
-                        tone={result.involvesOurTeam ? 'brand' : undefined}
-                        className="min-w-0 flex-1 truncate"
-                      >
-                        {result.homeLabel}
-                      </Text>
-                      <Text
-                        as="span"
-                        variant="display"
-                        size="sm"
-                        tone={result.involvesOurTeam ? 'brand' : undefined}
-                        className="tabular shrink-0"
-                      >
-                        {result.homeScore} – {result.awayScore}
-                      </Text>
-                      <Text
-                        as="span"
-                        variant="label"
-                        size="sm"
-                        tone={result.involvesOurTeam ? 'brand' : undefined}
-                        className="min-w-0 flex-1 truncate text-right"
-                      >
-                        {result.awayLabel}
-                      </Text>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {data.matchdays.slice(0, DEFAULT_VISIBLE_MATCHDAYS).map((matchday) => (
+              <MatchdayGroup key={matchday.matchdayLabel} matchday={matchday} />
             ))}
-            {!showAllMatchdays && data.matchdays.length > DEFAULT_VISIBLE_MATCHDAYS && (
-              <Button variant="outline" size="sm" onClick={() => setShowAllMatchdays(true)}>
-                Voir les journées précédentes
-              </Button>
+            {data.matchdays.length > DEFAULT_VISIBLE_MATCHDAYS && (
+              <>
+                {showAllMatchdays && (
+                  <div id={PREVIOUS_MATCHDAYS_ID} className="flex flex-col gap-4">
+                    {data.matchdays.slice(DEFAULT_VISIBLE_MATCHDAYS).map((matchday) => (
+                      <MatchdayGroup key={matchday.matchdayLabel} matchday={matchday} />
+                    ))}
+                  </div>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={showAllMatchdays}
+                  aria-controls={PREVIOUS_MATCHDAYS_ID}
+                  onClick={() => setShowAllMatchdays((previous) => !previous)}
+                >
+                  {showAllMatchdays
+                    ? 'Masquer les journées précédentes'
+                    : 'Voir les journées précédentes'}
+                </Button>
+              </>
             )}
           </div>
         )}
