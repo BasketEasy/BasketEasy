@@ -197,6 +197,24 @@ describe('AccountSecurityService', () => {
       expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
       expect(mail.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
+
+    it('still does throttle-shaped and hash-shaped work for an unknown address (issue #143)', async () => {
+      // Otherwise the known/unknown paths differ by exactly the DB round
+      // trips and hashing the real path does — a timing side-channel that
+      // reveals which addresses have accounts even though both answer 204.
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await service.requestPasswordReset('inconnu@example.com');
+
+      expect(prisma.passwordResetToken.findFirst).toHaveBeenCalledTimes(1);
+      const dummyLookup = prisma.passwordResetToken.findFirst.mock.calls[0][0];
+      // A dummy hash of a random token, never the address itself or a value
+      // that could collide with a real stored token.
+      expect(dummyLookup.where.tokenHash).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/));
+      // And still no row is written or e-mail sent for it.
+      expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+      expect(mail.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
   });
 
   describe('resetPassword', () => {

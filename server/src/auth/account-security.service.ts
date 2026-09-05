@@ -120,6 +120,14 @@ export class AccountSecurityService {
       select: { id: true, email: true },
     });
     if (!user) {
+      // The response is identical either way (204, no token, no e-mail), but
+      // an unknown address returning right after this one findUnique — next
+      // to a known address going on to a throttle lookup, a token hash, and
+      // a row write — is a timing side-channel of its own (issue #143). Pad
+      // it with equivalent-shaped work, not a sleep(): the same
+      // throttle-shaped lookup and the same randomBytes+hashToken the real
+      // path below computes, just discarded instead of written or e-mailed.
+      await this.padUnknownAddressResetTiming();
       this.logger.debug('Password reset requested for an unknown address');
       return;
     }
@@ -143,6 +151,23 @@ export class AccountSecurityService {
       () => this.mail.sendPasswordResetEmail(user.email, rawToken),
       `password reset e-mail to ${user.email}`,
     );
+  }
+
+  /**
+   * Anti-enumeration timing pad for an unknown address in requestPasswordReset.
+   *
+   * Mirrors the shape of the known-address path's extra work — a
+   * throttle-shaped lookup plus the randomBytes+hashToken computation a real
+   * token goes through — without writing a PasswordResetToken row (there is
+   * no user to own it) or sending mail. The lookup key is random on every
+   * call so it can never collide with a real token's hash.
+   */
+  private async padUnknownAddressResetTiming(): Promise<void> {
+    const dummyTokenHash = hashToken(randomBytes(32).toString('hex'));
+    await this.prisma.passwordResetToken.findFirst({
+      where: { tokenHash: dummyTokenHash },
+      select: { id: true },
+    });
   }
 
   /**
