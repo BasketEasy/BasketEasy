@@ -387,39 +387,49 @@ export class EventsService {
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
-    // Gathered before the delete, not after: EventConvocation cascade-deletes
-    // with its Event, so once deleteMany has run there is nothing left to
-    // tell us who was expecting to be there. Same "side-effect work happens
-    // before the delete" shape as deleteScoresheetObjects below.
-    const recipientUserIds = await this.resolveCancellationRecipients(teamId, ids);
-
+    // R2 cleanup is best-effort external I/O, not a DB row (EventScoresheet's
+    // row cascades with its Event regardless) — gathered and executed before
+    // the transaction below, same as always, since it isn't part of the race
+    // the transaction exists to close.
     await this.deleteScoresheetObjects(ids);
-    await this.prisma.event.deleteMany({ where: { id: { in: ids } } });
+
+    // Read the current convocations *and* delete the event(s) inside one
+    // Serializable transaction — the same pattern issue #141 used for
+    // setEventConvocations. A convocation change (add/remove a player) racing
+    // with this delete on the same event must not be able to read a
+    // convocation list that a concurrent write is about to change (or just
+    // changed): a player added moments before deletion could otherwise be
+    // missed, and a player removed moments before could otherwise still get
+    // a cancellation notice. Because EventConvocation cascade-deletes with
+    // its Event, the read has to happen before deleteMany, but "before" is
+    // only race-free when both live in the same isolated transaction as
+    // setEventConvocations's own read+write.
+    const recipientUserIds = await this.prisma.$transaction(
+      async (tx) => {
+        const convocations = await tx.eventConvocation.findMany({
+          where: { eventId: { in: ids }, teamPlayer: { teamId } },
+          select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
+        });
+
+        await tx.event.deleteMany({ where: { id: { in: ids } } });
+
+        // Everyone convoked to any of the events being cancelled, deduplicated
+        // by user. Deliberately the convoked list rather than the whole
+        // roster: a cancellation is only news to someone who was expecting to
+        // play, and notifying an entire roster about a training two of them
+        // were called up for is noise that trains people to ignore the bell.
+        return [
+          ...new Set(
+            convocations
+              .map((row) => row.teamPlayer.player.userId)
+              .filter((userId): userId is string => userId !== null),
+          ),
+        ];
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     await this.notifyCancellation(clubId, teamId, event, ids.length, recipientUserIds);
-  }
-
-  // Everyone convoked to any of the events being cancelled, deduplicated by
-  // user. Deliberately the convoked list rather than the whole roster: a
-  // cancellation is only news to someone who was expecting to play, and
-  // notifying an entire roster about a training two of them were called up
-  // for is noise that trains people to ignore the bell.
-  private async resolveCancellationRecipients(
-    teamId: string,
-    eventIds: string[],
-  ): Promise<string[]> {
-    const convocations = await this.prisma.eventConvocation.findMany({
-      where: { eventId: { in: eventIds }, teamPlayer: { teamId } },
-      select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
-    });
-
-    return [
-      ...new Set(
-        convocations
-          .map((row) => row.teamPlayer.player.userId)
-          .filter((userId): userId is string => userId !== null),
-      ),
-    ];
   }
 
   private async notifyCancellation(
