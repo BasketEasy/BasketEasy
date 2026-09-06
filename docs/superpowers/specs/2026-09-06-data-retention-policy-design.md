@@ -1,4 +1,4 @@
-# Data retention policy & back-office
+# Data retention policy
 
 Status: draft (loop 0)
 Date: 2026-09-06
@@ -6,12 +6,8 @@ Date: 2026-09-06
 ## Why
 
 Launch requires a documented, enforced data retention policy (RGPD, art. 5.1.e — data kept no
-longer than necessary) and, per club feedback already logged in `docs/market-research.md`, a
-way for Kluvo staff to actually action deletion/erasure requests without a `psql` session.
-Neither exists today: `CLAUDE.md`'s "What's deliberately not here yet" lists no retention job,
-no audit-log table, and no platform-admin concept — every guard in `server/src/auth/guards`
-(`ClubRolesGuard`, `TeamManagerGuard`, `EmailVerifiedGuard`) scopes authority to a club or team,
-never to the platform itself.
+longer than necessary). Nothing enforces this today: `CLAUDE.md`'s "What's deliberately not
+here yet" lists no retention job and no audit-log table.
 
 Five retention rules, as specified:
 
@@ -33,6 +29,12 @@ Five retention rules, as specified:
    version alongside its retention rule, since a retention rule for data that isn't collected
    is meaningless.
 
+A companion spec, [`2026-09-06-backoffice-design.md`](./2026-09-06-backoffice-design.md), covers
+the platform-admin surface for handling GDPR access/erasure requests and inspecting sweep runs.
+It depends on the `AuditLog` table defined here but is a separate, independently reviewable
+piece of work — this spec is complete and self-contained without it (the sweep runs
+automatically either way).
+
 ## Scope
 
 **In scope:**
@@ -44,14 +46,12 @@ Five retention rules, as specified:
   it documents is removed, not 5 years from creation (see Data model — this is what "compte + 5
   ans" means: the clock doesn't start until there's something to prescribe against).
 - A new `AuditLog` table capturing security-relevant events (login, login failure, password
-  reset, refresh-token reuse/revocation, platform-admin actions), swept at 12 months.
+  reset, refresh-token reuse/revocation), swept at 12 months. Also used by the companion
+  back-office spec to record platform-admin actions, but exists independently of it.
 - A `RetentionModule` running all sweeps as one nightly BullMQ repeatable job, each policy as
   an independent, idempotent step, with a dry-run mode and a persisted run record for compliance
   evidence ("prove the policy actually executes," which is itself part of RGPD accountability,
   art. 5.2).
-- A back-office: a small set of platform-admin-only routes + a minimal frontend, scoped tightly
-  to what's needed for GDPR access/erasure requests and retention oversight (see Back-office
-  section — this is where the bulk of the design work and this spec's security focus goes).
 
 **Out of scope (explicitly deferred):**
 
@@ -60,8 +60,8 @@ Five retention rules, as specified:
   backed up separately from the primary R2 bucket). No application code enforces this; it's
   documented here so the policy list is complete, and the actual config lives in the deploy
   runbook, not this repo's business logic.
-- **A general admin CRUD panel** over every table. The back-office below is scoped to
-  retention/erasure oversight, not a second product.
+- **A back-office UI/API** — see the companion spec; deliberately split out so this policy and
+  its automated enforcement can ship and be reviewed independently of the admin surface.
 - **Automated inactivity warnings** ("your account will be deleted in 30 days") — the retention
   sweep needs a notification hook eventually (reusing `server/src/notifications`), but v1 ships
   the deletion mechanism first and the warning as a fast-follow once the sweep is proven
@@ -71,9 +71,6 @@ Five retention rules, as specified:
   **a parent-facing portal** — v1 is the "easiest possible" version: a staff/admin-entered
   attestation at creation time, not a signed-by-the-parent-directly flow. If a real e-signature
   or parent-account flow is wanted later, that's a follow-up spec, not a scope creep here.
-- **MFA/TOTP for regular club users** — only platform admins get step-up auth (see Back-office
-  security). Club admins/members keep today's password + refresh-token flow; broadening MFA to
-  all users is a separate decision.
 
 ## Interaction between rules 2 and 3
 
@@ -121,14 +118,9 @@ enum AuditEventType {
   PASSWORD_RESET_COMPLETED
   REFRESH_TOKEN_REUSE_DETECTED
   EMAIL_VERIFIED
-  // Platform-admin/back-office actions are logged as their own event types
-  // (not folded into a generic "ADMIN_ACTION") so a CNIL/DPO export can be
-  // filtered precisely — see Back-office section.
-  ADMIN_LOGIN_SUCCESS
-  ADMIN_LOGIN_FAILURE
-  ADMIN_PII_VIEWED
-  ADMIN_USER_ERASED
-  ADMIN_EXPORT_GENERATED
+  // Platform-admin/back-office actions reuse this table (see companion
+  // back-office spec) with their own event types, so a CNIL/DPO export can
+  // be filtered precisely — added by that spec, not this one.
 }
 
 model AuditLog {
@@ -196,41 +188,11 @@ model ParentalConsent {
   @@index([playerId])
   @@index([retentionExpiresAt])
 }
-
-// Platform-staff authority, deliberately its own table rather than a role
-// enum on User (mirrors TeamAdmin's existing pattern in CLAUDE.md's Teams
-// module) — grants are auditable rows with their own createdAt/grantedBy,
-// not a flag that's silently flipped with no trace of who did it or when.
-enum PlatformRole {
-  // Read-only: can view anonymized aggregates and the retention sweep's
-  // run history. Cannot view PII or trigger erasure. Day-to-day support
-  // staff level.
-  SUPPORT
-  // Can view a specific data subject's PII when handling a named GDPR
-  // access/erasure request, and action erasure. Every PII view and every
-  // erasure is its own AuditLog row (ADMIN_PII_VIEWED / ADMIN_USER_ERASED)
-  // — see Back-office security.
-  DATA_OFFICER
-}
-
-model PlatformAdmin {
-  id           String       @id @default(uuid())
-  userId       String       @unique
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         PlatformRole
-  // TOTP secret for step-up auth on back-office login (see Back-office
-  // security) — separate from the account's normal password, required
-  // before this grant is usable at all.
-  totpSecret   String?
-  grantedByUserId String?
-  createdAt    DateTime     @default(now())
-}
 ```
 
 `Player` gains a `parentalConsents ParentalConsent[]` back-relation (a player could in principle
 be re-added after removal, hence a list, not a 1:1) and `Club` gains `parentalConsents
-ParentalConsent[]`. `User` gains `platformAdmin PlatformAdmin?` and `parentalConsentsAttested
-ParentalConsent[]`.
+ParentalConsent[]`. `User` gains `parentalConsentsAttested ParentalConsent[]`.
 
 ## Retention sweep (`RetentionModule`)
 
@@ -273,7 +235,7 @@ export class RetentionSweepProcessor {
         await this.setConsentRetentionClocksFor(tx, user.id);
         await tx.user.delete({ where: { id: user.id } });
         await tx.auditLog.create({
-          data: { type: 'ADMIN_USER_ERASED', actorEmail: user.email, metadata: { reason: 'inactivity_12mo' } },
+          data: { type: 'LOGOUT', actorEmail: user.email, metadata: { reason: 'inactivity_12mo_erasure' } },
         });
       });
     }
@@ -309,108 +271,8 @@ only the automated sweep.
 routes (debounced — write at most once per hour per user, not on every request) rather than
 scattering `prisma.user.update` calls through every controller.
 
-## Back-office
-
-### Why a back-office, scoped this tightly
-
-The only operations a human needs to perform outside the automated sweep are: (1) handle a named
-GDPR access/erasure request before the 12-month clock would otherwise fire, (2) confirm the
-sweep is actually running and see what it did, (3) look up which club an inactive account
-belonged to before erasing it, in case a club raises a support ticket first. That's the entire
-surface — not a general admin panel. Every route below is deliberately read-mostly, with exactly
-one destructive action (manual erasure), because a back-office over personal data is the single
-highest-blast-radius surface in the product: it's the one place a compromised credential exposes
-every club's roster at once, rather than one club's own data.
-
-### Authorization model
-
-`PlatformAdmin` (above) is checked by a new `PlatformAdminGuard`, structurally identical to
-`ClubRolesGuard`'s shape but with no route param to key off — it reads `request.user.id`,
-looks up `PlatformAdmin`, and 403s if absent, mirroring `TeamManagerGuard`'s
-defense-in-depth style (guard does the coarse check, service methods still re-verify scope
-before any mutation). `@PlatformRoles('DATA_OFFICER')` on top of it gates the one destructive
-route (erasure) the same way `@ClubRoles('ADMIN')` already gates ownership-only actions
-elsewhere.
-
-Critically, **holding a `PlatformAdmin` grant is necessary but not sufficient** — every
-back-office route additionally requires a step-up credential, issued separately from the
-account's normal JWT:
-
-1. A platform admin logs into their normal Kluvo account exactly as any user would
-   (email + password → normal access/refresh token pair). This token cannot open any
-   `/admin/*` route — `PlatformAdminGuard` explicitly checks for a second claim (below), not
-   just `PlatformAdmin` existence, so a stolen regular session token is useless here even if it
-   belongs to an admin.
-2. To *enter* the back-office, they additionally submit a TOTP code (`PlatformAdmin.totpSecret`,
-   standard RFC 6238, same primitive as any authenticator app — no new client dependency beyond
-   a QR-code enrollment screen). On success, the server issues a second, separate JWT
-   (`platformAccessToken`) with its own short TTL (15 minutes, vs. the normal access token's
-   longer lifetime) and its own claim (`scope: 'platform-admin'`) that `PlatformAdminGuard`
-   requires. This token is never a refresh-rotated long-lived credential — expiry means
-   re-entering the TOTP code, not a silent refresh, since the whole point is that a session left
-   open on a shared machine goes cold fast.
-3. Every `/admin/*` request is logged to `AuditLog` regardless of outcome — `ADMIN_LOGIN_SUCCESS`
-   /`ADMIN_LOGIN_FAILURE` at step 2, `ADMIN_PII_VIEWED` on any route that returns a data
-   subject's PII (with which subject, in `metadata`), `ADMIN_USER_ERASED` on the destructive
-   route, `ADMIN_EXPORT_GENERATED` if a DSAR export is produced. This is the record a DPO needs
-   to answer "who looked at this person's data and why" — without it, the back-office would
-   itself be an ungoverned access path to every club's PII, worse than not having one.
-
-### Hardening beyond auth
-
-- **Separate rate limit**, tighter than the public API's: `/admin/login` (the TOTP step) is
-  limited per-account (not just per-IP, since an admin's IP is often a fixed office/VPN address
-  attackers could rotate around) to 5 attempts per 15 minutes, then locks the `PlatformAdmin`
-  row until manually cleared — a locked-out admin is an acceptable cost, an unlimited TOTP
-  brute-force is not.
-- **IP allowlist, optional but supported**: `PlatformAdmin` gains an optional
-  `allowedCidrs: String[]` (empty = unrestricted, matching how `BREVO_API_KEY`-style optional
-  integrations degrade gracefully per `CLAUDE.md`'s convention) so a club-network or office-VPN
-  restriction can be layered on per-admin without being mandatory for launch.
-- **No PII in list views.** Any route that lists candidates (e.g. "accounts inactive 11+
-  months, expiring soon") returns id, email-domain-redacted-or-not-at-all, and last-active date
-  only — never a full profile — until a `DATA_OFFICER` opens one specific record for one named
-  request, which is the `ADMIN_PII_VIEWED` moment.
-- **Erasure requires a reason string** (free text, stored in the `AuditLog.metadata` for that
-  `ADMIN_USER_ERASED` row) — a manual erasure with no recorded justification is exactly the gap
-  an audit log exists to close.
-- **The back-office ships as its own frontend route tree** (`app/src/admin/`, gated by a
-  client-side check that's advisory only — the real enforcement is server-side
-  `PlatformAdminGuard`, per usual "don't trust the client" practice) rather than a hidden tab
-  inside `AppHeader`/`AccountMenu`, so it never renders, fetches, or bundles admin-only code for
-  the 99.9% of users who aren't platform staff.
-- **Grants are provisioned out-of-band** (a migration or a one-off script run by an operator
-  with DB access), not through a "promote to admin" button anywhere in the product — there is no
-  self-service path to `PlatformAdmin`, matching how the first `TeamAdmin` for a team requires an
-  existing club `ADMIN` rather than being self-grantable.
-
-### API surface
-
-| Method | Path                                  | Guard                                      | Notes                                                              |
-| ------ | -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| POST   | `/admin/login`                         | `JwtAuthGuard`                              | body `{ totpCode }`; issues `platformAccessToken`; rate-limited      |
-| GET    | `/admin/retention/runs`                | `PlatformAdminGuard`                        | last N sweep results (`RetentionRun`)                                |
-| POST   | `/admin/retention/dry-run`             | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | triggers an on-demand dry-run sweep                        |
-| GET    | `/admin/users?status=inactive-soon`    | `PlatformAdminGuard`                        | redacted list only, per Hardening above                              |
-| GET    | `/admin/users/:userId`                 | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | full profile; emits `ADMIN_PII_VIEWED`                     |
-| POST   | `/admin/users/:userId/erase`           | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | body `{ reason }`; manual erasure ahead of the sweep       |
-| GET    | `/admin/audit-log?userId=`             | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | for answering "who accessed this person's data"            |
-
-### Frontend
-
-Minimal: a login screen (email/password, already exists, reused) → TOTP prompt → a three-page
-shell (`RetentionRunsPage`, `UsersNearingExpiryPage`, `UserDetailPage` with the erase action
-behind a `Dialog` confirm per `CLAUDE.md`'s destructive-action modal convention). No new design
-system components needed — reuses `Table`/`Dialog`/`Alert`/`Badge` as-is. Not themed as "Kluvo"
-consumer product chrome (no `AppHeader`, no club switcher) — a plain internal-tool shell, since
-conflating it visually with the product invites an admin to browse it like a support dashboard
-rather than treat every click as an audited, justified action.
-
 ## Testing
 
 Jest `*.spec.ts`: `RetentionSweepProcessor` (each sweep step, dry-run vs. real, the
 `Player.userId → null` + `ParentalConsent.retentionExpiresAt` side effects of account erasure,
-idempotency of re-running a sweep), `PlatformAdminGuard` (missing grant, missing step-up claim,
-valid), `/admin/login` rate-limit lockout. Vitest/RTL for the three back-office pages and the
-TOTP prompt. No new E2E harness — the `screenshot-ui` flow covers the back-office frontend once
-built, same as any other UI change per `CLAUDE.md`.
+idempotency of re-running a sweep), the `lastActiveAt`-updating interceptor. No new E2E harness.
