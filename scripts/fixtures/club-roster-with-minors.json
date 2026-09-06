@@ -1,0 +1,101 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [{ "clubId": "club-1", "role": "ADMIN" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/members": {
+    "items": [
+      {
+        "userId": "user-1",
+        "email": "admin@asc-nantes.fr",
+        "firstName": "Camille",
+        "lastName": "Martin",
+        "role": "ADMIN",
+        "joinedAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/players": {
+    "items": [
+      {
+        "id": "p1",
+        "clubId": "club-1",
+        "firstName": "Léa",
+        "lastName": "Bertrand",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601234",
+        "birthDate": "2012-03-14T00:00:00.000Z",
+        "gender": "WOMEN",
+        "licenseType": "C",
+        "isMinor": true,
+        "parentalConsentGivenAt": null,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "p2",
+        "clubId": "club-1",
+        "firstName": "Noah",
+        "lastName": "Diallo",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601235",
+        "birthDate": "2011-11-02T00:00:00.000Z",
+        "gender": "MEN",
+        "licenseType": "C",
+        "isMinor": true,
+        "parentalConsentGivenAt": "2026-02-03T00:00:00.000Z",
+        "createdAt": "2026-01-02T00:00:00.000Z"
+      },
+      {
+        "id": "p3",
+        "clubId": "club-1",
+        "firstName": "Sofiane",
+        "lastName": "Renaud",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601236",
+        "birthDate": "1994-07-21T00:00:00.000Z",
+        "gender": "MEN",
+        "licenseType": "C",
+        "isMinor": false,
+        "parentalConsentGivenAt": null,
+        "createdAt": "2026-01-03T00:00:00.000Z"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "POST /api/clubs/club-1/players/p1/parental-consent": {
+    "id": "consent-1",
+    "playerId": "p1",
+    "clubId": "club-1",
+    "playerFirstName": "Léa",
+    "playerLastName": "Bertrand",
+    "playerBirthDate": "2012-03-14T00:00:00.000Z",
+    "attestedByName": "Camille Martin",
+    "attestedByUserId": "user-1",
+    "consentGivenAt": "2026-09-06T00:00:00.000Z",
+    "retentionExpiresAt": null
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import {
@@ -17,6 +18,7 @@ import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { PlayerEditForm } from './PlayerEditForm';
 import { PlayerInviteDialog } from './PlayerInviteDialog';
+import { ParentalConsentDialog } from './ParentalConsentDialog';
 import { usePlayerDelete } from './usePlayerDelete';
 import { getClubErrorMessage } from './clubErrorMessages';
 
@@ -40,6 +42,15 @@ export function PlayerRow({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const { mutate: deletePlayer, isPending: isDeleting } = usePlayerDelete(clubId);
 
+  // A minor imported in bulk has no attestation yet — bulk import is exempt
+  // from the create-time requirement, so this is where those players surface.
+  const needsConsent = player.isMinor && player.parentalConsentGivenAt === null;
+  const consentBadge = needsConsent ? (
+    <Badge variant="soft" tone="danger">
+      Autorisation manquante
+    </Badge>
+  ) : null;
+
   const adminActions = isAdmin ? (
     <div className="flex flex-wrap gap-2">
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
@@ -62,6 +73,7 @@ export function PlayerRow({
         </DialogContent>
       </Dialog>
       {!player.userId && <PlayerInviteDialog clubId={clubId} player={player} />}
+      {player.isMinor && <ParentalConsentDialog clubId={clubId} player={player} />}
       <Button
         variant="destructive"
         loading={isDeleting}
@@ -81,9 +93,12 @@ export function PlayerRow({
   if (layout === 'card') {
     return (
       <Card variant="inset" className="flex flex-col gap-2">
-        <Text as="span" variant="label">
-          {player.firstName} {player.lastName}
-        </Text>
+        <div className="flex flex-wrap items-center gap-2">
+          <Text as="span" variant="label">
+            {player.firstName} {player.lastName}
+          </Text>
+          {consentBadge}
+        </div>
         <Text as="span" variant="meta" className="break-all">
           Compte lié : {linkedMemberEmail ?? '—'}
         </Text>
@@ -95,7 +110,10 @@ export function PlayerRow({
   return (
     <TableRow>
       <TableCell>{player.firstName}</TableCell>
-      <TableCell>{player.lastName}</TableCell>
+      <TableCell className="flex flex-wrap items-center gap-2">
+        {player.lastName}
+        {consentBadge}
+      </TableCell>
       <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
       <TableCell className="flex flex-col gap-2">{adminActions}</TableCell>
     </TableRow>

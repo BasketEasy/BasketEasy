@@ -3,11 +3,13 @@ import { BadRequestException } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { AccountSecurityService } from './account-security.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';
 import { hashToken } from '../common/token-hash';
 
 describe('AccountSecurityService', () => {
   let service: AccountSecurityService;
+  let audit: { record: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     emailVerificationToken: {
@@ -38,6 +40,7 @@ describe('AccountSecurityService', () => {
   };
 
   beforeEach(async () => {
+    audit = { record: jest.fn() };
     prisma = {
       user: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       emailVerificationToken: {
@@ -75,6 +78,7 @@ describe('AccountSecurityService', () => {
       providers: [
         AccountSecurityService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: audit },
         { provide: MailService, useValue: mail },
       ],
     }).compile();
@@ -139,6 +143,9 @@ describe('AccountSecurityService', () => {
       expect(prisma.emailVerificationToken.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'token-1' } }),
       );
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'EMAIL_VERIFIED', userId: 'user-1' }),
+      );
     });
 
     it('rejects an unknown token', async () => {
@@ -198,6 +205,22 @@ describe('AccountSecurityService', () => {
       expect(mail.sendPasswordResetEmail).not.toHaveBeenCalled();
     });
 
+    it('records the request for an unknown address too, with no user attached', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await service.requestPasswordReset('inconnu@example.com');
+
+      // Logged, but nothing about the response changes — the audit log is
+      // never served back to the requester, so this leaks no enumeration.
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'PASSWORD_RESET_REQUESTED',
+          userId: null,
+          actorEmail: 'inconnu@example.com',
+        }),
+      );
+    });
+
     it('still does throttle-shaped, hash-shaped, and write-shaped work for an unknown address (issue #143)', async () => {
       // Otherwise the known/unknown paths differ by exactly the DB round
       // trips, hashing, and the create() write the real path does — a timing
@@ -249,6 +272,9 @@ describe('AccountSecurityService', () => {
         where: { userId: 'user-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PASSWORD_RESET_COMPLETED', userId: 'user-1' }),
+      );
     });
 
     it('rejects an expired token without touching the password', async () => {

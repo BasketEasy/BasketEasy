@@ -62,6 +62,11 @@ services:
       # those links are printed to this container's log rather than sent —
       # which is how both flows are exercised without a Brevo account.
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Retention sweep runs in dry-run locally: the nightly schedule is
+      # exercised and the RetentionRun rows are written, but seed data is
+      # never erased out from under a dev database.
+      RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
+      RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
     ports:
       - '3000:3000'
     volumes:

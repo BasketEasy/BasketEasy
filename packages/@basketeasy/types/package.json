@@ -71,6 +71,10 @@
     "./account-security": {
       "types": "./account-security.ts",
       "default": "./account-security.ts"
+    },
+    "./parental-consent": {
+      "types": "./parental-consent.ts",
+      "default": "./parental-consent.ts"
     }
   },
   "scripts": {

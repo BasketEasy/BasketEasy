@@ -28,6 +28,12 @@ describe('ClubsService', () => {
       count: jest.Mock;
     };
     playerInvite: { findUnique: jest.Mock; upsert: jest.Mock };
+    parentalConsent: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      updateMany: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -53,6 +59,12 @@ describe('ClubsService', () => {
         count: jest.fn(),
       },
       playerInvite: { findUnique: jest.fn(), upsert: jest.fn() },
+      parentalConsent: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: jest.fn((arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
@@ -436,6 +448,8 @@ describe('ClubsService', () => {
             birthDate: null,
             gender: null,
             licenseType: null,
+            isMinor: false,
+            parentalConsentGivenAt: null,
             createdAt: '2026-01-01T00:00:00.000Z',
           },
         ],
@@ -612,6 +626,207 @@ describe('ClubsService', () => {
       await service.deletePlayer('club-1', 'p1');
 
       expect(prisma.player.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+    });
+
+    it('starts the parental-consent clock before deleting the player', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.player.delete.mockResolvedValue({});
+
+      await service.deletePlayer('club-1', 'p1');
+
+      // Before, not after: the consent rows are found by playerId and the FK
+      // is SetNull, so a record whose clock hadn't started would be orphaned.
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { playerId: { in: ['p1'] }, retentionExpiresAt: null },
+        data: { retentionExpiresAt: expect.any(Date) },
+      });
+      expect(prisma.parentalConsent.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.player.delete.mock.invocationCallOrder[0],
+      );
+    });
+  });
+
+  describe('parental consent', () => {
+    const minorBirthDate = '2012-05-04';
+
+    it('refuses to create a minor with no consent attestation', async () => {
+      await expect(
+        service.createPlayer('club-1', {
+          firstName: 'A',
+          lastName: 'B',
+          birthDate: minorBirthDate,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.player.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a minor together with the consent record', async () => {
+      prisma.player.create.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: null,
+        birthDate: new Date(minorBirthDate),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createPlayer(
+        'club-1',
+        {
+          firstName: 'A',
+          lastName: 'B',
+          birthDate: minorBirthDate,
+          parentalConsent: { attestedByName: 'Marie Durand' },
+        },
+        'admin-1',
+      );
+
+      expect(prisma.parentalConsent.create).toHaveBeenCalledWith({
+        data: {
+          playerId: 'p1',
+          clubId: 'club-1',
+          playerFirstName: 'A',
+          playerLastName: 'B',
+          playerBirthDate: new Date(minorBirthDate),
+          attestedByName: 'Marie Durand',
+          attestedByUserId: 'admin-1',
+        },
+      });
+      expect(result.isMinor).toBe(true);
+      expect(result.parentalConsentGivenAt).not.toBeNull();
+    });
+
+    it('never asks for consent for an adult', async () => {
+      prisma.player.create.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: null,
+        birthDate: new Date('1990-01-01'),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createPlayer('club-1', {
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: '1990-01-01',
+      });
+
+      expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+      expect(result.isMinor).toBe(false);
+    });
+
+    it('records consent for an existing player and clears any running clock', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: new Date(minorBirthDate),
+      });
+      prisma.parentalConsent.create.mockResolvedValue({
+        id: 'consent-1',
+        playerId: 'p1',
+        clubId: 'club-1',
+        playerFirstName: 'A',
+        playerLastName: 'B',
+        playerBirthDate: new Date(minorBirthDate),
+        attestedByName: 'Marie Durand',
+        attestedByUserId: 'admin-1',
+        consentGivenAt: new Date('2026-09-06'),
+        retentionExpiresAt: null,
+      });
+
+      const consent = await service.recordParentalConsent(
+        'club-1',
+        'p1',
+        'Marie Durand',
+        'admin-1',
+      );
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { playerId: 'p1', retentionExpiresAt: { not: null } },
+        data: { retentionExpiresAt: null },
+      });
+      expect(consent.id).toBe('consent-1');
+      expect(consent.retentionExpiresAt).toBeNull();
+    });
+
+    it('refuses to record consent for a player with no birth date', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: null,
+      });
+
+      await expect(service.recordParentalConsent('club-1', 'p1', 'Marie Durand')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('reports the most recent attestation, or null when there is none', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.parentalConsent.findFirst.mockResolvedValue(null);
+
+      await expect(service.getParentalConsent('club-1', 'p1')).resolves.toBeNull();
+      expect(prisma.parentalConsent.findFirst).toHaveBeenCalledWith({
+        where: { playerId: 'p1' },
+        orderBy: { consentGivenAt: 'desc' },
+      });
+    });
+
+    it('reports a minor’s consent date on the roster listing', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'A',
+          lastName: 'B',
+          userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: new Date(minorBirthDate),
+          gender: null,
+          licenseType: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.player.count.mockResolvedValue(1);
+      prisma.parentalConsent.findMany.mockResolvedValue([
+        { playerId: 'p1', consentGivenAt: new Date('2026-02-03') },
+      ]);
+
+      const result = await service.listPlayers('club-1', {});
+
+      expect(result.items[0].isMinor).toBe(true);
+      expect(result.items[0].parentalConsentGivenAt).toBe('2026-02-03T00:00:00.000Z');
+    });
+
+    it('does not query consents at all for a roster of adults', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'A',
+          lastName: 'B',
+          userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: new Date('1990-01-01'),
+          gender: null,
+          licenseType: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.player.count.mockResolvedValue(1);
+
+      await service.listPlayers('club-1', {});
+
+      expect(prisma.parentalConsent.findMany).not.toHaveBeenCalled();
     });
   });
 

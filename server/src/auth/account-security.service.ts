@@ -3,6 +3,7 @@ import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { AuditService, type AuditRequestContext } from '../audit/audit.service';
 import { hashToken } from '../common/token-hash';
 
 // A verification link is long-lived: it is opened from an inbox, sometimes
@@ -26,6 +27,7 @@ export class AccountSecurityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -74,7 +76,7 @@ export class AccountSecurityService {
    * looking at a page that has to say whether their link worked, and a
    * verification token reveals nothing about which addresses have accounts.
    */
-  async confirmEmail(rawToken: string): Promise<void> {
+  async confirmEmail(rawToken: string, context?: AuditRequestContext): Promise<void> {
     const token = await this.prisma.emailVerificationToken.findUnique({
       where: { tokenHash: hashToken(rawToken) },
       include: { user: { select: { id: true, email: true, emailVerifiedAt: true } } },
@@ -105,6 +107,13 @@ export class AccountSecurityService {
         data: { emailVerifiedAt: new Date() },
       }),
     ]);
+
+    this.audit.record({
+      type: 'EMAIL_VERIFIED',
+      userId: token.userId,
+      actorEmail: token.email,
+      context,
+    });
   }
 
   /**
@@ -114,10 +123,20 @@ export class AccountSecurityService {
    * known and an unknown address is a user-enumeration oracle, and this one
    * is public and unauthenticated.
    */
-  async requestPasswordReset(email: string): Promise<void> {
+  async requestPasswordReset(email: string, context?: AuditRequestContext): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true },
+    });
+    // Recorded for a known *and* an unknown address (userId null in the
+    // second case). This does not undo the anti-enumeration property above:
+    // the audit log is never served to the requester, and the response stays
+    // byte-identical either way.
+    this.audit.record({
+      type: 'PASSWORD_RESET_REQUESTED',
+      userId: user?.id ?? null,
+      actorEmail: email,
+      context,
     });
     if (!user) {
       // The response is identical either way (204, no token, no e-mail), but
@@ -186,7 +205,11 @@ export class AccountSecurityService {
    * that someone else may have the old password, and leaving their sessions
    * alive would defeat the reset entirely.
    */
-  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+  async resetPassword(
+    rawToken: string,
+    newPassword: string,
+    context?: AuditRequestContext,
+  ): Promise<void> {
     const token = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash: hashToken(rawToken) },
     });
@@ -224,5 +247,7 @@ export class AccountSecurityService {
         data: { consumedAt: new Date() },
       });
     });
+
+    this.audit.record({ type: 'PASSWORD_RESET_COMPLETED', userId: token.userId, context });
   }
 }
