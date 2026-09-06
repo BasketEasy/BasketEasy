@@ -32,6 +32,25 @@ describe('FormField', () => {
     expect(alert).toHaveTextContent('Adresse email invalide');
   });
 
+  it('describes the input with its hint', () => {
+    render(<FormField label="Nom" id="name" hint="Le nom de la personne, pas du club." />);
+    const input = screen.getByLabelText('Nom');
+
+    expect(screen.getByText('Le nom de la personne, pas du club.')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-describedby', 'name-hint');
+  });
+
+  it('points at the hint and the error together when both are present', () => {
+    render(<FormField label="Nom" id="name" hint="Prénom et nom." error="Nom requis" />);
+    const input = screen.getByLabelText('Nom');
+
+    // Both describe the field and say different things, so neither replaces
+    // the other.
+    expect(input).toHaveAttribute('aria-describedby', 'name-hint name-error');
+    expect(screen.getByRole('alert')).toHaveTextContent('Nom requis');
+    expect(screen.getByText('Prénom et nom.')).toBeInTheDocument();
+  });
+
   it('accepts typed input and forwards other input props', async () => {
     const user = userEvent.setup();
     render(<FormField label="Adresse e-mail" id="email" type="email" autoComplete="email" />);

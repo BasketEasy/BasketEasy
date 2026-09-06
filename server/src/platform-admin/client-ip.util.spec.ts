@@ -1,5 +1,4 @@
-import { isIpAllowed } from './client-ip.util';
-import { normalizeIp } from '../audit/audit.service';
+import { isIpAllowed, normalizeIp } from './client-ip.util';
 
 describe('isIpAllowed', () => {
   it('treats an empty allowlist as unrestricted', () => {

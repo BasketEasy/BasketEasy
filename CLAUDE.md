@@ -214,12 +214,29 @@ Beyond the Working conventions above, four traps this direction has already fall
 - The public auth forms use `setError('root')` + `Alert`, **not** `toast()` — that is the established convention for `LoginForm`/`RegisterForm`/`InviteAcceptForm`, and the trigger stays on screen.
 - `app/public/sw.js` is a **push-only** service worker: no fetch handler, no caching, no precache manifest. A caching worker is a class of stale-asset bugs the app has no offline story to justify; it exists solely because a push subscription can't exist without a registered worker. `usePushSubscription` registers it on subscribe, never on mount.
 
+## Retention, audit & parental consent
+
+`server/src/retention` enforces the documented data-retention policy; `server/src/audit` writes the security log it prunes. Design record: [`docs/superpowers/specs/2026-09-06-data-retention-policy-design.md`](./docs/superpowers/specs/2026-09-06-data-retention-policy-design.md), implementation plan: [`docs/superpowers/specs/2026-09-06-data-retention-implementation-plan.md`](./docs/superpowers/specs/2026-09-06-data-retention-implementation-plan.md).
+
+- **One nightly BullMQ repeatable job** (`retention-sweep`, registered by `RetentionModule.onModuleInit` via `upsertJobScheduler`, so a redeploy re-registers rather than duplicates). `RETENTION_SWEEP_ENABLED` and `RETENTION_SWEEP_DRY_RUN` gate it; a scheduling failure is logged and swallowed, same "REDIS_URL is not boot-validated" policy as `QueueModule`. The policy itself lives in `RetentionService`, not the processor, so it is unit-testable without a queue.
+- **Three independent steps under `Promise.allSettled`** — inactive accounts (12 months), audit logs (12 months, CNIL), expired parental consents — because "audit logs couldn't be pruned" is no reason to leave inactive accounts standing. Every run, dry-run included, writes a `RetentionRun` row: proving the policy executes is itself RGPD art. 5.2 accountability, and a log line is neither queryable nor durable enough to be that proof.
+- **Erasing an account must not erase the club's history.** Rule 3 keeps stats forever, so the sweep sets `Player.userId = null` (the state an unclaimed roster entry has always been in) and lets everything hanging off `User` cascade. Never make it `player.deleteMany` — a `MatchPlayerStat` row is the club's record, not the person's account. One transaction per account, capped at `MAX_ACCOUNTS_PER_SWEEP` (500) a night.
+- **`AuditLog` is authentication activity only**, not a general mutation trail — broadening it multiplies write volume on every request for a rule that only asks about authentication. `actorEmail` is denormalised precisely so an entry still reads after `userId` is `SetNull`ed by the account's deletion. Every write goes through `AuditService.record()`, which is fire-and-forget like `MailService.sendAndForget`: an audit insert must never turn a successful login into a 500. Emission points are all in `AuthService`/`AccountSecurityService`; a `LOGIN_FAILURE` or `PASSWORD_RESET_REQUESTED` against an unknown address is recorded with `userId: null` (the log is never served back, so it leaks no enumeration the endpoints hide).
+- **`User.lastActiveAt` is the only inactivity signal.** Written by `LastActiveInterceptor` (global `APP_INTERCEPTOR`, debounced to once an hour per user per instance through an in-process map — deliberately not Redis: an activity ping must not depend on the queue) and directly by `login`/`refresh`, the two signals that don't pass `JwtAuthGuard`.
+- **Parental consent is a staff attestation, not an e-signature** — the "easiest possible" v1. Required by `ClubsService.createPlayer` when `birthDate` makes the player a minor (`400 PARENTAL_CONSENT_REQUIRED`), and deliberately **not** required by bulk import: failing an import because row 34 is sixteen would make the feature unusable, so those players surface in the roster as _autorisation manquante_ and are resolved through `POST .../players/:playerId/parental-consent`. `isMinorBirthDate` (`@basketeasy/types/parental-consent`) is shared by the form and the API so the two can't drift.
+- **`ParentalConsent` outlives what it documents** — `SetNull` to `Player`/`User`, never `Cascade` and never Prisma's default `Restrict` (which would block the deletion instead of surviving it). RGPD art. 17.3.b is the carve-out. The row snapshots the minor's name and birth date, because a proof that no longer says whose consent it was is not evidence. Its five-year clock starts at _deletion_ (`ClubsService.deletePlayer`, or the sweep erasing the linked account — `startParentalConsentRetention` in `server/src/common`), never at creation, and re-recording consent clears it.
+- **Backup rotation (rule 5) is infrastructure**, set on the Postgres backup tool and the R2 bucket lifecycle. No application code enforces it; it belongs in the deploy runbook.
+- **Not built yet, on purpose:** inactivity warning e-mails ahead of erasure, consent withdrawal / re-consent, and a parent-facing portal. The platform back-office over `AuditLog`/`RetentionRun` is built — see the section below; `RetentionService.eraseUserAccount` is the erasure primitive it shares with the nightly sweep, so a manual RGPD erasure and an automated one can never drift apart.
+
 ## Platform back-office
 
 `server/src/platform-admin` (mounted at `/api/admin`) is the internal surface Kluvo staff use to
 action RGPD access/erasure requests and confirm the retention sweep is doing its job, without a
 `psql` session. Design record: [`docs/superpowers/specs/2026-09-06-backoffice-design.md`](./docs/superpowers/specs/2026-09-06-backoffice-design.md),
-build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06-backoffice-implementation-plan.md) beside it.
+build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06-backoffice-implementation-plan.md)
+beside it. It is a _reader_ of the Retention, audit & parental consent module above — `AuditLog`,
+`RetentionRun` and `User.lastActiveAt` all belong to that policy; the only table this owns is
+`PlatformAdmin`.
 
 - **A `PlatformAdmin` grant is necessary but not sufficient.** Every `/admin/*` route requires an
   ordinary session _and_ a second, separately-signed `platformAccessToken` (15 min, claim
@@ -280,34 +297,6 @@ build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06
   support dashboard rather than treating every click as an audited action. `AdminRoute`'s check
   is advisory; the real enforcement is server-side.
 
-## Retention & audit foundations
-
-`AuditLog`, `RetentionRun` and `User.lastActiveAt` come from
-[`docs/superpowers/specs/2026-09-06-data-retention-policy-design.md`](./docs/superpowers/specs/2026-09-06-data-retention-policy-design.md).
-They live here because the back-office's routes cannot exist without them — **the rest of that
-spec is not built yet**.
-
-- `AuditService.record()` (`server/src/audit`) is the one way anything reaches `AuditLog`, and
-  the seam the retention spec's auth-event emitters (`LOGIN_SUCCESS`,
-  `REFRESH_TOKEN_REUSE_DETECTED`, ...) wire into. Today only the `ADMIN_*` events are emitted.
-  `AuditLog.userId` is a plain column with **no** relation to `User` on purpose: an audit row has
-  to outlive the account it describes.
-- `RetentionService` (`server/src/retention`) owns the dry-run counting sweep behind
-  `POST /admin/retention/dry-run` and `eraseUserAccount()`, the shared erasure primitive. Rule 2
-  (erase inactive accounts) and rule 3 (keep stats forever) coexist only because
-  `Player.userId` is nullable — erasure clears it and leaves the roster entry, its `TeamPlayer`
-  rows and every `MatchPlayerStat` untouched. `ClubMembership`/`RefreshToken` are deleted
-  explicitly: their FKs are `ON DELETE RESTRICT`, so `user.delete` fails outright without it —
-  the retention spec's prose claims otherwise and is wrong on this point.
-- `User.lastActiveAt` is written in `AuthService.issueTokenPair`, the one method every
-  register/login/refresh path funnels through. The retention spec's debounced interceptor is
-  still its own to add; a session in actual use rotates through here every 15 minutes for the
-  whole 30-day life of its refresh token, so the signal is already current against a 12-month
-  cutoff.
-- **Still the retention spec's, not built here:** `ParentalConsent` and its 5-year clock, the
-  nightly BullMQ repeatable job and the destructive sweep steps, the auth-event emitters, the
-  `lastActiveAt` interceptor, inactivity-warning notifications.
-
 ## What's deliberately not here yet
 
-No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no automated retention sweep (only the dry-run half — see Retention & audit foundations above) and no `ParentalConsent`; no notification digest/batching and no scheduled RSVP reminders (that needs a repeatable BullMQ job and its own slice — the queue has only `scoresheet-ocr` today), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no notification digest/batching and no scheduled RSVP reminders (the queue now has a nightly `retention-sweep` repeatable job to copy the shape from, but reminders are still their own slice), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no inactivity-warning notification before an account is erased; no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

@@ -3,7 +3,7 @@ import type {
   ErasePlatformUserResponse,
   PlatformLoginResponse,
   PlatformUserExport,
-  RetentionRunSummary,
+  RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
 import { apiClient } from '../api/client';
 import { adminQueryKeyPrefix, retentionRunsQueryKey } from './queryKeys';
@@ -24,7 +24,7 @@ export function useRetentionDryRun() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => apiClient.post<RetentionRunSummary>('/admin/retention/dry-run'),
+    mutationFn: () => apiClient.post<RetentionStepSummary[]>('/admin/retention/dry-run'),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: retentionRunsQueryKey });
     },

@@ -232,7 +232,7 @@ describe('AuthController', () => {
     };
     const result = await controller.refresh(req as unknown as Request, res as unknown as Response);
 
-    expect(service.refresh).toHaveBeenCalledWith('refresh-1');
+    expect(service.refresh).toHaveBeenCalledWith('refresh-1', expect.any(Object));
     expect(res.cookie).toHaveBeenCalledWith('refresh_token', 'refresh-2', expect.any(Object));
     expect(result).toEqual({ accessToken: 'access-2' });
   });
@@ -265,7 +265,7 @@ describe('AuthController', () => {
     };
     await controller.logout(req as unknown as Request, res as unknown as Response);
 
-    expect(service.logout).toHaveBeenCalledWith('refresh-1');
+    expect(service.logout).toHaveBeenCalledWith('refresh-1', expect.any(Object));
     expect(res.clearCookie).toHaveBeenCalledWith(
       'refresh_token',
       expect.objectContaining({ path: '/api/auth' }),

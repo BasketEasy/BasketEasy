@@ -72,6 +72,10 @@
       "types": "./account-security.ts",
       "default": "./account-security.ts"
     },
+    "./parental-consent": {
+      "types": "./parental-consent.ts",
+      "default": "./parental-consent.ts"
+    },
     "./platform-admin": {
       "types": "./platform-admin.ts",
       "default": "./platform-admin.ts"

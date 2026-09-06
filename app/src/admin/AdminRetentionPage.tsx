@@ -15,14 +15,19 @@ import {
 } from '@basketeasy/ui/table';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { RetentionRunSummary } from '@basketeasy/types/platform-admin';
+import type { RetentionStepSummary } from '@basketeasy/types/platform-admin';
 import { useRetentionRuns } from './useAdminQueries';
 import { useRetentionDryRun } from './useAdminMutations';
 import { usePlatformSession } from './platformSession';
 
+// Keys of the sweep's own `summary` record — see RetentionService's
+// RetentionStepName. An unknown step still renders, under its raw key, rather
+// than vanishing: a sweep that grew a step the UI hasn't been taught about
+// must not silently under-report what ran.
 const STEP_LABELS: Record<string, string> = {
-  'inactive-accounts': 'Comptes inactifs',
-  'audit-logs': 'Journaux de sécurité',
+  inactiveAccounts: 'Comptes inactifs',
+  auditLogs: 'Journaux de sécurité',
+  parentalConsents: 'Autorisations parentales',
 };
 
 function formatRanAt(iso: string): string {
@@ -33,10 +38,13 @@ function formatRanAt(iso: string): string {
   });
 }
 
-function stepsLabel(run: RetentionRunSummary): string {
-  if (run.steps.length === 0) return '—';
-  return run.steps
-    .map((step) => `${STEP_LABELS[step.step] ?? step.step} : ${step.error ? 'échec' : step.count}`)
+function stepsLabel(steps: RetentionStepSummary[]): string {
+  if (steps.length === 0) return '—';
+  return steps
+    .map(
+      (step) =>
+        `${STEP_LABELS[step.step] ?? step.step} : ${step.status === 'error' ? 'échec' : step.count}`,
+    )
     .join(' · ');
 }
 
@@ -53,11 +61,11 @@ export function AdminRetentionPage() {
 
   const onDryRun = () => {
     runDryRun(undefined, {
-      onSuccess: (run) =>
+      onSuccess: (steps) =>
         toast({
           variant: 'success',
           title: 'Simulation enregistrée',
-          description: stepsLabel(run),
+          description: stepsLabel(steps),
         }),
       onError: () =>
         toast({
@@ -111,7 +119,7 @@ export function AdminRetentionPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Text variant="meta">{stepsLabel(run)}</Text>
+                      <Text variant="meta">{stepsLabel(run.steps)}</Text>
                     </TableCell>
                   </TableRow>
                 ))}

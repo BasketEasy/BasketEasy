@@ -25,13 +25,13 @@ model User {
   // written regardless: this is a delivery-channel preference, not a
   // "don't tell me" one, so turning it off never loses a convocation.
   emailNotificationsEnabled     Boolean                  @default(true)
-  // The single signal the retention sweep reads to decide "inactive", per
-  // docs/superpowers/specs/2026-09-06-data-retention-policy-design.md.
-  // Distinct from createdAt: an account that logged in once three years ago
-  // and never came back is inactive from that login, not from registration.
-  // Written on login and on refresh — a session in actual use rotates its
-  // refresh token every 15 minutes for the whole 30-day life of the token,
-  // so any account being used writes this continuously.
+  // Refreshed on login, on refresh, and (debounced to at most once an hour
+  // per instance, see LastActiveInterceptor) on any authenticated request —
+  // the single signal the retention sweep reads to decide "inactive".
+  // Distinct from createdAt on purpose: an account that logged in once three
+  // years ago and never came back is inactive from that login, not from
+  // registration. Defaults to now() so existing rows start a fresh 12-month
+  // clock at migration time rather than being swept on the first night.
   lastActiveAt                  DateTime                 @default(now())
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
@@ -44,6 +44,8 @@ model User {
   emailVerificationTokens       EmailVerificationToken[]
   passwordResetTokens           PasswordResetToken[]
   pushSubscriptions             PushSubscription[]
+  auditLogs                     AuditLog[]
+  parentalConsentsAttested      ParentalConsent[]
   platformAdmin                 PlatformAdmin?
 }
 
@@ -164,8 +166,9 @@ model Player {
   createdAt     DateTime      @default(now())
   club          Club          @relation(fields: [clubId], references: [id])
   user          User?         @relation(fields: [userId], references: [id])
-  teamPlayers   TeamPlayer[]
-  invite        PlayerInvite?
+  teamPlayers      TeamPlayer[]
+  invite           PlayerInvite?
+  parentalConsents ParentalConsent[]
 
   @@unique([clubId, userId])
   @@index([clubId])
@@ -199,6 +202,7 @@ model Club {
   memberships  ClubMembership[]
   players      Player[]
   clubTeams    ClubTeam[]
+  parentalConsents ParentalConsent[]
 }
 
 enum TeamCategory {
@@ -586,13 +590,125 @@ model RefreshToken {
   @@index([userId])
 }
 
+// Security-relevant events, retained 12 months (CNIL's standard
+// recommendation for connection/security logs) by the nightly retention
+// sweep. Deliberately narrow — authentication activity only, not a general
+// application audit trail: broadening it to every mutation is a distinct,
+// much larger feature, and would multiply write volume on every request for
+// a compliance rule that only asks about authentication.
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  REFRESH_TOKEN_REUSE_DETECTED
+  EMAIL_VERIFIED
+  // Back-office actions (see the companion back-office spec). Their own event
+  // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
+  // filter precisely on "who looked at this person's data". On one of these
+  // rows `userId`/`actorEmail` is the *acting admin*; the data subject they
+  // acted on is `metadata.subjectUserId`.
+  ADMIN_LOGIN_SUCCESS
+  ADMIN_LOGIN_FAILURE
+  ADMIN_PII_VIEWED
+  ADMIN_USER_ERASED
+  ADMIN_EXPORT_GENERATED
+}
+
+model AuditLog {
+  id   String         @id @default(uuid())
+  type AuditEventType
+  // Nullable twice over: a LOGIN_FAILURE against an address with no matching
+  // account still has to be logged (repeated failures against unknown
+  // addresses are themselves a security signal) and has no user to attach
+  // to, and onDelete: SetNull keeps the entry when the account it describes
+  // is deleted.
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Denormalised, not read through the relation above, precisely so it
+  // survives that SetNull — an entry must still read "someone signed in as
+  // jean@example.com" after that account is gone. A security log outliving
+  // the account it describes is the whole point of keeping one.
+  actorEmail String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  // The sweep deletes by age; the back-office (companion spec) reads one
+  // account's history.
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// The "easiest possible" parental-consent record: a staff attestation
+// captured once, when a club adds a player under 18 — not a parent-signed
+// flow (see the design doc's Scope).
+//
+// Deliberately NOT cascade-deleted with its Player or Club: the reason this
+// table exists is to outlive them. RGPD art. 17.3.b is the explicit carve-out
+// for a legal proof a data-subject erasure request doesn't erase. A missing
+// onDelete clause would give Prisma's default (Restrict) and block player
+// deletion entirely, which is the opposite of what is wanted — the record
+// must survive a deletion, not prevent one.
+model ParentalConsent {
+  id       String  @id @default(uuid())
+  playerId String?
+  player   Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  clubId   String
+  club     Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  // Snapshot of the minor's identity at consent time, kept even once
+  // playerId goes null: a proof of consent that no longer says whose consent
+  // it was is worthless as evidence.
+  playerFirstName String
+  playerLastName  String
+  playerBirthDate DateTime
+  // Who attested the consent was obtained. Free text, not just a relation:
+  // the attester's own account may itself be deleted later (hence
+  // onDelete: SetNull on attestedByUserId), and this record must still name
+  // who claimed to have obtained it.
+  attestedByName   String
+  attestedByUserId String?
+  attestedByUser   User?    @relation(fields: [attestedByUserId], references: [id], onDelete: SetNull)
+  consentGivenAt   DateTime @default(now())
+  // Null while the player/account this documents is still live — the rule is
+  // "compte/joueur + 5 ans", so the clock only starts once there is a
+  // deletion to count five years from. Set by whichever path removes the
+  // link first: a club removing the player from its roster, or the retention
+  // sweep erasing the linked account. Cleared again if consent is re-recorded
+  // for the same player.
+  retentionExpiresAt DateTime?
+
+  @@index([playerId])
+  @@index([clubId])
+  @@index([retentionExpiresAt])
+}
+
+// Compliance evidence that the policy actually executes (RGPD art. 5.2,
+// accountability) — one row per sweep, dry-run included, holding each step's
+// outcome. Deliberately a table and not a log line: logs rotate and aren't
+// queryable, and "prove your retention policy ran" is a question asked months
+// after the fact. These rows are never swept themselves; a retention record
+// that expires defeats its own purpose, and it is a few hundred rows a year.
+model RetentionRun {
+  id     String   @id @default(uuid())
+  ranAt  DateTime @default(now())
+  dryRun Boolean  @default(false)
+  // One entry per independent step —
+  // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
+  //   parentalConsents: {...} } — so a step that threw stays visible next to
+  // the steps that succeeded instead of losing the whole run.
+  summary Json
+
+  @@index([ranAt])
+}
+
 // ---------------------------------------------------------------------------
 // Platform staff / back-office
-//
-// See docs/superpowers/specs/2026-09-06-backoffice-design.md. AuditLog and
-// RetentionRun below are defined by the companion data-retention spec; they
-// land here because the back-office's routes cannot exist without them —
-// see the implementation plan next to that design doc for the split.
+// See docs/superpowers/specs/2026-09-06-backoffice-design.md. It reads the
+// AuditLog and RetentionRun defined above by the data-retention policy; the
+// only table it owns is the grant below.
 // ---------------------------------------------------------------------------
 
 enum PlatformRole {
@@ -600,9 +716,9 @@ enum PlatformRole {
   // accounts nearing the inactivity cutoff. Cannot open a single record, and
   // so cannot see PII at all. Day-to-day support staff level.
   SUPPORT
-  // May open one named data subject's record while handling a GDPR
-  // access/erasure request, and may erase. Every one of those is its own
-  // AuditLog row (ADMIN_PII_VIEWED / ADMIN_USER_ERASED).
+  // May open one named data subject's record while handling an RGPD
+  // access/erasure request, may generate their export, and may erase. Every
+  // one of those is its own AuditLog row.
   DATA_OFFICER
 }
 
@@ -643,70 +759,4 @@ model PlatformAdmin {
   grantedByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-}
-
-// Security-relevant events, retained 12 months (CNIL's standard for
-// connection/security logs) by the retention sweep.
-//
-// The auth values are emitted by the data-retention spec's work; the ADMIN_*
-// values are emitted by the back-office and get their own event types rather
-// than being folded into one generic ADMIN_ACTION, so a CNIL/DPO export can
-// filter precisely on "who looked at this person's data".
-enum AuditEventType {
-  LOGIN_SUCCESS
-  LOGIN_FAILURE
-  LOGOUT
-  PASSWORD_RESET_REQUESTED
-  PASSWORD_RESET_COMPLETED
-  REFRESH_TOKEN_REUSE_DETECTED
-  EMAIL_VERIFIED
-  ADMIN_LOGIN_SUCCESS
-  ADMIN_LOGIN_FAILURE
-  ADMIN_PII_VIEWED
-  ADMIN_USER_ERASED
-  ADMIN_EXPORT_GENERATED
-}
-
-model AuditLog {
-  id   String         @id @default(uuid())
-  type AuditEventType
-
-  // Deliberately a plain column and NOT a relation to User: an audit row has
-  // to outlive the account it describes, which is the whole point of a
-  // security log. A relation would either cascade the evidence away with the
-  // account or block the erasure the evidence is about.
-  //
-  // Nullable because a LOGIN_FAILURE against an address with no matching
-  // account still needs logging — repeated failures against unknown
-  // addresses are themselves the signal.
-  //
-  // For an ADMIN_* row this is the *acting admin*; the data subject they
-  // acted on is metadata.subjectUserId.
-  userId     String?
-  actorEmail String?
-
-  ipAddress String?
-  userAgent String?
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-  @@index([userId])
-  // The back-office's audit-log view filters by type as well as by subject.
-  @@index([type, createdAt])
-}
-
-// One execution of the retention sweep, persisted regardless of dryRun: a
-// dry run's "what would have happened" is itself the evidence that the policy
-// was evaluated, which RGPD art. 5.2 accountability asks for.
-model RetentionRun {
-  id      String  @id @default(uuid())
-  dryRun  Boolean
-  summary Json
-  // Null for the scheduled nightly sweep; set when a DATA_OFFICER triggers a
-  // dry run from the back-office.
-  triggeredByUserId String?
-  ranAt             DateTime @default(now())
-
-  @@index([ranAt])
 }

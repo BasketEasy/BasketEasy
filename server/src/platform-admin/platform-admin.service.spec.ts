@@ -28,8 +28,8 @@ function buildRequest(remoteAddress = '203.0.113.7'): Request {
 describe('PlatformAdminService', () => {
   let service: PlatformAdminService;
   let jwt: JwtService;
-  let audit: { record: jest.Mock };
-  let retention: { eraseUserAccount: jest.Mock };
+  let audit: { record: jest.Mock; recordAndWait: jest.Mock };
+  let retention: { eraseUserAccount: jest.Mock; run: jest.Mock; listRuns: jest.Mock };
   let prisma: {
     platformAdmin: { findUnique: jest.Mock; updateMany: jest.Mock };
     auditLog: { count: jest.Mock; create: jest.Mock; findMany: jest.Mock };
@@ -48,9 +48,14 @@ describe('PlatformAdminService', () => {
   };
 
   beforeEach(async () => {
-    audit = { record: jest.fn().mockResolvedValue(undefined) };
+    audit = {
+      record: jest.fn(),
+      recordAndWait: jest.fn().mockResolvedValue(undefined),
+    };
     retention = {
       eraseUserAccount: jest.fn().mockResolvedValue({ unlinkedPlayerCount: 2 }),
+      run: jest.fn().mockResolvedValue({}),
+      listRuns: jest.fn().mockResolvedValue([]),
     };
     prisma = {
       platformAdmin: {
@@ -100,9 +105,8 @@ describe('PlatformAdminService', () => {
       const payload = await jwt.verifyAsync(result.platformAccessToken, { secret: SECRET });
       expect(payload).toMatchObject({ sub: 'admin-1', scope: PLATFORM_TOKEN_SCOPE });
       expect(result.role).toBe('DATA_OFFICER');
-      expect(audit.record).toHaveBeenCalledWith(
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'ADMIN_LOGIN_SUCCESS', userId: 'admin-1' }),
-        expect.anything(),
       );
     });
 
@@ -111,9 +115,8 @@ describe('PlatformAdminService', () => {
         service.login('admin-1', 'dpo@kluvo.net', '000000', buildRequest()),
       ).rejects.toBeInstanceOf(UnauthorizedException);
 
-      expect(audit.record).toHaveBeenCalledWith(
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'ADMIN_LOGIN_FAILURE', metadata: { reason: 'bad_code' } }),
-        expect.anything(),
       );
     });
 
@@ -172,9 +175,8 @@ describe('PlatformAdminService', () => {
       await expect(
         service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest('198.51.100.9')),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(audit.record).toHaveBeenCalledWith(
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({ metadata: { reason: 'ip_not_allowed' } }),
-        expect.anything(),
       );
     });
   });
@@ -244,14 +246,16 @@ describe('PlatformAdminService', () => {
 
       expect(detail.email).toBe('jean@example.org');
       expect(detail.emailVerified).toBe(true);
-      expect(audit.record).toHaveBeenCalledWith(
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'ADMIN_PII_VIEWED',
           // The acting admin on the row; the subject in metadata.
           userId: 'admin-1',
           metadata: { subjectUserId: 'user-9', subjectEmail: 'jean@example.org' },
+          // The stricter back-office IP resolution, not Express's req.ip:
+          // the same value gates the per-admin network allowlist.
+          context: { ipAddress: '203.0.113.7', userAgent: 'jest' },
         }),
-        expect.anything(),
       );
     });
 
@@ -261,7 +265,7 @@ describe('PlatformAdminService', () => {
       await expect(
         service.getUserDetail('admin-1', 'dpo@kluvo.net', 'ghost', buildRequest()),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(audit.record).not.toHaveBeenCalled();
+      expect(audit.recordAndWait).not.toHaveBeenCalled();
     });
   });
 
@@ -354,8 +358,8 @@ describe('PlatformAdminService', () => {
 
       expect(result.subjectUserId).toBe(SUBJECT);
       expect(result.account.email).toBe('jean@example.org');
-      expect(audit.record).toHaveBeenCalledTimes(1);
-      expect(audit.record).toHaveBeenCalledWith(
+      expect(audit.recordAndWait).toHaveBeenCalledTimes(1);
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'ADMIN_EXPORT_GENERATED',
           userId: 'admin-1',
@@ -365,7 +369,6 @@ describe('PlatformAdminService', () => {
             reason: 'Demande d’accès RGPD #7',
           },
         }),
-        expect.anything(),
       );
     });
 
@@ -375,7 +378,7 @@ describe('PlatformAdminService', () => {
       await expect(
         service.exportUser('admin-1', 'dpo@kluvo.net', 'ghost', 'a valid reason', buildRequest()),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(audit.record).not.toHaveBeenCalled();
+      expect(audit.recordAndWait).not.toHaveBeenCalled();
     });
 
     it('lists a vote without the player it named (art. 15.4)', async () => {

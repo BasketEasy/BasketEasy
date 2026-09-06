@@ -1,33 +1,51 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { AuditEventType, Prisma } from '@prisma/client';
 import type { Request } from 'express';
+import type { AuditEventType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-// A User-Agent is attacker-controlled and unbounded, and nothing reads more
-// than the browser/OS prefix.
-const USER_AGENT_MAX_LENGTH = 512;
+/** The request-shaped half of an audit entry, extracted once per controller. */
+export interface AuditRequestContext {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
 
-export interface AuditRecordInput {
+export interface AuditEvent {
   type: AuditEventType;
-  /**
-   * The *acting* account. For an ADMIN_* event that is the admin, never the
-   * data subject they acted on — put the subject in
-   * `metadata.subjectUserId`, which is what the back-office's audit-log view
-   * filters on.
-   */
+  /** Null for an event about an address with no matching account. */
   userId?: string | null;
+  /**
+   * Denormalised on purpose — this is what the entry still reads by once the
+   * account is deleted and the FK above is set to null.
+   */
   actorEmail?: string | null;
+  context?: AuditRequestContext;
   metadata?: Prisma.InputJsonValue;
 }
 
+// User-Agent headers are attacker-controlled and unbounded; a security log is
+// not a place to store a megabyte of them.
+const MAX_USER_AGENT_LENGTH = 400;
+
 /**
- * The one way a security-relevant event reaches `AuditLog`.
+ * Pulls the two request-derived fields of an audit entry out of an Express
+ * request, so no controller reaches into `req.ip`/headers itself.
+ */
+export function auditContextFrom(req: Request): AuditRequestContext {
+  const userAgent = req.get('user-agent');
+  return {
+    ipAddress: req.ip ?? null,
+    userAgent: userAgent ? userAgent.slice(0, MAX_USER_AGENT_LENGTH) : null,
+  };
+}
+
+/**
+ * Writes the security-log entries kept for 12 months (CNIL's standard
+ * recommendation), swept nightly by RetentionService.
  *
- * This exists as a seam rather than scattered `prisma.auditLog.create` calls
- * for the same reason `MailService` does: the back-office is its first
- * caller, but the data-retention spec's auth-event emitters
- * (LOGIN_SUCCESS, REFRESH_TOKEN_REUSE_DETECTED, …) wire into this same
- * method, and the IP/user-agent extraction below should exist once.
+ * Every write is fire-and-forget, the same contract as MailService: an audit
+ * row is a side effect of something the caller already did successfully, so a
+ * failed insert must never turn a good login into a 500 — and there is
+ * nothing a caller could do about it in any case.
  */
 @Injectable()
 export class AuditService {
@@ -35,60 +53,38 @@ export class AuditService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  record(event: AuditEvent): void {
+    void this.writeEntry(event).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to write ${event.type} audit entry: ${message}`);
+    });
+  }
+
   /**
-   * Awaited by callers that must not proceed without the record — an
-   * ADMIN_PII_VIEWED row has to be written *before* the PII is returned, or
-   * a crash between the two loses exactly the evidence the log exists for.
+   * The exception to the fire-and-forget contract above, for the back-office's
+   * ADMIN_PII_VIEWED and ADMIN_EXPORT_GENERATED.
+   *
+   * Those two are not side effects of something already done — the row *is*
+   * the point of the request, and it has to exist before the personal data
+   * leaves the process. A crash between a swallowed insert and the response
+   * would disclose someone's data with no record that it happened, which is
+   * precisely what the log exists to prevent. So this one propagates: better
+   * a failed disclosure than an unrecorded one.
    */
-  async record(input: AuditRecordInput, request?: Request): Promise<void> {
-    await this.prisma.auditLog.create({
+  async recordAndWait(event: AuditEvent): Promise<void> {
+    await this.writeEntry(event);
+  }
+
+  private writeEntry(event: AuditEvent): Promise<unknown> {
+    return this.prisma.auditLog.create({
       data: {
-        type: input.type,
-        userId: input.userId ?? null,
-        actorEmail: input.actorEmail ?? null,
-        ipAddress: request ? clientIpOf(request) : null,
-        userAgent: request?.headers['user-agent']?.slice(0, USER_AGENT_MAX_LENGTH) ?? null,
-        metadata: input.metadata,
+        type: event.type,
+        userId: event.userId ?? null,
+        actorEmail: event.actorEmail ?? null,
+        ipAddress: event.context?.ipAddress ?? null,
+        userAgent: event.context?.userAgent ?? null,
+        metadata: event.metadata,
       },
     });
   }
-
-  /**
-   * For emitters on a path whose own failure would be worse than a lost
-   * audit row — a login must still succeed if the audit insert times out.
-   * Never use this for an ADMIN_* event: there the record *is* the point.
-   */
-  recordAndForget(input: AuditRecordInput, request?: Request): void {
-    void this.record(input, request).catch((err: unknown) => {
-      this.logger.error(`Failed to write audit log entry ${input.type}`, err as Error);
-    });
-  }
-}
-
-/**
- * The caller's address as the audit log should record it.
- *
- * `X-Forwarded-For` is only consulted when TRUSTED_PROXY is set, because an
- * untrusted client can send that header itself — recording a spoofed address
- * in a security log is worse than recording the proxy's own.
- */
-export function clientIpOf(request: Request): string | null {
-  if (process.env.TRUSTED_PROXY === 'true') {
-    const forwarded = request.headers['x-forwarded-for'];
-    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    const candidate = first?.split(',')[0]?.trim();
-    if (candidate) {
-      return normalizeIp(candidate);
-    }
-  }
-  return request.socket?.remoteAddress ? normalizeIp(request.socket.remoteAddress) : null;
-}
-
-/**
- * Node reports an IPv4 peer on a dual-stack socket as `::ffff:127.0.0.1`.
- * `net.BlockList` will not match that against an IPv4 subnet, so the mapped
- * prefix is stripped before either storing or allowlist-matching an address.
- */
-export function normalizeIp(ip: string): string {
-  return ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : ip;
 }

@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsISO8601,
@@ -7,9 +7,11 @@ import {
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import type { Gender } from '@basketeasy/types/teams';
 import type { CreatePlayerRequest } from '@basketeasy/types/players';
+import { RecordParentalConsentDto } from './record-parental-consent.dto';
 
 const GENDERS: Gender[] = ['MEN', 'WOMEN'];
 
@@ -52,4 +54,12 @@ export class CreatePlayerDto implements CreatePlayerRequest {
   @IsString()
   @MaxLength(20)
   licenseType?: string;
+
+  // Optional at the DTO level and required in the service instead: whether it
+  // is needed depends on birthDate, which class-validator can't express
+  // without duplicating the majority calculation the shared type already owns.
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecordParentalConsentDto)
+  parentalConsent?: RecordParentalConsentDto;
 }

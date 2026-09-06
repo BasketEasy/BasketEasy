@@ -16,18 +16,19 @@ import type {
   PlatformUserDetail,
   PlatformUserExport,
   RedactedUserSummary,
+  RetentionRunSummary,
+  RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditService, type AuditRequestContext } from '../audit/audit.service';
 import { RetentionService } from '../retention/retention.service';
 import {
   INACTIVE_ACCOUNT_RETENTION_MONTHS,
   INACTIVE_SOON_LEAD_MONTHS,
-  subtractMonths,
+  subMonths,
 } from '../retention/retention.constants';
-import { isIpAllowed } from './client-ip.util';
-import { clientIpOf } from '../audit/audit.service';
+import { clientIpOf, isIpAllowed } from './client-ip.util';
 import {
   lockedUntilCleared,
   PLATFORM_LOGIN_MAX_ATTEMPTS,
@@ -87,15 +88,13 @@ export class PlatformAdminService {
     // without a userId-scoped lockout: there is no grant to lock, and the
     // caller must not learn from the response that no grant exists.
     if (!admin?.totpSecret) {
-      await this.audit.record(
-        {
-          type: 'ADMIN_LOGIN_FAILURE',
-          userId,
-          actorEmail: email,
-          metadata: { reason: 'no_grant' },
-        },
-        request,
-      );
+      await this.audit.recordAndWait({
+        type: 'ADMIN_LOGIN_FAILURE',
+        userId,
+        actorEmail: email,
+        metadata: { reason: 'no_grant' },
+        context: auditContextOf(request),
+      });
       throw new UnauthorizedException('Code invalide');
     }
 
@@ -107,36 +106,35 @@ export class PlatformAdminService {
     // must not even be *testable* from outside their network, or the
     // allowlist protects the data but not the credential.
     if (!isIpAllowed(admin.allowedCidrs, clientIpOf(request))) {
-      await this.audit.record(
-        {
-          type: 'ADMIN_LOGIN_FAILURE',
-          userId,
-          actorEmail: email,
-          metadata: { reason: 'ip_not_allowed' },
-        },
-        request,
-      );
+      await this.audit.recordAndWait({
+        type: 'ADMIN_LOGIN_FAILURE',
+        userId,
+        actorEmail: email,
+        metadata: { reason: 'ip_not_allowed' },
+        context: auditContextOf(request),
+      });
       throw new ForbiddenException('Accès refusé');
     }
 
     if (!verifyTotp(admin.totpSecret, totpCode)) {
-      await this.audit.record(
-        {
-          type: 'ADMIN_LOGIN_FAILURE',
-          userId,
-          actorEmail: email,
-          metadata: { reason: 'bad_code' },
-        },
-        request,
-      );
+      await this.audit.recordAndWait({
+        type: 'ADMIN_LOGIN_FAILURE',
+        userId,
+        actorEmail: email,
+        metadata: { reason: 'bad_code' },
+        context: auditContextOf(request),
+      });
       await this.lockOutIfOverAttemptLimit(userId);
       throw new UnauthorizedException('Code invalide');
     }
 
-    await this.audit.record(
-      { type: 'ADMIN_LOGIN_SUCCESS', userId, actorEmail: email, metadata: { role: admin.role } },
-      request,
-    );
+    await this.audit.recordAndWait({
+      type: 'ADMIN_LOGIN_SUCCESS',
+      userId,
+      actorEmail: email,
+      metadata: { role: admin.role },
+      context: auditContextOf(request),
+    });
 
     const platformAccessToken = await this.jwt.signAsync(
       { sub: userId, scope: PLATFORM_TOKEN_SCOPE },
@@ -173,6 +171,38 @@ export class PlatformAdminService {
   }
 
   /**
+   * The sweep's run history, projected onto the back-office's wire format.
+   *
+   * The projection lives here rather than in RetentionService because the
+   * shape is this API's contract, not the retention policy's: the sweep
+   * writes its `summary` as a Json blob keyed by step name, and how the
+   * back-office chooses to render that is nobody else's concern.
+   */
+  async listRetentionRuns(limit: number): Promise<RetentionRunSummary[]> {
+    const runs = await this.retention.listRuns(limit);
+    return runs.map((run) => ({
+      id: run.id,
+      dryRun: run.dryRun,
+      ranAt: run.ranAt.toISOString(),
+      steps: toStepSummaries(run.summary),
+    }));
+  }
+
+  /**
+   * An on-demand dry run: every policy is evaluated and a RetentionRun row is
+   * written for the compliance record, but nothing is deleted.
+   *
+   * Returns only the steps, not a full RetentionRunSummary: the persisted
+   * row's id would have to be read back in a second query, and reading back
+   * "the newest row" could hand the caller the nightly sweep's row instead of
+   * their own. The client refreshes the history list anyway.
+   */
+  async runRetentionDryRun(): Promise<RetentionStepSummary[]> {
+    const summary = await this.retention.run(true);
+    return toStepSummaries(summary as unknown as Prisma.JsonValue);
+  }
+
+  /**
    * The redacted list. No local-part, no name, no club names — opening one
    * specific record is the audited ADMIN_PII_VIEWED moment, and a list that
    * already identified the person would make that audit trail a lie.
@@ -186,10 +216,7 @@ export class PlatformAdminService {
     pageSize: number,
   ): Promise<PaginatedResult<RedactedUserSummary>> {
     const now = new Date();
-    const cutoff = subtractMonths(
-      now,
-      INACTIVE_ACCOUNT_RETENTION_MONTHS - INACTIVE_SOON_LEAD_MONTHS,
-    );
+    const cutoff = subMonths(now, INACTIVE_ACCOUNT_RETENTION_MONTHS - INACTIVE_SOON_LEAD_MONTHS);
     const where = { lastActiveAt: { lt: cutoff } };
 
     const [total, users] = await Promise.all([
@@ -249,15 +276,13 @@ export class PlatformAdminService {
       throw new NotFoundException('Compte introuvable');
     }
 
-    await this.audit.record(
-      {
-        type: 'ADMIN_PII_VIEWED',
-        userId: adminUserId,
-        actorEmail: adminEmail,
-        metadata: { subjectUserId, subjectEmail: user.email },
-      },
-      request,
-    );
+    await this.audit.recordAndWait({
+      type: 'ADMIN_PII_VIEWED',
+      userId: adminUserId,
+      actorEmail: adminEmail,
+      metadata: { subjectUserId, subjectEmail: user.email },
+      context: auditContextOf(request),
+    });
 
     return {
       id: user.id,
@@ -420,15 +445,13 @@ export class PlatformAdminService {
       }),
     ]);
 
-    await this.audit.record(
-      {
-        type: 'ADMIN_EXPORT_GENERATED',
-        userId: adminUserId,
-        actorEmail: adminEmail,
-        metadata: { subjectUserId, subjectEmail: user.email, reason },
-      },
-      request,
-    );
+    await this.audit.recordAndWait({
+      type: 'ADMIN_EXPORT_GENERATED',
+      userId: adminUserId,
+      actorEmail: adminEmail,
+      metadata: { subjectUserId, subjectEmail: user.email, reason },
+      context: auditContextOf(request),
+    });
 
     return {
       generatedAt: new Date().toISOString(),
@@ -593,6 +616,47 @@ export class PlatformAdminService {
     }
     return secret;
   }
+}
+
+/**
+ * Turns the sweep's `summary` Json — a record keyed by step name, per
+ * RetentionService — into the flat, ordered list the UI renders.
+ *
+ * Treats anything that isn't the expected shape as no steps at all rather
+ * than indexing into it, the same rule `asParsedScoresheetData` applies to a
+ * scoresheet's `parsedData`: a row written by an older or newer sweep must
+ * not crash the one screen that proves the policy runs.
+ */
+function toStepSummaries(summary: Prisma.JsonValue): RetentionStepSummary[] {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return [];
+
+  return Object.entries(summary).flatMap(([step, value]) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const { status, count, error } = value as Record<string, unknown>;
+    if (typeof count !== 'number') return [];
+    return [
+      {
+        step,
+        status: status === 'error' ? ('error' as const) : ('ok' as const),
+        count,
+        error: typeof error === 'string' ? error : null,
+      },
+    ];
+  });
+}
+
+/**
+ * The request-shaped half of an audit entry, resolved with the back-office's
+ * own stricter IP rule rather than Express's `req.ip`: the same value gates
+ * the per-admin network allowlist, so a spoofable one is an access decision
+ * made on attacker-supplied input.
+ */
+function auditContextOf(request: Request): AuditRequestContext {
+  const userAgent = request.headers['user-agent'];
+  return {
+    ipAddress: clientIpOf(request),
+    userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 400) : null,
+  };
 }
 
 /**

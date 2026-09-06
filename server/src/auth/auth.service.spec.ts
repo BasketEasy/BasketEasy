@@ -5,11 +5,13 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REFRESH_REUSE_GRACE_MS } from './auth.constants';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let audit: { record: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     refreshToken: {
@@ -21,6 +23,7 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    audit = { record: jest.fn() };
     prisma = {
       user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       refreshToken: {
@@ -35,6 +38,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: audit },
         {
           provide: JwtService,
           useValue: { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') },
@@ -154,6 +158,70 @@ describe('AuthService', () => {
       });
     });
 
+    it('records the sign-in and refreshes the activity clock', async () => {
+      const passwordHash = await argon2.hash('password123');
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        passwordHash,
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
+        memberships: [],
+      });
+      prisma.refreshToken.create.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      await service.login('a@b.com', 'password123', { ipAddress: '10.0.0.1', userAgent: 'jest' });
+
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'LOGIN_SUCCESS',
+        userId: 'user-1',
+        actorEmail: 'a@b.com',
+        context: { ipAddress: '10.0.0.1', userAgent: 'jest' },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { lastActiveAt: expect.any(Date) },
+      });
+    });
+
+    it('records a failure against an unknown address with no user attached', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.login('nobody@b.com', 'password123')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'LOGIN_FAILURE',
+          userId: null,
+          actorEmail: 'nobody@b.com',
+        }),
+      );
+    });
+
+    it('records a failure against a known address with the user attached', async () => {
+      const passwordHash = await argon2.hash('password123');
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        passwordHash,
+        memberships: [],
+      });
+
+      await expect(service.login('a@b.com', 'wrong-password')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'LOGIN_FAILURE', userId: 'user-1' }),
+      );
+    });
+
     it('throws UnauthorizedException for an unknown email', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
@@ -250,6 +318,13 @@ describe('AuthService', () => {
         data: { revokedAt: expect.any(Date) },
       });
       expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'REFRESH_TOKEN_REUSE_DETECTED',
+          userId: 'user-1',
+          metadata: { familyId: 'family-1' },
+        }),
+      );
     });
 
     it('issues a fresh token pair instead of logging out when two concurrent requests race on the same token', async () => {
@@ -321,6 +396,22 @@ describe('AuthService', () => {
 
       await expect(service.logout('unknown')).resolves.toBeUndefined();
       expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('records the sign-out when a session was actually revoked', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        revokedAt: null,
+      });
+      prisma.refreshToken.update.mockResolvedValue({});
+
+      await service.logout('raw-token');
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'LOGOUT', userId: 'user-1' }),
+      );
     });
   });
 

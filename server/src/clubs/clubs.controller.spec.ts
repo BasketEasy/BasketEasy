@@ -149,9 +149,9 @@ describe('ClubsController', () => {
     });
 
     const dto = { firstName: 'A', lastName: 'B' };
-    const result = await controller.createPlayer('club-1', dto);
+    const result = await controller.createPlayer('club-1', dto, { id: 'u1', email: 'a@b.c' });
 
-    expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto);
+    expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto, 'u1');
     expect(result.id).toBe('p1');
   });
 

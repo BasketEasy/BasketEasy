@@ -1,23 +1,45 @@
-/**
- * The retention windows from
- * docs/superpowers/specs/2026-09-06-data-retention-policy-design.md.
- *
- * Months, not milliseconds: "12 months" has to mean the same calendar day a
- * year on, and a fixed 365-day constant drifts across a leap year.
- */
+/** RGPD art. 5.1.e: an account is erased after this long with no activity. */
 export const INACTIVE_ACCOUNT_RETENTION_MONTHS = 12;
+
+/** CNIL's standard recommendation for connection/security logs. */
 export const AUDIT_LOG_RETENTION_MONTHS = 12;
 
 /**
- * How far ahead of the cutoff an account shows up on the back-office's
- * "expiring soon" list. Wide enough that a club raising a support ticket
+ * How far ahead of the erasure cutoff an account appears on the back-office's
+ * "comptes inactifs" list. Wide enough that a club raising a support ticket
  * about a dormant account still has time to be answered before the sweep
  * takes it.
  */
 export const INACTIVE_SOON_LEAD_MONTHS = 1;
 
-export function subtractMonths(from: Date, months: number): Date {
-  const result = new Date(from.getTime());
+/**
+ * Ceiling on how many accounts one nightly run erases. The first real run
+ * after a deployment has been observing in dry-run mode can have a large
+ * backlog, and deleting it in one unbounded burst of transactions is how a
+ * retention job takes the database down with it. The remainder is simply
+ * picked up the next night.
+ */
+export const MAX_ACCOUNTS_PER_SWEEP = 500;
+
+/** Nightly at 03:15 UTC — off-peak for a French-market app. */
+export const RETENTION_SWEEP_CRON = '15 3 * * *';
+
+/**
+ * Stable id for the repeatable-job scheduler, so a redeploy (or a second
+ * instance booting) upserts the same schedule instead of registering a
+ * duplicate.
+ */
+export const RETENTION_SWEEP_SCHEDULER_ID = 'retention-sweep-nightly';
+
+/**
+ * UTC-safe "n months ago". `date-fns` is not a server dependency and this is
+ * the only place in the repo that needs one — a four-line helper beats a new
+ * runtime dependency. setUTCMonth already normalises an overflowing day
+ * (31 March minus 1 month lands on 3 March, not an invalid date), which for a
+ * multi-month retention cutoff is a one-day difference nobody can observe.
+ */
+export function subMonths(from: Date, months: number): Date {
+  const result = new Date(from);
   result.setUTCMonth(result.getUTCMonth() - months);
   return result;
 }

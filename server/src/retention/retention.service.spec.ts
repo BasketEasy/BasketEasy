@@ -1,149 +1,266 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RetentionService } from './retention.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MAX_ACCOUNTS_PER_SWEEP, subMonths } from './retention.constants';
 
 describe('RetentionService', () => {
   let service: RetentionService;
   let prisma: {
-    user: { count: jest.Mock };
-    auditLog: { count: jest.Mock };
+    user: { findMany: jest.Mock; delete: jest.Mock };
+    player: { findMany: jest.Mock; updateMany: jest.Mock };
+    parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
+    auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
+    $transaction: jest.Mock;
   };
 
+  const now = new Date('2026-09-06T03:15:00.000Z');
+
   beforeEach(async () => {
+    jest.useFakeTimers().setSystemTime(now);
     prisma = {
-      user: { count: jest.fn().mockResolvedValue(3) },
-      auditLog: { count: jest.fn().mockResolvedValue(120) },
-      retentionRun: {
-        create: jest
-          .fn()
-          .mockImplementation(({ data }) =>
-            Promise.resolve({ id: 'run-1', ranAt: new Date('2026-09-06T02:00:00Z'), ...data }),
-          ),
-        findMany: jest.fn().mockResolvedValue([]),
+      user: { findMany: jest.fn().mockResolvedValue([]), delete: jest.fn() },
+      player: { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn() },
+      parentalConsent: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
       },
+      auditLog: {
+        create: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      retentionRun: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
+      $transaction: jest.fn((run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [RetentionService, { provide: PrismaService, useValue: prisma }],
     }).compile();
-
     service = module.get(RetentionService);
   });
 
-  describe('dryRun', () => {
-    it('counts each policy without deleting anything, and persists the run', async () => {
-      const result = await service.dryRun('officer-1');
+  afterEach(() => {
+    jest.useRealTimers();
+  });
 
-      expect(result.dryRun).toBe(true);
-      expect(result.triggeredByUserId).toBe('officer-1');
-      expect(result.steps).toEqual([
-        { step: 'inactive-accounts', count: 3, error: null },
-        { step: 'audit-logs', count: 120, error: null },
-      ]);
-      // A dry run's "what would have happened" is itself the evidence the
-      // policy was evaluated, so the row is written either way.
-      expect(prisma.retentionRun.create).toHaveBeenCalledTimes(1);
+  describe('inactive accounts', () => {
+    it('erases an account inactive for more than 12 months', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
+
+      const summary = await service.run();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { lastActiveAt: { lt: subMonths(now, 12) } } }),
+      );
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+      expect(summary.inactiveAccounts).toEqual({ status: 'ok', count: 1 });
     });
 
-    it('reads inactive accounts against a 12-month cutoff', async () => {
-      await service.dryRun(null);
+    it('unlinks the players rather than deleting them, so club history survives', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
+      prisma.player.findMany.mockResolvedValue([{ id: 'player-1' }]);
 
-      const where = prisma.user.count.mock.calls[0][0].where as {
-        lastActiveAt: { lt: Date };
-      };
-      const monthsAgo =
-        (Date.now() - where.lastActiveAt.lt.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
-      expect(monthsAgo).toBeGreaterThan(11.5);
-      expect(monthsAgo).toBeLessThan(12.5);
+      await service.run();
+
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { userId: null },
+      });
     });
 
-    it('records a failing step instead of failing the whole run', async () => {
-      prisma.auditLog.count.mockRejectedValue(new Error('connection lost'));
+    it('starts the parental-consent clock for the erased account’s players', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
+      prisma.player.findMany.mockResolvedValue([{ id: 'player-1' }]);
 
-      const result = await service.dryRun(null);
+      await service.run();
 
-      expect(result.steps).toEqual([
-        { step: 'inactive-accounts', count: 3, error: null },
-        { step: 'audit-logs', count: 0, error: 'connection lost' },
-      ]);
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { playerId: { in: ['player-1'] }, retentionExpiresAt: null },
+        data: { retentionExpiresAt: new Date('2031-09-06T03:15:00.000Z') },
+      });
+    });
+
+    it('records the erasure in the security log', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
+
+      await service.run();
+
+      expect(prisma.auditLog.create).toHaveBeenCalledWith({
+        data: {
+          type: 'LOGOUT',
+          actorEmail: 'gone@b.com',
+          metadata: { reason: 'inactivity_12mo_erasure' },
+        },
+      });
+    });
+
+    it('caps how many accounts one run erases', async () => {
+      await service.run();
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: MAX_ACCOUNTS_PER_SWEEP }),
+      );
+    });
+
+    it('counts candidates but deletes nothing in a dry run', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
+
+      const summary = await service.run(true);
+
+      expect(summary.inactiveAccounts).toEqual({ status: 'ok', count: 1 });
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.player.updateMany).not.toHaveBeenCalled();
     });
   });
 
-  describe('listRuns', () => {
-    it('treats a summary that is not the expected shape as no steps', async () => {
-      // `summary` is a Json column, so a row written by another version of
-      // the sweep is not guaranteed to carry `steps`.
-      prisma.retentionRun.findMany.mockResolvedValue([
-        { id: 'a', dryRun: false, ranAt: new Date(), triggeredByUserId: null, summary: {} },
-        { id: 'b', dryRun: false, ranAt: new Date(), triggeredByUserId: null, summary: null },
-        {
-          id: 'c',
+  describe('audit logs', () => {
+    it('deletes entries older than 12 months', async () => {
+      prisma.auditLog.deleteMany.mockResolvedValue({ count: 7 });
+
+      const summary = await service.run();
+
+      expect(prisma.auditLog.deleteMany).toHaveBeenCalledWith({
+        where: { createdAt: { lt: subMonths(now, 12) } },
+      });
+      expect(summary.auditLogs).toEqual({ status: 'ok', count: 7 });
+    });
+
+    it('only counts in a dry run', async () => {
+      prisma.auditLog.count.mockResolvedValue(7);
+
+      const summary = await service.run(true);
+
+      expect(summary.auditLogs).toEqual({ status: 'ok', count: 7 });
+      expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parental consents', () => {
+    it('deletes only the records whose five years are up', async () => {
+      prisma.parentalConsent.deleteMany.mockResolvedValue({ count: 2 });
+
+      const summary = await service.run();
+
+      expect(prisma.parentalConsent.deleteMany).toHaveBeenCalledWith({
+        where: { retentionExpiresAt: { lt: now } },
+      });
+      expect(summary.parentalConsents).toEqual({ status: 'ok', count: 2 });
+    });
+
+    it('only counts in a dry run', async () => {
+      prisma.parentalConsent.count.mockResolvedValue(2);
+
+      const summary = await service.run(true);
+
+      expect(summary.parentalConsents).toEqual({ status: 'ok', count: 2 });
+      expect(prisma.parentalConsent.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the run record', () => {
+    it('persists the summary of a real run', async () => {
+      prisma.auditLog.deleteMany.mockResolvedValue({ count: 3 });
+
+      await service.run();
+
+      expect(prisma.retentionRun.create).toHaveBeenCalledWith({
+        data: {
           dryRun: false,
-          ranAt: new Date(),
-          triggeredByUserId: null,
-          summary: { steps: [{ step: 'x', count: 1 }, { step: 'bad' }, 'nope'] },
+          ranAt: now,
+          summary: expect.objectContaining({ auditLogs: { status: 'ok', count: 3 } }),
         },
-      ]);
+      });
+    });
 
-      const runs = await service.listRuns(30);
+    it('persists a dry run too — evaluating the policy is itself the evidence', async () => {
+      await service.run(true);
 
-      expect(runs[0].steps).toEqual([]);
-      expect(runs[1].steps).toEqual([]);
-      expect(runs[2].steps).toEqual([{ step: 'x', count: 1, error: null }]);
+      expect(prisma.retentionRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ dryRun: true }) }),
+      );
+    });
+
+    it('records a failed step without cancelling the others', async () => {
+      prisma.auditLog.deleteMany.mockRejectedValue(new Error('deadlock'));
+      prisma.parentalConsent.deleteMany.mockResolvedValue({ count: 1 });
+
+      const summary = await service.run();
+
+      expect(summary.auditLogs).toEqual({ status: 'error', count: 0, error: 'deadlock' });
+      expect(summary.parentalConsents).toEqual({ status: 'ok', count: 1 });
+      expect(prisma.retentionRun.create).toHaveBeenCalled();
     });
   });
 
-  describe('eraseUserAccount', () => {
-    it('unlinks roster entries and removes the RESTRICT-ing rows before the account', async () => {
-      const calls: string[] = [];
-      const tx = {
-        player: {
-          updateMany: jest.fn().mockImplementation(() => {
-            calls.push('player.updateMany');
-            return Promise.resolve({ count: 2 });
-          }),
-        },
-        clubMembership: {
-          deleteMany: jest.fn().mockImplementation(() => {
-            calls.push('clubMembership.deleteMany');
-            return Promise.resolve({ count: 1 });
-          }),
-        },
-        refreshToken: {
-          deleteMany: jest.fn().mockImplementation(() => {
-            calls.push('refreshToken.deleteMany');
-            return Promise.resolve({ count: 4 });
-          }),
-        },
-        user: {
-          delete: jest.fn().mockImplementation(() => {
-            calls.push('user.delete');
-            return Promise.resolve({});
-          }),
-        },
-      };
+  it('is idempotent: a second run with nothing left expired deletes nothing', async () => {
+    const first = await service.run();
+    prisma.user.findMany.mockResolvedValue([]);
+    const second = await service.run();
+
+    expect(first.inactiveAccounts.count).toBe(0);
+    expect(second).toEqual(first);
+  });
+
+  // Both added for the back-office (companion spec): a data officer handling a
+  // named RGPD request needs the same erasure the nightly sweep performs, and
+  // needs to see that the sweep is actually running.
+  describe('eraseUserAccount (shared with the back-office)', () => {
+    it('is the primitive the nightly sweep itself uses', async () => {
+      // The point of extracting it: two implementations of "erase an account"
+      // is how a manual RGPD erasure quietly drifts out of compliance with
+      // the automated one.
+      const spy = jest.spyOn(service, 'eraseUserAccount');
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'a@b.fr' }]);
+
+      await service.run();
+
+      expect(spy).toHaveBeenCalledWith(expect.anything(), 'user-1', now);
+    });
+
+    it('unlinks roster entries instead of deleting them, and reports how many', async () => {
+      prisma.player.findMany.mockResolvedValue([{ id: 'p-1' }, { id: 'p-2' }]);
 
       const result = await service.eraseUserAccount(
-        tx as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
         'user-1',
+        now,
       );
 
       // Rule 2 (erase inactive accounts) and rule 3 (keep stats forever) only
       // coexist because the roster entry survives with userId cleared.
-      expect(tx.player.updateMany).toHaveBeenCalledWith({
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
         data: { userId: null },
       });
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
       expect(result.unlinkedPlayerCount).toBe(2);
-      // ClubMembership/RefreshToken FKs are ON DELETE RESTRICT, so the
-      // account delete fails outright unless these go first.
-      expect(calls).toEqual([
-        'player.updateMany',
-        'clubMembership.deleteMany',
-        'refreshToken.deleteMany',
-        'user.delete',
-      ]);
+    });
+
+    it('starts the five-year consent clock for the players it unlinked', async () => {
+      prisma.player.findMany.mockResolvedValue([{ id: 'p-1' }]);
+
+      await service.eraseUserAccount(
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        'user-1',
+        now,
+      );
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalled();
+    });
+  });
+
+  describe('listRuns', () => {
+    it('returns the most recent runs first', async () => {
+      prisma.retentionRun.findMany.mockResolvedValue([]);
+
+      await service.listRuns(30);
+
+      expect(prisma.retentionRun.findMany).toHaveBeenCalledWith({
+        orderBy: { ranAt: 'desc' },
+        take: 30,
+      });
     });
   });
 });

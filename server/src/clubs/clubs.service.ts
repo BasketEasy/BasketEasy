@@ -16,10 +16,16 @@ import type {
   PlayerSortBy,
 } from '@basketeasy/types/players';
 import type { PlayerInviteLink, PlayerInviteStatus } from '@basketeasy/types/player-invites';
+import {
+  PARENTAL_CONSENT_REQUIRED_CODE,
+  isMinorBirthDate,
+  type ParentalConsent,
+} from '@basketeasy/types/parental-consent';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
+import { startParentalConsentRetention } from '../common/parental-consent-retention';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
@@ -243,7 +249,43 @@ export class ClubsService {
       this.prisma.player.count({ where }),
     ]);
 
-    return { items: players.map((p) => this.toPlayer(p)), total, page, pageSize };
+    // One extra bounded query, and only for the minors actually on this page:
+    // an adult can never need a consent record, so there is nothing to look
+    // up for the usual case of a senior roster.
+    const consents = await this.latestConsentGivenAt(
+      players.filter((p) => isMinorBirthDate(p.birthDate?.toISOString())).map((p) => p.id),
+    );
+
+    return {
+      items: players.map((p) => this.toPlayer(p, consents.get(p.id) ?? null)),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  /**
+   * Most recent consent attestation per player. A player can hold more than
+   * one (they can be removed and re-added, and re-recording consent adds a
+   * row rather than editing the old proof), so the newest one is the one that
+   * answers "is this covered today".
+   */
+  private async latestConsentGivenAt(playerIds: string[]): Promise<Map<string, Date>> {
+    if (playerIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.parentalConsent.findMany({
+      where: { playerId: { in: playerIds } },
+      select: { playerId: true, consentGivenAt: true },
+      orderBy: { consentGivenAt: 'desc' },
+    });
+    const latest = new Map<string, Date>();
+    for (const row of rows) {
+      if (row.playerId && !latest.has(row.playerId)) {
+        latest.set(row.playerId, row.consentGivenAt);
+      }
+    }
+    return latest;
   }
 
   private playersOrderBy(
@@ -268,29 +310,119 @@ export class ClubsService {
       birthDate?: string;
       gender?: Gender;
       licenseType?: string;
+      parentalConsent?: { attestedByName: string };
     },
+    attestedByUserId?: string,
   ): Promise<Player> {
     if (data.userId) {
       await this.assertClubMember(clubId, data.userId);
     }
-    try {
-      const player = await this.prisma.player.create({
-        data: {
-          clubId,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          userId: data.userId,
-          nationalId: data.nationalId,
-          licenseNumber: data.licenseNumber,
-          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
-          gender: data.gender,
-          licenseType: data.licenseType,
-        },
+
+    // Required here and nowhere else: this is the one path where a person is
+    // looking at one player's details as they add them, which is the whole
+    // premise of a staff attestation. Bulk import creates tens of rows from
+    // federation data with nobody reading any individual one, so failing an
+    // import because row 34 is sixteen would make the feature unusable —
+    // those players surface in the roster as "autorisation manquante"
+    // instead. See the data-retention design doc.
+    const isMinor = isMinorBirthDate(data.birthDate);
+    if (isMinor && !data.parentalConsent) {
+      throw new BadRequestException({
+        message: 'Une autorisation parentale est requise pour un joueur mineur',
+        code: PARENTAL_CONSENT_REQUIRED_CODE,
       });
-      return this.toPlayer(player);
+    }
+
+    try {
+      const player = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.player.create({
+          data: {
+            clubId,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            userId: data.userId,
+            nationalId: data.nationalId,
+            licenseNumber: data.licenseNumber,
+            birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+            gender: data.gender,
+            licenseType: data.licenseType,
+          },
+        });
+        if (isMinor && data.parentalConsent && created.birthDate) {
+          await tx.parentalConsent.create({
+            data: {
+              playerId: created.id,
+              clubId,
+              playerFirstName: created.firstName,
+              playerLastName: created.lastName,
+              playerBirthDate: created.birthDate,
+              attestedByName: data.parentalConsent.attestedByName,
+              attestedByUserId: attestedByUserId ?? null,
+            },
+          });
+        }
+        return created;
+      });
+      return this.toPlayer(player, isMinor ? new Date() : null);
     } catch (err) {
       throw this.toPlayerLinkError(err);
     }
+  }
+
+  /**
+   * Records (or re-records) the attestation for a player who already exists —
+   * the path for the minors created by bulk import, which is exempt from the
+   * check above.
+   *
+   * Adds a row rather than editing the previous one: a consent proof is
+   * evidence, and evidence is not rewritten. Any earlier row for this player
+   * has its retention clock cleared, so re-recording consent for a player who
+   * had been removed and re-added doesn't leave a proof expiring underneath
+   * an active roster entry.
+   */
+  async recordParentalConsent(
+    clubId: string,
+    playerId: string,
+    attestedByName: string,
+    attestedByUserId?: string,
+  ): Promise<ParentalConsent> {
+    const player = await this.findPlayerInClub(clubId, playerId);
+    const birthDate = player.birthDate;
+    if (!birthDate) {
+      throw new BadRequestException(
+        'Renseignez la date de naissance du joueur avant d’enregistrer une autorisation parentale',
+      );
+    }
+
+    const consent = await this.prisma.$transaction(async (tx) => {
+      await tx.parentalConsent.updateMany({
+        where: { playerId, retentionExpiresAt: { not: null } },
+        data: { retentionExpiresAt: null },
+      });
+      return tx.parentalConsent.create({
+        data: {
+          playerId,
+          clubId,
+          playerFirstName: player.firstName,
+          playerLastName: player.lastName,
+          playerBirthDate: birthDate,
+          attestedByName,
+          attestedByUserId: attestedByUserId ?? null,
+        },
+      });
+    });
+
+    return this.toParentalConsent(consent);
+  }
+
+  /** The most recent attestation for a player, or null if there is none. */
+  async getParentalConsent(clubId: string, playerId: string): Promise<ParentalConsent | null> {
+    await this.findPlayerInClub(clubId, playerId);
+    const consent = await this.prisma.parentalConsent.findFirst({
+      where: { playerId },
+      orderBy: { consentGivenAt: 'desc' },
+    });
+    return consent ? this.toParentalConsent(consent) : null;
   }
 
   async updatePlayer(
@@ -324,7 +456,12 @@ export class ClubsService {
                 : null,
         },
       });
-      return this.toPlayer(player);
+      // Same "minors only" rule as listPlayers — an adult can never have a
+      // consent record to report, so there is nothing to look up.
+      const consents = await this.latestConsentGivenAt(
+        isMinorBirthDate(player.birthDate?.toISOString()) ? [player.id] : [],
+      );
+      return this.toPlayer(player, consents.get(player.id) ?? null);
     } catch (err) {
       throw this.toPlayerLinkError(err);
     }
@@ -407,7 +544,13 @@ export class ClubsService {
 
   async deletePlayer(clubId: string, playerId: string): Promise<void> {
     await this.findPlayerInClub(clubId, playerId);
-    await this.prisma.player.delete({ where: { id: playerId } });
+    await this.prisma.$transaction(async (tx) => {
+      // Before the delete, not after: the consent rows are found by playerId,
+      // and the FK is SetNull — a record whose clock hadn't started yet would
+      // otherwise be left pointing at nothing and never expire.
+      await startParentalConsentRetention(tx, [playerId]);
+      await tx.player.delete({ where: { id: playerId } });
+    });
   }
 
   // Generates (or regenerates) a one-time invite link for a player with no
@@ -460,7 +603,14 @@ export class ClubsService {
   private async findPlayerInClub(
     clubId: string,
     playerId: string,
-  ): Promise<{ id: string; clubId: string; userId: string | null }> {
+  ): Promise<{
+    id: string;
+    clubId: string;
+    userId: string | null;
+    firstName: string;
+    lastName: string;
+    birthDate: Date | null;
+  }> {
     const existing = await this.prisma.player.findUnique({ where: { id: playerId } });
     if (!existing || existing.clubId !== clubId) {
       throw new NotFoundException('Player not found');
@@ -468,19 +618,22 @@ export class ClubsService {
     return existing;
   }
 
-  private toPlayer(player: {
-    id: string;
-    clubId: string;
-    firstName: string;
-    lastName: string;
-    userId: string | null;
-    nationalId: string | null;
-    licenseNumber: string | null;
-    birthDate: Date | null;
-    gender: Gender | null;
-    licenseType: string | null;
-    createdAt: Date;
-  }): Player {
+  private toPlayer(
+    player: {
+      id: string;
+      clubId: string;
+      firstName: string;
+      lastName: string;
+      userId: string | null;
+      nationalId: string | null;
+      licenseNumber: string | null;
+      birthDate: Date | null;
+      gender: Gender | null;
+      licenseType: string | null;
+      createdAt: Date;
+    },
+    parentalConsentGivenAt: Date | null = null,
+  ): Player {
     return {
       id: player.id,
       clubId: player.clubId,
@@ -492,7 +645,37 @@ export class ClubsService {
       birthDate: player.birthDate ? player.birthDate.toISOString() : null,
       gender: player.gender,
       licenseType: player.licenseType,
+      isMinor: isMinorBirthDate(player.birthDate?.toISOString()),
+      parentalConsentGivenAt: parentalConsentGivenAt ? parentalConsentGivenAt.toISOString() : null,
       createdAt: player.createdAt.toISOString(),
+    };
+  }
+
+  private toParentalConsent(consent: {
+    id: string;
+    playerId: string | null;
+    clubId: string;
+    playerFirstName: string;
+    playerLastName: string;
+    playerBirthDate: Date;
+    attestedByName: string;
+    attestedByUserId: string | null;
+    consentGivenAt: Date;
+    retentionExpiresAt: Date | null;
+  }): ParentalConsent {
+    return {
+      id: consent.id,
+      playerId: consent.playerId,
+      clubId: consent.clubId,
+      playerFirstName: consent.playerFirstName,
+      playerLastName: consent.playerLastName,
+      playerBirthDate: consent.playerBirthDate.toISOString(),
+      attestedByName: consent.attestedByName,
+      attestedByUserId: consent.attestedByUserId,
+      consentGivenAt: consent.consentGivenAt.toISOString(),
+      retentionExpiresAt: consent.retentionExpiresAt
+        ? consent.retentionExpiresAt.toISOString()
+        : null,
     };
   }
 

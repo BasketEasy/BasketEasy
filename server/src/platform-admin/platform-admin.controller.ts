@@ -20,13 +20,13 @@ import type {
   PlatformUserExport,
   RedactedUserSummary,
   RetentionRunSummary,
+  RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { PlatformRoles } from '../auth/decorators/platform-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
-import { RetentionService } from '../retention/retention.service';
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformLoginDto } from './dto/platform-login.dto';
 import { ListPlatformUsersDto } from './dto/list-platform-users.dto';
@@ -54,10 +54,7 @@ const RETENTION_RUN_HISTORY_LIMIT = 30;
  */
 @Controller('admin')
 export class PlatformAdminController {
-  constructor(
-    private readonly platformAdmin: PlatformAdminService,
-    private readonly retention: RetentionService,
-  ) {}
+  constructor(private readonly platformAdmin: PlatformAdminService) {}
 
   /**
    * The step-up itself, and the only route here behind JwtAuthGuard alone —
@@ -77,7 +74,7 @@ export class PlatformAdminController {
   @Get('retention/runs')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   listRetentionRuns(): Promise<RetentionRunSummary[]> {
-    return this.retention.listRuns(RETENTION_RUN_HISTORY_LIMIT);
+    return this.platformAdmin.listRetentionRuns(RETENTION_RUN_HISTORY_LIMIT);
   }
 
   /**
@@ -88,8 +85,8 @@ export class PlatformAdminController {
   @Post('retention/dry-run')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   @PlatformRoles('DATA_OFFICER')
-  runRetentionDryRun(@CurrentUser() user: RequestUser): Promise<RetentionRunSummary> {
-    return this.retention.dryRun(user.id);
+  runRetentionDryRun(): Promise<RetentionStepSummary[]> {
+    return this.platformAdmin.runRetentionDryRun();
   }
 
   /** Redacted, so both roles may read it. */

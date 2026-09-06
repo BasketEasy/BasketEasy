@@ -1,4 +1,5 @@
 import { BlockList, isIPv4 } from 'net';
+import type { Request } from 'express';
 
 /**
  * Per-admin network restriction, per the back-office design's Hardening
@@ -50,4 +51,36 @@ function addRule(list: BlockList, entry: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * The caller's address, as the allowlist and the back-office's audit rows
+ * should see it.
+ *
+ * `X-Forwarded-For` is only consulted when TRUSTED_PROXY is set, because an
+ * untrusted client can send that header itself — and letting a spoofed value
+ * satisfy a per-admin network restriction would make the allowlist worse than
+ * useless. Deliberately stricter than Express's own `req.ip` (which
+ * AuditService's `auditContextFrom` uses for ordinary auth events): this one
+ * gates an access decision, not just a log line.
+ */
+export function clientIpOf(request: Request): string | null {
+  if (process.env.TRUSTED_PROXY === 'true') {
+    const forwarded = request.headers['x-forwarded-for'];
+    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    const candidate = first?.split(',')[0]?.trim();
+    if (candidate) {
+      return normalizeIp(candidate);
+    }
+  }
+  return request.socket?.remoteAddress ? normalizeIp(request.socket.remoteAddress) : null;
+}
+
+/**
+ * Node reports an IPv4 peer on a dual-stack socket as `::ffff:127.0.0.1`.
+ * `net.BlockList` will not match that against an IPv4 subnet, so the mapped
+ * prefix is stripped before either storing or allowlist-matching an address.
+ */
+export function normalizeIp(ip: string): string {
+  return ip.startsWith('::ffff:') ? ip.slice('::ffff:'.length) : ip;
 }

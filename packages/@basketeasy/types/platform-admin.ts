@@ -126,10 +126,13 @@ export interface ListAuditLogParams {
 
 /**
  * One step of the retention sweep. `count` is what the step did, or — on a
- * dry run — what it would have done.
+ * dry run — what it would have done. Mirrors the server's
+ * `RetentionStepResult`; the step names are the keys of the `summary` JSON
+ * the sweep writes.
  */
 export interface RetentionStepSummary {
   step: string;
+  status: 'ok' | 'error';
   count: number;
   error: string | null;
 }
@@ -138,7 +141,6 @@ export interface RetentionRunSummary {
   id: string;
   dryRun: boolean;
   ranAt: string;
-  triggeredByUserId: string | null;
   steps: RetentionStepSummary[];
 }
 

@@ -20,6 +20,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { auditContextFrom } from '../audit/audit.service';
 import { AuthService } from './auth.service';
 import { AccountSecurityService } from './account-security.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -72,6 +73,7 @@ export class AuthController {
     const { accessToken, refreshToken, user } = await this.authService.login(
       dto.email,
       dto.password,
+      auditContextFrom(req),
     );
     setRefreshCookie(res, this.config, refreshToken);
     return { accessToken, user };
@@ -88,7 +90,10 @@ export class AuthController {
       throw new UnauthorizedException('Missing refresh token');
     }
 
-    const { accessToken, refreshToken } = await this.authService.refresh(rawToken);
+    const { accessToken, refreshToken } = await this.authService.refresh(
+      rawToken,
+      auditContextFrom(req),
+    );
     setRefreshCookie(res, this.config, refreshToken);
     return { accessToken };
   }
@@ -99,7 +104,7 @@ export class AuthController {
     assertSameOrigin(req, this.config);
     const rawToken = readRefreshCookie(req);
     if (rawToken) {
-      await this.authService.logout(rawToken);
+      await this.authService.logout(rawToken, auditContextFrom(req));
     }
     res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/auth' });
   }
@@ -146,7 +151,7 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async confirmEmail(@Req() req: Request, @Body() dto: ConfirmEmailDto): Promise<void> {
     assertSameOrigin(req, this.config);
-    await this.accountSecurity.confirmEmail(dto.token);
+    await this.accountSecurity.confirmEmail(dto.token, auditContextFrom(req));
   }
 
   @Post('password-reset/request')
@@ -156,13 +161,13 @@ export class AuthController {
     @Body() dto: RequestPasswordResetDto,
   ): Promise<void> {
     assertSameOrigin(req, this.config);
-    await this.accountSecurity.requestPasswordReset(dto.email);
+    await this.accountSecurity.requestPasswordReset(dto.email, auditContextFrom(req));
   }
 
   @Post('password-reset/confirm')
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Req() req: Request, @Body() dto: ResetPasswordDto): Promise<void> {
     assertSameOrigin(req, this.config);
-    await this.accountSecurity.resetPassword(dto.token, dto.password);
+    await this.accountSecurity.resetPassword(dto.token, dto.password, auditContextFrom(req));
   }
 }

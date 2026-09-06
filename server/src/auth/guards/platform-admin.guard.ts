@@ -15,8 +15,7 @@ import {
   PLATFORM_TOKEN_HEADER,
 } from '@basketeasy/types/platform-admin';
 import { PrismaService } from '../../prisma/prisma.service';
-import { clientIpOf } from '../../audit/audit.service';
-import { isIpAllowed } from '../../platform-admin/client-ip.util';
+import { clientIpOf, isIpAllowed } from '../../platform-admin/client-ip.util';
 import { PLATFORM_TOKEN_SCOPE } from '../../platform-admin/platform-admin.constants';
 import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
 
