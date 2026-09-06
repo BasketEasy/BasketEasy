@@ -259,8 +259,8 @@ describe('PlayerCreateForm', () => {
 
       expect(await screen.findByText(/j’atteste détenir/i)).toBeInTheDocument();
       // The explainer answers "which form?" — the club's own, kept by the
-      // club, with nothing to fill in here.
-      expect(screen.getByText(/il n’y a pas de formulaire à remplir ici/i)).toBeInTheDocument();
+      // club, with nothing to upload here.
+      expect(screen.getByText(/rien à téléverser ici/i)).toBeInTheDocument();
     });
 
     it('blocks the submit when the attestation is left unticked', async () => {

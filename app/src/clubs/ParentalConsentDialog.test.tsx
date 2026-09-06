@@ -91,15 +91,13 @@ describe('ParentalConsentDialog', () => {
     expect(screen.getByRole('button', { name: /^enregistrer$/i })).toBeInTheDocument();
   });
 
-  it('says which document is meant, and that none is filled in here', async () => {
+  it('says which document is meant, and that none is uploaded here', async () => {
     await openDialog();
 
-    expect(
-      await screen.findByText(/il n’y a pas de formulaire à remplir ici/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/reste conservé par le club/i)).toBeInTheDocument();
+    expect(await screen.findByText(/le club conserve l’autorisation signée/i)).toBeInTheDocument();
+    expect(screen.getByText(/rien à téléverser ici/i)).toBeInTheDocument();
     // And the attester field says whose name goes in it.
-    expect(screen.getByText(/ce n’est pas le nom du parent/i)).toBeInTheDocument();
+    expect(screen.getByText(/pas le parent/i)).toBeInTheDocument();
   });
 
   it('says when an attestation already exists', async () => {

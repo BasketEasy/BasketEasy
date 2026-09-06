@@ -177,7 +177,7 @@ export function PlayerCreateForm({
       {isMinor && (
         <Card variant="inset" className="flex flex-col gap-3">
           <Text variant="label" as="span">
-            Joueur mineur — autorisation parentale
+            Autorisation parentale
           </Text>
           <Text variant="meta">{CONSENT_EXPLAINER}</Text>
           <div className="flex items-start gap-2">

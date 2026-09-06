@@ -5,31 +5,25 @@ import type { User } from '@basketeasy/types/auth';
  * dialog so the two never end up claiming subtly different things — this is
  * the sentence the club is on the hook for.
  *
- * It names *who signs* ("le représentant légal"), because an admin reading
- * "l'autorisation parentale écrite" alone has no way to tell whether they are
- * confirming a document exists or being asked to produce one here.
+ * It names *who signs*, because "l'autorisation parentale" alone leaves an
+ * admin unsure whether they are confirming a document exists or being asked
+ * to produce one here.
  */
 export const CONSENT_ATTESTATION_LABEL =
-  'J’atteste détenir l’autorisation parentale signée par le représentant légal de ce joueur.';
+  'J’atteste détenir l’autorisation signée du représentant légal.';
 
 /**
- * What the document actually is, and what this screen does with it.
- *
- * Three questions an admin asks in front of this control, answered in order:
- * *which* form (their own — the licence file's, or any signed note), where it
- * lives (with the club), and what Kluvo stores (the attestation, not the
- * paper). The first version said only "le formulaire signé reste conservé par
- * le club", which implied a Kluvo form that does not exist.
+ * Which document, and where it lives. Two facts, because those are the two
+ * that change what the reader does; everything else the checkbox below
+ * already says. An earlier draft spelled all of it out and ran to four lines
+ * of prose above a single tick box.
  */
 export const CONSENT_EXPLAINER =
-  'Il n’y a pas de formulaire à remplir ici. Le club doit détenir une autorisation écrite ' +
-  'signée par le représentant légal — celle du dossier de licence FFBB, ou tout écrit signé ' +
-  'autorisant la pratique du basket. Ce document reste conservé par le club : Kluvo n’en ' +
-  'garde que la trace (qui atteste le détenir, et à quelle date).';
+  'Le club conserve l’autorisation signée du représentant légal (dossier de licence FFBB ou ' +
+  'écrit libre). Rien à téléverser ici.';
 
 /** Disambiguates the attester field: the club's side of the paper, not the parent's. */
-export const CONSENT_ATTESTER_HINT =
-  'La personne du club qui confirme détenir l’autorisation — vous, par défaut. Ce n’est pas le nom du parent.';
+export const CONSENT_ATTESTER_HINT = 'Vous, ou un autre responsable du club. Pas le parent.';
 
 /**
  * Prefill for "who attests": the signed-in admin, since they are usually but

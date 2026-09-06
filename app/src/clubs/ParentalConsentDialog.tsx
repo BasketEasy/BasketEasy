@@ -102,9 +102,9 @@ export function ParentalConsentDialog({ clubId, player }: { clubId: string; play
 
         {hasConsent && (
           <Text variant="meta">
-            Une autorisation a déjà été enregistrée le{' '}
-            {new Date(player.parentalConsentGivenAt as string).toLocaleDateString('fr-FR')}. En
-            enregistrer une nouvelle conserve la précédente.
+            Déjà enregistrée le{' '}
+            {new Date(player.parentalConsentGivenAt as string).toLocaleDateString('fr-FR')} ; la
+            précédente est conservée.
           </Text>
         )}
 
