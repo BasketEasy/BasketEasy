@@ -248,7 +248,7 @@ describe('PlayerCreateForm', () => {
 
       await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
 
-      expect(screen.queryByText(/autorisation parentale écrite/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/j’atteste détenir/i)).not.toBeInTheDocument();
     });
 
     it('reveals the consent block as soon as the birth date makes the player a minor', async () => {
@@ -257,7 +257,10 @@ describe('PlayerCreateForm', () => {
 
       await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
 
-      expect(await screen.findByText(/autorisation parentale écrite/i)).toBeInTheDocument();
+      expect(await screen.findByText(/j’atteste détenir/i)).toBeInTheDocument();
+      // The explainer answers "which form?" — the club's own, kept by the
+      // club, with nothing to fill in here.
+      expect(screen.getByText(/il n’y a pas de formulaire à remplir ici/i)).toBeInTheDocument();
     });
 
     it('blocks the submit when the attestation is left unticked', async () => {

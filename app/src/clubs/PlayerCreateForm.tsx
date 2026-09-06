@@ -23,7 +23,12 @@ import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { useAccount } from '../auth/useAccount';
 import { usePlayerCreate } from './usePlayerCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
-import { CONSENT_ATTESTATION_LABEL, defaultAttesterName } from './parentalConsentCopy';
+import {
+  CONSENT_ATTESTATION_LABEL,
+  CONSENT_ATTESTER_HINT,
+  CONSENT_EXPLAINER,
+  defaultAttesterName,
+} from './parentalConsentCopy';
 
 const UNLINKED = 'none';
 const UNSPECIFIED_GENDER = 'unspecified';
@@ -172,8 +177,9 @@ export function PlayerCreateForm({
       {isMinor && (
         <Card variant="inset" className="flex flex-col gap-3">
           <Text variant="label" as="span">
-            Joueur mineur
+            Joueur mineur — autorisation parentale
           </Text>
+          <Text variant="meta">{CONSENT_EXPLAINER}</Text>
           <div className="flex items-start gap-2">
             <Controller
               control={control}
@@ -193,6 +199,7 @@ export function PlayerCreateForm({
           )}
           <FormField
             label="Nom de la personne qui atteste"
+            hint={CONSENT_ATTESTER_HINT}
             id="player-parental-consent-by"
             error={errors.parentalConsentAttestedByName?.message}
             {...register('parentalConsentAttestedByName')}

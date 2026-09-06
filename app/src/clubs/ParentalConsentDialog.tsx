@@ -19,7 +19,12 @@ import type { Player } from '@basketeasy/types/players';
 import { useAccount } from '../auth/useAccount';
 import { useRecordParentalConsent } from './useRecordParentalConsent';
 import { getClubErrorMessage } from './clubErrorMessages';
-import { CONSENT_ATTESTATION_LABEL, defaultAttesterName } from './parentalConsentCopy';
+import {
+  CONSENT_ATTESTATION_LABEL,
+  CONSENT_ATTESTER_HINT,
+  CONSENT_EXPLAINER,
+  defaultAttesterName,
+} from './parentalConsentCopy';
 
 /**
  * Records the parental-consent attestation for a minor who already exists —
@@ -86,10 +91,7 @@ export function ParentalConsentDialog({ clubId, player }: { clubId: string; play
           <DialogTitle>
             Autorisation parentale — {player.firstName} {player.lastName}
           </DialogTitle>
-          <DialogDescription>
-            Ce joueur est mineur. Enregistrez ici l&apos;attestation que vous détenez
-            l&apos;autorisation parentale écrite ; le formulaire signé reste conservé par le club.
-          </DialogDescription>
+          <DialogDescription>{CONSENT_EXPLAINER}</DialogDescription>
         </DialogHeader>
 
         {submitError && (
@@ -122,6 +124,7 @@ export function ParentalConsentDialog({ clubId, player }: { clubId: string; play
 
           <FormField
             label="Nom de la personne qui atteste"
+            hint={CONSENT_ATTESTER_HINT}
             id={`consent-attested-by-${player.id}`}
             value={attestedByName}
             onChange={(e) => setAttestedByName(e.target.value)}
