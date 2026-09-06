@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
@@ -15,6 +17,7 @@ import type {
   ErasePlatformUserResponse,
   PlatformLoginResponse,
   PlatformUserDetail,
+  PlatformUserExport,
   RedactedUserSummary,
   RetentionRunSummary,
 } from '@basketeasy/types/platform-admin';
@@ -29,6 +32,7 @@ import { PlatformLoginDto } from './dto/platform-login.dto';
 import { ListPlatformUsersDto } from './dto/list-platform-users.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { ErasePlatformUserDto } from './dto/erase-platform-user.dto';
+import { ExportPlatformUserDto } from './dto/export-platform-user.dto';
 
 const DEFAULT_PAGE_SIZE = 25;
 /** Enough history to see the sweep running nightly for a month. */
@@ -107,6 +111,23 @@ export class PlatformAdminController {
     @Req() request: Request,
   ): Promise<PlatformUserDetail> {
     return this.platformAdmin.getUserDetail(user.id, user.email, userId, request);
+  }
+
+  /**
+   * RGPD art. 15 / art. 20. A POST, and reason-carrying, because it is a
+   * disclosure rather than a read — see the service method.
+   */
+  @Post('users/:userId/export')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PlatformAdminGuard)
+  @PlatformRoles('DATA_OFFICER')
+  exportUser(
+    @CurrentUser() user: RequestUser,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() body: ExportPlatformUserDto,
+    @Req() request: Request,
+  ): Promise<PlatformUserExport> {
+    return this.platformAdmin.exportUser(user.id, user.email, userId, body.reason, request);
   }
 
   @Post('users/:userId/erase')

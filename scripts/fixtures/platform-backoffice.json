@@ -142,5 +142,39 @@
   "POST /api/admin/users/33333333-3333-4333-8333-333333333333/erase": {
     "erasedUserId": "33333333-3333-4333-8333-333333333333",
     "unlinkedPlayerCount": 1
+  },
+  "POST /api/admin/users/33333333-3333-4333-8333-333333333333/export": {
+    "generatedAt": "2026-09-06T12:00:00.000Z",
+    "subjectUserId": "33333333-3333-4333-8333-333333333333",
+    "notice": {
+      "basis": "Copie des données à caractère personnel traitées par Kluvo, au titre des articles 15 et 20 du RGPD.",
+      "omissions": [
+        "Les votes émis par la personne sont listés sans le joueur désigné (art. 15.4).",
+        "Les consultations effectuées par un administrateur sont datées mais n'identifient pas l'administrateur (art. 15.4).",
+        "Les abonnements push sont listés sans leur adresse technique ni leurs clés."
+      ]
+    },
+    "account": {
+      "email": "jean.dupont@asc-nantes.fr",
+      "firstName": "Jean",
+      "lastName": "Dupont",
+      "avatarUrl": null,
+      "emailVerified": true,
+      "emailNotificationsEnabled": true,
+      "lastActiveAt": "2025-09-19T11:30:00.000Z",
+      "createdAt": "2024-03-11T18:42:00.000Z"
+    },
+    "clubMemberships": [
+      {
+        "clubName": "ASC Nantes",
+        "role": "MEMBER",
+        "joinedAt": "2024-03-11T18:42:00.000Z"
+      }
+    ],
+    "playerRecords": [],
+    "notifications": [],
+    "pushSubscriptions": [],
+    "reviewedScoresheets": [],
+    "securityLog": []
   }
 }

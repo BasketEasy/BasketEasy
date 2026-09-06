@@ -10,6 +10,7 @@ import { TextLink } from '@basketeasy/ui/text-link';
 import type { PlatformUserDetail } from '@basketeasy/types/platform-admin';
 import { usePlatformUser } from './useAdminQueries';
 import { AdminEraseDialog } from './AdminEraseDialog';
+import { AdminUserExportDialog } from './AdminUserExportDialog';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -98,6 +99,21 @@ function UserDetail({ user, onErased }: { user: PlatformUserDetail; onErased: ()
             ))}
           </ul>
         )}
+      </div>
+
+      {/* Above the erase section deliberately, not for visual balance:
+          erasure detaches the roster entries rather than deleting them, so
+          once it has run nothing links those rows back to the person and the
+          export can never be produced. It has to be generated first. */}
+      <div className="flex flex-col gap-3 border-t border-border pt-6">
+        <SectionHeading>Export RGPD</SectionHeading>
+        <Text variant="meta">
+          Copie machine-lisible des données traitées, pour répondre à une demande d’accès ou de
+          portabilité. La génération est journalisée.
+        </Text>
+        <div>
+          <AdminUserExportDialog userId={user.id} email={user.email} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 border-t border-border pt-6">

@@ -257,6 +257,22 @@ build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06
   as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
   `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering
   on either alone answers half of "who accessed this person's data".
+- **The RGPD export is `POST /admin/users/:userId/export`**, not a GET, and carries the same
+  mandatory reason as erasure: it materialises a complete copy of one person's data for handover
+  outside the system, a larger disclosure than the single-profile view. It emits
+  `ADMIN_EXPORT_GENERATED` and deliberately **not** `ADMIN_PII_VIEWED` — two different
+  disclosures with different scopes, and folding them would make a "who saw what" filter wrong in
+  both directions. Generate it **before** an erasure: erasure detaches roster entries rather than
+  deleting them, so afterwards nothing links those rows back to the person, which is why the
+  export section sits above the erase section on `AdminUserDetailPage`.
+- **Three things the export deliberately omits, each RGPD art. 15(4)** ("shall not adversely
+  affect the rights and freedoms of others"), each named in the bundle's own `notice` block so an
+  omission reads as a decision and not an oversight: a vote's **nominee** (peer voting is
+  anonymous by construction, and the nominee is a statement about another player), the **acting
+  admin's identity** on rows recording something done _to_ the subject (they learn their data was
+  accessed, not by whom), and a push subscription's **endpoint and keys** (together a live
+  capability to push to that browser, not a description of the person). Don't "complete" the
+  export by adding them back.
 - The frontend is `app/src/admin/`, its own top-level route tree outside `ProtectedRoute`,
   `React.lazy`-loaded so admin-only code is never bundled for the 99.9% of users who aren't
   platform staff. `AdminShell` deliberately wears no product chrome — no `AppHeader`, no club

@@ -140,6 +140,22 @@ const routeDefs = [
   ],
   ['GET', '/api/admin/retention/runs', () => []],
   ['GET', '/api/admin/users', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  [
+    'POST',
+    '/api/admin/users/:userId/export',
+    () => ({
+      generatedAt: new Date().toISOString(),
+      subjectUserId: 'user-1',
+      notice: { basis: 'articles 15 et 20 du RGPD', omissions: [] },
+      account: {},
+      clubMemberships: [],
+      playerRecords: [],
+      notifications: [],
+      pushSubscriptions: [],
+      reviewedScoresheets: [],
+      securityLog: [],
+    }),
+  ],
 ].map(([method, pattern, handler]) => ({ method, handler, ...compile(pattern) }));
 
 function send(res, status, body) {

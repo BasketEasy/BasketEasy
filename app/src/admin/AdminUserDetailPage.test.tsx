@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
@@ -97,5 +97,93 @@ describe('AdminUserDetailPage', () => {
     // here.
     expect(await screen.findByText('Comptes inactifs')).toBeInTheDocument();
     expect(sentReason).toBe('Demande RGPD #42 reçue le 01/09/2026');
+  });
+
+  describe('RGPD export', () => {
+    let createObjectURL: ReturnType<typeof vi.fn>;
+    let revokeObjectURL: ReturnType<typeof vi.fn>;
+    let clicked: string[];
+
+    beforeEach(() => {
+      // jsdom implements neither, and the download is the whole point of the
+      // flow — a link the browser never follows would pass a shallower test.
+      createObjectURL = vi.fn(() => 'blob:kluvo-export');
+      revokeObjectURL = vi.fn();
+      clicked = [];
+      URL.createObjectURL = createObjectURL as unknown as typeof URL.createObjectURL;
+      URL.revokeObjectURL = revokeObjectURL as unknown as typeof URL.revokeObjectURL;
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+        this: HTMLAnchorElement,
+      ) {
+        clicked.push(this.download);
+      });
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('requires a reason before generating anything', async () => {
+      mockDetail();
+      const user = userEvent.setup();
+      renderDetail();
+
+      await user.click(await screen.findByRole('button', { name: 'Exporter les données' }));
+      const dialog = within(screen.getByRole('dialog'));
+      await user.type(dialog.getByLabelText('Motif de l’export'), 'court');
+      await user.click(dialog.getByRole('button', { name: 'Générer et télécharger' }));
+
+      expect(await screen.findByText('Motif requis (10 caractères minimum)')).toBeInTheDocument();
+      expect(clicked).toEqual([]);
+    });
+
+    it('sends the reason and downloads the returned bundle as a file', async () => {
+      mockDetail();
+      let sentReason: string | null = null;
+      server.use(
+        http.post('/api/admin/users/user-9/export', async ({ request }) => {
+          sentReason = ((await request.json()) as { reason: string }).reason;
+          return HttpResponse.json({
+            generatedAt: '2026-09-06T12:00:00.000Z',
+            subjectUserId: 'user-9',
+            notice: { basis: 'articles 15 et 20', omissions: ['a', 'b', 'c'] },
+            account: { email: 'jean.dupont@example.org' },
+          });
+        }),
+      );
+      const user = userEvent.setup();
+      renderDetail();
+
+      await user.click(await screen.findByRole('button', { name: 'Exporter les données' }));
+      const dialog = within(screen.getByRole('dialog'));
+      await user.type(
+        dialog.getByLabelText('Motif de l’export'),
+        'Demande d’accès RGPD #42 reçue le 01/09/2026',
+      );
+      await user.click(dialog.getByRole('button', { name: 'Générer et télécharger' }));
+
+      await waitFor(() => expect(clicked).toEqual(['kluvo-export-user-9.json']));
+      expect(sentReason).toBe('Demande d’accès RGPD #42 reçue le 01/09/2026');
+      // The blob holds a full copy of someone's personal data; nothing needs
+      // the URL once the click has happened.
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:kluvo-export');
+    });
+
+    it('reports a failure inline and produces no file', async () => {
+      mockDetail();
+      server.use(
+        http.post('/api/admin/users/user-9/export', () => HttpResponse.json({}, { status: 500 })),
+      );
+      const user = userEvent.setup();
+      renderDetail();
+
+      await user.click(await screen.findByRole('button', { name: 'Exporter les données' }));
+      const dialog = within(screen.getByRole('dialog'));
+      await user.type(dialog.getByLabelText('Motif de l’export'), 'Demande d’accès RGPD #42');
+      await user.click(dialog.getByRole('button', { name: 'Générer et télécharger' }));
+
+      expect(
+        await screen.findByText('L’export a échoué. Aucun fichier n’a été produit.'),
+      ).toBeInTheDocument();
+      expect(clicked).toEqual([]);
+    });
   });
 });

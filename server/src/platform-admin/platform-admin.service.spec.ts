@@ -34,6 +34,8 @@ describe('PlatformAdminService', () => {
     platformAdmin: { findUnique: jest.Mock; updateMany: jest.Mock };
     auditLog: { count: jest.Mock; create: jest.Mock; findMany: jest.Mock };
     user: { count: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
+    player: { findMany: jest.Mock };
+    scoresheetExtraction: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -65,6 +67,8 @@ describe('PlatformAdminService', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue(null),
       },
+      player: { findMany: jest.fn().mockResolvedValue([]) },
+      scoresheetExtraction: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn().mockImplementation((fn: (tx: unknown) => unknown) =>
         Promise.resolve(
           fn({
@@ -304,6 +308,230 @@ describe('PlatformAdminService', () => {
         service.eraseUser('admin-1', 'dpo@kluvo.net', 'ghost', 'a valid reason', buildRequest()),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('exportUser', () => {
+    const SUBJECT = 'user-9';
+
+    const subjectAccount = {
+      id: SUBJECT,
+      email: 'jean@example.org',
+      firstName: 'Jean',
+      lastName: 'Dupont',
+      avatarUrl: null,
+      emailVerifiedAt: new Date('2025-01-02T00:00:00.000Z'),
+      emailNotificationsEnabled: true,
+      lastActiveAt: new Date('2025-09-20T10:00:00.000Z'),
+      createdAt: new Date('2024-01-05T09:00:00.000Z'),
+      memberships: [
+        {
+          role: 'MEMBER',
+          createdAt: new Date('2024-01-05T09:00:00.000Z'),
+          club: { name: 'ASC Nantes' },
+        },
+      ],
+      notifications: [],
+      pushSubscriptions: [],
+    };
+
+    function mockSubject(overrides: Record<string, unknown> = {}) {
+      prisma.user.findUnique.mockResolvedValue({ ...subjectAccount, ...overrides });
+    }
+
+    it('records the reason on an ADMIN_EXPORT_GENERATED row, not ADMIN_PII_VIEWED', async () => {
+      // The two are different disclosures with different scopes; folding one
+      // into the other makes a DPO's "who saw what" filter wrong both ways.
+      mockSubject();
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'Demande d’accès RGPD #7',
+        buildRequest(),
+      );
+
+      expect(result.subjectUserId).toBe(SUBJECT);
+      expect(result.account.email).toBe('jean@example.org');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'ADMIN_EXPORT_GENERATED',
+          userId: 'admin-1',
+          metadata: {
+            subjectUserId: SUBJECT,
+            subjectEmail: 'jean@example.org',
+            reason: 'Demande d’accès RGPD #7',
+          },
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('404s on an unknown account without writing an audit row', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.exportUser('admin-1', 'dpo@kluvo.net', 'ghost', 'a valid reason', buildRequest()),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('lists a vote without the player it named (art. 15.4)', async () => {
+      // Peer voting is anonymous by construction. The subject's own vote is
+      // theirs; who they named is a statement about another player.
+      mockSubject();
+      prisma.player.findMany.mockResolvedValue([
+        {
+          club: { name: 'ASC Nantes' },
+          firstName: 'Jean',
+          lastName: 'Dupont',
+          birthDate: null,
+          gender: null,
+          licenseNumber: null,
+          licenseType: null,
+          nationalId: null,
+          createdAt: new Date('2024-01-05T09:00:00.000Z'),
+          teamPlayers: [
+            {
+              team: { name: 'Seniors M', clubTeams: [{ club: { name: 'ASC Nantes' } }] },
+              role: 'PLAYER',
+              createdAt: new Date('2024-01-06T09:00:00.000Z'),
+              rsvps: [],
+              convocations: [],
+              matchStats: [],
+              votesCast: [
+                {
+                  category: 'WORST',
+                  createdAt: new Date('2025-03-14T20:00:00.000Z'),
+                  votedTeamPlayerId: 'tp-victim',
+                  event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+                },
+              ],
+              uploadedScoresheets: [],
+              jerseysAssignedEvents: [{ startsAt: new Date('2025-03-14T18:00:00.000Z') }],
+              ballsAssignedEvents: [],
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      const roster = result.playerRecords[0].rosterEntries[0];
+      expect(roster.votesCast).toEqual([
+        {
+          eventStartsAt: '2025-03-14T18:00:00.000Z',
+          category: 'WORST',
+          castAt: '2025-03-14T20:00:00.000Z',
+        },
+      ]);
+      expect(JSON.stringify(result)).not.toContain('tp-victim');
+      // Logistics duties are processing about this person, so they are in.
+      expect(roster.logisticsAssignments).toEqual([
+        { eventStartsAt: '2025-03-14T18:00:00.000Z', duty: 'JERSEYS' },
+      ]);
+    });
+
+    it('dates an admin action on the subject without naming the admin (art. 15.4)', async () => {
+      mockSubject();
+      prisma.auditLog.findMany.mockResolvedValue([
+        {
+          type: 'LOGIN_SUCCESS',
+          userId: SUBJECT,
+          actorEmail: 'jean@example.org',
+          ipAddress: '203.0.113.7',
+          createdAt: new Date('2025-09-20T10:00:00.000Z'),
+        },
+        {
+          type: 'ADMIN_PII_VIEWED',
+          userId: 'admin-1',
+          actorEmail: 'dpo@kluvo.net',
+          ipAddress: '198.51.100.2',
+          createdAt: new Date('2026-09-01T08:00:00.000Z'),
+        },
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.securityLog).toEqual([
+        {
+          type: 'LOGIN_SUCCESS',
+          createdAt: '2025-09-20T10:00:00.000Z',
+          ipAddress: '203.0.113.7',
+          actedByThisPerson: true,
+        },
+        {
+          type: 'ADMIN_PII_VIEWED',
+          createdAt: '2026-09-01T08:00:00.000Z',
+          // The subject learns their data was accessed, not by whom.
+          ipAddress: null,
+          actedByThisPerson: false,
+        },
+      ]);
+      expect(JSON.stringify(result.securityLog)).not.toContain('dpo@kluvo.net');
+      expect(JSON.stringify(result.securityLog)).not.toContain('198.51.100.2');
+    });
+
+    it('lists a push subscription without its endpoint or keys', async () => {
+      // endpoint + p256dh + auth together are a live capability to push to
+      // that browser, not a description of the person.
+      mockSubject({
+        pushSubscriptions: [
+          {
+            endpoint: 'https://fcm.googleapis.com/fcm/send/abc123',
+            p256dh: 'p256dh-key',
+            auth: 'auth-key',
+            userAgent: 'Firefox/141',
+            createdAt: new Date('2025-06-01T09:00:00.000Z'),
+          },
+        ],
+      });
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.pushSubscriptions).toEqual([
+        { userAgent: 'Firefox/141', createdAt: '2025-06-01T09:00:00.000Z' },
+      ]);
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain('fcm.googleapis.com');
+      expect(serialized).not.toContain('p256dh-key');
+      expect(serialized).not.toContain('auth-key');
+    });
+
+    it('carries a notice naming each deliberate omission', async () => {
+      // An omission a recipient can't see reads as an oversight.
+      mockSubject();
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.notice.basis).toContain('article');
+      expect(result.notice.omissions).toHaveLength(3);
     });
   });
 

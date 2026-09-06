@@ -141,3 +141,93 @@ export interface RetentionRunSummary {
   triggeredByUserId: string | null;
   steps: RetentionStepSummary[];
 }
+
+export interface ExportPlatformUserRequest {
+  /** Same contract as erasure's: recorded in the ADMIN_EXPORT_GENERATED row. An export is a full copy of one person's data leaving the system, and an audit trail that can't say which request it answered is no trail. */
+  reason: string;
+}
+
+export interface ExportedClubMembership {
+  clubName: string;
+  role: 'ADMIN' | 'MEMBER';
+  joinedAt: string;
+}
+
+export interface ExportedRosterEntry {
+  teamName: string;
+  clubNames: string[];
+  role: 'COACH' | 'PLAYER';
+  joinedAt: string;
+  rsvps: { eventStartsAt: string; status: string; respondedAt: string }[];
+  convocations: { eventStartsAt: string; convokedAt: string }[];
+  matchStats: {
+    eventStartsAt: string;
+    jerseyNumber: number | null;
+    points: number | null;
+    fouls: number | null;
+  }[];
+  /**
+   * The nominee is deliberately absent (RGPD art. 15(4)): a vote's target is a
+   * statement about another player, and peer voting is anonymous by
+   * construction. Only the fact that a vote was cast is the subject's own.
+   */
+  votesCast: { eventStartsAt: string; category: 'BEST' | 'WORST'; castAt: string }[];
+  scoresheetUploads: { eventStartsAt: string; uploadedAt: string }[];
+  /** "Was down to bring the balls on 14 March" — processing about this person. */
+  logisticsAssignments: { eventStartsAt: string; duty: 'JERSEYS' | 'BALLS' }[];
+}
+
+export interface ExportedPlayerRecord {
+  clubName: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string | null;
+  gender: string | null;
+  licenseNumber: string | null;
+  licenseType: string | null;
+  nationalId: string | null;
+  createdAt: string;
+  rosterEntries: ExportedRosterEntry[];
+}
+
+export interface ExportedAuditEntry {
+  type: AuditEventType;
+  createdAt: string;
+  /** Present only where the subject was the actor. Null on an admin action taken *on* them: they are entitled to know it happened, not to a named staff member. */
+  ipAddress: string | null;
+  /** False when this row records something an administrator did to them. */
+  actedByThisPerson: boolean;
+}
+
+/**
+ * One data subject's complete record, RGPD art. 15 / art. 20.
+ *
+ * Self-describing on purpose: `notice` states the legal basis and names the
+ * three deliberate omissions, so the file still explains itself when it
+ * surfaces a year later detached from the request it answered.
+ */
+export interface PlatformUserExport {
+  generatedAt: string;
+  subjectUserId: string;
+  notice: {
+    basis: string;
+    omissions: string[];
+  };
+  account: {
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+    emailVerified: boolean;
+    emailNotificationsEnabled: boolean;
+    lastActiveAt: string;
+    createdAt: string;
+  };
+  clubMemberships: ExportedClubMembership[];
+  playerRecords: ExportedPlayerRecord[];
+  notifications: { type: string; title: string; body: string | null; createdAt: string }[];
+  /** Never the endpoint or its keys — that is a live push capability, not a description of the person. */
+  pushSubscriptions: { userAgent: string | null; createdAt: string }[];
+  reviewedScoresheets: { eventStartsAt: string; reviewedAt: string }[];
+  securityLog: ExportedAuditEntry[];
+}

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   ErasePlatformUserResponse,
   PlatformLoginResponse,
+  PlatformUserExport,
   RetentionRunSummary,
 } from '@basketeasy/types/platform-admin';
 import { apiClient } from '../api/client';
@@ -43,5 +44,18 @@ export function useErasePlatformUser(userId: string) {
       // confusion an audited destructive action must not create.
       void queryClient.invalidateQueries({ queryKey: adminQueryKeyPrefix });
     },
+  });
+}
+
+/**
+ * Generates the RGPD art. 15 / art. 20 bundle.
+ *
+ * No `onSuccess` cache work: an export changes nothing server-side beyond
+ * writing its own audit row, and nothing in the admin UI reads it back.
+ */
+export function useExportPlatformUser(userId: string) {
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiClient.post<PlatformUserExport>(`/admin/users/${userId}/export`, { reason }),
   });
 }

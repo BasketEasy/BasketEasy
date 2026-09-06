@@ -14,6 +14,7 @@ import type {
   ErasePlatformUserResponse,
   PlatformLoginResponse,
   PlatformUserDetail,
+  PlatformUserExport,
   RedactedUserSummary,
 } from '@basketeasy/types/platform-admin';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
@@ -37,6 +38,23 @@ import {
 import { verifyTotp } from './totp.util';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Shipped inside every export so the file explains itself when it surfaces a
+ * year later, detached from the request it answered — including *what it
+ * deliberately leaves out*, so an omission reads as a decision rather than an
+ * oversight. Each one is RGPD art. 15(4): a copy of one person's data must
+ * not adversely affect the rights and freedoms of others.
+ */
+const EXPORT_NOTICE = {
+  basis:
+    'Copie des données à caractère personnel traitées par Kluvo, au titre des articles 15 et 20 du RGPD.',
+  omissions: [
+    'Les votes émis par la personne sont listés sans le joueur désigné : le vote entre coéquipiers est anonyme par construction, et la désignation est une donnée relative à un tiers (art. 15.4).',
+    "Les consultations et actions effectuées par un administrateur sur ce compte sont datées mais n'identifient pas l'administrateur concerné (art. 15.4).",
+    "Les abonnements aux notifications push sont listés sans leur adresse technique ni leurs clés : celles-ci constituent un moyen d'envoi actif vers l'appareil, et non une donnée descriptive de la personne.",
+  ],
+};
 
 @Injectable()
 export class PlatformAdminService {
@@ -321,6 +339,203 @@ export class PlatformAdminService {
     });
 
     return { erasedUserId: subjectUserId, unlinkedPlayerCount };
+  }
+
+  /**
+   * The RGPD art. 15 / art. 20 export: one machine-readable copy of everything
+   * this deployment knows about one person.
+   *
+   * A POST rather than a GET, and carrying a mandatory `reason`, for the same
+   * reason erasure does — this materialises a complete copy of someone's data
+   * for handover *outside* the system, which is a larger disclosure than the
+   * single-profile view that already earns an ADMIN_PII_VIEWED row, and an
+   * audit trail that cannot say which request a disclosure answered is not a
+   * trail.
+   *
+   * Emits ADMIN_EXPORT_GENERATED and deliberately *not* ADMIN_PII_VIEWED: the
+   * two are different disclosures with different scopes, and folding one into
+   * the other would make a DPO's "who saw what" filter wrong in both
+   * directions.
+   *
+   * Generate this *before* an erasure, never after: erasure detaches roster
+   * entries (`Player.userId = null`) rather than deleting them, so afterwards
+   * nothing links those rows back to the person.
+   */
+  async exportUser(
+    adminUserId: string,
+    adminEmail: string,
+    subjectUserId: string,
+    reason: string,
+    request: Request,
+  ): Promise<PlatformUserExport> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: subjectUserId },
+      include: {
+        memberships: { include: { club: { select: { name: true } } } },
+        notifications: { orderBy: { createdAt: 'asc' } },
+        pushSubscriptions: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Compte introuvable');
+    }
+
+    const [players, auditEntries, reviewedExtractions] = await Promise.all([
+      this.prisma.player.findMany({
+        where: { userId: subjectUserId },
+        include: {
+          club: { select: { name: true } },
+          teamPlayers: {
+            include: {
+              team: {
+                select: {
+                  name: true,
+                  clubTeams: { select: { club: { select: { name: true } } } },
+                },
+              },
+              rsvps: { include: { event: { select: { startsAt: true } } } },
+              convocations: { include: { event: { select: { startsAt: true } } } },
+              matchStats: { include: { event: { select: { startsAt: true } } } },
+              votesCast: { include: { event: { select: { startsAt: true } } } },
+              uploadedScoresheets: { include: { event: { select: { startsAt: true } } } },
+              jerseysAssignedEvents: { select: { startsAt: true } },
+              ballsAssignedEvents: { select: { startsAt: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          OR: [
+            { userId: subjectUserId },
+            { metadata: { path: ['subjectUserId'], equals: subjectUserId } },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.scoresheetExtraction.findMany({
+        where: { reviewedByUserId: subjectUserId },
+        include: { eventScoresheet: { include: { event: { select: { startsAt: true } } } } },
+      }),
+    ]);
+
+    await this.audit.record(
+      {
+        type: 'ADMIN_EXPORT_GENERATED',
+        userId: adminUserId,
+        actorEmail: adminEmail,
+        metadata: { subjectUserId, subjectEmail: user.email, reason },
+      },
+      request,
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      subjectUserId,
+      notice: EXPORT_NOTICE,
+      account: {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
+        emailVerified: user.emailVerifiedAt !== null,
+        emailNotificationsEnabled: user.emailNotificationsEnabled,
+        lastActiveAt: user.lastActiveAt.toISOString(),
+        createdAt: user.createdAt.toISOString(),
+      },
+      clubMemberships: user.memberships.map((membership) => ({
+        clubName: membership.club.name,
+        role: membership.role,
+        joinedAt: membership.createdAt.toISOString(),
+      })),
+      playerRecords: players.map((player) => ({
+        clubName: player.club.name,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        birthDate: player.birthDate?.toISOString() ?? null,
+        gender: player.gender,
+        licenseNumber: player.licenseNumber,
+        licenseType: player.licenseType,
+        nationalId: player.nationalId,
+        createdAt: player.createdAt.toISOString(),
+        rosterEntries: player.teamPlayers.map((teamPlayer) => ({
+          teamName: teamPlayer.team.name,
+          clubNames: teamPlayer.team.clubTeams.map((clubTeam) => clubTeam.club.name),
+          role: teamPlayer.role,
+          joinedAt: teamPlayer.createdAt.toISOString(),
+          rsvps: teamPlayer.rsvps.map((rsvp) => ({
+            eventStartsAt: rsvp.event.startsAt.toISOString(),
+            status: rsvp.status,
+            respondedAt: rsvp.respondedAt.toISOString(),
+          })),
+          convocations: teamPlayer.convocations.map((convocation) => ({
+            eventStartsAt: convocation.event.startsAt.toISOString(),
+            convokedAt: convocation.convokedAt.toISOString(),
+          })),
+          matchStats: teamPlayer.matchStats.map((stat) => ({
+            eventStartsAt: stat.event.startsAt.toISOString(),
+            jerseyNumber: stat.jerseyNumber,
+            points: stat.points,
+            fouls: stat.fouls,
+          })),
+          // votedTeamPlayerId is deliberately not read. See EXPORT_NOTICE.
+          votesCast: teamPlayer.votesCast.map((vote) => ({
+            eventStartsAt: vote.event.startsAt.toISOString(),
+            category: vote.category,
+            castAt: vote.createdAt.toISOString(),
+          })),
+          scoresheetUploads: teamPlayer.uploadedScoresheets.map((scoresheet) => ({
+            eventStartsAt: scoresheet.event.startsAt.toISOString(),
+            uploadedAt: scoresheet.uploadedAt.toISOString(),
+          })),
+          logisticsAssignments: [
+            ...teamPlayer.jerseysAssignedEvents.map((event) => ({
+              eventStartsAt: event.startsAt.toISOString(),
+              duty: 'JERSEYS' as const,
+            })),
+            ...teamPlayer.ballsAssignedEvents.map((event) => ({
+              eventStartsAt: event.startsAt.toISOString(),
+              duty: 'BALLS' as const,
+            })),
+          ],
+        })),
+      })),
+      notifications: user.notifications.map((notification) => ({
+        type: notification.type,
+        title: notification.title,
+        body: notification.body,
+        createdAt: notification.createdAt.toISOString(),
+      })),
+      // endpoint/p256dh/auth are never selected: together they are a live
+      // capability to push to that browser, not a description of the person.
+      pushSubscriptions: user.pushSubscriptions.map((subscription) => ({
+        userAgent: subscription.userAgent,
+        createdAt: subscription.createdAt.toISOString(),
+      })),
+      reviewedScoresheets: reviewedExtractions.flatMap((extraction) =>
+        extraction.reviewedAt
+          ? [
+              {
+                eventStartsAt: extraction.eventScoresheet.event.startsAt.toISOString(),
+                reviewedAt: extraction.reviewedAt.toISOString(),
+              },
+            ]
+          : [],
+      ),
+      securityLog: auditEntries.map((entry) => {
+        const actedByThisPerson = entry.userId === subjectUserId;
+        return {
+          type: entry.type,
+          createdAt: entry.createdAt.toISOString(),
+          // A row where the subject is not the actor is an administrator's
+          // action *on* them: they are entitled to know it happened, not to a
+          // named staff member or that person's address.
+          ipAddress: actedByThisPerson ? entry.ipAddress : null,
+          actedByThisPerson,
+        };
+      }),
+    };
   }
 
   /**

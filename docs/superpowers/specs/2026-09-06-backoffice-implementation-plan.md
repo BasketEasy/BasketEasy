@@ -192,3 +192,79 @@ a split point makes it true.
 - Vitest/RTL: the TOTP prompt (`AdminLoginForm`), the three pages' `error → loading → empty →
 data` ladders, the erase `Dialog` requiring a reason.
 - `screenshot-ui` for the three back-office screens, per `CLAUDE.md`.
+
+---
+
+# Addendum: the DSAR export
+
+The design deferred this explicitly — "a DSAR export generator beyond the `ADMIN_EXPORT_GENERATED`
+audit hook … is a follow-up once the viewing/erasure flow is proven". This is that follow-up, and
+it is what makes the already-defined `ADMIN_EXPORT_GENERATED` event type mean something.
+
+RGPD art. 15 gives a data subject a copy of the personal data being processed about them; art. 20
+says it must be structured, commonly used and machine-readable. So: one JSON document, generated
+on demand by a `DATA_OFFICER` answering a named request.
+
+## `POST /admin/users/:userId/export`, not `GET`
+
+An export is not a read. It materialises a **complete** copy of one person's data for handover
+outside the system — a larger disclosure than the single-profile view that already earns an
+`ADMIN_PII_VIEWED` row. An audit trail that records the disclosure but not which request it
+answered is exactly the gap the erasure reason exists to close, so the export carries the same
+mandatory `reason`, stored in the `ADMIN_EXPORT_GENERATED` row's `metadata`. A body-carrying
+`GET` is not a thing, and "generated" in the event's own name is a verb.
+
+It emits `ADMIN_EXPORT_GENERATED` and **not** `ADMIN_PII_VIEWED`: the two are different
+disclosures with different scopes, and folding one into the other would make a DPO's "who saw
+what" filter wrong in both directions.
+
+## Art. 15(4) is the whole design problem
+
+> the right to obtain a copy … shall not adversely affect the rights and freedoms of others
+
+Three places in this schema where a naive "dump every row that references them" would do exactly
+that. Each is a deliberate omission, recorded in the export's own `notice` block so the omission
+is visible to whoever receives the file rather than looking like an oversight:
+
+1. **Peer votes.** `EventVote` is anonymous by construction — `CLAUDE.md`'s Team stats rule is
+   that `voterTeamPlayerId` is never selected. The subject's own vote is their data, but its
+   _nominee_ is a statement about another player, and an admin-mediated export would disclose
+   "X voted Y as joueur en difficulté" to both the officer and the subject. Exported as
+   `{ eventId, category, castAt }` — the fact of the processing, never who was named.
+2. **Admin actions taken on them.** An `ADMIN_PII_VIEWED` row's `userId`/`actorEmail` is the
+   _acting admin_. A subject is entitled to know their data was accessed and when; they are not
+   entitled, through this route, to a named staff member. Rows where the subject is the actor
+   export in full; rows where they are the subject export `type` and `createdAt` only.
+3. **Push subscriptions.** `endpoint` plus the `p256dh`/`auth` keys is a live capability to push
+   to that browser, not a description of the person. Exported as `userAgent` + `createdAt`;
+   the credential never leaves the database.
+
+## What is in it
+
+Everything else the schema knows about the person, because an incomplete DSAR response is a
+compliance failure, not a tidy one: the account itself, club memberships, every linked `Player`
+(licence, birth date, national id — all theirs), each roster slot, and everything hanging off
+those slots — RSVPs, convocations, per-match stats, scoresheet uploads and reviews, and the
+event-logistics assignments that record "this person was down to bring the balls on 14 March".
+
+The bundle carries `generatedAt`, the subject's id, and a French `notice` block naming the legal
+basis and the three omissions above, so the file is self-describing when it surfaces in a
+lawyer's inbox a year later, detached from the ticket it answered.
+
+`Player.userId` being nullable is why this must be generated _before_ an erasure, not after:
+erasure detaches the roster entries rather than deleting them, so afterwards nothing links those
+rows to the person any more. The UI puts the export button above the erase section for that
+reason, not for visual balance.
+
+## Delivery
+
+The server returns the JSON document; the browser turns it into a file. A direct download link
+cannot work here — the step-up credential travels in `X-Platform-Token`, and a plain `<a href>`
+sends no custom headers — so `AdminUserExportButton` fetches through `apiClient` and hands the
+result to a `Blob` + object URL, revoked immediately after the click.
+
+## Testing
+
+`platform-admin.service.spec.ts`: each of the three art. 15(4) redactions, the `reason` reaching
+the `ADMIN_EXPORT_GENERATED` row, a 404 for an unknown subject writing no audit row. Vitest: the
+button producing a download and surfacing a failure as a toast.
