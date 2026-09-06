@@ -127,6 +127,19 @@ const routeDefs = [
   ['POST', '/api/auth/verify-email/confirm', () => ({ status: 204, body: null })],
   ['POST', '/api/auth/password-reset/request', () => ({ status: 204, body: null })],
   ['POST', '/api/auth/password-reset/confirm', () => ({ status: 204, body: null })],
+  // Back-office. The step-up succeeds by default so a screenshot run can get
+  // past the TOTP gate with any six digits; the reads default to empty.
+  [
+    'POST',
+    '/api/admin/login',
+    () => ({
+      platformAccessToken: 'platform-token',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      role: 'DATA_OFFICER',
+    }),
+  ],
+  ['GET', '/api/admin/retention/runs', () => []],
+  ['GET', '/api/admin/users', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
 ].map(([method, pattern, handler]) => ({ method, handler, ...compile(pattern) }));
 
 function send(res, status, body) {

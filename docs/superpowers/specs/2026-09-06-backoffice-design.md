@@ -16,7 +16,7 @@ This spec depends on the `AuditLog` table introduced in the companion
 [`2026-09-06-data-retention-policy-design.md`](./2026-09-06-data-retention-policy-design.md) —
 that spec's automated sweep is complete and functions without this one; this back-office is the
 human-operated complement for the cases the sweep alone doesn't cover: a named request that
-needs handling *before* the 12-month clock fires, and visibility into what the sweep has done.
+needs handling _before_ the 12-month clock fires, and visibility into what the sweep has done.
 
 ## Scope
 
@@ -127,7 +127,7 @@ account's normal JWT:
    `/admin/*` route — `PlatformAdminGuard` explicitly checks for a second claim (below), not
    just `PlatformAdmin` existence, so a stolen regular session token is useless here even if it
    belongs to an admin.
-2. To *enter* the back-office, they additionally submit a TOTP code (`PlatformAdmin.totpSecret`,
+2. To _enter_ the back-office, they additionally submit a TOTP code (`PlatformAdmin.totpSecret`,
    standard RFC 6238, same primitive as any authenticator app — no new client dependency beyond
    a QR-code enrollment screen). On success, the server issues a second, separate JWT
    (`platformAccessToken`) with its own short TTL (15 minutes, vs. the normal access token's
@@ -172,15 +172,15 @@ account's normal JWT:
 
 ## API surface
 
-| Method | Path                                  | Guard                                      | Notes                                                              |
-| ------ | -------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
-| POST   | `/admin/login`                         | `JwtAuthGuard`                              | body `{ totpCode }`; issues `platformAccessToken`; rate-limited      |
-| GET    | `/admin/retention/runs`                | `PlatformAdminGuard`                        | last N sweep results (`RetentionRun`, from the retention spec)       |
-| POST   | `/admin/retention/dry-run`             | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | triggers an on-demand dry-run sweep                        |
-| GET    | `/admin/users?status=inactive-soon`    | `PlatformAdminGuard`                        | redacted list only, per Hardening above                              |
-| GET    | `/admin/users/:userId`                 | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | full profile; emits `ADMIN_PII_VIEWED`                     |
-| POST   | `/admin/users/:userId/erase`           | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | body `{ reason }`; manual erasure ahead of the sweep       |
-| GET    | `/admin/audit-log?userId=`             | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | for answering "who accessed this person's data"            |
+| Method | Path                                | Guard                                                  | Notes                                                           |
+| ------ | ----------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| POST   | `/admin/login`                      | `JwtAuthGuard`                                         | body `{ totpCode }`; issues `platformAccessToken`; rate-limited |
+| GET    | `/admin/retention/runs`             | `PlatformAdminGuard`                                   | last N sweep results (`RetentionRun`, from the retention spec)  |
+| POST   | `/admin/retention/dry-run`          | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | triggers an on-demand dry-run sweep                             |
+| GET    | `/admin/users?status=inactive-soon` | `PlatformAdminGuard`                                   | redacted list only, per Hardening above                         |
+| GET    | `/admin/users/:userId`              | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | full profile; emits `ADMIN_PII_VIEWED`                          |
+| POST   | `/admin/users/:userId/erase`        | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | body `{ reason }`; manual erasure ahead of the sweep            |
+| GET    | `/admin/audit-log?userId=`          | `PlatformAdminGuard` + `PlatformRoles('DATA_OFFICER')` | for answering "who accessed this person's data"                 |
 
 ## Frontend
 

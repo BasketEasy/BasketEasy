@@ -4,6 +4,7 @@
 // using bare fetch directly.
 
 import type { RefreshResponse } from '@basketeasy/types/auth';
+import { PLATFORM_TOKEN_HEADER } from '@basketeasy/types/platform-admin';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -23,6 +24,11 @@ export class ApiError extends Error {
 }
 
 let accessToken: string | null = null;
+// The back-office step-up credential. In memory only, and never persisted:
+// it lives 15 minutes, is never refreshed, and re-entering a TOTP code after
+// a reload is the point — a back-office session left open on a shared
+// machine has to go cold.
+let platformToken: string | null = null;
 const sessionExpiryListeners = new Set<() => void>();
 let refreshPromise: Promise<boolean> | null = null;
 
@@ -30,15 +36,28 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
+export function setPlatformToken(token: string | null): void {
+  platformToken = token;
+}
+
 export function subscribeToSessionExpiry(listener: () => void): () => void {
   sessionExpiryListeners.add(listener);
   return () => sessionExpiryListeners.delete(listener);
 }
 
-function buildHeaders(): Record<string, string> {
+// Path-scoped so the step-up token is attached to back-office calls and
+// nothing else — it must not ride along on ordinary product requests, where
+// it would be visible to any proxy those requests pass through for no
+// benefit.
+const PLATFORM_PATH_PREFIX = '/admin/';
+
+function buildHeaders(path: string): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
+  }
+  if (platformToken && path.startsWith(PLATFORM_PATH_PREFIX)) {
+    headers[PLATFORM_TOKEN_HEADER] = platformToken;
   }
   return headers;
 }
@@ -46,7 +65,7 @@ function buildHeaders(): Record<string, string> {
 async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: 'include',
-    headers: buildHeaders(),
+    headers: buildHeaders(path),
     ...init,
   });
 

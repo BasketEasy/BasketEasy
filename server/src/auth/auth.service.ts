@@ -100,6 +100,14 @@ export class AuthService {
       },
     });
 
+    // The retention policy's "inactive" signal, written here because this is
+    // the one method every register/login/refresh path already funnels
+    // through — the alternative is scattering the same update across four
+    // call sites. A session in actual use rotates through here every 15
+    // minutes for the whole 30-day life of its refresh token, so an account
+    // being used keeps this current without a separate interceptor.
+    await this.prisma.user.update({ where: { id: userId }, data: { lastActiveAt: new Date() } });
+
     return { accessToken, refreshToken: rawRefreshToken };
   }
 

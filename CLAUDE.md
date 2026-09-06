@@ -214,6 +214,84 @@ Beyond the Working conventions above, four traps this direction has already fall
 - The public auth forms use `setError('root')` + `Alert`, **not** `toast()` — that is the established convention for `LoginForm`/`RegisterForm`/`InviteAcceptForm`, and the trigger stays on screen.
 - `app/public/sw.js` is a **push-only** service worker: no fetch handler, no caching, no precache manifest. A caching worker is a class of stale-asset bugs the app has no offline story to justify; it exists solely because a push subscription can't exist without a registered worker. `usePushSubscription` registers it on subscribe, never on mount.
 
+## Platform back-office
+
+`server/src/platform-admin` (mounted at `/api/admin`) is the internal surface Kluvo staff use to
+action RGPD access/erasure requests and confirm the retention sweep is doing its job, without a
+`psql` session. Design record: [`docs/superpowers/specs/2026-09-06-backoffice-design.md`](./docs/superpowers/specs/2026-09-06-backoffice-design.md),
+build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06-backoffice-implementation-plan.md) beside it.
+
+- **A `PlatformAdmin` grant is necessary but not sufficient.** Every `/admin/*` route requires an
+  ordinary session _and_ a second, separately-signed `platformAccessToken` (15 min, claim
+  `scope: 'platform-admin'`, header `X-Platform-Token`) minted by `POST /admin/login` against a
+  TOTP code — so an access token stolen from an admin's browser opens nothing here. The token is
+  never refreshed: expiry means re-entering a code, because a back-office tab left open on a
+  shared machine has to go cold. `PlatformAdminGuard` is `ClubRolesGuard`'s shape with no route
+  param to key off; `@PlatformRoles('DATA_OFFICER')` narrows a route the way `@ClubRoles('ADMIN')`
+  does. `PlatformRole` is `SUPPORT` (run history + the redacted list) or `DATA_OFFICER` (PII,
+  erasure, audit log).
+- **`PLATFORM_JWT_SECRET` is its own secret, and the back-office is off without it.** Signing
+  step-up tokens with `JWT_ACCESS_SECRET` would mean a leaked access secret mints back-office
+  credentials too. It is deliberately not in `AppModule.validateEnv` (same policy as
+  `REDIS_URL`/`R2_*`/`GEMINI_API_KEY`/`VAPID_*`): unset, every `/admin/*` route answers 503 and
+  the surface does not exist for that deployment. Opt-in per deploy is the right default for the
+  one place a compromised credential exposes every club's roster at once.
+- **Grants are provisioned out-of-band only** — `server/scripts/platform-admin.ts`
+  (`grant`/`revoke`/`unlock`/`list`), which needs `DATABASE_URL`. There is no "promote to admin"
+  button and no in-app TOTP enrollment screen: an enrollment screen _is_ a self-service path to
+  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret.
+- **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a
+  dependency — both RFCs publish test vectors, so `totp.util.spec.ts` _proves_ it instead of
+  trusting it. Don't swap in `otplib` without a reason beyond taste.
+- **Lockout state is counted from `AuditLog`, not a counter column** — 5 `ADMIN_LOGIN_FAILURE`
+  rows for one account in 15 minutes sets `lockedUntil` to a far-future sentinel ("until manually
+  cleared", per `lockedUntilCleared`). Audit rows survive restarts and are shared across
+  instances; an in-memory counter is neither. A lock that expired on its own would be a rate
+  limit an attacker waits out, so only `platform-admin.ts unlock` clears it.
+- **List views carry no PII.** `GET /admin/users` returns `emailDomain`, `lastActiveAt`,
+  `daysUntilErasure` and `clubCount` — never a local part or a name. Opening one record
+  (`GET /admin/users/:userId`) is the `ADMIN_PII_VIEWED` moment, and `usePlatformUser` therefore
+  never refetches on window focus: "who looked at this person's data" must not be padded with
+  rows produced by a tab regaining focus.
+- **Erasure requires a reason**, stored in the `ADMIN_USER_ERASED` row in the _same transaction_
+  as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
+  `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering
+  on either alone answers half of "who accessed this person's data".
+- The frontend is `app/src/admin/`, its own top-level route tree outside `ProtectedRoute`,
+  `React.lazy`-loaded so admin-only code is never bundled for the 99.9% of users who aren't
+  platform staff. `AdminShell` deliberately wears no product chrome — no `AppHeader`, no club
+  switcher, no bottom nav — because conflating it with the product invites browsing it like a
+  support dashboard rather than treating every click as an audited action. `AdminRoute`'s check
+  is advisory; the real enforcement is server-side.
+
+## Retention & audit foundations
+
+`AuditLog`, `RetentionRun` and `User.lastActiveAt` come from
+[`docs/superpowers/specs/2026-09-06-data-retention-policy-design.md`](./docs/superpowers/specs/2026-09-06-data-retention-policy-design.md).
+They live here because the back-office's routes cannot exist without them — **the rest of that
+spec is not built yet**.
+
+- `AuditService.record()` (`server/src/audit`) is the one way anything reaches `AuditLog`, and
+  the seam the retention spec's auth-event emitters (`LOGIN_SUCCESS`,
+  `REFRESH_TOKEN_REUSE_DETECTED`, ...) wire into. Today only the `ADMIN_*` events are emitted.
+  `AuditLog.userId` is a plain column with **no** relation to `User` on purpose: an audit row has
+  to outlive the account it describes.
+- `RetentionService` (`server/src/retention`) owns the dry-run counting sweep behind
+  `POST /admin/retention/dry-run` and `eraseUserAccount()`, the shared erasure primitive. Rule 2
+  (erase inactive accounts) and rule 3 (keep stats forever) coexist only because
+  `Player.userId` is nullable — erasure clears it and leaves the roster entry, its `TeamPlayer`
+  rows and every `MatchPlayerStat` untouched. `ClubMembership`/`RefreshToken` are deleted
+  explicitly: their FKs are `ON DELETE RESTRICT`, so `user.delete` fails outright without it —
+  the retention spec's prose claims otherwise and is wrong on this point.
+- `User.lastActiveAt` is written in `AuthService.issueTokenPair`, the one method every
+  register/login/refresh path funnels through. The retention spec's debounced interceptor is
+  still its own to add; a session in actual use rotates through here every 15 minutes for the
+  whole 30-day life of its refresh token, so the signal is already current against a 12-month
+  cutoff.
+- **Still the retention spec's, not built here:** `ParentalConsent` and its 5-year clock, the
+  nightly BullMQ repeatable job and the destructive sweep steps, the auth-event emitters, the
+  `lastActiveAt` interceptor, inactivity-warning notifications.
+
 ## What's deliberately not here yet
 
-No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no notification digest/batching and no scheduled RSVP reminders (that needs a repeatable BullMQ job and its own slice — the queue has only `scoresheet-ocr` today), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no automated retention sweep (only the dry-run half — see Retention & audit foundations above) and no `ParentalConsent`; no notification digest/batching and no scheduled RSVP reminders (that needs a repeatable BullMQ job and its own slice — the queue has only `scoresheet-ocr` today), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

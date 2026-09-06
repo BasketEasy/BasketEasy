@@ -25,6 +25,14 @@ model User {
   // written regardless: this is a delivery-channel preference, not a
   // "don't tell me" one, so turning it off never loses a convocation.
   emailNotificationsEnabled     Boolean                  @default(true)
+  // The single signal the retention sweep reads to decide "inactive", per
+  // docs/superpowers/specs/2026-09-06-data-retention-policy-design.md.
+  // Distinct from createdAt: an account that logged in once three years ago
+  // and never came back is inactive from that login, not from registration.
+  // Written on login and on refresh — a session in actual use rotates its
+  // refresh token every 15 minutes for the whole 30-day life of the token,
+  // so any account being used writes this continuously.
+  lastActiveAt                  DateTime                 @default(now())
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
   memberships                   ClubMembership[]
@@ -36,6 +44,7 @@ model User {
   emailVerificationTokens       EmailVerificationToken[]
   passwordResetTokens           PasswordResetToken[]
   pushSubscriptions             PushSubscription[]
+  platformAdmin                 PlatformAdmin?
 }
 
 // The two single-use links a user can be sent by e-mail. Both store only
@@ -575,4 +584,129 @@ model RefreshToken {
 
   @@index([familyId])
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Platform staff / back-office
+//
+// See docs/superpowers/specs/2026-09-06-backoffice-design.md. AuditLog and
+// RetentionRun below are defined by the companion data-retention spec; they
+// land here because the back-office's routes cannot exist without them —
+// see the implementation plan next to that design doc for the split.
+// ---------------------------------------------------------------------------
+
+enum PlatformRole {
+  // Read-only: the retention sweep's run history and the *redacted* list of
+  // accounts nearing the inactivity cutoff. Cannot open a single record, and
+  // so cannot see PII at all. Day-to-day support staff level.
+  SUPPORT
+  // May open one named data subject's record while handling a GDPR
+  // access/erasure request, and may erase. Every one of those is its own
+  // AuditLog row (ADMIN_PII_VIEWED / ADMIN_USER_ERASED).
+  DATA_OFFICER
+}
+
+// Platform-wide authority, deliberately its own table rather than a role enum
+// on User — the same shape TeamAdmin already uses for per-team authority. A
+// grant is an auditable row with its own createdAt and grantedByUserId, not a
+// boolean somebody can flip with no trace of who did it or when.
+//
+// Holding a row here is necessary but *not sufficient*: every /admin/* route
+// additionally requires a short-lived step-up token minted from totpSecret,
+// so a stolen ordinary session token belonging to an admin still opens
+// nothing. See PlatformAdminGuard.
+model PlatformAdmin {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role PlatformRole
+
+  // Base32 RFC 6238 shared secret, generated out-of-band by
+  // server/scripts/platform-admin.ts. Nullable so a grant can exist in a
+  // half-provisioned state, which is treated exactly like no grant at all:
+  // with no secret there is no way to mint a step-up token, so the grant is
+  // inert rather than dangerous.
+  totpSecret String?
+
+  // Optional per-admin network restriction. Empty = unrestricted, the same
+  // graceful-degradation convention the optional integration credentials use
+  // (BREVO_API_KEY, VAPID_*): a deployment that wants an office-VPN
+  // restriction gets one, a deployment that doesn't isn't blocked on it.
+  allowedCidrs String[] @default([])
+
+  // Set by the 5-failures-in-15-minutes rule in PlatformAdminService and
+  // cleared only by an operator running `platform-admin.ts unlock` — a
+  // lockout that expires on its own is a rate limit an attacker waits out.
+  lockedUntil DateTime?
+
+  grantedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Security-relevant events, retained 12 months (CNIL's standard for
+// connection/security logs) by the retention sweep.
+//
+// The auth values are emitted by the data-retention spec's work; the ADMIN_*
+// values are emitted by the back-office and get their own event types rather
+// than being folded into one generic ADMIN_ACTION, so a CNIL/DPO export can
+// filter precisely on "who looked at this person's data".
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  REFRESH_TOKEN_REUSE_DETECTED
+  EMAIL_VERIFIED
+  ADMIN_LOGIN_SUCCESS
+  ADMIN_LOGIN_FAILURE
+  ADMIN_PII_VIEWED
+  ADMIN_USER_ERASED
+  ADMIN_EXPORT_GENERATED
+}
+
+model AuditLog {
+  id   String         @id @default(uuid())
+  type AuditEventType
+
+  // Deliberately a plain column and NOT a relation to User: an audit row has
+  // to outlive the account it describes, which is the whole point of a
+  // security log. A relation would either cascade the evidence away with the
+  // account or block the erasure the evidence is about.
+  //
+  // Nullable because a LOGIN_FAILURE against an address with no matching
+  // account still needs logging — repeated failures against unknown
+  // addresses are themselves the signal.
+  //
+  // For an ADMIN_* row this is the *acting admin*; the data subject they
+  // acted on is metadata.subjectUserId.
+  userId     String?
+  actorEmail String?
+
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  // The back-office's audit-log view filters by type as well as by subject.
+  @@index([type, createdAt])
+}
+
+// One execution of the retention sweep, persisted regardless of dryRun: a
+// dry run's "what would have happened" is itself the evidence that the policy
+// was evaluated, which RGPD art. 5.2 accountability asks for.
+model RetentionRun {
+  id      String  @id @default(uuid())
+  dryRun  Boolean
+  summary Json
+  // Null for the scheduled nightly sweep; set when a DATA_OFFICER triggers a
+  // dry run from the back-office.
+  triggeredByUserId String?
+  ranAt             DateTime @default(now())
+
+  @@index([ranAt])
 }
