@@ -19,6 +19,8 @@ function player(overrides: Partial<Player> = {}): Player {
     birthDate: '2011-03-12T00:00:00.000Z',
     gender: null,
     licenseType: null,
+    isMinor: false,
+    parentalConsentGivenAt: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };

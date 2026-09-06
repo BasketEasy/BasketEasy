@@ -1,4 +1,5 @@
 import type { PaginationParams, SortOrder } from './pagination';
+import type { RecordParentalConsentRequest } from './parental-consent';
 import type { Gender } from './teams';
 
 export interface Player {
@@ -16,6 +17,10 @@ export interface Player {
   gender: Gender | null;
   /** Free-text license type code (C, C1, C2, L, ...). */
   licenseType: string | null;
+  /** Derived from birthDate on every read, never stored — see isMinorBirthDate. */
+  isMinor: boolean;
+  /** When a parental-consent attestation was recorded, if there is one. */
+  parentalConsentGivenAt: string | null;
   createdAt: string;
 }
 
@@ -28,6 +33,12 @@ export interface CreatePlayerRequest {
   birthDate?: string;
   gender?: Gender;
   licenseType?: string;
+  /**
+   * Required when birthDate makes the player a minor — the API answers 400
+   * PARENTAL_CONSENT_REQUIRED without it. Bulk import is deliberately exempt:
+   * see the data-retention design doc.
+   */
+  parentalConsent?: RecordParentalConsentRequest;
 }
 
 export interface UpdatePlayerRequest {

@@ -19,6 +19,8 @@ const player = {
   birthDate: null,
   gender: null,
   licenseType: null,
+  isMinor: false,
+  parentalConsentGivenAt: null,
   createdAt: 'x',
 };
 
@@ -169,6 +171,75 @@ describe('PlayerRow', () => {
       birthDate: null,
       gender: null,
       licenseType: null,
+    });
+  });
+
+  describe('parental consent', () => {
+    const minor = { ...player, isMinor: true, parentalConsentGivenAt: null };
+
+    it('flags a minor with no attestation on file', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={minor}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.getByText(/autorisation manquante/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /autorisation parentale/i })).toBeInTheDocument();
+    });
+
+    it('drops the flag once an attestation exists, keeping the action', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={{ ...minor, parentalConsentGivenAt: '2026-02-03T00:00:00.000Z' }}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.queryByText(/autorisation manquante/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /autorisation parentale/i })).toBeInTheDocument();
+    });
+
+    it('shows nothing about consent for an adult', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={player}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.queryByText(/autorisation/i)).not.toBeInTheDocument();
     });
   });
 });

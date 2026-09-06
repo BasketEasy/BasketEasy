@@ -19,8 +19,8 @@ Five retention rules, as specified:
    historical record (season-over-season comparison is the whole point of the stats screen),
    and none of it is special-category data under RGPD (art. 9) — it's game results. Anonymizing
    it would silently break a club's own multi-season history for a compliance rule that doesn't
-   actually apply to this data. Only the *account* retention rule below can still remove PII
-   *about a person* that happens to intersect this data (see Interaction section).
+   actually apply to this data. Only the _account_ retention rule below can still remove PII
+   _about a person_ that happens to intersect this data (see Interaction section).
 4. **Security logs:** 12 months (CNIL's standard recommendation for connection/security logs).
    Doesn't exist as a concept yet — this spec adds it.
 5. **Backups:** 30-day rotation. This is infrastructure, not application data — see Scope.
@@ -42,7 +42,7 @@ automatically either way).
 - `User.lastActiveAt` tracking + a nightly retention sweep job that deletes accounts inactive
   12+ months.
 - A minimal `ParentalConsent` feature: one checkbox at the point a club adds/invites a player
-  under 18, capturing who confirmed consent and when. Retained 5 years *after* the player/account
+  under 18, capturing who confirmed consent and when. Retained 5 years _after_ the player/account
   it documents is removed, not 5 years from creation (see Data model — this is what "compte + 5
   ans" means: the clock doesn't start until there's something to prescribe against).
 - A new `AuditLog` table capturing security-relevant events (login, login failure, password
@@ -235,7 +235,11 @@ export class RetentionSweepProcessor {
         await this.setConsentRetentionClocksFor(tx, user.id);
         await tx.user.delete({ where: { id: user.id } });
         await tx.auditLog.create({
-          data: { type: 'LOGOUT', actorEmail: user.email, metadata: { reason: 'inactivity_12mo_erasure' } },
+          data: {
+            type: 'LOGOUT',
+            actorEmail: user.email,
+            metadata: { reason: 'inactivity_12mo_erasure' },
+          },
         });
       });
     }
@@ -244,17 +248,26 @@ export class RetentionSweepProcessor {
 
   private async sweepAuditLogs(dryRun: boolean) {
     const cutoff = subMonths(new Date(), 12);
-    if (dryRun) return { count: await this.prisma.auditLog.count({ where: { createdAt: { lt: cutoff } } }) };
-    const { count } = await this.prisma.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    if (dryRun)
+      return { count: await this.prisma.auditLog.count({ where: { createdAt: { lt: cutoff } } }) };
+    const { count } = await this.prisma.auditLog.deleteMany({
+      where: { createdAt: { lt: cutoff } },
+    });
     return { count };
   }
 
   private async sweepExpiredParentalConsents(dryRun: boolean) {
     const now = new Date();
     if (dryRun) {
-      return { count: await this.prisma.parentalConsent.count({ where: { retentionExpiresAt: { lt: now } } }) };
+      return {
+        count: await this.prisma.parentalConsent.count({
+          where: { retentionExpiresAt: { lt: now } },
+        }),
+      };
     }
-    const { count } = await this.prisma.parentalConsent.deleteMany({ where: { retentionExpiresAt: { lt: now } } });
+    const { count } = await this.prisma.parentalConsent.deleteMany({
+      where: { retentionExpiresAt: { lt: now } },
+    });
     return { count };
   }
 }

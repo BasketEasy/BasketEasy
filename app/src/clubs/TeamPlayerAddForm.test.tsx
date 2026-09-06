@@ -19,6 +19,8 @@ const player: Player = {
   birthDate: null,
   gender: null,
   licenseType: null,
+  isMinor: false,
+  parentalConsentGivenAt: null,
   createdAt: 'x',
 };
 

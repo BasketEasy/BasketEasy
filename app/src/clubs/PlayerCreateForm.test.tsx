@@ -235,4 +235,78 @@ describe('PlayerCreateForm', () => {
     await waitFor(() => expect(capturedBody).toBeDefined());
     expect(capturedBody).toEqual({ firstName: 'Bianca', lastName: 'Leblanc', userId: 'user-2' });
   });
+
+  describe('parental consent', () => {
+    // Old enough that the fixture stays a minor for years, so this suite
+    // can't start failing on a birthday.
+    const MINOR_BIRTH_DATE = '2015-04-03';
+    const ADULT_BIRTH_DATE = '1990-04-03';
+
+    it('shows no consent block for an adult birth date', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+
+      expect(screen.queryByText(/autorisation parentale écrite/i)).not.toBeInTheDocument();
+    });
+
+    it('reveals the consent block as soon as the birth date makes the player a minor', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+
+      expect(await screen.findByText(/autorisation parentale écrite/i)).toBeInTheDocument();
+    });
+
+    it('blocks the submit when the attestation is left unticked', async () => {
+      let createCalled = false;
+      server.use(
+        http.post('/api/clubs/club-1/players', () => {
+          createCalled = true;
+          return HttpResponse.json({});
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      expect(await screen.findByText(/autorisation parentale requise/i)).toBeInTheDocument();
+      expect(createCalled).toBe(false);
+    });
+
+    it('sends the attestation with the player once it is ticked', async () => {
+      let capturedBody: unknown;
+      server.use(
+        http.post('/api/clubs/club-1/players', async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json({ id: 'p1', clubId: 'club-1', createdAt: '2026-01-01' });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+      await user.click(await screen.findByRole('checkbox'));
+      await user.type(screen.getByLabelText(/nom de la personne qui atteste/i), 'Marie Durand');
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await waitFor(() => expect(capturedBody).toBeDefined());
+      expect(capturedBody).toEqual({
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        birthDate: MINOR_BIRTH_DATE,
+        parentalConsent: { attestedByName: 'Marie Durand' },
+      });
+    });
+  });
 });

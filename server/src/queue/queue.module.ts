@@ -4,6 +4,9 @@ import { BullModule } from '@nestjs/bullmq';
 import Redis from 'ioredis';
 
 export const SCORESHEET_OCR_QUEUE = 'scoresheet-ocr';
+// The nightly data-retention sweep. Unlike the OCR queue nothing enqueues
+// onto it by hand: RetentionModule registers a repeatable scheduler at boot.
+export const RETENTION_SWEEP_QUEUE = 'retention-sweep';
 
 const logger = new Logger('Redis');
 
@@ -43,6 +46,7 @@ const logger = new Logger('Redis');
       },
     }),
     BullModule.registerQueue({ name: SCORESHEET_OCR_QUEUE }),
+    BullModule.registerQueue({ name: RETENTION_SWEEP_QUEUE }),
   ],
   exports: [BullModule],
 })

@@ -64,6 +64,10 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@kluvo.net}
+      # Nightly retention sweep. Left on in local dev so the schedule is
+      # exercised; dry-run keeps it from erasing seed data.
+      RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
+      RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
     ports:
       - '3000:3000'
     depends_on:

@@ -15,6 +15,7 @@ import type { Club } from '@basketeasy/types/clubs';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { ImportPlayersResult, Player } from '@basketeasy/types/players';
 import type { PlayerInviteLink, PlayerInviteStatus } from '@basketeasy/types/player-invites';
+import type { ParentalConsent } from '@basketeasy/types/parental-consent';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
@@ -29,6 +30,7 @@ import { ImportPlayersDto } from './dto/import-players.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
+import { RecordParentalConsentDto } from './dto/record-parental-consent.dto';
 import { LinkFfbbClubDto } from './dto/link-ffbb-club.dto';
 
 @Controller('clubs')
@@ -103,8 +105,12 @@ export class ClubsController {
   @Post(':clubId/players')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN')
-  createPlayer(@Param('clubId') clubId: string, @Body() dto: CreatePlayerDto): Promise<Player> {
-    return this.clubsService.createPlayer(clubId, dto);
+  createPlayer(
+    @Param('clubId') clubId: string,
+    @Body() dto: CreatePlayerDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<Player> {
+    return this.clubsService.createPlayer(clubId, dto, user.id);
   }
 
   @Post(':clubId/players/import')
@@ -147,6 +153,30 @@ export class ClubsController {
     @Param('playerId') playerId: string,
   ): Promise<void> {
     return this.clubsService.deletePlayer(clubId, playerId);
+  }
+
+  // Records the attestation for a player who already exists — the path for
+  // the minors bulk import creates, which is exempt from the create-time check.
+  @Post(':clubId/players/:playerId/parental-consent')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  recordParentalConsent(
+    @Param('clubId') clubId: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: RecordParentalConsentDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<ParentalConsent> {
+    return this.clubsService.recordParentalConsent(clubId, playerId, dto.attestedByName, user.id);
+  }
+
+  @Get(':clubId/players/:playerId/parental-consent')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN')
+  getParentalConsent(
+    @Param('clubId') clubId: string,
+    @Param('playerId') playerId: string,
+  ): Promise<ParentalConsent | null> {
+    return this.clubsService.getParentalConsent(clubId, playerId);
   }
 
   @Post(':clubId/players/:playerId/invite')
