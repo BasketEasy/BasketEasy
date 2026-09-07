@@ -11,6 +11,10 @@ on:
       - 'pnpm-workspace.yaml'
       - '.github/workflows/deploy-frontend.yml'
 
+env:
+  PNPM_VERSION: 9.7.0
+  NODE_VERSION: 24
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -21,11 +25,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.7.0
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
