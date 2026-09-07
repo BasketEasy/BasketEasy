@@ -4,6 +4,9 @@
   "private": true,
   "description": "BasketEasy frontend (React + Vite)",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
