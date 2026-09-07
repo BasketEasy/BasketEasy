@@ -1,0 +1,110 @@
+# Guards the PR *description* against the PR *diff*, which is the gap issue
+# #150 filed: a PR titled "update stale host references", with a test plan
+# reading "No functional code changed — comments/docs only", also moved a
+# 30-second grace period into refresh-token reuse detection. A reviewer had no
+# reason to open auth.service.ts, and the security trade-off went unevaluated.
+#
+# Deliberately its own workflow rather than a job in ci.yml: this checks the
+# description, not the code, and CLAUDE.md asks for one concern per workflow.
+name: PR scope
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-scope-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sensitive-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            // Paths where an unreviewed behavioural change is expensive: who
+            // gets in, who may act, and what happens to personal data.
+            const SENSITIVE = [
+              { label: 'authentication / sessions', re: /^server\/src\/auth\// },
+              { label: 'data retention & erasure', re: /^server\/src\/retention\// },
+              { label: 'security audit log', re: /^server\/src\/audit\// },
+              { label: 'database schema', re: /^server\/prisma\// },
+            ];
+            // Phrases that assert the diff carries no behaviour. Any of them
+            // alongside a sensitive path is the exact shape of #150.
+            const NO_OP_CLAIM =
+              /(no functional (code )?chang|docs?[- ]only|comments?\/docs|purely (a )?(doc|comment|cosmetic)|no behaviou?ral chang)/i;
+
+            const pr = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const hits = SENSITIVE.map((area) => ({
+              label: area.label,
+              files: files.filter((f) => area.re.test(f.filename)).map((f) => f.filename),
+            })).filter((area) => area.files.length > 0);
+
+            if (hits.length === 0) {
+              core.info('No sensitive paths touched.');
+              return;
+            }
+
+            const listed = hits
+              .map((a) => `- **${a.label}**\n${a.files.map((f) => `  - \`${f}\``).join('\n')}`)
+              .join('\n');
+            core.notice(`This PR touches sensitive paths:\n${listed}`);
+
+            const claimsNoOp = NO_OP_CLAIM.test(`${pr.title}\n${pr.body ?? ''}`);
+            const marker = '<!-- pr-scope-sensitive-paths -->';
+            const body = claimsNoOp
+              ? `${marker}\n### ⚠️ This PR says it changes no behaviour, but touches:\n\n${listed}\n\n` +
+                'Either the description understates the diff, or the wording should be narrowed to ' +
+                'the part of it that really is docs-only. See issue #150 for why this check exists.'
+              : `${marker}\n### Sensitive paths in this diff\n\n${listed}\n\n` +
+                'Flagged for a closer read, not a problem in itself.';
+
+            // Refresh one sticky comment instead of stacking a new one on
+            // every push.
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...context.repo,
+                issue_number: pr.number,
+                per_page: 100,
+              });
+              const existing = comments.find((c) => c.body?.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  ...context.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  ...context.repo,
+                  issue_number: pr.number,
+                  body,
+                });
+              }
+            } catch (err) {
+              // A PR from a fork gets a read-only token. The annotation above
+              // has already been emitted, so losing the comment must not fail
+              // the check.
+              core.warning(`Could not post the scope comment: ${err.message}`);
+            }
+
+            if (claimsNoOp) {
+              core.setFailed(
+                'The PR description claims no functional change, but the diff touches ' +
+                  'authentication, retention, audit or schema code. Update the description to ' +
+                  'say what actually changed.',
+              );
+            }
