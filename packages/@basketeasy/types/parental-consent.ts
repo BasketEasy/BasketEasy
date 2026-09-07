@@ -64,7 +64,29 @@ export function isMinorBirthDate(
   if (Number.isNaN(born.getTime())) {
     return false;
   }
-  const eighteenth = new Date(born);
-  eighteenth.setUTCFullYear(eighteenth.getUTCFullYear() + MINOR_AGE_YEARS);
+  const eighteenth = eighteenthBirthday(born);
   return on < eighteenth;
+}
+
+/**
+ * The instant someone born on `born` turns eighteen, in UTC.
+ *
+ * `setUTCFullYear(y + 18)` on its own is wrong for a 29 February birth date:
+ * the target year is not a leap year, and `Date` silently rolls the
+ * nonexistent 29 February forward to 1 March — pushing the cutoff a day late,
+ * so a club could not register such a player as an adult on what everyone
+ * involved considers their birthday. French practice treats the last day of
+ * February as the anniversary in a non-leap year, so the day is clamped to
+ * the target month's length instead of being allowed to overflow. Year, month
+ * and day are set in one call, which never passes through an invalid
+ * intermediate date.
+ */
+function eighteenthBirthday(born: Date): Date {
+  const year = born.getUTCFullYear() + MINOR_AGE_YEARS;
+  const month = born.getUTCMonth();
+  // Day 0 of the following month is the last day of this one.
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const eighteenth = new Date(born);
+  eighteenth.setUTCFullYear(year, month, Math.min(born.getUTCDate(), lastDayOfMonth));
+  return eighteenth;
 }
