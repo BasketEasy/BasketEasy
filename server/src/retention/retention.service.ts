@@ -24,6 +24,13 @@ export interface RetentionStepResult {
   failedCount?: number;
   /** The ids behind `failedCount`, so a stuck record is nameable rather than merely counted. */
   failedIds?: string[];
+  /**
+   * Rows the step deliberately left alone because they stopped qualifying
+   * between the candidate query and their own turn — an account that logged
+   * back in mid-sweep. Not a failure, and recorded so the run's evidence
+   * distinguishes "spared" from "never selected".
+   */
+  skippedCount?: number;
   error?: string;
 }
 
@@ -104,6 +111,7 @@ export class RetentionService {
     }
 
     let erased = 0;
+    let skipped = 0;
     const failedIds: string[] = [];
     for (const user of candidates) {
       // One transaction per account rather than one for the batch: a single
@@ -121,7 +129,23 @@ export class RetentionService {
             players.map((player) => player.id),
             now,
           );
-          await tx.user.delete({ where: { id: user.id } });
+          // Guarded delete rather than `delete({ where: { id } })`: the
+          // candidate list was read once at the top of the step and up to 500
+          // accounts are erased sequentially behind it, while both
+          // AuthService (login/refresh) and LastActiveInterceptor can write
+          // `lastActiveAt` at any moment. Re-asserting the cutoff here makes
+          // "still inactive" part of the same atomic statement as the
+          // deletion, so an account that logged back in mid-run is never
+          // erased on the strength of a stale read.
+          const { count } = await tx.user.deleteMany({
+            where: { id: user.id, lastActiveAt: { lt: cutoff } },
+          });
+          if (count === 0) {
+            // Rolls the transaction back, so the player unlink and the
+            // consent clock above are undone too — a reactivated account must
+            // come out of this run completely untouched.
+            throw new AccountReactivatedError(user.id);
+          }
           // The account's last session ending, from the security log's point of
           // view — deliberately not a new AuditEventType: extending that enum
           // belongs to the back-office spec, and `metadata.reason` already says
@@ -136,6 +160,15 @@ export class RetentionService {
         });
         erased += 1;
       } catch (err: unknown) {
+        if (err instanceof AccountReactivatedError) {
+          // Not a failure: the policy declined to erase an account that
+          // proved it was active. Next run re-evaluates it from scratch.
+          skipped += 1;
+          this.logger.log(
+            `Retention: skipped account ${user.id} — active again since the sweep started`,
+          );
+          continue;
+        }
         // One account's failure must not abort the loop. Letting it propagate
         // would report the whole step as rejected — with count 0 — even though
         // every account before it in the ordering was already erased and
@@ -148,9 +181,15 @@ export class RetentionService {
       }
     }
 
-    return failedIds.length > 0
-      ? { status: 'ok', count: erased, failedCount: failedIds.length, failedIds }
-      : { status: 'ok', count: erased };
+    if (skipped > 0) {
+      this.logger.log(`Retention: ${skipped} account(s) reactivated mid-sweep and were spared`);
+    }
+    return {
+      status: 'ok',
+      count: erased,
+      ...(failedIds.length > 0 ? { failedCount: failedIds.length, failedIds } : {}),
+      ...(skipped > 0 ? { skippedCount: skipped } : {}),
+    };
   }
 
   /** Rule 4 — security logs are kept 12 months. */
@@ -191,6 +230,20 @@ function toStepResult(settled: PromiseSettledResult<RetentionStepResult>): Reten
     count: 0,
     error: errorMessage(settled.reason),
   };
+}
+
+/**
+ * Thrown inside an erasure transaction when the account's `lastActiveAt` no
+ * longer clears the inactivity cutoff — i.e. it was reactivated between the
+ * candidate query and its own turn in the loop. Carried as an exception
+ * purely so the transaction rolls back; it is caught by the loop and counted
+ * as a skip, never as a failure.
+ */
+class AccountReactivatedError extends Error {
+  constructor(readonly userId: string) {
+    super(`Account ${userId} became active again before it could be erased`);
+    this.name = 'AccountReactivatedError';
+  }
 }
 
 function errorMessage(err: unknown): string {
