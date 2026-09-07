@@ -19,7 +19,7 @@ describe('RetentionService', () => {
   beforeEach(async () => {
     jest.useFakeTimers().setSystemTime(now);
     prisma = {
-      user: { findMany: jest.fn().mockResolvedValue([]), delete: jest.fn() },
+      user: { findMany: jest.fn().mockResolvedValue([]), delete: jest.fn().mockResolvedValue({}) },
       player: { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn() },
       parentalConsent: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -101,6 +101,49 @@ describe('RetentionService', () => {
 
       expect(prisma.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ take: MAX_ACCOUNTS_PER_SWEEP }),
+      );
+    });
+
+    it('carries on past one account whose erasure throws, and reports it', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'user-1', email: 'a@b.com' },
+        { id: 'user-2', email: 'boom@b.com' },
+        { id: 'user-3', email: 'c@b.com' },
+      ]);
+      prisma.user.delete.mockImplementation(({ where }: { where: { id: string } }) => {
+        if (where.id === 'user-2') {
+          throw new Error('constraint violation');
+        }
+        return Promise.resolve({});
+      });
+
+      const summary = await service.run();
+
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-3' } });
+      expect(summary.inactiveAccounts).toEqual({
+        status: 'ok',
+        count: 2,
+        failedCount: 1,
+        failedIds: ['user-2'],
+      });
+    });
+
+    it('reports the step as ok — it finished — even with a failed account in it', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'boom@b.com' }]);
+      prisma.user.delete.mockRejectedValue(new Error('constraint violation'));
+
+      const summary = await service.run();
+
+      expect(summary.inactiveAccounts.status).toBe('ok');
+      expect(summary.inactiveAccounts.count).toBe(0);
+      expect(prisma.retentionRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            summary: expect.objectContaining({
+              inactiveAccounts: expect.objectContaining({ failedIds: ['user-1'] }),
+            }),
+          }),
+        }),
       );
     });
 

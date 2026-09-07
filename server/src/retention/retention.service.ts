@@ -15,6 +15,15 @@ export interface RetentionStepResult {
   status: 'ok' | 'error';
   /** Rows affected, or — in a dry run — rows that would have been affected. */
   count: number;
+  /**
+   * Rows the step tried and failed to process, having carried on with the
+   * rest. `status` stays `'ok'` when this is non-zero: the step ran to
+   * completion and the count above is a truthful tally of what it achieved.
+   * `status: 'error'` is reserved for a step that did not finish at all.
+   */
+  failedCount?: number;
+  /** The ids behind `failedCount`, so a stuck record is nameable rather than merely counted. */
+  failedIds?: string[];
   error?: string;
 }
 
@@ -62,7 +71,9 @@ export class RetentionService {
 
     this.logger.log(
       `Retention sweep${dryRun ? ' (dry run)' : ''}: ${STEP_ORDER.map(
-        (step) => `${step}=${summary[step].status}:${summary[step].count}`,
+        (step) =>
+          `${step}=${summary[step].status}:${summary[step].count}` +
+          (summary[step].failedCount ? `(+${summary[step].failedCount} failed)` : ''),
       ).join(' ')}`,
     );
     return summary;
@@ -93,38 +104,53 @@ export class RetentionService {
     }
 
     let erased = 0;
+    const failedIds: string[] = [];
     for (const user of candidates) {
       // One transaction per account rather than one for the batch: a single
       // unexpected constraint failure then costs that one account's erasure,
       // not the whole night's work.
-      await this.prisma.$transaction(async (tx) => {
-        const players = await tx.player.findMany({
-          where: { userId: user.id },
-          select: { id: true },
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const players = await tx.player.findMany({
+            where: { userId: user.id },
+            select: { id: true },
+          });
+          await tx.player.updateMany({ where: { userId: user.id }, data: { userId: null } });
+          await startParentalConsentRetention(
+            tx,
+            players.map((player) => player.id),
+            now,
+          );
+          await tx.user.delete({ where: { id: user.id } });
+          // The account's last session ending, from the security log's point of
+          // view — deliberately not a new AuditEventType: extending that enum
+          // belongs to the back-office spec, and `metadata.reason` already says
+          // precisely what happened.
+          await tx.auditLog.create({
+            data: {
+              type: 'LOGOUT',
+              actorEmail: user.email,
+              metadata: { reason: 'inactivity_12mo_erasure' },
+            },
+          });
         });
-        await tx.player.updateMany({ where: { userId: user.id }, data: { userId: null } });
-        await startParentalConsentRetention(
-          tx,
-          players.map((player) => player.id),
-          now,
-        );
-        await tx.user.delete({ where: { id: user.id } });
-        // The account's last session ending, from the security log's point of
-        // view — deliberately not a new AuditEventType: extending that enum
-        // belongs to the back-office spec, and `metadata.reason` already says
-        // precisely what happened.
-        await tx.auditLog.create({
-          data: {
-            type: 'LOGOUT',
-            actorEmail: user.email,
-            metadata: { reason: 'inactivity_12mo_erasure' },
-          },
-        });
-      });
-      erased += 1;
+        erased += 1;
+      } catch (err: unknown) {
+        // One account's failure must not abort the loop. Letting it propagate
+        // would report the whole step as rejected — with count 0 — even though
+        // every account before it in the ordering was already erased and
+        // committed, which is the opposite of the accountability evidence the
+        // RetentionRun row exists to be. Worse, candidates are selected oldest
+        // first, so a deterministically failing account would block every
+        // account behind it, every night, forever.
+        failedIds.push(user.id);
+        this.logger.error(`Retention: failed to erase account ${user.id}: ${errorMessage(err)}`);
+      }
     }
 
-    return { status: 'ok', count: erased };
+    return failedIds.length > 0
+      ? { status: 'ok', count: erased, failedCount: failedIds.length, failedIds }
+      : { status: 'ok', count: erased };
   }
 
   /** Rule 4 — security logs are kept 12 months. */
@@ -160,10 +186,13 @@ function toStepResult(settled: PromiseSettledResult<RetentionStepResult>): Reten
   if (settled.status === 'fulfilled') {
     return settled.value;
   }
-  const reason: unknown = settled.reason;
   return {
     status: 'error',
     count: 0,
-    error: reason instanceof Error ? reason.message : String(reason),
+    error: errorMessage(settled.reason),
   };
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
