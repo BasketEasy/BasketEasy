@@ -54,26 +54,21 @@ function addRule(list: BlockList, entry: string): boolean {
 }
 
 /**
- * The caller's address, as the allowlist and the back-office's audit rows
- * should see it.
+ * The caller's address, for the audit log and the per-admin CIDR allowlist.
  *
- * `X-Forwarded-For` is only consulted when TRUSTED_PROXY is set, because an
- * untrusted client can send that header itself — and letting a spoofed value
- * satisfy a per-admin network restriction would make the allowlist worse than
- * useless. Deliberately stricter than Express's own `req.ip` (which
- * AuditService's `auditContextFrom` uses for ordinary auth events): this one
- * gates an access decision, not just a log line.
+ * Defers entirely to Express's `req.ip`, which resolves X-Forwarded-For
+ * against the `trust proxy` setting configured in main.ts from TRUSTED_PROXY.
+ *
+ * This used to parse the header itself and took the leftmost entry, which was
+ * backwards and exploitable: a proxy *appends* the peer it saw, so the
+ * leftmost value is whatever the client sent — meaning anyone could name
+ * their own apparent IP and satisfy an admin's network restriction. Express
+ * takes the rightmost entry minus the trusted hop count, which is the correct
+ * one. Do not reintroduce hand-rolled parsing here.
  */
 export function clientIpOf(request: Request): string | null {
-  if (process.env.TRUSTED_PROXY === 'true') {
-    const forwarded = request.headers['x-forwarded-for'];
-    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    const candidate = first?.split(',')[0]?.trim();
-    if (candidate) {
-      return normalizeIp(candidate);
-    }
-  }
-  return request.socket?.remoteAddress ? normalizeIp(request.socket.remoteAddress) : null;
+  const ip = request.ip ?? request.socket?.remoteAddress;
+  return ip ? normalizeIp(ip) : null;
 }
 
 /**

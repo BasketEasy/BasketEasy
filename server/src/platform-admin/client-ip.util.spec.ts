@@ -1,4 +1,5 @@
-import { isIpAllowed, normalizeIp } from './client-ip.util';
+import type { Request } from 'express';
+import { clientIpOf, isIpAllowed, normalizeIp } from './client-ip.util';
 
 describe('isIpAllowed', () => {
   it('treats an empty allowlist as unrestricted', () => {
@@ -37,5 +38,29 @@ describe('isIpAllowed', () => {
     // Node reports such a peer as ::ffff:203.0.113.7, which BlockList will
     // not match against an IPv4 subnet.
     expect(isIpAllowed(['203.0.113.0/24'], normalizeIp('::ffff:203.0.113.7'))).toBe(true);
+  });
+});
+
+describe('clientIpOf', () => {
+  function buildRequest(ip: string | undefined, remoteAddress?: string): Request {
+    return { ip, socket: { remoteAddress } } as unknown as Request;
+  }
+
+  it("uses Express's resolved req.ip", () => {
+    // Express resolves X-Forwarded-For against `trust proxy` (set in main.ts
+    // from TRUSTED_PROXY) and takes the rightmost entry minus the trusted hop
+    // count. Parsing the header here instead once took the leftmost — the
+    // client-supplied — value, which let anyone name their own apparent IP
+    // and satisfy an admin's network restriction.
+    expect(clientIpOf(buildRequest('203.0.113.7'))).toBe('203.0.113.7');
+  });
+
+  it('strips the IPv4-mapped prefix a dual-stack socket reports', () => {
+    expect(clientIpOf(buildRequest('::ffff:203.0.113.7'))).toBe('203.0.113.7');
+  });
+
+  it('falls back to the socket peer when Express resolved nothing', () => {
+    expect(clientIpOf(buildRequest(undefined, '198.51.100.4'))).toBe('198.51.100.4');
+    expect(clientIpOf(buildRequest(undefined, undefined))).toBeNull();
   });
 });

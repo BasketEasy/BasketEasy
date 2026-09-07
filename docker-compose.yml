@@ -71,6 +71,8 @@ services:
       # Platform back-office step-up token. Empty disables /admin/* entirely
       # (503), which is the intended default — see .env.example.
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      # Number of reverse proxies in front of this container — see
+      # .env.example. Wrong value = wrong client IP in every audit row.
       TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
     ports:
       - '3000:3000'
