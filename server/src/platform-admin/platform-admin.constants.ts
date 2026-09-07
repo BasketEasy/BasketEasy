@@ -27,3 +27,29 @@ export function lockedUntilCleared(now: Date = new Date()): Date {
   locked.setUTCFullYear(locked.getUTCFullYear() + 100);
   return locked;
 }
+
+/**
+ * Floor on PLATFORM_JWT_SECRET, mirroring AppModule's check on
+ * JWT_ACCESS_SECRET. It cannot live in `validateEnv` — that would make the
+ * back-office mandatory rather than opt-in — so it is enforced where the
+ * secret is read instead.
+ *
+ * A secret set but too short is treated exactly like an unset one: the
+ * back-office is off. Failing closed is the only safe reading of a
+ * misconfiguration on the one surface where a forged token would open every
+ * club's roster at once, and it is strictly better than the alternative,
+ * which is an *armed* back-office behind a guessable signing key.
+ */
+export const MIN_PLATFORM_JWT_SECRET_LENGTH = 32;
+
+/**
+ * The single reader of PLATFORM_JWT_SECRET. Returns null when the
+ * back-office should not exist for this deployment — unset, or set to
+ * something too weak to sign with.
+ */
+export function resolvePlatformSecret(secret: string | undefined): string | null {
+  if (!secret || secret.trim().length < MIN_PLATFORM_JWT_SECRET_LENGTH) {
+    return null;
+  }
+  return secret;
+}

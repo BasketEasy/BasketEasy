@@ -77,6 +77,18 @@ describe('PlatformAdminGuard', () => {
     ).resolves.toBe(true);
   });
 
+  it('treats a secret too short to sign with as no back-office at all', async () => {
+    // Failing closed is the only safe reading of a misconfiguration here: the
+    // alternative is an *armed* back-office behind a guessable signing key,
+    // on the one surface where a forged token opens every club's roster.
+    config.get.mockReturnValue('too-short');
+
+    await expect(guard.canActivate(buildContext({ id: 'user-1' }))).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(prisma.platformAdmin.findUnique).not.toHaveBeenCalled();
+  });
+
   it('is 503, not 403, when the deployment has no PLATFORM_JWT_SECRET', async () => {
     // The back-office is opt-in per deploy; with no secret there is no way to
     // mint a step-up token at all, so the surface does not exist.

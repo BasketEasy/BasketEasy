@@ -67,6 +67,14 @@ services:
       # never erased out from under a dev database.
       RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
       RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
+      # Back-office step-up secret. Empty by default here too, so /admin/* is
+      # 503 until an operator opts in — but it has to be *passthrough-able*,
+      # or a developer working on the back-office has no way to turn it on
+      # without editing this file.
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      # Local dev talks to the API directly, with no proxy in front, so
+      # X-Forwarded-For is never trustworthy here.
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
     ports:
       - '3000:3000'
     volumes:

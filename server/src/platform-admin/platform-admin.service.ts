@@ -35,6 +35,7 @@ import {
   PLATFORM_LOGIN_WINDOW_MS,
   PLATFORM_TOKEN_SCOPE,
   PLATFORM_TOKEN_TTL_SECONDS,
+  resolvePlatformSecret,
 } from './platform-admin.constants';
 import { verifyTotp } from './totp.util';
 
@@ -610,7 +611,7 @@ export class PlatformAdminService {
   }
 
   private getPlatformSecret(): string {
-    const secret = this.config.get<string>('PLATFORM_JWT_SECRET');
+    const secret = resolvePlatformSecret(this.config.get<string>('PLATFORM_JWT_SECRET'));
     if (!secret) {
       throw new ServiceUnavailableException("Le back-office n'est pas activé sur ce déploiement");
     }

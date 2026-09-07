@@ -16,7 +16,10 @@ import {
 } from '@basketeasy/types/platform-admin';
 import { PrismaService } from '../../prisma/prisma.service';
 import { clientIpOf, isIpAllowed } from '../../platform-admin/client-ip.util';
-import { PLATFORM_TOKEN_SCOPE } from '../../platform-admin/platform-admin.constants';
+import {
+  PLATFORM_TOKEN_SCOPE,
+  resolvePlatformSecret,
+} from '../../platform-admin/platform-admin.constants';
 import { PLATFORM_ROLES_KEY } from '../decorators/platform-roles.decorator';
 
 interface PlatformTokenPayload {
@@ -52,13 +55,14 @@ export class PlatformAdminGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const secret = this.config.get<string>('PLATFORM_JWT_SECRET');
+    const secret = resolvePlatformSecret(this.config.get<string>('PLATFORM_JWT_SECRET'));
     if (!secret) {
       // The back-office is opt-in per deployment, not merely
-      // unreachable-in-practice: with no secret configured there is no way to
-      // mint a step-up token, so the whole surface is off. 503 rather than
-      // 403 because this is a deployment state, not a decision about the
-      // caller.
+      // unreachable-in-practice: with no usable secret configured there is no
+      // way to mint a step-up token, so the whole surface is off. 503 rather
+      // than 403 because this is a deployment state, not a decision about the
+      // caller. A secret that is set but too short lands here too — see
+      // resolvePlatformSecret.
       throw new ServiceUnavailableException("Le back-office n'est pas activé sur ce déploiement");
     }
 
