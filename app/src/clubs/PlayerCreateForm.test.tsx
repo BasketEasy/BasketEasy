@@ -311,5 +311,73 @@ describe('PlayerCreateForm', () => {
         parentalConsent: { attestedByName: 'Marie Durand' },
       });
     });
+
+    // The case client-side validation cannot cover: the API judged the player
+    // a minor and this form did not, so the consent block was never rendered
+    // and the submit went out without an attestation. The error code exists so
+    // the admin is pointed at the checkbox instead of being told
+    // "informations invalides" about a form that looks complete.
+    it('opens the consent block and points at the checkbox on a consent rejection', async () => {
+      server.use(
+        http.post('/api/clubs/club-1/players', () =>
+          HttpResponse.json(
+            {
+              message: 'Une autorisation parentale est requise pour un joueur mineur',
+              code: 'PARENTAL_CONSENT_REQUIRED',
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      expect(await screen.findByText(/considère ce joueur comme mineur/i)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+      expect(screen.queryByText(/informations saisies sont invalides/i)).not.toBeInTheDocument();
+    });
+
+    it('sends the attestation the admin then ticks, rather than dropping it', async () => {
+      const bodies: unknown[] = [];
+      server.use(
+        http.post('/api/clubs/club-1/players', async ({ request }) => {
+          const body = await request.json();
+          bodies.push(body);
+          if (!(body as { parentalConsent?: unknown }).parentalConsent) {
+            return HttpResponse.json(
+              { message: 'Autorisation requise', code: 'PARENTAL_CONSENT_REQUIRED' },
+              { status: 400 },
+            );
+          }
+          return HttpResponse.json({ id: 'p1', clubId: 'club-1', createdAt: '2026-01-01' });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await user.click(await screen.findByRole('checkbox'));
+      await user.type(screen.getByLabelText(/nom de la personne qui atteste/i), 'Marie Durand');
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await waitFor(() => expect(bodies).toHaveLength(2));
+      expect(bodies[1]).toEqual({
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        birthDate: ADULT_BIRTH_DATE,
+        parentalConsent: { attestedByName: 'Marie Durand' },
+      });
+    });
   });
 });
