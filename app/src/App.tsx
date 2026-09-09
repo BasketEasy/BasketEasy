@@ -21,6 +21,10 @@ import { EventDetailPage } from './pages/EventDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { MentionsLegalesPage } from './pages/legal/MentionsLegalesPage';
+import { PolitiqueConfidentialitePage } from './pages/legal/PolitiqueConfidentialitePage';
+import { CGUPage } from './pages/legal/CGUPage';
+import { RegistreTraitementsPage } from './pages/legal/RegistreTraitementsPage';
 
 export default function App() {
   return (
@@ -34,6 +38,13 @@ export default function App() {
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        {/* Legal documents: reachable by anyone, logged in or not, without
+            being routed through PublicOnlyRoute (a logged-in user must be
+            able to read them too) or ProtectedRoute. */}
+        <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
+        <Route path="/confidentialite" element={<PolitiqueConfidentialitePage />} />
+        <Route path="/cgu" element={<CGUPage />} />
+        <Route path="/registre-traitements" element={<RegistreTraitementsPage />} />
 
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />

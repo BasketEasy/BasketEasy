@@ -11,6 +11,7 @@ import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { PublicHeader } from '../components/PublicHeader';
 import { useAccount } from '../auth/useAccount';
 import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 
 // Copy sourced from docs/brand.md (headline/subhead/footer) — see
 // CLAUDE.md's Events and Teams module sections for what actually ships
@@ -240,7 +241,24 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border px-6 py-8 text-center">
+      <footer className="flex flex-col items-center gap-3 border-t border-border px-6 py-8 text-center">
+        <nav
+          aria-label="Documents légaux"
+          className="flex flex-wrap justify-center gap-x-4 gap-y-2"
+        >
+          <TextLink asChild size="sm">
+            <Link to="/mentions-legales">Mentions légales</Link>
+          </TextLink>
+          <TextLink asChild size="sm">
+            <Link to="/confidentialite">Confidentialité</Link>
+          </TextLink>
+          <TextLink asChild size="sm">
+            <Link to="/cgu">CGU</Link>
+          </TextLink>
+          <TextLink asChild size="sm">
+            <Link to="/registre-traitements">Registre des traitements</Link>
+          </TextLink>
+        </nav>
         <Text variant="meta">© Kluvo 2025–{new Date().getFullYear()} · Tous droits réservés</Text>
       </footer>
     </div>
