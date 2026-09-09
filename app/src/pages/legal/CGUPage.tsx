@@ -17,9 +17,8 @@ export function CGUPage() {
           clubs et équipes de basketball, accessible sur kluvo.net (le « Service »).
         </P>
         <P>
-          Éditeur : Johan Chrillesen, entrepreneur individuel, SIREN 109621060, SIRET
-          10962106000010, code APE 6201Z, domicilié 99 Boulevard Ernest Dalby, Appartement 14, 44000
-          Nantes, France. Contact : <MailLink />.
+          Éditeur : Johan Chrillesen, entrepreneur individuel, SIREN 109621060, domicilié 99
+          Boulevard Ernest Dalby, Appartement 14, 44000 Nantes, France. Contact : <MailLink />.
         </P>
         <P>
           Le Service est fourni gratuitement à ce jour. En créant un compte, l&apos;utilisateur
@@ -75,7 +74,7 @@ export function CGUPage() {
             'Les données sont hébergées en France/Union européenne, conformément aux exigences des articles 44 et suivants du RGPD relatifs aux transferts de données hors UE.',
             'Kluvo traite des données pouvant inclure des données de mineurs (nom, prénom, numéro de licence, statistiques de jeu). Ce traitement est limité aux finalités du Service, dans le respect des principes de minimisation (article 5 RGPD) et de licéité (article 6 RGPD).',
             <>
-              Responsable de traitement : Johan Chrillesen (SIRET 10962106000010), <MailLink />.
+              Responsable de traitement : Johan Chrillesen (SIREN 109621060), <MailLink />.
             </>,
             <>
               Droits d&apos;accès, de rectification, d&apos;effacement, de limitation et de

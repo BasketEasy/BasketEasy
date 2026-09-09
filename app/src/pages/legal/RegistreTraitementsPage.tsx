@@ -139,8 +139,8 @@ export function RegistreTraitementsPage() {
 
       <LegalSection title="Responsable de traitement">
         <P>
-          Johan Chrillesen, entrepreneur individuel, SIREN 109621060, SIRET 10962106000010, 99
-          Boulevard Ernest Dalby, Appartement 14, 44000 Nantes, France — <MailLink />
+          Johan Chrillesen, entrepreneur individuel, SIREN 109621060, 99 Boulevard Ernest Dalby,
+          Appartement 14, 44000 Nantes, France — <MailLink />
         </P>
         <P>DPO désigné : non applicable.</P>
       </LegalSection>

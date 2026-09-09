@@ -19,14 +19,10 @@ export function MentionsLegalesPage() {
 
       <LegalSection title="Éditeur du site">
         <P>Johan Chrillesen, entrepreneur individuel</P>
-        <P>SIREN : 109621060 · SIRET : 10962106000010 · Code APE : 6201Z</P>
+        <P>SIREN : 109621060</P>
         <P>Adresse : 99 Boulevard Ernest Dalby, Appartement 14, 44000 Nantes, France</P>
         <P>
           Email : <MailLink />
-        </P>
-        <P>
-          Statut TVA : Non assujetti à la TVA — TVA non applicable, article 293 B du Code général
-          des impôts (franchise en base).
         </P>
       </LegalSection>
 

@@ -13,8 +13,8 @@ export function PolitiqueConfidentialitePage() {
       <LegalSection title="1. Qui est responsable de vos données ?">
         <P>Le responsable du traitement des données collectées via Kluvo est :</P>
         <P>
-          Johan Chrillesen, entrepreneur individuel, SIREN 109621060, SIRET 10962106000010,
-          domicilié 99 Boulevard Ernest Dalby, Appartement 14, 44000 Nantes, France.
+          Johan Chrillesen, entrepreneur individuel, SIREN 109621060, domicilié 99 Boulevard Ernest
+          Dalby, Appartement 14, 44000 Nantes, France.
         </P>
         <P>
           Contact : <MailLink />
