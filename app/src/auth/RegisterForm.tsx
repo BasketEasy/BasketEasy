@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 import { Link } from 'react-router-dom';
 import { useRegister } from './mutations';
 import { getAuthErrorMessage } from './errorMessages';
@@ -71,6 +73,18 @@ export function RegisterForm() {
           <Button type="submit" loading={isSubmitting || isPending}>
             Créer un compte
           </Button>
+
+          <Text variant="meta" className="text-center">
+            En créant un compte, vous acceptez les{' '}
+            <TextLink asChild>
+              <Link to="/cgu">CGU</Link>
+            </TextLink>{' '}
+            et la{' '}
+            <TextLink asChild>
+              <Link to="/confidentialite">politique de confidentialité</Link>
+            </TextLink>
+            .
+          </Text>
 
           <Button asChild type="button" variant="ghost">
             <Link to="/login">J&apos;ai déjà un compte</Link>
