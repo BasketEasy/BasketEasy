@@ -20,6 +20,17 @@ Builds on `architecture.md`'s backend layer (API Gateway, Auth/Clubs/Teams/Sched
 | Cache            | Redis                         | Memcached                         | also doubles as the BullMQ queue backend — one less moving part than running Redis + Memcached separately                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Object storage   | Cloudflare R2 (S3-compatible) | AWS S3, Scaleway S3               | Zero egress fees — scoresheet photos get re-read repeatedly (review, retries, eventually OCR) and R2 charges nothing to serve them out, unlike S3/Scaleway's per-GB egress; same S3 API/SDK (`@aws-sdk/client-s3`) so no proprietary lock-in. Bucket **must** be created with R2's EU jurisdictional restriction (see `docs/superpowers/specs/2026-08-27-match-interface-design.md`'s Storage section) to keep the RGPD rationale that originally picked an EU-hosted store — R2 itself is a global product, not EU-only by default like Scaleway was |
 
+### Database scaling path
+
+Postgres is stateful — it doesn't horizontally scale the way stateless app containers do, so the path is staged and each stage is only taken when the previous one is actually exhausted, not pre-built:
+
+1. **Vertical (now → foreseeable future).** A single managed Postgres instance (Scaleway Database for PostgreSQL, sized up as needed) comfortably covers CD44-launch load. This is the only stage relevant today — no code or infra change needed ahead of it beyond picking a managed offering with easy resize.
+2. **Connection pooling (PgBouncer, or Prisma's built-in pooling via Accelerate/Data Proxy)** — the prerequisite the moment more than one app instance talks to the DB at once (including a second container for zero-downtime deploys, not just load-driven scaling), since Prisma + N app replicas without pooling exhausts Postgres's connection limit fast.
+3. **Read replicas** for read-heavy, tolerant-of-slight-staleness queries — the Team stats module (`server/src/team-stats`, season aggregation over `MatchPlayerStat`) is the clearest current candidate, since it's read-only and not latency-critical the way an RSVP write is. Would be wired via a Prisma read-replica extension (e.g. `@prisma/extension-read-replicas`) routing specific service calls to a replica client, not a blanket switch.
+4. **Partitioning/sharding** — not anticipated at CD44 scale; would only become relevant multi-region/multi-département with a write volume this schema isn't remotely near yet.
+
+None of this is implemented — see "Open decisions" below for what triggers each stage.
+
 ## Async / Jobs
 
 | Concern             | Choice                                                                 | Alternatives considered                              | Why                                                                                                                               |
@@ -81,3 +92,4 @@ pnpm workspace, `server` (NestJS) alongside `app` (React) at the repo root, shar
 - GraphQL vs REST-only if the client's data-fetching needs get more complex.
 - Nx on top of the pnpm workspace, once the number of apps/packages justifies the build-caching overhead.
 - Container orchestration at scale — plain Docker Compose is enough for the pilot; revisit Scaleway Kubernetes (Kapsule) if/when multi-instance scaling is needed.
+- Database scaling beyond a single vertically-sized instance — see the Database scaling path above. Trigger for pooling: a second concurrent app instance (deploy or scaling, whichever comes first). Trigger for read replicas: Team stats (or another read-heavy module) actually showing DB load/latency, not anticipated ahead of it.
