@@ -82,7 +82,7 @@ export function CGUPage() {
               dispose également du droit d&apos;introduire une réclamation auprès de la CNIL
               (article 77 RGPD).
             </>,
-            "Sous-traitants et hébergeurs : Scaleway (hébergement, France), Cloudflare (DNS, frontend, stockage sauvegardes, UE/États-Unis), Brevo (emails, France/UE), Gemini AI Studio de Google (lecture automatisée des feuilles de marque, UE/États-Unis). Ces sous-traitants agissent conformément à l'article 28 du RGPD.",
+            "Sous-traitants et hébergeurs : Scaleway (hébergement, France), Cloudflare (DNS, frontend, stockage sauvegardes, UE/États-Unis), Brevo (emails, France/UE), Gemini AI Studio de Google (lecture automatisée des feuilles de marque, UE/États-Unis). Scaleway, Cloudflare et Brevo agissent conformément à l'article 28 du RGPD ; l'accord de traitement des données (DPA) avec Google pour Gemini AI Studio est en cours de vérification.",
           ]}
         />
         <P>

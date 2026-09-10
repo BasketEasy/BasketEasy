@@ -2,7 +2,6 @@ import { type ReactNode } from 'react';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Heading } from '@basketeasy/ui/heading';
 import { Text } from '@basketeasy/ui/text';
-import { Card } from '@basketeasy/ui/card';
 import { TextLink } from '@basketeasy/ui/text-link';
 
 /** `<h2>` for a top-level article/section — the court-line rule, per convention. */
@@ -70,16 +69,6 @@ export function LegalTable({ columns, rows }: { columns: string[]; rows: ReactNo
         </tbody>
       </table>
     </div>
-  );
-}
-
-export function LegalCallout({ children }: { children: ReactNode }) {
-  return (
-    <Card variant="inset">
-      <Text variant="body" size="sm">
-        {children}
-      </Text>
-    </Card>
   );
 }
 
