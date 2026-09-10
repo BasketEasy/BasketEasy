@@ -41,7 +41,8 @@ const TRAITEMENTS: Traitement[] = [
     personnes: 'Joueurs (dont mineurs), coachs',
     donnees: 'Nom, disponibilités, présence aux événements, coordonnées de contact',
     destinataires: 'Membres du club concerné uniquement',
-    duree: '12 mois',
+    duree:
+      'Conservées tant que l’équipe/le club existe sur Kluvo (historique sportif du club) ; aucune purge automatique programmée',
     sousTraitants: 'Scaleway, Cloudflare, Brevo (notifications email)',
     transferts: 'Aucun',
     securite:
@@ -55,7 +56,7 @@ const TRAITEMENTS: Traitement[] = [
     personnes: 'Joueurs licenciés, dont mineurs',
     donnees: 'Numéro de licence, club, catégorie',
     destinataires: 'Club concerné, encadrants habilités',
-    duree: '12 mois',
+    duree: 'Conservées tant que le club existe sur Kluvo (aucune purge automatique programmée)',
     sousTraitants: 'Scaleway, Cloudflare',
     transferts: 'Aucun',
     securite: 'HTTPS, contrôle d’accès par rôle',
@@ -70,7 +71,8 @@ const TRAITEMENTS: Traitement[] = [
     donnees: 'Photos de feuilles de marque, statistiques de jeu, temps de jeu',
     destinataires: 'Club concerné',
     outilsTiers: 'Gemini AI Studio (Google)',
-    duree: '12 mois',
+    duree:
+      'Aucune suppression automatique à ce jour — les photos sont supprimées uniquement lors de la suppression manuelle de l’événement associé',
     transferts:
       'Un transfert hors UE est possible selon la configuration Gemini AI Studio retenue — point en cours de vérification auprès de Google',
     securite:
@@ -84,7 +86,7 @@ const TRAITEMENTS: Traitement[] = [
     personnes: 'Tous les utilisateurs',
     donnees: 'Email, contenu de la notification',
     destinataires: 'Brevo (prestataire d’envoi)',
-    duree: '12 mois',
+    duree: 'Aucune suppression automatique à ce jour',
     sousTraitants: 'Brevo (France/UE)',
     transferts: 'Aucun',
     securite: 'HTTPS, contrôle d’accès par rôle, envoi via un prestataire situé en France/UE',
@@ -160,7 +162,7 @@ export function RegistreTraitementsPage() {
               'Gemini AI Studio (Google)',
               'Traitement des feuilles de marque (OCR/IA)',
               'UE / États-Unis',
-              'Oui',
+              'En cours de vérification',
             ],
           ]}
         />
