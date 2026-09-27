@@ -18,6 +18,7 @@ const rsvps: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: 'GOING',
     respondedAt: '2026-01-02T00:00:00.000Z',
+    travelMode: null,
     isMe: false,
   },
   {
@@ -28,6 +29,7 @@ const rsvps: EventRsvpRosterEntry[] = [
     role: 'COACH',
     status: null,
     respondedAt: null,
+    travelMode: null,
     isMe: true,
   },
 ];

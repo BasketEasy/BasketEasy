@@ -46,6 +46,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     result: null,
     myMatchStats: null,
     meetingPlan: null,
+    myTravelMode: null,
     ...overrides,
   };
 }
@@ -65,6 +66,7 @@ function mockRoster(people: Person[]) {
     role: 'PLAYER',
     status: p.status,
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
+    travelMode: null,
     isMe: false,
   }));
   const convocations: EventConvocationRosterEntry[] = people.map((p, i) => ({

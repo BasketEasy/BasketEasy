@@ -32,6 +32,7 @@ const baseEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  myTravelMode: null,
 };
 
 describe('EventVoteBadge', () => {

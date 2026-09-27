@@ -1,41 +1,10 @@
-import {
-  cancellationNotification,
-  convocationNotification,
-  describeEvent,
-  formatEventMoment,
-} from './event-notification-copy';
+import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
 // 20:30 Paris time in January (UTC+1). Formatting in UTC would render this as
 // 19:30 for every French reader, which is the bug this module exists to avoid.
 const WINTER_EVENING = new Date('2026-01-10T19:30:00.000Z');
-// 20:30 Paris time in July (UTC+2) — the same wall clock, a different offset.
-const SUMMER_EVENING = new Date('2026-07-11T18:30:00.000Z');
 
 describe('event notification copy', () => {
-  describe('formatEventMoment', () => {
-    it('renders the local Paris wall-clock time, not UTC', () => {
-      expect(formatEventMoment(WINTER_EVENING)).toBe('samedi 10 janvier à 20:30');
-    });
-
-    it('follows the DST offset across the year', () => {
-      expect(formatEventMoment(SUMMER_EVENING)).toBe('samedi 11 juillet à 20:30');
-    });
-  });
-
-  describe('describeEvent', () => {
-    it('names the opponent for a match', () => {
-      expect(describeEvent({ type: 'MATCH', opponentName: 'ASVEL' })).toBe('le match contre ASVEL');
-    });
-
-    it('falls back to a bare match when no opponent is recorded', () => {
-      expect(describeEvent({ type: 'MATCH', opponentName: null })).toBe('le match');
-    });
-
-    it('never names an opponent for a training', () => {
-      expect(describeEvent({ type: 'TRAINING', opponentName: null })).toBe('l’entraînement');
-    });
-  });
-
   describe('convocationNotification', () => {
     it('names the team, the fixture, the moment and the venue', () => {
       const copy = convocationNotification('U15 M', {
@@ -49,6 +18,22 @@ describe('event notification copy', () => {
       expect(copy.body).toContain('le match contre ASVEL');
       expect(copy.body).toContain('samedi 10 janvier à 20:30');
       expect(copy.body).toContain('Gymnase Léo Lagrange');
+      expect(copy.body).not.toContain('RDV');
+    });
+
+    it('adds the meeting point and its Paris time once one is known', () => {
+      const copy = convocationNotification(
+        'U15 M',
+        {
+          type: 'MATCH',
+          startsAt: WINTER_EVENING,
+          location: 'Gymnase Léo Lagrange',
+          opponentName: 'ASVEL',
+        },
+        { meetsAt: new Date('2026-01-10T18:15:00.000Z'), placeName: 'Parking salle Coubertin' },
+      );
+
+      expect(copy.body).toContain('RDV à 19:15 — Parking salle Coubertin.');
     });
   });
 

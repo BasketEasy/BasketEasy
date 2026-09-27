@@ -14,7 +14,7 @@ describe('EventsService', () => {
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
   let notifications: { notify: jest.Mock };
-  let meetingPoints: { resolvePlans: jest.Mock };
+  let meetingPoints: { resolvePlans: jest.Mock; announceMeetingChanges: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     team: { findUnique: jest.Mock };
@@ -32,6 +32,7 @@ describe('EventsService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       upsert: jest.Mock;
+      updateMany: jest.Mock;
       deleteMany: jest.Mock;
     };
     eventConvocation: {
@@ -66,7 +67,10 @@ describe('EventsService', () => {
       eventRsvp: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
-        upsert: jest.fn(),
+        // The written row: travelMode is the column default unless a test
+        // says otherwise.
+        upsert: jest.fn().mockResolvedValue({ travelMode: 'MEETING_POINT' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         deleteMany: jest.fn(),
       },
       eventConvocation: {
@@ -122,6 +126,7 @@ describe('EventsService', () => {
     // meetingPlan: null unless a test says otherwise.
     meetingPoints = {
       resolvePlans: jest.fn().mockResolvedValue(new Map()),
+      announceMeetingChanges: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -207,6 +212,7 @@ describe('EventsService', () => {
             result: null,
             myMatchStats: null,
             meetingPlan: null,
+            myTravelMode: null,
           },
         ],
         total: 1,
@@ -990,6 +996,8 @@ describe('EventsService', () => {
         where: { eventId: { in: ['event-1'] } },
         data: { meetsAtOverride: null },
       });
+      // The meeting time moved with the kick-off.
+      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     });
 
     it('returns the meeting plan MeetingPointsService resolves for each event', async () => {
@@ -1848,6 +1856,8 @@ describe('EventsService', () => {
       });
       expect(result.myRsvpStatus).toBe('GOING');
       expect(result.myConvocation).toBe(true);
+      // A training has no travel choice.
+      expect(result.myTravelMode).toBeNull();
     });
 
     it('resolves the write in a bounded number of queries, without re-fetching the event or re-resolving the caller TeamPlayer', async () => {
@@ -1987,6 +1997,7 @@ describe('EventsService', () => {
           role: 'PLAYER',
           status: 'GOING',
           respondedAt: '2026-01-02T00:00:00.000Z',
+          travelMode: null,
           isMe: true,
         },
         {
@@ -1997,9 +2008,161 @@ describe('EventsService', () => {
           role: 'COACH',
           status: null,
           respondedAt: null,
+          travelMode: null,
           isMe: false,
         },
       ]);
+    });
+
+    it('carries each GOING member’s travel mode on a match, and nobody else’s', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue({
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+      });
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        {
+          id: 'tp-1',
+          playerId: 'player-1',
+          role: 'PLAYER',
+          player: { firstName: 'Lea', lastName: 'Bernard', userId: 'user-1' },
+          rsvps: [{ status: 'GOING', travelMode: 'DIRECT', respondedAt: new Date('2026-01-02') }],
+        },
+        {
+          id: 'tp-2',
+          playerId: 'player-2',
+          role: 'PLAYER',
+          player: { firstName: 'Nathan', lastName: 'Hubert', userId: 'user-2' },
+          rsvps: [
+            { status: 'MAYBE', travelMode: 'MEETING_POINT', respondedAt: new Date('2026-01-02') },
+          ],
+        },
+      ]);
+
+      const result = await service.listEventRsvps('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.map((r) => r.travelMode)).toEqual(['DIRECT', null]);
+    });
+  });
+
+  describe('setMyTravelMode', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-10T19:30:00.000Z'),
+      location: 'Salle Coubertin',
+      notes: null,
+      opponentName: 'Rezé',
+      venue: 'AWAY',
+      recurrenceId: null,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.count.mockResolvedValue(0);
+    });
+
+    it('refuses a training', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, type: 'TRAINING' });
+
+      await expect(
+        service.setMyTravelMode('club-1', 'team-1', 'event-1', 'user-1', 'DIRECT'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses someone who is not on the roster', async () => {
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+
+      await expect(
+        service.setMyTravelMode('club-1', 'team-1', 'event-1', 'user-1', 'DIRECT'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('refuses a player who has not answered GOING', async () => {
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.setMyTravelMode('club-1', 'team-1', 'event-1', 'user-1', 'DIRECT'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('writes the caller’s own GOING row and answers with the choice', async () => {
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+
+      const result = await service.setMyTravelMode(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'DIRECT',
+      );
+
+      expect(prisma.eventRsvp.updateMany).toHaveBeenCalledWith({
+        where: { eventId: 'event-1', teamPlayerId: 'tp-1', status: 'GOING' },
+        data: { travelMode: 'DIRECT' },
+      });
+      expect(result.myRsvpStatus).toBe('GOING');
+      expect(result.myTravelMode).toBe('DIRECT');
+    });
+  });
+
+  describe('travel mode and RSVP', () => {
+    const matchEvent = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: new Date('2026-01-10T19:30:00.000Z'),
+      location: 'Salle Coubertin',
+      notes: null,
+      opponentName: 'Rezé',
+      venue: 'AWAY',
+      recurrenceId: null,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    beforeEach(() => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(matchEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.teamPlayer.count.mockResolvedValue(0);
+    });
+
+    it('drops the travel choice when the answer leaves GOING', async () => {
+      await service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'MAYBE');
+
+      expect(prisma.eventRsvp.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ status: 'MAYBE', travelMode: 'MEETING_POINT' }),
+        }),
+      );
+    });
+
+    it('keeps a « Direct » when « Présent » is answered again', async () => {
+      prisma.eventRsvp.upsert.mockResolvedValue({ travelMode: 'DIRECT' });
+
+      const result = await service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING');
+
+      expect(prisma.eventRsvp.upsert.mock.calls[0][0].update).not.toHaveProperty('travelMode');
+      expect(result.myTravelMode).toBe('DIRECT');
+    });
+
+    it('reads a GOING player who never chose as coming to the meeting point', async () => {
+      prisma.event.findMany.mockResolvedValue([matchEvent]);
+      prisma.event.count.mockResolvedValue(1);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-1', status: 'GOING', travelMode: 'MEETING_POINT' },
+      ]);
+
+      const { items } = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+      expect(items[0].myTravelMode).toBe('MEETING_POINT');
     });
   });
 
@@ -2102,6 +2265,29 @@ describe('EventsService', () => {
           type: 'EVENT_CONVOCATION',
           deepLink: '/clubs/club-1/teams/team-1/events/event-1',
         }),
+      ]);
+    });
+
+    it('adds the meeting point to the convocation once its time is known', async () => {
+      prisma.teamPlayer.count.mockResolvedValue(1);
+      prisma.eventConvocation.findMany.mockResolvedValue([]);
+      prisma.teamPlayer.findMany.mockResolvedValueOnce([{ player: { userId: 'user-2' } }]);
+      meetingPoints.resolvePlans.mockResolvedValue(
+        new Map([
+          [
+            'event-1',
+            {
+              meetingPoint: { name: 'Parking club', address: '1 rue X' },
+              meetsAt: '2026-01-05T16:15:00.000Z',
+            },
+          ],
+        ]),
+      );
+
+      await service.setEventConvocations('club-1', 'team-1', 'event-1', ['tp-2'], 'user-1');
+
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({ body: expect.stringContaining('RDV à 17:15 — Parking club.') }),
       ]);
     });
 

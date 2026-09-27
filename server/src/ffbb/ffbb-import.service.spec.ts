@@ -1,6 +1,7 @@
 import { BadGatewayException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { FfbbImportService } from './ffbb-import.service';
 import { FfbbMatch, FfbbProvider } from './ffbb-provider';
+import type { MeetingPointsService } from '../meeting-points/meeting-points.service';
 
 function match(overrides: Partial<FfbbMatch> = {}): FfbbMatch {
   return {
@@ -21,17 +22,25 @@ describe('FfbbImportService', () => {
     clubTeam: { findUnique: jest.Mock };
     teamFfbbLink: { findMany: jest.Mock };
     event: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    eventMeeting: { updateMany: jest.Mock };
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
+  let meetingPoints: { announceMeetingChanges: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       clubTeam: { findUnique: jest.fn() },
       teamFfbbLink: { findMany: jest.fn() },
       event: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      eventMeeting: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     ffbbProvider = { getMatchesForEngagement: jest.fn(), parseEngagementRef: jest.fn() };
-    service = new FfbbImportService(prisma as never, ffbbProvider as unknown as FfbbProvider);
+    meetingPoints = { announceMeetingChanges: jest.fn().mockResolvedValue(undefined) };
+    service = new FfbbImportService(
+      prisma as never,
+      ffbbProvider as unknown as FfbbProvider,
+      meetingPoints as unknown as MeetingPointsService,
+    );
     prisma.clubTeam.findUnique.mockResolvedValue({
       clubId: 'club-1',
       teamId: 'team-1',
@@ -227,6 +236,13 @@ describe('FfbbImportService', () => {
         venue: 'HOME',
       },
     });
+    // The kick-off moved, so a meeting-time override set against the old one
+    // is dropped, and the new meeting time is announced.
+    expect(prisma.eventMeeting.updateMany).toHaveBeenCalledWith({
+      where: { eventId: { in: ['event-1'] } },
+      data: { meetsAtOverride: null },
+    });
+    expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     expect(prisma.event.create).not.toHaveBeenCalled();
     expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
   });

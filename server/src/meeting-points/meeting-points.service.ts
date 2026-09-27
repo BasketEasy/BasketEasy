@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { EventType, type EventMeeting } from '@prisma/client';
+import { EventRsvpStatus, EventTravelMode, EventType, type EventMeeting } from '@prisma/client';
 import type {
   ClubMeetingSettings,
   EventMeetingPlan,
@@ -17,10 +17,13 @@ import type {
   UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
+import { meetingChangedNotification, meetingFixedNotification } from './meeting-notification-copy';
 import {
   isTravelStale,
+  meetingAnnouncementKey,
   normaliseAddress,
   resolveDefaultMeetingPoint,
   resolveMeetingPlan,
@@ -33,9 +36,21 @@ import {
 } from './meeting-plan';
 import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
 
-export interface MeetingTravelJobData {
+// A changed meeting is only pushed to players for a match this close — a
+// club-wide default change must not send one notification per future match.
+// Further-off matches update quietly and read correctly when opened.
+export const MEETING_CHANGE_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Two job kinds share the rate-limited `meeting-travel` queue: a route
+// recompute for one match, and the announcement sweep a settings change that
+// moved no route (a buffer, a place name) still owes the players.
+export const RECOMPUTE_JOB = 'recompute';
+export const ANNOUNCE_JOB = 'announce';
+export interface MeetingRecomputeJobData {
   eventId: string;
 }
+export type MeetingAnnounceJobData = { clubId: string } | { teamId: string };
+export type MeetingTravelJobData = MeetingRecomputeJobData | MeetingAnnounceJobData;
 
 /** The event columns this service reads — a subset of every Event row. */
 export type MeetingEventRow = MeetingPlanEvent & { id: string; teamId: string };
@@ -68,8 +83,50 @@ export const REFRESH_TIMEOUT_MS = 5_000;
 export const REFRESH_COOLDOWN_MS = 15_000;
 
 interface TeamContext {
+  teamName: string;
   team: MeetingPlanTeam;
   club: (MeetingPlanClub & { name: string }) | null;
+  linkedClubs: { clubId: string; isOwner: boolean }[];
+}
+
+const TEAM_CONTEXT_SELECT = {
+  id: true,
+  name: true,
+  ...MEETING_COLUMNS,
+  clubTeams: {
+    select: {
+      clubId: true,
+      isOwner: true,
+      club: { select: { name: true, ...MEETING_COLUMNS } },
+    },
+  },
+} as const;
+
+type TeamContextRow = {
+  name: string;
+  meetingPointName: string | null;
+  meetingPointAddress: string | null;
+  arrivalBufferMinutes: number | null;
+  clubTeams: {
+    clubId: string;
+    isOwner: boolean;
+    club: MeetingPlanClub & { name: string };
+  }[];
+};
+
+// A CTC team inherits from its owner club only (ClubTeam.isOwner) — a
+// partner club's default never applies.
+function toTeamContext(row: TeamContextRow): TeamContext {
+  return {
+    teamName: row.name,
+    team: {
+      meetingPointName: row.meetingPointName,
+      meetingPointAddress: row.meetingPointAddress,
+      arrivalBufferMinutes: row.arrivalBufferMinutes,
+    },
+    club: row.clubTeams.find((ct) => ct.isOwner)?.club ?? null,
+    linkedClubs: row.clubTeams.map(({ clubId, isOwner }) => ({ clubId, isOwner })),
+  };
 }
 
 function toMeetingPoint(columns: {
@@ -113,6 +170,7 @@ export class MeetingPointsService {
     private readonly geocoding: GeocodingService,
     @Inject(ROUTING_CLIENT) private readonly routing: RoutingClient,
     @InjectQueue(MEETING_TRAVEL_QUEUE) private readonly queue: Queue<MeetingTravelJobData>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async getClubSettings(clubId: string): Promise<ClubMeetingSettings> {
@@ -139,9 +197,15 @@ export class MeetingPointsService {
         arrivalBufferMinutes: data.arrivalBufferMinutes,
       },
     });
-    // A buffer or a name changes the plan, not the route: nothing to recompute.
+    // A moved address needs recomputes, which announce as they land. A buffer
+    // or a name moves no route but still changes what players were told.
     if (!sameAddress(previous.meetingPoint, data.meetingPoint)) {
       await this.enqueueRecompute(await this.inheritingUpcomingMatchIds({ clubId }));
+    } else if (
+      previous.meetingPoint?.name !== data.meetingPoint?.name.trim() ||
+      previous.arrivalBufferMinutes !== data.arrivalBufferMinutes
+    ) {
+      await this.enqueueAnnounce({ clubId });
     }
     return this.getClubSettings(clubId);
   }
@@ -178,6 +242,11 @@ export class MeetingPointsService {
     const after = resolveDefaultMeetingPoint(nextColumns, club)?.meetingPoint;
     if (!sameAddress(before, after)) {
       await this.enqueueRecompute(await this.inheritingUpcomingMatchIds({ teamId }));
+    } else if (
+      before?.name !== after?.name ||
+      team.arrivalBufferMinutes !== data.arrivalBufferMinutes
+    ) {
+      await this.enqueueAnnounce({ teamId });
     }
     return this.getTeamSettings(clubId, teamId);
   }
@@ -279,6 +348,7 @@ export class MeetingPointsService {
     if (resolved && nextRouteKey !== currentKey) {
       await this.enqueueRecompute([eventId]);
     }
+    await this.announceMeetingChanges([eventId]);
     return this.planOrThrow(event, next, team, club);
   }
 
@@ -320,6 +390,7 @@ export class MeetingPointsService {
       travelMinutesManual: false,
       travelRouteKey: key,
     });
+    await this.announceMeetingChanges([eventId]);
   }
 
   /** The synchronous « Recalculer » behind POST …/meeting/refresh. */
@@ -357,7 +428,7 @@ export class MeetingPointsService {
     try {
       await this.queue.addBulk(
         eventIds.map((eventId) => ({
-          name: 'recompute',
+          name: RECOMPUTE_JOB,
           data: { eventId },
           opts: {
             jobId: `meeting-travel:${eventId}`,
@@ -372,6 +443,163 @@ export class MeetingPointsService {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.warn(`Failed to enqueue travel recompute: ${message}`);
     }
+  }
+
+  private async enqueueAnnounce(scope: MeetingAnnounceJobData): Promise<void> {
+    try {
+      await this.queue.add(ANNOUNCE_JOB, scope, { removeOnComplete: true, removeOnFail: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to enqueue meeting announcement: ${message}`);
+    }
+  }
+
+  /** The ANNOUNCE_JOB: every match of the scope inside the notification window. */
+  async announceUpcoming(scope: MeetingAnnounceJobData): Promise<void> {
+    const now = Date.now();
+    const events = await this.prisma.event.findMany({
+      where: {
+        type: EventType.MATCH,
+        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_NOTIFY_WINDOW_MS) },
+        ...('teamId' in scope
+          ? { teamId: scope.teamId }
+          : { team: { clubTeams: { some: { clubId: scope.clubId, isOwner: true } } } }),
+      },
+      select: { id: true },
+    });
+    await this.announceMeetingChanges(events.map((e) => e.id));
+  }
+
+  /**
+   * Tells players coming to the meeting point that it moved. Runs after every
+   * write that can change a resolved meeting (a manager's override, a
+   * recompute, a settings change, a new kick-off) and compares against
+   * `meetingAnnouncedKey`, the last meeting anyone could have been told:
+   *
+   * - an unknown time never notifies — the next known one will, including
+   *   the first: a player told « horaire à confirmer, vous serez prévenu·e »
+   *   is owed the message once the hour is fixed (« RDV fixé »);
+   * - only matches within MEETING_CHANGE_NOTIFY_WINDOW_MS are read at all.
+   *   A further-off match keeps its old key until an announce runs inside
+   *   the window, which then compares against what players last heard;
+   * - only GOING players with travelMode MEETING_POINT and an account hear it.
+   *
+   * Bounded: three reads for the whole batch plus one conditional write per
+   * changed match, run in parallel. Never throws: a missed notification must
+   * not fail a manager's save or a recompute job.
+   */
+  async announceMeetingChanges(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
+    try {
+      await this.announce(eventIds);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to announce meeting changes: ${message}`);
+    }
+  }
+
+  private async announce(eventIds: string[]): Promise<void> {
+    const now = Date.now();
+    const events = await this.prisma.event.findMany({
+      where: {
+        id: { in: eventIds },
+        type: EventType.MATCH,
+        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_NOTIFY_WINDOW_MS) },
+      },
+      select: {
+        id: true,
+        teamId: true,
+        type: true,
+        startsAt: true,
+        location: true,
+        opponentName: true,
+        meeting: true,
+      },
+    });
+    if (events.length === 0) return;
+    const contexts = await this.loadTeamContexts([...new Set(events.map((e) => e.teamId))]);
+
+    const changed = (
+      await Promise.all(
+        events.map(async (event) => {
+          const context = contexts.get(event.teamId);
+          if (!context) return null;
+          const plan = resolveMeetingPlan(event, event.meeting, context.team, context.club);
+          if (!plan?.meetingPoint || !plan.meetsAt) return null;
+          const key = meetingAnnouncementKey(plan.meetingPoint, plan.meetsAt);
+          const previous = event.meeting?.meetingAnnouncedKey ?? null;
+          if (key === previous) return null;
+          // Conditional on the key we read, so two writes racing on the same
+          // match can't both announce the same change. A known meetsAt
+          // always has an EventMeeting row behind it.
+          const { count } = await this.prisma.eventMeeting.updateMany({
+            where: { eventId: event.id, meetingAnnouncedKey: previous },
+            data: { meetingAnnouncedKey: key },
+          });
+          if (count === 0) return null;
+          return {
+            event,
+            context,
+            meeting: { meetsAt: new Date(plan.meetsAt), placeName: plan.meetingPoint.name },
+            isFirst: previous === null,
+          };
+        }),
+      )
+    ).filter((c) => c !== null);
+    if (changed.length === 0) return;
+
+    const rsvps = await this.prisma.eventRsvp.findMany({
+      where: {
+        eventId: { in: changed.map((c) => c.event.id) },
+        status: EventRsvpStatus.GOING,
+        travelMode: EventTravelMode.MEETING_POINT,
+      },
+      select: { eventId: true, teamPlayer: { select: { player: { select: { userId: true } } } } },
+    });
+    // Player.userId is nullable — a rostered player who never claimed an
+    // account has nobody to notify.
+    const recipients = rsvps.flatMap((r) =>
+      r.teamPlayer.player.userId
+        ? [{ eventId: r.eventId, userId: r.teamPlayer.player.userId }]
+        : [],
+    );
+    if (recipients.length === 0) return;
+
+    const memberships = await this.prisma.clubMembership.findMany({
+      where: {
+        userId: { in: [...new Set(recipients.map((r) => r.userId))] },
+        clubId: {
+          in: [...new Set(changed.flatMap((c) => c.context.linkedClubs.map((l) => l.clubId)))],
+        },
+      },
+      select: { userId: true, clubId: true },
+    });
+    const changedById = new Map(changed.map((c) => [c.event.id, c]));
+
+    await this.notifications.notify(
+      recipients.map(({ eventId, userId }) => {
+        const { event, context, meeting, isFirst } = changedById.get(eventId)!;
+        const copy = isFirst
+          ? meetingFixedNotification(context.teamName, event, meeting)
+          : meetingChangedNotification(context.teamName, event, meeting);
+        // The recipient's own club among the team's linked clubs, falling
+        // back to the owner — same rule as ScoresheetOcrProcessor, so a CTC
+        // reader never taps through to a 403.
+        const linked = context.linkedClubs;
+        const clubId =
+          memberships.find((m) => m.userId === userId && linked.some((l) => l.clubId === m.clubId))
+            ?.clubId ??
+          linked.find((l) => l.isOwner)?.clubId ??
+          linked[0]?.clubId;
+        return {
+          userId,
+          type: isFirst ? ('EVENT_MEETING_FIXED' as const) : ('EVENT_MEETING_CHANGED' as const),
+          title: copy.title,
+          body: copy.body,
+          deepLink: `/clubs/${clubId}/teams/${event.teamId}/events/${event.id}`,
+        };
+      }),
+    );
   }
 
   private enqueueStale(eventIds: string[]): void {
@@ -452,29 +680,22 @@ export class MeetingPointsService {
     return { event, state: meeting };
   }
 
-  // A CTC team inherits from its owner club only (ClubTeam.isOwner) — a
-  // partner club's default never applies.
   private async loadTeamContext(teamId: string): Promise<TeamContext> {
-    const team = await this.prisma.team.findUnique({
+    const row = await this.prisma.team.findUnique({
       where: { id: teamId },
-      select: {
-        ...MEETING_COLUMNS,
-        clubTeams: {
-          where: { isOwner: true },
-          take: 1,
-          select: { club: { select: { name: true, ...MEETING_COLUMNS } } },
-        },
-      },
+      select: TEAM_CONTEXT_SELECT,
     });
-    if (!team) throw new NotFoundException('Team not found');
-    return {
-      team: {
-        meetingPointName: team.meetingPointName,
-        meetingPointAddress: team.meetingPointAddress,
-        arrivalBufferMinutes: team.arrivalBufferMinutes,
-      },
-      club: team.clubTeams[0]?.club ?? null,
-    };
+    if (!row) throw new NotFoundException('Team not found');
+    return toTeamContext(row);
+  }
+
+  /** One query for any number of teams — the batch paths (announce) use this. */
+  private async loadTeamContexts(teamIds: string[]): Promise<Map<string, TeamContext>> {
+    const rows = await this.prisma.team.findMany({
+      where: { id: { in: teamIds } },
+      select: TEAM_CONTEXT_SELECT,
+    });
+    return new Map(rows.map((row) => [row.id, toTeamContext(row)]));
   }
 
   private async assertTeamInClub(clubId: string, teamId: string): Promise<void> {

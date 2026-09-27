@@ -8,25 +8,36 @@ import type { EventMeeting } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 import type { GeocodingService } from './geocoding.service';
 import { travelRouteKey } from './meeting-plan';
+import type { NotificationsService } from '../notifications/notifications.service';
 import {
+  MEETING_CHANGE_NOTIFY_WINDOW_MS,
   MeetingPointsService,
   REFRESH_TIMEOUT_MS,
   STALE_ENQUEUE_DEBOUNCE_MS,
   type MeetingEventRow,
+  type MeetingTravelJobData,
 } from './meeting-points.service';
 import type { RoutingClient } from './routing-client';
 
 describe('MeetingPointsService', () => {
   let prisma: {
     club: { findUnique: jest.Mock; update: jest.Mock };
-    team: { findUnique: jest.Mock; update: jest.Mock };
+    team: { findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
     clubTeam: { findUnique: jest.Mock };
     event: { findUnique: jest.Mock; findMany: jest.Mock };
-    eventMeeting: { findMany: jest.Mock; findUnique: jest.Mock; upsert: jest.Mock };
+    eventMeeting: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      upsert: jest.Mock;
+      updateMany: jest.Mock;
+    };
+    eventRsvp: { findMany: jest.Mock };
+    clubMembership: { findMany: jest.Mock };
   };
+  let notifications: { notify: jest.Mock };
   let geocoding: { geocode: jest.Mock };
   let routing: { geocode: jest.Mock; drivingMinutes: jest.Mock };
-  let queue: { addBulk: jest.Mock };
+  let queue: { addBulk: jest.Mock; add: jest.Mock };
   let service: MeetingPointsService;
 
   const clubColumns = {
@@ -36,10 +47,12 @@ describe('MeetingPointsService', () => {
     arrivalBufferMinutes: 45,
   };
   const teamRow = {
+    id: 'team-1',
+    name: 'U15 M',
     meetingPointName: null,
     meetingPointAddress: null,
     arrivalBufferMinutes: null,
-    clubTeams: [{ club: clubColumns }],
+    clubTeams: [{ clubId: 'club-1', isOwner: true, club: clubColumns }],
   };
 
   function match(overrides: Partial<MeetingEventRow> = {}): MeetingEventRow {
@@ -75,7 +88,11 @@ describe('MeetingPointsService', () => {
   beforeEach(() => {
     prisma = {
       club: { findUnique: jest.fn().mockResolvedValue(clubColumns), update: jest.fn() },
-      team: { findUnique: jest.fn().mockResolvedValue(teamRow), update: jest.fn() },
+      team: {
+        findUnique: jest.fn().mockResolvedValue(teamRow),
+        findMany: jest.fn().mockResolvedValue([teamRow]),
+        update: jest.fn(),
+      },
       clubTeam: { findUnique: jest.fn().mockResolvedValue({ isOwner: true }) },
       event: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       eventMeeting: {
@@ -84,16 +101,21 @@ describe('MeetingPointsService', () => {
         upsert: jest.fn(({ create }: { create: Partial<EventMeeting> }) =>
           Promise.resolve(meeting(create)),
         ),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
+      clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
     };
+    notifications = { notify: jest.fn().mockResolvedValue(undefined) };
     geocoding = { geocode: jest.fn() };
     routing = { geocode: jest.fn(), drivingMinutes: jest.fn() };
-    queue = { addBulk: jest.fn().mockResolvedValue([]) };
+    queue = { addBulk: jest.fn().mockResolvedValue([]), add: jest.fn().mockResolvedValue({}) };
     service = new MeetingPointsService(
       prisma as unknown as PrismaService,
       geocoding as unknown as GeocodingService,
       routing as unknown as RoutingClient,
-      queue as unknown as Queue<{ eventId: string }>,
+      queue as unknown as Queue<MeetingTravelJobData>,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -132,14 +154,24 @@ describe('MeetingPointsService', () => {
       ]);
     });
 
-    it('queues nothing when only the buffer or the name changed', async () => {
+    it('queues an announcement, not recomputes, when only the buffer or the name changed', async () => {
       await service.updateClubSettings('club-1', {
         meetingPoint: { name: 'Nouveau nom', address: ' 1 RUE du club, nantes' },
         arrivalBufferMinutes: 60,
       });
 
-      expect(prisma.event.findMany).not.toHaveBeenCalled();
       expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith('announce', { clubId: 'club-1' }, expect.anything());
+    });
+
+    it('queues nothing at all when nothing players see changed', async () => {
+      await service.updateClubSettings('club-1', {
+        meetingPoint: { name: 'Parking club', address: '1 rue du Club, Nantes' },
+        arrivalBufferMinutes: 45,
+      });
+
+      expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
     });
 
     it('queues a team’s inheriting matches when its effective place moves', async () => {
@@ -167,11 +199,21 @@ describe('MeetingPointsService', () => {
         where: { id: 'team-1' },
         data: { meetingPointName: null, meetingPointAddress: null, arrivalBufferMinutes: null },
       });
-      // The team already inherited the club place: no route moved.
+      // The team already inherited the club place: no route moved, nothing
+      // players see changed.
       expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
     });
 
     it('returns the owner club defaults alongside the team’s own settings', async () => {
+      prisma.team.findUnique.mockResolvedValue({
+        ...teamRow,
+        // A CTC partner's default never applies.
+        clubTeams: [
+          { clubId: 'club-2', isOwner: false, club: { ...clubColumns, name: 'Partenaire' } },
+          ...teamRow.clubTeams,
+        ],
+      });
       await expect(service.getTeamSettings('club-1', 'team-1')).resolves.toEqual({
         meetingPoint: null,
         arrivalBufferMinutes: null,
@@ -184,7 +226,9 @@ describe('MeetingPointsService', () => {
       expect(prisma.team.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({
           select: expect.objectContaining({
-            clubTeams: expect.objectContaining({ where: { isOwner: true } }),
+            clubTeams: {
+              select: expect.objectContaining({ clubId: true, isOwner: true }),
+            },
           }),
         }),
       );
@@ -441,6 +485,134 @@ describe('MeetingPointsService', () => {
 
       await expect(service.refreshTravel('club-1', 'team-1', 'event-1')).rejects.toThrow(
         ServiceUnavailableException,
+      );
+    });
+  });
+
+  describe('announceMeetingChanges', () => {
+    // Tip-off in three days: inside the notification window.
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    soon.setUTCHours(19, 30, 0, 0);
+    const known = meeting({ travelMinutes: 23, travelRouteKey: clubRoute });
+    function upcoming(state: EventMeeting | null) {
+      return { ...stored(state, { startsAt: soon }), opponentName: 'Rezé' };
+    }
+
+    it('reads only matches inside the notification window, and teams in one query', async () => {
+      await service.announceMeetingChanges(['event-1', 'event-2']);
+
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { in: ['event-1', 'event-2'] },
+            startsAt: { gt: expect.any(Date), lte: expect.any(Date) },
+          }),
+        }),
+      );
+      const { startsAt } = prisma.event.findMany.mock.calls[0][0].where;
+      expect(startsAt.lte.getTime() - startsAt.gt.getTime()).toBe(MEETING_CHANGE_NOTIFY_WINDOW_MS);
+      expect(prisma.team.findMany).not.toHaveBeenCalled();
+    });
+
+    it('tells players when a meeting hour becomes known for the first time', async () => {
+      prisma.event.findMany.mockResolvedValue([upcoming(known)]);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-1', teamPlayer: { player: { userId: 'user-1' } } },
+      ]);
+
+      await service.announceMeetingChanges(['event-1']);
+
+      expect(prisma.team.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.eventMeeting.updateMany).toHaveBeenCalledWith({
+        where: { eventId: 'event-1', meetingAnnouncedKey: null },
+        data: { meetingAnnouncedKey: expect.stringContaining('Parking club|') },
+      });
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({
+          userId: 'user-1',
+          type: 'EVENT_MEETING_FIXED',
+          title: 'RDV fixé — U15 M',
+        }),
+      ]);
+    });
+
+    it('never announces an unknown time', async () => {
+      prisma.event.findMany.mockResolvedValue([upcoming(null)]);
+
+      await service.announceMeetingChanges(['event-1']);
+
+      expect(prisma.eventMeeting.updateMany).not.toHaveBeenCalled();
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('tells GOING players coming to the meeting point, linking through their own club', async () => {
+      prisma.team.findMany.mockResolvedValue([
+        {
+          ...teamRow,
+          clubTeams: [
+            ...teamRow.clubTeams,
+            { clubId: 'club-2', isOwner: false, club: { ...clubColumns, name: 'Partenaire' } },
+          ],
+        },
+      ]);
+      prisma.event.findMany.mockResolvedValue([
+        upcoming({ ...known, meetingAnnouncedKey: 'Parking club|1 rue du Club, Nantes|old' }),
+      ]);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-1', teamPlayer: { player: { userId: 'user-partner' } } },
+        { eventId: 'event-1', teamPlayer: { player: { userId: null } } },
+      ]);
+      prisma.clubMembership.findMany.mockResolvedValue([
+        { userId: 'user-partner', clubId: 'club-2' },
+      ]);
+
+      await service.announceMeetingChanges(['event-1']);
+
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { eventId: { in: ['event-1'] }, status: 'GOING', travelMode: 'MEETING_POINT' },
+        }),
+      );
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({
+          userId: 'user-partner',
+          type: 'EVENT_MEETING_CHANGED',
+          title: 'RDV modifié — U15 M',
+          deepLink: '/clubs/club-2/teams/team-1/events/event-1',
+        }),
+      ]);
+    });
+
+    it('does not announce twice when another write already recorded the change', async () => {
+      prisma.event.findMany.mockResolvedValue([upcoming(known)]);
+      prisma.eventMeeting.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.announceMeetingChanges(['event-1']);
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('swallows its own failures', async () => {
+      prisma.event.findMany.mockRejectedValue(new Error('db down'));
+      await expect(service.announceMeetingChanges(['event-1'])).resolves.toBeUndefined();
+    });
+  });
+
+  describe('announceUpcoming', () => {
+    it('announces the window’s matches of the club’s owned teams', async () => {
+      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-1' }]);
+
+      await service.announceUpcoming({ clubId: 'club-1' });
+
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(1, {
+        where: expect.objectContaining({
+          team: { clubTeams: { some: { clubId: 'club-1', isOwner: true } } },
+        }),
+        select: { id: true },
+      });
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ where: expect.objectContaining({ id: { in: ['event-1'] } }) }),
       );
     });
   });

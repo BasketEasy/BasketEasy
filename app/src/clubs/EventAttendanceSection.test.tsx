@@ -45,6 +45,7 @@ function mockRoster(people: Person[] = SQUAD) {
     role: 'PLAYER',
     status: p.status,
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
+    travelMode: null,
     isMe: p.isMe ?? false,
   }));
   const convocations: EventConvocationRosterEntry[] = people.map((p) => ({

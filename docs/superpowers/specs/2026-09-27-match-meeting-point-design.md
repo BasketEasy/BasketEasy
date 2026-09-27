@@ -150,10 +150,11 @@ queue misses is still correct on read.
 
 - **Convocation.** When a meeting time is known at convocation time, the body gets a second
   sentence: « RDV à 19:15 — Parking salle Coubertin. » Otherwise the copy is unchanged.
-- **Change.** `Event.meetingAnnouncedKey` records the last RDV (place + time) a player could have
+- **Change.** `EventMeeting.meetingAnnouncedKey` records the last RDV (place + time) a player could have
   seen. Whenever a write or a recompute produces a _known_ RDV that differs from the stored key,
   the key is updated, and if the match is upcoming, a previous key existed and tip-off is within
-  the next **7 days**, an `EVENT_MEETING_CHANGED` notification goes to every roster member who is
+  the next **7 days**, an `EVENT_MEETING_CHANGED` (or, for the first known hour,
+  `EVENT_MEETING_FIXED`) notification goes to every roster member who is
   `GOING` with `travelMode = MEETING_POINT` and has a linked account. The rules, and what each
   prevents:
   - A transition _to_ « à confirmer » never notifies. That would be noise: the next known value

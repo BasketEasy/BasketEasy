@@ -191,7 +191,7 @@ Beyond the Working conventions above, four traps this direction has already fall
   - `EventsService.deleteEvent` — `EventConvocation` cascade-deletes with its `Event`, so recipients are gathered **before** `deleteMany` (the same shape as the existing `deleteScoresheetObjects`). A series scope sends **one** summary notification per recipient, never one per occurrence — up to `MAX_RECURRING_OCCURRENCES` (104) rows can be in scope.
   - `ScoresheetOcrProcessor` — notifies the uploader (resolved through `EventScoresheet.uploadedByTeamPlayerId` → `Player.userId`), and picks the deep link's club the same way `TeamsService.toMyTeamSummary` does, so a CTC event never links through a club the reader has no membership in.
   - In all three: `Player.userId` is nullable — a rostered player who never claimed an account has nobody to notify and is filtered out.
-- Notification copy lives in `server/src/events/event-notification-copy.ts` as pure functions. Dates are formatted in **Europe/Paris**, not UTC: the app stores no per-club timezone and Kluvo launches in Loire-Atlantique, so formatting in UTC would put a 20:30 match at "19:30" for every French reader.
+- Notification copy lives in pure functions next to the module that emits it (`server/src/events/event-notification-copy.ts`, `server/src/meeting-points/meeting-notification-copy.ts`), sharing the fixture and date wording from `server/src/common/event-copy.ts`. Dates are formatted in **Europe/Paris**, not UTC: the app stores no per-club timezone and Kluvo launches in Loire-Atlantique, so formatting in UTC would put a 20:30 match at "19:30" for every French reader.
 
 ## Account security
 

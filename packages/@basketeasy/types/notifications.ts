@@ -7,7 +7,12 @@
 // icon and to let a later preferences screen filter by category.
 
 export type NotificationType =
-  'EVENT_CONVOCATION' | 'EVENT_CANCELLED' | 'SCORESHEET_READY' | 'SCORESHEET_FAILED';
+  | 'EVENT_CONVOCATION'
+  | 'EVENT_CANCELLED'
+  | 'SCORESHEET_READY'
+  | 'SCORESHEET_FAILED'
+  | 'EVENT_MEETING_FIXED'
+  | 'EVENT_MEETING_CHANGED';
 
 export interface AppNotification {
   id: string;

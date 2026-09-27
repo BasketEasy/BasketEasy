@@ -66,6 +66,7 @@ const matchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  myTravelMode: null,
 };
 
 const trainingEvent: TeamEvent = {
@@ -85,6 +86,7 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: 'GOING',
     respondedAt: '2026-01-02T00:00:00.000Z',
+    travelMode: null,
     isMe: false,
   },
   {
@@ -95,6 +97,7 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: null,
     respondedAt: null,
+    travelMode: null,
     isMe: true,
   },
 ];
