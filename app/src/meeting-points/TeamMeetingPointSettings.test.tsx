@@ -25,11 +25,14 @@ describe('TeamMeetingPointSettings', () => {
     );
     renderWithProviders(<TeamMeetingPointSettings clubId="club-1" teamId="team-1" />);
 
-    expect(await screen.findByText('Parking club · 1 rue du Club (club)')).toBeInTheDocument();
-    expect(screen.getByText('Arrivée 45 min avant le match (club)')).toBeInTheDocument();
+    expect(await screen.findByText('Parking club')).toBeInTheDocument();
+    expect(screen.getByText('Arrivée à la salle 45 min avant le match')).toBeInTheDocument();
+    // Both values come from the club.
+    expect(screen.getAllByText('du club')).toHaveLength(2);
+    expect(screen.queryByText('propre à l’équipe')).not.toBeInTheDocument();
   });
 
-  it('sends null for what stays inherited, and the fields once unchecked', async () => {
+  it('sends null for what stays inherited, and the team’s own value once chosen', async () => {
     let body: unknown;
     server.use(
       http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
@@ -45,9 +48,13 @@ describe('TeamMeetingPointSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'Modifier' }));
 
     // Both inherited: the fields they govern are hidden.
+    expect(screen.getByRole('radio', { name: /Celui du club/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
     expect(screen.queryByLabelText('Nom du lieu')).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText(/Utiliser le délai du club/));
-    const buffer = screen.getByLabelText('Arrivée avant le match (minutes)');
+    await user.click(screen.getByRole('radio', { name: /Propre à l’équipe/ }));
+    const buffer = screen.getByLabelText('Minutes avant le match');
     await user.clear(buffer);
     await user.type(buffer, '60');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));

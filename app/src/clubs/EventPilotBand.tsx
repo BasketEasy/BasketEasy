@@ -16,7 +16,8 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
 import { EventConvocationModal } from './EventConvocationModal';
 import { eventCountdownLabel } from './eventDateFormat';
-import { useEventRoster, type EventRosterCounts } from './useEventRoster';
+import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
+import { countTravelModes } from '../meeting-points/travelCounts';
 
 /**
  * Nothing sends a reminder yet: no mailer and no scheduled job exist in
@@ -61,8 +62,19 @@ function ReminderAction({ pending }: { pending: number }) {
   );
 }
 
-function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: TeamEvent }) {
+function PilotSummary({
+  counts,
+  rows,
+  event,
+}: {
+  counts: EventRosterCounts;
+  rows: EventRosterRow[];
+  event: TeamEvent;
+}) {
   const countdown = eventCountdownLabel(event.startsAt);
+  const travel = event.meetingPlan?.meetingPoint
+    ? countTravelModes(rows, counts.isConvocationScoped)
+    : null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -87,10 +99,20 @@ function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: Tea
         notGoing={counts.notGoing}
         pending={counts.pending}
       />
-      <Text as="span" variant="meta" size="xs" className="tabular">
-        {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
-        sans réponse
-      </Text>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Text as="span" variant="meta" size="xs" className="tabular">
+          {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
+          sans réponse
+        </Text>
+        {travel && (
+          <>
+            <span aria-hidden="true" className="h-4 w-px bg-border" />
+            <Text as="span" variant="label" size="xs" tone="structure" className="tabular">
+              {travel.meetingPoint} au RDV · {travel.direct} en direct
+            </Text>
+          </>
+        )}
+      </div>
     </>
   );
 }
@@ -139,7 +161,7 @@ export function EventPilotBand({
         />
       );
     }
-    return <PilotSummary counts={counts} event={event} />;
+    return <PilotSummary counts={counts} rows={rows} event={event} />;
   };
 
   return (

@@ -3,6 +3,14 @@
 Status: spec (implements Part 3 of [`2026-09-27-match-meeting-point-design.md`](./2026-09-27-match-meeting-point-design.md))
 Date: 2026-09-27
 
+> **Revised after design validation** (Claude Design canvas:
+> https://claude.ai/artifact/BxNfwfDZ5jHYqNXgZYQJNF). The card now shows the name, the address
+> and the buffer on separate lines, with « du club » / « propre à l'équipe » badges in team scope.
+> With no meeting point it is a dashed `Card variant="placeholder"` with « Définir ». In team
+> scope, the dialog's checkboxes became radio cards (« Celui du club » / « Un lieu propre à
+> l'équipe », « Celle du club » / « Propre à l'équipe »). The club dialog gains « Supprimer le
+> RDV ».
+
 A club admin sets the club's default meeting point and arrival buffer. A team manager sees what
 the team inherits and can override either. Both screens call the Part 1 endpoints:
 `GET|PATCH /clubs/:clubId/meeting-settings` and

@@ -35,15 +35,38 @@ export type RadioCardGroupProps<T extends string> = {
   options: ReadonlyArray<RadioCardOption<T>>;
   value: T | null;
   onChange: (value: T) => void;
-  /** Selected-state fill. `brand` is the rare sharp accent; `structure` the organising blue-green. */
-  tone?: 'brand' | 'structure';
+  /**
+   * Selected-state fill. `brand` is the rare sharp accent; `structure` the
+   * organising blue-green; `choice` keeps the card on its own surface and
+   * marks the pick with the blue-green rule alone — for a form choice
+   * (« Avec le groupe » / « Directement à la salle ») where the options are
+   * read side by side and a filled card would outweigh its sibling.
+   */
+  tone?: 'brand' | 'structure' | 'choice';
+  /** Draws a radio dot at the start of each card — for choices that read as a form field. */
+  indicator?: boolean;
   className?: string;
 } & LabelProps;
 
 const SELECTED_CLASSES: Record<NonNullable<RadioCardGroupProps<string>['tone']>, string> = {
   brand: 'bg-orange shadow-segment-active',
   structure: 'border-2 border-blue-green-2 bg-sunk',
+  choice: 'border-2 border-blue-green-2 bg-surface',
 };
+
+function RadioIndicator({ selected }: { selected: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2',
+        selected ? 'border-blue-green' : 'border-border-strong',
+      )}
+    >
+      {selected && <span className="h-2.5 w-2.5 rounded-full bg-blue-green" />}
+    </span>
+  );
+}
 
 const ITEM_SELECTOR = '[role="radio"]:not([aria-disabled="true"])';
 
@@ -52,6 +75,7 @@ export function RadioCardGroup<T extends string>({
   value,
   onChange,
   tone = 'structure',
+  indicator = false,
   className,
   ...labelProps
 }: RadioCardGroupProps<T>) {
@@ -130,9 +154,13 @@ export function RadioCardGroup<T extends string>({
               focusRing,
               selected
                 ? SELECTED_CLASSES[tone]
-                : 'border border-border bg-surface hover:bg-surface-2',
+                : cn(
+                    'border bg-surface hover:bg-surface-2',
+                    tone === 'choice' ? 'border-border-strong' : 'border-border',
+                  ),
             )}
           >
+            {indicator && <RadioIndicator selected={selected} />}
             {option.render({ selected })}
           </button>
         );

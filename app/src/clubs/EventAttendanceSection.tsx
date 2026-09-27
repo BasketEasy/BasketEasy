@@ -15,7 +15,9 @@ import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
+import { formatEventTime } from './eventDateFormat';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -38,10 +40,34 @@ function attendanceSummary(counts: EventRosterCounts): string {
   return `${counts.going} oui · ${counts.maybe} peut-être · ${counts.notGoing} non · ${counts.pending} sans réponse — ${scope}`;
 }
 
-/** e.g. "8 au RDV · 3 en direct" — among the listed people who are coming. */
-function travelSummary(going: EventRosterRow[]): string {
+/**
+ * The two travel tiles — how many meet the group, how many go straight to
+ * the gym, each with the hour they are expected. They take the avatar row's
+ * place on a match with a meeting point: the question there is no longer
+ * "who is coming" but "who is in the car".
+ */
+function TravelTiles({ going, plan }: { going: EventRosterRow[]; plan: EventMeetingPlan }) {
   const direct = going.filter((row) => row.travelMode === 'DIRECT').length;
-  return `${going.length - direct} au RDV · ${direct} en direct`;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Card variant="inset" tone="structure" className="flex flex-col gap-0.5">
+        <Text variant="display" size="2xl" tone="structure" className="tabular">
+          {going.length - direct}
+        </Text>
+        <Text variant="meta" size="xs" className="tabular">
+          au RDV{plan.meetsAt ? ` · ${formatEventTime(plan.meetsAt)}` : ''}
+        </Text>
+      </Card>
+      <Card variant="inset" className="flex flex-col gap-0.5">
+        <Text variant="display" size="2xl" className="tabular">
+          {direct}
+        </Text>
+        <Text variant="meta" size="xs" className="tabular">
+          en direct · {formatEventTime(plan.arrivalAt)}
+        </Text>
+      </Card>
+    </div>
+  );
 }
 
 /**
@@ -103,18 +129,20 @@ export function EventAttendanceSection({
   clubId,
   teamId,
   eventId,
-  showTravelMode = false,
+  meetingPlan = null,
   id,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
-  /** A match with a meeting point: show who comes to the RDV and who goes direct. */
-  showTravelMode?: boolean;
+  /** A match with a meeting point: who comes to the RDV and who goes direct. */
+  meetingPlan?: EventMeetingPlan | null;
   id?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   const { rows, counts, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
+  const travelPlan = meetingPlan?.meetingPoint ? meetingPlan : null;
+  const showTravelMode = travelPlan !== null;
 
   const body = () => {
     if (isError) {
@@ -147,18 +175,17 @@ export function EventAttendanceSection({
           <Text as="span" variant="meta" size="xs" className="tabular">
             {attendanceSummary(counts)}
           </Text>
-          {showTravelMode && going.length > 0 && (
-            <Text as="span" variant="meta" size="xs" className="tabular">
-              {travelSummary(going)}
-            </Text>
-          )}
           <ResponseMeter
             going={counts.going}
             maybe={counts.maybe}
             notGoing={counts.notGoing}
             pending={counts.pending}
           />
-          {going.length > 0 && <AvatarGroup people={going} max={6} className="pt-0.5" />}
+          {travelPlan ? (
+            <TravelTiles going={going} plan={travelPlan} />
+          ) : (
+            going.length > 0 && <AvatarGroup people={going} max={6} className="pt-0.5" />
+          )}
         </div>
         <div className="border-t border-border px-3.5">
           <ul className="flex flex-col">

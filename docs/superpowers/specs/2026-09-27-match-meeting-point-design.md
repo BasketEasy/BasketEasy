@@ -147,8 +147,9 @@ queue misses is still correct on read.
   prevents:
   - A transition _to_ « à confirmer » never notifies. That would be noise: the next known value
     will.
-  - The first time an RDV becomes known sets the key without notifying. The convocation covers
-    first contact.
+  - The first time an RDV becomes known notifies too, titled « RDV fixé ». (Revised after the
+    UI design: the player's travel choice says « vous serez prévenu·e » while the hour is « à
+    confirmer », so that first hour is owed a message.)
   - The 7-day window keeps a club-wide default change from sending one notification per future
     match. A match further out is updated quietly, and the player sees it when they open it.
 

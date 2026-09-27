@@ -59,17 +59,26 @@ export function convocationNotification(
 
 /**
  * Sent only to players coming to the meeting point — someone going straight
- * to the gym isn't affected by where or when the group meets.
+ * to the gym isn't affected by where or when the group meets. `isFirst` is
+ * the hour becoming known at all (« RDV fixé »), rather than a known hour
+ * moving (« RDV modifié »).
  */
 export function meetingChangedNotification(
   teamName: string,
   event: { type: EventType; startsAt: Date; opponentName: string | null },
   meeting: KnownMeeting,
+  isFirst = false,
 ): { title: string; body: string } {
-  return {
-    title: `RDV modifié — ${teamName}`,
-    body: `Nouveau rendez-vous pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} : ${describeMeeting(meeting)}.`,
-  };
+  const moment = `${describeEvent(event)} du ${formatEventMoment(event.startsAt)}`;
+  return isFirst
+    ? {
+        title: `RDV fixé — ${teamName}`,
+        body: `Rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
+      }
+    : {
+        title: `RDV modifié — ${teamName}`,
+        body: `Nouveau rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
+      };
 }
 
 /**

@@ -44,8 +44,10 @@ describe('EventMeetingDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    expect(screen.getByText('Calculé : 23 min')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('Temps de trajet (minutes)'), '30');
+    expect(
+      screen.getByText('Estimé 23 min par OpenRouteService, du RDV à la salle.'),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Minutes (vide = calcul automatique)'), '30');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() => expect(captured.body).toEqual({ travelMinutes: 30 }));
@@ -56,6 +58,7 @@ describe('EventMeetingDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
+    await user.click(screen.getByRole('radio', { name: /Heure fixe/ }));
     await user.type(screen.getByLabelText('Heure du rendez-vous'), '18:30');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
@@ -67,6 +70,7 @@ describe('EventMeetingDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
+    await user.click(screen.getByRole('radio', { name: /Heure fixe/ }));
     await user.type(screen.getByLabelText('Heure du rendez-vous'), '21:00');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
@@ -78,6 +82,19 @@ describe('EventMeetingDialog', () => {
 
   it('goes back to the default place by sending null', async () => {
     const captured = capturePatch();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
+        HttpResponse.json({
+          meetingPoint: null,
+          arrivalBufferMinutes: null,
+          clubDefaults: {
+            clubName: 'ASC Nantes',
+            meetingPoint: { name: 'Parking salle Coubertin', address: '12 rue Coubertin' },
+            arrivalBufferMinutes: 45,
+          },
+        }),
+      ),
+    );
     const user = userEvent.setup();
     renderDialog(
       matchEvent({
@@ -90,10 +107,28 @@ describe('EventMeetingDialog', () => {
     );
 
     expect(screen.getByLabelText('Nom du lieu')).toHaveValue('Parking Leclerc');
-    await user.click(screen.getByLabelText(/Utiliser le point de rendez-vous par défaut/));
+    expect(
+      await screen.findByText('Parking salle Coubertin · défini par le club'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /RDV par défaut/ }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() => expect(captured.body).toEqual({ meetingPoint: null }));
+  });
+
+  it('previews the meeting time the form would give, as it is typed', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    expect(screen.getByText('19:15')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '20:30 − 45 min d’arrivée − 23 min de trajet, arrondi au quart d’heure inférieur',
+      ),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Minutes (vide = calcul automatique)'), '40');
+    expect(screen.getByText('19:00')).toBeInTheDocument();
   });
 
   it('reports a recomputed travel time', async () => {

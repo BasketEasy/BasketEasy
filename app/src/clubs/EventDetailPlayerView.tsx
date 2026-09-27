@@ -78,7 +78,7 @@ export function EventDetailPlayerView({
         clubId={clubId}
         teamId={teamId}
         eventId={event.id}
-        showTravelMode={event.meetingPlan?.meetingPoint != null}
+        meetingPlan={event.meetingPlan}
         id={EVENT_SECTION_IDS.presences}
       />
 

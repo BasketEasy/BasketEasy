@@ -36,6 +36,7 @@ export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; t
     <section className="flex flex-col gap-3">
       <SectionHeading as="h2">Rendez-vous d’avant-match</SectionHeading>
       <MeetingPointSettingsCard
+        scope="team"
         isError={isError}
         isLoading={isLoading}
         onRetry={() => refetch()}

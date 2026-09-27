@@ -3,6 +3,22 @@
 Status: spec (implements Part 4 of [`2026-09-27-match-meeting-point-design.md`](./2026-09-27-match-meeting-point-design.md))
 Date: 2026-09-27
 
+> **Revised after design validation.** The screens were redrawn and validated as a Claude Design
+> canvas (https://claude.ai/artifact/BxNfwfDZ5jHYqNXgZYQJNF), and the implementation now follows
+> it. The canvas wins over the sections below where they differ:
+>
+> - The RDV/arrival rows became **`EventMatchTimeline`**: « Déroulé du match », three steps
+>   (RDV → arrival → tip-off) with the hour in the time-block face, joined by a court-line rule.
+>   It replaces the venue row on a MATCH, and the kit sits in its own card beside it.
+> - The travel choice is a `RadioCardGroup` with the new `tone="choice"` and `indicator` (radio
+>   dot) props: « Avec le groupe, au RDV » and « Directement à la salle », each showing its hour.
+> - « Qui vient ? » shows two count tiles (« au RDV · 19:15 », « en direct · 19:45 »), the
+>   manager's roster gets a « Déplacement » column, and the pilot band shows the RDV/direct split.
+> - `EventMeetingDialog` has a live preview of the resulting hour, with radio cards for place
+>   (default / other) and time (automatic / fixed).
+> - New primitive variants: `Card` `variant="placeholder"`, `tone="structure"` and
+>   `tone="accent"`; `RadioCardGroup` `tone="choice"` and `indicator`.
+
 Everything on the event page (`EventDetailPlayerView` / `EventDetailManagerView`) that reads
 `TeamEvent.meetingPlan`, `TeamEvent.myTravelMode` and `EventRsvpRosterEntry.travelMode` from
 Parts 1–2. TRAINING events are untouched: `meetingPlan` is null there, and every block below

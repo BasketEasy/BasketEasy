@@ -330,8 +330,9 @@ export class MeetingPointsService {
    * recompute, a default or buffer change, a new kick-off) and compares
    * against `meetingAnnouncedKey`, the last meeting anyone could have seen:
    *
-   * - an unknown time never notifies — the next known one will;
-   * - the first known meeting is recorded silently — the convocation covers it;
+   * - an unknown time never notifies — the next known one will, including
+   *   the first: a player told « horaire à confirmer, vous serez prévenu·e »
+   *   is owed the message once the hour is fixed (« RDV fixé »);
    * - only matches within MEETING_CHANGE_NOTIFY_WINDOW_MS notify;
    * - only GOING players with travelMode MEETING_POINT and an account hear it.
    *
@@ -358,7 +359,12 @@ export class MeetingPointsService {
     }
 
     const now = Date.now();
-    const changed: { event: (typeof events)[number]; meetsAt: Date; placeName: string }[] = [];
+    const changed: {
+      event: (typeof events)[number];
+      meetsAt: Date;
+      placeName: string;
+      isFirst: boolean;
+    }[] = [];
     for (const event of events) {
       const { team, club } = contexts.get(event.teamId)!;
       const plan = resolveMeetingPlan(event, team, club);
@@ -372,7 +378,7 @@ export class MeetingPointsService {
         where: { id: event.id, meetingAnnouncedKey: event.meetingAnnouncedKey },
         data: { meetingAnnouncedKey: key },
       });
-      if (count === 0 || event.meetingAnnouncedKey === null) continue;
+      if (count === 0) continue;
 
       const startsAt = event.startsAt.getTime();
       if (startsAt <= now || startsAt > now + MEETING_CHANGE_NOTIFY_WINDOW_MS) continue;
@@ -380,6 +386,7 @@ export class MeetingPointsService {
         event,
         meetsAt: new Date(plan.meetsAt),
         placeName: plan.meetingPoint.name,
+        isFirst: event.meetingAnnouncedKey === null,
       });
     }
     if (changed.length === 0) return;
@@ -421,12 +428,14 @@ export class MeetingPointsService {
 
     await this.notifications.notify(
       recipients.map(({ eventId, userId }) => {
-        const { event, meetsAt, placeName } = changedById.get(eventId)!;
+        const { event, meetsAt, placeName, isFirst } = changedById.get(eventId)!;
         const team = teamById.get(event.teamId);
-        const copy = meetingChangedNotification(team?.name ?? 'votre équipe', event, {
-          meetsAt,
-          placeName,
-        });
+        const copy = meetingChangedNotification(
+          team?.name ?? 'votre équipe',
+          event,
+          { meetsAt, placeName },
+          isFirst,
+        );
         // The recipient's own club among the team's linked clubs, falling
         // back to the owner — same rule as ScoresheetOcrProcessor, so a CTC
         // reader never taps through to a 403.

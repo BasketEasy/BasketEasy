@@ -321,9 +321,12 @@ describe('MeetingPointsService', () => {
       ]);
     });
 
-    it('records the first known meeting without notifying — the convocation covers it', async () => {
+    it('tells players when a meeting hour becomes known for the first time', async () => {
       prisma.event.findMany.mockResolvedValue([
         { ...withTeam(match({ startsAt: soon, ...soonRoute })), meetingAnnouncedKey: null },
+      ]);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        { eventId: 'event-1', teamPlayer: { player: { userId: 'user-1' } } },
       ]);
 
       await service.announceMeetingChanges(['event-1']);
@@ -332,7 +335,9 @@ describe('MeetingPointsService', () => {
         where: { id: 'event-1', meetingAnnouncedKey: null },
         data: { meetingAnnouncedKey: expect.stringContaining('Parking club|') },
       });
-      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({ userId: 'user-1', title: 'RDV fixé — U15 M' }),
+      ]);
     });
 
     it('never announces an unknown time', async () => {

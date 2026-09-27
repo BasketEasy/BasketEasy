@@ -28,8 +28,10 @@ describe('ClubMeetingPointSettings', () => {
     );
     renderSettings();
 
-    expect(await screen.findByText('Parking Coubertin · 12 rue X, Nantes')).toBeInTheDocument();
-    expect(screen.getByText('Arrivée 60 min avant le match')).toBeInTheDocument();
+    expect(await screen.findByText('Parking Coubertin')).toBeInTheDocument();
+    expect(screen.getByText('12 rue X, Nantes')).toBeInTheDocument();
+    expect(screen.getByText('Arrivée à la salle 60 min avant le match')).toBeInTheDocument();
+    expect(screen.getByText(/S’applique à toutes les équipes du club/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
   });
 
@@ -37,6 +39,9 @@ describe('ClubMeetingPointSettings', () => {
     renderSettings();
 
     expect(await screen.findByText('Aucun point de rendez-vous')).toBeInTheDocument();
+    expect(
+      screen.getByText('Les joueurs vont directement à la salle, 45 min avant le match.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Définir' })).toBeInTheDocument();
   });
 
@@ -75,7 +80,7 @@ describe('ClubMeetingPointSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'Définir' }));
     await user.type(screen.getByLabelText('Nom du lieu'), 'Parking');
     await user.type(screen.getByLabelText('Adresse'), '1 rue X');
-    const buffer = screen.getByLabelText('Arrivée avant le match (minutes)');
+    const buffer = screen.getByLabelText('Arrivée à la salle avant le match');
     await user.clear(buffer);
     await user.type(buffer, '50');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -104,5 +109,27 @@ describe('ClubMeetingPointSettings', () => {
       await screen.findByText('Certaines informations saisies sont invalides.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('removes the club meeting point from the dialog', async () => {
+    let body: unknown;
+    server.use(
+      http.get('/api/clubs/club-1/meeting-settings', () =>
+        HttpResponse.json({
+          meetingPoint: { name: 'Parking Coubertin', address: '12 rue X, Nantes' },
+          arrivalBufferMinutes: 60,
+        }),
+      ),
+      http.patch('/api/clubs/club-1/meeting-settings', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(body as object);
+      }),
+    );
+    const user = userEvent.setup();
+    renderSettings();
+    await user.click(await screen.findByRole('button', { name: 'Modifier' }));
+    await user.click(screen.getByRole('button', { name: 'Supprimer le RDV' }));
+
+    await waitFor(() => expect(body).toEqual({ meetingPoint: null, arrivalBufferMinutes: 60 }));
   });
 });

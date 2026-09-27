@@ -6,6 +6,7 @@ import type { EventConvocationRosterEntry, EventRsvpRosterEntry } from '@baskete
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { EventAttendanceSection } from './EventAttendanceSection';
+import { computedPlan } from '../meeting-points/testEvents';
 
 const RSVPS = '/api/clubs/club-1/teams/team-1/events/event-1/rsvps';
 const CONVOCATIONS = '/api/clubs/club-1/teams/team-1/events/event-1/convocations';
@@ -83,10 +84,17 @@ describe('EventAttendanceSection', () => {
       ),
     );
     renderWithProviders(
-      <EventAttendanceSection clubId="club-1" teamId="team-1" eventId="event-1" showTravelMode />,
+      <EventAttendanceSection
+        clubId="club-1"
+        teamId="team-1"
+        eventId="event-1"
+        meetingPlan={computedPlan}
+      />,
     );
 
-    expect(await screen.findByText('1 au RDV · 1 en direct')).toBeInTheDocument();
+    // Two tiles — the count, and the hour each group is expected.
+    expect(await screen.findByText('au RDV · 19:15')).toBeInTheDocument();
+    expect(screen.getByText('en direct · 19:45')).toBeInTheDocument();
     expect(screen.getByText('Direct')).toBeInTheDocument();
     expect(screen.getByText('RDV')).toBeInTheDocument();
   });

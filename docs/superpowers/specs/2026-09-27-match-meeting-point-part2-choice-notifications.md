@@ -69,7 +69,6 @@ for each event:
   key ← name | address | meetsAt
   if key === event.meetingAnnouncedKey: continue
   write meetingAnnouncedKey = key
-  if previous key was null: continue                      // first known value: the convocation covers it
   if startsAt ∉ (now, now + 7 days]: continue             // far-off matches update quietly
   queue for notification
 recipients ← EventRsvp where eventId ∈ queued, status GOING, travelMode MEETING_POINT,
@@ -116,7 +115,7 @@ Part 1 and are picked up here.
   - Convocation copy with and without a known plan.
   - `announceMeetingChanges` called from `updateEvent`.
 - `meeting-points.service.spec.ts` (`announceMeetingChanges`):
-  - First known value records without notifying; unknown never notifies.
+  - The first known value notifies with « RDV fixé » (revised with the Part 4 design); unknown never notifies.
   - An unchanged key is a no-op.
   - Outside the 7-day window records without notifying.
   - Recipients are GOING + MEETING_POINT only, and users with no linked account are dropped.

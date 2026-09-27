@@ -40,7 +40,7 @@ function CoachOwnRsvpCard({
         Et vous&nbsp;? Vous êtes aussi sur l’effectif de cette équipe.
       </Text>
       <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />
-      <EventTravelModeControl clubId={clubId} teamId={teamId} event={event} />
+      <EventTravelModeControl clubId={clubId} teamId={teamId} event={event} divided={false} />
     </Card>
   );
 }
@@ -123,7 +123,7 @@ export function EventDetailManagerView({
           clubId={clubId}
           teamId={teamId}
           eventId={event.id}
-          showTravelMode={event.meetingPlan?.meetingPoint != null}
+          meetingPlan={event.meetingPlan}
         />
       </section>
 
