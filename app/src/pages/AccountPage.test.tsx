@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
@@ -119,5 +119,92 @@ describe('AccountPage', () => {
     await user.click(await screen.findByRole('button', { name: /se déconnecter/i }));
 
     await waitFor(() => expect(logoutCalled).toBe(true));
+  });
+
+  describe('guardians', () => {
+    it('lists the children the caller follows, each linking to its profile', async () => {
+      mockSession();
+      server.use(
+        http.get('/api/me/personas', () =>
+          HttpResponse.json({
+            self: null,
+            children: [
+              {
+                playerId: 'child-1',
+                firstName: 'Léo',
+                lastName: 'Martin',
+                clubId: 'club-1',
+                clubName: 'ASBC Rezé',
+                teams: [{ teamId: 'team-1', teamName: 'U11 M' }],
+                pendingCount: 2,
+              },
+            ],
+          }),
+        ),
+      );
+      renderWithProviders(<AccountPage />);
+
+      const link = await screen.findByRole('link', { name: 'Léo Martin' });
+      expect(link).toHaveAttribute('href', '/children/child-1');
+      expect(screen.getByText('U11 M · ASBC Rezé')).toBeInTheDocument();
+    });
+
+    it('lets an adult player remove a parent who follows them', async () => {
+      mockSession();
+      let removed = false;
+      server.use(
+        http.get('/api/me/personas', () =>
+          HttpResponse.json({ self: { pendingCount: 0, playerIds: ['me-1'] }, children: [] }),
+        ),
+        http.get('/api/me/players/me-1/guardians', () =>
+          HttpResponse.json({
+            playerId: 'me-1',
+            isMinor: false,
+            guardians: [{ userId: 'mum', firstName: 'Sophie', lastName: 'Martin', linkedAt: 'x' }],
+          }),
+        ),
+        http.delete('/api/me/players/me-1/guardians/mum', () => {
+          removed = true;
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<AccountPage />);
+
+      expect(await screen.findByText('Sophie Martin')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Retirer' }));
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Retirer' }));
+
+      await waitFor(() => expect(removed).toBe(true));
+    });
+
+    it('shows a minor who follows them but offers no way to remove anyone', async () => {
+      mockSession();
+      server.use(
+        http.get('/api/me/personas', () =>
+          HttpResponse.json({ self: { pendingCount: 0, playerIds: ['me-1'] }, children: [] }),
+        ),
+        http.get('/api/me/players/me-1/guardians', () =>
+          HttpResponse.json({
+            playerId: 'me-1',
+            isMinor: true,
+            guardians: [{ userId: 'mum', firstName: 'Sophie', lastName: 'Martin', linkedAt: 'x' }],
+          }),
+        ),
+      );
+      renderWithProviders(<AccountPage />);
+
+      expect(await screen.findByText('Sophie Martin')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Retirer' })).not.toBeInTheDocument();
+    });
+
+    it('shows no guardian section at all for someone who has none', async () => {
+      mockSession();
+      renderWithProviders(<AccountPage />);
+
+      await waitFor(() => expect(screen.getByLabelText(/prénom/i)).toHaveValue('Alix'));
+      expect(screen.queryByText('Mes enfants')).not.toBeInTheDocument();
+      expect(screen.queryByText('Accès parents')).not.toBeInTheDocument();
+    });
   });
 });

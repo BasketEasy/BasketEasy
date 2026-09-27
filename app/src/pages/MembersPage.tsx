@@ -590,7 +590,7 @@ export function MembersPage() {
                   <ResponsiveTable
                     columns={
                       isAdmin
-                        ? ['Prénom', 'Nom', 'Compte lié', '']
+                        ? ['Prénom', 'Nom', 'Compte lié', 'Parents', '']
                         : ['Prénom', 'Nom', 'Compte lié']
                     }
                   >
