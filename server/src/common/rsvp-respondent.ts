@@ -12,7 +12,6 @@ export function toRsvpRespondent(
 ): EventRsvpRespondent | null {
   if (!user) return null;
   return {
-    userId: user.id,
     firstName: user.firstName,
     lastInitial: user.lastName ? user.lastName.charAt(0).toUpperCase() : null,
     isMe: user.id === callerId,
