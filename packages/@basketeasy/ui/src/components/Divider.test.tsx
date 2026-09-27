@@ -14,4 +14,9 @@ describe('Divider', () => {
     const { container } = render(<Divider orientation="vertical" tone="brand" />);
     expect(container.firstElementChild).toHaveClass('w-px', 'bg-orange/40');
   });
+
+  it('thickens to a 2px rail for a timeline', () => {
+    const { container } = render(<Divider orientation="vertical" tone="structure" weight="rule" />);
+    expect(container.firstElementChild).toHaveClass('w-0.5', 'bg-blue-green/25');
+  });
 });

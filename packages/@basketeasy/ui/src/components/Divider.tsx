@@ -14,25 +14,35 @@ import { cn } from '../lib/cn';
 const dividerVariants = cva('shrink-0', {
   variants: {
     orientation: {
-      horizontal: 'h-px w-full',
-      vertical: 'w-px self-stretch',
+      horizontal: 'w-full',
+      vertical: 'self-stretch',
     },
     tone: {
       neutral: 'bg-border',
       brand: 'bg-orange/40',
+      /** The event timeline's rail — the structure colour, like SectionHeading's court line. */
+      structure: 'bg-blue-green/25',
     },
+    /** `rule` is the 2px line that carries a sequence (a timeline rail), not one that just separates. */
+    weight: { hairline: '', rule: '' },
   },
-  defaultVariants: { orientation: 'horizontal', tone: 'neutral' },
+  compoundVariants: [
+    { orientation: 'horizontal', weight: 'hairline', class: 'h-px' },
+    { orientation: 'horizontal', weight: 'rule', class: 'h-0.5' },
+    { orientation: 'vertical', weight: 'hairline', class: 'w-px' },
+    { orientation: 'vertical', weight: 'rule', class: 'w-0.5' },
+  ],
+  defaultVariants: { orientation: 'horizontal', tone: 'neutral', weight: 'hairline' },
 });
 
 export interface DividerProps
   extends Omit<HTMLAttributes<HTMLSpanElement>, 'children'>, VariantProps<typeof dividerVariants> {}
 
-export function Divider({ orientation, tone, className, ...props }: DividerProps) {
+export function Divider({ orientation, tone, weight, className, ...props }: DividerProps) {
   return (
     <span
       aria-hidden="true"
-      className={cn('block', dividerVariants({ orientation, tone }), className)}
+      className={cn('block', dividerVariants({ orientation, tone, weight }), className)}
       {...props}
     />
   );

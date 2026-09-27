@@ -48,6 +48,7 @@ function counts(convokedCount: number) {
     role: 'PLAYER' as const,
     isMe: false,
     rsvpStatus: null,
+    travelMode: null,
     convoked: i < convokedCount,
   }));
   return countEventRoster(rows);

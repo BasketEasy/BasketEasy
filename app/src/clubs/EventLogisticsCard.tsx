@@ -17,6 +17,7 @@ import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { Text } from '@basketeasy/ui/text';
+import { EventMatchTimeline } from '../meeting-points/EventMatchTimeline';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -191,7 +192,13 @@ function EventVenueRow({ event }: { event: TeamEvent }) {
 }
 
 /**
- * Where the event is, and who brings what — one card, three rows.
+ * Where the event is, and who brings what. Two layouts, chosen by the event
+ * type:
+ *
+ * - a TRAINING is one card, three rows: the venue, then the kit;
+ * - a MATCH reads as its day — `EventMatchTimeline` (meeting point, arrival,
+ *   tip-off) beside a « Matériel » card with the kit. The timeline's arrival
+ *   step carries the gym and its directions, so there is no venue row.
  *
  * It backs two blocks that ask the same question from opposite ends: the
  * player's « S'y rendre » (how do I get there, and is it me carrying the
@@ -233,9 +240,8 @@ export function EventLogisticsCard({
     label: `${r.firstName} ${r.lastName}`,
   }));
 
-  return (
-    <Card variant="flush">
-      <EventVenueRow event={event} />
+  const kitRows = (
+    <>
       <LogisticsFieldRow
         clubId={clubId}
         teamId={teamId}
@@ -256,6 +262,40 @@ export function EventLogisticsCard({
         isRostered={isRostered}
         rosterOptions={rosterOptions}
       />
+    </>
+  );
+
+  // Keyed on the type, not on the plan being present: the plan is how a
+  // match is drawn, never what makes it one. The API sends a plan for every
+  // MATCH, so the second test only narrows the type.
+  if (event.type === 'MATCH' && event.meetingPlan) {
+    return (
+      <div className="grid items-start gap-3.5 lg:grid-cols-2">
+        <EventMatchTimeline
+          clubId={clubId}
+          teamId={teamId}
+          event={event}
+          plan={event.meetingPlan}
+          canManage={canManage}
+        />
+        <Card variant="flush">
+          {canManage && (
+            <div className="border-b border-border px-3.5 pt-4 pb-3">
+              <Text variant="label" className="font-bold">
+                Matériel
+              </Text>
+            </div>
+          )}
+          {kitRows}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <Card variant="flush">
+      <EventVenueRow event={event} />
+      {kitRows}
     </Card>
   );
 }

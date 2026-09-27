@@ -3,6 +3,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -63,6 +64,7 @@ function ReminderAction({ pending }: { pending: number }) {
 
 function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: TeamEvent }) {
   const countdown = eventCountdownLabel(event.startsAt);
+  const travel = event.meetingPlan?.meetingPoint ? counts.travel : null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -87,10 +89,20 @@ function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: Tea
         notGoing={counts.notGoing}
         pending={counts.pending}
       />
-      <Text as="span" variant="meta" size="xs" className="tabular">
-        {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
-        sans réponse
-      </Text>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Text as="span" variant="meta" size="xs" className="tabular">
+          {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
+          sans réponse
+        </Text>
+        {travel && (
+          <>
+            <Divider orientation="vertical" className="h-4 self-center" />
+            <Text as="span" variant="label" size="xs" tone="structure" className="tabular">
+              {travel.meetingPoint} au RDV · {travel.direct} en direct
+            </Text>
+          </>
+        )}
+      </div>
     </>
   );
 }
