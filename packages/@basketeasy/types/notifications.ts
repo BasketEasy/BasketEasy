@@ -11,6 +11,7 @@ export type NotificationType =
   | 'EVENT_CANCELLED'
   | 'SCORESHEET_READY'
   | 'SCORESHEET_FAILED'
+  | 'EVENT_MEETING_FIXED'
   | 'EVENT_MEETING_CHANGED';
 
 export interface AppNotification {

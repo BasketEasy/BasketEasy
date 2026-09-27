@@ -97,6 +97,7 @@ enum NotificationType {
   EVENT_CANCELLED
   SCORESHEET_READY
   SCORESHEET_FAILED
+  EVENT_MEETING_FIXED
   EVENT_MEETING_CHANGED
 }
 
@@ -380,19 +381,6 @@ model Event {
   // confirmed" placeholder. Defaults true so every manually-created event is
   // unaffected; only the FFBB import path ever sets it false.
   timeConfirmed       Boolean            @default(true)
-  // Per-match meeting point override (null inherits the team's, then the
-  // owner club's) and the travel state behind the resolved meeting time.
-  // travelRouteKey records which origin → location route travelMinutes was
-  // computed (or typed) for; a mismatch on read means the minutes are stale.
-  // meetingAnnouncedKey is the last meeting place + time players were told
-  // about, so a change is notified once. MATCH only — cleared on TRAINING.
-  meetingPointName    String?
-  meetingPointAddress String?
-  travelMinutes       Int?
-  travelMinutesManual Boolean            @default(false)
-  travelRouteKey      String?
-  meetsAtOverride     DateTime?
-  meetingAnnouncedKey String?
   createdAt           DateTime           @default(now())
   team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps               EventRsvp[]
@@ -400,6 +388,7 @@ model Event {
   votes               EventVote[]
   scoresheet          EventScoresheet?
   playerStats         MatchPlayerStat[]
+  meeting             EventMeeting?
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -723,8 +712,9 @@ model RetentionRun {
   dryRun Boolean  @default(false)
   // One entry per independent step —
   // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
-  //   parentalConsents: {...} } — so a step that threw stays visible next to
-  // the steps that succeeded instead of losing the whole run.
+  //   parentalConsents: {...}, geocodeCache: {...} } — so a step that threw
+  // stays visible next to the steps that succeeded instead of losing the
+  // whole run.
   summary Json
 
   @@index([ranAt])
@@ -740,4 +730,33 @@ model GeocodedAddress {
   latitude   Float?
   longitude  Float?
   resolvedAt DateTime @default(now())
+  // Touched on a cache hit (at most daily); the nightly retention sweep drops
+  // rows nobody has looked up for a year, so the cache doesn't grow forever
+  // with every typo and every one-off away gym.
+  lastUsedAt DateTime @default(now())
+
+  @@index([lastUsedAt])
+}
+
+// A MATCH's meeting-point state, one row per event at most — kept off Event
+// so a TRAINING (which has none) needs no clearing and Event doesn't absorb
+// every match-day feature. Cascades with its Event.
+//
+// meetingPointName/Address override the team's, then the owner club's,
+// default (null inherits; both set or both null). travelRouteKey records
+// which origin → location route travelMinutes was computed (or typed) for; a
+// mismatch on read means the minutes are stale. meetingAnnouncedKey is the
+// last meeting place + time players were told about, so a change is
+// notified once. See docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+model EventMeeting {
+  eventId             String    @id
+  meetingPointName    String?
+  meetingPointAddress String?
+  travelMinutes       Int?
+  travelMinutesManual Boolean   @default(false)
+  travelRouteKey      String?
+  meetsAtOverride     DateTime?
+  meetingAnnouncedKey String?
+  updatedAt           DateTime  @updatedAt
+  event               Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }

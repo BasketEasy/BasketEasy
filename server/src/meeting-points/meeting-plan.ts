@@ -1,23 +1,31 @@
+import { createHash } from 'node:crypto';
 import {
   DEFAULT_ARRIVAL_BUFFER_MINUTES,
+  computeArrivalAt,
+  computeMeetsAt,
   type EventMeetingPlan,
   type MeetingPoint,
   type MeetingPointSource,
 } from '@basketeasy/types/meeting-points';
 
-const MINUTE_MS = 60 * 1000;
-const QUARTER_HOUR_MS = 15 * MINUTE_MS;
-
-/** The meeting-point columns shared by Club, Team and Event. */
+/** The meeting-point columns shared by Club, Team and EventMeeting. */
 export interface MeetingPointColumns {
   meetingPointName: string | null;
   meetingPointAddress: string | null;
 }
 
-export interface MeetingPlanEvent extends MeetingPointColumns {
+/** The Event columns the plan reads — the match itself, not its meeting state. */
+export interface MeetingPlanEvent {
   type: 'TRAINING' | 'MATCH';
   startsAt: Date;
   location: string;
+}
+
+/**
+ * A match's EventMeeting row, or null when nothing was ever stored for it
+ * (no override, no travel time yet) — the common case, so no row is needed.
+ */
+export interface MeetingPlanState extends MeetingPointColumns {
   travelMinutes: number | null;
   travelMinutesManual: boolean;
   travelRouteKey: string | null;
@@ -33,6 +41,13 @@ export interface MeetingPlanClub extends MeetingPointColumns {
 }
 
 /**
+ * Bumped whenever normaliseAddress (or the key's shape) changes, so every
+ * stored key reads as stale once and is recomputed, instead of silently
+ * mismatching forever.
+ */
+const ROUTE_KEY_VERSION = 'v1';
+
+/**
  * Case, surrounding and repeated whitespace don't make a different address —
  * « Salle Coubertin,  Nantes » and « salle coubertin, nantes » are one gym,
  * one geocode, one route.
@@ -45,44 +60,52 @@ export function normaliseAddress(text: string): string {
  * Identifies the route a stored travel time belongs to. An event's origin is
  * inherited, so a club admin moving the club's meeting point silently changes
  * the route of every match that inherits it — comparing this key on read is
- * what turns that into "stale" rather than a wrong time.
+ * what turns that into "stale" rather than a wrong time. Hashed so the column
+ * stays a fixed width however long the two addresses are.
  */
 export function travelRouteKey(originAddress: string, location: string): string {
-  return `${normaliseAddress(originAddress)} → ${normaliseAddress(location)}`;
+  const digest = createHash('sha1')
+    .update(`${normaliseAddress(originAddress)}\u0000${normaliseAddress(location)}`)
+    .digest('hex');
+  return `${ROUTE_KEY_VERSION}:${digest}`;
 }
 
-/**
- * Rounds down, never up: a meeting time a few minutes early is fine, one that
- * makes the group late isn't. Flooring the UTC instant is the same as flooring
- * in Europe/Paris, whose offset is a whole number of hours.
- */
-export function floorToQuarterHour(date: Date): Date {
-  return new Date(Math.floor(date.getTime() / QUARTER_HOUR_MS) * QUARTER_HOUR_MS);
-}
-
-function toMeetingPoint(columns: MeetingPointColumns): MeetingPoint | null {
-  return columns.meetingPointName && columns.meetingPointAddress
+function toMeetingPoint(columns: MeetingPointColumns | null): MeetingPoint | null {
+  return columns?.meetingPointName && columns.meetingPointAddress
     ? { name: columns.meetingPointName, address: columns.meetingPointAddress }
     : null;
 }
 
-/** Event override, then team default, then owner club default — the most specific set one wins. */
-export function resolveMeetingPoint(
-  event: MeetingPointColumns,
+type DefaultMeetingPoint = {
+  meetingPoint: MeetingPoint;
+  source: Exclude<MeetingPointSource, 'EVENT'>;
+};
+
+/** What a match falls back to without its own override: team default, then owner club default. */
+export function resolveDefaultMeetingPoint(
   team: MeetingPointColumns,
   club: MeetingPointColumns | null,
-): { meetingPoint: MeetingPoint; source: MeetingPointSource } | null {
-  const fromEvent = toMeetingPoint(event);
-  if (fromEvent) return { meetingPoint: fromEvent, source: 'EVENT' };
+): DefaultMeetingPoint | null {
   const fromTeam = toMeetingPoint(team);
   if (fromTeam) return { meetingPoint: fromTeam, source: 'TEAM' };
-  const fromClub = club ? toMeetingPoint(club) : null;
+  const fromClub = toMeetingPoint(club);
   if (fromClub) return { meetingPoint: fromClub, source: 'CLUB' };
   return null;
 }
 
+/** Event override, then team default, then owner club default — the most specific set one wins. */
+export function resolveMeetingPoint(
+  override: MeetingPointColumns | null,
+  team: MeetingPointColumns,
+  club: MeetingPointColumns | null,
+): { meetingPoint: MeetingPoint; source: MeetingPointSource } | null {
+  const fromEvent = toMeetingPoint(override);
+  if (fromEvent) return { meetingPoint: fromEvent, source: 'EVENT' };
+  return resolveDefaultMeetingPoint(team, club);
+}
+
 /**
- * The whole formula from the design doc, in one pure function:
+ * The whole formula from the design doc, resolved on read:
  *
  *   arrivalAt = startsAt − buffer
  *   meetsAt   = override ?? floor15(arrivalAt − travel) ?? null
@@ -92,6 +115,7 @@ export function resolveMeetingPoint(
  */
 export function resolveMeetingPlan(
   event: MeetingPlanEvent,
+  state: MeetingPlanState | null,
   team: MeetingPlanTeam,
   club: MeetingPlanClub | null,
 ): EventMeetingPlan | null {
@@ -99,15 +123,21 @@ export function resolveMeetingPlan(
 
   const arrivalBufferMinutes =
     team.arrivalBufferMinutes ?? club?.arrivalBufferMinutes ?? DEFAULT_ARRIVAL_BUFFER_MINUTES;
-  const arrivalAt = new Date(event.startsAt.getTime() - arrivalBufferMinutes * MINUTE_MS);
-  const resolved = resolveMeetingPoint(event, team, club);
+  const arrivalAt = computeArrivalAt(event.startsAt, arrivalBufferMinutes).toISOString();
+  const fallback = resolveDefaultMeetingPoint(team, club);
+  const resolved = resolveMeetingPoint(state, team, club);
+  const defaults = {
+    defaultMeetingPoint: fallback?.meetingPoint ?? null,
+    defaultMeetingPointSource: fallback?.source ?? null,
+  };
 
   if (!resolved) {
     return {
-      arrivalAt: arrivalAt.toISOString(),
+      arrivalAt,
       arrivalBufferMinutes,
       meetingPoint: null,
       meetingPointSource: null,
+      ...defaults,
       travelMinutes: null,
       travelMinutesSource: null,
       meetsAt: null,
@@ -116,26 +146,27 @@ export function resolveMeetingPlan(
   }
 
   const isCurrentRoute =
-    event.travelRouteKey === travelRouteKey(resolved.meetingPoint.address, event.location);
-  const travelMinutes = isCurrentRoute ? event.travelMinutes : null;
+    state?.travelRouteKey === travelRouteKey(resolved.meetingPoint.address, event.location);
+  const travelMinutes = isCurrentRoute ? state.travelMinutes : null;
   const travelMinutesSource =
-    travelMinutes === null ? null : event.travelMinutesManual ? 'MANUAL' : 'COMPUTED';
+    travelMinutes === null ? null : state?.travelMinutesManual ? 'MANUAL' : 'COMPUTED';
 
   let meetsAt: Date | null = null;
   let meetsAtSource: EventMeetingPlan['meetsAtSource'] = null;
-  if (event.meetsAtOverride) {
-    meetsAt = event.meetsAtOverride;
+  if (state?.meetsAtOverride) {
+    meetsAt = state.meetsAtOverride;
     meetsAtSource = 'OVERRIDE';
   } else if (travelMinutes !== null) {
-    meetsAt = floorToQuarterHour(new Date(arrivalAt.getTime() - travelMinutes * MINUTE_MS));
+    meetsAt = computeMeetsAt({ startsAt: event.startsAt, arrivalBufferMinutes, travelMinutes });
     meetsAtSource = 'COMPUTED';
   }
 
   return {
-    arrivalAt: arrivalAt.toISOString(),
+    arrivalAt,
     arrivalBufferMinutes,
     meetingPoint: resolved.meetingPoint,
     meetingPointSource: resolved.source,
+    ...defaults,
     travelMinutes,
     travelMinutesSource,
     meetsAt: meetsAt?.toISOString() ?? null,
@@ -158,11 +189,12 @@ export function meetingAnnouncementKey(meetingPoint: MeetingPoint, meetsAt: stri
  */
 export function isTravelStale(
   event: MeetingPlanEvent,
+  state: MeetingPlanState | null,
   team: MeetingPlanTeam,
   club: MeetingPlanClub | null,
 ): boolean {
   if (event.type !== 'MATCH') return false;
-  const resolved = resolveMeetingPoint(event, team, club);
+  const resolved = resolveMeetingPoint(state, team, club);
   if (!resolved) return false;
-  return event.travelRouteKey !== travelRouteKey(resolved.meetingPoint.address, event.location);
+  return state?.travelRouteKey !== travelRouteKey(resolved.meetingPoint.address, event.location);
 }

@@ -1,7 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
-import { toast } from '@basketeasy/ui/toast-store';
-import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import {
   MeetingPointSettingsCard,
   type MeetingPointSettingsSummary,
@@ -9,6 +7,7 @@ import {
 import { MeetingPointSettingsDialog } from './MeetingPointSettingsDialog';
 import { useTeamMeetingSettings } from './useTeamMeetingSettings';
 import { useTeamMeetingSettingsUpdate } from './useTeamMeetingSettingsUpdate';
+import { useMeetingSettingsEditor } from './useMeetingSettingsEditor';
 
 /**
  * A team manager's view of the meeting point: what applies to this team's
@@ -17,9 +16,8 @@ import { useTeamMeetingSettingsUpdate } from './useTeamMeetingSettingsUpdate';
  */
 export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, isLoading, refetch } = useTeamMeetingSettings(clubId, teamId);
-  const { mutate: save, isPending } = useTeamMeetingSettingsUpdate(clubId, teamId);
-  const [isOpen, setIsOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { mutateAsync: save } = useTeamMeetingSettingsUpdate(clubId, teamId);
+  const editor = useMeetingSettingsEditor(save);
 
   const summary = useMemo<MeetingPointSettingsSummary | undefined>(
     () =>
@@ -41,29 +39,16 @@ export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; t
         isLoading={isLoading}
         onRetry={() => refetch()}
         summary={summary}
-        onEdit={() => {
-          setError(null);
-          setIsOpen(true);
-        }}
+        onEdit={editor.open}
       />
       {data && (
         <MeetingPointSettingsDialog
-          open={isOpen}
-          onOpenChange={setIsOpen}
+          open={editor.isOpen}
+          onOpenChange={editor.setIsOpen}
           title="Point de rendez-vous de l’équipe"
           value={data}
           inherited={data.clubDefaults}
-          isSaving={isPending}
-          error={error}
-          onSubmit={(value) =>
-            save(value, {
-              onSuccess: () => {
-                toast({ variant: 'success', title: 'Point de rendez-vous enregistré' });
-                setIsOpen(false);
-              },
-              onError: (err) => setError(getClubErrorMessage(err)),
-            })
-          }
+          onSubmit={editor.submit}
         />
       )}
     </section>

@@ -22,6 +22,7 @@ describe('FfbbImportService', () => {
     clubTeam: { findUnique: jest.Mock };
     teamFfbbLink: { findMany: jest.Mock };
     event: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    eventMeeting: { updateMany: jest.Mock };
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
   let meetingPoints: { announceMeetingChanges: jest.Mock };
@@ -31,6 +32,7 @@ describe('FfbbImportService', () => {
       clubTeam: { findUnique: jest.fn() },
       teamFfbbLink: { findMany: jest.fn() },
       event: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      eventMeeting: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     ffbbProvider = { getMatchesForEngagement: jest.fn(), parseEngagementRef: jest.fn() };
     meetingPoints = { announceMeetingChanges: jest.fn().mockResolvedValue(undefined) };
@@ -232,10 +234,13 @@ describe('FfbbImportService', () => {
         opponentName: 'Nantes Sully Basket',
         timeConfirmed: true,
         venue: 'HOME',
-        // The kick-off moved, so a meeting-time override set against the old
-        // one is dropped, and the new meeting time is announced.
-        meetsAtOverride: null,
       },
+    });
+    // The kick-off moved, so a meeting-time override set against the old one
+    // is dropped, and the new meeting time is announced.
+    expect(prisma.eventMeeting.updateMany).toHaveBeenCalledWith({
+      where: { eventId: { in: ['event-1'] } },
+      data: { meetsAtOverride: null },
     });
     expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     expect(prisma.event.create).not.toHaveBeenCalled();

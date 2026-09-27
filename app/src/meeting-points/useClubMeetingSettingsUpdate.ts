@@ -4,7 +4,7 @@ import type {
   UpdateClubMeetingSettingsRequest,
 } from '@basketeasy/types/meeting-points';
 import { apiClient } from '../api/client';
-import { clubMeetingSettingsQueryKey } from '../clubs/queryKeys';
+import { clubMeetingSettingsQueryKey, isClubMeetingDependentQuery } from '../clubs/queryKeys';
 
 export function useClubMeetingSettingsUpdate(clubId: string) {
   const queryClient = useQueryClient();
@@ -16,7 +16,7 @@ export function useClubMeetingSettingsUpdate(clubId: string) {
       queryClient.setQueryData(clubMeetingSettingsQueryKey(clubId), settings);
       // Every team under the club inherits this default: their events' meeting
       // plans and their own settings' `clubDefaults` are both stale now.
-      queryClient.invalidateQueries({ queryKey: ['clubs', clubId, 'teams'] });
+      queryClient.invalidateQueries({ predicate: isClubMeetingDependentQuery(clubId) });
     },
   });
 }

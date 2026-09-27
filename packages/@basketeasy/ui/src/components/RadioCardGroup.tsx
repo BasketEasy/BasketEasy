@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useRef } from 'react';
+import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn';
 import { focusRing } from '../lib/focusRing';
 
@@ -48,11 +49,40 @@ export type RadioCardGroupProps<T extends string> = {
   className?: string;
 } & LabelProps;
 
-const SELECTED_CLASSES: Record<NonNullable<RadioCardGroupProps<string>['tone']>, string> = {
-  brand: 'bg-orange shadow-segment-active',
-  structure: 'border-2 border-blue-green-2 bg-sunk',
-  choice: 'border-2 border-blue-green-2 bg-surface',
-};
+type RadioCardTone = NonNullable<RadioCardGroupProps<string>['tone']>;
+
+/**
+ * Each tone declared once, both states together; `satisfies` keeps the map
+ * exhaustive, so a new tone can't ship without its idle look. Every option is
+ * `border-2` in both states and only the colour changes — a 1px idle border
+ * growing to 2px on selection nudged the card's content and its siblings.
+ */
+const TONES = {
+  brand: {
+    selected: 'border-orange bg-orange shadow-segment-active',
+    idle: 'border-border',
+  },
+  structure: { selected: 'border-blue-green-2 bg-sunk', idle: 'border-border' },
+  choice: { selected: 'border-blue-green-2 bg-surface', idle: 'border-border-strong' },
+} satisfies Record<RadioCardTone, { selected: string; idle: string }>;
+
+const radioCardVariants = cva(
+  [
+    'flex items-center gap-2.5 rounded-md border-2 px-3 py-2.5 text-left transition-colors',
+    'disabled:pointer-events-none disabled:opacity-50',
+    focusRing,
+  ],
+  {
+    variants: {
+      tone: { brand: '', structure: '', choice: '' },
+      selected: { true: '', false: 'bg-surface hover:bg-surface-2' },
+    },
+    compoundVariants: (Object.keys(TONES) as RadioCardTone[]).flatMap((tone) => [
+      { tone, selected: true, class: TONES[tone].selected },
+      { tone, selected: false, class: TONES[tone].idle },
+    ]),
+  },
+);
 
 function RadioIndicator({ selected }: { selected: boolean }) {
   return (
@@ -148,17 +178,7 @@ export function RadioCardGroup<T extends string>({
             disabled={option.disabled}
             tabIndex={tabbable ? 0 : -1}
             onClick={() => onChange(option.value)}
-            className={cn(
-              'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors',
-              'disabled:pointer-events-none disabled:opacity-50',
-              focusRing,
-              selected
-                ? SELECTED_CLASSES[tone]
-                : cn(
-                    'border bg-surface hover:bg-surface-2',
-                    tone === 'choice' ? 'border-border-strong' : 'border-border',
-                  ),
-            )}
+            className={radioCardVariants({ tone, selected })}
           >
             {indicator && <RadioIndicator selected={selected} />}
             {option.render({ selected })}
