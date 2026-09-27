@@ -31,6 +31,7 @@ const baseEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
 };
 
 describe('EventVoteBadge', () => {

@@ -1,5 +1,6 @@
 import type { PaginationParams, SortOrder } from './pagination';
 import type { TeamMemberRole } from './teams';
+import type { EventMeetingPlan } from './meeting-points';
 
 export type EventType = 'TRAINING' | 'MATCH';
 
@@ -108,6 +109,8 @@ export interface TeamEvent {
   result: EventMatchResult | null;
   /** The caller's own line for this match; null under the same conditions as `result`, or when the caller isn't the player mapped on the sheet. */
   myMatchStats: EventMatchPlayerStats | null;
+  /** Where and when the group meets before a MATCH; null for TRAINING. */
+  meetingPlan: EventMeetingPlan | null;
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';

@@ -15,6 +15,7 @@ import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
 import { RetentionModule } from './retention/retention.module';
+import { MeetingPointsModule } from './meeting-points/meeting-points.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
 // signature a reasonable amount of entropy to resist brute force; this is a
@@ -57,6 +58,7 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     NotificationsModule,
     AuditModule,
     RetentionModule,
+    MeetingPointsModule,
   ],
 })
 export class AppModule {}

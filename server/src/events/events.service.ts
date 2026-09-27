@@ -23,6 +23,7 @@ import type {
   TeamEvent,
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
+import type { EventMeetingPlan, UpdateEventMeetingRequest } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
@@ -32,6 +33,7 @@ import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { ListEventsDto } from './dto/list-events.dto';
 import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
@@ -70,6 +72,13 @@ type EventRow = {
   recurrenceId: string | null;
   externalId: string | null;
   timeConfirmed: boolean;
+  meetingPointName: string | null;
+  meetingPointAddress: string | null;
+  travelMinutes: number | null;
+  travelMinutesManual: boolean;
+  travelRouteKey: string | null;
+  meetsAtOverride: Date | null;
+  meetingAnnouncedKey: string | null;
   createdAt: Date;
 };
 
@@ -81,6 +90,7 @@ export class EventsService {
     private readonly storage: StorageService,
     private readonly scoresheets: ScoresheetsService,
     private readonly notifications: NotificationsService,
+    private readonly meetingPoints: MeetingPointsService,
   ) {}
 
   async listEvents(
@@ -129,6 +139,7 @@ export class EventsService {
       events,
       myTeamPlayerId,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, events);
     return {
       items: events.map((e) =>
         this.toTeamEvent(
@@ -139,6 +150,7 @@ export class EventsService {
           this.rsvpSummaryOrZero(e.id, rsvpSummaries),
           resultsByEventId.get(e.id) ?? null,
           myStatsByEventId.get(e.id) ?? null,
+          meetingPlans.get(e.id) ?? null,
         ),
       ),
       total,
@@ -169,6 +181,7 @@ export class EventsService {
       [event],
       myTeamPlayerId,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
     return this.toTeamEvent(
       event,
       rsvpStatuses.get(eventId) ?? null,
@@ -177,6 +190,7 @@ export class EventsService {
       this.rsvpSummaryOrZero(eventId, rsvpSummaries),
       resultsByEventId.get(eventId) ?? null,
       myStatsByEventId.get(eventId) ?? null,
+      meetingPlans.get(eventId) ?? null,
     );
   }
 
@@ -244,6 +258,7 @@ export class EventsService {
       events,
       myTeamPlayerId,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, events);
     return events.map((e) =>
       this.toTeamEvent(
         e,
@@ -253,6 +268,7 @@ export class EventsService {
         this.rsvpSummaryOrZero(e.id, rsvpSummaries),
         resultsByEventId.get(e.id) ?? null,
         myStatsByEventId.get(e.id) ?? null,
+        meetingPlans.get(e.id) ?? null,
       ),
     );
   }
@@ -324,7 +340,24 @@ export class EventsService {
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
     const updateData: Prisma.EventUpdateInput = {
-      ...(data.startsAt !== undefined ? { startsAt: new Date(data.startsAt) } : {}),
+      // A meeting-time override was set against the old tip-off; keeping it
+      // across a reschedule would send the group to the wrong hour.
+      ...(data.startsAt !== undefined
+        ? { startsAt: new Date(data.startsAt), meetsAtOverride: null }
+        : {}),
+      // The meeting point is a MATCH concept — a switch to TRAINING drops
+      // every meeting column rather than leaving a hidden override behind.
+      ...(resultingType === EventType.TRAINING && event.type === EventType.MATCH
+        ? {
+            meetingPointName: null,
+            meetingPointAddress: null,
+            travelMinutes: null,
+            travelMinutesManual: false,
+            travelRouteKey: null,
+            meetsAtOverride: null,
+            meetingAnnouncedKey: null,
+          }
+        : {}),
       ...(data.location !== undefined ? { location: data.location } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
@@ -360,6 +393,7 @@ export class EventsService {
       updated,
       myTeamPlayerId,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, updated);
     return updated.map((e) =>
       this.toTeamEvent(
         e,
@@ -369,6 +403,7 @@ export class EventsService {
         this.rsvpSummaryOrZero(e.id, rsvpSummaries),
         resultsByEventId.get(e.id) ?? null,
         myStatsByEventId.get(e.id) ?? null,
+        meetingPlans.get(e.id) ?? null,
       ),
     );
   }
@@ -542,6 +577,7 @@ export class EventsService {
       updated,
       myTeamPlayerId,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, updated);
     return updated.map((e) =>
       this.toTeamEvent(
         e,
@@ -551,6 +587,7 @@ export class EventsService {
         this.rsvpSummaryOrZero(e.id, rsvpSummaries),
         resultsByEventId.get(e.id) ?? null,
         myStatsByEventId.get(e.id) ?? null,
+        meetingPlans.get(e.id) ?? null,
       ),
     );
   }
@@ -592,6 +629,7 @@ export class EventsService {
       [event],
       teamPlayer.id,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
     return this.toTeamEvent(
       event,
       status,
@@ -600,6 +638,7 @@ export class EventsService {
       this.rsvpSummaryOrZero(eventId, rsvpSummaries),
       resultsByEventId.get(eventId) ?? null,
       myStatsByEventId.get(eventId) ?? null,
+      meetingPlans.get(eventId) ?? null,
     );
   }
 
@@ -626,6 +665,7 @@ export class EventsService {
       [event],
       teamPlayer.id,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
     return this.toTeamEvent(
       event,
       null,
@@ -634,6 +674,7 @@ export class EventsService {
       this.rsvpSummaryOrZero(eventId, rsvpSummaries),
       resultsByEventId.get(eventId) ?? null,
       myStatsByEventId.get(eventId) ?? null,
+      meetingPlans.get(eventId) ?? null,
     );
   }
 
@@ -842,6 +883,7 @@ export class EventsService {
       [updated],
       myTeamPlayer?.id ?? null,
     );
+    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [updated]);
     return this.toTeamEvent(
       updated,
       rsvpStatuses.get(eventId) ?? null,
@@ -850,7 +892,36 @@ export class EventsService {
       this.rsvpSummaryOrZero(eventId, rsvpSummaries),
       resultsByEventId.get(eventId) ?? null,
       myStatsByEventId.get(eventId) ?? null,
+      meetingPlans.get(eventId) ?? null,
     );
+  }
+
+  // A team manager's per-match meeting point / travel minutes / meeting time.
+  // The rules live in MeetingPointsService; this only owns the route check and
+  // the TeamEvent the route answers with.
+  async setEventMeeting(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    data: UpdateEventMeetingRequest,
+    userId: string,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    await this.meetingPoints.setEventMeeting(event, data);
+    return this.getEvent(clubId, teamId, eventId, userId);
+  }
+
+  // « Recalculer »: recomputes the driving time synchronously so the manager
+  // sees the answer in the response rather than on the next poll.
+  async refreshEventMeeting(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    await this.meetingPoints.refreshTravel(event);
+    return this.getEvent(clubId, teamId, eventId, userId);
   }
 
   // Anonymous peer voting — see the match interface spec's Voting visibility
@@ -1392,6 +1463,7 @@ export class EventsService {
     rsvpSummary: EventRsvpSummary,
     result: EventMatchResult | null,
     myMatchStats: EventMatchPlayerStats | null,
+    meetingPlan: EventMeetingPlan | null,
   ): TeamEvent {
     return {
       id: event.id,
@@ -1411,6 +1483,7 @@ export class EventsService {
       rsvpSummary,
       result,
       myMatchStats,
+      meetingPlan,
       // Populated for both event types — the jersey slot is just labeled
       // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
       // frontend, see eventLogisticsFieldLabel.
