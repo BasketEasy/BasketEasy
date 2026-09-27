@@ -6,6 +6,7 @@ import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 
 describe('EventsService', () => {
   let service: EventsService;
@@ -13,6 +14,7 @@ describe('EventsService', () => {
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
   let notifications: { notify: jest.Mock };
+  let meetingPoints: { resolvePlans: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     team: { findUnique: jest.Mock };
@@ -41,6 +43,7 @@ describe('EventsService', () => {
     eventVote: { findMany: jest.Mock; upsert: jest.Mock };
     eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
     matchPlayerStat: { findMany: jest.Mock };
+    eventMeeting: { updateMany: jest.Mock; deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -79,6 +82,10 @@ describe('EventsService', () => {
         upsert: jest.fn(),
       },
       matchPlayerStat: { findMany: jest.fn().mockResolvedValue([]) },
+      eventMeeting: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       // Supports both $transaction call shapes used by EventsService: the
       // array form (a batch of prepared queries) and the interactive
       // callback form (setEventConvocations, which needs to read then write
@@ -111,6 +118,11 @@ describe('EventsService', () => {
     };
     scoresheets = { enqueueOcr: jest.fn().mockResolvedValue(undefined) };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+    // Default: no event resolves a meeting plan, so every TeamEvent carries
+    // meetingPlan: null unless a test says otherwise.
+    meetingPoints = {
+      resolvePlans: jest.fn().mockResolvedValue(new Map()),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -120,6 +132,7 @@ describe('EventsService', () => {
         { provide: StorageService, useValue: storage },
         { provide: ScoresheetsService, useValue: scoresheets },
         { provide: NotificationsService, useValue: notifications },
+        { provide: MeetingPointsService, useValue: meetingPoints },
       ],
     }).compile();
 
@@ -193,6 +206,7 @@ describe('EventsService', () => {
             logistics: { jerseys: null, balls: null },
             result: null,
             myMatchStats: null,
+            meetingPlan: null,
           },
         ],
         total: 1,
@@ -940,6 +954,84 @@ describe('EventsService', () => {
       expect(result[0].location).toBe('Gymnase B');
     });
 
+    it('clears the meeting-time override when the kick-off moves', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue({
+        ...row,
+        startsAt: new Date('2026-01-10T17:00:00.000Z'),
+      });
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { startsAt: '2026-01-10T17:00:00.000Z' },
+        'user-1',
+      );
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { startsAt: new Date('2026-01-10T17:00:00.000Z') },
+      });
+      expect(prisma.eventMeeting.updateMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+        data: { meetsAtOverride: null },
+      });
+    });
+
+    it('returns the meeting plan MeetingPointsService resolves for each event', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      const plan = {
+        arrivalAt: '2026-01-10T18:45:00.000Z',
+        arrivalBufferMinutes: 45,
+        meetingPoint: { name: 'Parking', address: '1 rue X' },
+        meetingPointSource: 'CLUB',
+        travelMinutes: 23,
+        travelMinutesSource: 'COMPUTED',
+        meetsAt: '2026-01-10T18:15:00.000Z',
+        meetsAtSource: 'COMPUTED',
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue(row);
+      meetingPoints.resolvePlans.mockResolvedValue(new Map([['event-1', plan]]));
+
+      const result = await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { location: 'Gymnase B' },
+        'user-1',
+      );
+
+      expect(meetingPoints.resolvePlans).toHaveBeenCalledWith('team-1', [row]);
+      expect(result[0].meetingPlan).toEqual(plan);
+    });
+
     it('throws BadRequestException for scope THIS_AND_FUTURE on a non-recurring event', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue({
@@ -1038,7 +1130,15 @@ describe('EventsService', () => {
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
-        data: { type: 'TRAINING', opponentName: null, venue: null },
+        data: {
+          type: 'TRAINING',
+          opponentName: null,
+          venue: null,
+        },
+      });
+      // The meeting point is a MATCH concept, dropped with the opponent.
+      expect(prisma.eventMeeting.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
       });
     });
 

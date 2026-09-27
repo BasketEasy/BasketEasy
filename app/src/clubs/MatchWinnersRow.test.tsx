@@ -36,6 +36,7 @@ const closedMatchEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
 };
 
 const openMatchEvent: TeamEvent = {

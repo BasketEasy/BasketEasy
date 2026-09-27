@@ -32,6 +32,7 @@ const trainingEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
 };
 
 const matchEventSameDay: TeamEvent = {
