@@ -3,6 +3,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -16,8 +17,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
 import { EventConvocationModal } from './EventConvocationModal';
 import { eventCountdownLabel } from './eventDateFormat';
-import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
-import { countTravelModes } from '../meeting-points/travelCounts';
+import { useEventRoster, type EventRosterCounts } from './useEventRoster';
 
 /**
  * Nothing sends a reminder yet: no mailer and no scheduled job exist in
@@ -62,19 +62,9 @@ function ReminderAction({ pending }: { pending: number }) {
   );
 }
 
-function PilotSummary({
-  counts,
-  rows,
-  event,
-}: {
-  counts: EventRosterCounts;
-  rows: EventRosterRow[];
-  event: TeamEvent;
-}) {
+function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: TeamEvent }) {
   const countdown = eventCountdownLabel(event.startsAt);
-  const travel = event.meetingPlan?.meetingPoint
-    ? countTravelModes(rows, counts.isConvocationScoped)
-    : null;
+  const travel = event.meetingPlan?.meetingPoint ? counts.travel : null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -106,7 +96,7 @@ function PilotSummary({
         </Text>
         {travel && (
           <>
-            <span aria-hidden="true" className="h-4 w-px bg-border" />
+            <Divider orientation="vertical" className="h-4 self-center" />
             <Text as="span" variant="label" size="xs" tone="structure" className="tabular">
               {travel.meetingPoint} au RDV · {travel.direct} en direct
             </Text>
@@ -161,7 +151,7 @@ export function EventPilotBand({
         />
       );
     }
-    return <PilotSummary counts={counts} rows={rows} event={event} />;
+    return <PilotSummary counts={counts} event={event} />;
   };
 
   return (

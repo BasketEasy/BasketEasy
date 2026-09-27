@@ -99,7 +99,12 @@
       "travelMinutes": 23,
       "travelMinutesSource": "COMPUTED",
       "meetsAt": "2026-10-10T17:15:00.000Z",
-      "meetsAtSource": "COMPUTED"
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
     },
     "myTravelMode": "MEETING_POINT"
   },

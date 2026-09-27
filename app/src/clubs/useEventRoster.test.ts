@@ -45,6 +45,19 @@ describe('countEventRoster', () => {
     expect(counts).toMatchObject({ going: 1, maybe: 0, notGoing: 0, pending: 1 });
   });
 
+  it('splits the going players by travel mode, with the same scoping', () => {
+    const counts = countEventRoster([
+      row({ teamPlayerId: 'a', convoked: true, rsvpStatus: 'GOING', travelMode: 'DIRECT' }),
+      // GOING with no stored choice counts as meeting point, like the API.
+      row({ teamPlayerId: 'b', convoked: true, rsvpStatus: 'GOING' }),
+      row({ teamPlayerId: 'c', convoked: true, rsvpStatus: 'MAYBE' }),
+      // Going, but outside the convoked group.
+      row({ teamPlayerId: 'd', rsvpStatus: 'GOING', travelMode: 'DIRECT' }),
+    ]);
+
+    expect(counts.travel).toEqual({ meetingPoint: 1, direct: 1 });
+  });
+
   it('reports zeroes rather than throwing on an empty roster', () => {
     expect(countEventRoster([])).toMatchObject({
       rosterSize: 0,

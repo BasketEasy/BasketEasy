@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
@@ -19,20 +22,19 @@ import {
   MAX_TRAVEL_MINUTES,
   MEETING_POINT_ADDRESS_MAX_LENGTH,
   MEETING_POINT_NAME_MAX_LENGTH,
+  computeMeetsAt,
   type EventMeetingPlan,
   type MeetingPointSource,
   type UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { formatDayHeading, formatEventTime } from '../clubs/eventDateFormat';
+import { meetingPointFields, refineMeetingPointPair, toMeetingPoint } from './meetingPointSchema';
 import { useEventMeetingRefresh } from './useEventMeetingRefresh';
 import { useEventMeetingUpdate } from './useEventMeetingUpdate';
-import { useTeamMeetingSettings } from './useTeamMeetingSettings';
 
 const ROUTING_UNAVAILABLE =
   'Le calcul d’itinéraire est indisponible. Saisissez la durée à la main.';
-const MINUTE_MS = 60 * 1000;
-const QUARTER_HOUR_MS = 15 * MINUTE_MS;
 
 type PlaceMode = 'DEFAULT' | 'CUSTOM';
 type TimeMode = 'AUTO' | 'FIXED';
@@ -64,6 +66,65 @@ function timeOnMatchDay(startsAt: string, time: string): Date {
   return date;
 }
 
+/** Empty means « calcul automatique »; anything else must be whole minutes in range. */
+function parseMinutes(value: string): number | null | 'invalid' {
+  if (value.trim() === '') return null;
+  const minutes = Number(value);
+  return Number.isInteger(minutes) && minutes >= 0 && minutes <= MAX_TRAVEL_MINUTES
+    ? minutes
+    : 'invalid';
+}
+
+function meetingSchema(startsAt: string) {
+  return z
+    .object({
+      placeMode: z.enum(['DEFAULT', 'CUSTOM']),
+      ...meetingPointFields,
+      minutes: z.string(),
+      timeMode: z.enum(['AUTO', 'FIXED']),
+      time: z.string(),
+    })
+    .superRefine((values, ctx) => {
+      if (values.placeMode === 'CUSTOM') refineMeetingPointPair(values, ctx, { required: true });
+      if (parseMinutes(values.minutes) === 'invalid') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['minutes'],
+          message: `Entre 0 et ${MAX_TRAVEL_MINUTES} minutes`,
+        });
+      }
+      if (values.timeMode !== 'FIXED') return;
+      if (!values.time) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['time'],
+          message: 'Choisissez l’heure du rendez-vous',
+        });
+      } else if (timeOnMatchDay(startsAt, values.time) > new Date(startsAt)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['time'],
+          message: 'Le rendez-vous doit être avant le coup d’envoi',
+        });
+      }
+    });
+}
+
+type MeetingFormValues = z.infer<ReturnType<typeof meetingSchema>>;
+
+function defaultsFromPlan(plan: EventMeetingPlan): MeetingFormValues {
+  const hasOwnPlace = plan.meetingPointSource === 'EVENT';
+  const hasFixedTime = plan.meetsAtSource === 'OVERRIDE' && plan.meetsAt !== null;
+  return {
+    placeMode: hasOwnPlace ? 'CUSTOM' : 'DEFAULT',
+    name: hasOwnPlace ? (plan.meetingPoint?.name ?? '') : '',
+    address: hasOwnPlace ? (plan.meetingPoint?.address ?? '') : '',
+    minutes: plan.travelMinutesSource === 'MANUAL' ? String(plan.travelMinutes) : '',
+    timeMode: hasFixedTime ? 'FIXED' : 'AUTO',
+    time: hasFixedTime && plan.meetsAt ? toTimeValue(plan.meetsAt) : '',
+  };
+}
+
 function RadioLabel({ title, detail }: { title: string; detail?: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
@@ -82,8 +143,10 @@ function RadioLabel({ title, detail }: { title: string; detail?: string }) {
 /**
  * A team manager's adjustments for one match: another meeting place, typed
  * travel minutes, or a fixed meeting time. Three independent sections, each
- * sent only when it changed — so touching the time never resets the place —
- * under a live preview of the meeting time the form would produce.
+ * sent only when it changed (react-hook-form's dirty fields) — so touching
+ * the time never resets the place — under a live preview of the meeting
+ * time the form would produce, computed by the same `computeMeetsAt` the
+ * API uses.
  */
 export function EventMeetingDialog({
   clubId,
@@ -100,172 +163,102 @@ export function EventMeetingDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { mutate: update, isPending: isSaving } = useEventMeetingUpdate(clubId, teamId, event.id);
+  const { mutateAsync: update } = useEventMeetingUpdate(clubId, teamId, event.id);
   const { mutate: refresh, isPending: isRefreshing } = useEventMeetingRefresh(
     clubId,
     teamId,
     event.id,
   );
-  // What the match falls back to without its own place — needed to name the
-  // default while this match overrides it.
-  const { data: teamSettings } = useTeamMeetingSettings(clubId, teamId);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    setError,
+    formState: { errors, dirtyFields, isSubmitting },
+  } = useForm<MeetingFormValues>({
+    resolver: zodResolver(meetingSchema(event.startsAt)),
+    defaultValues: defaultsFromPlan(plan),
+  });
 
   const hasOwnPlace = plan.meetingPointSource === 'EVENT';
-  const initialMinutes = plan.travelMinutesSource === 'MANUAL' ? String(plan.travelMinutes) : '';
   const hasFixedTime = plan.meetsAtSource === 'OVERRIDE' && plan.meetsAt !== null;
   const computedMinutes = plan.travelMinutesSource === 'COMPUTED' ? plan.travelMinutes : null;
+  const defaultPoint = plan.defaultMeetingPoint;
+  const defaultSource = plan.defaultMeetingPointSource;
 
-  const defaultPoint = hasOwnPlace
-    ? (teamSettings?.meetingPoint ?? teamSettings?.clubDefaults.meetingPoint ?? null)
-    : plan.meetingPoint;
-  const defaultSource: Exclude<MeetingPointSource, 'EVENT'> | null = hasOwnPlace
-    ? teamSettings?.meetingPoint
-      ? 'TEAM'
-      : teamSettings?.clubDefaults.meetingPoint
-        ? 'CLUB'
-        : null
-    : plan.meetingPointSource === 'TEAM' || plan.meetingPointSource === 'CLUB'
-      ? plan.meetingPointSource
-      : null;
-
-  const [placeMode, setPlaceMode] = useState<PlaceMode>(hasOwnPlace ? 'CUSTOM' : 'DEFAULT');
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [minutes, setMinutes] = useState('');
-  const [timeMode, setTimeMode] = useState<TimeMode>(hasFixedTime ? 'FIXED' : 'AUTO');
-  const [time, setTime] = useState('');
-  const [placeError, setPlaceError] = useState<string | null>(null);
-  const [minutesError, setMinutesError] = useState<string | null>(null);
-  const [timeError, setTimeError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  // Re-seed on every open, so a cancelled edit never leaks into the next one.
   useEffect(() => {
-    if (!open) return;
-    setPlaceMode(hasOwnPlace ? 'CUSTOM' : 'DEFAULT');
-    setName(hasOwnPlace ? (plan.meetingPoint?.name ?? '') : '');
-    setAddress(hasOwnPlace ? (plan.meetingPoint?.address ?? '') : '');
-    setMinutes(initialMinutes);
-    setTimeMode(hasFixedTime ? 'FIXED' : 'AUTO');
-    setTime(hasFixedTime && plan.meetsAt ? toTimeValue(plan.meetsAt) : '');
-    setPlaceError(null);
-    setMinutesError(null);
-    setTimeError(null);
-    setError(null);
-  }, [open, hasOwnPlace, hasFixedTime, plan, initialMinutes]);
+    if (open) reset(defaultsFromPlan(plan));
+  }, [open, plan, reset]);
 
-  const trimmedName = name.trim();
-  const trimmedAddress = address.trim();
-  const placeChanged =
-    placeMode === 'DEFAULT'
-      ? hasOwnPlace
-      : trimmedName !== plan.meetingPoint?.name || trimmedAddress !== plan.meetingPoint?.address;
+  const [placeMode, minutes, timeMode, time] = watch(['placeMode', 'minutes', 'timeMode', 'time']);
+  const placeChanged = Boolean(dirtyFields.placeMode || dirtyFields.name || dirtyFields.address);
 
-  // The meeting time this form would produce — the server's own formula,
-  // replayed on the fields as typed.
-  const typedMinutes = minutes.trim() === '' ? null : Number(minutes);
+  // Typed minutes win; otherwise the computed ones, unless the place moved
+  // (the server will recompute for the new route).
+  const typedMinutes = parseMinutes(minutes);
   const previewMinutes =
-    typedMinutes !== null && Number.isInteger(typedMinutes)
-      ? typedMinutes
-      : placeChanged
-        ? null
-        : computedMinutes;
-  const arrivalMs = new Date(event.startsAt).getTime() - plan.arrivalBufferMinutes * MINUTE_MS;
+    typeof typedMinutes === 'number' ? typedMinutes : placeChanged ? null : computedMinutes;
   const preview =
     timeMode === 'FIXED'
       ? time
-        ? {
-            time,
-            detail: 'Heure fixée pour ce match',
-          }
+        ? { time, detail: 'Heure fixée pour ce match' }
         : null
       : previewMinutes !== null
         ? {
             time: formatEventTime(
-              new Date(
-                Math.floor((arrivalMs - previewMinutes * MINUTE_MS) / QUARTER_HOUR_MS) *
-                  QUARTER_HOUR_MS,
-              ).toISOString(),
+              computeMeetsAt({
+                startsAt: new Date(event.startsAt),
+                arrivalBufferMinutes: plan.arrivalBufferMinutes,
+                travelMinutes: previewMinutes,
+              }).toISOString(),
             ),
             detail: `${formatEventTime(event.startsAt)} − ${plan.arrivalBufferMinutes} min d’arrivée − ${previewMinutes} min de trajet, arrondi au quart d’heure inférieur`,
           }
         : null;
 
-  const handleSubmit = () => {
+  const onSubmit = handleSubmit(async (values) => {
     const dto: UpdateEventMeetingRequest = {};
-    let valid = true;
-
-    if (placeMode === 'DEFAULT') {
+    if (values.placeMode === 'DEFAULT') {
       if (hasOwnPlace) dto.meetingPoint = null;
-      setPlaceError(null);
-    } else if (!trimmedName || !trimmedAddress) {
-      setPlaceError('Renseignez le nom et l’adresse');
-      valid = false;
-    } else {
-      setPlaceError(null);
-      if (placeChanged) dto.meetingPoint = { name: trimmedName, address: trimmedAddress };
+    } else if (placeChanged) {
+      dto.meetingPoint = toMeetingPoint(values);
     }
-
-    if (minutes !== initialMinutes) {
-      if (typedMinutes === null) {
-        dto.travelMinutes = null;
-        setMinutesError(null);
-      } else if (
-        !Number.isInteger(typedMinutes) ||
-        typedMinutes < 0 ||
-        typedMinutes > MAX_TRAVEL_MINUTES
-      ) {
-        setMinutesError(`Entre 0 et ${MAX_TRAVEL_MINUTES} minutes`);
-        valid = false;
-      } else {
-        dto.travelMinutes = typedMinutes;
-        setMinutesError(null);
-      }
+    if (dirtyFields.minutes) {
+      const parsed = parseMinutes(values.minutes);
+      dto.travelMinutes = parsed === 'invalid' ? null : parsed;
     }
-
-    if (timeMode === 'AUTO') {
+    if (values.timeMode === 'AUTO') {
       if (hasFixedTime) dto.meetsAt = null;
-      setTimeError(null);
-    } else if (!time) {
-      setTimeError('Choisissez l’heure du rendez-vous');
-      valid = false;
-    } else {
-      const meetsAt = timeOnMatchDay(event.startsAt, time);
-      if (meetsAt > new Date(event.startsAt)) {
-        setTimeError('Le rendez-vous doit être avant le coup d’envoi');
-        valid = false;
-      } else {
-        setTimeError(null);
-        if (!hasFixedTime || time !== toTimeValue(plan.meetsAt!)) {
-          dto.meetsAt = meetsAt.toISOString();
-        }
-      }
+    } else if (dirtyFields.timeMode || dirtyFields.time) {
+      dto.meetsAt = timeOnMatchDay(event.startsAt, values.time).toISOString();
     }
 
-    if (!valid) return;
     if (Object.keys(dto).length === 0) {
       onOpenChange(false);
       return;
     }
-    update(dto, {
-      onSuccess: () => {
-        toast({ variant: 'success', title: 'Rendez-vous mis à jour' });
-        onOpenChange(false);
-      },
-      onError: (err) => setError(getClubErrorMessage(err)),
-    });
-  };
+    try {
+      await update(dto);
+      toast({ variant: 'success', title: 'Rendez-vous mis à jour' });
+      onOpenChange(false);
+    } catch (err) {
+      setError('root', { message: getClubErrorMessage(err) });
+    }
+  });
 
   const handleRefresh = () =>
     refresh(undefined, {
       onSuccess: (updated) => {
-        const travel = updated.meetingPlan?.travelMinutes;
         toast(
-          travel === null || travel === undefined
+          updated.travelMinutes === null
             ? {
                 variant: 'destructive',
                 description: 'Adresse introuvable — saisissez la durée à la main.',
               }
-            : { variant: 'success', title: `Trajet recalculé : ${travel} min` },
+            : { variant: 'success', title: `Trajet recalculé : ${updated.travelMinutes} min` },
         );
       },
       onError: (err) =>
@@ -284,10 +277,10 @@ export function EventMeetingDialog({
           <DialogTitle>Ajuster le rendez-vous</DialogTitle>
           <DialogDescription>{matchLabel}. Pour ce match seulement.</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 pt-2">
-          {error && (
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4 pt-2">
+          {errors.root && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{errors.root.message}</AlertDescription>
             </Alert>
           )}
 
@@ -309,29 +302,38 @@ export function EventMeetingDialog({
             <Text variant="eyebrow" id="event-meeting-place">
               Lieu
             </Text>
-            <RadioCardGroup<PlaceMode>
-              aria-labelledby="event-meeting-place"
-              tone="choice"
-              indicator
-              value={placeMode}
-              onChange={setPlaceMode}
-              options={[
-                {
-                  value: 'DEFAULT',
-                  disabled: !defaultPoint,
-                  render: () => (
-                    <RadioLabel
-                      title="RDV par défaut"
-                      detail={
-                        defaultPoint
-                          ? `${defaultPoint.name}${defaultSource ? ` · ${DEFAULT_SOURCE_LABEL[defaultSource]}` : ''}`
-                          : 'Aucun défini pour le club ou l’équipe'
-                      }
-                    />
-                  ),
-                },
-                { value: 'CUSTOM', render: () => <RadioLabel title="Autre lieu pour ce match" /> },
-              ]}
+            <Controller
+              control={control}
+              name="placeMode"
+              render={({ field }) => (
+                <RadioCardGroup<PlaceMode>
+                  aria-labelledby="event-meeting-place"
+                  tone="choice"
+                  indicator
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    {
+                      value: 'DEFAULT',
+                      disabled: !defaultPoint,
+                      render: () => (
+                        <RadioLabel
+                          title="RDV par défaut"
+                          detail={
+                            defaultPoint
+                              ? `${defaultPoint.name}${defaultSource ? ` · ${DEFAULT_SOURCE_LABEL[defaultSource]}` : ''}`
+                              : 'Aucun défini pour le club ou l’équipe'
+                          }
+                        />
+                      ),
+                    },
+                    {
+                      value: 'CUSTOM',
+                      render: () => <RadioLabel title="Autre lieu pour ce match" />,
+                    },
+                  ]}
+                />
+              )}
             />
             {placeMode === 'CUSTOM' && (
               <>
@@ -339,17 +341,15 @@ export function EventMeetingDialog({
                   label="Nom du lieu"
                   id="event-meeting-name"
                   maxLength={MEETING_POINT_NAME_MAX_LENGTH}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  error={placeError && !trimmedName ? placeError : undefined}
+                  error={errors.name?.message}
+                  {...register('name')}
                 />
                 <FormField
                   label="Adresse"
                   id="event-meeting-address"
                   maxLength={MEETING_POINT_ADDRESS_MAX_LENGTH}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  error={placeError && !trimmedAddress ? placeError : undefined}
+                  error={errors.address?.message}
+                  {...register('address')}
                 />
               </>
             )}
@@ -367,12 +367,16 @@ export function EventMeetingDialog({
                 max={MAX_TRAVEL_MINUTES}
                 placeholder={computedMinutes !== null ? String(computedMinutes) : undefined}
                 containerClassName="min-w-0 flex-1"
-                value={minutes}
-                onChange={(e) => setMinutes(e.target.value)}
-                error={minutesError ?? undefined}
+                error={errors.minutes?.message}
+                {...register('minutes')}
               />
               {plan.meetingPoint && (
-                <Button variant="outline" loading={isRefreshing} onClick={handleRefresh}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  loading={isRefreshing}
+                  onClick={handleRefresh}
+                >
                   Recalculer
                 </Button>
               )}
@@ -388,36 +392,43 @@ export function EventMeetingDialog({
             <Text variant="eyebrow" id="event-meeting-time-mode">
               Heure du RDV
             </Text>
-            <RadioCardGroup<TimeMode>
-              aria-labelledby="event-meeting-time-mode"
-              tone="choice"
-              indicator
-              value={timeMode}
-              onChange={setTimeMode}
-              options={[
-                {
-                  value: 'AUTO',
-                  render: () => (
-                    <RadioLabel
-                      title="Calculée automatiquement"
-                      detail="Suit le trajet et l’heure du match"
-                    />
-                  ),
-                },
-                {
-                  value: 'FIXED',
-                  render: () => <RadioLabel title="Heure fixe" detail="Pause repas, bouchons…" />,
-                },
-              ]}
+            <Controller
+              control={control}
+              name="timeMode"
+              render={({ field }) => (
+                <RadioCardGroup<TimeMode>
+                  aria-labelledby="event-meeting-time-mode"
+                  tone="choice"
+                  indicator
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={[
+                    {
+                      value: 'AUTO',
+                      render: () => (
+                        <RadioLabel
+                          title="Calculée automatiquement"
+                          detail="Suit le trajet et l’heure du match"
+                        />
+                      ),
+                    },
+                    {
+                      value: 'FIXED',
+                      render: () => (
+                        <RadioLabel title="Heure fixe" detail="Pause repas, bouchons…" />
+                      ),
+                    },
+                  ]}
+                />
+              )}
             />
             {timeMode === 'FIXED' && (
               <FormField
                 label="Heure du rendez-vous"
                 id="event-meeting-time"
                 type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                error={timeError ?? undefined}
+                error={errors.time?.message}
+                {...register('time')}
               />
             )}
           </div>
@@ -430,13 +441,15 @@ export function EventMeetingDialog({
 
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
-              <Button variant="ghost">Annuler</Button>
+              <Button type="button" variant="ghost">
+                Annuler
+              </Button>
             </DialogClose>
-            <Button loading={isSaving} onClick={handleSubmit}>
+            <Button type="submit" loading={isSubmitting}>
               Enregistrer
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

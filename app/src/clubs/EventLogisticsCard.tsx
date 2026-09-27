@@ -192,7 +192,13 @@ function EventVenueRow({ event }: { event: TeamEvent }) {
 }
 
 /**
- * Where the event is, and who brings what — one card, three rows.
+ * Where the event is, and who brings what. Two layouts, chosen by the event
+ * type:
+ *
+ * - a TRAINING is one card, three rows: the venue, then the kit;
+ * - a MATCH reads as its day — `EventMatchTimeline` (meeting point, arrival,
+ *   tip-off) beside a « Matériel » card with the kit. The timeline's arrival
+ *   step carries the gym and its directions, so there is no venue row.
  *
  * It backs two blocks that ask the same question from opposite ends: the
  * player's « S'y rendre » (how do I get there, and is it me carrying the
@@ -259,10 +265,10 @@ export function EventLogisticsCard({
     </>
   );
 
-  // A match reads as its day — meeting point, arrival, tip-off — with the
-  // kit beside it; the timeline's arrival step carries the gym and its
-  // directions, so the venue row would only repeat it.
-  if (event.meetingPlan) {
+  // Keyed on the type, not on the plan being present: the plan is how a
+  // match is drawn, never what makes it one. The API sends a plan for every
+  // MATCH, so the second test only narrows the type.
+  if (event.type === 'MATCH' && event.meetingPlan) {
     return (
       <div className="grid items-start gap-3.5 lg:grid-cols-2">
         <EventMatchTimeline

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
 import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
@@ -104,9 +105,8 @@ export function EventTravelModeControl({
   };
 
   return (
-    <div
-      className={cn('flex flex-col gap-2.5', divided && 'mt-1 border-t border-orange/40 pt-3.5')}
-    >
+    <div className={cn('flex flex-col gap-2.5', divided && 'mt-1')}>
+      {divided && <Divider tone="brand" className="mb-1" />}
       <Text variant="label" size="sm" className="font-bold" id={`travel-mode-${event.id}`}>
         Comment venez-vous&nbsp;?
       </Text>

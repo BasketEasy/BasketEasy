@@ -11,6 +11,8 @@ export const computedPlan: EventMeetingPlan = {
   arrivalBufferMinutes: 45,
   meetingPoint: { name: 'Parking salle Coubertin', address: '12 rue Coubertin, Nantes' },
   meetingPointSource: 'CLUB',
+  defaultMeetingPoint: { name: 'Parking salle Coubertin', address: '12 rue Coubertin, Nantes' },
+  defaultMeetingPointSource: 'CLUB',
   travelMinutes: 23,
   travelMinutesSource: 'COMPUTED',
   meetsAt: at(19, 15),

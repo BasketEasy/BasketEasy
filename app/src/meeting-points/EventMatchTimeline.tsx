@@ -3,6 +3,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Text, type TextProps } from '@basketeasy/ui/text';
+import { Divider } from '@basketeasy/ui/divider';
 import type { TeamEvent } from '@basketeasy/types/events';
 import type { EventMeetingPlan, MeetingPointSource } from '@basketeasy/types/meeting-points';
 import { formatEventTime } from '../clubs/eventDateFormat';
@@ -50,7 +51,9 @@ function TimelineStep({
         >
           {time ?? '--:--'}
         </Text>
-        {!last && <span aria-hidden="true" className="my-1 w-0.5 flex-1 bg-blue-green/25" />}
+        {!last && (
+          <Divider orientation="vertical" tone="structure" weight="rule" className="my-1 flex-1" />
+        )}
       </div>
       <div
         className={

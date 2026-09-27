@@ -32,7 +32,7 @@ function capturePatch(): { body?: unknown } {
   server.use(
     http.patch(MEETING_URL, async ({ request }) => {
       captured.body = await request.json();
-      return HttpResponse.json(matchEvent());
+      return HttpResponse.json(computedPlan);
     }),
   );
   return captured;
@@ -82,19 +82,6 @@ describe('EventMeetingDialog', () => {
 
   it('goes back to the default place by sending null', async () => {
     const captured = capturePatch();
-    server.use(
-      http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
-        HttpResponse.json({
-          meetingPoint: null,
-          arrivalBufferMinutes: null,
-          clubDefaults: {
-            clubName: 'ASC Nantes',
-            meetingPoint: { name: 'Parking salle Coubertin', address: '12 rue Coubertin' },
-            arrivalBufferMinutes: 45,
-          },
-        }),
-      ),
-    );
     const user = userEvent.setup();
     renderDialog(
       matchEvent({
@@ -134,7 +121,7 @@ describe('EventMeetingDialog', () => {
   it('reports a recomputed travel time', async () => {
     server.use(
       http.post(`${MEETING_URL}/refresh`, () =>
-        HttpResponse.json(matchEvent({ meetingPlan: { ...computedPlan, travelMinutes: 21 } })),
+        HttpResponse.json({ ...computedPlan, travelMinutes: 21 }),
       ),
     );
     const user = userEvent.setup();

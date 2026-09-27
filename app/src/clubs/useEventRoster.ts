@@ -37,6 +37,12 @@ export interface EventRosterCounts {
    * nothing twice.
    */
   isConvocationScoped: boolean;
+  /**
+   * Of those `going`, who meets the group and who goes straight to the gym.
+   * Meaningful for a MATCH only; a GOING row with no stored choice counts as
+   * meeting point, the same default the API applies.
+   */
+  travel: { meetingPoint: number; direct: number };
 }
 
 /**
@@ -67,15 +73,20 @@ export function countEventRoster(rows: EventRosterRow[]): EventRosterCounts {
   const answering = isConvocationScoped ? convoked : rows;
   const count = (status: EventRsvpStatus) =>
     answering.filter((row) => row.rsvpStatus === status).length;
+  const going = count('GOING');
+  const direct = answering.filter(
+    (row) => row.rsvpStatus === 'GOING' && row.travelMode === 'DIRECT',
+  ).length;
   return {
     rosterSize: rows.length,
     convoked: convoked.length,
     answering: answering.length,
-    going: count('GOING'),
+    going,
     maybe: count('MAYBE'),
     notGoing: count('NOT_GOING'),
     pending: answering.filter((row) => row.rsvpStatus === null).length,
     isConvocationScoped,
+    travel: { meetingPoint: going - direct, direct },
   };
 }
 

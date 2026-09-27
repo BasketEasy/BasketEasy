@@ -46,13 +46,18 @@ function attendanceSummary(counts: EventRosterCounts): string {
  * place on a match with a meeting point: the question there is no longer
  * "who is coming" but "who is in the car".
  */
-function TravelTiles({ going, plan }: { going: EventRosterRow[]; plan: EventMeetingPlan }) {
-  const direct = going.filter((row) => row.travelMode === 'DIRECT').length;
+function TravelTiles({
+  travel,
+  plan,
+}: {
+  travel: EventRosterCounts['travel'];
+  plan: EventMeetingPlan;
+}) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <Card variant="inset" tone="structure" className="flex flex-col gap-0.5">
         <Text variant="display" size="2xl" tone="structure" className="tabular">
-          {going.length - direct}
+          {travel.meetingPoint}
         </Text>
         <Text variant="meta" size="xs" className="tabular">
           au RDV{plan.meetsAt ? ` · ${formatEventTime(plan.meetsAt)}` : ''}
@@ -60,7 +65,7 @@ function TravelTiles({ going, plan }: { going: EventRosterRow[]; plan: EventMeet
       </Card>
       <Card variant="inset" className="flex flex-col gap-0.5">
         <Text variant="display" size="2xl" className="tabular">
-          {direct}
+          {travel.direct}
         </Text>
         <Text variant="meta" size="xs" className="tabular">
           en direct · {formatEventTime(plan.arrivalAt)}
@@ -182,7 +187,7 @@ export function EventAttendanceSection({
             pending={counts.pending}
           />
           {travelPlan ? (
-            <TravelTiles going={going} plan={travelPlan} />
+            <TravelTiles travel={counts.travel} plan={travelPlan} />
           ) : (
             going.length > 0 && <AvatarGroup people={going} max={6} className="pt-0.5" />
           )}
