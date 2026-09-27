@@ -13,6 +13,7 @@ const convocation: AppNotification = {
   title: 'Vous êtes convoqué·e — U15 M',
   body: 'Match contre ASVEL, samedi 12 septembre à 20:30.',
   deepLink: '/clubs/club-1/teams/team-1/events/event-1',
+  subjectFirstName: null,
   readAt: null,
   createdAt: new Date().toISOString(),
 };

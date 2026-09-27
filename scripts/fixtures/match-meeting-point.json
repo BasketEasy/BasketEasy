@@ -69,6 +69,8 @@
     "recurrenceId": null,
     "createdAt": "2026-09-01T00:00:00.000Z",
     "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": null,
+    "myRsvpRespondedAt": null,
     "isImported": false,
     "timeConfirmed": true,
     "myConvocation": true,
@@ -117,6 +119,8 @@
       "role": "PLAYER",
       "status": "GOING",
       "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
       "travelMode": "MEETING_POINT",
       "isMe": true
     },
@@ -128,6 +132,8 @@
       "role": "PLAYER",
       "status": "GOING",
       "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
       "travelMode": "DIRECT",
       "isMe": false
     },
@@ -139,6 +145,8 @@
       "role": "PLAYER",
       "status": "GOING",
       "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
       "travelMode": "MEETING_POINT",
       "isMe": false
     },
@@ -150,6 +158,8 @@
       "role": "PLAYER",
       "status": "MAYBE",
       "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
       "travelMode": null,
       "isMe": false
     },
@@ -161,6 +171,8 @@
       "role": "PLAYER",
       "status": null,
       "respondedAt": null,
+      "respondedBy": null,
+      "respondedByGuardian": false,
       "travelMode": null,
       "isMe": false
     }

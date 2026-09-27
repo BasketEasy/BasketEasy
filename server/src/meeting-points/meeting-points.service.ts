@@ -17,6 +17,12 @@ import type {
   UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  groupByRecipient,
+  recipientDeepLink,
+  resolvePlayerAudience,
+} from '../common/player-audience';
+import { subjectLabel } from '../common/notification-subject';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
@@ -554,20 +560,29 @@ export class MeetingPointsService {
         status: EventRsvpStatus.GOING,
         travelMode: EventTravelMode.MEETING_POINT,
       },
-      select: { eventId: true, teamPlayer: { select: { player: { select: { userId: true } } } } },
+      select: { eventId: true, teamPlayerId: true },
     });
-    // Player.userId is nullable — a rostered player who never claimed an
-    // account has nobody to notify.
-    const recipients = rsvps.flatMap((r) =>
-      r.teamPlayer.player.userId
-        ? [{ eventId: r.eventId, userId: r.teamPlayer.player.userId }]
-        : [],
+    // Each slot's player (if they ever claimed an account) and every one of
+    // their guardians, merged per event so one reader concerned twice by the
+    // same match — a playing parent and their child, two siblings — is told
+    // once. One audience read for every event.
+    const audience = new Map(
+      (
+        await resolvePlayerAudience(this.prisma, [...new Set(rsvps.map((r) => r.teamPlayerId))])
+      ).map((entry) => [entry.teamPlayerId, entry]),
+    );
+    const recipients = changed.flatMap(({ event }) =>
+      groupByRecipient(
+        rsvps
+          .filter((r) => r.eventId === event.id)
+          .flatMap((r) => audience.get(r.teamPlayerId) ?? []),
+      ).map((recipient) => ({ eventId: event.id, recipient })),
     );
     if (recipients.length === 0) return;
 
     const memberships = await this.prisma.clubMembership.findMany({
       where: {
-        userId: { in: [...new Set(recipients.map((r) => r.userId))] },
+        userId: { in: [...new Set(recipients.map((r) => r.recipient.userId))] },
         clubId: {
           in: [...new Set(changed.flatMap((c) => c.context.linkedClubs.map((l) => l.clubId)))],
         },
@@ -577,26 +592,31 @@ export class MeetingPointsService {
     const changedById = new Map(changed.map((c) => [c.event.id, c]));
 
     await this.notifications.notify(
-      recipients.map(({ eventId, userId }) => {
+      recipients.map(({ eventId, recipient }) => {
+        const { userId } = recipient;
         const { event, context, meeting, isFirst } = changedById.get(eventId)!;
         const copy = isFirst
-          ? meetingFixedNotification(context.teamName, event, meeting)
-          : meetingChangedNotification(context.teamName, event, meeting);
+          ? meetingFixedNotification(context.teamName, event, meeting, recipient)
+          : meetingChangedNotification(context.teamName, event, meeting, recipient);
         // The recipient's own club among the team's linked clubs, falling
         // back to the owner — same rule as ScoresheetOcrProcessor, so a CTC
-        // reader never taps through to a 403.
+        // reader never taps through to a 403. A parent told only about a
+        // child goes through the child's club instead (recipientDeepLink).
         const linked = context.linkedClubs;
         const clubId =
           memberships.find((m) => m.userId === userId && linked.some((l) => l.clubId === m.clubId))
             ?.clubId ??
           linked.find((l) => l.isOwner)?.clubId ??
           linked[0]?.clubId;
+        const eventPath = (club: string | undefined) =>
+          `/clubs/${club}/teams/${event.teamId}/events/${event.id}`;
         return {
           userId,
           type: isFirst ? ('EVENT_MEETING_FIXED' as const) : ('EVENT_MEETING_CHANGED' as const),
           title: copy.title,
           body: copy.body,
-          deepLink: `/clubs/${clubId}/teams/${event.teamId}/events/${event.id}`,
+          subjectFirstName: subjectLabel(recipient),
+          deepLink: recipientDeepLink(recipient, eventPath(clubId), eventPath),
         };
       }),
     );

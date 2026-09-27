@@ -25,6 +25,12 @@ export class TeamStatsController {
     @Query() query: GetTeamStatsDto,
     @CurrentUser() user: RequestUser,
   ): Promise<TeamSeasonStats> {
-    return this.teamStatsService.getTeamSeasonStats(clubId, teamId, user.id, query.season);
+    return this.teamStatsService.getTeamSeasonStats(
+      clubId,
+      teamId,
+      user.id,
+      query.season,
+      query.forPlayerId,
+    );
   }
 }

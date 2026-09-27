@@ -32,7 +32,13 @@ describe('TeamStatsController', () => {
       { id: 'user-1', email: 'a@example.com' },
     );
 
-    expect(service.getTeamSeasonStats).toHaveBeenCalledWith('club-1', 'team-1', 'user-1', 2025);
+    expect(service.getTeamSeasonStats).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'user-1',
+      2025,
+      undefined,
+    );
   });
 
   it('leaves the season undefined so the service picks the current one', async () => {
@@ -47,6 +53,7 @@ describe('TeamStatsController', () => {
       'club-1',
       'team-1',
       'user-1',
+      undefined,
       undefined,
     );
     expect(result).toEqual({ seasonYear: 2026 });
@@ -64,6 +71,7 @@ describe('TeamStatsController', () => {
       'club-1',
       'team-1',
       'user-caller',
+      undefined,
       undefined,
     );
   });

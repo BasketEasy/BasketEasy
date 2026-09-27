@@ -82,7 +82,14 @@ describe('EventsController', () => {
   it('setMyTravelMode delegates the route ids, the caller id, and the chosen mode', async () => {
     service.setMyTravelMode.mockResolvedValue({ id: 'event-1' });
 
-    await controller.setMyTravelMode('club-1', 'team-1', 'event-1', { travelMode: 'DIRECT' }, user);
+    await controller.setMyTravelMode(
+      'club-1',
+      'team-1',
+      'event-1',
+      { travelMode: 'DIRECT' },
+      { forPlayerId: 'child-1' },
+      user,
+    );
 
     expect(service.setMyTravelMode).toHaveBeenCalledWith(
       'club-1',
@@ -90,15 +97,22 @@ describe('EventsController', () => {
       'event-1',
       'user-1',
       'DIRECT',
+      'child-1',
     );
   });
 
   it('getEvent delegates clubId, teamId, eventId, and the caller id', async () => {
     service.getEvent.mockResolvedValue({ id: 'event-1', teamId: 'team-1' });
 
-    const result = await controller.getEvent('club-1', 'team-1', 'event-1', user);
+    const result = await controller.getEvent('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.getEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.getEvent).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result.id).toBe('event-1');
   });
 
@@ -227,6 +241,7 @@ describe('EventsController', () => {
       'team-1',
       'event-1',
       { status: 'GOING' },
+      { forPlayerId: 'child-1' },
       user,
     );
 
@@ -236,6 +251,7 @@ describe('EventsController', () => {
       'event-1',
       'user-1',
       'GOING',
+      'child-1',
     );
     expect(result.myRsvpStatus).toBe('GOING');
   });
@@ -254,9 +270,15 @@ describe('EventsController', () => {
       myRsvpStatus: null,
     });
 
-    const result = await controller.clearMyRsvp('club-1', 'team-1', 'event-1', user);
+    const result = await controller.clearMyRsvp('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.clearMyRsvp).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.clearMyRsvp).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result.myRsvpStatus).toBeNull();
   });
 
@@ -274,9 +296,15 @@ describe('EventsController', () => {
       },
     ]);
 
-    const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', user);
+    const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.listEventRsvps).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.listEventRsvps).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result[0].isMe).toBe(true);
   });
 
@@ -326,13 +354,14 @@ describe('EventsController', () => {
       },
     ]);
 
-    const result = await controller.listEventConvocations('club-1', 'team-1', 'event-1', user);
+    const result = await controller.listEventConvocations('club-1', 'team-1', 'event-1', {}, user);
 
     expect(service.listEventConvocations).toHaveBeenCalledWith(
       'club-1',
       'team-1',
       'event-1',
       'user-1',
+      undefined,
     );
     expect(result[0].isMe).toBe(true);
   });

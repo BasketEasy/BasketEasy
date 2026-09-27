@@ -18,6 +18,6 @@ export class DashboardController {
     @CurrentUser() user: RequestUser,
     @Query() query: GetDashboardDto,
   ): Promise<MyDashboardSummary> {
-    return this.dashboardService.getDashboard(user.id, query.from, query.to);
+    return this.dashboardService.getDashboard(user.id, query.from, query.to, query.forPlayerId);
   }
 }

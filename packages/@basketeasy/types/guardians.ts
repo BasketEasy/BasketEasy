@@ -10,6 +10,15 @@ export const MAX_GUARDIANS_PER_PLAYER = 4;
 /** Most unused, unexpired invite links one player can have outstanding. */
 export const MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER = 4;
 
+/**
+ * Who the request acts for. Absent: the caller themself. Present: a player
+ * the caller may act for — themself or a child they are a guardian of —
+ * anyone else is a 403. Accepted by every read and write that has a « me ».
+ */
+export interface ActingAsParams {
+  forPlayerId?: string;
+}
+
 export type ParentalConsentSource = 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
 
 // ── Admin: a player's guardians ─────────────────────────────────────────────
