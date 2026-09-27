@@ -215,7 +215,7 @@ export class GuardiansService {
       where: { id: user.id },
       data: { firstName: data.firstName, lastName: data.lastName },
     });
-    await this.linkFromInvite(invite.id, user.id, data.consent, context);
+    await this.linkFromInvite(invite, user.id, data.consent, context);
 
     // Same fire-and-forget verification link a plain registration gets.
     void this.accountSecurity.sendVerificationEmail(user.id);
@@ -235,7 +235,7 @@ export class GuardiansService {
     if (invite.acceptedByUserId !== userId) {
       this.assertLive(invite);
     }
-    await this.linkFromInvite(invite.id, userId, consent, context);
+    await this.linkFromInvite(invite, userId, consent, context);
     return { playerId: invite.playerId, clubId: invite.player.clubId };
   }
 
@@ -245,14 +245,22 @@ export class GuardiansService {
    * record the parent's own consent for a minor, and mark the invite used.
    * No ClubMembership is created: the link alone opens the child's team pages
    * (design decision 3).
+   *
+   * Every accept for one player runs one at a time: the transaction first
+   * locks the player row, so the checks below read what the previous accept
+   * committed. Without it, two accounts using one link at the same moment
+   * would both be linked, two parents on two links could push the player past
+   * MAX_GUARDIANS_PER_PLAYER, and a double submit from one account would hit
+   * the (playerId, userId) key and surface as a 500.
    */
   private async linkFromInvite(
-    inviteId: string,
+    { id: inviteId, playerId }: { id: string; playerId: string },
     userId: string,
     consent: boolean | undefined,
     context?: AuditRequestContext,
   ): Promise<void> {
     const linked = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "Player" WHERE "id" = ${playerId} FOR UPDATE`;
       const invite = await tx.guardianInvite.findUnique({
         where: { id: inviteId },
         include: { player: true },

@@ -200,6 +200,36 @@ describe('MyGuardiansService', () => {
       });
     });
 
+    it('lets a parent correct a minor’s birth date within minority', async () => {
+      prisma.player.findUniqueOrThrow.mockResolvedValue({
+        id: 'child-1',
+        firstName: 'Léo',
+        lastName: 'Martin',
+        birthDate: MINOR_BIRTH,
+        gender: null,
+        clubId: 'club-1',
+        club: { name: 'ASBC' },
+        teamPlayers: [],
+      });
+      const corrected = new Date(MINOR_BIRTH.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+      await service.updateChild('parent-1', 'child-1', { birthDate: corrected });
+
+      expect(prisma.player.update).toHaveBeenCalled();
+    });
+
+    it.each([
+      ['clearing', null],
+      ['making an adult of', '2000-01-01'],
+    ])('refuses %s a minor’s birth date', async (_label, birthDate) => {
+      prisma.player.findUniqueOrThrow.mockResolvedValue({ birthDate: MINOR_BIRTH });
+
+      await expect(
+        service.updateChild('parent-1', 'child-1', { birthDate }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.player.update).not.toHaveBeenCalled();
+    });
+
     it('stops following only the caller’s own link', async () => {
       await service.stopFollowing('parent-1', 'child-1');
       expect(prisma.playerGuardian.deleteMany).toHaveBeenCalledWith({

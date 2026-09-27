@@ -78,6 +78,7 @@ describe('GuardiansService', () => {
     parentalConsent: { findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     teamPlayer: { findMany: jest.Mock };
     user: { update: jest.Mock; findUniqueOrThrow: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
   let authService: { register: jest.Mock; me: jest.Mock };
@@ -114,6 +115,7 @@ describe('GuardiansService', () => {
           .fn()
           .mockResolvedValue({ firstName: 'Sophie', lastName: 'Martin', email: 's@x.fr' }),
       },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
     authService = {
@@ -349,6 +351,21 @@ describe('GuardiansService', () => {
         ConflictException,
         INVITE_ALREADY_ACCEPTED_CODE,
       );
+    });
+
+    it('locks the player before re-reading the invite, so concurrent accepts run one at a time', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite());
+
+      await service.acceptAsUser('t', 'parent-1', true);
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      const [sql, playerId] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray, string];
+      expect(sql.join('?')).toContain('FOR UPDATE');
+      expect(playerId).toBe('player-1');
+      // The in-transaction read (the last one) comes after the lock, so it
+      // sees whatever the previous accept for this player committed.
+      const lastInviteRead = Math.max(...prisma.guardianInvite.findUnique.mock.invocationCallOrder);
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(lastInviteRead);
     });
 
     it('treats a second accept by the same account as a success', async () => {
