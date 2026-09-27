@@ -22,6 +22,7 @@ import {
   type ParentalConsent,
 } from '@basketeasy/types/parental-consent';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
+import type { ParentalConsentSource } from '@basketeasy/types/guardians';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
@@ -252,12 +253,17 @@ export class ClubsService {
     // One extra bounded query, and only for the minors actually on this page:
     // an adult can never need a consent record, so there is nothing to look
     // up for the usual case of a senior roster.
-    const consents = await this.latestConsentGivenAt(
-      players.filter((p) => isMinorBirthDate(p.birthDate?.toISOString())).map((p) => p.id),
-    );
+    const [consents, guardianCounts] = await Promise.all([
+      this.latestConsentGivenAt(
+        players.filter((p) => isMinorBirthDate(p.birthDate?.toISOString())).map((p) => p.id),
+      ),
+      this.guardianCounts(players.map((p) => p.id)),
+    ]);
 
     return {
-      items: players.map((p) => this.toPlayer(p, consents.get(p.id) ?? null)),
+      items: players.map((p) =>
+        this.toPlayer(p, consents.get(p.id) ?? null, guardianCounts.get(p.id) ?? 0),
+      ),
       total,
       page,
       pageSize,
@@ -286,6 +292,19 @@ export class ClubsService {
       }
     }
     return latest;
+  }
+
+  /** Linked parents per player, one groupBy for a whole page. */
+  private async guardianCounts(playerIds: string[]): Promise<Map<string, number>> {
+    if (playerIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.playerGuardian.groupBy({
+      by: ['playerId'],
+      where: { playerId: { in: playerIds } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.playerId, row._count._all]));
   }
 
   private playersOrderBy(
@@ -458,10 +477,17 @@ export class ClubsService {
       });
       // Same "minors only" rule as listPlayers — an adult can never have a
       // consent record to report, so there is nothing to look up.
-      const consents = await this.latestConsentGivenAt(
-        isMinorBirthDate(player.birthDate?.toISOString()) ? [player.id] : [],
+      const [consents, guardianCounts] = await Promise.all([
+        this.latestConsentGivenAt(
+          isMinorBirthDate(player.birthDate?.toISOString()) ? [player.id] : [],
+        ),
+        this.guardianCounts([player.id]),
+      ]);
+      return this.toPlayer(
+        player,
+        consents.get(player.id) ?? null,
+        guardianCounts.get(player.id) ?? 0,
       );
-      return this.toPlayer(player, consents.get(player.id) ?? null);
     } catch (err) {
       throw this.toPlayerLinkError(err);
     }
@@ -633,6 +659,7 @@ export class ClubsService {
       createdAt: Date;
     },
     parentalConsentGivenAt: Date | null = null,
+    guardianCount = 0,
   ): Player {
     return {
       id: player.id,
@@ -647,6 +674,7 @@ export class ClubsService {
       licenseType: player.licenseType,
       isMinor: isMinorBirthDate(player.birthDate?.toISOString()),
       parentalConsentGivenAt: parentalConsentGivenAt ? parentalConsentGivenAt.toISOString() : null,
+      guardianCount,
       createdAt: player.createdAt.toISOString(),
     };
   }
@@ -660,6 +688,7 @@ export class ClubsService {
     playerBirthDate: Date;
     attestedByName: string;
     attestedByUserId: string | null;
+    source: ParentalConsentSource;
     consentGivenAt: Date;
     retentionExpiresAt: Date | null;
   }): ParentalConsent {
@@ -672,6 +701,7 @@ export class ClubsService {
       playerBirthDate: consent.playerBirthDate.toISOString(),
       attestedByName: consent.attestedByName,
       attestedByUserId: consent.attestedByUserId,
+      source: consent.source,
       consentGivenAt: consent.consentGivenAt.toISOString(),
       retentionExpiresAt: consent.retentionExpiresAt
         ? consent.retentionExpiresAt.toISOString()

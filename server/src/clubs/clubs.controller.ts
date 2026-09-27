@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { ClubsService } from './clubs.service';
 import { CreateClubDto } from './dto/create-club.dto';
@@ -56,6 +57,7 @@ export class ClubsController {
   @Get(':clubId')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getClub(@Param('clubId') clubId: string): Promise<Club> {
     return this.clubsService.getClub(clubId);
   }
