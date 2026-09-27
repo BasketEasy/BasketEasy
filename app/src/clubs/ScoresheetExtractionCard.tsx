@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
+import { useForm } from 'react-hook-form';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
@@ -558,6 +559,11 @@ function PlayerStatsTable({
  * types the real value directly into the cell where it already belongs,
  * rather than re-entering 20+ already-correct fields in a fresh form.
  */
+type ExtractionFormValues = {
+  corrections: ParsedScoresheetData | null;
+  rosterMapping: Record<number, string>;
+};
+
 export function ScoresheetExtractionCard({
   clubId,
   teamId,
@@ -576,20 +582,27 @@ export function ScoresheetExtractionCard({
     teamId,
     event.id,
   );
-  const [corrections, setCorrections] = useState<ParsedScoresheetData | null>(
-    extraction.parsedData,
-  );
-  // jersey number → TeamPlayer id (or UNASSIGNED), seeded from the server's
-  // suggestions so the common case is a manager confirming a column of
-  // correct answers rather than filling one in.
-  const [rosterMapping, setRosterMapping] = useState<Record<number, string>>(() =>
-    Object.fromEntries(
-      extraction.suggestedRosterMapping.map((entry) => [
-        entry.jerseyNumber,
-        entry.teamPlayerId ?? UNASSIGNED,
-      ]),
-    ),
-  );
+  // One form over everything the manager can correct before confirming: the
+  // parsed sheet itself, and jersey number → TeamPlayer id (or UNASSIGNED),
+  // seeded from the server's suggestions so the common case is a manager
+  // confirming a column of correct answers rather than filling one in.
+  const { watch, getValues, setValue, handleSubmit } = useForm<ExtractionFormValues>({
+    defaultValues: {
+      corrections: extraction.parsedData,
+      rosterMapping: Object.fromEntries(
+        extraction.suggestedRosterMapping.map((entry) => [
+          entry.jerseyNumber,
+          entry.teamPlayerId ?? UNASSIGNED,
+        ]),
+      ),
+    },
+  });
+  const corrections = watch('corrections');
+  const rosterMapping = watch('rosterMapping');
+  const setCorrections = (update: (current: ParsedScoresheetData) => ParsedScoresheetData) => {
+    const current = getValues('corrections');
+    if (current) setValue('corrections', update(current), { shouldDirty: true });
+  };
   // The roster is small and never paginated for this purpose — the mapping
   // must be able to offer every squad member, not the first page of them.
   const { data: rosterResult } = useTeamPlayerList(clubId, teamId, { pageSize: ROSTER_PAGE_SIZE });
@@ -606,7 +619,6 @@ export function ScoresheetExtractionCard({
 
   const updateQuarter = (quarterIndex: number, side: 'home' | 'away', value: number | null) => {
     setCorrections((current) => {
-      if (!current) return current;
       const quarterScores = current.quarterScores.map((q, i) =>
         i === quarterIndex ? { ...q, [side]: value } : q,
       );
@@ -620,7 +632,6 @@ export function ScoresheetExtractionCard({
     value: number | null,
   ) => {
     setCorrections((current) => {
-      if (!current) return current;
       const players = current.players.map((p, i) =>
         i === playerIndex ? { ...p, [field]: value } : p,
       );
@@ -634,7 +645,6 @@ export function ScoresheetExtractionCard({
     value: number | string | null,
   ) => {
     setCorrections((current) => {
-      if (!current) return current;
       const players = current.players.map((p, i) =>
         i === playerIndex ? { ...p, [field]: value } : p,
       );
@@ -644,18 +654,18 @@ export function ScoresheetExtractionCard({
 
   const updateBoxScore = (side: 'home' | 'away', value: number | null) => {
     setCorrections((current) => {
-      if (!current) return current;
       return { ...current, [side === 'home' ? 'homeScore' : 'awayScore']: value };
     });
   };
 
-  const handleConfirm = () => {
-    if (hasUnresolvedFlags) return;
-    const edited = extraction.parsedData && !isSameParsedData(corrections, extraction.parsedData);
+  const onConfirm = (values: ExtractionFormValues) => {
+    if (hasUnresolvedFlags || !values.corrections) return;
+    const edited =
+      extraction.parsedData && !isSameParsedData(values.corrections, extraction.parsedData);
     confirm(
       {
-        corrections: edited ? corrections : undefined,
-        rosterMapping: Object.entries(rosterMapping)
+        corrections: edited ? values.corrections : undefined,
+        rosterMapping: Object.entries(values.rosterMapping)
           .filter(([, teamPlayerId]) => teamPlayerId !== UNASSIGNED)
           .map(([jerseyNumber, teamPlayerId]) => ({
             jerseyNumber: Number(jerseyNumber),
@@ -734,7 +744,11 @@ export function ScoresheetExtractionCard({
           ourSide={event.venue === 'HOME' ? 'home' : 'away'}
           value={rosterMapping}
           onChange={(jerseyNumber, teamPlayerId) =>
-            setRosterMapping((current) => ({ ...current, [jerseyNumber]: teamPlayerId }))
+            setValue(
+              'rosterMapping',
+              { ...getValues('rosterMapping'), [jerseyNumber]: teamPlayerId },
+              { shouldDirty: true },
+            )
           }
           disabled={isPending}
         />
@@ -773,7 +787,7 @@ export function ScoresheetExtractionCard({
               aria-disabled={hasUnresolvedFlags || undefined}
               aria-describedby={hasUnresolvedFlags ? CONFIRM_HINT_ID : undefined}
               loading={isPending}
-              onClick={handleConfirm}
+              onClick={() => void handleSubmit(onConfirm)()}
               className={cn('w-full', hasUnresolvedFlags && 'pointer-events-none opacity-50')}
             >
               <Check aria-hidden="true" className="h-4 w-4" />
