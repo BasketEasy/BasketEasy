@@ -37,6 +37,7 @@ const closedMatchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  myTravelMode: null,
 };
 
 const openMatchEvent: TeamEvent = {

@@ -3,6 +3,7 @@ import {
   convocationNotification,
   describeEvent,
   formatEventMoment,
+  meetingChangedNotification,
 } from './event-notification-copy';
 
 // 20:30 Paris time in January (UTC+1). Formatting in UTC would render this as
@@ -49,6 +50,37 @@ describe('event notification copy', () => {
       expect(copy.body).toContain('le match contre ASVEL');
       expect(copy.body).toContain('samedi 10 janvier à 20:30');
       expect(copy.body).toContain('Gymnase Léo Lagrange');
+      expect(copy.body).not.toContain('RDV');
+    });
+
+    it('adds the meeting point and its Paris time once one is known', () => {
+      const copy = convocationNotification(
+        'U15 M',
+        {
+          type: 'MATCH',
+          startsAt: WINTER_EVENING,
+          location: 'Gymnase Léo Lagrange',
+          opponentName: 'ASVEL',
+        },
+        { meetsAt: new Date('2026-01-10T18:15:00.000Z'), placeName: 'Parking salle Coubertin' },
+      );
+
+      expect(copy.body).toContain('RDV à 19:15 — Parking salle Coubertin.');
+    });
+  });
+
+  describe('meetingChangedNotification', () => {
+    it('says what the new meeting is, for which match', () => {
+      const copy = meetingChangedNotification(
+        'U15 M',
+        { type: 'MATCH', startsAt: WINTER_EVENING, opponentName: 'ASVEL' },
+        { meetsAt: new Date('2026-01-10T18:00:00.000Z'), placeName: 'Parking Leclerc' },
+      );
+
+      expect(copy.title).toBe('RDV modifié — U15 M');
+      expect(copy.body).toBe(
+        'Nouveau rendez-vous pour le match contre ASVEL du samedi 10 janvier à 20:30 : 19:00 — Parking Leclerc.',
+      );
     });
   });
 

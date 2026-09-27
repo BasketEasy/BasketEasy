@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { EventType, Prisma } from '@prisma/client';
+import { EventRsvpStatus, EventTravelMode, EventType, Prisma } from '@prisma/client';
 import type {
   ClubMeetingSettings,
   EventMeetingPlan,
@@ -17,10 +17,13 @@ import type {
   UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { meetingChangedNotification } from '../events/event-notification-copy';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
 import {
   isTravelStale,
+  meetingAnnouncementKey,
   resolveMeetingPlan,
   resolveMeetingPoint,
   travelRouteKey,
@@ -29,6 +32,11 @@ import {
   type MeetingPlanTeam,
 } from './meeting-plan';
 import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
+
+// A changed meeting is only pushed to players for a match this close — a
+// club-wide default change must not send one notification per future match.
+// Further-off matches update quietly and read correctly when opened.
+export const MEETING_CHANGE_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface MeetingTravelJobData {
   eventId: string;
@@ -83,6 +91,7 @@ export class MeetingPointsService {
     private readonly geocoding: GeocodingService,
     @Inject(ROUTING_CLIENT) private readonly routing: RoutingClient,
     @InjectQueue(MEETING_TRAVEL_QUEUE) private readonly queue: Queue<MeetingTravelJobData>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async getClubSettings(clubId: string): Promise<ClubMeetingSettings> {
@@ -109,7 +118,7 @@ export class MeetingPointsService {
         arrivalBufferMinutes: data.arrivalBufferMinutes,
       },
     });
-    await this.enqueueForClub(clubId);
+    await this.refreshUpcoming(await this.upcomingMatchIdsForClub(clubId));
     return this.getClubSettings(clubId);
   }
 
@@ -140,7 +149,7 @@ export class MeetingPointsService {
         arrivalBufferMinutes: data.arrivalBufferMinutes,
       },
     });
-    await this.enqueueForTeam(teamId);
+    await this.refreshUpcoming(await this.upcomingMatchIdsForTeam(teamId));
     return this.getTeamSettings(clubId, teamId);
   }
 
@@ -233,6 +242,7 @@ export class MeetingPointsService {
     if (resolved && nextRouteKey !== currentKey) {
       await this.enqueueRecompute([event.id]);
     }
+    await this.announceMeetingChanges([event.id]);
   }
 
   /**
@@ -269,6 +279,7 @@ export class MeetingPointsService {
       where: { id: eventId },
       data: { travelMinutes: minutes, travelMinutesManual: false, travelRouteKey: key },
     });
+    await this.announceMeetingChanges([eventId]);
   }
 
   /** The synchronous « Recalculer » behind POST …/meeting/refresh. */
@@ -313,17 +324,150 @@ export class MeetingPointsService {
     }
   }
 
-  /** Upcoming matches of one team — after a team default or buffer change. */
-  async enqueueForTeam(teamId: string): Promise<void> {
+  /**
+   * Tells players coming to the meeting point that it moved. Runs after every
+   * write that can change a resolved meeting (a manager's override, a
+   * recompute, a default or buffer change, a new kick-off) and compares
+   * against `meetingAnnouncedKey`, the last meeting anyone could have seen:
+   *
+   * - an unknown time never notifies — the next known one will;
+   * - the first known meeting is recorded silently — the convocation covers it;
+   * - only matches within MEETING_CHANGE_NOTIFY_WINDOW_MS notify;
+   * - only GOING players with travelMode MEETING_POINT and an account hear it.
+   *
+   * Never throws: a missed notification must not fail a manager's save or a
+   * recompute job.
+   */
+  async announceMeetingChanges(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
+    try {
+      await this.announce(eventIds);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to announce meeting changes: ${message}`);
+    }
+  }
+
+  private async announce(eventIds: string[]): Promise<void> {
+    const events = await this.prisma.event.findMany({
+      where: { id: { in: eventIds }, type: EventType.MATCH },
+    });
+    const contexts = new Map<string, TeamContext>();
+    for (const teamId of new Set(events.map((e) => e.teamId))) {
+      contexts.set(teamId, await this.loadTeamContext(teamId));
+    }
+
+    const now = Date.now();
+    const changed: { event: (typeof events)[number]; meetsAt: Date; placeName: string }[] = [];
+    for (const event of events) {
+      const { team, club } = contexts.get(event.teamId)!;
+      const plan = resolveMeetingPlan(event, team, club);
+      if (!plan?.meetingPoint || !plan.meetsAt) continue;
+      const key = meetingAnnouncementKey(plan.meetingPoint, plan.meetsAt);
+      if (key === event.meetingAnnouncedKey) continue;
+
+      // Conditional on the key we read, so two recomputes racing on the
+      // same event can't both announce the same change.
+      const { count } = await this.prisma.event.updateMany({
+        where: { id: event.id, meetingAnnouncedKey: event.meetingAnnouncedKey },
+        data: { meetingAnnouncedKey: key },
+      });
+      if (count === 0 || event.meetingAnnouncedKey === null) continue;
+
+      const startsAt = event.startsAt.getTime();
+      if (startsAt <= now || startsAt > now + MEETING_CHANGE_NOTIFY_WINDOW_MS) continue;
+      changed.push({
+        event,
+        meetsAt: new Date(plan.meetsAt),
+        placeName: plan.meetingPoint.name,
+      });
+    }
+    if (changed.length === 0) return;
+
+    const changedIds = changed.map((c) => c.event.id);
+    const teamIds = [...new Set(changed.map((c) => c.event.teamId))];
+    const [rsvps, teams] = await Promise.all([
+      this.prisma.eventRsvp.findMany({
+        where: {
+          eventId: { in: changedIds },
+          status: EventRsvpStatus.GOING,
+          travelMode: EventTravelMode.MEETING_POINT,
+        },
+        select: { eventId: true, teamPlayer: { select: { player: { select: { userId: true } } } } },
+      }),
+      this.prisma.team.findMany({
+        where: { id: { in: teamIds } },
+        select: { id: true, name: true, clubTeams: { select: { clubId: true, isOwner: true } } },
+      }),
+    ]);
+    // Player.userId is nullable — a rostered player who never claimed an
+    // account has nobody to notify.
+    const recipients = rsvps.flatMap((r) =>
+      r.teamPlayer.player.userId
+        ? [{ eventId: r.eventId, userId: r.teamPlayer.player.userId }]
+        : [],
+    );
+    if (recipients.length === 0) return;
+
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+    const memberships = await this.prisma.clubMembership.findMany({
+      where: {
+        userId: { in: [...new Set(recipients.map((r) => r.userId))] },
+        clubId: { in: [...new Set(teams.flatMap((t) => t.clubTeams.map((ct) => ct.clubId)))] },
+      },
+      select: { userId: true, clubId: true },
+    });
+    const changedById = new Map(changed.map((c) => [c.event.id, c]));
+
+    await this.notifications.notify(
+      recipients.map(({ eventId, userId }) => {
+        const { event, meetsAt, placeName } = changedById.get(eventId)!;
+        const team = teamById.get(event.teamId);
+        const copy = meetingChangedNotification(team?.name ?? 'votre équipe', event, {
+          meetsAt,
+          placeName,
+        });
+        // The recipient's own club among the team's linked clubs, falling
+        // back to the owner — same rule as ScoresheetOcrProcessor, so a CTC
+        // reader never taps through to a 403.
+        const linkedClubIds = team?.clubTeams.map((ct) => ct.clubId) ?? [];
+        const clubId =
+          memberships.find((m) => m.userId === userId && linkedClubIds.includes(m.clubId))
+            ?.clubId ??
+          team?.clubTeams.find((ct) => ct.isOwner)?.clubId ??
+          linkedClubIds[0];
+        return {
+          userId,
+          type: 'EVENT_MEETING_CHANGED' as const,
+          title: copy.title,
+          body: copy.body,
+          deepLink: `/clubs/${clubId}/teams/${event.teamId}/events/${event.id}`,
+        };
+      }),
+    );
+  }
+
+  /**
+   * After a default or buffer change: a route change needs a recompute (which
+   * announces once it lands), a buffer change moves the meeting time with no
+   * route change at all — so both are done.
+   */
+  private async refreshUpcoming(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
+    await this.enqueueRecompute(eventIds);
+    await this.announceMeetingChanges(eventIds);
+  }
+
+  private async upcomingMatchIdsForTeam(teamId: string): Promise<string[]> {
     const events = await this.prisma.event.findMany({
       where: { teamId, type: EventType.MATCH, startsAt: { gt: new Date() } },
       select: { id: true },
     });
-    if (events.length > 0) await this.enqueueRecompute(events.map((e) => e.id));
+    return events.map((e) => e.id);
   }
 
-  /** Upcoming matches of every team the club owns — after a club default change. */
-  async enqueueForClub(clubId: string): Promise<void> {
+  // Only teams the club owns — a partner club's default never applies.
+  private async upcomingMatchIdsForClub(clubId: string): Promise<string[]> {
     const events = await this.prisma.event.findMany({
       where: {
         type: EventType.MATCH,
@@ -332,7 +476,7 @@ export class MeetingPointsService {
       },
       select: { id: true },
     });
-    if (events.length > 0) await this.enqueueRecompute(events.map((e) => e.id));
+    return events.map((e) => e.id);
   }
 
   // A CTC team inherits from its owner club only (ClubTeam.isOwner) — a

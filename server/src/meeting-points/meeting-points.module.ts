@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { QueueModule } from '../queue/queue.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { GeocodingService } from './geocoding.service';
 import { MeetingPointsController } from './meeting-points.controller';
 import { MeetingPointsService } from './meeting-points.service';
@@ -11,7 +12,7 @@ import { OrsRoutingClient } from './ors-routing.client';
 import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
 
 @Module({
-  imports: [AuthModule, QueueModule],
+  imports: [AuthModule, QueueModule, NotificationsModule],
   controllers: [MeetingPointsController],
   providers: [
     MeetingPointsService,

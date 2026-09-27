@@ -8,6 +8,7 @@ import {
 import type { FfbbImportResult } from '@basketeasy/types/ffbb';
 import { PrismaService } from '../prisma/prisma.service';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
+import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 
 type UpsertOutcome = 'created' | 'updated' | 'unchanged';
 
@@ -37,6 +38,7 @@ export class FfbbImportService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
+    private readonly meetingPoints: MeetingPointsService,
   ) {}
 
   async importSchedule(clubId: string, teamId: string): Promise<FfbbImportResult> {
@@ -78,19 +80,27 @@ export class FfbbImportService {
     let created = 0;
     let updated = 0;
     let unchanged = 0;
+    const rescheduledEventIds: string[] = [];
     for (const matches of matchesByLink) {
       for (const match of matches) {
-        const outcome = await this.upsertMatch(teamId, match);
+        const outcome = await this.upsertMatch(teamId, match, rescheduledEventIds);
         if (outcome === 'created') created += 1;
         else if (outcome === 'updated') updated += 1;
         else unchanged += 1;
       }
     }
+    // A kick-off FFBB moved moves the meeting time with it — announced once
+    // for the whole import, not per match.
+    await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
 
     return { created, updated, unchanged };
   }
 
-  private async upsertMatch(teamId: string, match: FfbbMatch): Promise<UpsertOutcome> {
+  private async upsertMatch(
+    teamId: string,
+    match: FfbbMatch,
+    rescheduledEventIds: string[],
+  ): Promise<UpsertOutcome> {
     const existing = await this.prisma.event.findUnique({
       where: { teamId_externalId: { teamId, externalId: match.id } },
     });
@@ -143,6 +153,7 @@ export class FfbbImportService {
       return 'unchanged';
     }
 
+    const rescheduled = existing.startsAt.getTime() !== startsAt.getTime();
     await this.prisma.event.update({
       where: { id: existing.id },
       data: {
@@ -151,8 +162,12 @@ export class FfbbImportService {
         opponentName: match.opponentLabel,
         timeConfirmed: match.timeConfirmed,
         venue,
+        // Same rule as EventsService.updateEvent: a meeting-time override was
+        // set against the old kick-off.
+        ...(rescheduled ? { meetsAtOverride: null } : {}),
       },
     });
+    if (rescheduled) rescheduledEventIds.push(existing.id);
     return 'updated';
   }
 

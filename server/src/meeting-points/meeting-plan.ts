@@ -144,6 +144,14 @@ export function resolveMeetingPlan(
 }
 
 /**
+ * What players were last told about a match's meeting — a change to the
+ * place or the time is what makes a new announcement worth sending.
+ */
+export function meetingAnnouncementKey(meetingPoint: MeetingPoint, meetsAt: string): string {
+  return `${meetingPoint.name}|${meetingPoint.address}|${meetsAt}`;
+}
+
+/**
  * True when a MATCH resolves to a meeting point but its stored travel time
  * belongs to another route (or was never computed) — the read path queues a
  * recompute for these.

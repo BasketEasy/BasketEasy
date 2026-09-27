@@ -1,6 +1,6 @@
 import type { PaginationParams, SortOrder } from './pagination';
 import type { TeamMemberRole } from './teams';
-import type { EventMeetingPlan } from './meeting-points';
+import type { EventMeetingPlan, EventTravelMode } from './meeting-points';
 
 export type EventType = 'TRAINING' | 'MATCH';
 
@@ -111,6 +111,12 @@ export interface TeamEvent {
   myMatchStats: EventMatchPlayerStats | null;
   /** Where and when the group meets before a MATCH; null for TRAINING. */
   meetingPlan: EventMeetingPlan | null;
+  /**
+   * How the caller gets to this MATCH — null unless they answered GOING. A
+   * GOING player who never chose reads MEETING_POINT: not choosing counts as
+   * coming to the meeting point.
+   */
+  myTravelMode: EventTravelMode | null;
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';
@@ -198,8 +204,14 @@ export interface EventRsvpRosterEntry {
   /** Null when this roster member hasn't responded yet. */
   status: EventRsvpStatus | null;
   respondedAt: string | null;
+  /** Null unless this member answered GOING to a MATCH — same rule as TeamEvent.myTravelMode. */
+  travelMode: EventTravelMode | null;
   /** True when this roster row belongs to the requesting user. */
   isMe: boolean;
+}
+
+export interface SetEventTravelModeRequest {
+  travelMode: EventTravelMode;
 }
 
 export interface SetEventConvocationsRequest {
