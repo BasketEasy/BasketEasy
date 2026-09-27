@@ -65,3 +65,7 @@ export const myTeamsQueryKey = ['me', 'teams'] as const;
 export const myDashboardQueryKeyPrefix = ['me', 'dashboard'] as const;
 export const myDashboardQueryKey = (params?: GetDashboardParams) =>
   [...myDashboardQueryKeyPrefix, params ?? {}] as const;
+export const clubMeetingSettingsQueryKey = (clubId: string) =>
+  ['clubs', clubId, 'meeting-settings'] as const;
+export const teamMeetingSettingsQueryKey = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'meeting-settings'] as const;
