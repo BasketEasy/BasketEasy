@@ -23,3 +23,13 @@ export function guardianInviteSchema(requiresConsent: boolean) {
 }
 
 export type GuardianInviteFormValues = z.infer<ReturnType<typeof guardianInviteSchema>>;
+
+/** The logged-in path: nothing to type, only the consent when the child is a minor. */
+export function guardianInviteAsMeSchema(requiresConsent: boolean) {
+  return z.object({ consent: z.boolean() }).refine((values) => !requiresConsent || values.consent, {
+    message: GUARDIAN_CONSENT_REQUIRED_MESSAGE,
+    path: ['consent'],
+  });
+}
+
+export type GuardianInviteAsMeFormValues = z.infer<ReturnType<typeof guardianInviteAsMeSchema>>;
