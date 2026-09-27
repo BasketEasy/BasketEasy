@@ -6,6 +6,7 @@ import { ConvocationIcon } from './eventDetailIcons';
 import { EventRsvpControl } from './EventRsvpControl';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import type { EventRosterCounts } from './useEventRoster';
+import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
 
 /**
  * Says what the call-up *means*, in a sentence.
@@ -80,6 +81,7 @@ export function EventDecisionBand({
           : `Votre réponse : ${eventRsvpAnswerLabel(event.myRsvpStatus).toLowerCase()}.`}
       </Text>
       <EventRsvpControl clubId={clubId} teamId={teamId} event={event} fullWidth className="mt-1" />
+      <EventTravelModeControl clubId={clubId} teamId={teamId} event={event} />
     </Card>
   );
 }

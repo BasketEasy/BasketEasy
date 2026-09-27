@@ -17,6 +17,7 @@ import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { Text } from '@basketeasy/ui/text';
+import { EventMatchTimeline } from '../meeting-points/EventMatchTimeline';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -233,9 +234,8 @@ export function EventLogisticsCard({
     label: `${r.firstName} ${r.lastName}`,
   }));
 
-  return (
-    <Card variant="flush">
-      <EventVenueRow event={event} />
+  const kitRows = (
+    <>
       <LogisticsFieldRow
         clubId={clubId}
         teamId={teamId}
@@ -256,6 +256,40 @@ export function EventLogisticsCard({
         isRostered={isRostered}
         rosterOptions={rosterOptions}
       />
+    </>
+  );
+
+  // A match reads as its day — meeting point, arrival, tip-off — with the
+  // kit beside it; the timeline's arrival step carries the gym and its
+  // directions, so the venue row would only repeat it.
+  if (event.meetingPlan) {
+    return (
+      <div className="grid items-start gap-3.5 lg:grid-cols-2">
+        <EventMatchTimeline
+          clubId={clubId}
+          teamId={teamId}
+          event={event}
+          plan={event.meetingPlan}
+          canManage={canManage}
+        />
+        <Card variant="flush">
+          {canManage && (
+            <div className="border-b border-border px-3.5 pt-4 pb-3">
+              <Text variant="label" className="font-bold">
+                Matériel
+              </Text>
+            </div>
+          )}
+          {kitRows}
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <Card variant="flush">
+      <EventVenueRow event={event} />
+      {kitRows}
     </Card>
   );
 }
