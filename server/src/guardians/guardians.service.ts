@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
 import {
+  GUARDIAN_INVITE_REFUSED_CODE,
   MAX_GUARDIANS_PER_PLAYER,
   MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER,
   type AcceptedGuardianInvite,
@@ -280,7 +281,7 @@ export class GuardiansService {
 
       const { player } = invite;
       if (player.userId === userId) {
-        throw new BadRequestException('Vous ne pouvez pas être votre propre parent');
+        throw refused('Vous ne pouvez pas être votre propre parent');
       }
       assertConsent(player.birthDate, consent);
 
@@ -290,7 +291,7 @@ export class GuardiansService {
       if (!existing) {
         const count = await tx.playerGuardian.count({ where: { playerId: player.id } });
         if (count >= MAX_GUARDIANS_PER_PLAYER) {
-          throw new BadRequestException(TOO_MANY_GUARDIANS);
+          throw refused(TOO_MANY_GUARDIANS);
         }
         await tx.playerGuardian.create({ data: { playerId: player.id, userId } });
       }
@@ -395,6 +396,11 @@ function assertConsent(birthDate: Date | null, consent: boolean | undefined): vo
       code: PARENTAL_CONSENT_REQUIRED_CODE,
     });
   }
+}
+
+// A refusal the invite page shows as-is, told apart from validation 400s.
+function refused(message: string): BadRequestException {
+  return new BadRequestException({ message, code: GUARDIAN_INVITE_REFUSED_CODE });
 }
 
 function alreadyAccepted(): ConflictException {

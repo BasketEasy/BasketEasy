@@ -7,6 +7,13 @@ import type { Gender } from './teams';
 
 /** Most parents one player can have linked at once. */
 export const MAX_GUARDIANS_PER_PLAYER = 4;
+
+/**
+ * Carried by a 400 on accepting a guardian invite when the refusal is a
+ * finished French sentence meant for the parent (following oneself, a fifth
+ * parent). Any other 400 there is input validation and not shown verbatim.
+ */
+export const GUARDIAN_INVITE_REFUSED_CODE = 'GUARDIAN_INVITE_REFUSED';
 /** Most unused, unexpired invite links one player can have outstanding. */
 export const MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER = 4;
 
