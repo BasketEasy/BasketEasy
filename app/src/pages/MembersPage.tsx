@@ -32,6 +32,7 @@ import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useClubShow } from '../clubs/useClubShow';
 import { ClubFfbbLinkControl } from '../clubs/ClubFfbbLinkControl';
+import { ClubMeetingPointSettings } from '../meeting-points/ClubMeetingPointSettings';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
 import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
@@ -372,6 +373,8 @@ export function MembersPage() {
       </Heading>
 
       {isAdmin && club && <ClubFfbbLinkControl clubId={clubId!} club={club} />}
+
+      {isAdmin && <ClubMeetingPointSettings clubId={clubId!} />}
 
       {removeError && (
         <Alert variant="destructive">

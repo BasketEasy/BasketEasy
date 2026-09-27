@@ -1,0 +1,60 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking salle Coubertin",
+      "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors M",
+    "category": "SENIORS",
+    "gender": "MEN",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": 60,
+    "clubDefaults": {
+      "clubName": "ASC Nantes",
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  }
+}
