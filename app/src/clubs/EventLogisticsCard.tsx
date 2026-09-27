@@ -17,6 +17,7 @@ import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { Text } from '@basketeasy/ui/text';
+import { EventMeetingRows } from '../meeting-points/EventMeetingRows';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -236,6 +237,7 @@ export function EventLogisticsCard({
   return (
     <Card variant="flush">
       <EventVenueRow event={event} />
+      <EventMeetingRows clubId={clubId} teamId={teamId} event={event} canManage={canManage} />
       <LogisticsFieldRow
         clubId={clubId}
         teamId={teamId}

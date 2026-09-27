@@ -14,6 +14,7 @@ import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRoster, type EventRosterRow } from './useEventRoster';
+import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
 
 // Meaning, not hue: the same three-value convention the RSVP breakdowns use,
 // expressed on Badge's own tone axis.
@@ -82,7 +83,13 @@ function RosterIdentity({ row }: { row: EventRosterRow }) {
  * replaces the `EventRosterCard` / inline-`TableRow` pair the Effectif tab
  * carried.
  */
-function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
+function EventRosterMemberRow({
+  row,
+  showTravelMode,
+}: {
+  row: EventRosterRow;
+  showTravelMode: boolean;
+}) {
   if (useTableLayout() === 'row') {
     return (
       <TableRow>
@@ -93,7 +100,10 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
           <ConvocationMark convoked={row.convoked} />
         </TableCell>
         <TableCell>
-          <RsvpBadge status={row.rsvpStatus} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <RsvpBadge status={row.rsvpStatus} />
+            {showTravelMode && <TravelModeBadge travelMode={row.travelMode} />}
+          </div>
         </TableCell>
       </TableRow>
     );
@@ -104,6 +114,7 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <ConvocationMark convoked={row.convoked} />
         <RsvpBadge status={row.rsvpStatus} />
+        {showTravelMode && <TravelModeBadge travelMode={row.travelMode} />}
       </div>
     </Card>
   );
@@ -122,10 +133,13 @@ export function EventRosterList({
   clubId,
   teamId,
   eventId,
+  showTravelMode = false,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /** A match with a meeting point: tag each GOING member « RDV » or « Direct ». */
+  showTravelMode?: boolean;
 }) {
   const { rows, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
 
@@ -150,7 +164,7 @@ export function EventRosterList({
   return (
     <ResponsiveTable columns={['Joueur', 'Convocation', 'Présence']}>
       {rows.map((row) => (
-        <EventRosterMemberRow key={row.teamPlayerId} row={row} />
+        <EventRosterMemberRow key={row.teamPlayerId} row={row} showTravelMode={showTravelMode} />
       ))}
     </ResponsiveTable>
   );

@@ -3,6 +3,7 @@ import type {
   EventRsvpRosterEntry,
   EventRsvpStatus,
 } from '@basketeasy/types/events';
+import type { EventTravelMode } from '@basketeasy/types/meeting-points';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventRsvps } from './useEventRsvps';
 
@@ -13,6 +14,8 @@ export interface EventRosterRow {
   role: EventRsvpRosterEntry['role'];
   isMe: boolean;
   rsvpStatus: EventRsvpStatus | null;
+  /** Null unless GOING to a match — see EventRsvpRosterEntry.travelMode. */
+  travelMode: EventTravelMode | null;
   convoked: boolean;
 }
 
@@ -53,6 +56,7 @@ function mergeRoster(
     role: rsvp.role,
     isMe: rsvp.isMe,
     rsvpStatus: rsvp.status,
+    travelMode: rsvp.travelMode,
     convoked: convocationByPlayer.get(rsvp.teamPlayerId)?.convoked ?? false,
   }));
 }

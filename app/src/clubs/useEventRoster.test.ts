@@ -9,6 +9,7 @@ function row(overrides: Partial<EventRosterRow> = {}): EventRosterRow {
     role: 'PLAYER',
     isMe: false,
     rsvpStatus: null,
+    travelMode: null,
     convoked: false,
     ...overrides,
   };

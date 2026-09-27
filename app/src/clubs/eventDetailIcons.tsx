@@ -51,3 +51,23 @@ export function MapPinIcon({ size = 18, tone, className }: { size?: number } & I
     </svg>
   );
 }
+
+/** The arrival time at the gym — a clock, so it doesn't read as the meeting pin. */
+export function ClockIcon({ size = 18, tone, className }: { size?: number } & IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}

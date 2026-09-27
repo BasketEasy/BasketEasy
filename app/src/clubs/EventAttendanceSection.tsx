@@ -15,6 +15,7 @@ import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
+import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -37,6 +38,12 @@ function attendanceSummary(counts: EventRosterCounts): string {
   return `${counts.going} oui · ${counts.maybe} peut-être · ${counts.notGoing} non · ${counts.pending} sans réponse — ${scope}`;
 }
 
+/** e.g. "8 au RDV · 3 en direct" — among the listed people who are coming. */
+function travelSummary(going: EventRosterRow[]): string {
+  const direct = going.filter((row) => row.travelMode === 'DIRECT').length;
+  return `${going.length - direct} au RDV · ${direct} en direct`;
+}
+
 /**
  * Answered first, and inside each answer the people who are coming first:
  * the question this block exists for is "is there a real session tonight",
@@ -52,7 +59,7 @@ function sortForDisplay(rows: EventRosterRow[]): EventRosterRow[] {
   );
 }
 
-function AttendanceRow({ row }: { row: EventRosterRow }) {
+function AttendanceRow({ row, showTravelMode }: { row: EventRosterRow; showTravelMode: boolean }) {
   return (
     <li className="flex items-center gap-2.5 border-t border-border py-2.5 first:border-t-0">
       <Avatar size="sm" className="shrink-0">
@@ -62,7 +69,8 @@ function AttendanceRow({ row }: { row: EventRosterRow }) {
         {row.firstName} {row.lastName}
         {row.isMe && ' (vous)'}
       </Text>
-      <span className="ml-auto shrink-0">
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        {showTravelMode && <TravelModeBadge travelMode={row.travelMode} />}
         {row.rsvpStatus === null ? (
           <Badge variant="outline" tone="muted">
             {eventRsvpAnswerLabel(null)}
@@ -95,11 +103,14 @@ export function EventAttendanceSection({
   clubId,
   teamId,
   eventId,
+  showTravelMode = false,
   id,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /** A match with a meeting point: show who comes to the RDV and who goes direct. */
+  showTravelMode?: boolean;
   id?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -136,6 +147,11 @@ export function EventAttendanceSection({
           <Text as="span" variant="meta" size="xs" className="tabular">
             {attendanceSummary(counts)}
           </Text>
+          {showTravelMode && going.length > 0 && (
+            <Text as="span" variant="meta" size="xs" className="tabular">
+              {travelSummary(going)}
+            </Text>
+          )}
           <ResponseMeter
             going={counts.going}
             maybe={counts.maybe}
@@ -147,7 +163,7 @@ export function EventAttendanceSection({
         <div className="border-t border-border px-3.5">
           <ul className="flex flex-col">
             {visible.map((row) => (
-              <AttendanceRow key={row.teamPlayerId} row={row} />
+              <AttendanceRow key={row.teamPlayerId} row={row} showTravelMode={showTravelMode} />
             ))}
           </ul>
         </div>

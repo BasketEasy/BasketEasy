@@ -13,6 +13,7 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchVoteTab } from './MatchVoteTab';
 import { EVENT_SECTION_IDS } from './useEventSectionAnchor';
+import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
 
 /**
  * The double role of `player-journey.md` §1.3, finally visible.
@@ -39,6 +40,7 @@ function CoachOwnRsvpCard({
         Et vous&nbsp;? Vous êtes aussi sur l’effectif de cette équipe.
       </Text>
       <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />
+      <EventTravelModeControl clubId={clubId} teamId={teamId} event={event} />
     </Card>
   );
 }
@@ -117,7 +119,12 @@ export function EventDetailManagerView({
         <SectionHeading as="h2">
           {isMatch ? 'Effectif de la rencontre' : 'Effectif de la séance'}
         </SectionHeading>
-        <EventRosterList clubId={clubId} teamId={teamId} eventId={event.id} />
+        <EventRosterList
+          clubId={clubId}
+          teamId={teamId}
+          eventId={event.id}
+          showTravelMode={event.meetingPlan?.meetingPoint != null}
+        />
       </section>
 
       {showVote && (
