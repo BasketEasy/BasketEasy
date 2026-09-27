@@ -16,7 +16,7 @@ import { cn } from '../lib/cn';
 // break-words is in the base string, not left to call sites: an h1 whose
 // content can be a single unbroken token (an email address in the dashboard
 // greeting) otherwise widens the page rather than wrapping.
-const headingVariants = cva('break-words font-heading', {
+const headingVariants = cva('break-words font-heading uppercase', {
   variants: {
     /** Colour is a tone, never a caller-side text-* class. */
     tone: {

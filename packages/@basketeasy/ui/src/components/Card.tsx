@@ -19,10 +19,10 @@ import { cn } from '../lib/cn';
 const cardVariants = cva('rounded-lg border border-border', {
   variants: {
     variant: {
-      raised: 'bg-surface shadow-sm',
+      raised: 'bg-surface shadow-md',
       inset: 'bg-surface-2 p-3 shadow-sm',
       panel: 'bg-surface p-5 shadow-md',
-      flush: 'overflow-hidden bg-surface shadow-sm',
+      flush: 'overflow-hidden bg-surface shadow-md',
       /**
        * The empty slot a setting will fill — « Aucun point de rendez-vous ».
        * Dashed and unraised, so it reads as a place for something rather
@@ -74,7 +74,10 @@ export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadi
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('font-heading text-xl font-bold leading-none text-charcoal', className)}
+      className={cn(
+        'font-heading text-xl font-bold uppercase leading-none text-charcoal',
+        className,
+      )}
       {...props}
     />
   ),

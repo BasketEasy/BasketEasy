@@ -197,7 +197,8 @@ describe('DashboardPage — manager view', () => {
 
     const row = await screen.findByRole('link', { name: /U15 Filles/ });
     expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1/events/event-1');
-    expect(screen.getByText('Match')).toBeInTheDocument();
+    // Once on the type badge, once on the card's time block.
+    expect(screen.getAllByText('Match')).toHaveLength(2);
   });
 
   it('shows an empty state when there are no events in the next 7 days', async () => {

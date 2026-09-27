@@ -28,9 +28,9 @@ export function ProtectedRoute() {
     // routes outside ProtectedRoute, none of which read useActiveClub().
     <ActiveClubProvider>
       {/* safe-area-top lives here rather than on AppHeader itself: AppHeader
-          renders nothing on a phone (AppBottomNav carries the nav there
-          instead), so the header can no longer be trusted to pad the notch —
-          and this wrapper is the one element present in both cases. flex-col +
+          renders a different bar at each breakpoint (a compact one on a
+          phone, where AppBottomNav carries the nav), so this wrapper is the
+          one element that pads the notch the same way in both. flex-col +
           min-h-dvh + the flex-1 content wrapper is what lets AppBottomNav sit
           in normal document flow (`position: sticky`, not `fixed` — see
           TabBar) instead of floating above content: a `fixed` bar is pinned to

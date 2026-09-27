@@ -63,7 +63,7 @@ const TONES = {
     idle: 'border-border',
   },
   structure: { selected: 'border-blue-green-2 bg-sunk', idle: 'border-border' },
-  choice: { selected: 'border-blue-green-2 bg-surface', idle: 'border-border-strong' },
+  choice: { selected: 'border-blue-green bg-blue-green-tint', idle: 'border-border' },
 } satisfies Record<RadioCardTone, { selected: string; idle: string }>;
 
 const radioCardVariants = cva(

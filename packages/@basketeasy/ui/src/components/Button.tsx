@@ -7,19 +7,19 @@ import { Spinner } from './icons/Spinner';
 
 const buttonVariants = cva(
   cn(
-    'inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors',
+    'inline-flex items-center justify-center gap-1.5 rounded-md font-bold transition-colors',
     'disabled:pointer-events-none disabled:opacity-50',
     focusRing,
   ),
   {
     variants: {
       variant: {
-        default: 'bg-orange-text text-cream hover:bg-orange-hover shadow-sm hover:shadow',
-        secondary: 'bg-blue-green text-cream hover:bg-blue-green-2',
+        default: 'bg-orange-text text-cream hover:bg-orange-hover shadow-segment-active',
+        secondary: 'bg-blue-green text-cream hover:bg-blue-green-2 shadow-segment-active',
         // hover:bg-cream used to be invisible: the page itself was cream.
-        outline: 'border border-border-strong bg-surface text-charcoal hover:bg-sunk',
+        outline: 'border border-border-strong bg-surface-2 text-charcoal hover:bg-sunk',
         ghost: 'bg-transparent text-charcoal hover:bg-blue-green-tint',
-        destructive: 'bg-error text-cream hover:bg-error/90',
+        destructive: 'bg-error text-cream hover:bg-error/90 shadow-segment-active',
       },
       size: {
         sm: 'h-9 px-3 text-sm',

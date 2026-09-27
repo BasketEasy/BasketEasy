@@ -8,7 +8,7 @@ import { useNotificationsReadAll } from '../notifications/useNotificationRead';
 
 // The full feed. The bell's dropdown is a short window onto the same rows;
 // this is the destination it links to, and the only notification surface a
-// phone has (the bottom bar is fixed at four slots — see AppBottomNav).
+// phone has (its top bar's bell is a plain link here — see AppHeader).
 export function NotificationsPage() {
   const { data } = useNotifications();
   const { mutate: markAllRead, isPending } = useNotificationsReadAll();
@@ -49,7 +49,7 @@ export function NotificationsPage() {
             otherwise sit straight on `ground` and read as floating text,
             where in the bell they have the dropdown's `surface` behind
             them. */}
-        <Card variant="panel">
+        <Card variant="flush">
           <NotificationList />
         </Card>
       </div>

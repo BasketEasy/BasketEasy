@@ -18,7 +18,7 @@ export function PublicHeader() {
       <nav className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 py-4">
         <Link
           to={user ? '/dashboard' : '/'}
-          className="font-heading text-2xl font-extrabold text-orange-text no-underline"
+          className="font-heading text-2xl font-extrabold uppercase text-orange-text no-underline"
         >
           Kluvo
         </Link>

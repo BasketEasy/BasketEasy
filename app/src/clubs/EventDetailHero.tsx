@@ -26,14 +26,9 @@ import { EventVenueBadge } from './EventVenueBadge';
 export function EventDetailHero({ event, teamName }: { event: TeamEvent; teamName: string }) {
   const isMatch = event.type === 'MATCH';
   return (
-    <Card variant="flush" className="flex">
-      <TimeBlock
-        type={event.type}
-        startsAt={event.startsAt}
-        timeConfirmed={event.timeConfirmed}
-        className="self-stretch"
-      />
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3.5 sm:p-4">
+    <Card className="flex gap-3.5 p-3.5 sm:p-4">
+      <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed={event.timeConfirmed} />
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         {(isMatch || !event.timeConfirmed) && (
           <div className="flex flex-wrap items-center gap-2">
             {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
