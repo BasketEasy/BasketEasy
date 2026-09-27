@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
 import { INVITE_ALREADY_ACCEPTED_CODE } from '@basketeasy/types/player-invites';
-import type { GuardianInvitePreview } from '@basketeasy/types/guardians';
+import {
+  GUARDIAN_INVITE_REFUSED_CODE,
+  type GuardianInvitePreview,
+} from '@basketeasy/types/guardians';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { GuardianInviteCard } from './GuardianInviteCard';
@@ -136,5 +139,33 @@ describe('GuardianInviteCard', () => {
 
     await waitFor(() => expect(body).toEqual({ consent: true }));
     expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      'shows a refusal written for the parent',
+      { message: 'Ce joueur a déjà 4 parents liés', code: GUARDIAN_INVITE_REFUSED_CODE },
+      'Ce joueur a déjà 4 parents liés',
+    ],
+    [
+      'never shows a validation message verbatim',
+      { message: 'consent must be a boolean value' },
+      'Certaines informations saisies sont invalides.',
+    ],
+  ])('%s', async (_label, errorBody, expected) => {
+    mockLoggedIn();
+    mockPreview({ ...minorPreview, requiresConsent: false });
+    server.use(
+      http.post('/api/guardian-invites/tok/accept-as-me', () =>
+        HttpResponse.json(errorBody, { status: 400 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: 'Suivre Léo' }));
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    expect(screen.queryByText('consent must be a boolean value')).not.toBeInTheDocument();
   });
 });

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { ConfirmDialog } from '@basketeasy/ui/confirm-dialog';
-import { Loader } from '@basketeasy/ui/loader';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
@@ -113,15 +112,9 @@ export function ParentAccessCard({ playerIds }: { playerIds: string[] }) {
       </Card>
     );
   }
-  if (loading) {
-    return (
-      <Card>
-        <CardContent>
-          <Loader>Chargement…</Loader>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Nothing while loading either: most players have no parents linked, and a
+  // loader that then vanishes would flash on every adult's account page.
+  if (loading) return null;
   // Nothing to show for a player nobody follows — the usual adult case.
   if (withGuardians.length === 0) return null;
 
