@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
@@ -9,6 +10,10 @@ import { useAcceptGuardianInviteAsMe } from './useGuardianInvite';
 import { getGuardianInviteErrorMessage, isConsentRequired } from './guardianErrorMessages';
 import { GuardianConsentField } from './GuardianConsentField';
 import { GUARDIAN_CONSENT_REQUIRED_MESSAGE } from './guardianConsent';
+import {
+  guardianInviteAsMeSchema,
+  type GuardianInviteAsMeFormValues,
+} from './guardianInviteSchema';
 
 /**
  * The logged-in path: a parent who already plays, coaches or follows another
@@ -26,36 +31,45 @@ export function GuardianInviteAsMe({
   const navigate = useNavigate();
   const { mutate: accept, isPending } = useAcceptGuardianInviteAsMe(token);
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
-  const [consent, setConsent] = useState(false);
-  const [consentError, setConsentError] = useState<string | undefined>();
-  const [rootError, setRootError] = useState<string | null>(null);
+  const {
+    control,
+    handleSubmit,
+    setError,
+    clearErrors,
+    formState: { errors, isSubmitting },
+  } = useForm<GuardianInviteAsMeFormValues>({
+    resolver: zodResolver(guardianInviteAsMeSchema(preview.requiresConsent)),
+    defaultValues: { consent: false },
+  });
 
-  const handleAccept = () => {
-    if (preview.requiresConsent && !consent) {
-      setConsentError(GUARDIAN_CONSENT_REQUIRED_MESSAGE);
-      return;
-    }
-    setRootError(null);
+  const onSubmit = (values: GuardianInviteAsMeFormValues) => {
     accept(
-      { consent: preview.requiresConsent ? consent : undefined },
+      { consent: preview.requiresConsent ? values.consent : undefined },
       {
         onSuccess: () => navigate('/dashboard', { replace: true }),
         onError: (err) => {
           if (isConsentRequired(err)) {
-            setConsentError(GUARDIAN_CONSENT_REQUIRED_MESSAGE);
+            setError('consent', { message: GUARDIAN_CONSENT_REQUIRED_MESSAGE });
             return;
           }
-          setRootError(getGuardianInviteErrorMessage(err));
+          setError('root', { message: getGuardianInviteErrorMessage(err) });
         },
       },
     );
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      {rootError && (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        clearErrors('root');
+        void handleSubmit(onSubmit)(e);
+      }}
+      className="flex flex-col gap-4"
+    >
+      {errors.root?.message && (
         <Alert variant="destructive">
-          <AlertDescription>{rootError}</AlertDescription>
+          <AlertDescription>{errors.root.message}</AlertDescription>
         </Alert>
       )}
       <Text variant="meta">
@@ -63,23 +77,26 @@ export function GuardianInviteAsMe({
         à ce compte, à côté de vos propres équipes.
       </Text>
       {preview.requiresConsent && (
-        <GuardianConsentField
-          id="guardian-as-me-consent"
-          childFirstName={preview.playerFirstName}
-          checked={consent}
-          onCheckedChange={(value) => {
-            setConsent(value);
-            setConsentError(undefined);
-          }}
-          error={consentError}
+        <Controller
+          control={control}
+          name="consent"
+          render={({ field }) => (
+            <GuardianConsentField
+              id="guardian-as-me-consent"
+              childFirstName={preview.playerFirstName}
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              error={errors.consent?.message}
+            />
+          )}
         />
       )}
-      <Button type="button" loading={isPending} onClick={handleAccept}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Suivre {preview.playerFirstName}
       </Button>
       <Button type="button" variant="ghost" disabled={isLoggingOut} onClick={() => logout()}>
         Ce n&apos;est pas vous ? Se déconnecter
       </Button>
-    </div>
+    </form>
   );
 }

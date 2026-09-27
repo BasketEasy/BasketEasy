@@ -141,6 +141,35 @@ describe('GuardianInviteCard', () => {
     expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
   });
 
+  it('asks a logged-in parent for consent before calling the API', async () => {
+    mockLoggedIn();
+    mockPreview(minorPreview);
+    let called = false;
+    server.use(
+      http.post('/api/guardian-invites/tok/accept-as-me', () => {
+        called = true;
+        return HttpResponse.json({ playerId: 'p1', clubId: 'club-1' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: 'Suivre Léo' }));
+
+    expect(
+      await screen.findByText('Cochez la case pour donner votre autorisation parentale.'),
+    ).toBeInTheDocument();
+    expect(called).toBe(false);
+
+    // Ticking the box clears the error without another submit.
+    await user.click(screen.getByRole('checkbox'));
+    await waitFor(() =>
+      expect(
+        screen.queryByText('Cochez la case pour donner votre autorisation parentale.'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it.each([
     [
       'shows a refusal written for the parent',
