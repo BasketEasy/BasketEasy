@@ -30,7 +30,7 @@ import type {
   TeamEvent,
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
-import type { EventMeetingPlan, UpdateEventMeetingRequest } from '@basketeasy/types/meeting-points';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
@@ -79,14 +79,17 @@ type EventRow = {
   recurrenceId: string | null;
   externalId: string | null;
   timeConfirmed: boolean;
-  meetingPointName: string | null;
-  meetingPointAddress: string | null;
-  travelMinutes: number | null;
-  travelMinutesManual: boolean;
-  travelRouteKey: string | null;
-  meetsAtOverride: Date | null;
-  meetingAnnouncedKey: string | null;
   createdAt: Date;
+};
+
+// The caller's own slice of a batch: their RSVP and convocation per event,
+// and their TeamPlayer on this team (null when not rostered).
+type CallerEventState = {
+  rsvpStatuses: Map<string, EventRsvpStatus>;
+  convokedEventIds: Set<string>;
+  // Read off the same EventRsvp rows as rsvpStatuses — no extra query.
+  travelModes: Map<string, EventTravelMode>;
+  myTeamPlayerId: string | null;
 };
 
 @Injectable()
@@ -134,30 +137,8 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
-    const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, travelModes, myTeamPlayerId } =
-      await this.resolveMyEventState(teamId, userId, eventIds);
-    const logisticsAssignees = await this.resolveLogisticsAssignees(events);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      events,
-      myTeamPlayerId,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, events);
     return {
-      items: events.map((e) =>
-        this.toTeamEvent(
-          e,
-          rsvpStatuses.get(e.id) ?? null,
-          convokedEventIds.has(e.id),
-          logisticsAssignees,
-          this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-          resultsByEventId.get(e.id) ?? null,
-          myStatsByEventId.get(e.id) ?? null,
-          meetingPlans.get(e.id) ?? null,
-          travelModes.get(e.id) ?? null,
-        ),
-      ),
+      items: await this.buildTeamEventsForUser(teamId, userId, events),
       total,
       page,
       pageSize,
@@ -175,26 +156,8 @@ export class EventsService {
     userId: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const { rsvpStatuses, convokedEventIds, travelModes, myTeamPlayerId } =
-      await this.resolveMyEventState(teamId, userId, [eventId]);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      myTeamPlayerId,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
-    return this.toTeamEvent(
-      event,
-      rsvpStatuses.get(eventId) ?? null,
-      convokedEventIds.has(eventId),
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-      meetingPlans.get(eventId) ?? null,
-      travelModes.get(eventId) ?? null,
-    );
+    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [event]);
+    return teamEvent;
   }
 
   async createEvent(
@@ -243,35 +206,9 @@ export class EventsService {
         }),
       ),
     );
-    const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, travelModes, myTeamPlayerId } =
-      await this.resolveMyEventState(teamId, userId, eventIds);
-    // A freshly created event never has a jersey/ball assignee yet (those
-    // columns aren't part of create data), so there's nothing to resolve —
-    // an empty map short-circuits every lookup in toTeamEvent to null.
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
-    // Likewise: a just-created event can't have a confirmed scoresheet yet,
-    // so this always resolves to empty maps — kept for the same "same call
-    // sites, called alongside" consistency the rsvpSummaries call above
-    // documents, not because it can find anything here.
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      events,
-      myTeamPlayerId,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, events);
-    return events.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        new Map(),
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-        meetingPlans.get(e.id) ?? null,
-        travelModes.get(e.id) ?? null,
-      ),
-    );
+    // A fresh event has no logistics assignee and no confirmed scoresheet,
+    // so those resolvers short-circuit without a query.
+    return this.buildTeamEventsForUser(teamId, userId, events);
   }
 
   // A recurring create is materialized as one independent Event row per
@@ -341,24 +278,7 @@ export class EventsService {
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
     const updateData: Prisma.EventUpdateInput = {
-      // A meeting-time override was set against the old tip-off; keeping it
-      // across a reschedule would send the group to the wrong hour.
-      ...(data.startsAt !== undefined
-        ? { startsAt: new Date(data.startsAt), meetsAtOverride: null }
-        : {}),
-      // The meeting point is a MATCH concept — a switch to TRAINING drops
-      // every meeting column rather than leaving a hidden override behind.
-      ...(resultingType === EventType.TRAINING && event.type === EventType.MATCH
-        ? {
-            meetingPointName: null,
-            meetingPointAddress: null,
-            travelMinutes: null,
-            travelMinutesManual: false,
-            travelRouteKey: null,
-            meetsAtOverride: null,
-            meetingAnnouncedKey: null,
-          }
-        : {}),
+      ...(data.startsAt !== undefined ? { startsAt: new Date(data.startsAt) } : {}),
       ...(data.location !== undefined ? { location: data.location } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
@@ -379,36 +299,32 @@ export class EventsService {
           : {}),
     };
 
-    const updated = await this.prisma.$transaction(
-      ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
-    );
-    const updatedIds = updated.map((e) => e.id);
+    const becomesTraining = resultingType === EventType.TRAINING && event.type === EventType.MATCH;
+    // The meeting point is a MATCH concept — a switch to TRAINING drops the
+    // whole EventMeeting row rather than leaving a hidden override behind.
+    // Otherwise, a meeting-time override was set against the old tip-off,
+    // and keeping it across a reschedule would send the group to the wrong
+    // hour. Same transaction as the event write, so neither lands alone.
+    const meetingCleanup = becomesTraining
+      ? [this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } })]
+      : data.startsAt !== undefined
+        ? [
+            this.prisma.eventMeeting.updateMany({
+              where: { eventId: { in: ids } },
+              data: { meetsAtOverride: null },
+            }),
+          ]
+        : [];
+    const results = await this.prisma.$transaction([
+      ...ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
+      ...meetingCleanup,
+    ]);
+    const updated = results.slice(0, ids.length) as EventRow[];
     // A new kick-off moves the meeting time with it.
-    if (data.startsAt !== undefined) {
-      await this.meetingPoints.announceMeetingChanges(updatedIds);
+    if (data.startsAt !== undefined && !becomesTraining) {
+      await this.meetingPoints.announceMeetingChanges(ids);
     }
-    const { rsvpStatuses, convokedEventIds, travelModes, myTeamPlayerId } =
-      await this.resolveMyEventState(teamId, userId, updatedIds);
-    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      updated,
-      myTeamPlayerId,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, updated);
-    return updated.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        logisticsAssignees,
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-        meetingPlans.get(e.id) ?? null,
-        travelModes.get(e.id) ?? null,
-      ),
-    );
+    return this.buildTeamEventsForUser(teamId, userId, updated);
   }
 
   // Retries a Serializable transaction on Postgres's serialization failure
@@ -561,42 +477,22 @@ export class EventsService {
     const ids = await this.resolveScopeIds(teamId, event, data.scope);
     const rows = await this.prisma.event.findMany({ where: { id: { in: ids } } });
 
-    const updated = await this.prisma.$transaction(
-      rows.map((row) => {
+    const results = await this.prisma.$transaction([
+      ...rows.map((row) => {
         const startsAt = new Date(row.startsAt);
         startsAt.setUTCHours(data.hour, data.minute, 0, 0);
-        // Same rule as updateEvent: a meeting-time override belongs to the
-        // old kick-off.
-        return this.prisma.event.update({
-          where: { id: row.id },
-          data: { startsAt, meetsAtOverride: null },
-        });
+        return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
       }),
-    );
-    const updatedIds = updated.map((e) => e.id);
-    await this.meetingPoints.announceMeetingChanges(updatedIds);
-    const { rsvpStatuses, convokedEventIds, travelModes, myTeamPlayerId } =
-      await this.resolveMyEventState(teamId, userId, updatedIds);
-    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      updated,
-      myTeamPlayerId,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, updated);
-    return updated.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        logisticsAssignees,
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-        meetingPlans.get(e.id) ?? null,
-        travelModes.get(e.id) ?? null,
-      ),
-    );
+      // Same rule as updateEvent: a meeting-time override belongs to the old
+      // kick-off.
+      this.prisma.eventMeeting.updateMany({
+        where: { eventId: { in: ids } },
+        data: { meetsAtOverride: null },
+      }),
+    ]);
+    const updated = results.slice(0, rows.length) as EventRow[];
+    await this.meetingPoints.announceMeetingChanges(ids);
+    return this.buildTeamEventsForUser(teamId, userId, updated);
   }
 
   // Self-service only: the caller can only ever set/clear their own
@@ -636,25 +532,10 @@ export class EventsService {
         ...(status !== EventRsvpStatus.GOING ? { travelMode: EventTravelMode.MEETING_POINT } : {}),
       },
     });
-    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      teamPlayer.id,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
-    return this.toTeamEvent(
-      event,
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
       status,
-      myConvocation,
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-      meetingPlans.get(eventId) ?? null,
-      rsvp.travelMode,
-    );
+      travelMode: rsvp.travelMode,
+    });
   }
 
   // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
@@ -673,25 +554,7 @@ export class EventsService {
     await this.prisma.eventRsvp.deleteMany({
       where: { eventId, teamPlayerId: teamPlayer.id },
     });
-    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      teamPlayer.id,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
-    return this.toTeamEvent(
-      event,
-      null,
-      myConvocation,
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-      meetingPlans.get(eventId) ?? null,
-      null,
-    );
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, null);
   }
 
   // Self-service like RSVP, and only once the caller has said they're coming:
@@ -719,25 +582,28 @@ export class EventsService {
     if (count === 0) {
       throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
     }
-    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      teamPlayer.id,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [event]);
-    return this.toTeamEvent(
-      event,
-      EventRsvpStatus.GOING,
-      myConvocation,
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-      meetingPlans.get(eventId) ?? null,
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
+      status: EventRsvpStatus.GOING,
       travelMode,
-    );
+    });
+  }
+
+  // The TeamEvent after the caller changed their own answer: that answer is
+  // known from the write, so only the convocation flag is read back.
+  private async buildOwnAnswer(
+    teamId: string,
+    event: EventRow,
+    teamPlayerId: string,
+    answer: { status: EventRsvpStatus; travelMode: EventTravelMode } | null,
+  ): Promise<TeamEvent> {
+    const convoked = await this.isConvoked(event.id, teamPlayerId);
+    const [teamEvent] = await this.buildTeamEvents(teamId, [event], {
+      rsvpStatuses: answer ? new Map([[event.id, answer.status]]) : new Map(),
+      travelModes: answer ? new Map([[event.id, answer.travelMode]]) : new Map(),
+      convokedEventIds: convoked ? new Set([event.id]) : new Set(),
+      myTeamPlayerId: teamPlayerId,
+    });
+    return teamEvent;
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
@@ -944,60 +810,8 @@ export class EventsService {
           ? { jerseysTeamPlayerId: teamPlayerId }
           : { ballsTeamPlayerId: teamPlayerId },
     });
-    const { rsvpStatuses, convokedEventIds, travelModes } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      [eventId],
-    );
-    const logisticsAssignees = await this.resolveLogisticsAssignees([updated]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    // Reuses myTeamPlayer, already resolved above for the self-action check
-    // — not resolveMyEventState's own copy — so this route still costs only
-    // one teamPlayer.findFirst call, not two.
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [updated],
-      myTeamPlayer?.id ?? null,
-    );
-    const meetingPlans = await this.meetingPoints.resolvePlans(teamId, [updated]);
-    return this.toTeamEvent(
-      updated,
-      rsvpStatuses.get(eventId) ?? null,
-      convokedEventIds.has(eventId),
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-      meetingPlans.get(eventId) ?? null,
-      travelModes.get(eventId) ?? null,
-    );
-  }
-
-  // A team manager's per-match meeting point / travel minutes / meeting time.
-  // The rules live in MeetingPointsService; this only owns the route check and
-  // the TeamEvent the route answers with.
-  async setEventMeeting(
-    clubId: string,
-    teamId: string,
-    eventId: string,
-    data: UpdateEventMeetingRequest,
-    userId: string,
-  ): Promise<TeamEvent> {
-    const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    await this.meetingPoints.setEventMeeting(event, data);
-    return this.getEvent(clubId, teamId, eventId, userId);
-  }
-
-  // « Recalculer »: recomputes the driving time synchronously so the manager
-  // sees the answer in the response rather than on the next poll.
-  async refreshEventMeeting(
-    clubId: string,
-    teamId: string,
-    eventId: string,
-    userId: string,
-  ): Promise<TeamEvent> {
-    const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    await this.meetingPoints.refreshTravel(event);
-    return this.getEvent(clubId, teamId, eventId, userId);
+    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [updated]);
+    return teamEvent;
   }
 
   // Anonymous peer voting — see the match interface spec's Voting visibility
@@ -1344,33 +1158,16 @@ export class EventsService {
     teamId: string,
     userId: string,
     eventIds: string[],
-  ): Promise<{
-    rsvpStatuses: Map<string, EventRsvpStatus>;
-    convokedEventIds: Set<string>;
-    // Read off the same EventRsvp rows as rsvpStatuses — no extra query.
-    travelModes: Map<string, EventTravelMode>;
-    // Handed back so resolveMatchResults (see below) can reuse this same
-    // lookup instead of re-querying teamPlayer.findFirst a second time for
-    // the same caller/team pair.
-    myTeamPlayerId: string | null;
-  }> {
-    if (eventIds.length === 0) {
-      return {
-        rsvpStatuses: new Map(),
-        convokedEventIds: new Set(),
-        travelModes: new Map(),
-        myTeamPlayerId: null,
-      };
-    }
+  ): Promise<CallerEventState> {
+    const nobody: CallerEventState = {
+      rsvpStatuses: new Map(),
+      travelModes: new Map(),
+      convokedEventIds: new Set(),
+      myTeamPlayerId: null,
+    };
+    if (eventIds.length === 0) return nobody;
     const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
-    if (!teamPlayer) {
-      return {
-        rsvpStatuses: new Map(),
-        convokedEventIds: new Set(),
-        travelModes: new Map(),
-        myTeamPlayerId: null,
-      };
-    }
+    if (!teamPlayer) return nobody;
     const [rsvps, convocations] = await Promise.all([
       this.prisma.eventRsvp.findMany({
         where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
@@ -1381,8 +1178,8 @@ export class EventsService {
     ]);
     return {
       rsvpStatuses: new Map(rsvps.map((r) => [r.eventId, r.status])),
-      convokedEventIds: new Set(convocations.map((c) => c.eventId)),
       travelModes: new Map(rsvps.map((r) => [r.eventId, r.travelMode])),
+      convokedEventIds: new Set(convocations.map((c) => c.eventId)),
       myTeamPlayerId: teamPlayer.id,
     };
   }
@@ -1544,18 +1341,74 @@ export class EventsService {
     return event;
   }
 
-  private toTeamEvent(
-    event: EventRow,
-    myRsvpStatus: EventRsvpStatus | null,
-    myConvocation: boolean,
-    logisticsAssignees: Map<string, EventLogisticsAssignee>,
-    rsvpSummary: EventRsvpSummary,
-    result: EventMatchResult | null,
-    myMatchStats: EventMatchPlayerStats | null,
-    meetingPlan: EventMeetingPlan | null,
+  // Assembles the TeamEvents for a batch of events on one team. Every
+  // per-event concern is resolved once for the whole batch — never per event
+  // — and the independent resolvers run in parallel. Callers that already
+  // know the caller's own RSVP state from the write they just made pass it
+  // in rather than re-reading it (see setMyRsvp).
+  private async buildTeamEvents(
+    teamId: string,
+    events: EventRow[],
+    caller: CallerEventState,
+  ): Promise<TeamEvent[]> {
+    const eventIds = events.map((e) => e.id);
+    const [logisticsAssignees, rsvpSummaries, { resultsByEventId, myStatsByEventId }, plans] =
+      await Promise.all([
+        this.resolveLogisticsAssignees(events),
+        this.resolveEventRosterSummaries(teamId, eventIds),
+        this.resolveMatchResults(events, caller.myTeamPlayerId),
+        this.meetingPoints.resolvePlans(teamId, events),
+      ]);
+    return events.map((event) =>
+      this.toTeamEvent({
+        event,
+        myRsvpStatus: caller.rsvpStatuses.get(event.id) ?? null,
+        travelMode: caller.travelModes.get(event.id) ?? null,
+        myConvocation: caller.convokedEventIds.has(event.id),
+        logisticsAssignees,
+        rsvpSummary: this.rsvpSummaryOrZero(event.id, rsvpSummaries),
+        result: resultsByEventId.get(event.id) ?? null,
+        myMatchStats: myStatsByEventId.get(event.id) ?? null,
+        meetingPlan: plans.get(event.id) ?? null,
+      }),
+    );
+  }
+
+  private async buildTeamEventsForUser(
+    teamId: string,
+    userId: string,
+    events: EventRow[],
+  ): Promise<TeamEvent[]> {
+    const caller = await this.resolveMyEventState(
+      teamId,
+      userId,
+      events.map((e) => e.id),
+    );
+    return this.buildTeamEvents(teamId, events, caller);
+  }
+
+  private toTeamEvent({
+    event,
+    myRsvpStatus,
+    travelMode,
+    myConvocation,
+    logisticsAssignees,
+    rsvpSummary,
+    result,
+    myMatchStats,
+    meetingPlan,
+  }: {
+    event: EventRow;
+    myRsvpStatus: EventRsvpStatus | null;
     // The caller's stored choice; only surfaced for a MATCH they're GOING to.
-    travelMode: EventTravelMode | null,
-  ): TeamEvent {
+    travelMode: EventTravelMode | null;
+    myConvocation: boolean;
+    logisticsAssignees: Map<string, EventLogisticsAssignee>;
+    rsvpSummary: EventRsvpSummary;
+    result: EventMatchResult | null;
+    myMatchStats: EventMatchPlayerStats | null;
+    meetingPlan: EventMeetingPlan | null;
+  }): TeamEvent {
     return {
       id: event.id,
       teamId: event.teamId,

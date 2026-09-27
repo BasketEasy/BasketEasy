@@ -1,49 +1,8 @@
 import type { EventType } from '@prisma/client';
+import { describeEvent, formatEventMoment } from '../common/event-copy';
+import { describeMeeting, type KnownMeeting } from '../meeting-points/meeting-notification-copy';
 
-// The app stores no per-club timezone (see the bulk hour-of-day update's
-// documented limitation in CLAUDE.md), and Kluvo launches in Loire-Atlantique,
-// so notification copy formats dates in Europe/Paris. Formatting in UTC would
-// put a Saturday 20:30 match on "samedi 19:30" for every French reader, which
-// is worse than the DST edge case a fixed zone leaves open. This becomes a
-// per-club setting when the app has one.
-const TIMEZONE = 'Europe/Paris';
-
-const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  timeZone: TIMEZONE,
-});
-
-const TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: TIMEZONE,
-});
-
-/** e.g. "samedi 12 septembre à 20:30" */
-export function formatEventMoment(startsAt: Date): string {
-  return `${DATE_FORMAT.format(startsAt)} à ${TIME_FORMAT.format(startsAt)}`;
-}
-
-/** e.g. "le match contre ASVEL" or "l'entraînement" */
-export function describeEvent(event: { type: EventType; opponentName: string | null }): string {
-  if (event.type === 'MATCH') {
-    return event.opponentName ? `le match contre ${event.opponentName}` : 'le match';
-  }
-  return 'l’entraînement';
-}
-
-/** A resolved meeting point with a known time — what the RDV sentences need. */
-export interface KnownMeeting {
-  meetsAt: Date;
-  placeName: string;
-}
-
-/** e.g. "19:15 — Parking salle Coubertin" */
-function describeMeeting(meeting: KnownMeeting): string {
-  return `${TIME_FORMAT.format(meeting.meetsAt)} — ${meeting.placeName}`;
-}
+// Dates are formatted in Europe/Paris — see common/event-copy.ts.
 
 export function convocationNotification(
   teamName: string,
@@ -55,30 +14,6 @@ export function convocationNotification(
     title: `Vous êtes convoqué·e — ${teamName}`,
     body: `Vous êtes convoqué·e pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}.${meetingSentence} Merci d’indiquer votre présence.`,
   };
-}
-
-/**
- * Sent only to players coming to the meeting point — someone going straight
- * to the gym isn't affected by where or when the group meets. `isFirst` is
- * the hour becoming known at all (« RDV fixé »), rather than a known hour
- * moving (« RDV modifié »).
- */
-export function meetingChangedNotification(
-  teamName: string,
-  event: { type: EventType; startsAt: Date; opponentName: string | null },
-  meeting: KnownMeeting,
-  isFirst = false,
-): { title: string; body: string } {
-  const moment = `${describeEvent(event)} du ${formatEventMoment(event.startsAt)}`;
-  return isFirst
-    ? {
-        title: `RDV fixé — ${teamName}`,
-        body: `Rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
-      }
-    : {
-        title: `RDV modifié — ${teamName}`,
-        body: `Nouveau rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
-      };
 }
 
 /**

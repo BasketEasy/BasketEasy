@@ -1,7 +1,13 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
-import { MeetingPointsService, type MeetingTravelJobData } from './meeting-points.service';
+import {
+  ANNOUNCE_JOB,
+  MeetingPointsService,
+  type MeetingAnnounceJobData,
+  type MeetingRecomputeJobData,
+  type MeetingTravelJobData,
+} from './meeting-points.service';
 
 /**
  * Thin by design — the computation lives in MeetingPointsService so the
@@ -17,6 +23,10 @@ export class MeetingTravelProcessor extends WorkerHost {
   }
 
   async process(job: Job<MeetingTravelJobData>): Promise<void> {
-    await this.meetingPoints.recomputeTravel(job.data.eventId);
+    if (job.name === ANNOUNCE_JOB) {
+      await this.meetingPoints.announceUpcoming(job.data as MeetingAnnounceJobData);
+      return;
+    }
+    await this.meetingPoints.recomputeTravel((job.data as MeetingRecomputeJobData).eventId);
   }
 }

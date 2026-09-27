@@ -7,15 +7,6 @@ ADD COLUMN     "meetingPointAddress" TEXT,
 ADD COLUMN     "meetingPointName" TEXT;
 
 -- AlterTable
-ALTER TABLE "Event" ADD COLUMN     "meetingAnnouncedKey" TEXT,
-ADD COLUMN     "meetingPointAddress" TEXT,
-ADD COLUMN     "meetingPointName" TEXT,
-ADD COLUMN     "meetsAtOverride" TIMESTAMP(3),
-ADD COLUMN     "travelMinutes" INTEGER,
-ADD COLUMN     "travelMinutesManual" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "travelRouteKey" TEXT;
-
--- AlterTable
 ALTER TABLE "EventRsvp" ADD COLUMN     "travelMode" "EventTravelMode" NOT NULL DEFAULT 'MEETING_POINT';
 
 -- AlterTable
@@ -30,9 +21,31 @@ CREATE TABLE "GeocodedAddress" (
     "latitude" DOUBLE PRECISION,
     "longitude" DOUBLE PRECISION,
     "resolvedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastUsedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "GeocodedAddress_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "EventMeeting" (
+    "eventId" TEXT NOT NULL,
+    "meetingPointName" TEXT,
+    "meetingPointAddress" TEXT,
+    "travelMinutes" INTEGER,
+    "travelMinutesManual" BOOLEAN NOT NULL DEFAULT false,
+    "travelRouteKey" TEXT,
+    "meetsAtOverride" TIMESTAMP(3),
+    "meetingAnnouncedKey" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "EventMeeting_pkey" PRIMARY KEY ("eventId")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "GeocodedAddress_query_key" ON "GeocodedAddress"("query");
+
+-- CreateIndex
+CREATE INDEX "GeocodedAddress_lastUsedAt_idx" ON "GeocodedAddress"("lastUsedAt");
+
+-- AddForeignKey
+ALTER TABLE "EventMeeting" ADD CONSTRAINT "EventMeeting_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
