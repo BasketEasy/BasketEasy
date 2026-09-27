@@ -48,6 +48,9 @@ services:
       # Scoresheet OCR (Gemini vision) — like the R2_* vars above, unset
       # only fails an actual OCR job, not server boot.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Match meeting-point driving times (OpenRouteService). Empty answers
+      # "unknown" to every lookup; managers then type travel minutes by hand.
+      ORS_API_KEY: ${ORS_API_KEY:-}
       # Every e-mailed and pushed deep link is built from this: the app
       # stores notification links as frontend-relative paths and prefixes
       # them at send time. Without it, links in e-mail point at localhost.

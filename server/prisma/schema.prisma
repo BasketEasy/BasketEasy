@@ -202,6 +202,13 @@ model Club {
   players      Player[]
   clubTeams    ClubTeam[]
   parentalConsents ParentalConsent[]
+  // The club-wide default match meeting point (point de rendez-vous) and the
+  // arrival buffer before tip-off. Name and address are written together —
+  // both set or both null. See
+  // docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+  meetingPointName     String?
+  meetingPointAddress  String?
+  arrivalBufferMinutes Int     @default(45)
 }
 
 enum TeamCategory {
@@ -235,6 +242,11 @@ model Team {
   events      Event[]
   teamAdmins  TeamAdmin[]
   ffbbLinks   TeamFfbbLink[]
+  // Team-level overrides of the owner club's meeting point and arrival
+  // buffer; null inherits (a CTC team inherits from its owner club only).
+  meetingPointName     String?
+  meetingPointAddress  String?
+  arrivalBufferMinutes Int?
 }
 
 // One club's entry of one team into one FFBB competition for one season
@@ -374,10 +386,19 @@ model Event {
   votes               EventVote[]
   scoresheet          EventScoresheet?
   playerStats         MatchPlayerStat[]
+  meeting             EventMeeting?
 
   @@unique([teamId, externalId])
   @@index([teamId])
   @@index([recurrenceId])
+}
+
+// How a GOING player gets to a match: with the group from the meeting point,
+// or straight to the gym. Defaults to MEETING_POINT — a player who hasn't
+// chosen counts as coming to the meeting point.
+enum EventTravelMode {
+  MEETING_POINT
+  DIRECT
 }
 
 enum EventRsvpStatus {
@@ -396,6 +417,9 @@ model EventRsvp {
   eventId      String
   teamPlayerId String
   status       EventRsvpStatus
+  // Only meaningful while status is GOING; reset to the default whenever the
+  // status changes away from GOING.
+  travelMode   EventTravelMode @default(MEETING_POINT)
   respondedAt  DateTime        @default(now())
   event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
@@ -686,9 +710,51 @@ model RetentionRun {
   dryRun Boolean  @default(false)
   // One entry per independent step —
   // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
-  //   parentalConsents: {...} } — so a step that threw stays visible next to
-  // the steps that succeeded instead of losing the whole run.
+  //   parentalConsents: {...}, geocodeCache: {...} } — so a step that threw
+  // stays visible next to the steps that succeeded instead of losing the
+  // whole run.
   summary Json
 
   @@index([ranAt])
+}
+
+// Address → coordinates cache shared by every meeting point and match
+// location, so the same gym is geocoded once, not once per event. Null
+// coordinates cache a "not found" answer (retried after a week); a provider
+// failure is never cached. `query` is the normalised address text.
+model GeocodedAddress {
+  id         String   @id @default(uuid())
+  query      String   @unique
+  latitude   Float?
+  longitude  Float?
+  resolvedAt DateTime @default(now())
+  // Touched on a cache hit (at most daily); the nightly retention sweep drops
+  // rows nobody has looked up for a year, so the cache doesn't grow forever
+  // with every typo and every one-off away gym.
+  lastUsedAt DateTime @default(now())
+
+  @@index([lastUsedAt])
+}
+
+// A MATCH's meeting-point state, one row per event at most — kept off Event
+// so a TRAINING (which has none) needs no clearing and Event doesn't absorb
+// every match-day feature. Cascades with its Event.
+//
+// meetingPointName/Address override the team's, then the owner club's,
+// default (null inherits; both set or both null). travelRouteKey records
+// which origin → location route travelMinutes was computed (or typed) for; a
+// mismatch on read means the minutes are stale. meetingAnnouncedKey is the
+// last meeting place + time players were told about, so a change is
+// notified once. See docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+model EventMeeting {
+  eventId             String    @id
+  meetingPointName    String?
+  meetingPointAddress String?
+  travelMinutes       Int?
+  travelMinutesManual Boolean   @default(false)
+  travelRouteKey      String?
+  meetsAtOverride     DateTime?
+  meetingAnnouncedKey String?
+  updatedAt           DateTime  @updatedAt
+  event               Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
