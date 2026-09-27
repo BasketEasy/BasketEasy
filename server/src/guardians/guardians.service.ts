@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
 import {
+  GUARDIAN_INVITE_REFUSED_CODE,
   MAX_GUARDIANS_PER_PLAYER,
   MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER,
   type AcceptedGuardianInvite,
@@ -215,7 +216,7 @@ export class GuardiansService {
       where: { id: user.id },
       data: { firstName: data.firstName, lastName: data.lastName },
     });
-    await this.linkFromInvite(invite.id, user.id, data.consent, context);
+    await this.linkFromInvite(invite, user.id, data.consent, context);
 
     // Same fire-and-forget verification link a plain registration gets.
     void this.accountSecurity.sendVerificationEmail(user.id);
@@ -235,7 +236,7 @@ export class GuardiansService {
     if (invite.acceptedByUserId !== userId) {
       this.assertLive(invite);
     }
-    await this.linkFromInvite(invite.id, userId, consent, context);
+    await this.linkFromInvite(invite, userId, consent, context);
     return { playerId: invite.playerId, clubId: invite.player.clubId };
   }
 
@@ -245,14 +246,22 @@ export class GuardiansService {
    * record the parent's own consent for a minor, and mark the invite used.
    * No ClubMembership is created: the link alone opens the child's team pages
    * (design decision 3).
+   *
+   * Every accept for one player runs one at a time: the transaction first
+   * locks the player row, so the checks below read what the previous accept
+   * committed. Without it, two accounts using one link at the same moment
+   * would both be linked, two parents on two links could push the player past
+   * MAX_GUARDIANS_PER_PLAYER, and a double submit from one account would hit
+   * the (playerId, userId) key and surface as a 500.
    */
   private async linkFromInvite(
-    inviteId: string,
+    { id: inviteId, playerId }: { id: string; playerId: string },
     userId: string,
     consent: boolean | undefined,
     context?: AuditRequestContext,
   ): Promise<void> {
     const linked = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "Player" WHERE "id" = ${playerId} FOR UPDATE`;
       const invite = await tx.guardianInvite.findUnique({
         where: { id: inviteId },
         include: { player: true },
@@ -272,7 +281,7 @@ export class GuardiansService {
 
       const { player } = invite;
       if (player.userId === userId) {
-        throw new BadRequestException('Vous ne pouvez pas être votre propre parent');
+        throw refused('Vous ne pouvez pas être votre propre parent');
       }
       assertConsent(player.birthDate, consent);
 
@@ -282,7 +291,7 @@ export class GuardiansService {
       if (!existing) {
         const count = await tx.playerGuardian.count({ where: { playerId: player.id } });
         if (count >= MAX_GUARDIANS_PER_PLAYER) {
-          throw new BadRequestException(TOO_MANY_GUARDIANS);
+          throw refused(TOO_MANY_GUARDIANS);
         }
         await tx.playerGuardian.create({ data: { playerId: player.id, userId } });
       }
@@ -387,6 +396,11 @@ function assertConsent(birthDate: Date | null, consent: boolean | undefined): vo
       code: PARENTAL_CONSENT_REQUIRED_CODE,
     });
   }
+}
+
+// A refusal the invite page shows as-is, told apart from validation 400s.
+function refused(message: string): BadRequestException {
+  return new BadRequestException({ message, code: GUARDIAN_INVITE_REFUSED_CODE });
 }
 
 function alreadyAccepted(): ConflictException {

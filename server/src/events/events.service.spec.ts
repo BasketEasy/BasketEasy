@@ -1900,7 +1900,6 @@ describe('EventsService', () => {
       expect(result.myRsvpStatus).toBe('GOING');
       expect(result.myConvocation).toBe(true);
       expect(result.myRsvpRespondedBy).toEqual({
-        userId: 'user-1',
         firstName: 'Sophie',
         lastInitial: 'M',
         isMe: true,
@@ -2096,7 +2095,7 @@ describe('EventsService', () => {
           role: 'PLAYER',
           status: 'GOING',
           respondedAt: '2026-01-02T00:00:00.000Z',
-          respondedBy: { userId: 'user-1', firstName: 'Lea', lastInitial: 'B', isMe: true },
+          respondedBy: { firstName: 'Lea', lastInitial: 'B', isMe: true },
           respondedByGuardian: false,
           travelMode: null,
           isMe: true,
@@ -2153,7 +2152,6 @@ describe('EventsService', () => {
 
       expect(row.respondedByGuardian).toBe(true);
       expect(row.respondedBy).toEqual({
-        userId: 'parent-1',
         firstName: 'Sophie',
         lastInitial: 'M',
         isMe: true,

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { INVITE_ALREADY_ACCEPTED_CODE } from '@basketeasy/types/player-invites';
 import { PARENTAL_CONSENT_REQUIRED_CODE } from '@basketeasy/types/parental-consent';
+import { GUARDIAN_INVITE_REFUSED_CODE } from '@basketeasy/types/guardians';
 import { GuardiansService } from './guardians.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -78,6 +79,7 @@ describe('GuardiansService', () => {
     parentalConsent: { findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     teamPlayer: { findMany: jest.Mock };
     user: { update: jest.Mock; findUniqueOrThrow: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
   let authService: { register: jest.Mock; me: jest.Mock };
@@ -114,6 +116,7 @@ describe('GuardiansService', () => {
           .fn()
           .mockResolvedValue({ firstName: 'Sophie', lastName: 'Martin', email: 's@x.fr' }),
       },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
     authService = {
@@ -351,6 +354,21 @@ describe('GuardiansService', () => {
       );
     });
 
+    it('locks the player before re-reading the invite, so concurrent accepts run one at a time', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite());
+
+      await service.acceptAsUser('t', 'parent-1', true);
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      const [sql, playerId] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray, string];
+      expect(sql.join('?')).toContain('FOR UPDATE');
+      expect(playerId).toBe('player-1');
+      // The in-transaction read (the last one) comes after the lock, so it
+      // sees whatever the previous accept for this player committed.
+      const lastInviteRead = Math.max(...prisma.guardianInvite.findUnique.mock.invocationCallOrder);
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(lastInviteRead);
+    });
+
     it('treats a second accept by the same account as a success', async () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(
         buildInvite({ acceptedAt: new Date(), acceptedByUserId: 'parent-1', expiresAt: PAST }),
@@ -367,8 +385,10 @@ describe('GuardiansService', () => {
     it('refuses the player as their own parent', async () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { userId: 'parent-1' }));
 
-      await expect(service.acceptAsUser('t', 'parent-1', true)).rejects.toBeInstanceOf(
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
         BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
       );
       expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
     });
@@ -377,8 +397,10 @@ describe('GuardiansService', () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite());
       prisma.playerGuardian.count.mockResolvedValue(4);
 
-      await expect(service.acceptAsUser('t', 'parent-1', true)).rejects.toBeInstanceOf(
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
         BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
       );
       expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
     });

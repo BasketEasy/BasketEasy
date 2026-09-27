@@ -779,7 +779,6 @@ describe('DashboardService', () => {
         clubId: 'club-partner',
         myRsvpStatus: 'GOING',
         myRsvpRespondedBy: {
-          userId: 'parent-1',
           firstName: 'Sophie',
           lastInitial: 'M',
           isMe: true,

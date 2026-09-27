@@ -1,3 +1,4 @@
+import { GUARDIAN_INVITE_REFUSED_CODE } from '@basketeasy/types/guardians';
 import { PARENTAL_CONSENT_REQUIRED_CODE } from '@basketeasy/types/parental-consent';
 import { ApiError } from '../api/client';
 import { isInviteAlreadyAccepted } from '../invites/inviteErrorMessages';
@@ -17,9 +18,11 @@ export function getGuardianInviteErrorMessage(err: unknown): string {
     switch (err.status) {
       case 400:
         // The service's own refusals (already 4 parents, following oneself)
-        // are finished French sentences; class-validator's are not, and the
-        // form's own validation catches those before they are sent.
-        return err.message || 'Certaines informations saisies sont invalides.';
+        // are finished French sentences and say so with a code; any other
+        // 400 is class-validator's English, never shown to a parent.
+        return err.code === GUARDIAN_INVITE_REFUSED_CODE
+          ? err.message
+          : 'Certaines informations saisies sont invalides.';
       case 404:
         return "Ce lien n'est plus valide ou a expiré.";
       case 409:

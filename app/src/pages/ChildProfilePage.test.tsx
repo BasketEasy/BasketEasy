@@ -79,6 +79,25 @@ describe('ChildProfilePage', () => {
     );
   });
 
+  it('does not let a parent clear a minor’s birth date', async () => {
+    let patched = false;
+    server.use(
+      http.get('/api/me/children/child-1', () => HttpResponse.json(child)),
+      http.patch('/api/me/children/child-1', () => {
+        patched = true;
+        return HttpResponse.json(child);
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.clear(await screen.findByLabelText('Date de naissance'));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    expect(await screen.findByText(/seul le club peut retirer cette date/i)).toBeInTheDocument();
+    expect(patched).toBe(false);
+  });
+
   it('stops following after a confirmation and returns to the account page', async () => {
     let deleted = false;
     server.use(

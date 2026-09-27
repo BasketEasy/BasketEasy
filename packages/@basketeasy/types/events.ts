@@ -72,7 +72,8 @@ export interface EventMatchPlayerStats {
  * and last initial only (« Sophie M. »), never a relationship label.
  */
 export interface EventRsvpRespondent {
-  userId: string;
+  // No account id: every roster reader gets this, and nothing needs more
+  // than « is it me » to tell respondents apart.
   firstName: string | null;
   lastInitial: string | null;
   /** The respondent is the caller (not the persona they act for). */
