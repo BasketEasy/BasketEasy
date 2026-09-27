@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import {
@@ -10,11 +13,8 @@ import {
   DialogTitle,
 } from '@basketeasy/ui/dialog';
 import { FormField } from '@basketeasy/ui/form-field';
-import { Input } from '@basketeasy/ui/input';
-import { Label } from '@basketeasy/ui/label';
 import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { Text } from '@basketeasy/ui/text';
-import { FieldError } from '@basketeasy/ui/field-error';
 import {
   DEFAULT_ARRIVAL_BUFFER_MINUTES,
   MAX_ARRIVAL_BUFFER_MINUTES,
@@ -22,6 +22,8 @@ import {
   MEETING_POINT_NAME_MAX_LENGTH,
   type MeetingPoint,
 } from '@basketeasy/types/meeting-points';
+import { getClubErrorMessage } from '../clubs/clubErrorMessages';
+import { meetingPointFields, refineMeetingPointPair, toMeetingPoint } from './meetingPointSchema';
 
 export interface MeetingPointSettingsValue {
   meetingPoint: MeetingPoint | null;
@@ -37,8 +39,56 @@ export interface InheritedMeetingSettings {
 
 type Source = 'INHERIT' | 'OWN';
 
-const HALF_FILLED_ERROR = 'Renseignez le nom et l’adresse';
 const BUFFER_ERROR = `Entre 0 et ${MAX_ARRIVAL_BUFFER_MINUTES} minutes`;
+
+// The buffer stays a string in the form (it is an <input>) and is checked
+// only when it is the team's own — an inherited value isn't the form's to
+// validate. A team choosing its own place must name one; the club may leave
+// both empty, which is how it says "no meeting point".
+function settingsSchema(isTeam: boolean) {
+  return z
+    .object({
+      placeSource: z.enum(['INHERIT', 'OWN']),
+      bufferSource: z.enum(['INHERIT', 'OWN']),
+      ...meetingPointFields,
+      buffer: z.string(),
+    })
+    .superRefine((values, ctx) => {
+      if (values.placeSource === 'OWN') {
+        refineMeetingPointPair(values, ctx, { required: isTeam });
+      }
+      const minutes = Number(values.buffer);
+      if (
+        values.bufferSource === 'OWN' &&
+        (values.buffer.trim() === '' ||
+          !Number.isInteger(minutes) ||
+          minutes < 0 ||
+          minutes > MAX_ARRIVAL_BUFFER_MINUTES)
+      ) {
+        ctx.addIssue({ code: 'custom', path: ['buffer'], message: BUFFER_ERROR });
+      }
+    });
+}
+
+type SettingsFormValues = z.infer<ReturnType<typeof settingsSchema>>;
+
+function defaultsFrom(
+  value: MeetingPointSettingsValue,
+  inherited: InheritedMeetingSettings | undefined,
+): SettingsFormValues {
+  const isTeam = Boolean(inherited);
+  return {
+    placeSource: isTeam && value.meetingPoint === null ? 'INHERIT' : 'OWN',
+    bufferSource: isTeam && value.arrivalBufferMinutes === null ? 'INHERIT' : 'OWN',
+    name: value.meetingPoint?.name ?? '',
+    address: value.meetingPoint?.address ?? '',
+    buffer: String(
+      value.arrivalBufferMinutes ??
+        inherited?.arrivalBufferMinutes ??
+        DEFAULT_ARRIVAL_BUFFER_MINUTES,
+    ),
+  };
+}
 
 function RadioLabel({ title, detail }: { title: string; detail?: string }) {
   return (
@@ -62,8 +112,8 @@ function RadioLabel({ title, detail }: { title: string; detail?: string }) {
  * fields showing only under « propre à l'équipe ». A Dialog per CLAUDE.md —
  * a focused, infrequent edit of a multi-field record.
  *
- * Name and address travel together: both empty means "no meeting point",
- * exactly one filled is a validation error rather than a silent null.
+ * `onSubmit` resolves once saved; a rejection stays in the open dialog as a
+ * root error, like the other react-hook-form dialogs.
  */
 export function MeetingPointSettingsDialog({
   open,
@@ -71,8 +121,6 @@ export function MeetingPointSettingsDialog({
   title,
   value,
   inherited,
-  isSaving,
-  error,
   onSubmit,
 }: {
   open: boolean;
@@ -80,75 +128,44 @@ export function MeetingPointSettingsDialog({
   title: string;
   value: MeetingPointSettingsValue;
   inherited?: InheritedMeetingSettings;
-  isSaving: boolean;
-  /** A server error from the last submit, shown inside the still-open dialog. */
-  error: string | null;
-  onSubmit: (value: MeetingPointSettingsValue) => void;
+  onSubmit: (value: MeetingPointSettingsValue) => Promise<void>;
 }) {
   const isTeam = Boolean(inherited);
-  const [placeSource, setPlaceSource] = useState<Source>('OWN');
-  const [bufferSource, setBufferSource] = useState<Source>('OWN');
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [buffer, setBuffer] = useState('');
-  const [placeError, setPlaceError] = useState<string | null>(null);
-  const [bufferError, setBufferError] = useState<string | null>(null);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<SettingsFormValues>({
+    resolver: zodResolver(settingsSchema(isTeam)),
+    defaultValues: defaultsFrom(value, inherited),
+  });
+  const placeSource = watch('placeSource');
+  const bufferSource = watch('bufferSource');
 
-  // Re-sync every time the dialog opens, so a cancelled edit never leaks
-  // into the next one — same pattern as TeamEditModal.
+  // Re-seed every time the dialog opens, so a cancelled edit never leaks
+  // into the next one — same pattern as EventEditModal.
   useEffect(() => {
-    if (!open) return;
-    setPlaceSource(isTeam && value.meetingPoint === null ? 'INHERIT' : 'OWN');
-    setBufferSource(isTeam && value.arrivalBufferMinutes === null ? 'INHERIT' : 'OWN');
-    setName(value.meetingPoint?.name ?? '');
-    setAddress(value.meetingPoint?.address ?? '');
-    setBuffer(
-      String(
-        value.arrivalBufferMinutes ??
-          inherited?.arrivalBufferMinutes ??
-          DEFAULT_ARRIVAL_BUFFER_MINUTES,
-      ),
-    );
-    setPlaceError(null);
-    setBufferError(null);
-  }, [open, value, inherited, isTeam]);
+    if (open) reset(defaultsFrom(value, inherited));
+  }, [open, value, inherited, reset]);
 
-  const handleSubmit = () => {
-    const trimmedName = name.trim();
-    const trimmedAddress = address.trim();
-    const minutes = Number(buffer);
-    const ownPlace = placeSource === 'OWN';
-    const ownBuffer = bufferSource === 'OWN';
-    let valid = true;
-
-    // A team choosing its own place must name one; the club may leave both
-    // empty, which is how it says "no meeting point".
-    const missingPlace = isTeam ? !trimmedName || !trimmedAddress : false;
-    if (ownPlace && (missingPlace || Boolean(trimmedName) !== Boolean(trimmedAddress))) {
-      setPlaceError(HALF_FILLED_ERROR);
-      valid = false;
-    } else {
-      setPlaceError(null);
+  const save = async (next: MeetingPointSettingsValue) => {
+    try {
+      await onSubmit(next);
+    } catch (err) {
+      setError('root', { message: getClubErrorMessage(err) });
     }
-    if (
-      ownBuffer &&
-      (buffer.trim() === '' ||
-        !Number.isInteger(minutes) ||
-        minutes < 0 ||
-        minutes > MAX_ARRIVAL_BUFFER_MINUTES)
-    ) {
-      setBufferError(BUFFER_ERROR);
-      valid = false;
-    } else {
-      setBufferError(null);
-    }
-    if (!valid) return;
-
-    onSubmit({
-      meetingPoint: ownPlace && trimmedName ? { name: trimmedName, address: trimmedAddress } : null,
-      arrivalBufferMinutes: ownBuffer ? minutes : null,
-    });
   };
+
+  const submit = handleSubmit((values) =>
+    save({
+      meetingPoint: values.placeSource === 'OWN' ? toMeetingPoint(values) : null,
+      arrivalBufferMinutes: values.bufferSource === 'OWN' ? Number(values.buffer) : null,
+    }),
+  );
 
   const placeFields = (
     <>
@@ -157,9 +174,8 @@ export function MeetingPointSettingsDialog({
         id="meeting-point-name"
         placeholder="Parking salle Coubertin"
         maxLength={MEETING_POINT_NAME_MAX_LENGTH}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        error={placeError && !name.trim() ? placeError : undefined}
+        error={errors.name?.message}
+        {...register('name')}
       />
       <FormField
         label="Adresse"
@@ -167,40 +183,26 @@ export function MeetingPointSettingsDialog({
         placeholder="12 rue de la Salle, 44000 Nantes"
         hint="Une vraie adresse : elle sert à calculer le trajet vers chaque salle."
         maxLength={MEETING_POINT_ADDRESS_MAX_LENGTH}
-        value={address}
-        onChange={(e) => setAddress(e.target.value)}
-        error={placeError && !address.trim() ? placeError : undefined}
+        error={errors.address?.message}
+        {...register('address')}
       />
     </>
   );
 
   const bufferField = (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor="meeting-arrival-buffer">
-        {isTeam ? 'Minutes avant le match' : 'Arrivée à la salle avant le match'}
-      </Label>
-      <div className="flex items-center gap-2">
-        <Input
-          id="meeting-arrival-buffer"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          max={MAX_ARRIVAL_BUFFER_MINUTES}
-          className="w-24"
-          aria-invalid={Boolean(bufferError)}
-          aria-describedby="meeting-arrival-buffer-hint"
-          value={buffer}
-          onChange={(e) => setBuffer(e.target.value)}
-        />
-        <Text as="span" variant="meta">
-          minutes
-        </Text>
-      </div>
-      <Text id="meeting-arrival-buffer-hint" variant="meta">
-        Les joueurs qui viennent en direct arrivent à cette heure-là.
-      </Text>
-      {bufferError && <FieldError>{bufferError}</FieldError>}
-    </div>
+    <FormField
+      label={isTeam ? 'Minutes avant le match' : 'Arrivée à la salle avant le match'}
+      id="meeting-arrival-buffer"
+      type="number"
+      inputMode="numeric"
+      min={0}
+      max={MAX_ARRIVAL_BUFFER_MINUTES}
+      className="w-24"
+      suffix="minutes"
+      hint="Les joueurs qui viennent en direct arrivent à cette heure-là."
+      error={errors.buffer?.message}
+      {...register('buffer')}
+    />
   );
 
   return (
@@ -215,10 +217,10 @@ export function MeetingPointSettingsDialog({
             </DialogDescription>
           )}
         </DialogHeader>
-        <div className="flex flex-col gap-4 pt-2">
-          {error && (
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4 pt-2">
+          {errors.root && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{errors.root.message}</AlertDescription>
             </Alert>
           )}
 
@@ -228,31 +230,37 @@ export function MeetingPointSettingsDialog({
                 <Text variant="eyebrow" id="meeting-place-source">
                   Lieu
                 </Text>
-                <RadioCardGroup<Source>
-                  aria-labelledby="meeting-place-source"
-                  tone="choice"
-                  indicator
-                  value={placeSource}
-                  onChange={setPlaceSource}
-                  options={[
-                    {
-                      value: 'INHERIT',
-                      render: () => (
-                        <RadioLabel
-                          title="Celui du club"
-                          detail={
-                            inherited.meetingPoint
-                              ? `${inherited.meetingPoint.name} · ${inherited.meetingPoint.address}`
-                              : 'Aucun défini par le club'
-                          }
-                        />
-                      ),
-                    },
-                    {
-                      value: 'OWN',
-                      render: () => <RadioLabel title="Un lieu propre à l’équipe" />,
-                    },
-                  ]}
+                <Controller
+                  control={control}
+                  name="placeSource"
+                  render={({ field }) => (
+                    <RadioCardGroup<Source>
+                      aria-labelledby="meeting-place-source"
+                      tone="choice"
+                      indicator
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={[
+                        {
+                          value: 'INHERIT',
+                          render: () => (
+                            <RadioLabel
+                              title="Celui du club"
+                              detail={
+                                inherited.meetingPoint
+                                  ? `${inherited.meetingPoint.name} · ${inherited.meetingPoint.address}`
+                                  : 'Aucun défini par le club'
+                              }
+                            />
+                          ),
+                        },
+                        {
+                          value: 'OWN',
+                          render: () => <RadioLabel title="Un lieu propre à l’équipe" />,
+                        },
+                      ]}
+                    />
+                  )}
                 />
                 {placeSource === 'OWN' && placeFields}
               </div>
@@ -260,24 +268,30 @@ export function MeetingPointSettingsDialog({
                 <Text variant="eyebrow" id="meeting-buffer-source">
                   Arrivée avant le match
                 </Text>
-                <RadioCardGroup<Source>
-                  aria-labelledby="meeting-buffer-source"
-                  tone="choice"
-                  indicator
-                  value={bufferSource}
-                  onChange={setBufferSource}
-                  options={[
-                    {
-                      value: 'INHERIT',
-                      render: () => (
-                        <RadioLabel
-                          title="Celle du club"
-                          detail={`${inherited.arrivalBufferMinutes} min`}
-                        />
-                      ),
-                    },
-                    { value: 'OWN', render: () => <RadioLabel title="Propre à l’équipe" /> },
-                  ]}
+                <Controller
+                  control={control}
+                  name="bufferSource"
+                  render={({ field }) => (
+                    <RadioCardGroup<Source>
+                      aria-labelledby="meeting-buffer-source"
+                      tone="choice"
+                      indicator
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={[
+                        {
+                          value: 'INHERIT',
+                          render: () => (
+                            <RadioLabel
+                              title="Celle du club"
+                              detail={`${inherited.arrivalBufferMinutes} min`}
+                            />
+                          ),
+                        },
+                        { value: 'OWN', render: () => <RadioLabel title="Propre à l’équipe" /> },
+                      ]}
+                    />
+                  )}
                 />
                 {bufferSource === 'OWN' && bufferField}
               </div>
@@ -292,10 +306,11 @@ export function MeetingPointSettingsDialog({
           <div className="flex flex-wrap items-center justify-between gap-2">
             {!isTeam && value.meetingPoint ? (
               <Button
+                type="button"
                 variant="ghost"
-                disabled={isSaving}
+                disabled={isSubmitting}
                 onClick={() =>
-                  onSubmit({
+                  save({
                     meetingPoint: null,
                     arrivalBufferMinutes:
                       value.arrivalBufferMinutes ?? DEFAULT_ARRIVAL_BUFFER_MINUTES,
@@ -311,14 +326,16 @@ export function MeetingPointSettingsDialog({
             )}
             <div className="flex gap-2">
               <DialogClose asChild>
-                <Button variant="ghost">Annuler</Button>
+                <Button type="button" variant="ghost">
+                  Annuler
+                </Button>
               </DialogClose>
-              <Button loading={isSaving} onClick={handleSubmit}>
+              <Button type="submit" loading={isSubmitting}>
                 Enregistrer
               </Button>
             </div>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

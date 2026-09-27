@@ -4,7 +4,7 @@ import type {
   UpdateTeamMeetingSettingsRequest,
 } from '@basketeasy/types/meeting-points';
 import { apiClient } from '../api/client';
-import { teamMeetingSettingsQueryKey } from '../clubs/queryKeys';
+import { teamEventsQueryKeyPrefix, teamMeetingSettingsQueryKey } from '../clubs/queryKeys';
 
 export function useTeamMeetingSettingsUpdate(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
@@ -17,9 +17,9 @@ export function useTeamMeetingSettingsUpdate(clubId: string, teamId: string) {
       ),
     onSuccess: (settings) => {
       queryClient.setQueryData(teamMeetingSettingsQueryKey(clubId, teamId), settings);
-      // Bare prefix, so it matches both the event lists and each single event
-      // under this team — all of them carry a plan resolved from these settings.
-      queryClient.invalidateQueries({ queryKey: ['clubs', clubId, 'teams', teamId, 'events'] });
+      // Both the event lists and each single event under this team carry a
+      // plan resolved from these settings.
+      queryClient.invalidateQueries({ queryKey: teamEventsQueryKeyPrefix(clubId, teamId) });
     },
   });
 }
