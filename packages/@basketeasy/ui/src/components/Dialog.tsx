@@ -32,7 +32,7 @@ export const DialogContent = forwardRef<
         // and pushes the page sideways. For a fixed-position box the
         // percentage resolves against the initial containing block, which
         // excludes the scrollbar.
-        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border bg-surface p-6 shadow-lg',
+        'fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-lg',
         className,
       )}
       {...props}
@@ -66,7 +66,7 @@ export const DialogTitle = forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('font-heading text-xl font-bold text-charcoal', className)}
+    className={cn('font-heading text-3xl font-extrabold uppercase text-charcoal', className)}
     {...props}
   />
 ));

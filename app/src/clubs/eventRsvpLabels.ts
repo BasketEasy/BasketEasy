@@ -12,7 +12,7 @@ export const EVENT_RSVP_STATUS_OPTIONS: {
   shortLabel: string;
 }[] = [
   { value: 'GOING', label: 'Présent', shortLabel: 'Oui' },
-  { value: 'MAYBE', label: 'Incertain', shortLabel: '?' },
+  { value: 'MAYBE', label: 'Incertain', shortLabel: 'Peut-être' },
   { value: 'NOT_GOING', label: 'Absent', shortLabel: 'Non' },
 ];
 

@@ -70,7 +70,7 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
     { variant: 'outline', tone: 'accent', class: 'border-gold/40 text-gold-text' },
     { variant: 'outline', tone: 'success', class: 'border-success/40 text-success' },
   ],
-  defaultVariants: { variant: 'solid', tone: 'brand', size: 'sm' },
+  defaultVariants: { variant: 'soft', tone: 'brand', size: 'sm' },
 });
 
 export interface BadgeProps

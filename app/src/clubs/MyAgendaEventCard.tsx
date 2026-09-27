@@ -23,11 +23,9 @@ import { EventRsvpControl } from './EventRsvpControl';
  * that breaks both keyboard activation and screen-reader semantics. The
  * title/meta block is the link, the RSVP control is its sibling.
  *
- * `size="default"` is the card phase 1 shipped inside `DashboardPage`
- * (`Card` `inset`, no `TimeBlock`) — kept byte-identical so the manager's
- * "Cette semaine" list is unaffected by this phase. `size="hero"` is new for
- * the player's "Prochain rendez-vous": the phase-0 `TimeBlock` at its larger
- * size, a `brand`-tone card when the viewer is actually called up (the same
+ * Both sizes open on a `TimeBlock` tile (the Parquet time block, solid for a
+ * match, outlined for a training): `sm` on the `size="default"` list card,
+ * `md` on `size="hero"`, the player's "Prochain rendez-vous", which adds a `brand`-tone card when the viewer is actually called up (the same
  * tone the event page's decision band uses for "this is the thing on the
  * screen" — `Card`'s `tone` prop, per the phase-3 precedent), and a
  * full-width RSVP control since it is the one action on the card.
@@ -57,18 +55,24 @@ export function MyAgendaEventCard({
 
   if (size === 'hero') {
     return (
-      <Card variant="flush" tone={isCalledUp ? 'brand' : 'neutral'} className="flex w-full">
-        <TimeBlock
-          type={event.type}
-          startsAt={event.startsAt}
-          timeConfirmed={event.timeConfirmed}
-          size="md"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3.5 sm:p-4">
+      <Card
+        tone={isCalledUp ? 'brand' : 'neutral'}
+        className="flex w-full flex-col gap-3 p-3.5 sm:p-4"
+      >
+        <div className="flex min-w-0 gap-3.5">
+          <TimeBlock
+            type={event.type}
+            startsAt={event.startsAt}
+            timeConfirmed={event.timeConfirmed}
+            size="md"
+          />
           <Link
             to={eventHref}
             state={{ origin: { from: 'dashboard' } }}
-            className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
+            className={cn(
+              'group flex min-w-0 flex-1 flex-col justify-center gap-1 rounded-sm text-left',
+              focusRing,
+            )}
           >
             <span className="flex flex-wrap items-center gap-2">
               <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
@@ -90,44 +94,55 @@ export function MyAgendaEventCard({
               {formatEventDate(event.startsAt)} · {event.location}
             </Text>
           </Link>
-          {isRostered && (
-            <EventRsvpControl
-              clubId={event.clubId}
-              teamId={event.teamId}
-              event={rsvpEvent}
-              fullWidth
-            />
-          )}
         </div>
+        {isRostered && (
+          <EventRsvpControl
+            clubId={event.clubId}
+            teamId={event.teamId}
+            event={rsvpEvent}
+            fullWidth
+          />
+        )}
       </Card>
     );
   }
 
   return (
-    <Card variant="inset" className="flex w-full flex-col gap-2">
-      <Link
-        to={eventHref}
-        state={{ origin: { from: 'dashboard' } }}
-        className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
-      >
-        <span className="flex flex-wrap items-center gap-2">
-          <Text
-            as="span"
-            variant="label"
-            className="group-hover:underline group-focus-visible:underline"
-          >
-            {event.teamName}
+    <Card className="flex w-full flex-col gap-3 p-3.5">
+      <div className="flex min-w-0 gap-3">
+        <TimeBlock
+          type={event.type}
+          startsAt={event.startsAt}
+          timeConfirmed={event.timeConfirmed}
+          size="sm"
+        />
+        <Link
+          to={eventHref}
+          state={{ origin: { from: 'dashboard' } }}
+          className={cn(
+            'group flex min-w-0 flex-1 flex-col justify-center gap-1 rounded-sm text-left',
+            focusRing,
+          )}
+        >
+          <span className="flex flex-wrap items-center gap-2">
+            <Text
+              as="span"
+              variant="label"
+              className="group-hover:underline group-focus-visible:underline"
+            >
+              {event.teamName}
+            </Text>
+            <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
+              {eventTypeLabel(event.type)}
+            </Badge>
+            {isCalledUp && <Badge>Convoqué</Badge>}
+          </span>
+          <Text as="span" variant="meta">
+            {formatEventDate(event.startsAt)} · {event.location}
+            {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
           </Text>
-          <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
-            {eventTypeLabel(event.type)}
-          </Badge>
-          {isCalledUp && <Badge>Convoqué</Badge>}
-        </span>
-        <Text as="span" variant="meta">
-          {formatEventDate(event.startsAt)} · {event.location}
-          {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
-        </Text>
-      </Link>
+        </Link>
+      </div>
       {showRsvpSummary && event.rsvpSummary.rosterSize > 0 && (
         <ResponseMeter
           going={event.rsvpSummary.going}

@@ -28,18 +28,8 @@ export function NotificationItem({ notification, onRead, onNavigate }: Notificat
 
   const body = (
     <>
-      <span className="flex items-start gap-2">
-        {/* The unread dot. aria-hidden because "non lue" is already in the
-            row's own accessible name below — a screen reader should hear it
-            once, as part of the row, not as a stray bullet. */}
-        <span
-          aria-hidden="true"
-          className={cn(
-            'mt-1.5 h-2 w-2 shrink-0 rounded-full',
-            isUnread ? 'bg-orange-text' : 'bg-transparent',
-          )}
-        />
-        <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="flex items-start gap-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Text as="span" variant="label" size="sm" tone={isUnread ? 'primary' : 'secondary'}>
             {notification.title}
           </Text>
@@ -52,15 +42,25 @@ export function NotificationItem({ notification, onRead, onNavigate }: Notificat
             {formatNotificationAge(notification.createdAt)}
           </Text>
         </span>
+        {/* The unread dot, at the row's trailing edge. aria-hidden because
+            "non lue" is already in the row's own accessible name below — a
+            screen reader should hear it once, as part of the row, not as a
+            stray bullet. */}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
+            isUnread ? 'bg-orange' : 'bg-transparent',
+          )}
+        />
       </span>
     </>
   );
 
   const shared = cn(
-    'flex w-full flex-col gap-1 rounded-md p-3 text-left no-underline transition-colors',
+    'flex w-full flex-col gap-1 p-3.5 text-left no-underline transition-colors',
     focusRing,
     'hover:bg-surface-2',
-    isUnread && 'bg-orange-tint/40',
   );
 
   const accessibleName = `${notification.title}${isUnread ? ' (non lue)' : ''}`;
