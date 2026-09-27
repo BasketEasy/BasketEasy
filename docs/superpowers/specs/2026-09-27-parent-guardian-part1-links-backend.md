@@ -210,12 +210,12 @@ allows:
 | Controller    | Route                                                                                                                                                                                   |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `clubs`       | `GET :clubId` (the header reads the club name)                                                                                                                                          |
-| `teams`       | `GET :teamId`, `GET :teamId/players`, `GET :teamId/clubs`, `GET :teamId/admins`, `GET :teamId/ffbb-links`, `GET :teamId/ffbb-poule-results`                                             |
+| `teams`       | `GET :teamId`, `GET :teamId/players`, `GET :teamId/clubs`, `GET :teamId/ffbb-links`, `GET :teamId/ffbb-poule-results`                                                                   |
 | `team-stats`  | `GET`                                                                                                                                                                                   |
 | `events`      | `GET`, `GET :eventId`, `GET :eventId/rsvps`, `GET :eventId/convocations`, `GET :eventId/votes`, `GET :eventId/scoresheet`, `PATCH`/`DELETE :eventId/rsvp`, `PATCH :eventId/travel-mode` |
 | `scoresheets` | `GET` (the extraction a rostered member already reads on the match page)                                                                                                                |
 
-Not `GET .../teams` (the club's team list), not `GET .../members` or `.../players`, not votes
+Not `GET .../teams` (the club's team list), not `GET :teamId/admins` (it carries each coach's e-mail, decision 17), not `GET .../members` or `.../players`, not votes
 `PATCH`, logistics, scoresheet upload or retry: those stay member-only.
 
 Until Part 2 wires `forPlayerId`, a guardian-only caller who reaches the RSVP write gets the

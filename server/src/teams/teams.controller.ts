@@ -219,10 +219,12 @@ export class TeamsController {
     return this.ffbbPouleService.getPouleResults(clubId, teamId);
   }
 
+  // Not @AllowGuardians(): TeamAdmin carries each coach's e-mail, and a
+  // parent who is nothing else in the club never sees other people's
+  // addresses (guardians design, decision 17).
   @Get(':teamId/admins')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
-  @AllowGuardians()
   listTeamAdmins(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

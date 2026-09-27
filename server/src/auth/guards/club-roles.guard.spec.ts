@@ -168,7 +168,11 @@ describe('ClubRolesGuard', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('admits a guardian who is also a member with an insufficient role', async () => {
+    // Every route carrying @AllowGuardians() today is ADMIN+MEMBER, so no real
+    // member reaches the fallback. This pins the guard's contract for a
+    // future ADMIN-only route that opts in: an insufficient role falls through
+    // to the guardian check rather than being refused outright.
+    it('falls through to the guardian check when a membership has the wrong role', async () => {
       setMetadata(['ADMIN'], true);
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'MEMBER' });
       prisma.playerGuardian.findFirst.mockResolvedValue({ playerId: 'player-1' });
