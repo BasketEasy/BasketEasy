@@ -70,7 +70,6 @@
     "createdAt": "2026-09-01T00:00:00.000Z",
     "myRsvpStatus": "GOING",
     "myRsvpRespondedBy": {
-      "userId": "marc",
       "firstName": "Marc",
       "lastInitial": "M",
       "isMe": false
@@ -125,7 +124,6 @@
       "status": "GOING",
       "respondedAt": "2026-10-01T00:00:00.000Z",
       "respondedBy": {
-        "userId": "marc",
         "firstName": "Marc",
         "lastInitial": "M",
         "isMe": false
@@ -303,7 +301,6 @@
         "recurrenceId": null,
         "myRsvpStatus": "GOING",
         "myRsvpRespondedBy": {
-          "userId": "marc",
           "firstName": "Marc",
           "lastInitial": "M",
           "isMe": false

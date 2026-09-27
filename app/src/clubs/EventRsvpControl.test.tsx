@@ -158,7 +158,7 @@ describe('EventRsvpControl', () => {
   });
 
   describe('who answered', () => {
-    const sophie = { userId: 'mum', firstName: 'Sophie', lastInitial: 'M', isMe: false };
+    const sophie = { firstName: 'Sophie', lastInitial: 'M', isMe: false };
 
     it('names a parent who answered for the player', () => {
       renderWithProviders(
@@ -184,7 +184,7 @@ describe('EventRsvpControl', () => {
           event={{
             ...baseEvent,
             myRsvpStatus: 'GOING',
-            myRsvpRespondedBy: { ...sophie, userId: 'me', isMe: true },
+            myRsvpRespondedBy: { ...sophie, isMe: true },
             myRsvpRespondedAt: '2026-01-01T18:12:00.000Z',
           }}
         />,
@@ -209,7 +209,7 @@ describe('EventRsvpControl', () => {
             event={{
               ...baseEvent,
               myRsvpStatus: 'MAYBE',
-              myRsvpRespondedBy: { ...sophie, userId: 'me', isMe: true },
+              myRsvpRespondedBy: { ...sophie, isMe: true },
               myRsvpRespondedAt: '2026-01-01T18:12:00.000Z',
             }}
           />

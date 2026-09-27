@@ -48,11 +48,24 @@ export function useActingAs(): ActingAsContextValue {
  * teams ».
  */
 export function useTeamActingAs(teamId: string): string | undefined {
-  const { forPlayerId, persona } = useActingAs();
+  return useTeamPersona(teamId).forPlayerId;
+}
+
+/**
+ * `useTeamActingAs` plus whether the persona is settled. A team-scoped query
+ * must wait on `isReady`: until the persona list arrives, a requested child
+ * (a `?pour=` link, the remembered choice) reads as « Moi », and a page
+ * fetched then would show — and let the reader answer as — the wrong person.
+ */
+export function useTeamPersona(teamId: string): {
+  forPlayerId: string | undefined;
+  isReady: boolean;
+} {
+  const { forPlayerId, persona, isReady } = useActingAs();
   if (!forPlayerId || !persona?.teams.some((team) => team.teamId === teamId)) {
-    return undefined;
+    return { forPlayerId: undefined, isReady };
   }
-  return forPlayerId;
+  return { forPlayerId, isReady };
 }
 
 /** `?forPlayerId=…` for a write path, or nothing when acting as oneself. */

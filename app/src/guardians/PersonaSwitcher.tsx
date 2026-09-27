@@ -23,7 +23,7 @@ export function PersonaSwitcher() {
     : getInitials(user?.firstName ?? 'M', user?.lastName ?? 'oi');
   const label =
     pending > 0
-      ? `Changer de profil, actuellement ${name} (${pending} réponses en attente ailleurs)`
+      ? `Changer de profil, actuellement ${name} (${pending} ${pending > 1 ? 'réponses' : 'réponse'} en attente ailleurs)`
       : `Changer de profil, actuellement ${name}`;
 
   return (

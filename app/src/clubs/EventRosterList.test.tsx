@@ -128,7 +128,7 @@ describe('EventRosterList', () => {
     mockRoster([
       {
         ...rsvps[0],
-        respondedBy: { userId: 'mum', firstName: 'Sophie', lastInitial: 'R', isMe: false },
+        respondedBy: { firstName: 'Sophie', lastInitial: 'R', isMe: false },
         respondedByGuardian: true,
       },
       rsvps[1],

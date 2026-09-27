@@ -79,4 +79,36 @@ describe('useEventShow across personas', () => {
 
     await waitFor(() => expect(seen).toBeNull());
   });
+
+  it('waits for the persona to settle, loading rather than fetching as « Moi »', async () => {
+    const seen: (string | null)[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1', ({ request }) => {
+        seen.push(new URL(request.url).searchParams.get('forPlayerId'));
+        return HttpResponse.json({ id: 'event-1', myRsvpStatus: 'NOT_GOING' });
+      }),
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // A ?pour= link, before the persona list has arrived: nothing resolved yet.
+    let value: ActingAsContextValue = { ...acting(null), isReady: false };
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <ActingAsContext.Provider value={value}>{children}</ActingAsContext.Provider>
+      </QueryClientProvider>
+    );
+    const { result, rerender } = renderHook(() => useEventShow('club-1', 'team-1', 'event-1'), {
+      wrapper,
+    });
+
+    // Loading, so the page shows its skeleton rather than « introuvable ».
+    expect(result.current.isLoading).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(seen).toEqual([]);
+
+    value = acting('leo');
+    rerender();
+
+    await waitFor(() => expect(result.current.data?.myRsvpStatus).toBe('NOT_GOING'));
+    expect(seen).toEqual(['leo']);
+  });
 });

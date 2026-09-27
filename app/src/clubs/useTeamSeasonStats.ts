@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { apiClient } from '../api/client';
 import { teamSeasonStatsQueryKey } from './queryKeys';
-import { useTeamActingAs } from '../guardians/useActingAs';
+import { useTeamPersona } from '../guardians/useActingAs';
 
 /**
  * A team's season aggregated from its confirmed scoresheets — one entry per
@@ -13,13 +13,17 @@ import { useTeamActingAs } from '../guardians/useActingAs';
  */
 export function useTeamSeasonStats(clubId: string, teamId: string, season?: number) {
   // A parent reading their child's team sees the child's row highlighted.
-  const forPlayerId = useTeamActingAs(teamId);
-  return useQuery({
+  const { forPlayerId, isReady } = useTeamPersona(teamId);
+  const query = useQuery({
     queryKey: teamSeasonStatsQueryKey(clubId, teamId, season, forPlayerId),
     queryFn: () =>
       apiClient.get<TeamSeasonStats>(`/clubs/${clubId}/teams/${teamId}/stats`, {
         ...(season === undefined ? {} : { season }),
         ...(forPlayerId ? { forPlayerId } : {}),
       }),
+    enabled: isReady,
   });
+  // A query held back for the persona is still loading, not empty: callers
+  // branch on isLoading, and a disabled query reports false.
+  return { ...query, isLoading: query.isLoading || !isReady };
 }

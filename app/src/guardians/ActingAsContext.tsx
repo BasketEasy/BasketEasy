@@ -39,24 +39,28 @@ export function ActingAsProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const userId = user?.id;
-  // undefined = nothing asked for yet; null = « Moi » chosen explicitly.
-  const [requested, setRequested] = useState<string | null | undefined>(() =>
-    userId ? readStored(userId) : undefined,
-  );
+  // This session's explicit choice (the sheet, a ?pour= link), else the one
+  // remembered from last time. The stored value is read during render, not in
+  // an effect, so it is known before the write-back below can replace it.
+  // undefined = nothing asked for yet; null = « Moi ».
+  const [chosen, setRequested] = useState<string | null | undefined>(undefined);
+  const stored = useMemo(() => (userId ? readStored(userId) : undefined), [userId]);
+  const requested = chosen !== undefined ? chosen : stored;
   const [isSwitcherOpen, setSwitcherOpen] = useState(false);
 
-  // The remembered choice, once the session names whose it is.
-  useEffect(() => {
-    if (!userId) return;
-    setRequested((current) => (current !== undefined ? current : readStored(userId)));
-  }, [userId]);
-
-  // Every choice — the sheet, a ?pour= link — is remembered for next time.
-  useEffect(() => {
-    if (userId && requested !== undefined) writeStored(userId, requested);
-  }, [userId, requested]);
-
   const pour = new URLSearchParams(location.search).get('pour');
+  // What the app actually acts as, once the persona list is known. A failed
+  // persona read leaves the app acting as the user themself rather than
+  // blocking every screen on it.
+  const resolved = personas ? resolvePersona(personas, pour ?? requested) : undefined;
+
+  // Every choice — the sheet, a ?pour= link, the default — is remembered as
+  // resolved, so a stale or foreign ?pour= id never lands in storage, and the
+  // next visit already knows the answer instead of waiting for the list.
+  useEffect(() => {
+    if (userId && resolved !== undefined) writeStored(userId, resolved);
+  }, [userId, resolved]);
+
   useEffect(() => {
     if (!pour) return;
     setRequested(pour);
@@ -72,22 +76,21 @@ export function ActingAsProvider({ children }: { children: ReactNode }) {
   const setForPlayerId = useCallback((playerId: string | null) => setRequested(playerId), []);
 
   const value = useMemo(() => {
-    // A failed persona read leaves the app acting as the user themself
-    // rather than blocking every screen on it.
-    const forPlayerId = personas ? resolvePersona(personas, pour ?? requested) : null;
+    const forPlayerId = resolved ?? null;
     return {
       forPlayerId,
       persona: personas?.children.find((child) => child.playerId === forPlayerId) ?? null,
       personas,
-      // Only a pending *child* request has to wait for the persona list: with
-      // nothing asked for, « Moi » is the answer for everyone but a
-      // guardian-only user, so the app doesn't hold every screen back on it.
-      isReady: !isPending || !(pour ?? requested),
+      // Only an explicit « Moi » can skip waiting for the persona list. With
+      // nothing asked for yet (a first visit), a guardian-only user resolves
+      // to their child, and loading as « Moi » first would flash an empty
+      // dashboard — exactly the first screen after accepting an invite.
+      isReady: !isPending || (pour ?? requested) === null,
       setForPlayerId,
       isSwitcherOpen,
       setSwitcherOpen,
     };
-  }, [personas, pour, requested, isPending, setForPlayerId, isSwitcherOpen]);
+  }, [resolved, personas, pour, requested, isPending, setForPlayerId, isSwitcherOpen]);
 
   return <ActingAsContext.Provider value={value}>{children}</ActingAsContext.Provider>;
 }

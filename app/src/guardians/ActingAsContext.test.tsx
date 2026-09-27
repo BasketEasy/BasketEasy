@@ -108,4 +108,20 @@ describe('ActingAsProvider', () => {
 
     expect(await screen.findByText('persona:leo')).toBeInTheDocument();
   });
+
+  it('never remembers a ?pour= id the user does not follow', async () => {
+    mockSession(parentWhoPlays);
+    renderProbe('/dashboard?pour=stranger');
+
+    expect(await screen.findByText('persona:moi')).toBeInTheDocument();
+    await waitFor(() => expect(window.localStorage.getItem('kluvo.actingAs.user-1')).toBe('self'));
+  });
+
+  it('remembers the resolved default, so the next visit need not wait', async () => {
+    mockSession({ self: null, children: [child('leo', 'Léo')] });
+    renderProbe();
+
+    expect(await screen.findByText('persona:leo')).toBeInTheDocument();
+    await waitFor(() => expect(window.localStorage.getItem('kluvo.actingAs.user-1')).toBe('leo'));
+  });
 });

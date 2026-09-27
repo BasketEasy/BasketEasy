@@ -276,8 +276,12 @@ export function TeamDetailPage() {
     isError: isAdminsError,
     refetch: refetchAdmins,
     isRefetching: isAdminsRefetching,
-  } = useTeamAdminList(clubId!, teamId!);
-  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
+  } = useTeamAdminList(clubId!, teamId!, canManageTeam);
+  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(
+    clubId!,
+    teamId!,
+    canManageTeam,
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);
