@@ -23,6 +23,12 @@ const cardVariants = cva('rounded-lg border border-border', {
       inset: 'bg-surface-2 p-3 shadow-sm',
       panel: 'bg-surface p-5 shadow-md',
       flush: 'overflow-hidden bg-surface shadow-sm',
+      /**
+       * The empty slot a setting will fill — « Aucun point de rendez-vous ».
+       * Dashed and unraised, so it reads as a place for something rather
+       * than as a record.
+       */
+      placeholder: 'border-dashed border-border-strong bg-surface-2 p-3',
     },
     /**
      * Meaning, not fill — the second axis, added for the one card that has
@@ -38,6 +44,10 @@ const cardVariants = cva('rounded-lg border border-border', {
     tone: {
       neutral: '',
       brand: 'border-orange/40 bg-orange-tint',
+      /** A figure tied to the structure colour — the meeting-point count tile, the RDV preview. */
+      structure: 'border-blue-green/20 bg-blue-green-tint',
+      /** A heads-up that is not an error — « les joueurs seront prévenus ». */
+      accent: 'border-gold/35 bg-gold-tint',
     },
   },
   defaultVariants: { variant: 'raised', tone: 'neutral' },
