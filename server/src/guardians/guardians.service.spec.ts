@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { INVITE_ALREADY_ACCEPTED_CODE } from '@basketeasy/types/player-invites';
 import { PARENTAL_CONSENT_REQUIRED_CODE } from '@basketeasy/types/parental-consent';
+import { GUARDIAN_INVITE_REFUSED_CODE } from '@basketeasy/types/guardians';
 import { GuardiansService } from './guardians.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
@@ -384,8 +385,10 @@ describe('GuardiansService', () => {
     it('refuses the player as their own parent', async () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { userId: 'parent-1' }));
 
-      await expect(service.acceptAsUser('t', 'parent-1', true)).rejects.toBeInstanceOf(
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
         BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
       );
       expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
     });
@@ -394,8 +397,10 @@ describe('GuardiansService', () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite());
       prisma.playerGuardian.count.mockResolvedValue(4);
 
-      await expect(service.acceptAsUser('t', 'parent-1', true)).rejects.toBeInstanceOf(
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
         BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
       );
       expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
     });
