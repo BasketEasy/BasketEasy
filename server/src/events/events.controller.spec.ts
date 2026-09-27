@@ -29,6 +29,8 @@ describe('EventsController', () => {
     getScoresheetUploadUrl: jest.Mock;
     confirmScoresheetUpload: jest.Mock;
     getScoresheetStatus: jest.Mock;
+    setEventMeeting: jest.Mock;
+    refreshEventMeeting: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -50,6 +52,8 @@ describe('EventsController', () => {
       getScoresheetUploadUrl: jest.fn(),
       confirmScoresheetUpload: jest.fn(),
       getScoresheetStatus: jest.fn(),
+      setEventMeeting: jest.fn(),
+      refreshEventMeeting: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +79,34 @@ describe('EventsController', () => {
 
     expect(service.listEvents).toHaveBeenCalledWith('club-1', 'team-1', query, 'user-1');
     expect(result.total).toBe(0);
+  });
+
+  it('setEventMeeting delegates the route ids, the DTO, and the caller id', async () => {
+    service.setEventMeeting.mockResolvedValue({ id: 'event-1' });
+    const dto = { travelMinutes: 25 };
+
+    await controller.setEventMeeting('club-1', 'team-1', 'event-1', dto, user);
+
+    expect(service.setEventMeeting).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      dto,
+      'user-1',
+    );
+  });
+
+  it('refreshEventMeeting delegates the route ids and the caller id', async () => {
+    service.refreshEventMeeting.mockResolvedValue({ id: 'event-1' });
+
+    await controller.refreshEventMeeting('club-1', 'team-1', 'event-1', user);
+
+    expect(service.refreshEventMeeting).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+    );
   });
 
   it('getEvent delegates clubId, teamId, eventId, and the caller id', async () => {

@@ -45,6 +45,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     logistics: { jerseys: null, balls: null },
     result: null,
     myMatchStats: null,
+    meetingPlan: null,
     ...overrides,
   };
 }

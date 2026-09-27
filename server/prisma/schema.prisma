@@ -202,6 +202,13 @@ model Club {
   players      Player[]
   clubTeams    ClubTeam[]
   parentalConsents ParentalConsent[]
+  // The club-wide default match meeting point (point de rendez-vous) and the
+  // arrival buffer before tip-off. Name and address are written together —
+  // both set or both null. See
+  // docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+  meetingPointName     String?
+  meetingPointAddress  String?
+  arrivalBufferMinutes Int     @default(45)
 }
 
 enum TeamCategory {
@@ -235,6 +242,11 @@ model Team {
   events      Event[]
   teamAdmins  TeamAdmin[]
   ffbbLinks   TeamFfbbLink[]
+  // Team-level overrides of the owner club's meeting point and arrival
+  // buffer; null inherits (a CTC team inherits from its owner club only).
+  meetingPointName     String?
+  meetingPointAddress  String?
+  arrivalBufferMinutes Int?
 }
 
 // One club's entry of one team into one FFBB competition for one season
@@ -367,6 +379,19 @@ model Event {
   // confirmed" placeholder. Defaults true so every manually-created event is
   // unaffected; only the FFBB import path ever sets it false.
   timeConfirmed       Boolean            @default(true)
+  // Per-match meeting point override (null inherits the team's, then the
+  // owner club's) and the travel state behind the resolved meeting time.
+  // travelRouteKey records which origin → location route travelMinutes was
+  // computed (or typed) for; a mismatch on read means the minutes are stale.
+  // meetingAnnouncedKey is the last meeting place + time players were told
+  // about, so a change is notified once. MATCH only — cleared on TRAINING.
+  meetingPointName    String?
+  meetingPointAddress String?
+  travelMinutes       Int?
+  travelMinutesManual Boolean            @default(false)
+  travelRouteKey      String?
+  meetsAtOverride     DateTime?
+  meetingAnnouncedKey String?
   createdAt           DateTime           @default(now())
   team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps               EventRsvp[]
@@ -378,6 +403,14 @@ model Event {
   @@unique([teamId, externalId])
   @@index([teamId])
   @@index([recurrenceId])
+}
+
+// How a GOING player gets to a match: with the group from the meeting point,
+// or straight to the gym. Defaults to MEETING_POINT — a player who hasn't
+// chosen counts as coming to the meeting point.
+enum EventTravelMode {
+  MEETING_POINT
+  DIRECT
 }
 
 enum EventRsvpStatus {
@@ -396,6 +429,9 @@ model EventRsvp {
   eventId      String
   teamPlayerId String
   status       EventRsvpStatus
+  // Only meaningful while status is GOING; reset to the default whenever the
+  // status changes away from GOING.
+  travelMode   EventTravelMode @default(MEETING_POINT)
   respondedAt  DateTime        @default(now())
   event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
@@ -691,4 +727,16 @@ model RetentionRun {
   summary Json
 
   @@index([ranAt])
+}
+
+// Address → coordinates cache shared by every meeting point and match
+// location, so the same gym is geocoded once, not once per event. Null
+// coordinates cache a "not found" answer (retried after a week); a provider
+// failure is never cached. `query` is the normalised address text.
+model GeocodedAddress {
+  id         String   @id @default(uuid())
+  query      String   @unique
+  latitude   Float?
+  longitude  Float?
+  resolvedAt DateTime @default(now())
 }
