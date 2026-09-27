@@ -4,12 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
 import {
   AUDIT_LOG_RETENTION_MONTHS,
+  GEOCODE_CACHE_RETENTION_MONTHS,
   INACTIVE_ACCOUNT_RETENTION_MONTHS,
   MAX_ACCOUNTS_PER_SWEEP,
   subMonths,
 } from './retention.constants';
 
-export type RetentionStepName = 'inactiveAccounts' | 'auditLogs' | 'parentalConsents';
+export type RetentionStepName =
+  'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
 
 export interface RetentionStepResult {
   status: 'ok' | 'error';
@@ -36,7 +38,12 @@ export interface RetentionStepResult {
 
 export type RetentionSweepSummary = Record<RetentionStepName, RetentionStepResult>;
 
-const STEP_ORDER: RetentionStepName[] = ['inactiveAccounts', 'auditLogs', 'parentalConsents'];
+const STEP_ORDER: RetentionStepName[] = [
+  'inactiveAccounts',
+  'auditLogs',
+  'parentalConsents',
+  'geocodeCache',
+];
 
 /**
  * Every retention rule that application code can enforce, run as one nightly
@@ -62,6 +69,7 @@ export class RetentionService {
       this.sweepInactiveAccounts(dryRun, now),
       this.sweepAuditLogs(dryRun, now),
       this.sweepExpiredParentalConsents(dryRun, now),
+      this.sweepUnusedGeocodes(dryRun, now),
     ]);
 
     const summary = STEP_ORDER.reduce((acc, step, index) => {
@@ -217,6 +225,20 @@ export class RetentionService {
       return { status: 'ok', count: await this.prisma.parentalConsent.count({ where }) };
     }
     const { count } = await this.prisma.parentalConsent.deleteMany({ where });
+    return { status: 'ok', count };
+  }
+
+  /**
+   * The meeting-point geocode cache: an address nobody has looked up for a
+   * year goes. A still-used gym is re-geocoded on its next lookup, so this
+   * only ever costs one provider call.
+   */
+  private async sweepUnusedGeocodes(dryRun: boolean, now: Date): Promise<RetentionStepResult> {
+    const where = { lastUsedAt: { lt: subMonths(now, GEOCODE_CACHE_RETENTION_MONTHS) } };
+    if (dryRun) {
+      return { status: 'ok', count: await this.prisma.geocodedAddress.count({ where }) };
+    }
+    const { count } = await this.prisma.geocodedAddress.deleteMany({ where });
     return { status: 'ok', count };
   }
 }

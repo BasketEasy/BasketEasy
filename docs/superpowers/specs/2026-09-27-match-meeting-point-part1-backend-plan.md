@@ -29,13 +29,20 @@ model Team {
 
 model Event {
   …
-  meetingPointName     String?    // null = inherit team, then owner club
+  meeting EventMeeting?
+}
+
+model EventMeeting {                // 1–1, no row = nothing stored yet
+  eventId              String    @id
+  meetingPointName     String?   // null = inherit team, then owner club
   meetingPointAddress  String?
   travelMinutes        Int?
   travelMinutesManual  Boolean   @default(false)
   travelRouteKey       String?   // route the minutes belong to, see design doc "Staleness"
   meetsAtOverride      DateTime?
   meetingAnnouncedKey  String?   // written by Part 2
+  updatedAt            DateTime  @updatedAt
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model EventRsvp {
@@ -49,6 +56,7 @@ model GeocodedAddress {
   latitude   Float?
   longitude  Float?             // both null = "not found"
   resolvedAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())  // pruned by the retention sweep after 12 months
 }
 ```
 
@@ -121,8 +129,8 @@ export interface UpdateEventMeetingRequest {
 | `routing-client.ts`            | `ROUTING_CLIENT` token and `RoutingClient { geocode(text): Promise<LatLng \| null>; drivingMinutes(from, to): Promise<number \| null> }`. `null` means "the provider answered: not found / no route". A throw means "the provider failed".                                                               |
 | `ors-routing.client.ts`        | ORS over `fetch` with a 10 s timeout. `GET /geocode/search?text=…&boundary.country=FR&size=1` and `GET /v2/directions/driving-car?start=lng,lat&end=lng,lat`, key in the `Authorization` header. Minutes = `ceil(duration / 60)`. A missing `duration` on a found route means a zero-length route, so 0. |
 | `null-routing.client.ts`       | Always `null`. Bound when `ORS_API_KEY` is unset.                                                                                                                                                                                                                                                        |
-| `meeting-plan.ts`              | Pure functions: `normaliseAddress`, `travelRouteKey(originAddress, location)`, `floorToQuarterHour`, `resolveMeetingPlan(event, team, ownerClub)`.                                                                                                                                                       |
-| `geocoding.service.ts`         | `geocode(text, { bypassNegativeCache })` through `GeocodedAddress`. A hit with coordinates is reused forever. A "not found" is reused for 7 days. A provider throw is **not** cached.                                                                                                                    |
+| `meeting-plan.ts`              | Pure functions: `normaliseAddress`, `travelRouteKey(originAddress, location)`, `floorToQuarterHour`, `resolveMeetingPlan(event, eventMeeting, team, ownerClub)` (formula itself shared from `@basketeasy/types/meeting-points`: `computeArrivalAt`, `computeMeetsAt`).                                   |
+| `geocoding.service.ts`         | `geocode(text, { bypassNegativeCache })` through `GeocodedAddress`. A hit with coordinates is reused forever. A "not found" is reused for 7 days. A provider throw is **not** cached. Concurrent lookups share one in-flight call; a hit touches `lastUsedAt` at most daily.                             |
 | `meeting-points.service.ts`    | Settings get/set, `resolvePlans(teamId, events)`, `setEventMeeting`, `recomputeTravel(eventId, { force })`, `enqueueRecompute(eventIds)`, `enqueueForTeam(teamId)`, `enqueueForClub(clubId)`.                                                                                                            |
 | `meeting-travel.processor.ts`  | `@Processor('meeting-travel', { limiter: { max: 30, duration: 60_000 } })`, calls `recomputeTravel(id)`.                                                                                                                                                                                                 |
 | `meeting-points.controller.ts` | Club and team settings routes.                                                                                                                                                                                                                                                                           |

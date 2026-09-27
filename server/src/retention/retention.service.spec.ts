@@ -10,6 +10,7 @@ describe('RetentionService', () => {
     player: { findMany: jest.Mock; updateMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
+    geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
     retentionRun: { create: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -31,6 +32,10 @@ describe('RetentionService', () => {
       },
       auditLog: {
         create: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      geocodedAddress: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -236,6 +241,28 @@ describe('RetentionService', () => {
 
       expect(summary.parentalConsents).toEqual({ status: 'ok', count: 2 });
       expect(prisma.parentalConsent.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('geocode cache', () => {
+    it('drops addresses nobody has looked up for 12 months', async () => {
+      prisma.geocodedAddress.deleteMany.mockResolvedValue({ count: 4 });
+
+      const summary = await service.run();
+
+      expect(prisma.geocodedAddress.deleteMany).toHaveBeenCalledWith({
+        where: { lastUsedAt: { lt: subMonths(now, 12) } },
+      });
+      expect(summary.geocodeCache).toEqual({ status: 'ok', count: 4 });
+    });
+
+    it('only counts in a dry run', async () => {
+      prisma.geocodedAddress.count.mockResolvedValue(4);
+
+      const summary = await service.run(true);
+
+      expect(summary.geocodeCache).toEqual({ status: 'ok', count: 4 });
+      expect(prisma.geocodedAddress.deleteMany).not.toHaveBeenCalled();
     });
   });
 

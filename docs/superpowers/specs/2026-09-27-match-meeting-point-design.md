@@ -76,11 +76,16 @@ Three places carry a meeting point, stored as columns on the row they belong to:
 
 - `Club.meetingPointName/Address`, `Club.arrivalBufferMinutes Int @default(45)`
 - `Team.meetingPointName/Address`, `Team.arrivalBufferMinutes Int?` (null = inherit)
-- `Event.meetingPointName/Address` (null = inherit), plus the per-match state:
-  `travelMinutes Int?`, `travelMinutesManual Boolean`, `travelRouteKey String?`,
-  `meetsAtOverride DateTime?`, `meetingAnnouncedKey String?`
+- `EventMeeting` (1–1 with `Event`, keyed by `eventId`, cascade-deleted with it):
+  `meetingPointName/Address` (null = inherit), plus the per-match state `travelMinutes Int?`,
+  `travelMinutesManual Boolean`, `travelRouteKey String?`, `meetsAtOverride DateTime?`,
+  `meetingAnnouncedKey String?`. No row reads as "nothing stored yet".
 
-Why columns and not a shared `MeetingPoint` table: each row owns exactly one place, nothing is
+Why a side table for the match but columns for club and team: seven match-only columns would sit
+null on every training, which is most rows of `Event`, and would widen the table every other
+module reads. A 1–1 row also gives the meeting state its own `updatedAt`.
+
+Why columns and not a shared `MeetingPoint` table and not a shared `MeetingPoint` table: each row owns exactly one place, nothing is
 shared between rows, and a separate table would bring an orphan lifecycle (who deletes the place
 when a club is deleted?) with nothing to show for it. Coordinates are **not** stored on these
 rows. They live in a shared geocoding cache (below), because the same gym comes back every other
@@ -91,9 +96,12 @@ the player's choice. It sits on the RSVP because it only means something while t
 `GOING`. The column default is how "no choice" counts as RDV, with no three-state null.
 
 `GeocodedAddress` caches every address → coordinates lookup: `query` (normalised, unique),
-`latitude/longitude` (both null when the address was not found), `resolvedAt`. A "not found"
-result is kept for 7 days and then retried, so a typo fixed upstream eventually resolves without
-calling ORS on every page view.
+`latitude/longitude` (both null when the address was not found), `resolvedAt`, `lastUsedAt`. A
+"not found" result is kept for 7 days and then retried, so a typo fixed upstream eventually
+resolves without calling ORS on every page view. A hit refreshes `lastUsedAt` at most once a day,
+and the nightly retention sweep drops rows unused for 12 months, so the cache doesn't grow
+forever with typos and one-off away gyms. Concurrent lookups of the same address share one
+provider call in-process.
 
 ## Staleness: `travelRouteKey`
 
@@ -103,8 +111,11 @@ inherits it. Instead of trying to find and fix every affected row at write time,
 records which route its minutes belong to:
 
 ```
-travelRouteKey = normalise(originAddress) + "→" + normalise(event.location)
+travelRouteKey = "v1:" + sha1(normalise(originAddress) + "\0" + normalise(event.location))
 ```
+
+Hashed so the column has a fixed width whatever the addresses; versioned so a change to
+`normalise` makes every stored key stale once (and recomputed) instead of never matching.
 
 On read, the service builds the key for the _current_ effective origin and location. If it
 doesn't match the stored key, the minutes are **stale**: they are treated as unknown
