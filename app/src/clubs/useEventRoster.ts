@@ -1,5 +1,6 @@
 import type {
   EventConvocationRosterEntry,
+  EventRsvpRespondent,
   EventRsvpRosterEntry,
   EventRsvpStatus,
 } from '@basketeasy/types/events';
@@ -14,6 +15,10 @@ export interface EventRosterRow {
   role: EventRsvpRosterEntry['role'];
   isMe: boolean;
   rsvpStatus: EventRsvpStatus | null;
+  /** Who answered — see EventRsvpRosterEntry.respondedBy. */
+  respondedBy: EventRsvpRespondent | null;
+  /** The answer came from one of the player's parents, not the player. */
+  respondedByGuardian: boolean;
   /** Null unless GOING to a match — see EventRsvpRosterEntry.travelMode. */
   travelMode: EventTravelMode | null;
   convoked: boolean;
@@ -62,6 +67,8 @@ function mergeRoster(
     role: rsvp.role,
     isMe: rsvp.isMe,
     rsvpStatus: rsvp.status,
+    respondedBy: rsvp.respondedBy,
+    respondedByGuardian: rsvp.respondedByGuardian,
     travelMode: rsvp.travelMode,
     convoked: convocationByPlayer.get(rsvp.teamPlayerId)?.convoked ?? false,
   }));

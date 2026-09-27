@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Badge } from '@basketeasy/ui/badge';
 import { Text } from '@basketeasy/ui/text';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
@@ -30,6 +31,13 @@ export function NotificationItem({ notification, onRead, onNavigate }: Notificat
     <>
       <span className="flex items-start gap-3">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {/* « Pour qui »: set when a parent is told about a child, so a
+              family's notifications can be told apart at a glance. */}
+          {notification.subjectFirstName && (
+            <Badge variant="soft" tone="structure" className="w-fit">
+              {notification.subjectFirstName}
+            </Badge>
+          )}
           <Text as="span" variant="label" size="sm" tone={isUnread ? 'primary' : 'secondary'}>
             {notification.title}
           </Text>
@@ -63,7 +71,7 @@ export function NotificationItem({ notification, onRead, onNavigate }: Notificat
     'hover:bg-surface-2',
   );
 
-  const accessibleName = `${notification.title}${isUnread ? ' (non lue)' : ''}`;
+  const accessibleName = `${notification.subjectFirstName ? `Pour ${notification.subjectFirstName} : ` : ''}${notification.title}${isUnread ? ' (non lue)' : ''}`;
 
   if (notification.deepLink) {
     return (

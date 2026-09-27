@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { EventRosterBreakdown } from './EventRosterBreakdown';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventConvocations } from './useEventConvocations';
+import { useMeSuffix } from '../guardians/useActingAs';
 
 /**
  * Roster-wide convocation breakdown for one event — visible to anyone who
@@ -21,6 +22,7 @@ export function EventConvocationBreakdown({
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { data: roster, isError, refetch } = useEventConvocations(clubId, teamId, eventId, isOpen);
+  const meSuffix = useMeSuffix(teamId);
   const convokedCount = roster?.filter((r) => r.convoked).length ?? 0;
 
   return (
@@ -39,7 +41,7 @@ export function EventConvocationBreakdown({
         roster?.map((entry) => ({
           id: entry.teamPlayerId,
           firstName: entry.firstName,
-          lastName: entry.lastName + (entry.isMe ? ' (vous)' : ''),
+          lastName: entry.lastName + (entry.isMe ? meSuffix : ''),
           role: teamMemberRoleLabel(entry.role),
           statusLabel: entry.convoked ? 'Convoqué' : 'Non convoqué',
           statusTone: entry.convoked ? 'brand' : 'secondary',

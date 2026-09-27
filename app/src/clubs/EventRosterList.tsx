@@ -7,6 +7,7 @@ import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Text } from '@basketeasy/ui/text';
+import { respondentName } from '../guardians/respondentLabel';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
@@ -38,6 +39,23 @@ function RsvpBadge({ status }: { status: EventRsvpStatus | null }) {
     <Badge variant="soft" tone={RSVP_TONE[status]}>
       {eventRsvpAnswerLabel(status)}
     </Badge>
+  );
+}
+
+/**
+ * The answer, and — when a parent gave it — who: « Sophie M. · parent ». A
+ * coach chasing answers needs to know a child's « oui » came from home.
+ */
+function RsvpCell({ row }: { row: EventRosterRow }) {
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <RsvpBadge status={row.rsvpStatus} />
+      {row.rsvpStatus !== null && row.respondedByGuardian && row.respondedBy && (
+        <Text as="span" variant="meta" size="xs">
+          {respondentName(row.respondedBy)} · parent
+        </Text>
+      )}
+    </div>
   );
 }
 
@@ -124,7 +142,7 @@ function EventRosterMemberRow({
           <ConvocationMark convoked={row.convoked} />
         </TableCell>
         <TableCell>
-          <RsvpBadge status={row.rsvpStatus} />
+          <RsvpCell row={row} />
         </TableCell>
         {travel && (
           <TableCell>
@@ -139,7 +157,7 @@ function EventRosterMemberRow({
       <RosterIdentity row={row} />
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <ConvocationMark convoked={row.convoked} />
-        <RsvpBadge status={row.rsvpStatus} />
+        <RsvpCell row={row} />
         {travel && row.travelMode !== null && <TravelCell row={row} times={travel} />}
       </div>
     </Card>

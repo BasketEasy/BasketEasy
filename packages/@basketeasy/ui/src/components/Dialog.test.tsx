@@ -19,4 +19,20 @@ describe('Dialog', () => {
     await userEvent.click(screen.getByText('Ouvrir'));
     expect(screen.getByText('Supprimer le créneau')).toBeInTheDocument();
   });
+
+  it('anchors a sheet to the bottom edge, with the same close button', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent variant="sheet">
+          <DialogHeader>
+            <DialogTitle>Pour qui ?</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    );
+    const sheet = screen.getByRole('dialog');
+    expect(sheet).toHaveClass('bottom-0', 'rounded-t-2xl');
+    expect(sheet).not.toHaveClass('top-1/2');
+    expect(screen.getByRole('button', { name: 'Fermer' })).toBeInTheDocument();
+  });
 });

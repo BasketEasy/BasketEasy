@@ -8,6 +8,14 @@ import type {
   ListTeamsParams,
 } from '@basketeasy/types/teams';
 
+/**
+ * The trailing key segment of a query read as a child (see useActingAs): a
+ * persona's answers never share a cache entry with the user's own. Absent for
+ * the user themself, so every existing key — and every prefix invalidation
+ * built from one — is unchanged and still matches both personas.
+ */
+const actingAsKeyPart = (forPlayerId?: string) => (forPlayerId ? [{ pour: forPlayerId }] : []);
+
 export const clubsQueryKey = ['clubs'] as const;
 export const clubQueryKey = (clubId: string) => ['clubs', clubId] as const;
 export const clubMembersQueryKey = (clubId: string, params?: ListClubMembersParams) =>
@@ -34,12 +42,45 @@ export const teamEventsQueryKeyPrefix = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'events'] as const;
 export const teamEventsQueryKey = (clubId: string, teamId: string, params?: ListEventsParams) =>
   ['clubs', clubId, 'teams', teamId, 'events', params ?? {}] as const;
-export const teamEventQueryKey = (clubId: string, teamId: string, eventId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'events', eventId] as const;
-export const eventRsvpsQueryKey = (clubId: string, teamId: string, eventId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'rsvps'] as const;
-export const eventConvocationsQueryKey = (clubId: string, teamId: string, eventId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'convocations'] as const;
+export const teamEventQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  ['clubs', clubId, 'teams', teamId, 'events', eventId, ...actingAsKeyPart(forPlayerId)] as const;
+export const eventRsvpsQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'events',
+    eventId,
+    'rsvps',
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
+export const eventConvocationsQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'events',
+    eventId,
+    'convocations',
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
 export const eventVoteResultsQueryKey = (clubId: string, teamId: string, eventId: string) =>
   ['clubs', clubId, 'teams', teamId, 'events', eventId, 'votes'] as const;
 export const eventScoresheetStatusQueryKey = (clubId: string, teamId: string, eventId: string) =>
@@ -49,8 +90,21 @@ export const eventScoresheetExtractionQueryKey = (
   teamId: string,
   eventId: string,
 ) => ['clubs', clubId, 'teams', teamId, 'events', eventId, 'scoresheet-extraction'] as const;
-export const teamSeasonStatsQueryKey = (clubId: string, teamId: string, season?: number) =>
-  ['clubs', clubId, 'teams', teamId, 'stats', season ?? 'current'] as const;
+export const teamSeasonStatsQueryKey = (
+  clubId: string,
+  teamId: string,
+  season?: number,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'stats',
+    season ?? 'current',
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
 export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins'] as const;
 export const teamFfbbLinksQueryKey = (clubId: string, teamId: string) =>
@@ -60,6 +114,8 @@ export const teamPouleResultsQueryKey = (clubId: string, teamId: string) =>
 export const teamAdminCandidatesQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins', 'eligible'] as const;
 export const myTeamsQueryKey = ['me', 'teams'] as const;
+export const myTeamsForQueryKey = (forPlayerId?: string) =>
+  [...myTeamsQueryKey, ...actingAsKeyPart(forPlayerId)] as const;
 /**
  * Prefix shared by every /me/dashboard query. The full key carries the
  * from/to window, so a mutation that changes the dashboard's contents has to

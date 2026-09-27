@@ -123,4 +123,18 @@ describe('EventRosterList', () => {
 
     expect(await screen.findByText('Effectif vide')).toBeInTheDocument();
   });
+
+  it('tells the coach when a parent gave the answer', async () => {
+    mockRoster([
+      {
+        ...rsvps[0],
+        respondedBy: { userId: 'mum', firstName: 'Sophie', lastInitial: 'R', isMe: false },
+        respondedByGuardian: true,
+      },
+      rsvps[1],
+    ]);
+    renderList();
+
+    expect(await screen.findByText('Sophie R. · parent')).toBeInTheDocument();
+  });
 });

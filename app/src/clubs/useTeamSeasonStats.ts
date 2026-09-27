@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { apiClient } from '../api/client';
 import { teamSeasonStatsQueryKey } from './queryKeys';
+import { useTeamActingAs } from '../guardians/useActingAs';
 
 /**
  * A team's season aggregated from its confirmed scoresheets — one entry per
@@ -11,11 +12,14 @@ import { teamSeasonStatsQueryKey } from './queryKeys';
  * resolving a year client-side: the season boundary is the server's to own.
  */
 export function useTeamSeasonStats(clubId: string, teamId: string, season?: number) {
+  // A parent reading their child's team sees the child's row highlighted.
+  const forPlayerId = useTeamActingAs(teamId);
   return useQuery({
-    queryKey: teamSeasonStatsQueryKey(clubId, teamId, season),
+    queryKey: teamSeasonStatsQueryKey(clubId, teamId, season, forPlayerId),
     queryFn: () =>
-      apiClient.get<TeamSeasonStats>(
-        `/clubs/${clubId}/teams/${teamId}/stats${season === undefined ? '' : `?season=${season}`}`,
-      ),
+      apiClient.get<TeamSeasonStats>(`/clubs/${clubId}/teams/${teamId}/stats`, {
+        ...(season === undefined ? {} : { season }),
+        ...(forPlayerId ? { forPlayerId } : {}),
+      }),
   });
 }

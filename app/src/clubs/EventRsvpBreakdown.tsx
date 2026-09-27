@@ -5,6 +5,7 @@ import { eventRsvpStatusLabel } from './eventRsvpLabels';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRsvps } from './useEventRsvps';
 import type { StatusTone } from './statusTone';
+import { useMeSuffix } from '../guardians/useActingAs';
 
 const STATUS_TONE: Record<EventRsvpStatus, StatusTone> = {
   GOING: 'success',
@@ -31,6 +32,7 @@ export function EventRsvpBreakdown({
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const { data: roster, isError, refetch } = useEventRsvps(clubId, teamId, eventId, isOpen);
+  const meSuffix = useMeSuffix(teamId);
   const confirmedCount = roster?.filter((r) => r.status === 'GOING').length ?? 0;
 
   return (
@@ -49,7 +51,7 @@ export function EventRsvpBreakdown({
         roster?.map((entry) => ({
           id: entry.teamPlayerId,
           firstName: entry.firstName,
-          lastName: entry.lastName + (entry.isMe ? ' (vous)' : ''),
+          lastName: entry.lastName + (entry.isMe ? meSuffix : ''),
           role: teamMemberRoleLabel(entry.role),
           statusLabel: eventRsvpStatusLabel(entry.status),
           statusTone: entry.status ? STATUS_TONE[entry.status] : 'secondary',

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { EventConvocationRosterEntry } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
 import { eventConvocationsQueryKey } from './queryKeys';
+import { useTeamActingAs } from '../guardians/useActingAs';
 
 /**
  * Roster-wide convocation breakdown for one event. `enabled` is passed by
@@ -14,11 +15,13 @@ export function useEventConvocations(
   eventId: string,
   enabled: boolean,
 ) {
+  const forPlayerId = useTeamActingAs(teamId);
   return useQuery({
-    queryKey: eventConvocationsQueryKey(clubId, teamId, eventId),
+    queryKey: eventConvocationsQueryKey(clubId, teamId, eventId, forPlayerId),
     queryFn: () =>
       apiClient.get<EventConvocationRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/convocations`,
+        forPlayerId ? { forPlayerId } : undefined,
       ),
     enabled,
   });
