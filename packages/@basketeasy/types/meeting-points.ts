@@ -35,6 +35,13 @@ export interface EventMeetingPlan {
   /** Null when no meeting point is configured at any level. */
   meetingPoint: MeetingPoint | null;
   meetingPointSource: MeetingPointSource | null;
+  /**
+   * What the match falls back to without its own override (the team's, else
+   * the owner club's) — so an « Ajuster » form can name the default without
+   * re-deriving the precedence client-side.
+   */
+  defaultMeetingPoint: MeetingPoint | null;
+  defaultMeetingPointSource: Exclude<MeetingPointSource, 'EVENT'> | null;
   /** Null when unknown, or when it was computed for a route that has since changed. */
   travelMinutes: number | null;
   travelMinutesSource: TravelMinutesSource | null;
@@ -76,4 +83,35 @@ export interface UpdateEventMeetingRequest {
   travelMinutes?: number | null;
   /** ISO 8601; must not be after tip-off. */
   meetsAt?: string | null;
+}
+
+const MINUTE_MS = 60 * 1000;
+const QUARTER_HOUR_MS = 15 * MINUTE_MS;
+
+/**
+ * Rounds down, never up: a meeting time a few minutes early is fine, one that
+ * makes the group late isn't. Flooring the UTC instant is the same as flooring
+ * in Europe/Paris, whose offset is a whole number of hours.
+ */
+export function floorToQuarterHour(date: Date): Date {
+  return new Date(Math.floor(date.getTime() / QUARTER_HOUR_MS) * QUARTER_HOUR_MS);
+}
+
+/** Tip-off minus the arrival buffer — when a player going direct is expected. */
+export function computeArrivalAt(startsAt: Date, arrivalBufferMinutes: number): Date {
+  return new Date(startsAt.getTime() - arrivalBufferMinutes * MINUTE_MS);
+}
+
+/**
+ * The meeting-time formula, shared by the API (which stores nothing but its
+ * inputs) and the « Ajuster » dialog's live preview, so the two can't drift:
+ * floor15(tip-off − buffer − travel).
+ */
+export function computeMeetsAt(input: {
+  startsAt: Date;
+  arrivalBufferMinutes: number;
+  travelMinutes: number;
+}): Date {
+  const arrivalAt = computeArrivalAt(input.startsAt, input.arrivalBufferMinutes);
+  return floorToQuarterHour(new Date(arrivalAt.getTime() - input.travelMinutes * MINUTE_MS));
 }

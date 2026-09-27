@@ -91,7 +91,15 @@ export class FfbbImportService {
     }
     // A kick-off FFBB moved moves the meeting time with it — announced once
     // for the whole import, not per match.
-    await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
+    if (rescheduledEventIds.length > 0) {
+      // Same rule as EventsService.updateEvent: a meeting-time override was
+      // set against the old kick-off.
+      await this.prisma.eventMeeting.updateMany({
+        where: { eventId: { in: rescheduledEventIds } },
+        data: { meetsAtOverride: null },
+      });
+      await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
+    }
 
     return { created, updated, unchanged };
   }
@@ -162,9 +170,6 @@ export class FfbbImportService {
         opponentName: match.opponentLabel,
         timeConfirmed: match.timeConfirmed,
         venue,
-        // Same rule as EventsService.updateEvent: a meeting-time override was
-        // set against the old kick-off.
-        ...(rescheduled ? { meetsAtOverride: null } : {}),
       },
     });
     if (rescheduled) rescheduledEventIds.push(existing.id);

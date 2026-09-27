@@ -10,6 +10,7 @@ describe('RetentionSweepProcessor', () => {
     inactiveAccounts: { status: 'ok', count: 0 },
     auditLogs: { status: 'ok', count: 0 },
     parentalConsents: { status: 'ok', count: 0 },
+    geocodeCache: { status: 'ok', count: 0 },
   };
 
   const job = (data?: RetentionSweepJobData) =>
