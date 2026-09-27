@@ -9,9 +9,14 @@ export interface LatLng {
 // else. `null` means the provider answered and found nothing (unknown
 // address, no route); a throw means the provider itself failed — callers
 // cache the former and retry the latter.
+export interface RoutingRequestOptions {
+  /** Per-request timeout; the provider's own default applies when absent. */
+  timeoutMs?: number;
+}
+
 export interface RoutingClient {
-  geocode(text: string): Promise<LatLng | null>;
-  drivingMinutes(from: LatLng, to: LatLng): Promise<number | null>;
+  geocode(text: string, options?: RoutingRequestOptions): Promise<LatLng | null>;
+  drivingMinutes(from: LatLng, to: LatLng, options?: RoutingRequestOptions): Promise<number | null>;
 }
 
 export const ROUTING_CLIENT = Symbol('ROUTING_CLIENT');

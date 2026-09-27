@@ -1,13 +1,34 @@
+import { floorToQuarterHour } from '@basketeasy/types/meeting-points';
 import {
-  floorToQuarterHour,
-  isTravelStale,
+  isTravelStale as isTravelStaleFor,
   normaliseAddress,
-  resolveMeetingPlan,
+  resolveMeetingPlan as resolveMeetingPlanFor,
   travelRouteKey,
   type MeetingPlanClub,
   type MeetingPlanEvent,
+  type MeetingPlanState,
   type MeetingPlanTeam,
 } from './meeting-plan';
+
+type MatchFixture = MeetingPlanEvent & MeetingPlanState;
+
+function split({ type, startsAt, location, ...state }: MatchFixture) {
+  return [{ type, startsAt, location }, state] as const;
+}
+
+function resolveMeetingPlan(
+  fixture: MatchFixture,
+  team: MeetingPlanTeam,
+  club: MeetingPlanClub | null,
+) {
+  const [event, state] = split(fixture);
+  return resolveMeetingPlanFor(event, state, team, club);
+}
+
+function isTravelStale(fixture: MatchFixture, team: MeetingPlanTeam, club: MeetingPlanClub | null) {
+  const [event, state] = split(fixture);
+  return isTravelStaleFor(event, state, team, club);
+}
 
 const club: MeetingPlanClub = {
   meetingPointName: 'Parking club',
@@ -20,7 +41,7 @@ const team: MeetingPlanTeam = {
   arrivalBufferMinutes: null,
 };
 
-function match(overrides: Partial<MeetingPlanEvent> = {}): MeetingPlanEvent {
+function match(overrides: Partial<MatchFixture> = {}): MatchFixture {
   return {
     type: 'MATCH',
     // 20:30 Europe/Paris in winter
@@ -37,6 +58,17 @@ function match(overrides: Partial<MeetingPlanEvent> = {}): MeetingPlanEvent {
 }
 
 const clubRoute = travelRouteKey('1 rue du Club, Nantes', 'Salle Coubertin, Rezé');
+
+describe('travelRouteKey', () => {
+  it('is a fixed-width versioned hash, equal for equivalent addresses', () => {
+    expect(clubRoute).toMatch(/^v1:[0-9a-f]{40}$/);
+    expect(travelRouteKey(' 1 RUE du club,  Nantes', 'salle coubertin, rezé')).toBe(clubRoute);
+  });
+
+  it('does not confuse origin and destination', () => {
+    expect(travelRouteKey('a', 'b')).not.toBe(travelRouteKey('b', 'a'));
+  });
+});
 
 describe('normaliseAddress', () => {
   it('ignores case and repeated whitespace', () => {
@@ -73,6 +105,8 @@ describe('resolveMeetingPlan', () => {
       arrivalBufferMinutes: 45,
       meetingPoint: { name: 'Parking club', address: '1 rue du Club, Nantes' },
       meetingPointSource: 'CLUB',
+      defaultMeetingPoint: { name: 'Parking club', address: '1 rue du Club, Nantes' },
+      defaultMeetingPointSource: 'CLUB',
       travelMinutes: 23,
       travelMinutesSource: 'COMPUTED',
       meetsAt: '2026-01-10T18:15:00.000Z',
@@ -90,6 +124,29 @@ describe('resolveMeetingPlan', () => {
         club,
       )?.meetingPoint,
     ).toEqual({ name: 'Event', address: 'E' });
+  });
+
+  it('names the default an event override replaces', () => {
+    const plan = resolveMeetingPlan(
+      match({ meetingPointName: 'Event', meetingPointAddress: 'E' }),
+      team,
+      club,
+    );
+    expect(plan?.defaultMeetingPoint).toEqual({
+      name: 'Parking club',
+      address: '1 rue du Club, Nantes',
+    });
+    expect(plan?.defaultMeetingPointSource).toBe('CLUB');
+  });
+
+  it('reads a match with no stored meeting row as « à confirmer »', () => {
+    const plan = resolveMeetingPlanFor(
+      { type: 'MATCH', startsAt: new Date('2026-01-10T19:30:00.000Z'), location: 'x' },
+      null,
+      team,
+      club,
+    );
+    expect(plan).toMatchObject({ meetingPointSource: 'CLUB', travelMinutes: null, meetsAt: null });
   });
 
   it("uses the team's buffer over the club's", () => {

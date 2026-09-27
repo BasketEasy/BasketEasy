@@ -12,6 +12,8 @@ describe('MeetingPointsController', () => {
     updateClubSettings: jest.Mock;
     getTeamSettings: jest.Mock;
     updateTeamSettings: jest.Mock;
+    setEventMeeting: jest.Mock;
+    refreshTravel: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -20,6 +22,8 @@ describe('MeetingPointsController', () => {
       updateClubSettings: jest.fn(),
       getTeamSettings: jest.fn(),
       updateTeamSettings: jest.fn(),
+      setEventMeeting: jest.fn(),
+      refreshTravel: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [MeetingPointsController],
@@ -47,5 +51,13 @@ describe('MeetingPointsController', () => {
     await controller.updateTeamSettings('club-1', 'team-1', dto);
     expect(service.getTeamSettings).toHaveBeenCalledWith('club-1', 'team-1');
     expect(service.updateTeamSettings).toHaveBeenCalledWith('club-1', 'team-1', dto);
+  });
+
+  it('adjusts and refreshes one match of the route team', async () => {
+    const dto = { travelMinutes: 30 };
+    await controller.setEventMeeting('club-1', 'team-1', 'event-1', dto);
+    await controller.refreshEventMeeting('club-1', 'team-1', 'event-1');
+    expect(service.setEventMeeting).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', dto);
+    expect(service.refreshTravel).toHaveBeenCalledWith('club-1', 'team-1', 'event-1');
   });
 });

@@ -40,7 +40,6 @@ import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
 import { CastEventVoteDto } from './dto/cast-event-vote.dto';
 import { GetScoresheetUploadUrlDto } from './dto/get-scoresheet-upload-url.dto';
 import { ConfirmScoresheetUploadDto } from './dto/confirm-scoresheet-upload.dto';
-import { UpdateEventMeetingDto } from '../meeting-points/dto/update-event-meeting.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -222,30 +221,6 @@ export class EventsController {
       dto.field,
       dto.teamPlayerId,
     );
-  }
-
-  @Patch(':eventId/meeting')
-  @UseGuards(TeamManagerGuard)
-  setEventMeeting(
-    @Param('clubId') clubId: string,
-    @Param('teamId') teamId: string,
-    @Param('eventId') eventId: string,
-    @Body() dto: UpdateEventMeetingDto,
-    @CurrentUser() user: RequestUser,
-  ): Promise<TeamEvent> {
-    return this.eventsService.setEventMeeting(clubId, teamId, eventId, dto, user.id);
-  }
-
-  @Post(':eventId/meeting/refresh')
-  @UseGuards(TeamManagerGuard)
-  @HttpCode(HttpStatus.OK)
-  refreshEventMeeting(
-    @Param('clubId') clubId: string,
-    @Param('teamId') teamId: string,
-    @Param('eventId') eventId: string,
-    @CurrentUser() user: RequestUser,
-  ): Promise<TeamEvent> {
-    return this.eventsService.refreshEventMeeting(clubId, teamId, eventId, user.id);
   }
 
   // ClubRolesGuard only — voting is self-service for any rostered member

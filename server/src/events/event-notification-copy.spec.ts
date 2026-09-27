@@ -1,42 +1,10 @@
-import {
-  cancellationNotification,
-  convocationNotification,
-  describeEvent,
-  formatEventMoment,
-  meetingChangedNotification,
-} from './event-notification-copy';
+import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
 // 20:30 Paris time in January (UTC+1). Formatting in UTC would render this as
 // 19:30 for every French reader, which is the bug this module exists to avoid.
 const WINTER_EVENING = new Date('2026-01-10T19:30:00.000Z');
-// 20:30 Paris time in July (UTC+2) — the same wall clock, a different offset.
-const SUMMER_EVENING = new Date('2026-07-11T18:30:00.000Z');
 
 describe('event notification copy', () => {
-  describe('formatEventMoment', () => {
-    it('renders the local Paris wall-clock time, not UTC', () => {
-      expect(formatEventMoment(WINTER_EVENING)).toBe('samedi 10 janvier à 20:30');
-    });
-
-    it('follows the DST offset across the year', () => {
-      expect(formatEventMoment(SUMMER_EVENING)).toBe('samedi 11 juillet à 20:30');
-    });
-  });
-
-  describe('describeEvent', () => {
-    it('names the opponent for a match', () => {
-      expect(describeEvent({ type: 'MATCH', opponentName: 'ASVEL' })).toBe('le match contre ASVEL');
-    });
-
-    it('falls back to a bare match when no opponent is recorded', () => {
-      expect(describeEvent({ type: 'MATCH', opponentName: null })).toBe('le match');
-    });
-
-    it('never names an opponent for a training', () => {
-      expect(describeEvent({ type: 'TRAINING', opponentName: null })).toBe('l’entraînement');
-    });
-  });
-
   describe('convocationNotification', () => {
     it('names the team, the fixture, the moment and the venue', () => {
       const copy = convocationNotification('U15 M', {
@@ -66,35 +34,6 @@ describe('event notification copy', () => {
       );
 
       expect(copy.body).toContain('RDV à 19:15 — Parking salle Coubertin.');
-    });
-  });
-
-  describe('meetingChangedNotification', () => {
-    it('says « fixé » the first time the hour is known', () => {
-      const copy = meetingChangedNotification(
-        'U15 M',
-        { type: 'MATCH', startsAt: WINTER_EVENING, opponentName: 'ASVEL' },
-        { meetsAt: new Date('2026-01-10T18:00:00.000Z'), placeName: 'Parking Leclerc' },
-        true,
-      );
-
-      expect(copy.title).toBe('RDV fixé — U15 M');
-      expect(copy.body).toBe(
-        'Rendez-vous pour le match contre ASVEL du samedi 10 janvier à 20:30 : 19:00 — Parking Leclerc.',
-      );
-    });
-
-    it('says what the new meeting is, for which match', () => {
-      const copy = meetingChangedNotification(
-        'U15 M',
-        { type: 'MATCH', startsAt: WINTER_EVENING, opponentName: 'ASVEL' },
-        { meetsAt: new Date('2026-01-10T18:00:00.000Z'), placeName: 'Parking Leclerc' },
-      );
-
-      expect(copy.title).toBe('RDV modifié — U15 M');
-      expect(copy.body).toBe(
-        'Nouveau rendez-vous pour le match contre ASVEL du samedi 10 janvier à 20:30 : 19:00 — Parking Leclerc.',
-      );
     });
   });
 

@@ -44,11 +44,17 @@ derives `myTravelMode` from `(type, myRsvpStatus, travelMode)`. `listEventRsvps`
 
 ### New type
 
-`NotificationType.EVENT_MEETING_CHANGED` (Prisma enum + shared type). The frontend picks no icon
-by type today (`NotificationList` renders every row the same way), so no app change is needed.
+`NotificationType.EVENT_MEETING_FIXED` (the hour becomes known) and `EVENT_MEETING_CHANGED` (a
+known RDV moves), in the Prisma enum and the shared type. Two values rather than one, so a later
+preferences screen can filter them apart. The frontend picks no icon by type today
+(`NotificationList` renders every row the same way), so no app change is needed.
 
-Hand-written migration `20260927010000_add_meeting_changed_notification`:
-`ALTER TYPE "NotificationType" ADD VALUE 'EVENT_MEETING_CHANGED';`
+Hand-written migration `20260927010000_add_meeting_changed_notification` adds both values.
+
+Copy lives in `meeting-points/meeting-notification-copy.ts` (`meetingFixedNotification`,
+`meetingChangedNotification`, `describeMeeting`). `describeEvent` / `formatEventMoment` /
+`formatTime` move to `common/event-copy.ts`, shared with the events copy, so `meeting-points/`
+never imports from `events/`.
 
 ### Convocation copy
 
@@ -61,23 +67,29 @@ Hand-written migration `20260927010000_add_meeting_changed_notification`:
 ### Change announcements: `MeetingPointsService.announceMeetingChanges(eventIds)`
 
 ```
-events ← findMany MATCH in eventIds (one query)
-contexts ← loadTeamContext per distinct teamId (one query per team; nearly always one)
-for each event:
-  plan ← resolveMeetingPlan(event, team, club)
-  if !plan?.meetingPoint or !plan.meetsAt: continue       // unknown never notifies
+events ← findMany MATCH in eventIds with startsAt ∈ (now, now + 7 days], with EventMeeting
+         (one query; far-off matches aren't read at all)
+contexts ← loadTeamContexts(distinct teamIds) (one query for every team)
+in parallel, for each event:
+  plan ← resolveMeetingPlan(event, eventMeeting, team, club)
+  if !plan?.meetingPoint or !plan.meetsAt: skip           // unknown never notifies
   key ← name | address | meetsAt
-  if key === event.meetingAnnouncedKey: continue
-  write meetingAnnouncedKey = key
-  if startsAt ∉ (now, now + 7 days]: continue             // far-off matches update quietly
-  queue for notification
-recipients ← EventRsvp where eventId ∈ queued, status GOING, travelMode MEETING_POINT,
+  if key === eventMeeting.meetingAnnouncedKey: skip
+  conditional updateMany meetingAnnouncedKey = key where it still equals the key read
+  if nothing was updated: skip                           // a racing write announced it
+recipients ← EventRsvp where eventId ∈ changed, status GOING, travelMode MEETING_POINT,
              teamPlayer.player.userId not null (one query)
-notify one row per (user, event): type EVENT_MEETING_CHANGED,
-  title « RDV modifié — <team> », body « Nouveau rendez-vous pour le match contre X du samedi
-  12 septembre à 20:30 : 19:15 — Parking salle Coubertin. »
+notify one row per (user, event):
+  first known → EVENT_MEETING_FIXED, « RDV fixé — <team> »
+  otherwise   → EVENT_MEETING_CHANGED, « RDV modifié — <team> », body « Nouveau rendez-vous pour
+                le match contre X du samedi 12 septembre à 20:30 : 19:15 — Parking salle
+                Coubertin. »
   deepLink /clubs/<club>/teams/<team>/events/<id>
 ```
+
+A match further out than the window keeps its old key. The first announce that runs once it is
+inside the window compares against what players last heard, so nothing is lost; it just isn't
+pushed while it can still change several times.
 
 The deep-link club is the recipient's own membership among the team's linked clubs, falling back
 to the owner club: the same rule as `ScoresheetOcrProcessor.resolveNavigationClubId`, so a CTC
@@ -92,16 +104,16 @@ notification must never fail the manager's save or the recompute job.
 
 Every path that can move a resolved RDV to a new _known_ value:
 
-| Caller                                                          | Events                                                                                                                                |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `MeetingPointsService.recomputeTravel` (job and « Recalculer ») | the one event                                                                                                                         |
-| `MeetingPointsService.setEventMeeting`                          | the one event                                                                                                                         |
-| `updateClubSettings` / `updateTeamSettings`                     | upcoming matches of the affected teams (a buffer change moves `meetsAt` with no route change, so no recompute would ever announce it) |
-| `EventsService.updateEvent` / `updateEventTimeOfDay`            | the updated rows (kick-off moves the RDV)                                                                                             |
-| `FfbbImportService.upsertMatch`                                 | updated rows, collected and announced once per import                                                                                 |
+| Caller                                                          | Events                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MeetingPointsService.recomputeTravel` (job and « Recalculer ») | the one event                                                                                                                                                                                                                                                          |
+| `MeetingPointsService.setEventMeeting`                          | the one event                                                                                                                                                                                                                                                          |
+| `updateClubSettings` / `updateTeamSettings`                     | a moved address queues recomputes, which announce as they land; a buffer or name change moves no route, so an `announce` job on the `meeting-travel` queue sweeps the scope's matches inside the window. Either way the PATCH returns once the settings row is written |
+| `EventsService.updateEvent` / `updateEventTimeOfDay`            | the updated rows (kick-off moves the RDV)                                                                                                                                                                                                                              |
+| `FfbbImportService.upsertMatch`                                 | updated rows, collected and announced once per import                                                                                                                                                                                                                  |
 
 `FfbbImportService`'s update and `EventsService.updateEventTimeOfDay` also clear
-`meetsAtOverride` when they move a kick-off, matching `updateEvent` (Part 1). Both were missed in
+`EventMeeting.meetsAtOverride` when they move a kick-off, matching `updateEvent` (Part 1). Both were missed in
 Part 1 and are picked up here.
 
 ## Tests
@@ -117,9 +129,10 @@ Part 1 and are picked up here.
 - `meeting-points.service.spec.ts` (`announceMeetingChanges`):
   - The first known value notifies with « RDV fixé » (revised with the Part 4 design); unknown never notifies.
   - An unchanged key is a no-op.
-  - Outside the 7-day window records without notifying.
+  - Only matches inside the 7-day window are read; teams load in one query.
   - Recipients are GOING + MEETING_POINT only, and users with no linked account are dropped.
   - The deep-link club prefers the recipient's membership.
   - An internal failure is swallowed.
-- `event-notification-copy.spec.ts`: RDV sentence, change copy.
+- `event-notification-copy.spec.ts`: RDV sentence. `meeting-notification-copy.spec.ts`: fixed and
+  changed copy. `common/event-copy.spec.ts`: Paris formatting.
 - `ffbb-import.service.spec.ts`: a kick-off change clears the override and is announced.
