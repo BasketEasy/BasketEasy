@@ -36,6 +36,7 @@ import { PouleResultsPanel } from '../clubs/PouleResultsPanel';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { Text } from '@basketeasy/ui/text';
+import { TeamMeetingPointSettings } from '../meeting-points/TeamMeetingPointSettings';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -401,6 +402,8 @@ export function TeamDetailPage() {
       />
 
       <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={canManageTeam} />
+
+      {canManageTeam && <TeamMeetingPointSettings clubId={clubId!} teamId={teamId!} />}
 
       <Tabs
         value={activeTab}

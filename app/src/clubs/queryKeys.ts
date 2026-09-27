@@ -27,6 +27,9 @@ export const teamPlayersQueryKey = (
   teamId: string,
   params?: ListTeamPlayersParams,
 ) => ['clubs', clubId, 'teams', teamId, 'players', params ?? {}] as const;
+/** Every event query of a team — lists and single events alike. */
+export const teamEventsQueryKeyPrefix = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'events'] as const;
 export const teamEventsQueryKey = (clubId: string, teamId: string, params?: ListEventsParams) =>
   ['clubs', clubId, 'teams', teamId, 'events', params ?? {}] as const;
 export const teamEventQueryKey = (clubId: string, teamId: string, eventId: string) =>
@@ -65,3 +68,20 @@ export const myTeamsQueryKey = ['me', 'teams'] as const;
 export const myDashboardQueryKeyPrefix = ['me', 'dashboard'] as const;
 export const myDashboardQueryKey = (params?: GetDashboardParams) =>
   [...myDashboardQueryKeyPrefix, params ?? {}] as const;
+export const clubMeetingSettingsQueryKey = (clubId: string) =>
+  ['clubs', clubId, 'meeting-settings'] as const;
+export const teamMeetingSettingsQueryKey = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'meeting-settings'] as const;
+/**
+ * What a club's meeting-point default makes stale: every team's events (their
+ * plans inherit it) and every team's meeting settings (they carry
+ * `clubDefaults`) — and nothing else under the club's teams (rosters, stats,
+ * FFBB links). Matches on the positions the builders above lay out.
+ */
+export const isClubMeetingDependentQuery =
+  (clubId: string) =>
+  ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    queryKey[0] === 'clubs' &&
+    queryKey[1] === clubId &&
+    queryKey[2] === 'teams' &&
+    (queryKey[4] === 'events' || queryKey[4] === 'meeting-settings');

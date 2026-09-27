@@ -99,6 +99,20 @@ const routeDefs = [
   ['GET', '/api/clubs/:clubId/teams/:teamId/ffbb-links', () => []],
   [
     'GET',
+    '/api/clubs/:clubId/meeting-settings',
+    () => ({ meetingPoint: null, arrivalBufferMinutes: 45 }),
+  ],
+  [
+    'GET',
+    '/api/clubs/:clubId/teams/:teamId/meeting-settings',
+    () => ({
+      meetingPoint: null,
+      arrivalBufferMinutes: null,
+      clubDefaults: { clubName: '', meetingPoint: null, arrivalBufferMinutes: 45 },
+    }),
+  ],
+  [
+    'GET',
     '/api/clubs/:clubId/teams/:teamId/ffbb-poule-results',
     () => ({ status: 404, body: { message: 'No FFBB link on this team' } }),
   ],
