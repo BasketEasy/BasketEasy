@@ -34,6 +34,7 @@ import { UpdateEventTimeDto } from './dto/update-event-time.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
+import { SetEventTravelModeDto } from './dto/set-event-travel-mode.dto';
 import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
 import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
 import { CastEventVoteDto } from './dto/cast-event-vote.dto';
@@ -140,6 +141,21 @@ export class EventsController {
     @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent> {
     return this.eventsService.clearMyRsvp(clubId, teamId, eventId, user.id);
+  }
+
+  // ClubRolesGuard only — self-service, narrowed in EventsService to a
+  // rostered member who has answered GOING, same split as RSVP above.
+  @Patch(':eventId/travel-mode')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  setMyTravelMode(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: SetEventTravelModeDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.setMyTravelMode(clubId, teamId, eventId, user.id, dto.travelMode);
   }
 
   @Get(':eventId/rsvps')

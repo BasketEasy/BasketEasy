@@ -31,6 +31,7 @@ describe('EventsController', () => {
     getScoresheetStatus: jest.Mock;
     setEventMeeting: jest.Mock;
     refreshEventMeeting: jest.Mock;
+    setMyTravelMode: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -54,6 +55,7 @@ describe('EventsController', () => {
       getScoresheetStatus: jest.fn(),
       setEventMeeting: jest.fn(),
       refreshEventMeeting: jest.fn(),
+      setMyTravelMode: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -106,6 +108,20 @@ describe('EventsController', () => {
       'team-1',
       'event-1',
       'user-1',
+    );
+  });
+
+  it('setMyTravelMode delegates the route ids, the caller id, and the chosen mode', async () => {
+    service.setMyTravelMode.mockResolvedValue({ id: 'event-1' });
+
+    await controller.setMyTravelMode('club-1', 'team-1', 'event-1', { travelMode: 'DIRECT' }, user);
+
+    expect(service.setMyTravelMode).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'DIRECT',
     );
   });
 

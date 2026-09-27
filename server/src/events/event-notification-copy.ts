@@ -34,14 +34,51 @@ export function describeEvent(event: { type: EventType; opponentName: string | n
   return 'l’entraînement';
 }
 
+/** A resolved meeting point with a known time — what the RDV sentences need. */
+export interface KnownMeeting {
+  meetsAt: Date;
+  placeName: string;
+}
+
+/** e.g. "19:15 — Parking salle Coubertin" */
+function describeMeeting(meeting: KnownMeeting): string {
+  return `${TIME_FORMAT.format(meeting.meetsAt)} — ${meeting.placeName}`;
+}
+
 export function convocationNotification(
   teamName: string,
   event: { type: EventType; startsAt: Date; location: string; opponentName: string | null },
+  meeting: KnownMeeting | null = null,
 ): { title: string; body: string } {
+  const meetingSentence = meeting ? ` RDV à ${describeMeeting(meeting)}.` : '';
   return {
     title: `Vous êtes convoqué·e — ${teamName}`,
-    body: `Vous êtes convoqué·e pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}. Merci d’indiquer votre présence.`,
+    body: `Vous êtes convoqué·e pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}.${meetingSentence} Merci d’indiquer votre présence.`,
   };
+}
+
+/**
+ * Sent only to players coming to the meeting point — someone going straight
+ * to the gym isn't affected by where or when the group meets. `isFirst` is
+ * the hour becoming known at all (« RDV fixé »), rather than a known hour
+ * moving (« RDV modifié »).
+ */
+export function meetingChangedNotification(
+  teamName: string,
+  event: { type: EventType; startsAt: Date; opponentName: string | null },
+  meeting: KnownMeeting,
+  isFirst = false,
+): { title: string; body: string } {
+  const moment = `${describeEvent(event)} du ${formatEventMoment(event.startsAt)}`;
+  return isFirst
+    ? {
+        title: `RDV fixé — ${teamName}`,
+        body: `Rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
+      }
+    : {
+        title: `RDV modifié — ${teamName}`,
+        body: `Nouveau rendez-vous pour ${moment} : ${describeMeeting(meeting)}.`,
+      };
 }
 
 /**

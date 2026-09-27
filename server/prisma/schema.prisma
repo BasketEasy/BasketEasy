@@ -97,6 +97,7 @@ enum NotificationType {
   EVENT_CANCELLED
   SCORESHEET_READY
   SCORESHEET_FAILED
+  EVENT_MEETING_CHANGED
 }
 
 // One in-app notification addressed to one user.
