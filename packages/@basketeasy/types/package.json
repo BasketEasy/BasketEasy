@@ -75,6 +75,10 @@
     "./parental-consent": {
       "types": "./parental-consent.ts",
       "default": "./parental-consent.ts"
+    },
+    "./meeting-points": {
+      "types": "./meeting-points.ts",
+      "default": "./meeting-points.ts"
     }
   },
   "scripts": {
