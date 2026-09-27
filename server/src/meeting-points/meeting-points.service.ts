@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { EventType, Prisma } from '@prisma/client';
+import { EventType, type EventMeeting } from '@prisma/client';
 import type {
   ClubMeetingSettings,
   EventMeetingPlan,
@@ -21,11 +21,14 @@ import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
 import {
   isTravelStale,
+  normaliseAddress,
+  resolveDefaultMeetingPoint,
   resolveMeetingPlan,
   resolveMeetingPoint,
   travelRouteKey,
   type MeetingPlanClub,
   type MeetingPlanEvent,
+  type MeetingPlanState,
   type MeetingPlanTeam,
 } from './meeting-plan';
 import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
@@ -37,11 +40,32 @@ export interface MeetingTravelJobData {
 /** The event columns this service reads — a subset of every Event row. */
 export type MeetingEventRow = MeetingPlanEvent & { id: string; teamId: string };
 
+/** The EventMeeting columns a write can change. */
+type EventMeetingChanges = Partial<Omit<EventMeeting, 'eventId' | 'updatedAt'>>;
+
 const MEETING_COLUMNS = {
   meetingPointName: true,
   meetingPointAddress: true,
   arrivalBufferMinutes: true,
 } as const;
+
+/**
+ * A stale route found on read is queued at most this often per event and
+ * per instance. The queue's jobId already dedupes, but every read would
+ * still cost a Redis round trip — and pile up in ioredis's offline queue
+ * while Redis is down.
+ */
+export const STALE_ENQUEUE_DEBOUNCE_MS = 5 * 60 * 1000;
+const STALE_ENQUEUE_MAP_LIMIT = 10_000;
+
+/**
+ * « Recalculer » runs inside the request, so each provider call gets a
+ * tighter budget than the queue's; and a second press within the cooldown
+ * answers with the plan it already has rather than calling ORS again, so a
+ * mashed button can't spend the rate limit the queue's limiter protects.
+ */
+export const REFRESH_TIMEOUT_MS = 5_000;
+export const REFRESH_COOLDOWN_MS = 15_000;
 
 interface TeamContext {
   team: MeetingPlanTeam;
@@ -64,6 +88,10 @@ function meetingPointColumns(meetingPoint: MeetingPoint | null) {
   };
 }
 
+function sameAddress(a: MeetingPoint | null | undefined, b: MeetingPoint | null | undefined) {
+  return (a ? normaliseAddress(a.address) : null) === (b ? normaliseAddress(b.address) : null);
+}
+
 /**
  * The match meeting point: club and team defaults, the per-match override,
  * the driving time behind the meeting time, and the plan every TeamEvent
@@ -71,12 +99,14 @@ function meetingPointColumns(meetingPoint: MeetingPoint | null) {
  *
  * Queries PrismaService directly rather than injecting TeamsService/
  * EventsService — same cross-module convention as Events, Dashboard and Team
- * stats. Route-level ownership checks (team in club, event in team) stay with
- * the caller that owns the route, as they do everywhere else.
+ * stats. The dependency runs one way: Events reads plans from here, nothing
+ * here imports from Events.
  */
 @Injectable()
 export class MeetingPointsService {
   private readonly logger = new Logger(MeetingPointsService.name);
+  private readonly staleEnqueuedAt = new Map<string, number>();
+  private readonly refreshedAt = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -101,7 +131,7 @@ export class MeetingPointsService {
     clubId: string,
     data: { meetingPoint: MeetingPoint | null; arrivalBufferMinutes: number },
   ): Promise<ClubMeetingSettings> {
-    await this.getClubSettings(clubId);
+    const previous = await this.getClubSettings(clubId);
     await this.prisma.club.update({
       where: { id: clubId },
       data: {
@@ -109,7 +139,10 @@ export class MeetingPointsService {
         arrivalBufferMinutes: data.arrivalBufferMinutes,
       },
     });
-    await this.enqueueForClub(clubId);
+    // A buffer or a name changes the plan, not the route: nothing to recompute.
+    if (!sameAddress(previous.meetingPoint, data.meetingPoint)) {
+      await this.enqueueRecompute(await this.inheritingUpcomingMatchIds({ clubId }));
+    }
     return this.getClubSettings(clubId);
   }
 
@@ -133,106 +166,120 @@ export class MeetingPointsService {
     data: { meetingPoint: MeetingPoint | null; arrivalBufferMinutes: number | null },
   ): Promise<TeamMeetingSettings> {
     await this.assertTeamInClub(clubId, teamId);
+    const { team, club } = await this.loadTeamContext(teamId);
+    const nextColumns = meetingPointColumns(data.meetingPoint);
     await this.prisma.team.update({
       where: { id: teamId },
-      data: {
-        ...meetingPointColumns(data.meetingPoint),
-        arrivalBufferMinutes: data.arrivalBufferMinutes,
-      },
+      data: { ...nextColumns, arrivalBufferMinutes: data.arrivalBufferMinutes },
     });
-    await this.enqueueForTeam(teamId);
+    // Compare what the team's matches inherit, not the team row alone:
+    // clearing a team place that equalled the club's changes no route.
+    const before = resolveDefaultMeetingPoint(team, club)?.meetingPoint;
+    const after = resolveDefaultMeetingPoint(nextColumns, club)?.meetingPoint;
+    if (!sameAddress(before, after)) {
+      await this.enqueueRecompute(await this.inheritingUpcomingMatchIds({ teamId }));
+    }
     return this.getTeamSettings(clubId, teamId);
   }
 
   /**
-   * One query for the whole batch — the team's and its owner club's settings
-   * are shared by every event on the team. Queues a recompute for any MATCH
-   * whose stored travel time belongs to another route.
+   * Two queries for the whole batch: the team's and owner club's settings
+   * (shared by every event on the team) and the matches' EventMeeting rows.
+   * Queues a recompute for any MATCH whose stored travel time belongs to
+   * another route.
    */
   async resolvePlans(
     teamId: string,
     events: MeetingEventRow[],
   ): Promise<Map<string, EventMeetingPlan | null>> {
-    const plans = new Map<string, EventMeetingPlan | null>();
-    if (!events.some((e) => e.type === EventType.MATCH)) {
-      for (const event of events) plans.set(event.id, null);
-      return plans;
-    }
-    const { team, club } = await this.loadTeamContext(teamId);
+    const plans = new Map<string, EventMeetingPlan | null>(events.map((e) => [e.id, null]));
+    const matches = events.filter((e) => e.type === EventType.MATCH);
+    if (matches.length === 0) return plans;
+
+    const [{ team, club }, states] = await Promise.all([
+      this.loadTeamContext(teamId),
+      this.prisma.eventMeeting.findMany({
+        where: { eventId: { in: matches.map((e) => e.id) } },
+      }),
+    ]);
+    const stateByEventId = new Map(states.map((s) => [s.eventId, s]));
     const staleIds: string[] = [];
-    for (const event of events) {
-      plans.set(event.id, resolveMeetingPlan(event, team, club));
-      if (isTravelStale(event, team, club)) staleIds.push(event.id);
+    for (const event of matches) {
+      const state = stateByEventId.get(event.id) ?? null;
+      plans.set(event.id, resolveMeetingPlan(event, state, team, club));
+      if (isTravelStale(event, state, team, club)) staleIds.push(event.id);
     }
-    if (staleIds.length > 0) {
-      void this.enqueueRecompute(staleIds);
-    }
+    this.enqueueStale(staleIds);
     return plans;
   }
 
   /**
    * A team manager's per-match adjustments. Each field is applied only when
-   * present; the event has already been verified to belong to the route's
-   * team by the caller (EventsService.assertEventInTeam).
+   * present. Answers with the resulting plan; the client refetches the
+   * event for everything else.
    */
-  async setEventMeeting(event: MeetingEventRow, data: UpdateEventMeetingRequest): Promise<void> {
-    if (event.type !== EventType.MATCH) {
-      throw new BadRequestException('Le point de rendez-vous ne concerne que les matchs');
-    }
-    const { team, club } = await this.loadTeamContext(event.teamId);
+  async setEventMeeting(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    data: UpdateEventMeetingRequest,
+  ): Promise<EventMeetingPlan> {
+    const { event, state } = await this.loadMatch(clubId, teamId, eventId);
+    const { team, club } = await this.loadTeamContext(teamId);
 
     const nextPlaceColumns =
       data.meetingPoint !== undefined
         ? meetingPointColumns(data.meetingPoint)
         : {
-            meetingPointName: event.meetingPointName,
-            meetingPointAddress: event.meetingPointAddress,
+            meetingPointName: state?.meetingPointName ?? null,
+            meetingPointAddress: state?.meetingPointAddress ?? null,
           };
     const resolved = resolveMeetingPoint(nextPlaceColumns, team, club);
     const currentKey = resolved
       ? travelRouteKey(resolved.meetingPoint.address, event.location)
       : null;
 
-    const update: Prisma.EventUpdateInput = { ...nextPlaceColumns };
-    let nextRouteKey = event.travelRouteKey;
+    const changes: EventMeetingChanges = { ...nextPlaceColumns };
+    let nextRouteKey = state?.travelRouteKey ?? null;
 
     if (data.travelMinutes !== undefined) {
       if (data.travelMinutes === null) {
-        update.travelMinutes = null;
-        update.travelMinutesManual = false;
-        update.travelRouteKey = null;
+        changes.travelMinutes = null;
+        changes.travelMinutesManual = false;
+        changes.travelRouteKey = null;
         nextRouteKey = null;
       } else {
         if (!resolved) throw this.noMeetingPointError();
-        update.travelMinutes = data.travelMinutes;
-        update.travelMinutesManual = true;
-        update.travelRouteKey = currentKey;
+        changes.travelMinutes = data.travelMinutes;
+        changes.travelMinutesManual = true;
+        changes.travelRouteKey = currentKey;
         nextRouteKey = currentKey;
       }
     }
 
     if (data.meetsAt !== undefined) {
       if (data.meetsAt === null) {
-        update.meetsAtOverride = null;
+        changes.meetsAtOverride = null;
       } else {
         if (!resolved) throw this.noMeetingPointError();
         const meetsAt = new Date(data.meetsAt);
         if (meetsAt > event.startsAt) {
           throw new BadRequestException('Le rendez-vous ne peut pas être après le début du match');
         }
-        update.meetsAtOverride = meetsAt;
+        changes.meetsAtOverride = meetsAt;
       }
     }
 
     // No place left at any level: a time override would be a time with
     // nowhere to meet.
-    if (!resolved) update.meetsAtOverride = null;
+    if (!resolved) changes.meetsAtOverride = null;
 
-    await this.prisma.event.update({ where: { id: event.id }, data: update });
+    const next = await this.writeState(eventId, changes);
 
     if (resolved && nextRouteKey !== currentKey) {
-      await this.enqueueRecompute([event.id]);
+      await this.enqueueRecompute([eventId]);
     }
+    return this.planOrThrow(event, next, team, club);
   }
 
   /**
@@ -247,43 +294,56 @@ export class MeetingPointsService {
    */
   async recomputeTravel(
     eventId: string,
-    { force = false }: { force?: boolean } = {},
+    { force = false, timeoutMs }: { force?: boolean; timeoutMs?: number } = {},
   ): Promise<void> {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { type: true, startsAt: true, location: true, teamId: true, meeting: true },
+    });
     if (!event || event.type !== EventType.MATCH) return;
     const { team, club } = await this.loadTeamContext(event.teamId);
-    const resolved = resolveMeetingPoint(event, team, club);
+    const resolved = resolveMeetingPoint(event.meeting, team, club);
     if (!resolved) return;
 
     const key = travelRouteKey(resolved.meetingPoint.address, event.location);
-    if (!force && event.travelRouteKey === key) return;
+    if (!force && event.meeting?.travelRouteKey === key) return;
 
-    const options = { bypassNegativeCache: force };
+    const options = { bypassNegativeCache: force, timeoutMs };
     const [from, to] = await Promise.all([
       this.geocoding.geocode(resolved.meetingPoint.address, options),
       this.geocoding.geocode(event.location, options),
     ]);
-    const minutes = from && to ? await this.routing.drivingMinutes(from, to) : null;
+    const minutes = from && to ? await this.routing.drivingMinutes(from, to, { timeoutMs }) : null;
 
-    await this.prisma.event.update({
-      where: { id: eventId },
-      data: { travelMinutes: minutes, travelMinutesManual: false, travelRouteKey: key },
+    await this.writeState(eventId, {
+      travelMinutes: minutes,
+      travelMinutesManual: false,
+      travelRouteKey: key,
     });
   }
 
   /** The synchronous « Recalculer » behind POST …/meeting/refresh. */
-  async refreshTravel(event: MeetingEventRow): Promise<void> {
-    if (event.type !== EventType.MATCH) {
-      throw new BadRequestException('Le point de rendez-vous ne concerne que les matchs');
+  async refreshTravel(clubId: string, teamId: string, eventId: string): Promise<EventMeetingPlan> {
+    const { event } = await this.loadMatch(clubId, teamId, eventId);
+    const now = Date.now();
+    const last = this.refreshedAt.get(eventId);
+    if (last === undefined || now - last >= REFRESH_COOLDOWN_MS) {
+      this.refreshedAt.set(eventId, now);
+      pruneOlderThan(this.refreshedAt, now - REFRESH_COOLDOWN_MS);
+      try {
+        await this.recomputeTravel(eventId, { force: true, timeoutMs: REFRESH_TIMEOUT_MS });
+      } catch (err: unknown) {
+        this.logger.warn(`Travel refresh failed for event ${eventId}: ${String(err)}`);
+        throw new ServiceUnavailableException(
+          "Le calcul d'itinéraire est indisponible. Saisissez la durée à la main.",
+        );
+      }
     }
-    try {
-      await this.recomputeTravel(event.id, { force: true });
-    } catch (err: unknown) {
-      this.logger.warn(`Travel refresh failed for event ${event.id}: ${String(err)}`);
-      throw new ServiceUnavailableException(
-        "Le calcul d'itinéraire est indisponible. Saisissez la durée à la main.",
-      );
-    }
+    const [{ team, club }, state] = await Promise.all([
+      this.loadTeamContext(teamId),
+      this.prisma.eventMeeting.findUnique({ where: { eventId } }),
+    ]);
+    return this.planOrThrow(event, state, team, club);
   }
 
   /**
@@ -293,6 +353,7 @@ export class MeetingPointsService {
    * stale route key re-queues itself.
    */
   async enqueueRecompute(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
     try {
       await this.queue.addBulk(
         eventIds.map((eventId) => ({
@@ -313,26 +374,82 @@ export class MeetingPointsService {
     }
   }
 
-  /** Upcoming matches of one team — after a team default or buffer change. */
-  async enqueueForTeam(teamId: string): Promise<void> {
-    const events = await this.prisma.event.findMany({
-      where: { teamId, type: EventType.MATCH, startsAt: { gt: new Date() } },
-      select: { id: true },
+  private enqueueStale(eventIds: string[]): void {
+    const now = Date.now();
+    const due = eventIds.filter((id) => {
+      const last = this.staleEnqueuedAt.get(id);
+      return last === undefined || now - last >= STALE_ENQUEUE_DEBOUNCE_MS;
     });
-    if (events.length > 0) await this.enqueueRecompute(events.map((e) => e.id));
+    if (due.length === 0) return;
+    if (this.staleEnqueuedAt.size > STALE_ENQUEUE_MAP_LIMIT) {
+      pruneOlderThan(this.staleEnqueuedAt, now - STALE_ENQUEUE_DEBOUNCE_MS);
+    }
+    for (const id of due) this.staleEnqueuedAt.set(id, now);
+    void this.enqueueRecompute(due);
   }
 
-  /** Upcoming matches of every team the club owns — after a club default change. */
-  async enqueueForClub(clubId: string): Promise<void> {
+  /**
+   * Upcoming matches whose route a default change can move: no place of
+   * their own, and — for a club change — on an owned team with no team
+   * place either. A match that overrides the place kept its route.
+   */
+  private async inheritingUpcomingMatchIds(
+    scope: { teamId: string } | { clubId: string },
+  ): Promise<string[]> {
     const events = await this.prisma.event.findMany({
       where: {
         type: EventType.MATCH,
         startsAt: { gt: new Date() },
-        team: { clubTeams: { some: { clubId, isOwner: true } } },
+        OR: [{ meeting: { is: null } }, { meeting: { is: { meetingPointName: null } } }],
+        ...('teamId' in scope
+          ? { teamId: scope.teamId }
+          : {
+              team: {
+                meetingPointName: null,
+                clubTeams: { some: { clubId: scope.clubId, isOwner: true } },
+              },
+            }),
       },
       select: { id: true },
     });
-    if (events.length > 0) await this.enqueueRecompute(events.map((e) => e.id));
+    return events.map((e) => e.id);
+  }
+
+  private writeState(eventId: string, changes: EventMeetingChanges): Promise<EventMeeting> {
+    return this.prisma.eventMeeting.upsert({
+      where: { eventId },
+      create: { eventId, ...changes },
+      update: changes,
+    });
+  }
+
+  private planOrThrow(
+    event: MeetingPlanEvent,
+    state: MeetingPlanState | null,
+    team: MeetingPlanTeam,
+    club: MeetingPlanClub | null,
+  ): EventMeetingPlan {
+    const plan = resolveMeetingPlan(event, state, team, club);
+    if (!plan) throw this.notAMatchError();
+    return plan;
+  }
+
+  // Same defense-in-depth re-verification as EventsService.assertEventInTeam:
+  // the team belongs to the route's club, the event to that team.
+  private async loadMatch(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+  ): Promise<{ event: MeetingPlanEvent; state: EventMeeting | null }> {
+    await this.assertTeamInClub(clubId, teamId);
+    const row = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { teamId: true, type: true, startsAt: true, location: true, meeting: true },
+    });
+    if (!row || row.teamId !== teamId) throw new NotFoundException('Event not found');
+    if (row.type !== EventType.MATCH) throw this.notAMatchError();
+    const { meeting, ...event } = row;
+    return { event, state: meeting };
   }
 
   // A CTC team inherits from its owner club only (ClubTeam.isOwner) — a
@@ -367,9 +484,19 @@ export class MeetingPointsService {
     if (!clubTeam) throw new NotFoundException('Team not found');
   }
 
+  private notAMatchError(): BadRequestException {
+    return new BadRequestException('Le point de rendez-vous ne concerne que les matchs');
+  }
+
   private noMeetingPointError(): BadRequestException {
     return new BadRequestException(
       "Aucun point de rendez-vous n'est défini pour ce match (ni club, ni équipe)",
     );
+  }
+}
+
+function pruneOlderThan(map: Map<string, number>, cutoff: number): void {
+  for (const [key, at] of map) {
+    if (at < cutoff) map.delete(key);
   }
 }

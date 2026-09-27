@@ -113,7 +113,7 @@ describe('GeocodingService', () => {
     routing.geocode.mockResolvedValue(null);
 
     await service.geocode('Nowhere', { bypassNegativeCache: true });
-    expect(routing.geocode).toHaveBeenCalledWith('Nowhere');
+    expect(routing.geocode).toHaveBeenCalledWith('Nowhere', {});
   });
 
   it('never caches a provider failure', async () => {

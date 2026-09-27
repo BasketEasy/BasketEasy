@@ -1,7 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { normaliseAddress } from './meeting-plan';
-import { ROUTING_CLIENT, type LatLng, type RoutingClient } from './routing-client';
+import {
+  ROUTING_CLIENT,
+  type LatLng,
+  type RoutingClient,
+  type RoutingRequestOptions,
+} from './routing-client';
 
 // How long a "not found" answer is trusted before the provider is asked
 // again — long enough that a list page full of an unknown gym doesn't hit
@@ -38,14 +43,17 @@ export class GeocodingService {
    */
   async geocode(
     text: string,
-    { bypassNegativeCache = false }: { bypassNegativeCache?: boolean } = {},
+    {
+      bypassNegativeCache = false,
+      ...requestOptions
+    }: { bypassNegativeCache?: boolean } & RoutingRequestOptions = {},
   ): Promise<LatLng | null> {
     const query = normaliseAddress(text);
     if (!query) return null;
 
     const pending = this.inFlight.get(query);
     if (pending) return pending;
-    const lookup = this.lookup(query, text, bypassNegativeCache).finally(() =>
+    const lookup = this.lookup(query, text, bypassNegativeCache, requestOptions).finally(() =>
       this.inFlight.delete(query),
     );
     this.inFlight.set(query, lookup);
@@ -56,6 +64,7 @@ export class GeocodingService {
     query: string,
     text: string,
     bypassNegativeCache: boolean,
+    requestOptions: RoutingRequestOptions,
   ): Promise<LatLng | null> {
     const cached = await this.prisma.geocodedAddress.findUnique({ where: { query } });
     if (cached && cached.latitude !== null && cached.longitude !== null) {
@@ -71,7 +80,7 @@ export class GeocodingService {
       cached !== null && Date.now() - cached.resolvedAt.getTime() < NEGATIVE_GEOCODE_TTL_MS;
     if (negativeIsFresh && !bypassNegativeCache) return null;
 
-    const result = await this.routing.geocode(text);
+    const result = await this.routing.geocode(text, requestOptions);
     const now = new Date();
     const data = {
       latitude: result?.latitude ?? null,
