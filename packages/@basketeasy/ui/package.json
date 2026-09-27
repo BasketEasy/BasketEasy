@@ -91,6 +91,10 @@
       "types": "./src/components/Dialog.tsx",
       "default": "./src/components/Dialog.tsx"
     },
+    "./divider": {
+      "types": "./src/components/Divider.tsx",
+      "default": "./src/components/Divider.tsx"
+    },
     "./confirm-dialog": {
       "types": "./src/components/ConfirmDialog.tsx",
       "default": "./src/components/ConfirmDialog.tsx"
