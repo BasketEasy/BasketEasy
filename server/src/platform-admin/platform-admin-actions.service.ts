@@ -8,9 +8,10 @@ import {
 import { Prisma } from '@prisma/client';
 import type { ClubRole } from '@prisma/client';
 import type { Request } from 'express';
-import type {
-  AdminActionResult,
-  AdminSupportActionKind,
+import {
+  ADMIN_OCR_STUCK_AFTER_MS,
+  type AdminActionResult,
+  type AdminSupportActionKind,
 } from '@basketeasy/types/platform-admin-actions';
 import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,9 +20,6 @@ import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { removeClubMembership, writeParentalConsent } from '../clubs/club-writes';
 import { auditContextOf } from './audit-context';
 import type { PlatformActor } from './platform-admin-browse.service';
-
-/** A sheet still queued or being read after this long is stuck, and may be retried. */
-const STUCK_AFTER_MS = 60 * 60 * 1000;
 
 /** Who and what an action row is about, beside `action` and `reason`. */
 interface ActionSubjects {
@@ -304,7 +302,7 @@ export class PlatformAdminActionsService {
       );
     }
     const inFlight = sheet.status === 'QUEUED' || sheet.status === 'PROCESSING';
-    if (inFlight && sheet.uploadedAt.getTime() > Date.now() - STUCK_AFTER_MS) {
+    if (inFlight && sheet.uploadedAt.getTime() > Date.now() - ADMIN_OCR_STUCK_AFTER_MS) {
       throw new ConflictException('Une lecture est déjà en cours pour cette feuille');
     }
     const result = await this.prisma.$transaction((tx) =>

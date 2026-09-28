@@ -8,6 +8,7 @@ import type {
   AdminTeamRef,
 } from '@basketeasy/types/platform-admin-browse';
 import type { AdminSearchKind } from '@basketeasy/types/platform-admin-search';
+import type { AdminSupportActionKind } from '@basketeasy/types/platform-admin-actions';
 import type { BadgeProps } from '@basketeasy/ui/badge';
 import { teamCategoryLabel, teamGenderLabel } from '../../clubs/teamLabels';
 
@@ -110,3 +111,21 @@ export const SEARCH_GROUPS: { kind: Exclude<AdminSearchKind, 'event'>; label: st
   { kind: 'club', label: 'Clubs' },
   { kind: 'team', label: 'Équipes' },
 ];
+
+/** How a support action reads in the audit log and in its success toast. */
+export const SUPPORT_ACTION_LABELS: Record<AdminSupportActionKind, string> = {
+  RESEND_VERIFICATION: 'Vérification renvoyée',
+  MARK_EMAIL_VERIFIED: 'Adresse marquée vérifiée',
+  SEND_PASSWORD_RESET: 'Lien de réinitialisation envoyé',
+  REVOKE_SESSIONS: 'Sessions révoquées',
+  CHANGE_CLUB_ROLE: 'Rôle modifié',
+  REMOVE_MEMBERSHIP: 'Retiré du club',
+  ADD_TEAM_ADMIN: 'Gestionnaire ajouté',
+  REMOVE_TEAM_ADMIN: 'Gestionnaire retiré',
+  TRANSFER_TEAM_OWNERSHIP: 'Propriété transférée',
+  RETRY_OCR: 'Lecture relancée',
+  CANCEL_GUARDIAN_INVITE: 'Invitation annulée',
+  REMOVE_GUARDIAN: 'Lien parent retiré',
+  RECORD_PARENTAL_CONSENT: 'Autorisation enregistrée',
+  CLUB_CREATED: 'Club créé',
+};

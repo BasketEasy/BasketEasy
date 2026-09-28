@@ -70,3 +70,9 @@ export interface AdminActionResult {
   action: AdminSupportActionKind;
   auditLogId: string;
 }
+
+/**
+ * A sheet still queued or being read after this long is stuck, and may be
+ * retried. Before it, a retry would race the read already running.
+ */
+export const ADMIN_OCR_STUCK_AFTER_MS = 60 * 60 * 1000;

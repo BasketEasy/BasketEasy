@@ -6,12 +6,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import { Text } from '@basketeasy/ui/text';
 import type { ClubRole } from '@basketeasy/types/club-members';
-import type { AdminClubDetail, AdminClubMember } from '@basketeasy/types/platform-admin-browse';
+import type {
+  AdminClubDetail,
+  AdminClubMember,
+  AdminClubRef,
+} from '@basketeasy/types/platform-admin-browse';
 import { useAdminClub, useAdminClubMembers } from './useAdminQueries';
 import { AdminTeamsList } from './AdminTeamsPage';
 import { AdminPlayersList } from './AdminPlayersPage';
 import { AdminEventsList } from './AdminEventsPage';
 import { AdminStatsPanel } from './stats/AdminStatsPanel';
+import { AdminMemberDialog } from './actions/AdminMemberDialog';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
 import {
@@ -35,13 +40,15 @@ const ROLE_OPTIONS = (Object.keys(CLUB_ROLE_LABELS) as ClubRole[]).map((role) =>
   label: CLUB_ROLE_LABELS[role],
 }));
 
-function MemberRow({ member }: { member: AdminClubMember }) {
+function MemberRow({ member, club }: { member: AdminClubMember; club: AdminClubRef }) {
   const layout = useTableLayout();
   const role = (
     <Badge variant="soft" tone={CLUB_ROLE_TONES[member.role]}>
       {CLUB_ROLE_LABELS[member.role]}
     </Badge>
   );
+
+  const manage = <AdminMemberDialog clubId={club.id} clubName={club.name} member={member} />;
 
   if (layout === 'card') {
     return (
@@ -53,6 +60,7 @@ function MemberRow({ member }: { member: AdminClubMember }) {
             Depuis le {formatAdminDate(member.joinedAt)}
           </Text>
         </div>
+        <div>{manage}</div>
       </Card>
     );
   }
@@ -64,11 +72,13 @@ function MemberRow({ member }: { member: AdminClubMember }) {
       </TableCell>
       <TableCell>{role}</TableCell>
       <TableCell className="tabular">{formatAdminDate(member.joinedAt)}</TableCell>
+      <TableCell className="text-right">{manage}</TableCell>
     </TableRow>
   );
 }
 
-function ClubMembers({ clubId }: { clubId: string }) {
+function ClubMembers({ club }: { club: AdminClubRef }) {
+  const clubId = club.id;
   const { filters, page, setFilters, setPage, pageSize } = useAdminListParams(
     MEMBER_FILTER_KEYS,
     'm.',
@@ -98,9 +108,18 @@ function ClubMembers({ clubId }: { clubId: string }) {
       >
         {(data) => (
           <div className="flex flex-col gap-4">
-            <AdminTable columns={['Personne', 'Rôle', 'Membre depuis']}>
+            <AdminTable
+              columns={[
+                'Personne',
+                'Rôle',
+                'Membre depuis',
+                <span key="actions" className="sr-only">
+                  Actions
+                </span>,
+              ]}
+            >
               {data.items.map((member) => (
-                <MemberRow key={member.person.id} member={member} />
+                <MemberRow key={member.person.id} member={member} club={club} />
               ))}
             </AdminTable>
             <AdminPagination
@@ -170,7 +189,7 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           <TabsTrigger value="stats">Statistiques</TabsTrigger>
         </TabsList>
         <TabsContent value="members" className="mt-4">
-          <ClubMembers clubId={club.id} />
+          <ClubMembers club={club} />
         </TabsContent>
         <TabsContent value="teams" className="mt-4">
           <AdminTeamsList clubId={club.id} prefix="t." />

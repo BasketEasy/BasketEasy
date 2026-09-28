@@ -303,6 +303,19 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   `SUPPORT` read carry no PII and write nothing. `usePlatformUser` never refetches on window
   focus: "who looked at this person's data" must not be padded with rows produced by a tab
   regaining focus.
+- **Support actions are named routes, never a field editor.** `PlatformAdminActionsController`
+  (`POST /admin/users/:id/revoke-sessions`, `…/clubs/:id/members/:userId/role`, `…/scoresheets/:id/retry`,
+  thirteen in all) is open to both roles, and every route takes a 10–500 character reason
+  (`ReasonDto`). `PlatformAdminActionsService` writes the change and exactly one
+  `ADMIN_SUPPORT_ACTION` audit row (`metadata.action`, `reason`, the subject ids, `before`/`after`)
+  in the **same transaction**, so a refused or failed action leaves no row; side effects that can't
+  roll back (an e-mail, an OCR enqueue) run after the commit. Domain rules are reused, not
+  re-implemented: `server/src/clubs/club-writes.ts` holds the membership removal and consent write
+  `ClubsService` also calls, and the last club `ADMIN` is protected under `SELECT … FOR UPDATE`
+  (409). A consent staff record is `ParentalConsentSource.PLATFORM_STAFF`, never passed off as the
+  club's attestation. Frontend: `app/src/admin/actions/` — one `AdminActionDialog`
+  (react-hook-form + zod, server refusal in the dialog's `Alert`, success as a toast), with
+  `AdminMemberDialog` and `AdminAddTeamAdminDialog` for the two that need more than text fields.
 - **Erasure requires a reason**, stored in the `ADMIN_USER_ERASED` row in the _same transaction_
   as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
   `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering
