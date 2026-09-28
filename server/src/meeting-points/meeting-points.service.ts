@@ -437,7 +437,7 @@ export class MeetingPointsService {
           name: RECOMPUTE_JOB,
           data: { eventId },
           opts: {
-            jobId: `meeting-travel:${eventId}`,
+            jobId: `meeting-travel-${eventId}`,
             attempts: 3,
             backoff: { type: 'exponential', delay: 30_000 },
             removeOnComplete: true,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { QueueModule } from '../queue/queue.module';
@@ -32,7 +32,15 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
         config: ConfigService,
         ors: OrsRoutingClient,
         none: NullRoutingClient,
-      ): RoutingClient => (config.get<string>('ORS_API_KEY') ? ors : none),
+      ): RoutingClient => {
+        const key = config.get<string>('ORS_API_KEY');
+        new Logger('MeetingPointsModule').log(
+          key
+            ? 'ORS_API_KEY present — using OrsRoutingClient'
+            : 'ORS_API_KEY absent — travel times disabled',
+        );
+        return key ? ors : none;
+      },
     },
   ],
   exports: [MeetingPointsService],
