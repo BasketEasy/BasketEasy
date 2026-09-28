@@ -99,6 +99,10 @@
     "./platform-admin-stats": {
       "types": "./platform-admin-stats.ts",
       "default": "./platform-admin-stats.ts"
+    },
+    "./platform-admin-actions": {
+      "types": "./platform-admin-actions.ts",
+      "default": "./platform-admin-actions.ts"
     }
   },
   "scripts": {

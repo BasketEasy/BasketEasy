@@ -26,7 +26,7 @@ export interface ActingAsParams {
   forPlayerId?: string;
 }
 
-export type ParentalConsentSource = 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
+export type ParentalConsentSource = 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP' | 'PLATFORM_STAFF';
 
 // ── Admin: a player's guardians ─────────────────────────────────────────────
 

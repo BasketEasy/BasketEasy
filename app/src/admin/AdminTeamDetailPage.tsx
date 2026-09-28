@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
@@ -9,6 +10,9 @@ import type { AdminRosterEntry, AdminTeamDetail } from '@basketeasy/types/platfo
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { useAdminTeam, useAdminTeamRoster } from './useAdminQueries';
 import { AdminEventsList } from './AdminEventsPage';
+import { AdminActionDialog } from './actions/AdminActionDialog';
+import { AdminActionRow, AdminActionsCard } from './actions/AdminActionsCard';
+import { AdminAddTeamAdminDialog } from './actions/AdminAddTeamAdminDialog';
 import {
   AdminLinkedList,
   AdminPageHeader,
@@ -150,9 +154,65 @@ function TeamDetail({ team }: { team: AdminTeamDetail }) {
                   key: grant.person.id,
                   primary: <AdminPersonLink person={grant.person} />,
                   secondary: `Depuis le ${formatAdminDate(grant.grantedAt)}`,
+                  trailing: (
+                    <AdminActionDialog
+                      trigger={
+                        <Button variant="outline" size="sm">
+                          Retirer
+                        </Button>
+                      }
+                      title="Retirer le gestionnaire"
+                      description={`${grant.person.displayName} ne pourra plus gérer ${team.name}. S’il est admin d’un club lié, il garde ses droits de club.`}
+                      confirmLabel="Retirer"
+                      danger
+                      path={`teams/${team.id}/admins/${grant.person.id}/remove`}
+                    />
+                  ),
                 }))}
               />
             </AdminSection>
+            <AdminActionsCard>
+              <AdminActionRow
+                title="Ajouter un gestionnaire"
+                detail="Parmi les membres des clubs liés"
+                action={
+                  <AdminAddTeamAdminDialog
+                    teamId={team.id}
+                    clubs={clubs.map(({ club }) => club)}
+                    currentAdminIds={new Set(team.teamAdmins.map((grant) => grant.person.id))}
+                  />
+                }
+              />
+              {team.ownerClub && team.partnerClubs.length > 0 && (
+                <AdminActionRow
+                  title="Transférer la propriété"
+                  detail={`Aujourd’hui : ${team.ownerClub.name}`}
+                  action={
+                    <AdminActionDialog
+                      trigger={<Button variant="outline">Transférer</Button>}
+                      title="Transférer la propriété"
+                      description="Le club propriétaire peut ajouter ou retirer des clubs partenaires et supprimer l’équipe. L’effectif et les événements ne bougent pas."
+                      facts={[{ label: 'Propriétaire actuel', value: team.ownerClub.name }]}
+                      fields={[
+                        {
+                          name: 'clubId',
+                          kind: 'select',
+                          label: 'Nouveau club propriétaire',
+                          placeholder: 'Choisir un club partenaire',
+                          requiredMessage: 'Choisissez un club',
+                          options: team.partnerClubs.map((club) => ({
+                            value: club.id,
+                            label: club.name,
+                          })),
+                        },
+                      ]}
+                      confirmLabel="Transférer"
+                      path={`teams/${team.id}/owner`}
+                    />
+                  }
+                />
+              )}
+            </AdminActionsCard>
             {team.ffbbLinks.length > 0 && (
               <AdminSection title="Engagements FFBB" count={team.ffbbLinks.length}>
                 <AdminLinkedList

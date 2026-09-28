@@ -113,3 +113,24 @@ validation, 409 display, toast + invalidation.
 
 CLAUDE.md, Platform back-office: the support-action rule (named routes, reason, one
 `ADMIN_SUPPORT_ACTION` row in the same transaction, domain services reused), `PLATFORM_STAFF`.
+
+## As built
+
+- Canvas approved: https://claude.ai/artifact/KPyBhRHf8cQPgjEg26BGa2 (boards Main, ClubRole,
+  Mobile, Team, Player, Outcome).
+- Domain rules shared through `server/src/clubs/club-writes.ts` (`removeClubMembership`,
+  `writeParentalConsent`), which `ClubsService.removeMember` / `recordParentalConsent` now call
+  too. Guardian link and invite deletes are done inline in the action's transaction.
+- The OCR « stuck » threshold is `ADMIN_OCR_STUCK_AFTER_MS` in
+  `@basketeasy/types/platform-admin-actions`, so the event page disables « Relancer la lecture »
+  on the same rule the server refuses on.
+- `ErasePlatformUserDto` / `ExportPlatformUserDto` now extend `ReasonDto`, so their reason is
+  trimmed before the length check like every other action's.
+- Frontend in `app/src/admin/actions/`: `AdminActionDialog` (config-driven: facts, text/select
+  fields, danger flag; a bottom sheet below the desktop breakpoint), `AdminMemberDialog` (role
+  change and removal share one reason, two submit paths, no nested dialog),
+  `AdminAddTeamAdminDialog` (club, then that club's members minus current managers). Every action
+  invalidates the whole `['admin']` subtree: lists, stats and the audit log all move.
+- Audit log: action filter (`?action=`), the support action's label as the badge, a one-line
+  `before → after` summary, and links to every record named in the metadata.
+- Screenshot fixture: `scripts/fixtures/admin-actions.json`.

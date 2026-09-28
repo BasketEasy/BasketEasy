@@ -1,15 +1,21 @@
 import { useParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import { Text } from '@basketeasy/ui/text';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
-import type { AdminEventDetail } from '@basketeasy/types/platform-admin-browse';
+import type {
+  AdminEventDetail,
+  AdminScoresheetSummary,
+} from '@basketeasy/types/platform-admin-browse';
+import { ADMIN_OCR_STUCK_AFTER_MS } from '@basketeasy/types/platform-admin-actions';
 import type { BadgeProps } from '@basketeasy/ui/badge';
 import { teamMemberRoleLabel } from '../clubs/teamLabels';
 import { useAdminEvent } from './useAdminQueries';
+import { AdminActionDialog } from './actions/AdminActionDialog';
 import {
   AdminFacts,
   AdminPageHeader,
@@ -106,6 +112,39 @@ function RosterRow({ entry }: { entry: RosterEntry }) {
   );
 }
 
+/**
+ * Re-queues the read against the file already stored. Offered only when the
+ * server would accept it: never on a confirmed sheet (a manager's reviewed
+ * data), and not while a read started under an hour ago may still land.
+ */
+function ScoresheetRetry({ sheet }: { sheet: AdminScoresheetSummary }) {
+  const inFlight = sheet.status === 'QUEUED' || sheet.status === 'PROCESSING';
+  const recent = Date.now() - new Date(sheet.uploadedAt).getTime() < ADMIN_OCR_STUCK_AFTER_MS;
+  const unavailable = sheet.status === 'CONFIRMED' || (inFlight && recent);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <AdminActionDialog
+        trigger={
+          <Button variant="outline" disabled={unavailable}>
+            Relancer la lecture
+          </Button>
+        }
+        title="Relancer la lecture"
+        description="La feuille déjà envoyée repart dans la file de lecture. La personne qui l’a envoyée est prévenue du résultat, comme pour un premier envoi."
+        facts={[{ label: 'Statut actuel', value: SCORESHEET_STATUS_LABELS[sheet.status] }]}
+        confirmLabel="Relancer"
+        path={`scoresheets/${sheet.id}/retry`}
+      />
+      {unavailable && (
+        <Text variant="meta" size="xs">
+          Indisponible pendant la lecture, et sur une feuille déjà confirmée.
+        </Text>
+      )}
+    </div>
+  );
+}
+
 function EventDetail({ event }: { event: AdminEventDetail }) {
   const sheet = event.scoresheet;
 
@@ -176,6 +215,7 @@ function EventDetail({ event }: { event: AdminEventDetail }) {
                 <Text variant="meta" size="sm" className="tabular">
                   Envoyée le {formatAdminDateTime(sheet.uploadedAt)}
                 </Text>
+                <ScoresheetRetry sheet={sheet} />
                 <AdminLink to={adminPaths.scoresheets}>Toutes les feuilles à traiter</AdminLink>
               </Card>
             )}

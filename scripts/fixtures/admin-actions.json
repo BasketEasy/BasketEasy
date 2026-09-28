@@ -1,0 +1,1620 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "admin-1",
+    "email": "dpo@kluvo.net",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": []
+  },
+  "GET /api/admin/users": {
+    "items": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-27T19:10:00.000Z",
+        "daysUntilErasure": 364,
+        "clubCount": 2,
+        "guardianOfCount": 2,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-2",
+          "displayName": "Julie Roux",
+          "email": "julie.roux@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-02T08:00:00.000Z",
+        "daysUntilErasure": 339,
+        "clubCount": 3,
+        "guardianOfCount": 0,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-3",
+          "displayName": "Sophie Lefèvre",
+          "email": "sophie.lefevre@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": false,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-25T08:00:00.000Z",
+        "daysUntilErasure": 362,
+        "clubCount": 0,
+        "guardianOfCount": 1,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-4",
+          "displayName": "Thomas Girard",
+          "email": "thomas.g@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-19T08:00:00.000Z",
+        "daysUntilErasure": 356,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": "SUPPORT"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-5",
+          "displayName": "Marc Petit",
+          "email": "marc.petit@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": false,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2025-10-12T08:00:00.000Z",
+        "daysUntilErasure": 14,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-6",
+          "displayName": "Karim Mercier",
+          "email": "karim.m@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2025-09-20T08:00:00.000Z",
+        "daysUntilErasure": -8,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
+      }
+    ],
+    "total": 1284,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/users/user-1": {
+    "person": {
+      "kind": "user",
+      "id": "user-1",
+      "displayName": "Nicolas Bernard",
+      "email": "n.bernard@example.fr",
+      "emailDomain": "example.fr",
+      "redacted": false
+    },
+    "emailVerified": false,
+    "createdAt": "2024-09-04T17:42:00.000Z",
+    "lastActiveAt": "2026-09-27T19:10:00.000Z",
+    "daysUntilErasure": 364,
+    "clubCount": 2,
+    "guardianOfCount": 2,
+    "platformRole": null,
+    "memberships": [
+      {
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T17:42:00.000Z"
+      },
+      {
+        "club": {
+          "id": "club-2",
+          "name": "ES Carquefou Basket"
+        },
+        "role": "MEMBER",
+        "joinedAt": "2026-01-12T17:42:00.000Z"
+      }
+    ],
+    "teamAdminOf": [
+      {
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "grantedAt": "2026-09-01T10:00:00.000Z"
+      }
+    ],
+    "linkedPlayers": [
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-4",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "teams": [
+          {
+            "id": "team-2",
+            "name": "Seniors M2",
+            "category": "SENIORS",
+            "gender": "MEN"
+          }
+        ]
+      }
+    ],
+    "guardianOf": [
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-1",
+          "displayName": "Léo Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      },
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      }
+    ],
+    "activeSessionCount": 2
+  },
+  "GET /api/admin/clubs": {
+    "items": [
+      {
+        "id": "club-1",
+        "name": "BC Nantes Erdre",
+        "ffbbClubCode": "PDL0044012",
+        "createdAt": "2024-09-04T10:00:00.000Z",
+        "memberCount": 42,
+        "adminCount": 2,
+        "teamCount": 9,
+        "playerCount": 131
+      },
+      {
+        "id": "club-2",
+        "name": "ES Carquefou Basket",
+        "ffbbClubCode": "PDL0044031",
+        "createdAt": "2025-01-10T10:00:00.000Z",
+        "memberCount": 18,
+        "adminCount": 1,
+        "teamCount": 4,
+        "playerCount": 57
+      },
+      {
+        "id": "club-3",
+        "name": "AL Orvault",
+        "ffbbClubCode": null,
+        "createdAt": "2026-09-20T10:00:00.000Z",
+        "memberCount": 1,
+        "adminCount": 0,
+        "teamCount": 0,
+        "playerCount": 0
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/clubs/club-1": {
+    "id": "club-1",
+    "name": "BC Nantes Erdre",
+    "ffbbClubCode": "PDL0044012",
+    "createdAt": "2024-09-04T10:00:00.000Z",
+    "memberCount": 42,
+    "adminCount": 2,
+    "teamCount": 9,
+    "playerCount": 131,
+    "meetingPointName": "Gymnase de la Beaujoire",
+    "meetingPointAddress": "Route de Saint-Joseph, Nantes",
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/admin/clubs/club-1/members": {
+    "items": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-2",
+          "displayName": "Julie Roux",
+          "email": "julie.roux@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-7",
+          "displayName": "Camille Moreau",
+          "email": "camille.moreau@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-09-10T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-8",
+          "displayName": "Hugo Lambert",
+          "email": "hugo.lambert@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-10-02T10:00:00.000Z"
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/teams": {
+    "items": [
+      {
+        "id": "team-1",
+        "name": "U13 F CTC Erdre",
+        "category": "U13",
+        "gender": "WOMEN",
+        "createdAt": "2026-08-28T10:00:00.000Z",
+        "ownerClub": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "partnerClubs": [
+          {
+            "id": "club-2",
+            "name": "ES Carquefou Basket"
+          }
+        ],
+        "rosterCount": 11,
+        "teamAdminCount": 2
+      },
+      {
+        "id": "team-2",
+        "name": "Seniors M2",
+        "category": "SENIORS",
+        "gender": "MEN",
+        "createdAt": "2025-08-28T10:00:00.000Z",
+        "ownerClub": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "partnerClubs": [],
+        "rosterCount": 12,
+        "teamAdminCount": 0
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/teams/team-1": {
+    "id": "team-1",
+    "name": "U13 F CTC Erdre",
+    "category": "U13",
+    "gender": "WOMEN",
+    "createdAt": "2026-08-28T10:00:00.000Z",
+    "ownerClub": {
+      "id": "club-1",
+      "name": "BC Nantes Erdre"
+    },
+    "partnerClubs": [
+      {
+        "id": "club-2",
+        "name": "ES Carquefou Basket"
+      }
+    ],
+    "rosterCount": 3,
+    "teamAdminCount": 1,
+    "teamAdmins": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "grantedAt": "2026-09-01T10:00:00.000Z"
+      }
+    ],
+    "ffbbLinks": [
+      {
+        "id": "ffbb-1",
+        "engagementRef": "DF3-B-2026",
+        "label": "DF3 Poule B"
+      }
+    ]
+  },
+  "GET /api/admin/teams/team-1/roster": [
+    {
+      "teamPlayerId": "tp-1",
+      "player": {
+        "kind": "player",
+        "id": "player-2",
+        "displayName": "Inès Bernard",
+        "email": null,
+        "emailDomain": null,
+        "redacted": false
+      },
+      "club": {
+        "id": "club-1",
+        "name": "BC Nantes Erdre"
+      },
+      "role": "PLAYER",
+      "linkedUser": null,
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "player": {
+        "kind": "player",
+        "id": "player-3",
+        "displayName": "Lina Bouvier",
+        "email": null,
+        "emailDomain": null,
+        "redacted": false
+      },
+      "club": {
+        "id": "club-2",
+        "name": "ES Carquefou Basket"
+      },
+      "role": "PLAYER",
+      "linkedUser": null,
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "player": {
+        "kind": "player",
+        "id": "player-5",
+        "displayName": "Chloé André",
+        "email": "chloe.andre@example.fr",
+        "emailDomain": "example.fr",
+        "redacted": false
+      },
+      "club": {
+        "id": "club-1",
+        "name": "BC Nantes Erdre"
+      },
+      "role": "COACH",
+      "linkedUser": {
+        "kind": "user",
+        "id": "user-9",
+        "displayName": "Chloé André",
+        "email": "chloe.andre@example.fr",
+        "emailDomain": "example.fr",
+        "redacted": false
+      },
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    }
+  ],
+  "GET /api/admin/players": {
+    "items": [
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-1",
+          "displayName": "Léo Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": null,
+        "isMinor": true,
+        "consentState": "recorded",
+        "teamCount": 2,
+        "createdAt": "2026-08-28T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": null,
+        "isMinor": true,
+        "consentState": "missing",
+        "teamCount": 1,
+        "createdAt": "2026-08-28T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-4",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": "user-1",
+        "isMinor": false,
+        "consentState": "not-required",
+        "teamCount": 1,
+        "createdAt": "2024-09-05T10:00:00.000Z"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/players/player-1": {
+    "person": {
+      "kind": "player",
+      "id": "player-1",
+      "displayName": "Léo Bernard",
+      "email": null,
+      "emailDomain": null,
+      "redacted": false
+    },
+    "club": {
+      "id": "club-1",
+      "name": "BC Nantes Erdre"
+    },
+    "linkedUserId": null,
+    "isMinor": true,
+    "consentState": "missing",
+    "teamCount": 2,
+    "createdAt": "2026-08-28T10:00:00.000Z",
+    "birthDate": "2015-03-14T00:00:00.000Z",
+    "licenseNumber": "VT150314",
+    "gender": "MEN",
+    "linkedUser": null,
+    "teams": [
+      {
+        "teamPlayerId": "tp-9",
+        "team": {
+          "id": "team-3",
+          "name": "U11 M",
+          "category": "U11",
+          "gender": "MEN"
+        },
+        "role": "PLAYER"
+      }
+    ],
+    "guardians": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      }
+    ],
+    "guardianInvites": [
+      {
+        "id": "gi-1",
+        "createdAt": "2026-09-02T10:00:00.000Z",
+        "expiresAt": "2026-09-09T10:00:00.000Z",
+        "state": "accepted"
+      },
+      {
+        "id": "gi-2",
+        "createdAt": "2026-09-24T10:00:00.000Z",
+        "expiresAt": "2026-10-01T10:00:00.000Z",
+        "state": "live"
+      }
+    ],
+    "playerInvite": {
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "expiresAt": "2026-09-08T10:00:00.000Z",
+      "state": "expired"
+    },
+    "consents": []
+  },
+  "GET /api/admin/events": {
+    "items": [
+      {
+        "id": "event-1",
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "type": "MATCH",
+        "startsAt": "2026-10-03T12:00:00.000Z",
+        "location": "Gymnase de la Beaujoire",
+        "opponentName": "ASB Rezé",
+        "rsvpCounts": {
+          "going": 2,
+          "notGoing": 0,
+          "maybe": 1
+        },
+        "convocationCount": 3,
+        "scoresheetStatus": "FAILED"
+      },
+      {
+        "id": "event-2",
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "type": "TRAINING",
+        "startsAt": "2026-09-30T16:30:00.000Z",
+        "location": "Salle Jules Verne",
+        "opponentName": null,
+        "rsvpCounts": {
+          "going": 6,
+          "notGoing": 1,
+          "maybe": 0
+        },
+        "convocationCount": 0,
+        "scoresheetStatus": null
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/events/event-1": {
+    "id": "event-1",
+    "team": {
+      "id": "team-1",
+      "name": "U13 F CTC Erdre",
+      "category": "U13",
+      "gender": "WOMEN"
+    },
+    "type": "MATCH",
+    "startsAt": "2026-10-03T12:00:00.000Z",
+    "location": "Gymnase de la Beaujoire",
+    "opponentName": "ASB Rezé",
+    "rsvpCounts": {
+      "going": 2,
+      "notGoing": 0,
+      "maybe": 1
+    },
+    "convocationCount": 3,
+    "scoresheetStatus": "FAILED",
+    "venue": "HOME",
+    "notes": "Maillots blancs.",
+    "recurrenceId": null,
+    "roster": [
+      {
+        "teamPlayerId": "tp-1",
+        "player": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "PLAYER",
+        "rsvp": "GOING",
+        "respondedBy": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "convoked": true
+      },
+      {
+        "teamPlayerId": "tp-2",
+        "player": {
+          "kind": "player",
+          "id": "player-3",
+          "displayName": "Lina Bouvier",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "PLAYER",
+        "rsvp": "MAYBE",
+        "respondedBy": null,
+        "convoked": true
+      },
+      {
+        "teamPlayerId": "tp-3",
+        "player": {
+          "kind": "player",
+          "id": "player-5",
+          "displayName": "Chloé André",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "COACH",
+        "rsvp": "GOING",
+        "respondedBy": {
+          "kind": "user",
+          "id": "user-9",
+          "displayName": "Chloé André",
+          "email": "chloe.andre@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "convoked": true
+      }
+    ],
+    "scoresheet": {
+      "id": "sheet-1",
+      "event": {
+        "id": "event-1",
+        "startsAt": "2026-10-03T12:00:00.000Z",
+        "opponentName": "ASB Rezé"
+      },
+      "team": {
+        "id": "team-1",
+        "name": "U13 F CTC Erdre",
+        "category": "U13",
+        "gender": "WOMEN"
+      },
+      "status": "FAILED",
+      "attemptCount": 5,
+      "failureReason": "Le service de lecture est saturé. Relancez la lecture dans quelques minutes.",
+      "uploadedAt": "2026-10-03T15:12:00.000Z"
+    }
+  },
+  "GET /api/admin/scoresheets": {
+    "items": [
+      {
+        "id": "sheet-1",
+        "event": {
+          "id": "event-1",
+          "startsAt": "2026-10-03T12:00:00.000Z",
+          "opponentName": "ASB Rezé"
+        },
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "status": "FAILED",
+        "attemptCount": 5,
+        "failureReason": "Le service de lecture est saturé. Relancez la lecture dans quelques minutes.",
+        "uploadedAt": "2026-10-03T15:12:00.000Z"
+      },
+      {
+        "id": "sheet-2",
+        "event": {
+          "id": "event-3",
+          "startsAt": "2026-09-27T14:00:00.000Z",
+          "opponentName": "Orvault BC"
+        },
+        "team": {
+          "id": "team-2",
+          "name": "Seniors M2",
+          "category": "SENIORS",
+          "gender": "MEN"
+        },
+        "status": "NEEDS_REVIEW",
+        "attemptCount": 1,
+        "failureReason": null,
+        "uploadedAt": "2026-09-27T17:40:00.000Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/audit-log": {
+    "items": [
+      {
+        "id": "log-4",
+        "type": "ADMIN_SUPPORT_ACTION",
+        "userId": "admin-2",
+        "actorEmail": "support@kluvo.net",
+        "ipAddress": "203.0.113.9",
+        "metadata": {
+          "action": "RETRY_OCR",
+          "reason": "Club bloqué depuis samedi, ticket #824.",
+          "eventId": "event-1",
+          "before": {
+            "status": "FAILED"
+          }
+        },
+        "createdAt": "2026-09-28T14:02:00.000Z"
+      },
+      {
+        "id": "log-3",
+        "type": "ADMIN_SUPPORT_ACTION",
+        "userId": "admin-1",
+        "actorEmail": "dpo@kluvo.net",
+        "ipAddress": "203.0.113.7",
+        "metadata": {
+          "action": "CHANGE_CLUB_ROLE",
+          "reason": "Demande du président, ticket #815.",
+          "clubId": "club-1",
+          "subjectUserId": "user-1",
+          "before": {
+            "role": "ADMIN"
+          },
+          "after": {
+            "role": "MEMBER"
+          }
+        },
+        "createdAt": "2026-09-28T13:40:00.000Z"
+      },
+      {
+        "id": "log-2",
+        "type": "ADMIN_SUPPORT_ACTION",
+        "userId": "admin-2",
+        "actorEmail": "support@kluvo.net",
+        "ipAddress": "203.0.113.9",
+        "metadata": {
+          "action": "REVOKE_SESSIONS",
+          "reason": "Téléphone perdu, ticket #812.",
+          "subjectUserId": "user-1",
+          "after": {
+            "revokedSessions": 2
+          }
+        },
+        "createdAt": "2026-09-28T13:12:00.000Z"
+      },
+      {
+        "id": "log-1",
+        "type": "ADMIN_SUPPORT_ACTION",
+        "userId": "admin-2",
+        "actorEmail": "support@kluvo.net",
+        "ipAddress": "203.0.113.9",
+        "metadata": {
+          "action": "RECORD_PARENTAL_CONSENT",
+          "reason": "Club sans accès à l’app, ticket #822.",
+          "subjectPlayerId": "player-1"
+        },
+        "createdAt": "2026-09-28T12:58:00.000Z"
+      }
+    ],
+    "total": 4,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/search": {
+    "query": "bernard",
+    "exactId": null,
+    "unknownId": false,
+    "groups": {
+      "user": [
+        {
+          "kind": "user",
+          "id": "user-1",
+          "label": "Nicolas Bernard",
+          "sublabel": "n.bernard@example.fr"
+        }
+      ],
+      "player": [
+        {
+          "kind": "player",
+          "id": "player-1",
+          "label": "Léo Bernard",
+          "sublabel": "BC Nantes Erdre"
+        },
+        {
+          "kind": "player",
+          "id": "player-2",
+          "label": "Inès Bernard",
+          "sublabel": "BC Nantes Erdre"
+        },
+        {
+          "kind": "player",
+          "id": "player-4",
+          "label": "Nicolas Bernard",
+          "sublabel": "BC Nantes Erdre"
+        }
+      ],
+      "club": [
+        {
+          "kind": "club",
+          "id": "club-4",
+          "label": "Saint-Bernard Basket",
+          "sublabel": "FFBB PDL0044077"
+        }
+      ],
+      "team": []
+    }
+  },
+  "GET /api/admin/stats": {
+    "range": "90d",
+    "from": "2026-06-30T12:00:00.000Z",
+    "to": "2026-09-28T12:00:00.000Z",
+    "clubId": null,
+    "growth": {
+      "users": {
+        "total": 1284,
+        "added": 146
+      },
+      "clubs": {
+        "total": 214,
+        "added": 9
+      },
+      "teams": {
+        "total": 1102,
+        "added": 88
+      },
+      "players": {
+        "total": 12480,
+        "added": 1210
+      },
+      "claimedPlayerShare": 0.38,
+      "active7d": 612,
+      "active30d": 941,
+      "active90d": 1120,
+      "guardianOnlyAccounts": 188,
+      "ctcTeams": 37,
+      "newUsers": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 6
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 7
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 11
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 19
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 17
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 13
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 11
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 2
+        }
+      ],
+      "newClubs": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 0
+        }
+      ],
+      "newTeams": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 4
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 14
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 20
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 7
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 5
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 4
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 1
+        }
+      ],
+      "newPlayers": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 22
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 25
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 30
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 41
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 96
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 140
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 88
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 60
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 52
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 48
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 71
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 66
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 75
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 12
+        }
+      ],
+      "teamsByCategory": [
+        {
+          "category": "U9",
+          "gender": "MEN",
+          "count": 50
+        },
+        {
+          "category": "U9",
+          "gender": "WOMEN",
+          "count": 46
+        },
+        {
+          "category": "U11",
+          "gender": "MEN",
+          "count": 90
+        },
+        {
+          "category": "U11",
+          "gender": "WOMEN",
+          "count": 74
+        },
+        {
+          "category": "U13",
+          "gender": "MEN",
+          "count": 110
+        },
+        {
+          "category": "U13",
+          "gender": "WOMEN",
+          "count": 102
+        },
+        {
+          "category": "U15",
+          "gender": "MEN",
+          "count": 98
+        },
+        {
+          "category": "U15",
+          "gender": "WOMEN",
+          "count": 90
+        },
+        {
+          "category": "U18",
+          "gender": "MEN",
+          "count": 75
+        },
+        {
+          "category": "U18",
+          "gender": "WOMEN",
+          "count": 66
+        },
+        {
+          "category": "U21",
+          "gender": "MEN",
+          "count": 20
+        },
+        {
+          "category": "U21",
+          "gender": "WOMEN",
+          "count": 18
+        },
+        {
+          "category": "SENIORS",
+          "gender": "MEN",
+          "count": 150
+        },
+        {
+          "category": "SENIORS",
+          "gender": "WOMEN",
+          "count": 113
+        }
+      ]
+    },
+    "engagement": {
+      "matchesByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 18
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 64
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 88
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 91
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 96
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 102
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 99
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 104
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 20
+        }
+      ],
+      "trainingsByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 14
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 180
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 610
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 702
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 715
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 720
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 731
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 728
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 740
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 745
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 110
+        }
+      ],
+      "recurringShare": 0.82,
+      "rsvpResponseRate": 0.71,
+      "rsvpResponseRateByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0.6
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 0.61
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 0.63
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 0.66
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 0.69
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 0.7
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 0.72
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 0.71
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 0.73
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 0.74
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 0.71
+        }
+      ],
+      "rsvpSplit": {
+        "going": 7420,
+        "notGoing": 2870,
+        "maybe": 1680
+      },
+      "guardianAnswers": 2104,
+      "convocationsByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 120
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 300
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 320
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 330
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 310
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 350
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 340
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 360
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 60
+        }
+      ],
+      "matchesWithMeetingPointShare": 0.58,
+      "travelSplit": {
+        "meetingPoint": 3120,
+        "direct": 1270
+      },
+      "votesCast": 1120,
+      "scoresheetCoverage": 0.64,
+      "guardianLinksByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 3
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 20
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 55
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 40
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 25
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 18
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 15
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 2
+        }
+      ],
+      "emailOptOutShare": 0.06,
+      "pushEnabledUsers": 402,
+      "ffbbLinkedClubs": 131,
+      "ffbbLinkedTeams": 640
+    },
+    "health": {
+      "scoresheetsByStatus": {
+        "UPLOADED": 2,
+        "QUEUED": 3,
+        "PROCESSING": 0,
+        "PARSED": 31,
+        "NEEDS_REVIEW": 12,
+        "CONFIRMED": 214,
+        "FAILED": 17
+      },
+      "ocrFailureRate": 0.0612,
+      "avgOcrAttempts": 1.4,
+      "needsReview": 12,
+      "stuckScoresheets": 1,
+      "unverifiedUsers": 41,
+      "unverifiedOlderThan7d": 19,
+      "pendingPlayerInvites": {
+        "live": 88,
+        "expired": 140
+      },
+      "pendingGuardianInvites": {
+        "live": 24,
+        "expired": 31
+      },
+      "minorsMissingConsent": 23,
+      "accountsNearingErasure": 23,
+      "clubsWithoutAdmin": 2,
+      "teamsWithoutManager": 57,
+      "lastRetentionRun": {
+        "ranAt": "2026-09-28T01:15:00.000Z",
+        "ok": true
+      },
+      "staleMeetingRoutes": 4
+    }
+  },
+  "POST /api/admin/users/user-1/revoke-sessions": {
+    "action": "REVOKE_SESSIONS",
+    "auditLogId": "log-new"
+  },
+  "POST /api/admin/users/user-1/resend-verification": {
+    "action": "RESEND_VERIFICATION",
+    "auditLogId": "log-new"
+  },
+  "POST /api/admin/scoresheets/sheet-1/retry": {
+    "action": "RETRY_OCR",
+    "auditLogId": "log-new"
+  },
+  "POST /api/admin/players/player-1/parental-consent": {
+    "action": "RECORD_PARENTAL_CONSENT",
+    "auditLogId": "log-new"
+  },
+  "POST /api/admin/teams/team-1/owner": {
+    "action": "TRANSFER_TEAM_OWNERSHIP",
+    "auditLogId": "log-new"
+  },
+  "POST /api/admin/clubs/club-1/members/user-1/role": {
+    "status": 409,
+    "body": {
+      "statusCode": 409,
+      "message": "C’est le dernier admin du club : nommez d’abord un autre admin"
+    }
+  }
+}

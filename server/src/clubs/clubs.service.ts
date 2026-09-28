@@ -27,6 +27,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
+import { removeClubMembership, writeParentalConsent } from './club-writes';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
@@ -200,34 +201,7 @@ export class ClubsService {
   }
 
   async removeMember(clubId: string, userId: string): Promise<void> {
-    const membership = await this.prisma.clubMembership.findUnique({
-      where: { userId_clubId: { userId, clubId } },
-    });
-    if (!membership) {
-      throw new NotFoundException('Membership not found');
-    }
-
-    if (membership.role === 'ADMIN') {
-      const adminCount = await this.prisma.clubMembership.count({
-        where: { clubId, role: 'ADMIN' },
-      });
-      if (adminCount <= 1) {
-        throw new BadRequestException('Cannot remove the last admin of a club');
-      }
-    }
-
-    // Unlink (not delete) any player tied to this account — the account no
-    // longer has club access, but the roster entry and its history (stats,
-    // attendance) are independent of that and should survive.
-    await this.prisma.$transaction([
-      this.prisma.player.updateMany({
-        where: { clubId, userId },
-        data: { userId: null },
-      }),
-      this.prisma.clubMembership.delete({
-        where: { userId_clubId: { userId, clubId } },
-      }),
-    ]);
+    await this.prisma.$transaction((tx) => removeClubMembership(tx, clubId, userId));
   }
 
   async listPlayers(clubId: string, query: ListPlayersDto): Promise<PaginatedResult<Player>> {
@@ -413,23 +387,13 @@ export class ClubsService {
       );
     }
 
-    const consent = await this.prisma.$transaction(async (tx) => {
-      await tx.parentalConsent.updateMany({
-        where: { playerId, retentionExpiresAt: { not: null } },
-        data: { retentionExpiresAt: null },
-      });
-      return tx.parentalConsent.create({
-        data: {
-          playerId,
-          clubId,
-          playerFirstName: player.firstName,
-          playerLastName: player.lastName,
-          playerBirthDate: birthDate,
-          attestedByName,
-          attestedByUserId: attestedByUserId ?? null,
-        },
-      });
-    });
+    const consent = await this.prisma.$transaction((tx) =>
+      writeParentalConsent(
+        tx,
+        { ...player, birthDate },
+        { name: attestedByName, userId: attestedByUserId ?? null },
+      ),
+    );
 
     return this.toParentalConsent(consent);
   }

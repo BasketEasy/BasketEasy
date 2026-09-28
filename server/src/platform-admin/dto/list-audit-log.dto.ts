@@ -1,5 +1,9 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  ADMIN_SUPPORT_ACTION_KINDS,
+  type AdminSupportActionKind,
+} from '@basketeasy/types/platform-admin-actions';
 import type { ListAuditLogParams } from '@basketeasy/types/platform-admin';
 
 export class ListAuditLogDto implements ListAuditLogParams {
@@ -10,6 +14,10 @@ export class ListAuditLogDto implements ListAuditLogParams {
   @IsOptional()
   @IsUUID()
   playerId?: string;
+
+  @IsOptional()
+  @IsIn(ADMIN_SUPPORT_ACTION_KINDS)
+  action?: AdminSupportActionKind;
 
   @IsOptional()
   @Type(() => Number)

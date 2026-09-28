@@ -4,16 +4,32 @@ import { Card } from '@basketeasy/ui/card';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import { Text } from '@basketeasy/ui/text';
+import type { ClubRole } from '@basketeasy/types/club-members';
 import type { AuditEventType, AuditLogEntry } from '@basketeasy/types/platform-admin';
+import {
+  ADMIN_SUPPORT_ACTION_KINDS,
+  type AdminSupportActionKind,
+} from '@basketeasy/types/platform-admin-actions';
 import { useAdminAuditLog } from './useAdminQueries';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminPageHeader, AdminPagination, AdminTable } from './shared/AdminLayout';
 import { AdminLink } from './shared/AdminLinks';
 import { AdminQueryBranch } from './shared/AdminQueryBranch';
 import { adminPaths } from './shared/adminPaths';
-import { formatAdminDateTime } from './shared/adminFormat';
+import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
+import {
+  CLUB_ROLE_LABELS,
+  SCORESHEET_STATUS_LABELS,
+  SUPPORT_ACTION_LABELS,
+  formatAdminDateTime,
+} from './shared/adminFormat';
 
-const FILTER_KEYS = ['userId', 'playerId'] as const;
+const FILTER_KEYS = ['userId', 'playerId', 'action'] as const;
+
+const ACTION_OPTIONS = ADMIN_SUPPORT_ACTION_KINDS.map((kind) => ({
+  value: kind,
+  label: SUPPORT_ACTION_LABELS[kind],
+}));
 
 const TYPE_LABELS: Record<AuditEventType, string> = {
   LOGIN_SUCCESS: 'Connexion',
@@ -29,6 +45,7 @@ const TYPE_LABELS: Record<AuditEventType, string> = {
   ADMIN_PII_VIEWED: 'Fiche consultée',
   ADMIN_USER_ERASED: 'Compte effacé',
   ADMIN_EXPORT_GENERATED: 'Export RGPD généré',
+  ADMIN_SUPPORT_ACTION: 'Action support',
 };
 
 function metadataString(entry: AuditLogEntry, key: string): string | null {
@@ -36,11 +53,50 @@ function metadataString(entry: AuditLogEntry, key: string): string | null {
   return typeof value === 'string' ? value : null;
 }
 
-/** Who the row is about when an admin acted: an account, a player, or both. */
+function supportAction(entry: AuditLogEntry): AdminSupportActionKind | null {
+  const action = metadataString(entry, 'action');
+  return action && (ADMIN_SUPPORT_ACTION_KINDS as readonly string[]).includes(action)
+    ? (action as AdminSupportActionKind)
+    : null;
+}
+
+function metadataRecord(entry: AuditLogEntry, key: string): Record<string, unknown> | null {
+  const value = entry.metadata?.[key];
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function isClubRole(value: unknown): value is ClubRole {
+  return value === 'ADMIN' || value === 'MEMBER';
+}
+
+/** What a support action changed, from its `before`/`after`, in one line. */
+function changeSummary(entry: AuditLogEntry): string | null {
+  const before = metadataRecord(entry, 'before');
+  const after = metadataRecord(entry, 'after');
+  if (isClubRole(before?.role) && isClubRole(after?.role)) {
+    return `${CLUB_ROLE_LABELS[before.role]} → ${CLUB_ROLE_LABELS[after.role]}`;
+  }
+  if (isClubRole(before?.role)) return `Était ${CLUB_ROLE_LABELS[before.role]}`;
+  if (typeof after?.revokedSessions === 'number') {
+    const count = after.revokedSessions;
+    return `${count} session${count > 1 ? 's' : ''} fermée${count > 1 ? 's' : ''}`;
+  }
+  const status = before?.status;
+  if (typeof status === 'string' && status in SCORESHEET_STATUS_LABELS) {
+    return `Était ${SCORESHEET_STATUS_LABELS[status as keyof typeof SCORESHEET_STATUS_LABELS]}`;
+  }
+  return null;
+}
+
+/** Who or what the row is about: the records named in its metadata. */
 function Subject({ entry }: { entry: AuditLogEntry }) {
   const subjectUserId = metadataString(entry, 'subjectUserId');
   const subjectPlayerId = metadataString(entry, 'subjectPlayerId');
-  if (!subjectUserId && !subjectPlayerId) {
+  const clubId = metadataString(entry, 'clubId');
+  const teamId = metadataString(entry, 'teamId');
+  const eventId = metadataString(entry, 'eventId');
+  const previousOwner = metadataRecord(entry, 'before')?.ownerClubId;
+  if (!subjectUserId && !subjectPlayerId && !clubId && !teamId && !eventId) {
     return (
       <Text as="span" variant="meta" size="sm">
         —
@@ -49,8 +105,14 @@ function Subject({ entry }: { entry: AuditLogEntry }) {
   }
   return (
     <span className="inline-flex flex-wrap gap-x-3 gap-y-1">
+      {clubId && <AdminLink to={adminPaths.club(clubId)}>Club</AdminLink>}
+      {teamId && <AdminLink to={adminPaths.team(teamId)}>Équipe</AdminLink>}
+      {eventId && <AdminLink to={adminPaths.event(eventId)}>Match</AdminLink>}
       {subjectPlayerId && <AdminLink to={adminPaths.player(subjectPlayerId)}>Joueur</AdminLink>}
       {subjectUserId && <AdminLink to={adminPaths.user(subjectUserId)}>Compte</AdminLink>}
+      {typeof previousOwner === 'string' && (
+        <AdminLink to={adminPaths.club(previousOwner)}>Ancien propriétaire</AdminLink>
+      )}
     </span>
   );
 }
@@ -69,10 +131,19 @@ function Actor({ entry }: { entry: AuditLogEntry }) {
 function AuditRow({ entry }: { entry: AuditLogEntry }) {
   const layout = useTableLayout();
   const reason = metadataString(entry, 'reason');
+  const action = supportAction(entry);
+  const change = changeSummary(entry);
   const type = (
-    <Badge variant="soft" tone={entry.type.startsWith('ADMIN_') ? 'brand' : 'muted'}>
-      {TYPE_LABELS[entry.type] ?? entry.type}
-    </Badge>
+    <div className="flex flex-col items-start gap-1">
+      <Badge variant="soft" tone={entry.type.startsWith('ADMIN_') ? 'brand' : 'muted'}>
+        {action ? SUPPORT_ACTION_LABELS[action] : (TYPE_LABELS[entry.type] ?? entry.type)}
+      </Badge>
+      {change && (
+        <Text as="span" variant="meta" size="xs">
+          {change}
+        </Text>
+      )}
+    </div>
   );
 
   if (layout === 'card') {
@@ -117,6 +188,13 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
   );
 }
 
+/** A hand-edited `?action=` that isn't a known kind is dropped, not sent. */
+function supportActionFilter(value: string | undefined): AdminSupportActionKind | undefined {
+  return value && (ADMIN_SUPPORT_ACTION_KINDS as readonly string[]).includes(value)
+    ? (value as AdminSupportActionKind)
+    : undefined;
+}
+
 /**
  * « Who accessed this person's data ». DATA_OFFICER-only on the server; the
  * nav hides it from SUPPORT, and a SUPPORT caller who types the URL gets the
@@ -124,8 +202,15 @@ function AuditRow({ entry }: { entry: AuditLogEntry }) {
  */
 export function AdminAuditLogPage() {
   const { filters, page, setFilters, setPage, pageSize } = useAdminListParams(FILTER_KEYS);
-  const log = useAdminAuditLog({ ...filters, page, pageSize });
+  const log = useAdminAuditLog({
+    userId: filters.userId,
+    playerId: filters.playerId,
+    action: supportActionFilter(filters.action),
+    page,
+    pageSize,
+  });
   const scoped = filters.userId ?? filters.playerId;
+  const action = supportActionFilter(filters.action);
 
   return (
     <div className="flex flex-col gap-5">
@@ -133,6 +218,15 @@ export function AdminAuditLogPage() {
         title="Journal d’audit"
         subtitle="Connexions, consultations et actions du back-office, conservées 12 mois."
       />
+      <AdminFilterBar>
+        <AdminSelectFilter
+          label="Action"
+          allLabel="Tous les événements"
+          options={ACTION_OPTIONS}
+          value={action}
+          onChange={(next) => setFilters({ action: next })}
+        />
+      </AdminFilterBar>
       {scoped && (
         <div className="flex flex-wrap items-center gap-2">
           <Text as="span" variant="meta" size="sm">
