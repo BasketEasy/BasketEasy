@@ -35,6 +35,7 @@ export function EventDetailPlayerView({
   teamName,
   isRostered,
   showVote,
+  childName = null,
 }: {
   clubId: string;
   teamId: string;
@@ -42,7 +43,15 @@ export function EventDetailPlayerView({
   teamName: string;
   isRostered: boolean;
   showVote: boolean;
+  /**
+   * Set when a parent reads their child's match. They answer and choose the
+   * trip for the child, and nothing else: voting, taking the jerseys or
+   * uploading the scoresheet stay the player's own (design decision 9).
+   */
+  childName?: string | null;
 }) {
+  const isActingForChild = childName !== null;
+  const canActAsPlayer = isRostered && !isActingForChild;
   const isMatch = event.type === 'MATCH';
   // Read here purely for the decision band's "dans le groupe des 12" — the
   // block below owns the error/loading/empty ladder for this same (deduped)
@@ -60,6 +69,7 @@ export function EventDetailPlayerView({
           event={event}
           counts={counts}
           id={EVENT_SECTION_IDS.decision}
+          childName={childName}
         />
       )}
 
@@ -70,7 +80,7 @@ export function EventDetailPlayerView({
           teamId={teamId}
           event={event}
           canManage={false}
-          isRostered={isRostered}
+          isRostered={canActAsPlayer}
         />
       </section>
 
@@ -93,7 +103,7 @@ export function EventDetailPlayerView({
         </section>
       )}
 
-      {showVote && (
+      {showVote && !isActingForChild && (
         <section id={EVENT_SECTION_IDS.vote} className="flex scroll-mt-20 flex-col gap-3.5">
           <SectionHeading as="h2">Vote du match</SectionHeading>
           <MatchVoteTab clubId={clubId} teamId={teamId} event={event} />
@@ -110,7 +120,7 @@ export function EventDetailPlayerView({
             clubId={clubId}
             teamId={teamId}
             event={event}
-            isRostered={isRostered}
+            isRostered={canActAsPlayer}
             canManage={false}
           />
         </section>

@@ -16,6 +16,7 @@ import { useAccount } from '../auth/useAccount';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { AccountMenu } from './AccountMenu';
 import { NotificationBell, NotificationBellLink } from '../notifications/NotificationBell';
+import { PersonaSwitcher } from '../guardians/PersonaSwitcher';
 import { Text } from '@basketeasy/ui/text';
 
 interface AppHeaderProps {
@@ -78,7 +79,12 @@ function MobileTopBar({ isResolving }: { isResolving: boolean }) {
         >
           Kluvo
         </Link>
-        {!isResolving && <NotificationBellLink />}
+        {!isResolving && (
+          <div className="flex items-center gap-1">
+            <PersonaSwitcher />
+            <NotificationBellLink />
+          </div>
+        )}
       </div>
     </header>
   );
@@ -166,6 +172,7 @@ function AppHeaderResolved() {
             Kluvo
           </Link>
           {switcher}
+          <PersonaSwitcher />
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-1">

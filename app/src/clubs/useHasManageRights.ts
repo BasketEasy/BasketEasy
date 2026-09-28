@@ -1,6 +1,7 @@
 import { useAdminClubs } from './useAdminClubs';
 import { useClubList } from './useClubList';
 import { useMyTeamList } from './useMyTeamList';
+import { useActingAs } from '../guardians/useActingAs';
 
 export interface ManageRights {
   /**
@@ -34,6 +35,9 @@ export interface ManageRights {
  */
 export function useHasManageRights(): ManageRights {
   const adminClubs = useAdminClubs();
+  // Acting for a child is the child's player view: a guardian link never
+  // carries manager rights, whatever the user holds as themself.
+  const { forPlayerId } = useActingAs();
   const { data: teams, isPending: isTeamListPending } = useMyTeamList();
   // useAdminClubs() deliberately has no loading signal of its own (it returns
   // a plain array), so the club query behind it is consulted here for one
@@ -41,7 +45,8 @@ export function useHasManageRights(): ManageRights {
   const { isPending: isClubListPending } = useClubList();
 
   return {
-    hasManageRights: (teams ?? []).some((team) => team.isTeamAdmin) || adminClubs.length > 0,
+    hasManageRights:
+      !forPlayerId && ((teams ?? []).some((team) => team.isTeamAdmin) || adminClubs.length > 0),
     isResolving: isTeamListPending || isClubListPending,
   };
 }

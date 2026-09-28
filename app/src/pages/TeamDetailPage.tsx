@@ -18,6 +18,7 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
+import { useTeamActingAs } from '../guardians/useActingAs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
@@ -51,8 +52,14 @@ export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const isAdmin = useIsClubAdmin(clubId);
-  const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  // Acting for a child on the child's team shows their player view: a
+  // guardian link never carries manager rights, whatever the reader holds as
+  // themself (same rule as EventDetailPage).
+  const isActingForChild = useTeamActingAs(teamId!) !== undefined;
+  const isClubAdmin = useIsClubAdmin(clubId);
+  const isTeamManager = useIsTeamManager(clubId!, teamId!);
+  const isAdmin = isClubAdmin && !isActingForChild;
+  const canManageTeam = isTeamManager && !isActingForChild;
   const requestedTab: TeamDetailTab =
     tabParam === 'roster'
       ? 'roster'
@@ -269,8 +276,12 @@ export function TeamDetailPage() {
     isError: isAdminsError,
     refetch: refetchAdmins,
     isRefetching: isAdminsRefetching,
-  } = useTeamAdminList(clubId!, teamId!);
-  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
+  } = useTeamAdminList(clubId!, teamId!, canManageTeam);
+  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(
+    clubId!,
+    teamId!,
+    canManageTeam,
+  );
 
   const [isEditing, setIsEditing] = useState(false);
   const [isAddClubOpen, setIsAddClubOpen] = useState(false);

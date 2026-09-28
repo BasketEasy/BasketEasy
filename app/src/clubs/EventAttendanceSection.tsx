@@ -18,6 +18,7 @@ import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './u
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
 import { formatEventTime } from './eventDateFormat';
+import { useMeSuffix } from '../guardians/useActingAs';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -90,7 +91,15 @@ function sortForDisplay(rows: EventRosterRow[]): EventRosterRow[] {
   );
 }
 
-function AttendanceRow({ row, showTravelMode }: { row: EventRosterRow; showTravelMode: boolean }) {
+function AttendanceRow({
+  row,
+  showTravelMode,
+  meSuffix,
+}: {
+  row: EventRosterRow;
+  showTravelMode: boolean;
+  meSuffix: string;
+}) {
   return (
     <li className="flex items-center gap-2.5 border-t border-border py-2.5 first:border-t-0">
       <Avatar size="sm" className="shrink-0">
@@ -98,7 +107,7 @@ function AttendanceRow({ row, showTravelMode }: { row: EventRosterRow; showTrave
       </Avatar>
       <Text as="span" variant="label" size="sm" className="min-w-0 break-words">
         {row.firstName} {row.lastName}
-        {row.isMe && ' (vous)'}
+        {row.isMe && meSuffix}
       </Text>
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
         {showTravelMode && <TravelModeBadge travelMode={row.travelMode} />}
@@ -146,6 +155,7 @@ export function EventAttendanceSection({
 }) {
   const [showAll, setShowAll] = useState(false);
   const { rows, counts, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
+  const meSuffix = useMeSuffix(teamId);
   const travelPlan = meetingPlan?.meetingPoint ? meetingPlan : null;
   const showTravelMode = travelPlan !== null;
 
@@ -195,7 +205,12 @@ export function EventAttendanceSection({
         <div className="border-t border-border px-3.5">
           <ul className="flex flex-col">
             {visible.map((row) => (
-              <AttendanceRow key={row.teamPlayerId} row={row} showTravelMode={showTravelMode} />
+              <AttendanceRow
+                key={row.teamPlayerId}
+                row={row}
+                showTravelMode={showTravelMode}
+                meSuffix={meSuffix}
+              />
             ))}
           </ul>
         </div>

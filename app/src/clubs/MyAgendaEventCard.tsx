@@ -51,7 +51,12 @@ export function MyAgendaEventCard({
 }) {
   const isCalledUp = isRostered && event.myConvocation;
   const eventHref = `/clubs/${event.clubId}/teams/${event.teamId}/events/${event.eventId}`;
-  const rsvpEvent = { id: event.eventId, myRsvpStatus: event.myRsvpStatus };
+  const rsvpEvent = {
+    id: event.eventId,
+    myRsvpStatus: event.myRsvpStatus,
+    myRsvpRespondedBy: event.myRsvpRespondedBy,
+    myRsvpRespondedAt: event.myRsvpRespondedAt,
+  };
 
   if (size === 'hero') {
     return (
