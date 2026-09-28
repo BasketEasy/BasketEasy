@@ -19,7 +19,8 @@ export type AdminSupportActionKind =
   | 'CANCEL_GUARDIAN_INVITE'
   | 'REMOVE_GUARDIAN'
   | 'RECORD_PARENTAL_CONSENT'
-  | 'CLUB_CREATED';
+  | 'CLUB_CREATED'
+  | 'CLUB_DELETED';
 
 export const ADMIN_SUPPORT_ACTION_KINDS: readonly AdminSupportActionKind[] = [
   'RESEND_VERIFICATION',
@@ -36,6 +37,7 @@ export const ADMIN_SUPPORT_ACTION_KINDS: readonly AdminSupportActionKind[] = [
   'REMOVE_GUARDIAN',
   'RECORD_PARENTAL_CONSENT',
   'CLUB_CREATED',
+  'CLUB_DELETED',
 ];
 
 export const ADMIN_REASON_MIN_LENGTH = 10;

@@ -18,6 +18,7 @@ import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountSecurityService } from '../auth/account-security.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
+import { StorageService } from '../storage/storage.service';
 import {
   createClubWithAdmin,
   removeClubMembership,
@@ -62,6 +63,7 @@ export class PlatformAdminActionsService {
     private readonly prisma: PrismaService,
     private readonly accountSecurity: AccountSecurityService,
     private readonly scoresheets: ScoresheetsService,
+    private readonly storage: StorageService,
   ) {}
 
   // ------------------------------------------------------------- accounts
@@ -442,6 +444,73 @@ export class PlatformAdminActionsService {
       });
       return { ...result, clubId: club.id };
     });
+  }
+
+  /**
+   * Deletes a club and everything that is the club's: memberships, players
+   * (their roster slots, stats, invites, guardian links cascade), parental
+   * consents, and every team it owns with that team's events, scoresheets,
+   * extractions, stats and meeting points. A team it only partners on stays
+   * with its owner, minus this club's players.
+   *
+   * Owned teams are deleted here rather than by the database: Team reaches
+   * Club only through ClubTeam, so the FK cascade would leave them orphaned.
+   * Scoresheet files are removed from storage after the commit, best-effort —
+   * a stray object costs storage, a rolled-back delete over a storage outage
+   * would cost the action.
+   */
+  async deleteClub(
+    actor: PlatformActor,
+    clubId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const { result, storageKeys } = await this.prisma.$transaction(async (tx) => {
+      const club = await tx.club.findUnique({
+        where: { id: clubId },
+        select: { name: true, ffbbClubCode: true },
+      });
+      if (!club) {
+        throw new NotFoundException('Club introuvable');
+      }
+      const owned = await tx.clubTeam.findMany({
+        where: { clubId, isOwner: true },
+        select: { teamId: true },
+      });
+      const ownedTeamIds = owned.map((link) => link.teamId);
+      // Both the owned teams' sheets and any sheet one of this club's players
+      // uploaded on a partner's team: EventScoresheet cascades with its
+      // uploader's roster slot, so those rows go too.
+      const [sheets, playerCount] = await Promise.all([
+        tx.eventScoresheet.findMany({
+          where: {
+            OR: [
+              { event: { teamId: { in: ownedTeamIds } } },
+              { uploadedBy: { player: { clubId } } },
+            ],
+          },
+          select: { storageKey: true },
+        }),
+        tx.player.count({ where: { clubId } }),
+      ]);
+      await tx.team.deleteMany({ where: { id: { in: ownedTeamIds } } });
+      await tx.club.delete({ where: { id: clubId } });
+      const result = await this.record(tx, actor, request, 'CLUB_DELETED', reason, {
+        clubId,
+        // The club no longer exists, so the row has to say what it was.
+        before: {
+          name: club.name,
+          ffbbClubCode: club.ffbbClubCode,
+          ownedTeamCount: ownedTeamIds.length,
+          playerCount,
+        },
+      });
+      return { result, storageKeys: sheets.map((sheet) => sheet.storageKey) };
+    });
+    await Promise.all(
+      storageKeys.map((key) => this.storage.deleteObject(key).catch(() => undefined)),
+    );
+    return result;
   }
 
   // --------------------------------------------------------------- helpers

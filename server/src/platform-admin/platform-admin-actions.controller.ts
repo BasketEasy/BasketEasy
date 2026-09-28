@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { CurrentPlatformRole } from '../auth/decorators/current-platform-role.decorator';
+import { PlatformRoles } from '../auth/decorators/platform-roles.decorator';
 import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import type { PlatformActor } from './platform-admin-browse.service';
 import {
@@ -103,6 +104,23 @@ export class PlatformAdminActionsController {
       body.reason,
       request,
     );
+  }
+
+  /**
+   * DATA_OFFICER-only, like erasure: the one support action that destroys a
+   * club's own records (players, teams, events, stats) rather than fixing them.
+   */
+  @Post('clubs/:clubId/delete')
+  @HttpCode(HttpStatus.OK)
+  @PlatformRoles('DATA_OFFICER')
+  deleteClub(
+    @CurrentUser() user: RequestUser,
+    @CurrentPlatformRole() role: PlatformRole,
+    @Param('clubId', ParseUUIDPipe) clubId: string,
+    @Body() body: ReasonDto,
+    @Req() request: Request,
+  ): Promise<AdminActionResult> {
+    return this.actions.deleteClub(actor(user, role), clubId, body.reason, request);
   }
 
   @Post('clubs/:clubId/members/:userId/role')

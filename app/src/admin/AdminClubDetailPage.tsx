@@ -1,5 +1,6 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
@@ -17,6 +18,9 @@ import { AdminPlayersList } from './AdminPlayersPage';
 import { AdminEventsList } from './AdminEventsPage';
 import { AdminStatsPanel } from './stats/AdminStatsPanel';
 import { AdminMemberDialog } from './actions/AdminMemberDialog';
+import { AdminActionDialog } from './actions/AdminActionDialog';
+import { AdminActionRow, AdminActionsCard } from './actions/AdminActionsCard';
+import { usePlatformSession } from './platformSession';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
 import {
@@ -135,7 +139,40 @@ function ClubMembers({ club }: { club: AdminClubRef }) {
   );
 }
 
+/**
+ * DATA_OFFICER-only, like erasure (the route refuses SUPPORT): the one action
+ * that destroys a club's records instead of fixing them.
+ */
+function ClubDeleteAction({ club }: { club: AdminClubDetail }) {
+  const navigate = useNavigate();
+  return (
+    <AdminActionsCard>
+      <AdminActionRow
+        title="Supprimer le club"
+        detail="Définitif : membres, joueurs, équipes et tout leur historique"
+        action={
+          <AdminActionDialog
+            trigger={<Button variant="outline">Supprimer</Button>}
+            title={`Supprimer ${club.name} ?`}
+            description="Le club est supprimé définitivement avec ses adhésions, ses joueurs et les équipes dont il est propriétaire : événements, feuilles de marque, statistiques et points de rendez-vous compris. Une équipe partagée dont il n’est que partenaire reste à son propriétaire, sans les joueurs de ce club. Pour garder une équipe partagée, transférez-en d’abord la propriété."
+            facts={[
+              { label: 'Membres', value: club.memberCount },
+              { label: 'Équipes liées', value: club.teamCount },
+              { label: 'Joueurs', value: club.playerCount },
+            ]}
+            confirmLabel="Supprimer définitivement"
+            danger
+            path={`clubs/${club.id}/delete`}
+            onDone={() => navigate(adminPaths.clubs, { replace: true })}
+          />
+        }
+      />
+    </AdminActionsCard>
+  );
+}
+
 function ClubDetail({ club }: { club: AdminClubDetail }) {
+  const { session } = usePlatformSession();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as ClubTab | null;
   const tab: ClubTab = tabParam && TABS.includes(tabParam) ? tabParam : 'members';
@@ -204,6 +241,8 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           <AdminStatsPanel clubId={club.id} prefix="s." />
         </TabsContent>
       </Tabs>
+
+      {session?.role === 'DATA_OFFICER' && <ClubDeleteAction club={club} />}
     </div>
   );
 }

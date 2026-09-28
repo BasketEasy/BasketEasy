@@ -174,7 +174,7 @@ model Player {
   gender           Gender?
   licenseType      String?
   createdAt        DateTime          @default(now())
-  club             Club              @relation(fields: [clubId], references: [id])
+  club             Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
   user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   teamPlayers      TeamPlayer[]
   invite           PlayerInvite?
@@ -328,13 +328,16 @@ model TeamFfbbLink {
 // (a CTC/entente shared team). The club that created the team is the owner
 // (isOwner: true) and is the only one that can manage the partner-club list
 // or disband the team; partner clubs get full roster/detail access.
+// Deleting a club cascades its links; the teams it *owns* are deleted by
+// PlatformAdminActionsService.deleteClub, since Team reaches Club only through
+// this join and a team with no owner club has nobody left to manage it.
 model ClubTeam {
   id        String   @id @default(uuid())
   clubId    String
   teamId    String
   isOwner   Boolean  @default(false)
   createdAt DateTime @default(now())
-  club      Club     @relation(fields: [clubId], references: [id])
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@unique([clubId, teamId])
@@ -657,7 +660,7 @@ model ClubMembership {
   role      ClubRole
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  club      Club     @relation(fields: [clubId], references: [id])
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
 
   @@unique([userId, clubId])
 }
