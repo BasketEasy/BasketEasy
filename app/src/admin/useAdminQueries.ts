@@ -27,6 +27,10 @@ import type {
   AdminUserSummary,
 } from '@basketeasy/types/platform-admin-browse';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
+import {
+  ADMIN_SEARCH_MIN_LENGTH,
+  type AdminSearchResult,
+} from '@basketeasy/types/platform-admin-search';
 import { apiClient } from '../api/client';
 import {
   adminAuditLogQueryKey,
@@ -38,6 +42,7 @@ import {
   adminPlayerQueryKey,
   adminPlayersQueryKey,
   adminScoresheetsQueryKey,
+  adminSearchQueryKey,
   adminTeamQueryKey,
   adminTeamRosterQueryKey,
   adminTeamsQueryKey,
@@ -177,6 +182,21 @@ export function useAdminScoresheets(query: AdminScoresheetsQuery) {
     queryKey: adminScoresheetsQueryKey(query),
     queryFn: () =>
       apiClient.get<PaginatedResult<AdminScoresheetSummary>>('/admin/scoresheets', query),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The global search. Idle below the minimum length (the API would 400), and
+ * kept fresh for 30s so reopening the box on the same text is instant.
+ */
+export function useAdminSearch(q: string) {
+  const query = q.trim();
+  return useQuery({
+    queryKey: adminSearchQueryKey(query),
+    queryFn: () => apiClient.get<AdminSearchResult>('/admin/search', { q: query }),
+    enabled: query.length >= ADMIN_SEARCH_MIN_LENGTH,
+    staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
 }

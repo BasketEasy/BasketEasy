@@ -7,6 +7,7 @@ import type {
   AdminInviteState,
   AdminTeamRef,
 } from '@basketeasy/types/platform-admin-browse';
+import type { AdminSearchKind } from '@basketeasy/types/platform-admin-search';
 import type { BadgeProps } from '@basketeasy/ui/badge';
 import { teamCategoryLabel, teamGenderLabel } from '../../clubs/teamLabels';
 
@@ -100,3 +101,11 @@ export function eventTitle(event: Pick<AdminEventSummary, 'type' | 'opponentName
   if (event.type === 'TRAINING') return 'Entraînement';
   return event.opponentName ? `Match · ${event.opponentName}` : 'Match';
 }
+
+/** Search groups in the order they are shown; events are found by id only. */
+export const SEARCH_GROUPS: { kind: Exclude<AdminSearchKind, 'event'>; label: string }[] = [
+  { kind: 'user', label: 'Utilisateurs' },
+  { kind: 'player', label: 'Joueurs' },
+  { kind: 'club', label: 'Clubs' },
+  { kind: 'team', label: 'Équipes' },
+];

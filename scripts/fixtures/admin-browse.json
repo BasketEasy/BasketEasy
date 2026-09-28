@@ -835,5 +835,49 @@
     "total": 2,
     "page": 1,
     "pageSize": 25
+  },
+  "GET /api/admin/search": {
+    "query": "bernard",
+    "exactId": null,
+    "unknownId": false,
+    "groups": {
+      "user": [
+        {
+          "kind": "user",
+          "id": "user-1",
+          "label": "Nicolas Bernard",
+          "sublabel": "n.bernard@example.fr"
+        }
+      ],
+      "player": [
+        {
+          "kind": "player",
+          "id": "player-1",
+          "label": "Léo Bernard",
+          "sublabel": "BC Nantes Erdre"
+        },
+        {
+          "kind": "player",
+          "id": "player-2",
+          "label": "Inès Bernard",
+          "sublabel": "BC Nantes Erdre"
+        },
+        {
+          "kind": "player",
+          "id": "player-4",
+          "label": "Nicolas Bernard",
+          "sublabel": "BC Nantes Erdre"
+        }
+      ],
+      "club": [
+        {
+          "kind": "club",
+          "id": "club-4",
+          "label": "Saint-Bernard Basket",
+          "sublabel": "FFBB PDL0044077"
+        }
+      ],
+      "team": []
+    }
   }
 }

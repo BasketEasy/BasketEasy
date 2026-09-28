@@ -21,6 +21,7 @@ import type {
   AdminTeamsQuery,
   AdminUsersQuery,
 } from '@basketeasy/types/platform-admin-browse';
+import type { AdminSearchQuery } from '@basketeasy/types/platform-admin-search';
 import type { ClubRole } from '@basketeasy/types/club-members';
 import type { EventScoresheetStatus, EventType } from '@basketeasy/types/events';
 import type { Gender, TeamCategory } from '@basketeasy/types/teams';
@@ -229,4 +230,11 @@ export class AdminScoresheetsQueryDto extends AdminPageDto implements AdminScore
   @IsOptional()
   @IsISO8601()
   to?: string;
+}
+
+/** Length is checked by the service, so the 400 carries its French message. */
+export class AdminSearchQueryDto implements AdminSearchQuery {
+  @Transform(trim)
+  @IsString()
+  q!: string;
 }

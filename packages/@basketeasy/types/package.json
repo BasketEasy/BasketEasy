@@ -91,6 +91,10 @@
     "./platform-admin-browse": {
       "types": "./platform-admin-browse.ts",
       "default": "./platform-admin-browse.ts"
+    },
+    "./platform-admin-search": {
+      "types": "./platform-admin-search.ts",
+      "default": "./platform-admin-search.ts"
     }
   },
   "scripts": {

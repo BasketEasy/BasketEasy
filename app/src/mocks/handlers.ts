@@ -161,4 +161,12 @@ export const handlers = [
   http.get('/api/admin/audit-log', () =>
     HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
   ),
+  http.get('/api/admin/search', ({ request }) =>
+    HttpResponse.json({
+      query: new URL(request.url).searchParams.get('q') ?? '',
+      exactId: null,
+      unknownId: false,
+      groups: { club: [], team: [], user: [], player: [] },
+    }),
+  ),
 ];

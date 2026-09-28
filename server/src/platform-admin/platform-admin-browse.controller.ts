@@ -21,13 +21,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { CurrentPlatformRole } from '../auth/decorators/current-platform-role.decorator';
+import type { AdminSearchResult } from '@basketeasy/types/platform-admin-search';
 import { PlatformAdminBrowseService } from './platform-admin-browse.service';
+import { PlatformAdminSearchService } from './platform-admin-search.service';
 import {
   AdminClubMembersQueryDto,
   AdminClubsQueryDto,
   AdminEventsQueryDto,
   AdminPlayersQueryDto,
   AdminScoresheetsQueryDto,
+  AdminSearchQueryDto,
   AdminTeamsQueryDto,
   AdminUsersQueryDto,
 } from './dto/admin-list-queries.dto';
@@ -43,7 +46,19 @@ import {
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
 export class PlatformAdminBrowseController {
-  constructor(private readonly browse: PlatformAdminBrowseService) {}
+  constructor(
+    private readonly browse: PlatformAdminBrowseService,
+    private readonly searchService: PlatformAdminSearchService,
+  ) {}
+
+  /** The global search box: an id in any table, or names (per-role rule). */
+  @Get('search')
+  search(
+    @CurrentPlatformRole() role: PlatformRole,
+    @Query() query: AdminSearchQueryDto,
+  ): Promise<AdminSearchResult> {
+    return this.searchService.search(role, query.q);
+  }
 
   @Get('clubs')
   listClubs(@Query() query: AdminClubsQueryDto): Promise<PaginatedResult<AdminClubSummary>> {
