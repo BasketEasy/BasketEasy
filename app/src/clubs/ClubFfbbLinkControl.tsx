@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Input } from '@basketeasy/ui/input';
@@ -15,26 +16,31 @@ import { Text } from '@basketeasy/ui/text';
  * unvalidated field with no destructive action to guard. */
 export function ClubFfbbLinkControl({ clubId, club }: { clubId: string; club: Club }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [code, setCode] = useState(club.ffbbClubCode ?? '');
-  const [error, setError] = useState<string | null>(null);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    formState: { errors },
+  } = useForm<{ code: string }>({ defaultValues: { code: club.ffbbClubCode ?? '' } });
   const { mutate: setFfbbLink, isPending: isSaving } = useClubFfbbLinkSet(clubId);
   const { mutate: removeFfbbLink, isPending: isRemoving } = useClubFfbbLinkRemove(clubId);
 
   const startEditing = () => {
-    setCode(club.ffbbClubCode ?? '');
-    setError(null);
+    reset({ code: club.ffbbClubCode ?? '' });
     setIsEditing(true);
   };
 
-  const handleSave = () => {
+  // An empty code is a no-op, not an error: removing the link is its own
+  // button, and the field is optional.
+  const onSubmit = ({ code }: { code: string }) => {
     const trimmed = code.trim();
     if (!trimmed) return;
-    setError(null);
     setFfbbLink(
       { ffbbClubCode: trimmed },
       {
         onSuccess: () => setIsEditing(false),
-        onError: (err) => setError(getClubErrorMessage(err)),
+        onError: (err) => setError('code', { message: getClubErrorMessage(err) }),
       },
     );
   };
@@ -48,28 +54,33 @@ export function ClubFfbbLinkControl({ clubId, club }: { clubId: string; club: Cl
 
   if (isEditing) {
     return (
-      <div className="flex flex-col gap-2">
+      <form
+        noValidate
+        onSubmit={(e) => {
+          void handleSubmit(onSubmit)(e);
+        }}
+        className="flex flex-col gap-2"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Input
             aria-label="Code club FFBB"
             placeholder="pdl0044190"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
             className="max-w-[220px]"
+            {...register('code')}
           />
-          <Button size="sm" loading={isSaving} onClick={handleSave}>
+          <Button type="submit" size="sm" loading={isSaving}>
             Enregistrer
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
             Annuler
           </Button>
         </div>
-        {error && <FieldError>{error}</FieldError>}
+        {errors.code?.message && <FieldError>{errors.code.message}</FieldError>}
         <Text variant="meta" size="xs">
           Le code affiché dans l&apos;URL du club sur competitions.ffbb.com. Non vérifié
           automatiquement — facultatif.
         </Text>
-      </div>
+      </form>
     );
   }
 
