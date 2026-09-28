@@ -39,6 +39,7 @@ import { resolvePagination } from '../common/pagination';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
+import { resolveActingTeamPlayer } from '../common/acting-as';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { ListEventsDto } from './dto/list-events.dto';
@@ -1139,7 +1140,7 @@ export class EventsService {
   }
 
   private async findMyTeamPlayer(teamId: string, userId: string) {
-    return this.prisma.teamPlayer.findFirst({ where: { teamId, player: { userId } } });
+    return resolveActingTeamPlayer(this.prisma, { userId, teamId });
   }
 
   private async isConvoked(eventId: string, teamPlayerId: string): Promise<boolean> {

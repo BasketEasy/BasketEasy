@@ -49,6 +49,7 @@
         "licenseType": "C",
         "isMinor": true,
         "parentalConsentGivenAt": null,
+        "guardianCount": 0,
         "createdAt": "2026-01-01T00:00:00.000Z"
       },
       {
@@ -64,6 +65,7 @@
         "licenseType": "C",
         "isMinor": true,
         "parentalConsentGivenAt": "2026-02-03T00:00:00.000Z",
+        "guardianCount": 0,
         "createdAt": "2026-01-02T00:00:00.000Z"
       },
       {
@@ -79,6 +81,7 @@
         "licenseType": "C",
         "isMinor": false,
         "parentalConsentGivenAt": null,
+        "guardianCount": 0,
         "createdAt": "2026-01-03T00:00:00.000Z"
       }
     ],

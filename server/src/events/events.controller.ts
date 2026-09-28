@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -49,6 +50,7 @@ export class EventsController {
   @Get()
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEvents(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -61,6 +63,7 @@ export class EventsController {
   @Get(':eventId')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getEvent(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -120,6 +123,7 @@ export class EventsController {
   @Patch(':eventId/rsvp')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   setMyRsvp(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -133,6 +137,7 @@ export class EventsController {
   @Delete(':eventId/rsvp')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   clearMyRsvp(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -147,6 +152,7 @@ export class EventsController {
   @Patch(':eventId/travel-mode')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   setMyTravelMode(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -160,6 +166,7 @@ export class EventsController {
   @Get(':eventId/rsvps')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEventRsvps(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -190,6 +197,7 @@ export class EventsController {
   @Get(':eventId/convocations')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEventConvocations(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -249,6 +257,7 @@ export class EventsController {
   @Get(':eventId/votes')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getEventVoteResults(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -312,6 +321,7 @@ export class EventsController {
   @Get(':eventId/scoresheet')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   async getScoresheetStatus(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

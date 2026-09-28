@@ -34,6 +34,7 @@ describe('ClubsService', () => {
       create: jest.Mock;
       updateMany: jest.Mock;
     };
+    playerGuardian: { groupBy: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -65,6 +66,7 @@ describe('ClubsService', () => {
         create: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      playerGuardian: { groupBy: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
@@ -450,6 +452,7 @@ describe('ClubsService', () => {
             licenseType: null,
             isMinor: false,
             parentalConsentGivenAt: null,
+            guardianCount: 0,
             createdAt: '2026-01-01T00:00:00.000Z',
           },
         ],
@@ -457,6 +460,25 @@ describe('ClubsService', () => {
         page: 1,
         pageSize: 25,
       });
+    });
+
+    it('counts each player’s linked parents in one groupBy for the page', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: new Date() },
+        { id: 'p2', clubId: 'club-1', firstName: 'C', lastName: 'D', createdAt: new Date() },
+      ]);
+      prisma.player.count.mockResolvedValue(2);
+      prisma.playerGuardian.groupBy.mockResolvedValue([{ playerId: 'p1', _count: { _all: 2 } }]);
+
+      const result = await service.listPlayers('club-1', {});
+
+      expect(prisma.playerGuardian.groupBy).toHaveBeenCalledTimes(1);
+      expect(prisma.playerGuardian.groupBy).toHaveBeenCalledWith({
+        by: ['playerId'],
+        where: { playerId: { in: ['p1', 'p2'] } },
+        _count: { _all: true },
+      });
+      expect(result.items.map((p) => p.guardianCount)).toEqual([2, 0]);
     });
 
     it('filters players by search on first/last name', async () => {

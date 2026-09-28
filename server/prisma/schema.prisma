@@ -46,6 +46,10 @@ model User {
   pushSubscriptions             PushSubscription[]
   auditLogs                     AuditLog[]
   parentalConsentsAttested      ParentalConsent[]
+  guardianOf                    PlayerGuardian[]
+  guardianInvitesAccepted       GuardianInvite[]         @relation("GuardianInviteAcceptedBy")
+  guardianInvitesCreated        GuardianInvite[]         @relation("GuardianInviteCreatedBy")
+  rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
 }
 
 // The two single-use links a user can be sent by e-mail. Both store only
@@ -64,8 +68,8 @@ model User {
 // distinguishable from an *expired* one, so the API can tell the visitor
 // which of the two happened.
 model EmailVerificationToken {
-  id     String @id @default(uuid())
-  userId String
+  id         String    @id @default(uuid())
+  userId     String
   // The address this token confirms, snapshotted at send time. A user who
   // changes their e-mail before clicking an older link must not have that
   // link verify the new address, so confirmEmail compares this against the
@@ -115,15 +119,19 @@ enum NotificationType {
 // FRONTEND_URL for the e-mailed and pushed copies. Storing the origin would
 // bake one deploy's hostname into rows that outlive it.
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  type      NotificationType
-  title     String
-  body      String?
-  deepLink  String?
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String           @id @default(uuid())
+  userId           String
+  type             NotificationType
+  title            String
+  body             String?
+  deepLink         String?
+  // First name(s) of the child a guardian is told about (« Léo », « Léo et
+  // Emma »), denormalised like title/body so the « pour qui » tag still reads
+  // after a rename or deletion. Null on a notification about the reader.
+  subjectFirstName String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now())
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // The list query ("my notifications, newest first") and the badge query
   // ("how many of mine are unread") are the only two reads, and each gets
@@ -154,22 +162,24 @@ model PushSubscription {
 }
 
 model Player {
-  id            String        @id @default(uuid())
-  firstName     String
-  lastName      String
-  clubId        String
-  userId        String?
-  nationalId    String?       @unique
-  licenseNumber String?
-  birthDate     DateTime?
-  gender        Gender?
-  licenseType   String?
-  createdAt     DateTime      @default(now())
-  club          Club          @relation(fields: [clubId], references: [id])
-  user          User?         @relation(fields: [userId], references: [id])
+  id               String            @id @default(uuid())
+  firstName        String
+  lastName         String
+  clubId           String
+  userId           String?
+  nationalId       String?           @unique
+  licenseNumber    String?
+  birthDate        DateTime?
+  gender           Gender?
+  licenseType      String?
+  createdAt        DateTime          @default(now())
+  club             Club              @relation(fields: [clubId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id])
   teamPlayers      TeamPlayer[]
   invite           PlayerInvite?
   parentalConsents ParentalConsent[]
+  guardians        PlayerGuardian[]
+  guardianInvites  GuardianInvite[]
 
   @@unique([clubId, userId])
   @@index([clubId])
@@ -195,22 +205,64 @@ model PlayerInvite {
   player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
 }
 
+// A parent (or other legal guardian) who can act for a player: answer, pick
+// the travel mode, receive the player's notifications, edit their profile —
+// see docs/superpowers/specs/2026-09-27-parent-guardian-design.md. Being a
+// guardian is this row, not a ClubRole: ClubMembership is unique per user and
+// club, and a parent is often also a player, coach or admin of the same club.
+//
+// The pair is the identity (a duplicate link is a unique violation, not a
+// check), and both sides cascade: nothing of the club's history hangs off a
+// guardian link, so deleting either the player or the account removes the
+// link and nothing else.
+model PlayerGuardian {
+  playerId  String
+  userId    String
+  createdAt DateTime @default(now())
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, userId])
+  @@index([userId])
+}
+
+// A one-time link an admin sends to one parent. Not PlayerInvite with a flag:
+// that one is one-per-player and claims Player.userId, this one is
+// one-per-parent (several can be pending for the same player) and claims
+// nothing on the player. Same token convention (only the hash is stored) and
+// the same "reused vs expired" distinction through acceptedAt.
+model GuardianInvite {
+  id               String    @id @default(uuid())
+  playerId         String
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  player           Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  acceptedBy       User?     @relation("GuardianInviteAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  createdBy        User?     @relation("GuardianInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([playerId])
+}
+
 model Club {
-  id           String           @id @default(uuid())
-  name         String
-  ffbbClubCode String?          @unique
-  createdAt    DateTime         @default(now())
-  memberships  ClubMembership[]
-  players      Player[]
-  clubTeams    ClubTeam[]
-  parentalConsents ParentalConsent[]
+  id                   String            @id @default(uuid())
+  name                 String
+  ffbbClubCode         String?           @unique
+  createdAt            DateTime          @default(now())
+  memberships          ClubMembership[]
+  players              Player[]
+  clubTeams            ClubTeam[]
+  parentalConsents     ParentalConsent[]
   // The club-wide default match meeting point (point de rendez-vous) and the
   // arrival buffer before tip-off. Name and address are written together —
   // both set or both null. See
   // docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
   meetingPointName     String?
   meetingPointAddress  String?
-  arrivalBufferMinutes Int     @default(45)
+  arrivalBufferMinutes Int               @default(45)
 }
 
 enum TeamCategory {
@@ -234,16 +286,16 @@ enum TeamMemberRole {
 }
 
 model Team {
-  id          String         @id @default(uuid())
-  name        String
-  category    TeamCategory
-  gender      Gender
-  createdAt   DateTime       @default(now())
-  clubTeams   ClubTeam[]
-  teamPlayers TeamPlayer[]
-  events      Event[]
-  teamAdmins  TeamAdmin[]
-  ffbbLinks   TeamFfbbLink[]
+  id                   String         @id @default(uuid())
+  name                 String
+  category             TeamCategory
+  gender               Gender
+  createdAt            DateTime       @default(now())
+  clubTeams            ClubTeam[]
+  teamPlayers          TeamPlayer[]
+  events               Event[]
+  teamAdmins           TeamAdmin[]
+  ffbbLinks            TeamFfbbLink[]
   // Team-level overrides of the owner club's meeting point and arrival
   // buffer; null inherits (a CTC team inherits from its owner club only).
   meetingPointName     String?
@@ -415,16 +467,21 @@ enum EventRsvpStatus {
 // left implicit rather than a fourth enum value, same as recurrenceId: null
 // meaning "not part of a series" elsewhere in this schema.
 model EventRsvp {
-  id           String          @id @default(uuid())
-  eventId      String
-  teamPlayerId String
-  status       EventRsvpStatus
+  id                String          @id @default(uuid())
+  eventId           String
+  teamPlayerId      String
+  status            EventRsvpStatus
   // Only meaningful while status is GOING; reset to the default whenever the
   // status changes away from GOING.
-  travelMode   EventTravelMode @default(MEETING_POINT)
-  respondedAt  DateTime        @default(now())
-  event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  teamPlayer   TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+  travelMode        EventTravelMode @default(MEETING_POINT)
+  respondedAt       DateTime        @default(now())
+  // Who gave the answer: the player themself or one of their guardians.
+  // Null on rows that predate guardians, and once the respondent's account
+  // is erased — both read as "no author known".
+  respondedByUserId String?
+  respondedBy       User?           @relation("EventRsvpRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+  event             Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer        TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
 
   // No separate @@index([eventId]) — the unique constraint below already
   // provides a usable btree prefix index for eventId-only lookups.
@@ -629,18 +686,19 @@ enum AuditEventType {
   PASSWORD_RESET_COMPLETED
   REFRESH_TOKEN_REUSE_DETECTED
   EMAIL_VERIFIED
+  GUARDIAN_INVITE_ACCEPTED
 }
 
 model AuditLog {
-  id   String         @id @default(uuid())
-  type AuditEventType
+  id         String         @id @default(uuid())
+  type       AuditEventType
   // Nullable twice over: a LOGIN_FAILURE against an address with no matching
   // account still has to be logged (repeated failures against unknown
   // addresses are themselves a security signal) and has no user to attach
   // to, and onDelete: SetNull keeps the entry when the account it describes
   // is deleted.
-  userId String?
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Denormalised, not read through the relation above, precisely so it
   // survives that SetNull — an entry must still read "someone signed in as
   // jean@example.com" after that account is gone. A security log outliving
@@ -649,7 +707,7 @@ model AuditLog {
   ipAddress  String?
   userAgent  String?
   metadata   Json?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime       @default(now())
 
   // The sweep deletes by age; the back-office (companion spec) reads one
   // account's history.
@@ -667,26 +725,35 @@ model AuditLog {
 // onDelete clause would give Prisma's default (Restrict) and block player
 // deletion entirely, which is the opposite of what is wanted — the record
 // must survive a deletion, not prevent one.
+enum ParentalConsentSource {
+  STAFF_ATTESTATION
+  GUARDIAN_IN_APP
+}
+
 model ParentalConsent {
-  id       String  @id @default(uuid())
-  playerId String?
-  player   Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
-  clubId   String
-  club     Club    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  id                 String                @id @default(uuid())
+  playerId           String?
+  player             Player?               @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  clubId             String
+  club               Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
   // Snapshot of the minor's identity at consent time, kept even once
   // playerId goes null: a proof of consent that no longer says whose consent
   // it was is worthless as evidence.
-  playerFirstName String
-  playerLastName  String
-  playerBirthDate DateTime
+  playerFirstName    String
+  playerLastName     String
+  playerBirthDate    DateTime
   // Who attested the consent was obtained. Free text, not just a relation:
   // the attester's own account may itself be deleted later (hence
   // onDelete: SetNull on attestedByUserId), and this record must still name
   // who claimed to have obtained it.
-  attestedByName   String
-  attestedByUserId String?
-  attestedByUser   User?    @relation(fields: [attestedByUserId], references: [id], onDelete: SetNull)
-  consentGivenAt   DateTime @default(now())
+  attestedByName     String
+  attestedByUserId   String?
+  attestedByUser     User?                 @relation(fields: [attestedByUserId], references: [id], onDelete: SetNull)
+  // A staff member ticking a box for a family, or the parent confirming it
+  // themself while accepting a guardian invite. attestedByUserId alone can't
+  // tell the two apart, and the difference matters as evidence.
+  source             ParentalConsentSource @default(STAFF_ATTESTATION)
+  consentGivenAt     DateTime              @default(now())
   // Null while the player/account this documents is still live — the rule is
   // "compte/joueur + 5 ans", so the clock only starts once there is a
   // deletion to count five years from. Set by whichever path removes the
@@ -707,9 +774,9 @@ model ParentalConsent {
 // after the fact. These rows are never swept themselves; a retention record
 // that expires defeats its own purpose, and it is a few hundred rows a year.
 model RetentionRun {
-  id     String   @id @default(uuid())
-  ranAt  DateTime @default(now())
-  dryRun Boolean  @default(false)
+  id      String   @id @default(uuid())
+  ranAt   DateTime @default(now())
+  dryRun  Boolean  @default(false)
   // One entry per independent step —
   // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
   //   parentalConsents: {...}, geocodeCache: {...} } — so a step that threw
