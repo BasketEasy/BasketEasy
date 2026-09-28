@@ -155,12 +155,6 @@ const routeDefs = [
   ],
   ['GET', '/api/admin/retention/runs', () => []],
   ['GET', '/api/admin/users', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/clubs', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/teams', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/players', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/events', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/scoresheets', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
-  ['GET', '/api/admin/audit-log', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
   [
     'GET',
     '/api/admin/search',
