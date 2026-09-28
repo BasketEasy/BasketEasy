@@ -76,3 +76,14 @@ export interface AdminActionResult {
  * retried. Before it, a retry would race the read already running.
  */
 export const ADMIN_OCR_STUCK_AFTER_MS = 60 * 60 * 1000;
+
+/** Creates a club and makes an existing account its first ADMIN, in one audited step. */
+export interface AdminCreateClubRequest extends AdminReasonRequest {
+  name: string;
+  ffbbClubCode?: string;
+  firstAdminUserId: string;
+}
+
+export interface AdminCreateClubResult extends AdminActionResult {
+  clubId: string;
+}

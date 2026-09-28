@@ -11,13 +11,18 @@ import type { Request } from 'express';
 import {
   ADMIN_OCR_STUCK_AFTER_MS,
   type AdminActionResult,
+  type AdminCreateClubResult,
   type AdminSupportActionKind,
 } from '@basketeasy/types/platform-admin-actions';
 import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountSecurityService } from '../auth/account-security.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
-import { removeClubMembership, writeParentalConsent } from '../clubs/club-writes';
+import {
+  createClubWithAdmin,
+  removeClubMembership,
+  writeParentalConsent,
+} from '../clubs/club-writes';
 import { auditContextOf } from './audit-context';
 import type { PlatformActor } from './platform-admin-browse.service';
 
@@ -411,6 +416,31 @@ export class PlatformAdminActionsService {
         subjectPlayerId: playerId,
         clubId: player.clubId,
       });
+    });
+  }
+
+  // ----------------------------------------------------------------- clubs
+
+  /**
+   * A new club and its first ADMIN, who must already have an account: the
+   * back-office never creates people. An unverified first admin is allowed —
+   * EmailVerifiedGuard still gates what they can hand out until they confirm.
+   */
+  async createClub(
+    actor: PlatformActor,
+    data: { name: string; ffbbClubCode?: string; firstAdminUserId: string },
+    reason: string,
+    request: Request,
+  ): Promise<AdminCreateClubResult> {
+    await this.findUser(data.firstAdminUserId);
+    return this.prisma.$transaction(async (tx) => {
+      const club = await createClubWithAdmin(tx, data.firstAdminUserId, data);
+      const result = await this.record(tx, actor, request, 'CLUB_CREATED', reason, {
+        clubId: club.id,
+        subjectUserId: data.firstAdminUserId,
+        after: { name: club.name, ffbbClubCode: club.ffbbClubCode },
+      });
+      return { ...result, clubId: club.id };
     });
   }
 

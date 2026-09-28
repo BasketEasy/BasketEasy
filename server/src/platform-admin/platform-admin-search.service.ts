@@ -74,7 +74,7 @@ export class PlatformAdminSearchService {
 
     if (club) return clubHit(club);
     if (team) return teamHit(team);
-    if (user) return personHit('user', userRef(role, user));
+    if (user) return userHit(role, user);
     if (player) return personHit('player', playerRef(role, player), player.club.name);
     if (event) {
       return {
@@ -132,7 +132,7 @@ export class PlatformAdminSearchService {
     return {
       club: clubs.map(clubHit),
       team: teams.map(teamHit),
-      user: users.map((user) => personHit('user', userRef(role, user))),
+      user: users.map((user) => userHit(role, user)),
       player: players.map((player) =>
         personHit('player', playerRef(role, player), player.club.name),
       ),
@@ -148,7 +148,13 @@ const teamSelect = {
   clubTeams: { where: { isOwner: true }, select: { club: { select: { name: true } } } },
 } as const;
 
-const userSelect = { id: true, email: true, firstName: true, lastName: true } as const;
+const userSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  emailVerifiedAt: true,
+} as const;
 
 const playerSelect = {
   id: true,
@@ -177,6 +183,16 @@ function teamHit(team: {
     id: team.id,
     label: team.name,
     sublabel: team.clubTeams[0]?.club.name ?? null,
+  };
+}
+
+function userHit(
+  role: PlatformRole,
+  user: Parameters<typeof userRef>[1] & { emailVerifiedAt: Date | null },
+): AdminSearchHit {
+  return {
+    ...personHit('user', userRef(role, user)),
+    emailVerified: user.emailVerifiedAt !== null,
   };
 }
 
