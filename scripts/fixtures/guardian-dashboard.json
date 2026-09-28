@@ -1,0 +1,75 @@
+{
+  "POST /api/auth/refresh": { "accessToken": "access-1" },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "sophie.lambert@gmail.com",
+    "firstName": "Sophie",
+    "lastName": "Lambert",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [{ "clubId": "club-1", "role": "MEMBER" }]
+  },
+  "GET /api/clubs": [
+    { "id": "club-1", "name": "ASC Nantes", "ffbbClubCode": null, "createdAt": "2026-01-01" }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/personas": {
+    "self": {
+      "userId": "user-1",
+      "firstName": "Sophie",
+      "lastName": "Lambert",
+      "memberships": [{ "clubId": "club-1", "role": "MEMBER" }],
+      "playerIds": []
+    },
+    "children": [
+      {
+        "playerId": "player-leo-1",
+        "firstName": "Léo",
+        "lastName": "Lambert",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teams": [{ "teamId": "team-1", "teamName": "U15 Garçons" }],
+        "pendingCount": 2
+      }
+    ]
+  },
+  "GET /api/me/dashboard": {
+    "upcomingEvents": [
+      {
+        "eventId": "evt-1",
+        "teamId": "team-1",
+        "teamName": "U15 Garçons",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "TRAINING",
+        "startsAt": "2026-10-01T18:00:00Z",
+        "location": "Gymnase Mangin",
+        "notes": null,
+        "opponentName": null,
+        "venue": null,
+        "recurrenceId": "rec-1",
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "rsvpSummary": { "going": 0, "notGoing": 0, "maybe": 0, "noResponse": 10, "convoked": 0 },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": { "jerseys": null, "balls": null },
+        "result": null,
+        "myMatchStats": null
+      }
+    ],
+    "totalPlayers": 0,
+    "actionItems": []
+  },
+  "GET /api/me/teams": { "items": [], "total": 0 },
+  "GET /api/me/notifications/unread-count": { "count": 2 },
+  "GET /api/me/notifications": { "items": [], "total": 0, "page": 1, "pageSize": 20 }
+}

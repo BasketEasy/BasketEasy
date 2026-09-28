@@ -8,6 +8,7 @@ import { PlayerHome } from '../clubs/PlayerHome';
 import { useHasManageRights } from '../clubs/useHasManageRights';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
+import { useActingAs } from '../guardians/useActingAs';
 
 /**
  * `/dashboard` — one route, two screens, branching on `useHasManageRights()`.
@@ -35,6 +36,7 @@ import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
 export function DashboardPage() {
   const { user } = useAccount();
   const { hasManageRights } = useHasManageRights();
+  const { persona } = useActingAs();
   // Computed once (not inline on every render): `playerAgendaWindowParams()`
   // stamps `from` with `new Date()`, so recomputing it on each render would
   // shift the query key by a few milliseconds every time and refetch forever.
@@ -62,10 +64,16 @@ export function DashboardPage() {
           {/* The account e-mail line is manager-only now: a player's home
               screen is about the week, not about the account
               (`player-journey.md` §3.3). */}
-          {hasManageRights && user && (
-            <Text variant="meta" size="md" className="mt-1 break-all">
-              {user.email}
+          {persona ? (
+            <Text variant="meta" size="md" className="mt-1">
+              {`Vous gérez ${persona.firstName} ${persona.lastName}`}
             </Text>
+          ) : (
+            hasManageRights && user && (
+              <Text variant="meta" size="md" className="mt-1 break-all">
+                {user.email}
+              </Text>
+            )
           )}
         </div>
       </div>
