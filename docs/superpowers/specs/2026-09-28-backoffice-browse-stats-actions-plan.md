@@ -2,6 +2,13 @@
 
 Design record: [`2026-09-28-backoffice-browse-stats-actions-design.md`](./2026-09-28-backoffice-browse-stats-actions-design.md)
 
+Per-part specs: [1 read API](./2026-09-28-backoffice-v2-part1-read-api.md) ·
+[2 browse UI](./2026-09-28-backoffice-v2-part2-browse-ui.md) ·
+[3 search](./2026-09-28-backoffice-v2-part3-search.md) ·
+[4 stats](./2026-09-28-backoffice-v2-part4-stats.md) ·
+[5 support actions](./2026-09-28-backoffice-v2-part5-support-actions.md) ·
+[6 club creation](./2026-09-28-backoffice-v2-part6-create-club.md). Where a part spec is more precise than this plan, the part spec wins.
+
 Six phases, one PR each, **stacked**: each branch starts from the previous one, and each PR
 targets the previous phase's branch until that one merges (then it is retargeted to `main`).
 Every phase leaves the app working and CI green on its own.
