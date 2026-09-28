@@ -1,6 +1,9 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+const RESPONDED_AT = new Date('2026-01-01T12:00:00.000Z');
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -8,7 +11,12 @@ describe('DashboardService', () => {
     clubMembership: { findMany: jest.Mock };
     teamAdmin: { findMany: jest.Mock };
     teamPlayer: { findMany: jest.Mock; groupBy: jest.Mock };
-    player: { count: jest.Mock; findMany: jest.Mock };
+    player: {
+      count: jest.Mock;
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+    };
     event: { findMany: jest.Mock };
     eventRsvp: { findMany: jest.Mock };
     eventConvocation: { findMany: jest.Mock };
@@ -21,7 +29,12 @@ describe('DashboardService', () => {
       clubMembership: { findMany: jest.fn() },
       teamAdmin: { findMany: jest.fn() },
       teamPlayer: { findMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
-      player: { count: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+      player: {
+        count: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+        findUniqueOrThrow: jest.fn(),
+      },
       event: { findMany: jest.fn().mockResolvedValue([]) },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
       eventConvocation: { findMany: jest.fn().mockResolvedValue([]) },
@@ -120,6 +133,8 @@ describe('DashboardService', () => {
         venue: 'HOME',
         recurrenceId: null,
         myRsvpStatus: null,
+        myRsvpRespondedBy: null,
+        myRsvpRespondedAt: null,
         myConvocation: false,
         rsvpSummary: {
           rosterSize: 0,
@@ -165,13 +180,16 @@ describe('DashboardService', () => {
         team: { name: 'U15 Filles', clubTeams: [{ club: { id: 'club-1', name: 'COC Basket' } }] },
       },
     ]);
-    prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', status: 'GOING' }]);
+    prisma.eventRsvp.findMany.mockResolvedValue([
+      { eventId: 'event-1', status: 'GOING', respondedAt: RESPONDED_AT, respondedBy: null },
+    ]);
     prisma.eventConvocation.findMany.mockResolvedValue([{ eventId: 'event-2' }]);
 
     const result = await service.getDashboard('user-1');
 
     expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith({
       where: { teamPlayerId: { in: ['tp-1'] }, eventId: { in: ['event-1', 'event-2'] } },
+      include: { respondedBy: { select: { id: true, firstName: true, lastName: true } } },
     });
     expect(result.upcomingEvents).toEqual([
       expect.objectContaining({ eventId: 'event-1', myRsvpStatus: 'GOING', myConvocation: false }),
@@ -260,8 +278,20 @@ describe('DashboardService', () => {
       { teamId: 'team-2', _count: { _all: 2 } },
     ]);
     prisma.eventRsvp.findMany.mockResolvedValue([
-      { eventId: 'event-1', teamPlayerId: 'tp-a', status: 'GOING' },
-      { eventId: 'event-2', teamPlayerId: 'tp-b', status: 'MAYBE' },
+      {
+        eventId: 'event-1',
+        teamPlayerId: 'tp-a',
+        status: 'GOING',
+        respondedAt: RESPONDED_AT,
+        respondedBy: null,
+      },
+      {
+        eventId: 'event-2',
+        teamPlayerId: 'tp-b',
+        status: 'MAYBE',
+        respondedAt: RESPONDED_AT,
+        respondedBy: null,
+      },
     ]);
     prisma.eventConvocation.findMany.mockResolvedValue([]);
 
@@ -525,7 +555,13 @@ describe('DashboardService', () => {
       // resolveEventRosterSummaries and reused, not re-queried.
       prisma.teamPlayer.groupBy.mockResolvedValue([{ teamId: 'team-1', _count: { _all: 3 } }]);
       prisma.eventRsvp.findMany.mockResolvedValue([
-        { eventId: 'event-1', teamPlayerId: 'tp-a', status: 'GOING' },
+        {
+          eventId: 'event-1',
+          teamPlayerId: 'tp-a',
+          status: 'GOING',
+          respondedAt: RESPONDED_AT,
+          respondedBy: null,
+        },
       ]);
 
       const result = await service.getDashboard('user-1');
@@ -684,6 +720,78 @@ describe('DashboardService', () => {
         'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
         'MATCH_WITHOUT_CONFIRMED_SCORESHEET',
       ]);
+    });
+  });
+
+  describe('acting for a child', () => {
+    it('shows the child’s agenda through the child’s club, with no manager band', async () => {
+      prisma.player.findFirst.mockResolvedValue({ id: 'child-1' });
+      prisma.player.findUniqueOrThrow.mockResolvedValue({
+        clubId: 'club-partner',
+        teamPlayers: [{ id: 'tp-child', teamId: 'team-ctc' }],
+      });
+      prisma.event.findMany.mockResolvedValue([
+        {
+          id: 'event-1',
+          teamId: 'team-ctc',
+          type: 'MATCH',
+          startsAt: new Date('2026-08-12T18:00:00.000Z'),
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: 'Rezé',
+          venue: 'HOME',
+          recurrenceId: null,
+          externalId: null,
+          timeConfirmed: true,
+          jerseysTeamPlayerId: null,
+          ballsTeamPlayerId: null,
+          team: {
+            name: 'U11 CTC',
+            clubTeams: [
+              { club: { id: 'club-owner', name: 'Owner' } },
+              { club: { id: 'club-partner', name: 'Partner' } },
+            ],
+          },
+        },
+      ]);
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        {
+          eventId: 'event-1',
+          status: 'GOING',
+          respondedAt: RESPONDED_AT,
+          respondedBy: { id: 'parent-1', firstName: 'Sophie', lastName: 'Martin' },
+        },
+      ]);
+
+      const result = await service.getDashboard('parent-1', undefined, undefined, 'child-1');
+
+      // The caller's own memberships and grants are never read.
+      expect(prisma.clubMembership.findMany).not.toHaveBeenCalled();
+      expect(prisma.teamAdmin.findMany).not.toHaveBeenCalled();
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { teamPlayerId: { in: ['tp-child'] }, eventId: { in: ['event-1'] } },
+        }),
+      );
+      expect(result.totalPlayers).toBe(0);
+      expect(result.actionItems).toEqual([]);
+      expect(result.upcomingEvents[0]).toMatchObject({
+        clubId: 'club-partner',
+        myRsvpStatus: 'GOING',
+        myRsvpRespondedBy: {
+          firstName: 'Sophie',
+          lastInitial: 'M',
+          isMe: true,
+        },
+      });
+    });
+
+    it('refuses a player the caller may not act for', async () => {
+      prisma.player.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getDashboard('stranger', undefined, undefined, 'child-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

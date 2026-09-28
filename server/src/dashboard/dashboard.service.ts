@@ -13,6 +13,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
+import { assertCanActForPlayer } from '../common/acting-as';
+import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_AGENDA_WINDOW_DAYS = 7;
@@ -33,6 +35,13 @@ function formatWeekdayLabel(date: Date): string {
   return new Intl.DateTimeFormat('fr-FR', { weekday: 'long' }).format(date);
 }
 
+type DashboardScope = {
+  adminClubIds: string[];
+  memberClubIds: Set<string>;
+  adminGrants: { teamId: string }[];
+  rosterEntries: { id: string; teamId: string }[];
+};
+
 type ActionItemEventTeam = { name: string; clubTeams: { club: { id: string; name: string } }[] };
 type ActionItemEvent = {
   id: string;
@@ -51,24 +60,17 @@ export class DashboardService {
   // internals — CLAUDE.md's Events section notes the codebase's established
   // convention is for each module to re-verify/re-derive what it needs rather
   // than importing across modules.
-  async getDashboard(userId: string, from?: string, to?: string): Promise<MyDashboardSummary> {
+  async getDashboard(
+    userId: string,
+    from?: string,
+    to?: string,
+    forPlayerId?: string,
+  ): Promise<MyDashboardSummary> {
     const range = this.resolveRange(from, to);
 
-    const [adminMemberships, allMemberships, adminGrants, rosterEntries] = await Promise.all([
-      this.prisma.clubMembership.findMany({
-        where: { userId, role: 'ADMIN' },
-        select: { clubId: true },
-      }),
-      this.prisma.clubMembership.findMany({ where: { userId }, select: { clubId: true } }),
-      this.prisma.teamAdmin.findMany({ where: { userId }, select: { teamId: true } }),
-      this.prisma.teamPlayer.findMany({
-        where: { player: { userId } },
-        select: { id: true, teamId: true },
-      }),
-    ]);
-
-    const adminClubIds = adminMemberships.map((m) => m.clubId);
-    const memberClubIds = new Set(allMemberships.map((m) => m.clubId));
+    const { adminClubIds, memberClubIds, adminGrants, rosterEntries } = forPlayerId
+      ? await this.resolvePersonaScope(userId, forPlayerId)
+      : await this.resolveOwnScope(userId);
     const teamIds = Array.from(
       new Set([...adminGrants.map((g) => g.teamId), ...rosterEntries.map((r) => r.teamId)]),
     );
@@ -104,13 +106,14 @@ export class DashboardService {
         ? await Promise.all([
             this.prisma.eventRsvp.findMany({
               where: { teamPlayerId: { in: teamPlayerIds }, eventId: { in: eventIds } },
+              include: { respondedBy: RSVP_RESPONDENT_SELECT },
             }),
             this.prisma.eventConvocation.findMany({
               where: { teamPlayerId: { in: teamPlayerIds }, eventId: { in: eventIds } },
             }),
           ])
         : [[], []];
-    const rsvpStatuses = new Map(rsvps.map((r) => [r.eventId, r.status as EventRsvpStatus]));
+    const rsvpsByEventId = new Map(rsvps.map((r) => [r.eventId, r]));
     const convokedEventIds = new Set(convocations.map((c) => c.eventId));
 
     const [rsvpSummaries, logisticsAssignees, { resultsByEventId, myStatsByEventId }] =
@@ -134,7 +137,8 @@ export class DashboardService {
         this.toAgendaEvent(
           event,
           memberClubIds,
-          rsvpStatuses.get(event.id) ?? null,
+          rsvpsByEventId.get(event.id) ?? null,
+          userId,
           convokedEventIds.has(event.id),
           this.rsvpSummaryOrZero(event.id, rsvpSummaries),
           logisticsAssignees,
@@ -143,6 +147,49 @@ export class DashboardService {
         ),
       ),
       actionItems,
+    };
+  }
+
+  // Everything the caller's own dashboard is scoped by: the clubs they
+  // administer or belong to, their TeamAdmin grants, and their roster slots.
+  private async resolveOwnScope(userId: string): Promise<DashboardScope> {
+    const [adminMemberships, allMemberships, adminGrants, rosterEntries] = await Promise.all([
+      this.prisma.clubMembership.findMany({
+        where: { userId, role: 'ADMIN' },
+        select: { clubId: true },
+      }),
+      this.prisma.clubMembership.findMany({ where: { userId }, select: { clubId: true } }),
+      this.prisma.teamAdmin.findMany({ where: { userId }, select: { teamId: true } }),
+      this.prisma.teamPlayer.findMany({
+        where: { player: { userId } },
+        select: { id: true, teamId: true },
+      }),
+    ]);
+    return {
+      adminClubIds: adminMemberships.map((m) => m.clubId),
+      memberClubIds: new Set(allMemberships.map((m) => m.clubId)),
+      adminGrants,
+      rosterEntries,
+    };
+  }
+
+  // The dashboard as a player the caller acts for (a child, or their own
+  // player row): that player's roster slots only, answered as them. No
+  // manager scope — a guardian link never carries manager rights, so no
+  // action items and no club-wide player count. Each agenda row resolves to
+  // the player's own club, which is always one of its team's linked clubs and
+  // the one @AllowGuardians() accepts when the reader taps through.
+  private async resolvePersonaScope(userId: string, playerId: string): Promise<DashboardScope> {
+    await assertCanActForPlayer(this.prisma, userId, playerId);
+    const player = await this.prisma.player.findUniqueOrThrow({
+      where: { id: playerId },
+      select: { clubId: true, teamPlayers: { select: { id: true, teamId: true } } },
+    });
+    return {
+      adminClubIds: [],
+      memberClubIds: new Set([player.clubId]),
+      adminGrants: [],
+      rosterEntries: player.teamPlayers,
     };
   }
 
@@ -524,7 +571,12 @@ export class DashboardService {
       team: { name: string; clubTeams: { club: { id: string; name: string } }[] };
     },
     memberClubIds: Set<string>,
-    myRsvpStatus: EventRsvpStatus | null,
+    myRsvp: {
+      status: EventRsvpStatus;
+      respondedAt: Date;
+      respondedBy: { id: string; firstName: string | null; lastName: string | null } | null;
+    } | null,
+    callerId: string,
     myConvocation: boolean,
     rsvpSummary: EventRsvpSummary,
     logisticsAssignees: Map<string, EventLogisticsAssignee>,
@@ -550,7 +602,9 @@ export class DashboardService {
       opponentName: event.opponentName,
       venue: event.venue,
       recurrenceId: event.recurrenceId,
-      myRsvpStatus,
+      myRsvpStatus: myRsvp?.status ?? null,
+      myRsvpRespondedBy: toRsvpRespondent(myRsvp?.respondedBy ?? null, callerId),
+      myRsvpRespondedAt: myRsvp?.respondedAt.toISOString() ?? null,
       myConvocation,
       rsvpSummary,
       // Same derivation EventsService uses, not a stored column — see

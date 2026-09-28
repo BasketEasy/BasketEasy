@@ -20,6 +20,7 @@ import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admin
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import type { TeamFfbbLink as TeamFfbbLinkDto } from '@basketeasy/types/ffbb';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertCanActForPlayer } from '../common/acting-as';
 import { resolvePagination } from '../common/pagination';
 import { FFBB_PROVIDER, FfbbProvider } from '../ffbb/ffbb-provider';
 import { ListTeamsDto } from './dto/list-teams.dto';
@@ -510,13 +511,30 @@ export class TeamsService {
     await this.prisma.teamAdmin.delete({ where: { id: teamAdmin.id } });
   }
 
-  async listTeamsForUser(userId: string): Promise<MyTeamSummary[]> {
+  async listTeamsForUser(userId: string, forPlayerId?: string): Promise<MyTeamSummary[]> {
     const teamInclude = {
       clubTeams: {
         include: { club: true },
         orderBy: [{ isOwner: 'desc' as const }, { createdAt: 'asc' as const }],
       },
     };
+
+    // As a player the caller acts for: that player's roster teams only, never
+    // a manager grant (a guardian link carries none), each navigated through
+    // the player's own club — always one of the team's linked clubs, and the
+    // one @AllowGuardians() accepts.
+    if (forPlayerId) {
+      await assertCanActForPlayer(this.prisma, userId, forPlayerId);
+      const player = await this.prisma.player.findUniqueOrThrow({
+        where: { id: forPlayerId },
+        select: { clubId: true, teamPlayers: { include: { team: { include: teamInclude } } } },
+      });
+      return player.teamPlayers
+        .map((entry) =>
+          this.toMyTeamSummary(entry.team, new Set([player.clubId]), false, entry.role),
+        )
+        .sort((a, b) => a.teamName.localeCompare(b.teamName));
+    }
 
     const [adminGrants, rosterEntries, memberships] = await Promise.all([
       this.prisma.teamAdmin.findMany({

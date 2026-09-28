@@ -62,4 +62,45 @@ describe('event notification copy', () => {
       expect(copy.body).toContain('104 occurrences');
     });
   });
+
+  describe('for a parent', () => {
+    const match = {
+      type: 'MATCH' as const,
+      startsAt: WINTER_EVENING,
+      location: 'Gymnase Léo Lagrange',
+      opponentName: 'ASVEL',
+    };
+
+    it('names the child instead of the reader', () => {
+      const copy = convocationNotification('U11 F', match, null, {
+        self: false,
+        children: [{ firstName: 'Léo' }],
+      });
+
+      expect(copy.title).toBe('Léo est convoqué·e — U11 F');
+      expect(copy.body).toMatch(/^Léo est convoqué·e pour le match contre ASVEL/);
+      expect(copy.body).toContain('Merci d’indiquer sa présence.');
+    });
+
+    it('merges a parent convoked with their child into one sentence', () => {
+      const copy = convocationNotification('Seniors', match, null, {
+        self: true,
+        children: [{ firstName: 'Léo' }],
+      });
+
+      expect(copy.title).toBe('Léo et vous êtes convoqué·es — Seniors');
+      expect(copy.body).toContain('Merci d’indiquer vos présences.');
+    });
+
+    it('says whose match was cancelled', () => {
+      const copy = cancellationNotification('U11 F', match, 1, {
+        self: false,
+        children: [{ firstName: 'Léo' }],
+      });
+
+      expect(copy.body).toBe(
+        'Pour Léo : Le match contre ASVEL du samedi 10 janvier à 20:30 a été annulé.',
+      );
+    });
+  });
 });

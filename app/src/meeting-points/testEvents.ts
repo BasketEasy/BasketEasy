@@ -32,6 +32,8 @@ export function matchEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     recurrenceId: null,
     createdAt: '2026-09-01T00:00:00.000Z',
     myRsvpStatus: 'GOING',
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     isImported: false,
     timeConfirmed: true,
     myConvocation: true,

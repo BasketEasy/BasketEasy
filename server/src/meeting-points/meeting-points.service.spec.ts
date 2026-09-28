@@ -19,6 +19,24 @@ import {
 } from './meeting-points.service';
 import type { RoutingClient } from './routing-client';
 
+// One row of resolvePlayerAudience's teamPlayer read.
+function audienceRow(
+  teamPlayerId: string,
+  userId: string | null,
+  { guardians = [] as string[], firstName = 'Théo' } = {},
+) {
+  return {
+    id: teamPlayerId,
+    player: {
+      id: teamPlayerId.replace('tp-', 'player-'),
+      firstName,
+      clubId: 'club-1',
+      userId,
+      guardians: guardians.map((guardianId) => ({ userId: guardianId })),
+    },
+  };
+}
+
 describe('MeetingPointsService', () => {
   let prisma: {
     club: { findUnique: jest.Mock; update: jest.Mock };
@@ -32,6 +50,7 @@ describe('MeetingPointsService', () => {
       updateMany: jest.Mock;
     };
     eventRsvp: { findMany: jest.Mock };
+    teamPlayer: { findMany: jest.Mock };
     clubMembership: { findMany: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
@@ -104,6 +123,8 @@ describe('MeetingPointsService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
+      // resolvePlayerAudience's read: each GOING slot's player and guardians.
+      teamPlayer: { findMany: jest.fn().mockResolvedValue([]) },
       clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
     };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
@@ -516,9 +537,8 @@ describe('MeetingPointsService', () => {
 
     it('tells players when a meeting hour becomes known for the first time', async () => {
       prisma.event.findMany.mockResolvedValue([upcoming(known)]);
-      prisma.eventRsvp.findMany.mockResolvedValue([
-        { eventId: 'event-1', teamPlayer: { player: { userId: 'user-1' } } },
-      ]);
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', teamPlayerId: 'tp-1' }]);
+      prisma.teamPlayer.findMany.mockResolvedValue([audienceRow('tp-1', 'user-1')]);
 
       await service.announceMeetingChanges(['event-1']);
 
@@ -559,8 +579,12 @@ describe('MeetingPointsService', () => {
         upcoming({ ...known, meetingAnnouncedKey: 'Parking club|1 rue du Club, Nantes|old' }),
       ]);
       prisma.eventRsvp.findMany.mockResolvedValue([
-        { eventId: 'event-1', teamPlayer: { player: { userId: 'user-partner' } } },
-        { eventId: 'event-1', teamPlayer: { player: { userId: null } } },
+        { eventId: 'event-1', teamPlayerId: 'tp-partner' },
+        { eventId: 'event-1', teamPlayerId: 'tp-nobody' },
+      ]);
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        audienceRow('tp-partner', 'user-partner'),
+        audienceRow('tp-nobody', null),
       ]);
       prisma.clubMembership.findMany.mockResolvedValue([
         { userId: 'user-partner', clubId: 'club-2' },
@@ -581,6 +605,30 @@ describe('MeetingPointsService', () => {
           deepLink: '/clubs/club-2/teams/team-1/events/event-1',
         }),
       ]);
+    });
+
+    it('tells a coming child’s parent too, through the child’s club, naming the child', async () => {
+      prisma.event.findMany.mockResolvedValue([upcoming(known)]);
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', teamPlayerId: 'tp-leo' }]);
+      prisma.teamPlayer.findMany.mockResolvedValue([
+        audienceRow('tp-leo', 'leo-user', { firstName: 'Léo', guardians: ['parent-1'] }),
+      ]);
+
+      await service.announceMeetingChanges(['event-1']);
+
+      const batch = notifications.notify.mock.calls[0][0];
+      expect(batch).toHaveLength(2);
+      expect(batch).toContainEqual(
+        expect.objectContaining({
+          userId: 'parent-1',
+          subjectFirstName: 'Léo',
+          body: expect.stringMatching(/^Pour Léo : Rendez-vous/),
+          deepLink: '/clubs/club-1/teams/team-1/events/event-1?pour=player-leo',
+        }),
+      );
+      expect(batch).toContainEqual(
+        expect.objectContaining({ userId: 'leo-user', subjectFirstName: null }),
+      );
     });
 
     it('does not announce twice when another write already recorded the change', async () => {

@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TeamStatsService, seasonWindow, seasonYearFor } from './team-stats.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -35,6 +35,7 @@ describe('TeamStatsService', () => {
     matchPlayerStat: { findMany: jest.Mock };
     eventVote: { groupBy: jest.Mock };
     event: { findMany: jest.Mock };
+    player: { findFirst: jest.Mock };
   };
 
   const rosterMember = (
@@ -45,6 +46,7 @@ describe('TeamStatsService', () => {
   ) => ({
     id,
     role: 'PLAYER',
+    playerId: `player-${id}`,
     player: { firstName, lastName, userId },
   });
 
@@ -76,6 +78,7 @@ describe('TeamStatsService', () => {
       matchPlayerStat: { findMany: jest.fn().mockResolvedValue([]) },
       eventVote: { groupBy: jest.fn().mockResolvedValue([]) },
       event: { findMany: jest.fn().mockResolvedValue([]) },
+      player: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -314,5 +317,29 @@ describe('TeamStatsService', () => {
     );
 
     expect(result.players.every((player) => player.isMe === false)).toBe(true);
+  });
+
+  it('flags the child’s row for a parent reading their child’s team', async () => {
+    prisma.player.findFirst.mockResolvedValue({ id: 'player-tp-2' });
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      rosterMember('tp-1', 'Dupont', 'Prénom', 'user-parent'),
+      rosterMember('tp-2', 'Martin', 'Léo', null),
+    ]);
+
+    const result = await service.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      'user-parent',
+      2026,
+      'player-tp-2',
+    );
+
+    expect(result.players.find((p) => p.isMe)?.teamPlayerId).toBe('tp-2');
+  });
+
+  it('refuses a player the caller may not act for', async () => {
+    await expect(
+      service.getTeamSeasonStats('club-1', 'team-1', 'stranger', 2026, 'player-tp-2'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

@@ -63,3 +63,14 @@ export async function canActForPlayer(
   });
   return player !== null;
 }
+
+/** `canActForPlayer`, throwing the shared 403 when it doesn't hold. */
+export async function assertCanActForPlayer(
+  prisma: PrismaReader,
+  userId: string,
+  playerId: string,
+): Promise<void> {
+  if (!(await canActForPlayer(prisma, userId, playerId))) {
+    throw new ForbiddenException(ACTING_AS_FORBIDDEN_MESSAGE);
+  }
+}

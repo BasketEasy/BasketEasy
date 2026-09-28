@@ -1,5 +1,10 @@
 import type { EventType } from '@prisma/client';
 import { describeEvent, formatEventMoment, formatTime } from '../common/event-copy';
+import {
+  SELF_SUBJECT,
+  forWhomPrefix,
+  type NotificationSubject,
+} from '../common/notification-subject';
 
 /** A resolved meeting point with a known time — what the RDV sentences need. */
 export interface KnownMeeting {
@@ -22,10 +27,11 @@ export function meetingFixedNotification(
   teamName: string,
   event: MeetingEvent,
   meeting: KnownMeeting,
+  subject: NotificationSubject = SELF_SUBJECT,
 ): { title: string; body: string } {
   return {
     title: `RDV fixé — ${teamName}`,
-    body: `Rendez-vous pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} : ${describeMeeting(meeting)}.`,
+    body: `${forWhomPrefix(subject)}Rendez-vous pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} : ${describeMeeting(meeting)}.`,
   };
 }
 
@@ -34,9 +40,10 @@ export function meetingChangedNotification(
   teamName: string,
   event: MeetingEvent,
   meeting: KnownMeeting,
+  subject: NotificationSubject = SELF_SUBJECT,
 ): { title: string; body: string } {
   return {
     title: `RDV modifié — ${teamName}`,
-    body: `Nouveau rendez-vous pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} : ${describeMeeting(meeting)}.`,
+    body: `${forWhomPrefix(subject)}Nouveau rendez-vous pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} : ${describeMeeting(meeting)}.`,
   };
 }
