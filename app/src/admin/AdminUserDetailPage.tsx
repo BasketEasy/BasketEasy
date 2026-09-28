@@ -1,172 +1,250 @@
-import type { ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
-import { Card, CardContent } from '@basketeasy/ui/card';
-import { Loader } from '@basketeasy/ui/loader';
-import { QueryError } from '@basketeasy/ui/query-error';
+import { Button } from '@basketeasy/ui/button';
+import { Card } from '@basketeasy/ui/card';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
+import { Link } from 'react-router-dom';
 import type { AdminUserDetail } from '@basketeasy/types/platform-admin-browse';
-import { usePlatformUser } from './useAdminQueries';
+import { useAdminUser } from './useAdminQueries';
 import { AdminEraseDialog } from './AdminEraseDialog';
 import { AdminUserExportDialog } from './AdminUserExportDialog';
 import { usePlatformSession } from './platformSession';
+import {
+  AdminFacts,
+  AdminLinkedList,
+  AdminPageHeader,
+  AdminSection,
+  AdminTwoColumn,
+} from './shared/AdminLayout';
+import { AdminClubLink, AdminPersonLink, AdminTeamLink } from './shared/AdminLinks';
+import { AdminQueryBranch } from './shared/AdminQueryBranch';
+import { adminPaths } from './shared/adminPaths';
+import {
+  CLUB_ROLE_LABELS,
+  CLUB_ROLE_TONES,
+  formatAdminDate,
+  formatAdminDateTime,
+} from './shared/adminFormat';
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Europe/Paris',
-  });
-}
-
-function DetailRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
-      <Text variant="eyebrow" size="xs" tone="secondary" className="sm:w-48 sm:shrink-0">
-        {label}
-      </Text>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
+function erasureLabel(days: number): string {
+  if (days < 0) return 'Échéance dépassée, en attente de la purge';
+  return `Dans ${days} jour${days > 1 ? 's' : ''}`;
 }
 
 function UserDetail({ user, onErased }: { user: AdminUserDetail; onErased: () => void }) {
   const { session } = usePlatformSession();
-  // The server decides what is redacted; this only hides the two sections
-  // whose routes are DATA_OFFICER-only, and which a SUPPORT caller has no
-  // address to put in the dialog title for anyway.
+  // The server decides what is redacted. This only hides what a SUPPORT
+  // caller can't use: the export and erase routes and the audit log are
+  // DATA_OFFICER-only, and the dialogs are titled with an address SUPPORT
+  // never receives.
   const email = session?.role === 'DATA_OFFICER' ? user.person.email : null;
 
   return (
     <div className="flex flex-col gap-6">
-      <Card variant="panel">
-        <CardContent className="flex flex-col gap-3">
-          <DetailRow label="Adresse e-mail">
-            <Text variant="label">{user.person.email ?? `…@${user.person.emailDomain ?? ''}`}</Text>
-          </DetailRow>
-          <DetailRow label="Nom">
-            <Text>{user.person.displayName}</Text>
-          </DetailRow>
-          <DetailRow label="Adresse vérifiée">
-            <Badge variant="soft" tone={user.emailVerified ? 'success' : 'muted'} size="sm">
-              {user.emailVerified ? 'Oui' : 'Non'}
+      <AdminPageHeader
+        title={user.person.displayName}
+        parent={{ to: adminPaths.users, label: 'Utilisateurs' }}
+        badges={
+          <>
+            {user.person.redacted && (
+              <Badge variant="outline" tone="muted">
+                masqué
+              </Badge>
+            )}
+            <Badge variant="soft" tone={user.emailVerified ? 'success' : 'muted'}>
+              {user.emailVerified ? 'Adresse vérifiée' : 'Adresse non vérifiée'}
             </Badge>
-          </DetailRow>
-          <DetailRow label="Compte créé le">
-            <Text className="tabular">{formatDate(user.createdAt)}</Text>
-          </DetailRow>
-          <DetailRow label="Dernière activité">
-            <Text className="tabular">{formatDate(user.lastActiveAt)}</Text>
-          </DetailRow>
-        </CardContent>
-      </Card>
+            {user.guardianOfCount > 0 && (
+              <Badge variant="soft" tone="structure">
+                Parent de {user.guardianOfCount} joueur{user.guardianOfCount > 1 ? 's' : ''}
+              </Badge>
+            )}
+            {email && (
+              <Text as="span" variant="meta" size="sm">
+                Consultation journalisée
+              </Text>
+            )}
+          </>
+        }
+        actions={
+          email && (
+            <Button variant="outline" asChild>
+              <Link to={`${adminPaths.auditLog}?userId=${user.person.id}`}>
+                Journal d’audit de ce compte
+              </Link>
+            </Button>
+          )
+        }
+      />
 
-      <div className="flex flex-col gap-3">
-        <SectionHeading count={user.memberships.length}>Clubs</SectionHeading>
-        {user.memberships.length === 0 ? (
-          <Text variant="meta">Ce compte n’appartient à aucun club.</Text>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {user.memberships.map((membership) => (
-              <li key={membership.club.id}>
-                <Badge variant="soft" tone="structure" size="md">
-                  {membership.club.name} · {membership.role === 'ADMIN' ? 'admin' : 'membre'}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <AdminTwoColumn
+        main={
+          <>
+            <AdminSection title="Clubs" count={user.memberships.length}>
+              <AdminLinkedList
+                empty="Ce compte n’appartient à aucun club."
+                items={user.memberships.map((membership) => ({
+                  key: membership.club.id,
+                  primary: <AdminClubLink club={membership.club} />,
+                  secondary: `Depuis le ${formatAdminDate(membership.joinedAt)}`,
+                  trailing: (
+                    <Badge variant="soft" tone={CLUB_ROLE_TONES[membership.role]}>
+                      {CLUB_ROLE_LABELS[membership.role]}
+                    </Badge>
+                  ),
+                }))}
+              />
+            </AdminSection>
 
-      <div className="flex flex-col gap-3">
-        <SectionHeading count={user.linkedPlayers.length}>Fiches joueur liées</SectionHeading>
-        <Text variant="meta">
-          Conservées après l’effacement du compte, simplement détachées : l’historique et les
-          statistiques du club restent intacts.
-        </Text>
-        {user.linkedPlayers.length === 0 ? (
-          <Text variant="meta">Aucune fiche joueur liée.</Text>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {user.linkedPlayers.map((linked) => (
-              <li key={linked.player.id}>
-                {/* Both spans: Text renders a <p> by default, which would
-                    break the club name onto its own line. */}
-                <Text as="span">{linked.player.displayName}</Text>{' '}
-                <Text variant="meta" as="span">
-                  · {linked.club.name}
-                </Text>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+            <AdminSection title="Équipes gérées" count={user.teamAdminOf.length}>
+              <AdminLinkedList
+                empty="Aucune équipe gérée."
+                items={user.teamAdminOf.map((grant) => ({
+                  key: grant.team.id,
+                  primary: <AdminTeamLink team={grant.team} />,
+                  secondary: `Accordé le ${formatAdminDate(grant.grantedAt)}`,
+                }))}
+              />
+            </AdminSection>
 
-      {email && (
-        <>
-          {/* Above the erase section deliberately, not for visual balance:
-          erasure detaches the roster entries rather than deleting them, so
-          once it has run nothing links those rows back to the person and the
-          export can never be produced. It has to be generated first. */}
-          <div className="flex flex-col gap-3 border-t border-border pt-6">
-            <SectionHeading>Export RGPD</SectionHeading>
-            <Text variant="meta">
-              Copie machine-lisible des données traitées, pour répondre à une demande d’accès ou de
-              portabilité. La génération est journalisée.
-            </Text>
-            <div>
-              <AdminUserExportDialog userId={user.person.id} email={email} />
-            </div>
-          </div>
+            <AdminSection
+              title="Fiches joueur liées"
+              count={user.linkedPlayers.length}
+              description="Conservées après un effacement du compte, simplement détachées : l’historique et les statistiques du club restent intacts."
+            >
+              <AdminLinkedList
+                empty="Aucune fiche joueur liée."
+                items={user.linkedPlayers.map((linked) => ({
+                  key: linked.player.id,
+                  primary: (
+                    <>
+                      <AdminPersonLink person={linked.player} />
+                      <Text as="span" variant="meta" size="sm">
+                        · <AdminClubLink club={linked.club} />
+                      </Text>
+                    </>
+                  ),
+                  trailing: linked.teams.map((team) => <AdminTeamLink key={team.id} team={team} />),
+                }))}
+              />
+            </AdminSection>
 
-          <div className="flex flex-col gap-3 border-t border-border pt-6">
-            <SectionHeading>Effacement</SectionHeading>
-            <Text variant="meta">
-              À utiliser pour une demande d’effacement RGPD nommée, avant que la purge automatique
-              des 12&nbsp;mois n’intervienne. L’action est irréversible et journalisée.
-            </Text>
-            <div>
-              <AdminEraseDialog userId={user.person.id} email={email} onErased={onErased} />
-            </div>
-          </div>
-        </>
-      )}
+            <AdminSection title="Enfants suivis" count={user.guardianOf.length}>
+              <AdminLinkedList
+                empty="Ce compte ne suit aucun enfant."
+                items={user.guardianOf.map((link) => ({
+                  key: link.player.id,
+                  primary: (
+                    <>
+                      <AdminPersonLink person={link.player} />
+                      <Text as="span" variant="meta" size="sm">
+                        · <AdminClubLink club={link.club} />
+                      </Text>
+                    </>
+                  ),
+                  secondary: `Lié le ${formatAdminDate(link.linkedAt)}`,
+                }))}
+              />
+            </AdminSection>
+          </>
+        }
+        aside={
+          <>
+            <AdminFacts
+              facts={[
+                {
+                  label: 'Adresse e-mail',
+                  value: (
+                    <Text variant="label" className="break-all">
+                      {user.person.email ?? `…@${user.person.emailDomain ?? ''}`}
+                    </Text>
+                  ),
+                },
+                {
+                  label: 'Compte créé le',
+                  value: <Text className="tabular">{formatAdminDateTime(user.createdAt)}</Text>,
+                },
+                {
+                  label: 'Dernière activité',
+                  value: <Text className="tabular">{formatAdminDateTime(user.lastActiveAt)}</Text>,
+                },
+                {
+                  label: 'Effacement automatique',
+                  value: <Text className="tabular">{erasureLabel(user.daysUntilErasure)}</Text>,
+                },
+                {
+                  label: 'Sessions actives',
+                  value: <Text className="tabular">{user.activeSessionCount}</Text>,
+                },
+                {
+                  label: 'Rôle plateforme',
+                  value: (
+                    <Text>
+                      {user.platformRole === 'DATA_OFFICER'
+                        ? 'Délégué à la protection'
+                        : user.platformRole === 'SUPPORT'
+                          ? 'Support'
+                          : '—'}
+                    </Text>
+                  ),
+                },
+              ]}
+            />
+
+            {/* Export above erasure deliberately, not for visual balance:
+                erasure detaches the roster entries rather than deleting
+                them, so once it has run nothing links those rows back to the
+                person and the export can never be produced. */}
+            {email && (
+              <>
+                <Card variant="panel" className="flex flex-col gap-3">
+                  <SectionHeading as="h2">Export RGPD</SectionHeading>
+                  <Text variant="meta" size="sm">
+                    Copie machine-lisible pour une demande d’accès ou de portabilité. À générer
+                    avant tout effacement. La génération est journalisée.
+                  </Text>
+                  <AdminUserExportDialog userId={user.person.id} email={email} />
+                </Card>
+                <Card variant="panel" className="flex flex-col gap-3">
+                  <SectionHeading as="h2">Effacement</SectionHeading>
+                  <Text variant="meta" size="sm">
+                    Pour une demande d’effacement RGPD nommée, avant la purge automatique des
+                    12&nbsp;mois. Irréversible et journalisé.
+                  </Text>
+                  <AdminEraseDialog userId={user.person.id} email={email} onErased={onErased} />
+                </Card>
+              </>
+            )}
+          </>
+        }
+      />
     </div>
   );
 }
 
 /**
- * For a DATA_OFFICER, the screen that shows a data subject's PII, and
- * therefore one whose every load writes an ADMIN_PII_VIEWED row naming both
- * the admin and the subject. A SUPPORT caller gets the redacted record. That is why the query behind it never refetches on window focus:
- * "who looked at this person's data" must not be padded with rows produced by
- * a tab regaining focus.
+ * One account and everything it is linked to. For a DATA_OFFICER every load
+ * writes an ADMIN_PII_VIEWED row naming both the admin and the subject; a
+ * SUPPORT caller gets the redacted record and nothing is logged.
  */
 export function AdminUserDetailPage() {
   const { userId = '' } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { data, isLoading, isError, refetch, isFetching } = usePlatformUser(userId);
+  const user = useAdminUser(userId);
 
   return (
-    <div className="flex flex-col gap-4">
-      <TextLink asChild>
-        <Link to="/admin/users">← Comptes inactifs</Link>
-      </TextLink>
-
-      {isError ? (
-        <QueryError
-          title="Fiche indisponible"
-          description="Ce compte n’a pas pu être chargé. Il a peut-être déjà été effacé."
-          onRetry={() => void refetch()}
-          isRetrying={isFetching}
+    <AdminQueryBranch
+      query={user}
+      errorTitle="Fiche indisponible"
+      loadingLabel="Chargement de la fiche…"
+    >
+      {(data) => (
+        <UserDetail
+          user={data}
+          onErased={() => void navigate(adminPaths.users, { replace: true })}
         />
-      ) : isLoading || !data ? (
-        <Loader>Chargement de la fiche…</Loader>
-      ) : (
-        <UserDetail user={data} onErased={() => void navigate('/admin/users', { replace: true })} />
       )}
-    </div>
+    </AdminQueryBranch>
   );
 }
