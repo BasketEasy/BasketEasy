@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { Toaster } from '@basketeasy/ui/toaster';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ProtectedRoute } from './auth/ProtectedRoute';
@@ -72,6 +72,9 @@ const AdminEventDetailPage = lazy(() =>
 const AdminScoresheetsPage = lazy(() =>
   import('./admin/AdminScoresheetsPage').then((m) => ({ default: m.AdminScoresheetsPage })),
 );
+const AdminDashboardPage = lazy(() =>
+  import('./admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+);
 const AdminSearchPage = lazy(() =>
   import('./admin/AdminSearchPage').then((m) => ({ default: m.AdminSearchPage })),
 );
@@ -136,7 +139,7 @@ export default function App() {
             </Suspense>
           }
         >
-          <Route index element={<Navigate to="clubs" replace />} />
+          <Route index element={<AdminDashboardPage />} />
           <Route path="clubs" element={<AdminClubsPage />} />
           <Route path="clubs/:clubId" element={<AdminClubDetailPage />} />
           <Route path="teams" element={<AdminTeamsPage />} />

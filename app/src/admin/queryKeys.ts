@@ -8,6 +8,7 @@ import type {
   AdminUsersQuery,
 } from '@basketeasy/types/platform-admin-browse';
 import type { ListAuditLogParams } from '@basketeasy/types/platform-admin';
+import type { AdminStatsQuery } from '@basketeasy/types/platform-admin-stats';
 
 // Its own prefix, and deliberately not under `me` or `clubs`: back-office
 // data is platform-scoped, and every one of these queries becomes
@@ -58,3 +59,6 @@ export const adminAuditLogQueryKey = (query: ListAuditLogParams) =>
   [...adminQueryKeyPrefix, 'audit-log', query] as const;
 
 export const adminSearchQueryKey = (q: string) => [...adminQueryKeyPrefix, 'search', q] as const;
+
+export const adminStatsQueryKey = (query: AdminStatsQuery) =>
+  [...adminQueryKeyPrefix, 'stats', query] as const;

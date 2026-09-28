@@ -8,6 +8,15 @@ The metric list is in the design record; this part fixes how it's computed and s
 
 ## 1. Design gate
 
+Canvas: https://claude.ai/artifact/FNS2XSTyweXA5h3zix6JKh (validated 2026-09-28).
+
+As built: every chart is single-series blue-green with the current week in orange. The brand
+teal fails the dataviz validator's chroma floor as a categorical colour, so matches and trainings
+are two small charts rather than one two-colour chart. Tiles are `{ total, added }` counts (the
+« +N sur la période » line) rather than a previous-window delta. The weekly SQL was run against a
+real Postgres 16 with seeded data (CTC team counted in both clubs, a parent's answer, a stale
+route) while it was written.
+
 Canvas first, following the `dataviz` guidance on Parquet tokens (blue-green for series, orange
 only for the highlighted value, warm neutrals for grid): the global dashboard with the range
 picker (segmented control), three sections under `SectionHeading`s (Croissance, Engagement,

@@ -5,6 +5,7 @@ import type { AdminSearchKind } from '@basketeasy/types/platform-admin-search';
  * are spelled, so a link and the route it opens can't drift apart.
  */
 export const adminPaths = {
+  dashboard: '/admin',
   clubs: '/admin/clubs',
   club: (id: string) => `/admin/clubs/${id}`,
   teams: '/admin/teams',
