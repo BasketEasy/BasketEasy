@@ -59,6 +59,10 @@
       "types": "./src/components/Card.tsx",
       "default": "./src/components/Card.tsx"
     },
+    "./chart": {
+      "types": "./src/components/Chart.tsx",
+      "default": "./src/components/Chart.tsx"
+    },
     "./page-container": {
       "types": "./src/components/PageContainer.tsx",
       "default": "./src/components/PageContainer.tsx"
@@ -277,6 +281,7 @@
     "@radix-ui/react-tooltip": "^1.1.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
