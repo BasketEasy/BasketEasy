@@ -703,6 +703,11 @@ enum AuditEventType {
   ADMIN_PII_VIEWED
   ADMIN_USER_ERASED
   ADMIN_EXPORT_GENERATED
+  // Every back-office support action (resend a verification e-mail, change a
+  // club role, retry an OCR…): one type, the action in metadata.action, the
+  // mandatory reason in metadata.reason. Written in the same transaction as
+  // the change it records.
+  ADMIN_SUPPORT_ACTION
 }
 
 model AuditLog {
@@ -744,6 +749,8 @@ model AuditLog {
 enum ParentalConsentSource {
   STAFF_ATTESTATION
   GUARDIAN_IN_APP
+  // Recorded by Kluvo staff from the back-office on a club's behalf.
+  PLATFORM_STAFF
 }
 
 model ParentalConsent {

@@ -95,6 +95,7 @@ export const INVITE_STATE_TONES: Record<AdminInviteState, Tone> = {
 export const CONSENT_SOURCE_LABELS: Record<ParentalConsentSource, string> = {
   STAFF_ATTESTATION: 'Staff du club',
   GUARDIAN_IN_APP: "Parent, dans l'app",
+  PLATFORM_STAFF: 'Staff Kluvo',
 };
 
 export function eventTitle(event: Pick<AdminEventSummary, 'type' | 'opponentName'>): string {

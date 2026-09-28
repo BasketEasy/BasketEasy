@@ -122,7 +122,7 @@ export class PlatformAdminController {
   @PlatformRoles('DATA_OFFICER')
   listAuditLog(@Query() query: ListAuditLogDto): Promise<PaginatedResult<AuditLogEntry>> {
     return this.platformAdmin.listAuditLog(
-      { subjectUserId: query.userId, subjectPlayerId: query.playerId },
+      { subjectUserId: query.userId, subjectPlayerId: query.playerId, action: query.action },
       query.page ?? 1,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
     );

@@ -7,6 +7,9 @@
 // short-lived step-up token minted from a TOTP code — holding the grant is
 // necessary but not sufficient.
 
+import type { ParentalConsentSource } from './guardians';
+import type { AdminSupportActionKind } from './platform-admin-actions';
+
 export type PlatformRole = 'SUPPORT' | 'DATA_OFFICER';
 
 /**
@@ -67,7 +70,8 @@ export type AuditEventType =
   | 'ADMIN_LOGIN_FAILURE'
   | 'ADMIN_PII_VIEWED'
   | 'ADMIN_USER_ERASED'
-  | 'ADMIN_EXPORT_GENERATED';
+  | 'ADMIN_EXPORT_GENERATED'
+  | 'ADMIN_SUPPORT_ACTION';
 
 export interface AuditLogEntry {
   id: string;
@@ -85,6 +89,8 @@ export interface ListAuditLogParams {
   userId?: string;
   /** Matches `metadata.subjectPlayerId`: views of a player record, including one with no account. */
   playerId?: string;
+  /** A support action (`metadata.action`); implies ADMIN_SUPPORT_ACTION rows. */
+  action?: AdminSupportActionKind;
   page?: number;
   pageSize?: number;
 }
@@ -204,7 +210,7 @@ export interface ExportedParentalConsents {
    * named; their birth date is left out.
    */
   given: {
-    source: 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
+    source: ParentalConsentSource;
     clubName: string;
     minorFirstName: string;
     minorLastName: string;
@@ -216,7 +222,7 @@ export interface ExportedParentalConsents {
    * it was a parent in the app or club staff.
    */
   aboutThisPerson: {
-    source: 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
+    source: ParentalConsentSource;
     clubName: string;
     consentGivenAt: string;
   }[];

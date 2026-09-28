@@ -1,0 +1,488 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import type { ClubRole } from '@prisma/client';
+import type { Request } from 'express';
+import type {
+  AdminActionResult,
+  AdminSupportActionKind,
+} from '@basketeasy/types/platform-admin-actions';
+import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
+import { PrismaService } from '../prisma/prisma.service';
+import { AccountSecurityService } from '../auth/account-security.service';
+import { ScoresheetsService } from '../scoresheets/scoresheets.service';
+import { removeClubMembership, writeParentalConsent } from '../clubs/club-writes';
+import { auditContextOf } from './audit-context';
+import type { PlatformActor } from './platform-admin-browse.service';
+
+/** A sheet still queued or being read after this long is stuck, and may be retried. */
+const STUCK_AFTER_MS = 60 * 60 * 1000;
+
+/** Who and what an action row is about, beside `action` and `reason`. */
+interface ActionSubjects {
+  subjectUserId?: string;
+  subjectPlayerId?: string;
+  clubId?: string;
+  teamId?: string;
+  eventId?: string;
+  before?: Prisma.InputJsonValue;
+  after?: Prisma.InputJsonValue;
+}
+
+/**
+ * The back-office's named support actions.
+ *
+ * Every one is open to both platform roles, requires a reason, and writes one
+ * ADMIN_SUPPORT_ACTION row **in the same transaction as the change**, so a
+ * change without its audit row, or a row for a change that didn't happen,
+ * cannot exist. Actions whose effect leaves the database (an e-mail, a queued
+ * job) write the row first and trigger the effect after the commit.
+ *
+ * The rules are the product's own: membership removal and consent recording
+ * go through the same helpers as ClubsService (`clubs/club-writes.ts`), the
+ * verification and reset e-mails through AccountSecurityService, the OCR retry
+ * through ScoresheetsService. A back-office fix must never produce a state the
+ * product itself refuses. What the back-office adds is stricter, never looser:
+ * the last-ADMIN check runs under a row lock, so two staff demoting the two
+ * admins of one club at once can't both succeed.
+ *
+ * See docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md.
+ */
+@Injectable()
+export class PlatformAdminActionsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accountSecurity: AccountSecurityService,
+    private readonly scoresheets: ScoresheetsService,
+  ) {}
+
+  // ------------------------------------------------------------- accounts
+
+  async resendVerification(
+    actor: PlatformActor,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const user = await this.findUser(userId);
+    if (user.emailVerifiedAt) {
+      throw new ConflictException('Cette adresse est déjà vérifiée');
+    }
+    const result = await this.prisma.$transaction((tx) =>
+      this.record(tx, actor, request, 'RESEND_VERIFICATION', reason, { subjectUserId: userId }),
+    );
+    // After the commit: an e-mail can't be rolled back. Throttled like the
+    // product's own resend (one a minute).
+    await this.accountSecurity.sendVerificationEmail(userId);
+    return result;
+  }
+
+  async markEmailVerified(
+    actor: PlatformActor,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const user = await this.findUser(userId);
+    if (user.emailVerifiedAt) {
+      throw new ConflictException('Cette adresse est déjà vérifiée');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
+      return this.record(tx, actor, request, 'MARK_EMAIL_VERIFIED', reason, {
+        subjectUserId: userId,
+      });
+    });
+  }
+
+  /** Staff never see or set a password: this sends the ordinary reset link. */
+  async sendPasswordReset(
+    actor: PlatformActor,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const user = await this.findUser(userId);
+    const result = await this.prisma.$transaction((tx) =>
+      this.record(tx, actor, request, 'SEND_PASSWORD_RESET', reason, { subjectUserId: userId }),
+    );
+    await this.accountSecurity.requestPasswordReset(user.email, auditContextOf(request));
+    return result;
+  }
+
+  async revokeSessions(
+    actor: PlatformActor,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    if (userId === actor.id) {
+      // Revoking your own sessions would end the step-up session mid-request.
+      throw new ForbiddenException('Impossible sur votre propre compte');
+    }
+    await this.findUser(userId);
+    const now = new Date();
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null, expiresAt: { gt: now } },
+        data: { revokedAt: now },
+      });
+      return this.record(tx, actor, request, 'REVOKE_SESSIONS', reason, {
+        subjectUserId: userId,
+        after: { revokedSessions: count },
+      });
+    });
+  }
+
+  // ---------------------------------------------------------- memberships
+
+  async changeClubRole(
+    actor: PlatformActor,
+    clubId: string,
+    userId: string,
+    role: ClubRole,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const membership = await this.findMembership(tx, clubId, userId);
+      if (membership.role === role) {
+        throw new ConflictException('Ce membre a déjà ce rôle');
+      }
+      if (membership.role === 'ADMIN') {
+        await this.assertNotLastAdmin(tx, clubId);
+      }
+      await tx.clubMembership.update({
+        where: { userId_clubId: { userId, clubId } },
+        data: { role },
+      });
+      return this.record(tx, actor, request, 'CHANGE_CLUB_ROLE', reason, {
+        subjectUserId: userId,
+        clubId,
+        before: { role: membership.role },
+        after: { role },
+      });
+    });
+  }
+
+  async removeMembership(
+    actor: PlatformActor,
+    clubId: string,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const membership = await this.findMembership(tx, clubId, userId);
+      if (membership.role === 'ADMIN') {
+        await this.assertNotLastAdmin(tx, clubId);
+      }
+      await removeClubMembership(tx, clubId, userId);
+      return this.record(tx, actor, request, 'REMOVE_MEMBERSHIP', reason, {
+        subjectUserId: userId,
+        clubId,
+        before: { role: membership.role },
+      });
+    });
+  }
+
+  // ----------------------------------------------------------------- teams
+
+  /**
+   * Same eligibility as the product (a member of a club linked to the team),
+   * without EmailVerifiedGuard: staff checked the person out-of-band.
+   */
+  async addTeamAdmin(
+    actor: PlatformActor,
+    teamId: string,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    await this.findTeam(teamId);
+    const eligible = await this.prisma.clubMembership.findFirst({
+      where: { userId, club: { clubTeams: { some: { teamId } } } },
+      select: { id: true },
+    });
+    if (!eligible) {
+      throw new ConflictException('Ce compte doit être membre d’un club lié à l’équipe');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.teamAdmin.findUnique({
+        where: { teamId_userId: { teamId, userId } },
+      });
+      if (existing) {
+        throw new ConflictException('Ce compte gère déjà cette équipe');
+      }
+      await tx.teamAdmin.create({ data: { teamId, userId } });
+      return this.record(tx, actor, request, 'ADD_TEAM_ADMIN', reason, {
+        subjectUserId: userId,
+        teamId,
+      });
+    });
+  }
+
+  /** No last-manager block: staff are the fallback when someone is locked out. */
+  async removeTeamAdmin(
+    actor: PlatformActor,
+    teamId: string,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.teamAdmin.deleteMany({ where: { teamId, userId } });
+      if (count === 0) {
+        throw new NotFoundException('Ce compte ne gère pas cette équipe');
+      }
+      return this.record(tx, actor, request, 'REMOVE_TEAM_ADMIN', reason, {
+        subjectUserId: userId,
+        teamId,
+      });
+    });
+  }
+
+  async transferTeamOwnership(
+    actor: PlatformActor,
+    teamId: string,
+    clubId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    await this.findTeam(teamId);
+    return this.prisma.$transaction(async (tx) => {
+      const links = await tx.clubTeam.findMany({
+        where: { teamId },
+        select: { clubId: true, isOwner: true },
+      });
+      const target = links.find((link) => link.clubId === clubId);
+      if (!target) {
+        throw new ConflictException('Ce club n’est pas lié à l’équipe');
+      }
+      if (target.isOwner) {
+        throw new ConflictException('Ce club est déjà propriétaire de l’équipe');
+      }
+      const previousOwner = links.find((link) => link.isOwner)?.clubId ?? null;
+      await tx.clubTeam.updateMany({ where: { teamId }, data: { isOwner: false } });
+      await tx.clubTeam.update({
+        where: { clubId_teamId: { clubId, teamId } },
+        data: { isOwner: true },
+      });
+      return this.record(tx, actor, request, 'TRANSFER_TEAM_OWNERSHIP', reason, {
+        teamId,
+        clubId,
+        before: { ownerClubId: previousOwner },
+        after: { ownerClubId: clubId },
+      });
+    });
+  }
+
+  // ----------------------------------------------------------- scoresheets
+
+  async retryOcr(
+    actor: PlatformActor,
+    scoresheetId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const sheet = await this.prisma.eventScoresheet.findUnique({
+      where: { id: scoresheetId },
+      select: { id: true, eventId: true, status: true, uploadedAt: true },
+    });
+    if (!sheet) {
+      throw new NotFoundException('Feuille de marque introuvable');
+    }
+    // The product's own rule: a confirmed sheet is a manager's ground truth.
+    if (sheet.status === 'CONFIRMED') {
+      throw new ConflictException(
+        'Cette feuille a déjà été confirmée : le club doit renvoyer le fichier pour une nouvelle lecture',
+      );
+    }
+    const inFlight = sheet.status === 'QUEUED' || sheet.status === 'PROCESSING';
+    if (inFlight && sheet.uploadedAt.getTime() > Date.now() - STUCK_AFTER_MS) {
+      throw new ConflictException('Une lecture est déjà en cours pour cette feuille');
+    }
+    const result = await this.prisma.$transaction((tx) =>
+      this.record(tx, actor, request, 'RETRY_OCR', reason, {
+        eventId: sheet.eventId,
+        before: { status: sheet.status },
+      }),
+    );
+    await this.scoresheets.enqueueOcr(sheet.id);
+    return result;
+  }
+
+  // ----------------------------------------------------- guardians/consent
+
+  async cancelGuardianInvite(
+    actor: PlatformActor,
+    playerId: string,
+    inviteId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    return this.prisma.$transaction(async (tx) => {
+      // The same delete GuardiansService.cancelInvite makes: an accepted
+      // invite is a link now, and is removed as one.
+      const { count } = await tx.guardianInvite.deleteMany({
+        where: { id: inviteId, playerId, acceptedAt: null },
+      });
+      if (count === 0) {
+        throw new NotFoundException('Invitation introuvable');
+      }
+      return this.record(tx, actor, request, 'CANCEL_GUARDIAN_INVITE', reason, {
+        subjectPlayerId: playerId,
+      });
+    });
+  }
+
+  async removeGuardian(
+    actor: PlatformActor,
+    playerId: string,
+    userId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.playerGuardian.deleteMany({ where: { playerId, userId } });
+      if (count === 0) {
+        throw new NotFoundException('Ce parent n’est pas lié à ce joueur');
+      }
+      return this.record(tx, actor, request, 'REMOVE_GUARDIAN', reason, {
+        subjectPlayerId: playerId,
+        subjectUserId: userId,
+      });
+    });
+  }
+
+  /**
+   * Recorded as PLATFORM_STAFF, never as the club's own attestation: the
+   * evidence has to say who actually took the consent. The attester name
+   * snapshots the admin and what they were told, since the admin's account
+   * may later be deleted.
+   */
+  async recordParentalConsent(
+    actor: PlatformActor,
+    playerId: string,
+    givenBy: string,
+    method: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const [player, admin] = await Promise.all([
+      this.prisma.player.findUnique({
+        where: { id: playerId },
+        select: { id: true, clubId: true, firstName: true, lastName: true, birthDate: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: actor.id },
+        select: { firstName: true, lastName: true, email: true },
+      }),
+    ]);
+    if (!player) {
+      throw new NotFoundException('Joueur introuvable');
+    }
+    const birthDate = player.birthDate;
+    if (!birthDate) {
+      throw new BadRequestException(
+        'Renseignez la date de naissance du joueur avant d’enregistrer une autorisation parentale',
+      );
+    }
+    if (!isMinorBirthDate(birthDate.toISOString())) {
+      throw new BadRequestException('Ce joueur est majeur : aucune autorisation n’est nécessaire');
+    }
+    const adminName =
+      [admin?.firstName, admin?.lastName].filter(Boolean).join(' ') || admin?.email || actor.email;
+
+    return this.prisma.$transaction(async (tx) => {
+      await writeParentalConsent(
+        tx,
+        { ...player, birthDate },
+        {
+          name: `${adminName} (Kluvo) — ${givenBy}, ${method}`,
+          userId: actor.id,
+          source: 'PLATFORM_STAFF',
+        },
+      );
+      return this.record(tx, actor, request, 'RECORD_PARENTAL_CONSENT', reason, {
+        subjectPlayerId: playerId,
+        clubId: player.clubId,
+      });
+    });
+  }
+
+  // --------------------------------------------------------------- helpers
+
+  /** Writes the one audit row an action produces, through the action's transaction. */
+  async record(
+    tx: Prisma.TransactionClient,
+    actor: PlatformActor,
+    request: Request,
+    action: AdminSupportActionKind,
+    reason: string,
+    subjects: ActionSubjects,
+  ): Promise<AdminActionResult> {
+    const context = auditContextOf(request);
+    const row = await tx.auditLog.create({
+      data: {
+        type: 'ADMIN_SUPPORT_ACTION',
+        userId: actor.id,
+        actorEmail: actor.email,
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        metadata: { action, reason, ...subjects },
+      },
+      select: { id: true },
+    });
+    return { action, auditLogId: row.id };
+  }
+
+  private async findUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, emailVerifiedAt: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Compte introuvable');
+    }
+    return user;
+  }
+
+  private async findTeam(teamId: string): Promise<void> {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId }, select: { id: true } });
+    if (!team) {
+      throw new NotFoundException('Équipe introuvable');
+    }
+  }
+
+  private async findMembership(tx: Prisma.TransactionClient, clubId: string, userId: string) {
+    const membership = await tx.clubMembership.findUnique({
+      where: { userId_clubId: { userId, clubId } },
+      select: { role: true },
+    });
+    if (!membership) {
+      throw new NotFoundException('Ce compte n’est pas membre de ce club');
+    }
+    return membership;
+  }
+
+  /**
+   * Locks the club's ADMIN memberships for the rest of the transaction, then
+   * counts them: two concurrent demotions of a two-admin club are serialised,
+   * and the second sees one admin left and is refused.
+   */
+  private async assertNotLastAdmin(tx: Prisma.TransactionClient, clubId: string): Promise<void> {
+    const admins = await tx.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "ClubMembership"
+      WHERE "clubId" = ${clubId} AND "role" = 'ADMIN'
+      FOR UPDATE`;
+    if (admins.length <= 1) {
+      throw new ConflictException('C’est le dernier admin du club : nommez d’abord un autre admin');
+    }
+  }
+}

@@ -628,7 +628,7 @@ export class PlatformAdminService {
    * account at all. Given together, the two filters narrow each other.
    */
   async listAuditLog(
-    filter: { subjectUserId?: string; subjectPlayerId?: string },
+    filter: { subjectUserId?: string; subjectPlayerId?: string; action?: string },
     page: number,
     pageSize: number,
   ): Promise<PaginatedResult<AuditLogEntry>> {
@@ -643,6 +643,12 @@ export class PlatformAdminService {
     }
     if (filter.subjectPlayerId) {
       clauses.push({ metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } });
+    }
+    if (filter.action) {
+      clauses.push({
+        type: 'ADMIN_SUPPORT_ACTION',
+        metadata: { path: ['action'], equals: filter.action },
+      });
     }
     const where: Prisma.AuditLogWhereInput =
       clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0] : { AND: clauses };
