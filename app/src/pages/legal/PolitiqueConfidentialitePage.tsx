@@ -7,7 +7,7 @@ export function PolitiqueConfidentialitePage() {
   return (
     <LegalPageLayout
       title="Politique de confidentialité"
-      lastUpdated="9 septembre 2026"
+      lastUpdated="28 septembre 2026"
       currentPath="/confidentialite"
     >
       <LegalSection title="1. Qui est responsable de vos données ?">
@@ -55,7 +55,7 @@ export function PolitiqueConfidentialitePage() {
       <LegalSection title="4. Qui a accès à vos données ?">
         <LegalList
           items={[
-            "L'équipe Kluvo (accès limité au nécessaire).",
+            "L'équipe Kluvo : seules des personnes nommément habilitées peuvent consulter les données d'un compte, et uniquement pour traiter une demande d'exercice de vos droits ou vérifier l'application de la politique de conservation. Chaque consultation est journalisée ; un export ou un effacement exige en plus un motif écrit.",
             'Le club et les encadrants concernés (coachs, dirigeants), pour les données nécessaires à la gestion de l’équipe.',
           ]}
         />
@@ -151,6 +151,14 @@ export function PolitiqueConfidentialitePage() {
           d&apos;un mois (art. 12 RGPD).
         </P>
         <P>
+          La copie de vos données vous est remise dans un format structuré et lisible par machine
+          (JSON). Conformément à l&apos;article 15.4 du RGPD, elle n&apos;inclut pas les données
+          relatives à d&apos;autres personnes : le joueur que vous avez désigné lors d&apos;un vote,
+          l&apos;identité du membre de l&apos;équipe Kluvo qui a consulté votre compte, ou, pour un
+          parent, le profil et les statistiques de son enfant (seules les réponses que le parent a
+          données au nom de l&apos;enfant y figurent).
+        </P>
+        <P>
           Pour les comptes mineurs, ces droits sont exercés par le titulaire de l&apos;autorité
           parentale.
         </P>
@@ -184,6 +192,7 @@ export function PolitiqueConfidentialitePage() {
             'Chaque action est vérifiée selon le rôle de l’utilisateur au sein du club et/ou de l’équipe concernée (dirigeant, responsable d’équipe, membre) : un utilisateur ne peut agir que sur les clubs et équipes auxquels il est rattaché.',
             'Les jeux de données partagés entre plusieurs clubs (équipes en entente/CTC) restent limités aux clubs effectivement liés à l’équipe.',
             'Un journal d’audit dédié enregistre les évènements d’authentification (connexions, échecs de connexion, réinitialisations de mot de passe) pour détecter et investiguer une activité anormale, indépendamment de son propre usage interne, et est lui-même soumis à une durée de conservation de 12 mois.',
+            'L’outil interne de l’équipe Kluvo est réservé à des personnes nommément habilitées et exige une double authentification (code à usage unique, session limitée à 15 minutes, verrouillage après 5 échecs). Les listes qu’il affiche ne contiennent aucune donnée personnelle ; ouvrir un compte, en exporter une copie ou l’effacer demande un motif et laisse une trace dans le journal d’audit.',
           ]}
         />
 
