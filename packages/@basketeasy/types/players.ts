@@ -21,6 +21,8 @@ export interface Player {
   isMinor: boolean;
   /** When a parental-consent attestation was recorded, if there is one. */
   parentalConsentGivenAt: string | null;
+  /** How many parents are linked to this player (see ./guardians). */
+  guardianCount: number;
   createdAt: string;
 }
 

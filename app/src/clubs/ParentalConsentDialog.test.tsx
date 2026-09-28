@@ -21,6 +21,7 @@ const minor: Player = {
   licenseType: null,
   isMinor: true,
   parentalConsentGivenAt: null,
+  guardianCount: 0,
   createdAt: 'x',
 };
 

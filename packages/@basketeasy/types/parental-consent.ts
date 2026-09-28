@@ -3,8 +3,11 @@
 // The "easiest possible" version, per
 // docs/superpowers/specs/2026-09-06-data-retention-policy-design.md: a club
 // staff member attests that the written authorisation was obtained, at the
-// moment the player is added. It is not an e-signature, and there is no
-// parent-facing flow — those are a follow-up spec, not this one.
+// moment the player is added. It is not an e-signature. A parent accepting a
+// guardian invite for a minor records their own consent through the same
+// table (source GUARDIAN_IN_APP) — see ./guardians.
+
+import type { ParentalConsentSource } from './guardians';
 
 /** Legal majority in France; the age at which no consent record is required. */
 export const MINOR_AGE_YEARS = 18;
@@ -20,6 +23,8 @@ export interface ParentalConsent {
   playerBirthDate: string;
   attestedByName: string;
   attestedByUserId: string | null;
+  /** A staff attestation, or the parent confirming it while accepting a guardian invite. */
+  source: ParentalConsentSource;
   consentGivenAt: string;
   /**
    * When this record is deleted by the retention sweep: five years after the

@@ -79,6 +79,10 @@
     "./meeting-points": {
       "types": "./meeting-points.ts",
       "default": "./meeting-points.ts"
+    },
+    "./guardians": {
+      "types": "./guardians.ts",
+      "default": "./guardians.ts"
     }
   },
   "scripts": {

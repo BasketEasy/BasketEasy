@@ -3,6 +3,7 @@ import type { TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { TeamStatsService } from './team-stats.service';
 import { GetTeamStatsDto } from './dto/get-team-stats.dto';
@@ -17,6 +18,7 @@ export class TeamStatsController {
   @Get()
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getTeamSeasonStats(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

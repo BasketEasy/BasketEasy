@@ -20,6 +20,7 @@ import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
 import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
@@ -64,6 +65,7 @@ export class TeamsController {
   @Get(':teamId')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getTeam(@Param('clubId') clubId: string, @Param('teamId') teamId: string): Promise<Team> {
     return this.teamsService.getTeam(clubId, teamId);
   }
@@ -89,6 +91,7 @@ export class TeamsController {
   @Get(':teamId/clubs')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listTeamClubs(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -123,6 +126,7 @@ export class TeamsController {
   @Get(':teamId/players')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listTeamPlayers(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -166,6 +170,7 @@ export class TeamsController {
   @Get(':teamId/ffbb-links')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listFfbbLinks(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -206,6 +211,7 @@ export class TeamsController {
   @Get(':teamId/ffbb-poule-results')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getFfbbPouleResults(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -213,6 +219,9 @@ export class TeamsController {
     return this.ffbbPouleService.getPouleResults(clubId, teamId);
   }
 
+  // Not @AllowGuardians(): TeamAdmin carries each coach's e-mail, and a
+  // parent who is nothing else in the club never sees other people's
+  // addresses (guardians design, decision 17).
   @Get(':teamId/admins')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
