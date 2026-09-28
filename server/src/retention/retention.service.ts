@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
@@ -127,33 +127,13 @@ export class RetentionService {
       // not the whole night's work.
       try {
         await this.prisma.$transaction(async (tx) => {
-          const players = await tx.player.findMany({
-            where: { userId: user.id },
-            select: { id: true },
-          });
-          await tx.player.updateMany({ where: { userId: user.id }, data: { userId: null } });
-          await startParentalConsentRetention(
-            tx,
-            players.map((player) => player.id),
-            now,
-          );
-          // Guarded delete rather than `delete({ where: { id } })`: the
-          // candidate list was read once at the top of the step and up to 500
-          // accounts are erased sequentially behind it, while both
-          // AuthService (login/refresh) and LastActiveInterceptor can write
-          // `lastActiveAt` at any moment. Re-asserting the cutoff here makes
-          // "still inactive" part of the same atomic statement as the
-          // deletion, so an account that logged back in mid-run is never
-          // erased on the strength of a stale read.
-          const { count } = await tx.user.deleteMany({
-            where: { id: user.id, lastActiveAt: { lt: cutoff } },
-          });
-          if (count === 0) {
-            // Rolls the transaction back, so the player unlink and the
-            // consent clock above are undone too — a reactivated account must
-            // come out of this run completely untouched.
-            throw new AccountReactivatedError(user.id);
-          }
+          // Guarded on the cutoff: the candidate list was read once at the
+          // top of the step and up to 500 accounts are erased sequentially
+          // behind it, while AuthService and LastActiveInterceptor can write
+          // `lastActiveAt` at any moment. An account that logged back in
+          // mid-run throws AccountReactivatedError, rolling this transaction
+          // back so it comes out of the run completely untouched.
+          await this.eraseUserAccount(tx, user.id, now, { inactiveBefore: cutoff });
           // The account's last session ending, from the security log's point of
           // view — deliberately not a new AuditEventType: extending that enum
           // belongs to the back-office spec, and `metadata.reason` already says
@@ -198,6 +178,64 @@ export class RetentionService {
       ...(failedIds.length > 0 ? { failedCount: failedIds.length, failedIds } : {}),
       ...(skipped > 0 ? { skippedCount: skipped } : {}),
     };
+  }
+
+  /**
+   * Erases one account, keeping everything the club owns. Extracted from the
+   * sweep above because the back-office's manual erasure — a named RGPD
+   * request handled *before* the 12-month clock fires — has to remove exactly
+   * the same rows and start the same consent clocks. Two implementations of
+   * "erase an account" is how the manual path quietly drifts out of
+   * compliance with the automated one.
+   *
+   * The caller supplies the transaction so an erasure and whatever the caller
+   * must record about it commit together.
+   *
+   * Returns the number of roster entries left standing with `userId` cleared
+   * — the back-office reports it back, since "your club history survives" is
+   * the thing a data officer is asked about most.
+   */
+  async eraseUserAccount(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    now: Date = new Date(),
+    options: { inactiveBefore?: Date } = {},
+  ): Promise<{ unlinkedPlayerCount: number }> {
+    const players = await tx.player.findMany({ where: { userId }, select: { id: true } });
+    await tx.player.updateMany({ where: { userId }, data: { userId: null } });
+    await startParentalConsentRetention(
+      tx,
+      players.map((player) => player.id),
+      now,
+    );
+    // The sweep passes `inactiveBefore` so "still inactive" is part of the
+    // same atomic statement as the deletion. A manual RGPD erasure passes
+    // nothing: a named request is honoured however recently the person
+    // logged in.
+    const { count } = await tx.user.deleteMany({
+      where: {
+        id: userId,
+        ...(options.inactiveBefore ? { lastActiveAt: { lt: options.inactiveBefore } } : {}),
+      },
+    });
+    if (count === 0) {
+      // Rolls the caller's transaction back, undoing the unlink and the
+      // consent clock above.
+      if (options.inactiveBefore) throw new AccountReactivatedError(userId);
+      throw new NotFoundException('Compte introuvable');
+    }
+
+    return { unlinkedPlayerCount: players.length };
+  }
+
+  /**
+   * The sweep's run history, behind the back-office's
+   * `GET /admin/retention/runs`. Read-only: this is the evidence that the
+   * policy actually executes, which RGPD art. 5.2 asks for and which nobody
+   * could otherwise see without a psql session.
+   */
+  listRuns(limit: number) {
+    return this.prisma.retentionRun.findMany({ orderBy: { ranAt: 'desc' }, take: limit });
   }
 
   /** Rule 4 — security logs are kept 12 months. */

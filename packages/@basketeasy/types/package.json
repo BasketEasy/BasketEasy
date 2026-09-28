@@ -83,6 +83,10 @@
     "./guardians": {
       "types": "./guardians.ts",
       "default": "./guardians.ts"
+    },
+    "./platform-admin": {
+      "types": "./platform-admin.ts",
+      "default": "./platform-admin.ts"
     }
   },
   "scripts": {

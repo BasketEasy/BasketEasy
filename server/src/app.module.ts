@@ -17,6 +17,7 @@ import { AuditModule } from './audit/audit.module';
 import { RetentionModule } from './retention/retention.module';
 import { MeetingPointsModule } from './meeting-points/meeting-points.module';
 import { GuardiansModule } from './guardians/guardians.module';
+import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
 // signature a reasonable amount of entropy to resist brute force; this is a
@@ -61,6 +62,7 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     RetentionModule,
     MeetingPointsModule,
     GuardiansModule,
+    PlatformAdminModule,
   ],
 })
 export class AppModule {}

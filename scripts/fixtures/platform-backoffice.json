@@ -1,0 +1,191 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "dpo@kluvo.net",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": []
+  },
+  "GET /api/admin/retention/runs": [
+    {
+      "id": "run-3",
+      "dryRun": false,
+      "ranAt": "2026-09-06T09:30:00.000Z",
+      "triggeredByUserId": null,
+      "steps": [
+        {
+          "step": "inactive-accounts",
+          "count": 2,
+          "error": null
+        },
+        {
+          "step": "audit-logs",
+          "count": 1184,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "run-2",
+      "dryRun": true,
+      "ranAt": "2026-09-05T09:30:00.000Z",
+      "triggeredByUserId": "user-1",
+      "steps": [
+        {
+          "step": "inactive-accounts",
+          "count": 3,
+          "error": null
+        },
+        {
+          "step": "audit-logs",
+          "count": 1207,
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "run-1",
+      "dryRun": false,
+      "ranAt": "2026-09-04T09:30:00.000Z",
+      "triggeredByUserId": null,
+      "steps": [
+        {
+          "step": "inactive-accounts",
+          "count": 0,
+          "error": null
+        },
+        {
+          "step": "audit-logs",
+          "count": 0,
+          "error": "connection terminated"
+        }
+      ]
+    }
+  ],
+  "GET /api/admin/users": {
+    "items": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "emailDomain": "orange.fr",
+        "lastActiveAt": "2025-07-31T09:30:00.000Z",
+        "daysUntilErasure": -37,
+        "clubCount": 1
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222222",
+        "emailDomain": "gmail.com",
+        "lastActiveAt": "2025-08-31T09:30:00.000Z",
+        "daysUntilErasure": -6,
+        "clubCount": 0
+      },
+      {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "emailDomain": "asc-nantes.fr",
+        "lastActiveAt": "2025-09-19T09:30:00.000Z",
+        "daysUntilErasure": 13,
+        "clubCount": 2
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "emailDomain": "wanadoo.fr",
+        "lastActiveAt": "2025-09-30T09:30:00.000Z",
+        "daysUntilErasure": 24,
+        "clubCount": 1
+      },
+      {
+        "id": "55555555-5555-4555-8555-555555555555",
+        "emailDomain": "laposte.net",
+        "lastActiveAt": "2025-10-05T09:30:00.000Z",
+        "daysUntilErasure": 29,
+        "clubCount": 1
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/users/33333333-3333-4333-8333-333333333333": {
+    "id": "33333333-3333-4333-8333-333333333333",
+    "email": "jean.dupont@asc-nantes.fr",
+    "firstName": "Jean",
+    "lastName": "Dupont",
+    "emailVerified": true,
+    "lastActiveAt": "2025-09-19T09:30:00.000Z",
+    "createdAt": "2024-03-11T18:42:00.000Z",
+    "clubs": [
+      {
+        "id": "club-1",
+        "name": "ASC Nantes",
+        "role": "MEMBER"
+      },
+      {
+        "id": "club-2",
+        "name": "CTC Erdre-et-Loire",
+        "role": "MEMBER"
+      }
+    ],
+    "linkedPlayers": [
+      {
+        "id": "p-1",
+        "firstName": "Jean",
+        "lastName": "Dupont",
+        "clubName": "ASC Nantes"
+      }
+    ]
+  },
+  "POST /api/admin/users/33333333-3333-4333-8333-333333333333/erase": {
+    "erasedUserId": "33333333-3333-4333-8333-333333333333",
+    "unlinkedPlayerCount": 1
+  },
+  "POST /api/admin/users/33333333-3333-4333-8333-333333333333/export": {
+    "generatedAt": "2026-09-06T12:00:00.000Z",
+    "subjectUserId": "33333333-3333-4333-8333-333333333333",
+    "notice": {
+      "basis": "Copie des données à caractère personnel traitées par Kluvo, au titre des articles 15 et 20 du RGPD.",
+      "omissions": [
+        "Les votes émis par la personne sont listés sans le joueur désigné (art. 15.4).",
+        "Les consultations effectuées par un administrateur sont datées mais n'identifient pas l'administrateur (art. 15.4).",
+        "Les abonnements push sont listés sans leur adresse technique ni leurs clés.",
+        "Les enfants dont la personne est responsable légal·e sont nommés, sans leur profil ni leurs propres réponses (art. 15.4)."
+      ]
+    },
+    "account": {
+      "email": "jean.dupont@asc-nantes.fr",
+      "firstName": "Jean",
+      "lastName": "Dupont",
+      "avatarUrl": null,
+      "emailVerified": true,
+      "emailNotificationsEnabled": true,
+      "lastActiveAt": "2025-09-19T11:30:00.000Z",
+      "createdAt": "2024-03-11T18:42:00.000Z"
+    },
+    "clubMemberships": [
+      {
+        "clubName": "ASC Nantes",
+        "role": "MEMBER",
+        "joinedAt": "2024-03-11T18:42:00.000Z"
+      }
+    ],
+    "playerRecords": [],
+    "teamAdminGrants": [],
+    "notifications": [],
+    "guardian": {
+      "children": [],
+      "invitesAccepted": [],
+      "answersGivenForOthers": []
+    },
+    "parentalConsents": {
+      "given": [],
+      "aboutThisPerson": []
+    },
+    "pushSubscriptions": [],
+    "reviewedScoresheets": [],
+    "securityLog": []
+  }
+}

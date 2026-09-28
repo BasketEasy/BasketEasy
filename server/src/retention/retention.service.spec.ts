@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { RetentionService } from './retention.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAX_ACCOUNTS_PER_SWEEP, subMonths } from './retention.constants';
@@ -11,7 +12,7 @@ describe('RetentionService', () => {
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
-    retentionRun: { create: jest.Mock };
+    retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -39,7 +40,7 @@ describe('RetentionService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
-      retentionRun: { create: jest.fn().mockResolvedValue({}) },
+      retentionRun: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
       $transaction: jest.fn((run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     };
 
@@ -308,5 +309,91 @@ describe('RetentionService', () => {
 
     expect(first.inactiveAccounts.count).toBe(0);
     expect(second).toEqual(first);
+  });
+
+  // Both added for the back-office (companion spec): a data officer handling a
+  // named RGPD request needs the same erasure the nightly sweep performs, and
+  // needs to see that the sweep is actually running.
+  describe('eraseUserAccount (shared with the back-office)', () => {
+    it('is the primitive the nightly sweep itself uses', async () => {
+      // The point of extracting it: two implementations of "erase an account"
+      // is how a manual RGPD erasure quietly drifts out of compliance with
+      // the automated one.
+      const spy = jest.spyOn(service, 'eraseUserAccount');
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'a@b.fr' }]);
+
+      await service.run();
+
+      expect(spy).toHaveBeenCalledWith(expect.anything(), 'user-1', now, {
+        inactiveBefore: expect.any(Date),
+      });
+    });
+
+    it('unlinks roster entries instead of deleting them, and reports how many', async () => {
+      prisma.player.findMany.mockResolvedValue([{ id: 'p-1' }, { id: 'p-2' }]);
+
+      const result = await service.eraseUserAccount(
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        'user-1',
+        now,
+      );
+
+      // Rule 2 (erase inactive accounts) and rule 3 (keep stats forever) only
+      // coexist because the roster entry survives with userId cleared.
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { userId: null },
+      });
+      expect(result.unlinkedPlayerCount).toBe(2);
+    });
+
+    it('does not re-check inactivity for a manual erasure', async () => {
+      // A named RGPD request is honoured however recently the person logged
+      // in; only the sweep guards on the 12-month cutoff.
+      await service.eraseUserAccount(
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        'user-1',
+        now,
+      );
+
+      expect(prisma.user.deleteMany).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+    });
+
+    it('refuses with 404 when the account vanished before the delete', async () => {
+      prisma.user.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.eraseUserAccount(
+          prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+          'user-1',
+          now,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('starts the five-year consent clock for the players it unlinked', async () => {
+      prisma.player.findMany.mockResolvedValue([{ id: 'p-1' }]);
+
+      await service.eraseUserAccount(
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        'user-1',
+        now,
+      );
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalled();
+    });
+  });
+
+  describe('listRuns', () => {
+    it('returns the most recent runs first', async () => {
+      prisma.retentionRun.findMany.mockResolvedValue([]);
+
+      await service.listRuns(30);
+
+      expect(prisma.retentionRun.findMany).toHaveBeenCalledWith({
+        orderBy: { ranAt: 'desc' },
+        take: 30,
+      });
+    });
   });
 });

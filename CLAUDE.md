@@ -229,7 +229,92 @@ Beyond the Working conventions above, four traps this direction has already fall
 - **Parental consent is a staff attestation, not an e-signature** — the "easiest possible" v1. Required by `ClubsService.createPlayer` when `birthDate` makes the player a minor (`400 PARENTAL_CONSENT_REQUIRED`), and deliberately **not** required by bulk import: failing an import because row 34 is sixteen would make the feature unusable, so those players surface in the roster as _autorisation manquante_ and are resolved through `POST .../players/:playerId/parental-consent`. `isMinorBirthDate` (`@basketeasy/types/parental-consent`) is shared by the form and the API so the two can't drift.
 - **`ParentalConsent` outlives what it documents** — `SetNull` to `Player`/`User`, never `Cascade` and never Prisma's default `Restrict` (which would block the deletion instead of surviving it). RGPD art. 17.3.b is the carve-out. The row snapshots the minor's name and birth date, because a proof that no longer says whose consent it was is not evidence. Its five-year clock starts at _deletion_ (`ClubsService.deletePlayer`, or the sweep erasing the linked account — `startParentalConsentRetention` in `server/src/common`), never at creation, and re-recording consent clears it.
 - **Backup rotation (rule 5) is infrastructure**, set on the Postgres backup tool and the R2 bucket lifecycle. No application code enforces it; it belongs in the deploy runbook.
-- **Not built yet, on purpose:** the platform back-office over `AuditLog`/`RetentionRun` (its own companion spec), inactivity warning e-mails ahead of erasure, and consent withdrawal / re-consent. The parent-facing side is the Guardians section below.
+- **Not built yet, on purpose:** inactivity warning e-mails ahead of erasure and consent withdrawal / re-consent. The platform back-office over `AuditLog`/`RetentionRun` is built — see the section below; `RetentionService.eraseUserAccount` is the erasure primitive it shares with the nightly sweep, so a manual RGPD erasure and an automated one can never drift apart. The parent-facing side is the Guardians section below.
+
+## Platform back-office
+
+`server/src/platform-admin` (mounted at `/api/admin`) is the internal surface Kluvo staff use to
+action RGPD access/erasure requests and confirm the retention sweep is doing its job, without a
+`psql` session. Design record: [`docs/superpowers/specs/2026-09-06-backoffice-design.md`](./docs/superpowers/specs/2026-09-06-backoffice-design.md),
+build decisions in the [implementation plan](./docs/superpowers/specs/2026-09-06-backoffice-implementation-plan.md)
+beside it. It is a _reader_ of the Retention, audit & parental consent module above — `AuditLog`,
+`RetentionRun` and `User.lastActiveAt` all belong to that policy; the only table this owns is
+`PlatformAdmin`.
+
+- **A `PlatformAdmin` grant is necessary but not sufficient.** Every `/admin/*` route requires an
+  ordinary session _and_ a second, separately-signed `platformAccessToken` (15 min, claim
+  `scope: 'platform-admin'`, header `X-Platform-Token`) minted by `POST /admin/login` against a
+  TOTP code — so an access token stolen from an admin's browser opens nothing here. The token is
+  never refreshed: expiry means re-entering a code, because a back-office tab left open on a
+  shared machine has to go cold. `PlatformAdminGuard` is `ClubRolesGuard`'s shape with no route
+  param to key off; `@PlatformRoles('DATA_OFFICER')` narrows a route the way `@ClubRoles('ADMIN')`
+  does. `PlatformRole` is `SUPPORT` (run history + the redacted list) or `DATA_OFFICER` (PII,
+  erasure, audit log).
+- **`PLATFORM_JWT_SECRET` is its own secret, and the back-office is off without it.** Signing
+  step-up tokens with `JWT_ACCESS_SECRET` would mean a leaked access secret mints back-office
+  credentials too. It is deliberately not in `AppModule.validateEnv` (same policy as
+  `REDIS_URL`/`R2_*`/`GEMINI_API_KEY`/`VAPID_*`): unset, every `/admin/*` route answers 503 and
+  the surface does not exist for that deployment. Opt-in per deploy is the right default for the
+  one place a compromised credential exposes every club's roster at once.
+- **Grants are provisioned out-of-band only** — `server/scripts/platform-admin.ts`
+  (`grant`/`revoke`/`unlock`/`list`), which needs `DATABASE_URL`. There is no "promote to admin"
+  button and no in-app TOTP enrollment screen: an enrollment screen _is_ a self-service path to
+  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret.
+- **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a
+  dependency — both RFCs publish test vectors, so `totp.util.spec.ts` _proves_ it instead of
+  trusting it. Don't swap in `otplib` without a reason beyond taste.
+- **The TOTP secret is encrypted at rest** (`totp-secret-crypto.ts`, AES-256-GCM under
+  `PLATFORM_TOTP_ENCRYPTION_KEY`, the row's `userId` as additional data), so a database dump
+  doesn't hand out the second factor and a ciphertext copied onto another row doesn't decrypt.
+  The key is its own env var, not derived from `PLATFORM_JWT_SECRET`: rotating the signing
+  secret after a token leak must not brick every admin's authenticator. Same opt-in rule —
+  unset or malformed, `/admin/*` is off. A secret that doesn't decrypt fails closed and is
+  fixed by re-running `grant`.
+- **A code works once.** `matchTotpCounter` returns the step a code matched and
+  `PlatformAdmin.lastUsedTotpCounter` records it; any step at or before it is a replay
+  (`replayed_code`), even inside its ±1-step validity.
+- **Lockout state is counted from `AuditLog`, not a counter column** — 5 `ADMIN_LOGIN_FAILURE`
+  rows for one account in 15 minutes sets `lockedUntil` to a far-future sentinel ("until manually
+  cleared", per `lockedUntilCleared`). Audit rows survive restarts and are shared across
+  instances; an in-memory counter is neither. A lock that expired on its own would be a rate
+  limit an attacker waits out, so only `platform-admin.ts unlock` clears it.
+- **`login` decides inside one transaction holding `SELECT … FOR UPDATE` on the grant**, so
+  parallel guesses are serialised and the lock lands on exactly the fifth failure. Its audit rows
+  go through the transaction (not `AuditService`) so the next attempt counts them, and a refusal
+  is _returned_ out of the transaction and thrown afterwards — throwing inside would roll back
+  the failure row. Past the limit, **any** caller (grant or not) gets `429` and nothing is
+  written: otherwise any logged-in account could fill the security log at request rate.
+- **List views carry no PII.** `GET /admin/users` returns `emailDomain`, `lastActiveAt`,
+  `daysUntilErasure` and `clubCount` — never a local part or a name. Opening one record
+  (`GET /admin/users/:userId`) is the `ADMIN_PII_VIEWED` moment, and `usePlatformUser` therefore
+  never refetches on window focus: "who looked at this person's data" must not be padded with
+  rows produced by a tab regaining focus.
+- **Erasure requires a reason**, stored in the `ADMIN_USER_ERASED` row in the _same transaction_
+  as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
+  `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering
+  on either alone answers half of "who accessed this person's data".
+- **The RGPD export is `POST /admin/users/:userId/export`**, not a GET, and carries the same
+  mandatory reason as erasure: it materialises a complete copy of one person's data for handover
+  outside the system, a larger disclosure than the single-profile view. It emits
+  `ADMIN_EXPORT_GENERATED` and deliberately **not** `ADMIN_PII_VIEWED` — two different
+  disclosures with different scopes, and folding them would make a "who saw what" filter wrong in
+  both directions. Generate it **before** an erasure: erasure detaches roster entries rather than
+  deleting them, so afterwards nothing links those rows back to the person, which is why the
+  export section sits above the erase section on `AdminUserDetailPage`.
+- **Three things the export deliberately omits, each RGPD art. 15(4)** ("shall not adversely
+  affect the rights and freedoms of others"), each named in the bundle's own `notice` block so an
+  omission reads as a decision and not an oversight: a vote's **nominee** (peer voting is
+  anonymous by construction, and the nominee is a statement about another player), the **acting
+  admin's identity** on rows recording something done _to_ the subject (they learn their data was
+  accessed, not by whom), and a push subscription's **endpoint and keys** (together a live
+  capability to push to that browser, not a description of the person). Don't "complete" the
+  export by adding them back.
+- The frontend is `app/src/admin/`, its own top-level route tree outside `ProtectedRoute`,
+  `React.lazy`-loaded so admin-only code is never bundled for the 99.9% of users who aren't
+  platform staff. `AdminShell` deliberately wears no product chrome — no `AppHeader`, no club
+  switcher, no bottom nav — because conflating it with the product invites browsing it like a
+  support dashboard rather than treating every click as an audited action. `AdminRoute`'s check
+  is advisory; the real enforcement is server-side.
 
 ## Guardians (parents acting for a child)
 
@@ -258,4 +343,4 @@ Beyond the Working conventions above, four traps this direction has already fall
 
 ## What's deliberately not here yet
 
-No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no notification digest/batching and no scheduled RSVP reminders (the queue now has a nightly `retention-sweep` repeatable job to copy the shape from, but reminders are still their own slice), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no carpooling on top of the meeting point (who drives, free seats) and no RDV on the dashboard agenda yet; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no platform back-office over the retention/audit tables, and no inactivity-warning notification before an account is erased; no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.
+No Scheduling (beyond the plain Events CRUD above), Payments, Subvention, or Volunteer/Role domain modules; no notification digest/batching and no scheduled RSVP reminders (the queue now has a nightly `retention-sweep` repeatable job to copy the shape from, but reminders are still their own slice), no per-type × per-channel notification preference matrix, and no real-time transport for the feed (it polls); no team **Statistiques** screen over the Team stats module's endpoint yet, and no roster-mapping step in `ScoresheetExtractionCard` — until that lands the card confirms with an empty mapping, so a sheet confirmed today produces no per-player stats; no carpooling on top of the meeting point (who drives, free seats) and no RDV on the dashboard agenda yet; no cross-club/CTC governance dashboard (P2, tracked separately from the Teams module's CTC data model above); no inactivity-warning notification before an account is erased; no Nx, no CD/deploy workflow, no i18n library wired in. This is the scaffold described in the README's "Status" section, now with Auth, Clubs/Players, Teams, and Events as the first domain modules — extend it module by module per `docs/feature-set.md` rather than bulk-generating the full domain model at once.

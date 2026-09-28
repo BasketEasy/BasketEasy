@@ -50,6 +50,7 @@ model User {
   guardianInvitesAccepted       GuardianInvite[]         @relation("GuardianInviteAcceptedBy")
   guardianInvitesCreated        GuardianInvite[]         @relation("GuardianInviteCreatedBy")
   rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
+  platformAdmin                 PlatformAdmin?
 }
 
 // The two single-use links a user can be sent by e-mail. Both store only
@@ -174,7 +175,7 @@ model Player {
   licenseType      String?
   createdAt        DateTime          @default(now())
   club             Club              @relation(fields: [clubId], references: [id])
-  user             User?             @relation(fields: [userId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   teamPlayers      TeamPlayer[]
   invite           PlayerInvite?
   parentalConsents ParentalConsent[]
@@ -597,7 +598,7 @@ model ScoresheetExtraction {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   eventScoresheet   EventScoresheet @relation(fields: [eventScoresheetId], references: [id], onDelete: Cascade)
-  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id])
+  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 
   @@index([reviewedByUserId])
 }
@@ -646,18 +647,23 @@ enum ClubRole {
   MEMBER
 }
 
+// userId cascades: erasing an account (retention sweep or back-office) must
+// be able to delete the User row. A RESTRICT here made every erasure of
+// anyone who ever joined a club fail with a foreign-key violation.
 model ClubMembership {
   id        String   @id @default(uuid())
   userId    String
   clubId    String
   role      ClubRole
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   club      Club     @relation(fields: [clubId], references: [id])
 
   @@unique([userId, clubId])
 }
 
+// userId cascades for the same reason as ClubMembership: a session must not
+// block erasing the account it belongs to.
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String
@@ -666,7 +672,7 @@ model RefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([familyId])
   @@index([userId])
@@ -687,6 +693,16 @@ enum AuditEventType {
   REFRESH_TOKEN_REUSE_DETECTED
   EMAIL_VERIFIED
   GUARDIAN_INVITE_ACCEPTED
+  // Back-office actions (see the companion back-office spec). Their own event
+  // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
+  // filter precisely on "who looked at this person's data". On one of these
+  // rows `userId`/`actorEmail` is the *acting admin*; the data subject they
+  // acted on is `metadata.subjectUserId`.
+  ADMIN_LOGIN_SUCCESS
+  ADMIN_LOGIN_FAILURE
+  ADMIN_PII_VIEWED
+  ADMIN_USER_ERASED
+  ADMIN_EXPORT_GENERATED
 }
 
 model AuditLog {
@@ -826,4 +842,69 @@ model EventMeeting {
   meetingAnnouncedKey String?
   updatedAt           DateTime  @updatedAt
   event               Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Platform staff / back-office
+// See docs/superpowers/specs/2026-09-06-backoffice-design.md. It reads the
+// AuditLog and RetentionRun defined above by the data-retention policy; the
+// only table it owns is the grant below.
+// ---------------------------------------------------------------------------
+
+enum PlatformRole {
+  // Read-only: the retention sweep's run history and the *redacted* list of
+  // accounts nearing the inactivity cutoff. Cannot open a single record, and
+  // so cannot see PII at all. Day-to-day support staff level.
+  SUPPORT
+  // May open one named data subject's record while handling an RGPD
+  // access/erasure request, may generate their export, and may erase. Every
+  // one of those is its own AuditLog row.
+  DATA_OFFICER
+}
+
+// Platform-wide authority, deliberately its own table rather than a role enum
+// on User — the same shape TeamAdmin already uses for per-team authority. A
+// grant is an auditable row with its own createdAt and grantedByUserId, not a
+// boolean somebody can flip with no trace of who did it or when.
+//
+// Holding a row here is necessary but *not sufficient*: every /admin/* route
+// additionally requires a short-lived step-up token minted from totpSecret,
+// so a stolen ordinary session token belonging to an admin still opens
+// nothing. See PlatformAdminGuard.
+model PlatformAdmin {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role PlatformRole
+
+  // RFC 6238 shared secret, generated out-of-band by
+  // server/scripts/platform-admin.ts and stored AES-256-GCM encrypted under
+  // PLATFORM_TOTP_ENCRYPTION_KEY (totp-secret-crypto.ts), never in clear: a
+  // database dump must not hand out the second factor. Nullable so a grant can exist in a
+  // half-provisioned state, which is treated exactly like no grant at all:
+  // with no secret there is no way to mint a step-up token, so the grant is
+  // inert rather than dangerous.
+  totpSecret String?
+
+  // Optional per-admin network restriction. Empty = unrestricted, the same
+  // graceful-degradation convention the optional integration credentials use
+  // (BREVO_API_KEY, VAPID_*): a deployment that wants an office-VPN
+  // restriction gets one, a deployment that doesn't isn't blocked on it.
+  allowedCidrs String[] @default([])
+
+  // Set by the 5-failures-in-15-minutes rule in PlatformAdminService and
+  // cleared only by an operator running `platform-admin.ts unlock` — a
+  // lockout that expires on its own is a rate limit an attacker waits out.
+  lockedUntil DateTime?
+
+  // The TOTP time step of the last accepted code. A code stays valid for up
+  // to ±1 step (90 s); refusing any step at or before this one makes each
+  // code single-use, so one read over a shoulder or out of a phishing page
+  // can't be replayed.
+  lastUsedTotpCounter Int?
+
+  grantedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { Toaster } from '@basketeasy/ui/toaster';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
@@ -27,6 +28,23 @@ import { MentionsLegalesPage } from './pages/legal/MentionsLegalesPage';
 import { PolitiqueConfidentialitePage } from './pages/legal/PolitiqueConfidentialitePage';
 import { CGUPage } from './pages/legal/CGUPage';
 import { RegistreTraitementsPage } from './pages/legal/RegistreTraitementsPage';
+
+// The back-office is lazy-loaded, and that is the point rather than an
+// optimisation: it must never render, fetch, or *bundle* admin-only code for
+// the overwhelming majority of users who are not platform staff. A static
+// import would ship it to every club volunteer's browser.
+const AdminRoute = lazy(() =>
+  import('./admin/AdminRoute').then((m) => ({ default: m.AdminRoute })),
+);
+const AdminRetentionPage = lazy(() =>
+  import('./admin/AdminRetentionPage').then((m) => ({ default: m.AdminRetentionPage })),
+);
+const AdminUsersPage = lazy(() =>
+  import('./admin/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
+);
+const AdminUserDetailPage = lazy(() =>
+  import('./admin/AdminUserDetailPage').then((m) => ({ default: m.AdminUserDetailPage })),
+);
 
 export default function App() {
   return (
@@ -71,6 +89,24 @@ export default function App() {
             element={<EventDetailPage />}
           />
           <Route path="/clubs/*" element={<NotFoundPage />} />
+        </Route>
+
+        {/* Its own top-level subtree, outside ProtectedRoute: the back-office
+            deliberately wears no product chrome — no AppHeader, no club
+            switcher, no bottom nav — so that it never reads as a support
+            dashboard to browse. AdminRoute does its own session check. */}
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={null}>
+              <AdminRoute />
+            </Suspense>
+          }
+        >
+          <Route index element={<AdminRetentionPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="users/:userId" element={<AdminUserDetailPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

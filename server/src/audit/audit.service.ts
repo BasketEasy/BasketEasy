@@ -54,20 +54,37 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   record(event: AuditEvent): void {
-    void this.prisma.auditLog
-      .create({
-        data: {
-          type: event.type,
-          userId: event.userId ?? null,
-          actorEmail: event.actorEmail ?? null,
-          ipAddress: event.context?.ipAddress ?? null,
-          userAgent: event.context?.userAgent ?? null,
-          metadata: event.metadata,
-        },
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Failed to write ${event.type} audit entry: ${message}`);
-      });
+    void this.writeEntry(event).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to write ${event.type} audit entry: ${message}`);
+    });
+  }
+
+  /**
+   * The exception to the fire-and-forget contract above, for the back-office's
+   * ADMIN_PII_VIEWED and ADMIN_EXPORT_GENERATED.
+   *
+   * Those two are not side effects of something already done — the row *is*
+   * the point of the request, and it has to exist before the personal data
+   * leaves the process. A crash between a swallowed insert and the response
+   * would disclose someone's data with no record that it happened, which is
+   * precisely what the log exists to prevent. So this one propagates: better
+   * a failed disclosure than an unrecorded one.
+   */
+  async recordAndWait(event: AuditEvent): Promise<void> {
+    await this.writeEntry(event);
+  }
+
+  private writeEntry(event: AuditEvent): Promise<unknown> {
+    return this.prisma.auditLog.create({
+      data: {
+        type: event.type,
+        userId: event.userId ?? null,
+        actorEmail: event.actorEmail ?? null,
+        ipAddress: event.context?.ipAddress ?? null,
+        userAgent: event.context?.userAgent ?? null,
+        metadata: event.metadata,
+      },
+    });
   }
 }

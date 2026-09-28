@@ -5,6 +5,14 @@ export const INACTIVE_ACCOUNT_RETENTION_MONTHS = 12;
 export const AUDIT_LOG_RETENTION_MONTHS = 12;
 
 /**
+ * How far ahead of the erasure cutoff an account appears on the back-office's
+ * "comptes inactifs" list. Wide enough that a club raising a support ticket
+ * about a dormant account still has time to be answered before the sweep
+ * takes it.
+ */
+export const INACTIVE_SOON_LEAD_MONTHS = 1;
+
+/**
  * A cached geocode nobody has looked up for this long is dropped. It holds a
  * typed address, so it is not kept for the life of the app, and a gym still
  * in use is refreshed by its next lookup long before this.

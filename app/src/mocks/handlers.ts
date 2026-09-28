@@ -127,4 +127,20 @@ export const handlers = [
   // Default: empty dashboard summary. DashboardPage always queries this;
   // dashboard-focused tests override it with server.use(...).
   http.get('/api/me/dashboard', () => HttpResponse.json({ totalPlayers: 0, upcomingEvents: [] })),
+
+  // Back-office defaults. The step-up POST succeeds so a test that only cares
+  // about what is *behind* the TOTP gate doesn't have to stub it; the reads
+  // default to empty so a page under test renders its empty branch unless it
+  // overrides them with server.use(...).
+  http.post('/api/admin/login', () =>
+    HttpResponse.json({
+      platformAccessToken: 'platform-token',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      role: 'DATA_OFFICER',
+    }),
+  ),
+  http.get('/api/admin/retention/runs', () => HttpResponse.json([])),
+  http.get('/api/admin/users', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
 ];

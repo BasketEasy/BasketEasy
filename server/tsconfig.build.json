@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+  // `scripts` is excluded, not merely unused: it sits outside `src`, so
+  // including it would move the inferred rootDir up to the package root and
+  // emit `dist/src/main.js` instead of `dist/main.js` — silently breaking
+  // `start:prod` and both Dockerfiles. It is still type-checked by
+  // `tsc --noEmit -p tsconfig.json` and linted by the `lint` script.
+  "exclude": ["node_modules", "test", "dist", "scripts", "**/*spec.ts"]
 }
