@@ -43,44 +43,6 @@ export interface PlatformLoginResponse {
   role: PlatformRole;
 }
 
-/**
- * One row of the redacted list of accounts nearing the inactivity cutoff.
- * Deliberately carries no local-part, no name and no club names — opening
- * one specific record is the audited ADMIN_PII_VIEWED moment, and a list
- * view that already showed the person would make that audit trail a lie.
- */
-export interface RedactedUserSummary {
-  id: string;
-  /** e.g. `gmail.com`. Distinguishes a real volunteer from a test account without identifying anybody. */
-  emailDomain: string;
-  lastActiveAt: string;
-  /** Negative once the 12-month cutoff has already passed and the sweep has not yet run. */
-  daysUntilErasure: number;
-  clubCount: number;
-}
-
-export type PlatformUserListStatus = 'inactive-soon';
-
-export interface ListPlatformUsersParams {
-  status?: PlatformUserListStatus;
-  page?: number;
-  pageSize?: number;
-}
-
-/** The full record, returned only to a DATA_OFFICER and only per open. */
-export interface PlatformUserDetail {
-  id: string;
-  email: string;
-  firstName: string | null;
-  lastName: string | null;
-  emailVerified: boolean;
-  lastActiveAt: string;
-  createdAt: string;
-  clubs: { id: string; name: string; role: 'ADMIN' | 'MEMBER' }[];
-  /** Roster entries the account is linked to. Erasure unlinks these, it never deletes them. */
-  linkedPlayers: { id: string; firstName: string; lastName: string; clubName: string }[];
-}
-
 export interface ErasePlatformUserRequest {
   /** Free text, stored in the ADMIN_USER_ERASED audit row. A manual erasure with no recorded justification is the gap the audit log exists to close. */
   reason: string;
@@ -121,6 +83,8 @@ export interface AuditLogEntry {
 export interface ListAuditLogParams {
   /** Matches rows the account *acted on* as well as rows it *acted as* — the question this view answers is "who accessed this person's data". */
   userId?: string;
+  /** Matches `metadata.subjectPlayerId`: views of a player record, including one with no account. */
+  playerId?: string;
   page?: number;
   pageSize?: number;
 }

@@ -16,11 +16,21 @@ describe('AdminUsersPage', () => {
         HttpResponse.json({
           items: [
             {
-              id: 'user-9',
-              emailDomain: 'example.org',
+              person: {
+                kind: 'user',
+                id: 'user-9',
+                displayName: 'J. D.',
+                email: null,
+                emailDomain: 'example.org',
+                redacted: true,
+              },
+              emailVerified: true,
+              createdAt: LAST_ACTIVE,
               lastActiveAt: LAST_ACTIVE,
               daysUntilErasure: 15,
               clubCount: 2,
+              guardianOfCount: 0,
+              platformRole: null,
             },
           ],
           total: 1,
@@ -33,6 +43,7 @@ describe('AdminUsersPage', () => {
     renderWithProviders(<AdminUsersPage />);
 
     expect(await screen.findByText('example.org')).toBeInTheDocument();
+    expect(screen.queryByText('J. D.')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ouvrir la fiche' })).toHaveAttribute(
       'href',
       '/admin/users/user-9',
@@ -45,11 +56,21 @@ describe('AdminUsersPage', () => {
         HttpResponse.json({
           items: [
             {
-              id: 'user-9',
-              emailDomain: 'example.org',
+              person: {
+                kind: 'user',
+                id: 'user-9',
+                displayName: 'J. D.',
+                email: null,
+                emailDomain: 'example.org',
+                redacted: true,
+              },
+              emailVerified: true,
+              createdAt: LAST_ACTIVE,
               lastActiveAt: LAST_ACTIVE,
               daysUntilErasure: -20,
               clubCount: 0,
+              guardianOfCount: 0,
+              platformRole: null,
             },
           ],
           total: 1,

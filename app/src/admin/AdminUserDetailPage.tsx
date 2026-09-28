@@ -7,10 +7,11 @@ import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
-import type { PlatformUserDetail } from '@basketeasy/types/platform-admin';
+import type { AdminUserDetail } from '@basketeasy/types/platform-admin-browse';
 import { usePlatformUser } from './useAdminQueries';
 import { AdminEraseDialog } from './AdminEraseDialog';
 import { AdminUserExportDialog } from './AdminUserExportDialog';
+import { usePlatformSession } from './platformSession';
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -31,18 +32,22 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
   );
 }
 
-function UserDetail({ user, onErased }: { user: PlatformUserDetail; onErased: () => void }) {
-  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+function UserDetail({ user, onErased }: { user: AdminUserDetail; onErased: () => void }) {
+  const { session } = usePlatformSession();
+  // The server decides what is redacted; this only hides the two sections
+  // whose routes are DATA_OFFICER-only, and which a SUPPORT caller has no
+  // address to put in the dialog title for anyway.
+  const email = session?.role === 'DATA_OFFICER' ? user.person.email : null;
 
   return (
     <div className="flex flex-col gap-6">
       <Card variant="panel">
         <CardContent className="flex flex-col gap-3">
           <DetailRow label="Adresse e-mail">
-            <Text variant="label">{user.email}</Text>
+            <Text variant="label">{user.person.email ?? `…@${user.person.emailDomain ?? ''}`}</Text>
           </DetailRow>
           <DetailRow label="Nom">
-            <Text>{fullName || '—'}</Text>
+            <Text>{user.person.displayName}</Text>
           </DetailRow>
           <DetailRow label="Adresse vérifiée">
             <Badge variant="soft" tone={user.emailVerified ? 'success' : 'muted'} size="sm">
@@ -59,15 +64,15 @@ function UserDetail({ user, onErased }: { user: PlatformUserDetail; onErased: ()
       </Card>
 
       <div className="flex flex-col gap-3">
-        <SectionHeading count={user.clubs.length}>Clubs</SectionHeading>
-        {user.clubs.length === 0 ? (
+        <SectionHeading count={user.memberships.length}>Clubs</SectionHeading>
+        {user.memberships.length === 0 ? (
           <Text variant="meta">Ce compte n’appartient à aucun club.</Text>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {user.clubs.map((club) => (
-              <li key={club.id}>
+            {user.memberships.map((membership) => (
+              <li key={membership.club.id}>
                 <Badge variant="soft" tone="structure" size="md">
-                  {club.name} · {club.role === 'ADMIN' ? 'admin' : 'membre'}
+                  {membership.club.name} · {membership.role === 'ADMIN' ? 'admin' : 'membre'}
                 </Badge>
               </li>
             ))}
@@ -85,15 +90,13 @@ function UserDetail({ user, onErased }: { user: PlatformUserDetail; onErased: ()
           <Text variant="meta">Aucune fiche joueur liée.</Text>
         ) : (
           <ul className="flex flex-col gap-1">
-            {user.linkedPlayers.map((player) => (
-              <li key={player.id}>
+            {user.linkedPlayers.map((linked) => (
+              <li key={linked.player.id}>
                 {/* Both spans: Text renders a <p> by default, which would
                     break the club name onto its own line. */}
-                <Text as="span">
-                  {player.firstName} {player.lastName}
-                </Text>{' '}
+                <Text as="span">{linked.player.displayName}</Text>{' '}
                 <Text variant="meta" as="span">
-                  · {player.clubName}
+                  · {linked.club.name}
                 </Text>
               </li>
             ))}
@@ -101,39 +104,43 @@ function UserDetail({ user, onErased }: { user: PlatformUserDetail; onErased: ()
         )}
       </div>
 
-      {/* Above the erase section deliberately, not for visual balance:
+      {email && (
+        <>
+          {/* Above the erase section deliberately, not for visual balance:
           erasure detaches the roster entries rather than deleting them, so
           once it has run nothing links those rows back to the person and the
           export can never be produced. It has to be generated first. */}
-      <div className="flex flex-col gap-3 border-t border-border pt-6">
-        <SectionHeading>Export RGPD</SectionHeading>
-        <Text variant="meta">
-          Copie machine-lisible des données traitées, pour répondre à une demande d’accès ou de
-          portabilité. La génération est journalisée.
-        </Text>
-        <div>
-          <AdminUserExportDialog userId={user.id} email={user.email} />
-        </div>
-      </div>
+          <div className="flex flex-col gap-3 border-t border-border pt-6">
+            <SectionHeading>Export RGPD</SectionHeading>
+            <Text variant="meta">
+              Copie machine-lisible des données traitées, pour répondre à une demande d’accès ou de
+              portabilité. La génération est journalisée.
+            </Text>
+            <div>
+              <AdminUserExportDialog userId={user.person.id} email={email} />
+            </div>
+          </div>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-6">
-        <SectionHeading>Effacement</SectionHeading>
-        <Text variant="meta">
-          À utiliser pour une demande d’effacement RGPD nommée, avant que la purge automatique des
-          12&nbsp;mois n’intervienne. L’action est irréversible et journalisée.
-        </Text>
-        <div>
-          <AdminEraseDialog userId={user.id} email={user.email} onErased={onErased} />
-        </div>
-      </div>
+          <div className="flex flex-col gap-3 border-t border-border pt-6">
+            <SectionHeading>Effacement</SectionHeading>
+            <Text variant="meta">
+              À utiliser pour une demande d’effacement RGPD nommée, avant que la purge automatique
+              des 12&nbsp;mois n’intervienne. L’action est irréversible et journalisée.
+            </Text>
+            <div>
+              <AdminEraseDialog userId={user.person.id} email={email} onErased={onErased} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 /**
- * The one screen that shows a data subject's PII, and therefore the one whose
- * every load writes an ADMIN_PII_VIEWED row naming both the admin and the
- * subject. That is why the query behind it never refetches on window focus:
+ * For a DATA_OFFICER, the screen that shows a data subject's PII, and
+ * therefore one whose every load writes an ADMIN_PII_VIEWED row naming both
+ * the admin and the subject. A SUPPORT caller gets the redacted record. That is why the query behind it never refetches on window focus:
  * "who looked at this person's data" must not be padded with rows produced by
  * a tab regaining focus.
  */

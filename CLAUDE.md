@@ -287,11 +287,22 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   is _returned_ out of the transaction and thrown afterwards — throwing inside would roll back
   the failure row. Past the limit, **any** caller (grant or not) gets `429` and nothing is
   written: otherwise any logged-in account could fill the security log at request rate.
-- **List views carry no PII.** `GET /admin/users` returns `emailDomain`, `lastActiveAt`,
-  `daysUntilErasure` and `clubCount` — never a local part or a name. Opening one record
-  (`GET /admin/users/:userId`) is the `ADMIN_PII_VIEWED` moment, and `usePlatformUser` therefore
-  never refetches on window focus: "who looked at this person's data" must not be padded with
-  rows produced by a tab regaining focus.
+- **Redaction is by role, decided on the server.** Browsing (`PlatformAdminBrowseController`:
+  clubs, club members, teams, rosters, users, players, events, scoresheets — design record
+  [`2026-09-28-backoffice-browse-stats-actions-design.md`](./docs/superpowers/specs/2026-09-28-backoffice-browse-stats-actions-design.md))
+  is open to both roles; every person in a response is an `AdminPersonRef` built by
+  `platform-admin/redaction.ts`. `SUPPORT` gets initials and the e-mail domain only (no birth
+  date, licence, attester name), `DATA_OFFICER` gets names and addresses. Free-text person search
+  follows the same line: substring for a `DATA_OFFICER`, exact e-mail only for `SUPPORT`, so
+  names can't be rebuilt from result counts. `PlatformAdminGuard` puts the role on the request
+  for `@CurrentPlatformRole()`.
+- **Only a person detail read is audited, and only a `DATA_OFFICER`'s.** Opening
+  `GET /admin/users/:userId` or `GET /admin/players/:playerId` as a `DATA_OFFICER` writes
+  `ADMIN_PII_VIEWED` (awaited before the response; the player variant carries
+  `metadata.subjectPlayerId`, matched by `GET /admin/audit-log?playerId=`). Lists and a
+  `SUPPORT` read carry no PII and write nothing. `usePlatformUser` never refetches on window
+  focus: "who looked at this person's data" must not be padded with rows produced by a tab
+  regaining focus.
 - **Erasure requires a reason**, stored in the `ADMIN_USER_ERASED` row in the _same transaction_
   as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
   `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering

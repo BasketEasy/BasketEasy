@@ -93,6 +93,10 @@ export class PlatformAdminGuard implements CanActivate {
 
     await this.verifyStepUpToken(request, userId, secret);
     this.assertRole(context, admin.role);
+    // Read back by @CurrentPlatformRole(): what a browse route returns
+    // depends on the role (SUPPORT gets redacted people), and the grant is
+    // already loaded here, so handlers never look it up a second time.
+    request.platformRole = admin.role;
     return true;
   }
 

@@ -87,6 +87,10 @@
     "./platform-admin": {
       "types": "./platform-admin.ts",
       "default": "./platform-admin.ts"
+    },
+    "./platform-admin-browse": {
+      "types": "./platform-admin-browse.ts",
+      "default": "./platform-admin-browse.ts"
     }
   },
   "scripts": {

@@ -8,6 +8,10 @@ export class ListAuditLogDto implements ListAuditLogParams {
   userId?: string;
 
   @IsOptional()
+  @IsUUID()
+  playerId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

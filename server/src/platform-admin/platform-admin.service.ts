@@ -17,21 +17,15 @@ import type {
   AuditLogEntry,
   ErasePlatformUserResponse,
   PlatformLoginResponse,
-  PlatformUserDetail,
   PlatformUserExport,
-  RedactedUserSummary,
   RetentionRunSummary,
   RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditService, type AuditRequestContext } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditContextOf } from './audit-context';
 import { RetentionService } from '../retention/retention.service';
-import {
-  INACTIVE_ACCOUNT_RETENTION_MONTHS,
-  INACTIVE_SOON_LEAD_MONTHS,
-  subMonths,
-} from '../retention/retention.constants';
 import { clientIpOf, isIpAllowed } from './client-ip.util';
 import {
   lockedUntilCleared,
@@ -43,8 +37,6 @@ import {
 } from './platform-admin.constants';
 import { matchTotpCounter } from './totp.util';
 import { decryptTotpSecret, resolveTotpEncryptionKey } from './totp-secret-crypto';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Shipped inside every export so the file explains itself when it surfaces a
@@ -266,110 +258,6 @@ export class PlatformAdminService {
   async runRetentionDryRun(): Promise<RetentionStepSummary[]> {
     const summary = await this.retention.run(true);
     return toStepSummaries(summary as unknown as Prisma.JsonValue);
-  }
-
-  /**
-   * The redacted list. No local-part, no name, no club names — opening one
-   * specific record is the audited ADMIN_PII_VIEWED moment, and a list that
-   * already identified the person would make that audit trail a lie.
-   *
-   * The window has no upper bound on purpose: an account already past the
-   * 12-month cutoff that the sweep has not yet taken belongs on the same
-   * screen (with a negative `daysUntilErasure`), not hidden.
-   */
-  async listInactiveSoonUsers(
-    page: number,
-    pageSize: number,
-  ): Promise<PaginatedResult<RedactedUserSummary>> {
-    const now = new Date();
-    const cutoff = subMonths(now, INACTIVE_ACCOUNT_RETENTION_MONTHS - INACTIVE_SOON_LEAD_MONTHS);
-    const where = { lastActiveAt: { lt: cutoff } };
-
-    const [total, users] = await Promise.all([
-      this.prisma.user.count({ where }),
-      this.prisma.user.findMany({
-        where,
-        orderBy: { lastActiveAt: 'asc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        select: {
-          id: true,
-          email: true,
-          lastActiveAt: true,
-          _count: { select: { memberships: true } },
-        },
-      }),
-    ]);
-
-    return {
-      items: users.map((user) => ({
-        id: user.id,
-        emailDomain: emailDomainOf(user.email),
-        lastActiveAt: user.lastActiveAt.toISOString(),
-        daysUntilErasure: daysBetween(
-          now,
-          addMonths(user.lastActiveAt, INACTIVE_ACCOUNT_RETENTION_MONTHS),
-        ),
-        clubCount: user._count.memberships,
-      })),
-      total,
-      page,
-      pageSize,
-    };
-  }
-
-  /**
-   * The one route that returns a data subject's PII, and therefore the one
-   * that writes ADMIN_PII_VIEWED. The audit row is awaited *before* the
-   * profile is returned: a crash between the two would lose exactly the
-   * evidence the log exists for.
-   */
-  async getUserDetail(
-    adminUserId: string,
-    adminEmail: string,
-    subjectUserId: string,
-    request: Request,
-  ): Promise<PlatformUserDetail> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: subjectUserId },
-      include: {
-        memberships: { include: { club: { select: { id: true, name: true } } } },
-        linkedPlayers: { include: { club: { select: { name: true } } } },
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('Compte introuvable');
-    }
-
-    await this.audit.recordAndWait({
-      type: 'ADMIN_PII_VIEWED',
-      userId: adminUserId,
-      actorEmail: adminEmail,
-      metadata: { subjectUserId, subjectEmail: user.email },
-      context: auditContextOf(request),
-    });
-
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      emailVerified: user.emailVerifiedAt !== null,
-      lastActiveAt: user.lastActiveAt.toISOString(),
-      createdAt: user.createdAt.toISOString(),
-      clubs: user.memberships.map((membership) => ({
-        id: membership.club.id,
-        name: membership.club.name,
-        role: membership.role,
-      })),
-      linkedPlayers: user.linkedPlayers.map((player) => ({
-        id: player.id,
-        firstName: player.firstName,
-        lastName: player.lastName,
-        clubName: player.club.name,
-      })),
-    };
   }
 
   /**
@@ -735,20 +623,29 @@ export class PlatformAdminService {
    * `metadata.subjectUserId`, so filtering by one alone answers only half the
    * question. Both are matched: what this account did, and what was done to
    * it. That union is also what a DSAR response needs.
+   *
+   * `subjectPlayerId` covers views of a player record, which may have no
+   * account at all. Given together, the two filters narrow each other.
    */
   async listAuditLog(
-    subjectUserId: string | undefined,
+    filter: { subjectUserId?: string; subjectPlayerId?: string },
     page: number,
     pageSize: number,
   ): Promise<PaginatedResult<AuditLogEntry>> {
-    const where: Prisma.AuditLogWhereInput = subjectUserId
-      ? {
-          OR: [
-            { userId: subjectUserId },
-            { metadata: { path: ['subjectUserId'], equals: subjectUserId } },
-          ],
-        }
-      : {};
+    const clauses: Prisma.AuditLogWhereInput[] = [];
+    if (filter.subjectUserId) {
+      clauses.push({
+        OR: [
+          { userId: filter.subjectUserId },
+          { metadata: { path: ['subjectUserId'], equals: filter.subjectUserId } },
+        ],
+      });
+    }
+    if (filter.subjectPlayerId) {
+      clauses.push({ metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } });
+    }
+    const where: Prisma.AuditLogWhereInput =
+      clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0] : { AND: clauses };
 
     const [total, entries] = await Promise.all([
       this.prisma.auditLog.count({ where }),
@@ -822,39 +719,6 @@ function toStepSummaries(summary: Prisma.JsonValue): RetentionStepSummary[] {
       },
     ];
   });
-}
-
-/**
- * The request-shaped half of an audit entry, resolved with the back-office's
- * own stricter IP rule rather than Express's `req.ip`: the same value gates
- * the per-admin network allowlist, so a spoofable one is an access decision
- * made on attacker-supplied input.
- */
-function auditContextOf(request: Request): AuditRequestContext {
-  const userAgent = request.headers['user-agent'];
-  return {
-    ipAddress: clientIpOf(request),
-    userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 400) : null,
-  };
-}
-
-/**
- * The domain alone, never the local part — enough to tell a real club
- * volunteer from an obvious test account without identifying anybody.
- */
-function emailDomainOf(email: string): string {
-  const at = email.lastIndexOf('@');
-  return at === -1 ? '' : email.slice(at + 1);
-}
-
-function addMonths(from: Date, months: number): Date {
-  const result = new Date(from.getTime());
-  result.setUTCMonth(result.getUTCMonth() + months);
-  return result;
-}
-
-function daysBetween(from: Date, to: Date): number {
-  return Math.ceil((to.getTime() - from.getTime()) / MS_PER_DAY);
 }
 
 function asMetadata(value: Prisma.JsonValue): Record<string, unknown> | null {

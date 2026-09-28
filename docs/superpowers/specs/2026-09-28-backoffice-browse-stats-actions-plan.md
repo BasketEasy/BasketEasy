@@ -54,10 +54,9 @@ Each PR description names every auth/guard/PII change it makes (the `pr-scope.ym
 2. `PlatformAdminGuard` already attaches the grant; expose the caller's `PlatformRole` to handlers
    through a `@CurrentPlatformRole()` decorator rather than a second lookup.
 3. Split the service: `platform-admin-browse.service.ts` (lists + details), leaving login,
-   retention, export and erasure in `platform-admin.service.ts`. One controller file per area
-   (`admin-clubs.controller.ts`, `admin-teams.controller.ts`, `admin-users.controller.ts`,
-   `admin-players.controller.ts`, `admin-events.controller.ts`), all `@Controller('admin/…')` with
-   `JwtAuthGuard, PlatformAdminGuard`.
+   retention, export and erasure in `platform-admin.service.ts`. One
+   `PlatformAdminBrowseController` (`@Controller('admin')`, `JwtAuthGuard, PlatformAdminGuard`)
+   holds every browse route.
 4. DTOs with `class-validator` for every list query (`IsUUID`, `IsEnum`, `IsBooleanString`,
    `IsISO8601`, page/pageSize bounds). `q` on people: the service applies substring vs exact
    e-mail per role, not the DTO.

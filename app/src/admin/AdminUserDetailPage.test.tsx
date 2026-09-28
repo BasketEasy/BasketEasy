@@ -5,18 +5,51 @@ import { http, HttpResponse } from 'msw';
 import { Route, Routes } from 'react-router-dom';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
+import type { AdminUserDetail } from '@basketeasy/types/platform-admin-browse';
 import { AdminUserDetailPage } from './AdminUserDetailPage';
+import { clearPlatformSession, startPlatformSession } from './platformSession';
 
-const USER = {
-  id: 'user-9',
-  email: 'jean.dupont@example.org',
-  firstName: 'Jean',
-  lastName: 'Dupont',
+const CLUB = { id: 'club-1', name: 'BC Nantes' };
+
+const USER: AdminUserDetail = {
+  person: {
+    kind: 'user',
+    id: 'user-9',
+    displayName: 'Jean Dupont',
+    email: 'jean.dupont@example.org',
+    emailDomain: 'example.org',
+    redacted: false,
+  },
   emailVerified: true,
-  lastActiveAt: '2025-09-20T10:00:00.000Z',
   createdAt: '2024-01-05T09:00:00.000Z',
-  clubs: [{ id: 'club-1', name: 'BC Nantes', role: 'MEMBER' }],
-  linkedPlayers: [{ id: 'p-1', firstName: 'Jean', lastName: 'Dupont', clubName: 'BC Nantes' }],
+  lastActiveAt: '2025-09-20T10:00:00.000Z',
+  daysUntilErasure: 10,
+  clubCount: 1,
+  guardianOfCount: 0,
+  platformRole: null,
+  memberships: [{ club: CLUB, role: 'MEMBER', joinedAt: '2024-01-05T09:00:00.000Z' }],
+  teamAdminOf: [],
+  linkedPlayers: [
+    {
+      player: {
+        kind: 'player',
+        id: 'p-1',
+        displayName: 'Jean Dupont',
+        email: 'jean.dupont@example.org',
+        emailDomain: 'example.org',
+        redacted: false,
+      },
+      club: CLUB,
+      teams: [],
+    },
+  ],
+  guardianOf: [],
+  activeSessionCount: 1,
+};
+
+const REDACTED_USER: AdminUserDetail = {
+  ...USER,
+  person: { ...USER.person, displayName: 'J. D.', email: null, redacted: true },
 };
 
 function mockDetail() {
@@ -35,7 +68,26 @@ function renderDetail() {
   );
 }
 
+function startSession(role: 'SUPPORT' | 'DATA_OFFICER') {
+  startPlatformSession('platform-token', new Date(Date.now() + 15 * 60 * 1000).toISOString(), role);
+}
+
 describe('AdminUserDetailPage', () => {
+  beforeEach(() => startSession('DATA_OFFICER'));
+  afterEach(() => clearPlatformSession());
+
+  it('shows SUPPORT the redacted record without the export and erase sections', async () => {
+    startSession('SUPPORT');
+    server.use(http.get('/api/admin/users/user-9', () => HttpResponse.json(REDACTED_USER)));
+
+    renderDetail();
+
+    expect(await screen.findByText('J. D.')).toBeInTheDocument();
+    expect(screen.getByText('…@example.org')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Effacer ce compte' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Export RGPD')).not.toBeInTheDocument();
+  });
+
   it('renders the full record behind the audited detail route', async () => {
     mockDetail();
 

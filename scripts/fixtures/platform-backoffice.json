@@ -71,39 +71,89 @@
   "GET /api/admin/users": {
     "items": [
       {
-        "id": "11111111-1111-4111-8111-111111111111",
-        "emailDomain": "orange.fr",
+        "person": {
+          "kind": "user",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "displayName": "—",
+          "email": null,
+          "emailDomain": "orange.fr",
+          "redacted": true
+        },
+        "emailVerified": true,
+        "createdAt": "2024-03-11T18:42:00.000Z",
         "lastActiveAt": "2025-07-31T09:30:00.000Z",
         "daysUntilErasure": -37,
-        "clubCount": 1
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
       },
       {
-        "id": "22222222-2222-4222-8222-222222222222",
-        "emailDomain": "gmail.com",
+        "person": {
+          "kind": "user",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "displayName": "—",
+          "email": null,
+          "emailDomain": "gmail.com",
+          "redacted": true
+        },
+        "emailVerified": true,
+        "createdAt": "2024-03-11T18:42:00.000Z",
         "lastActiveAt": "2025-08-31T09:30:00.000Z",
         "daysUntilErasure": -6,
-        "clubCount": 0
+        "clubCount": 0,
+        "guardianOfCount": 0,
+        "platformRole": null
       },
       {
-        "id": "33333333-3333-4333-8333-333333333333",
-        "emailDomain": "asc-nantes.fr",
+        "person": {
+          "kind": "user",
+          "id": "33333333-3333-4333-8333-333333333333",
+          "displayName": "J. D.",
+          "email": null,
+          "emailDomain": "asc-nantes.fr",
+          "redacted": true
+        },
+        "emailVerified": true,
+        "createdAt": "2024-03-11T18:42:00.000Z",
         "lastActiveAt": "2025-09-19T09:30:00.000Z",
         "daysUntilErasure": 13,
-        "clubCount": 2
+        "clubCount": 2,
+        "guardianOfCount": 0,
+        "platformRole": null
       },
       {
-        "id": "44444444-4444-4444-8444-444444444444",
-        "emailDomain": "wanadoo.fr",
+        "person": {
+          "kind": "user",
+          "id": "44444444-4444-4444-8444-444444444444",
+          "displayName": "—",
+          "email": null,
+          "emailDomain": "wanadoo.fr",
+          "redacted": true
+        },
+        "emailVerified": true,
+        "createdAt": "2024-03-11T18:42:00.000Z",
         "lastActiveAt": "2025-09-30T09:30:00.000Z",
         "daysUntilErasure": 24,
-        "clubCount": 1
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
       },
       {
-        "id": "55555555-5555-4555-8555-555555555555",
-        "emailDomain": "laposte.net",
+        "person": {
+          "kind": "user",
+          "id": "55555555-5555-4555-8555-555555555555",
+          "displayName": "—",
+          "email": null,
+          "emailDomain": "laposte.net",
+          "redacted": true
+        },
+        "emailVerified": true,
+        "createdAt": "2024-03-11T18:42:00.000Z",
         "lastActiveAt": "2025-10-05T09:30:00.000Z",
         "daysUntilErasure": 29,
-        "clubCount": 1
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
       }
     ],
     "total": 5,
@@ -111,33 +161,59 @@
     "pageSize": 25
   },
   "GET /api/admin/users/33333333-3333-4333-8333-333333333333": {
-    "id": "33333333-3333-4333-8333-333333333333",
-    "email": "jean.dupont@asc-nantes.fr",
-    "firstName": "Jean",
-    "lastName": "Dupont",
+    "person": {
+      "kind": "user",
+      "id": "33333333-3333-4333-8333-333333333333",
+      "displayName": "Jean Dupont",
+      "email": "jean.dupont@asc-nantes.fr",
+      "emailDomain": "asc-nantes.fr",
+      "redacted": false
+    },
     "emailVerified": true,
-    "lastActiveAt": "2025-09-19T09:30:00.000Z",
     "createdAt": "2024-03-11T18:42:00.000Z",
-    "clubs": [
+    "lastActiveAt": "2025-09-19T09:30:00.000Z",
+    "daysUntilErasure": 13,
+    "clubCount": 2,
+    "guardianOfCount": 0,
+    "platformRole": null,
+    "memberships": [
       {
-        "id": "club-1",
-        "name": "ASC Nantes",
-        "role": "MEMBER"
+        "club": {
+          "id": "club-1",
+          "name": "ASC Nantes"
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-03-11T18:42:00.000Z"
       },
       {
-        "id": "club-2",
-        "name": "CTC Erdre-et-Loire",
-        "role": "MEMBER"
+        "club": {
+          "id": "club-2",
+          "name": "CTC Erdre-et-Loire"
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-03-11T18:42:00.000Z"
       }
     ],
+    "teamAdminOf": [],
     "linkedPlayers": [
       {
-        "id": "p-1",
-        "firstName": "Jean",
-        "lastName": "Dupont",
-        "clubName": "ASC Nantes"
+        "player": {
+          "kind": "player",
+          "id": "p-1",
+          "displayName": "Jean Dupont",
+          "email": "jean.dupont@asc-nantes.fr",
+          "emailDomain": "asc-nantes.fr",
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "ASC Nantes"
+        },
+        "teams": []
       }
-    ]
+    ],
+    "guardianOf": [],
+    "activeSessionCount": 1
   },
   "POST /api/admin/users/33333333-3333-4333-8333-333333333333/erase": {
     "erasedUserId": "33333333-3333-4333-8333-333333333333",
