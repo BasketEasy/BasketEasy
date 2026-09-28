@@ -132,6 +132,7 @@ const routeDefs = [
   // Polled on every protected page by the header bell, so it needs a default
   // even for screenshots that aren't about notifications.
   ['GET', '/api/me/notifications', () => ({ items: [], unreadCount: 0 })],
+  ['GET', '/api/me/personas', () => ({ self: null, children: [] })],
   ['PATCH', '/api/me/notifications/:notificationId/read', () => ({ status: 204, body: null })],
   ['POST', '/api/me/notifications/read-all', () => ({ status: 204, body: null })],
   // Null key = no VAPID configured, which is what a screenshot run has:

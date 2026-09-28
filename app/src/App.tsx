@@ -7,6 +7,8 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { InviteAcceptPage } from './pages/InviteAcceptPage';
+import { GuardianInvitePage } from './pages/GuardianInvitePage';
+import { ChildProfilePage } from './pages/ChildProfilePage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -36,6 +38,7 @@ export default function App() {
             state — PublicOnlyRoute would bounce a visitor who still holds a
             stale session straight to the dashboard mid-recovery. */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
+        <Route path="/guardian-invite/:token" element={<GuardianInvitePage />} />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         {/* Legal documents: reachable by anyone, logged in or not, without
@@ -55,6 +58,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/children/:playerId" element={<ChildProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/results" element={<ResultsPage />} />

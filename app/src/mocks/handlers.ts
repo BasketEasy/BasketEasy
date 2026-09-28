@@ -30,6 +30,11 @@ export const handlers = [
   ),
   http.post('/api/me/notifications/read-all', () => new HttpResponse(null, { status: 204 })),
 
+  // Default: nobody to act for — no child linked and no « Moi » persona. The
+  // account page reads it for « Mes enfants » / « Accès parents »; guardian
+  // tests override it with server.use(...).
+  http.get('/api/me/personas', () => HttpResponse.json({ self: null, children: [] })),
+
   // Default: no VAPID key configured, matching a deployment with no push
   // credentials — NotificationPreferencesCard then hides its push control
   // rather than offering a subscription nothing could deliver to.
