@@ -60,6 +60,26 @@ describe('useAccount', () => {
     });
   });
 
+  it('keeps the session when the API is briefly unavailable on reload (regression: logout on refresh)', async () => {
+    let refreshCalls = 0;
+    server.use(
+      http.post('/api/auth/refresh', () => {
+        refreshCalls += 1;
+        return refreshCalls === 1
+          ? new HttpResponse(null, { status: 502 })
+          : HttpResponse.json({ accessToken: 'restored-token' });
+      }),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
+      ),
+    );
+
+    const { result } = renderHook(() => useAccount(), { wrapper });
+
+    await waitFor(() => expect(result.current.user?.id).toBe('user-1'), { timeout: 3000 });
+    expect(refreshCalls).toBe(2);
+  });
+
   it('restores the session exactly once under React.StrictMode double-invoked mount effects (regression: single-use refresh token race)', async () => {
     // Simulates the backend's single-use rotating refresh token: the first
     // call succeeds and rotates the token, any subsequent call (e.g. a

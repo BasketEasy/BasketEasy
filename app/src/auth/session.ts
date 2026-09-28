@@ -12,10 +12,12 @@
 // /auth/refresh would always 401 and discard a valid session.
 import { useQuery } from '@tanstack/react-query';
 import type { RefreshResponse, User } from '@basketeasy/types/auth';
-import { apiClient, setAccessToken } from '../api/client';
+import { ApiError, apiClient, setAccessToken } from '../api/client';
 import { isImpersonating } from '../impersonation/impersonationSession';
 
 export const sessionQueryKey = ['auth', 'session'] as const;
+
+const RESTORE_RETRY_DELAYS_MS = [500, 1500, 3000, 6000];
 
 async function fetchSession(): Promise<User | null> {
   // A back-office impersonation already carries its credential: "me" is the
@@ -28,14 +30,24 @@ async function fetchSession(): Promise<User | null> {
       return null;
     }
   }
-  try {
-    const refreshResponse = await apiClient.post<RefreshResponse>('/auth/refresh');
-    setAccessToken(refreshResponse.accessToken);
-    return await apiClient.get<User>('/auth/me');
-  } catch {
-    // No valid session to restore — this is the normal state for a
-    // first-time visitor, not an error to surface.
-    return null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const refreshResponse = await apiClient.post<RefreshResponse>('/auth/refresh');
+      setAccessToken(refreshResponse.accessToken);
+      return await apiClient.get<User>('/auth/me');
+    } catch (err) {
+      // Only a refusal means "no session" (the normal state for a first-time
+      // visitor). A network error or a 5xx (API mid-deploy, cold start) says
+      // nothing about the session, so retry rather than log a signed-in user
+      // out on reload.
+      if (err instanceof ApiError && err.status < 500) {
+        return null;
+      }
+      if (attempt >= RESTORE_RETRY_DELAYS_MS.length) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, RESTORE_RETRY_DELAYS_MS[attempt]));
+    }
   }
 }
 
