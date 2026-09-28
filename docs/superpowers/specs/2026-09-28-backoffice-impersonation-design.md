@@ -1,7 +1,6 @@
 # Back-office: read-only impersonation
 
-Status: draft (needs product-owner validation of the decisions marked _proposed_ and the open
-questions at the end before any code)
+Status: validated by the product owner (2026-09-28); ready for implementation
 Date: 2026-09-28
 Extends: [`2026-09-28-backoffice-browse-stats-actions-design.md`](./2026-09-28-backoffice-browse-stats-actions-design.md)
 ("Next step: read-only impersonation") and the plan's "After phase 6" item.
@@ -23,18 +22,18 @@ would be easier.
 
 ## Decisions
 
-| Topic                | Decision                                                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Who                  | `DATA_OFFICER` only. It is a disclosure (the subject's full product view), like export. `SUPPORT` stays on redacted browsing.        |
-| Justification        | Mandatory reason, 10–500 characters (`ReasonDto`), same as erase / export / support actions                                          |
-| Scope                | Read-only. Every non-`GET`/`HEAD` request carrying the credential is refused **by the strategy that authenticates it**               |
-| Lifetime             | 15 minutes, never refreshed, revocable at any time; one live session per admin                                                       |
-| Credential           | Its own JWT, signed with `PLATFORM_JWT_SECRET`, scope `impersonation-readonly`; never `JWT_ACCESS_SECRET`                            |
-| Where it runs        | The same SPA tab, in memory only: a reload ends it                                                                                   |
-| Who can be a subject | Any existing account except the admin themself and any account holding a `PlatformAdmin` grant                                       |
-| Audit                | `ADMIN_IMPERSONATION_STARTED` and `ADMIN_IMPERSONATION_ENDED` rows; individual reads during the session are not audited (_proposed_) |
-| Secret vote          | The subject's own MVP ballot is masked during impersonation (_proposed_)                                                             |
-| Subject notified     | No per-session notification; covered by the privacy notice (_proposed_, see open questions)                                          |
+| Topic                | Decision                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Who                  | `DATA_OFFICER` only. It is a disclosure (the subject's full product view), like export. `SUPPORT` stays on redacted browsing. |
+| Justification        | Mandatory reason, 10–500 characters (`ReasonDto`), same as erase / export / support actions                                   |
+| Scope                | Read-only. Every non-`GET`/`HEAD` request carrying the credential is refused **by the strategy that authenticates it**        |
+| Lifetime             | 15 minutes, never refreshed, revocable at any time; one live session per admin                                                |
+| Credential           | Its own JWT, signed with `PLATFORM_JWT_SECRET`, scope `impersonation-readonly`; never `JWT_ACCESS_SECRET`                     |
+| Where it runs        | The same SPA tab, in memory only: a reload ends it                                                                            |
+| Who can be a subject | Any existing account except the admin themself and any account holding a `PlatformAdmin` grant                                |
+| Audit                | `ADMIN_IMPERSONATION_STARTED` and `ADMIN_IMPERSONATION_ENDED` rows; individual reads during the session are not audited       |
+| Secret vote          | The subject's own MVP ballot is masked during impersonation                                                                   |
+| Subject notified     | No per-session notification; covered by the privacy notice (see Resolved questions)                                           |
 
 ## Threat model
 
@@ -245,14 +244,15 @@ state".
 - Impersonating from outside the back-office (a CLI, a link sent to someone else).
 - Recording what was viewed page by page.
 
-## Open questions for the product owner
+## Resolved questions
 
-1. **Tell the subject?** Options: nothing per session (privacy notice only, _proposed_); an
-   in-app notification after the session (« Le support Kluvo a consulté votre compte le … »);
-   or require the subject's consent first (a code they read out on the phone). Consent is the
-   strongest and the slowest; a notification is cheap and makes insider abuse visible.
-2. **Audit individual reads?** _Proposed_ no: the session is the disclosure, and per-request rows
-   would be dozens per session. Alternative: one `metadata.paths` summary on the `ENDED` row.
-3. **Minors.** Impersonating a guardian shows their children. Impersonating a player account of a
-   minor is allowed too. Should a minor subject require a second `DATA_OFFICER`'s approval?
-   _Proposed_ no for v1, reason + audit is the same bar as export.
+Validated by the product owner on 2026-09-28, each as proposed:
+
+1. **Tell the subject?** No per-session notification; the privacy notice covers it. Rejected: an
+   in-app notice after each session (« Le support Kluvo a consulté votre compte le … ») and
+   subject consent before the session (a code read out on the phone). Revisit the notice if the
+   audit log ever shows sessions without a matching support request.
+2. **Audit individual reads?** No: the session is the disclosure, and per-request rows would be
+   dozens per session. The `STARTED`/`ENDED` rows are the record.
+3. **Minors.** No second approver in v1. Impersonating a minor's account, or a guardian (which
+   shows their children), takes the same reason + audit bar as export.
