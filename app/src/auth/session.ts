@@ -13,10 +13,21 @@
 import { useQuery } from '@tanstack/react-query';
 import type { RefreshResponse, User } from '@basketeasy/types/auth';
 import { apiClient, setAccessToken } from '../api/client';
+import { isImpersonating } from '../impersonation/impersonationSession';
 
 export const sessionQueryKey = ['auth', 'session'] as const;
 
 async function fetchSession(): Promise<User | null> {
+  // A back-office impersonation already carries its credential: "me" is the
+  // subject, read directly. A refresh here would be refused locally anyway
+  // (a write), and would mean the admin's own cookie, not the subject.
+  if (isImpersonating()) {
+    try {
+      return await apiClient.get<User>('/auth/me');
+    } catch {
+      return null;
+    }
+  }
   try {
     const refreshResponse = await apiClient.post<RefreshResponse>('/auth/refresh');
     setAccessToken(refreshResponse.accessToken);

@@ -969,6 +969,7 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    hideMyVote = false,
   ): Promise<EventVoteResults> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     if (event.type !== EventType.MATCH) {
@@ -983,7 +984,13 @@ export class EventsService {
       }),
       this.prisma.teamPlayer.count({ where: { teamId } }),
     ]);
-    return this.buildVoteResults(votes, myTeamPlayer?.id ?? null, rosterSize, voteHasEnded);
+    return this.buildVoteResults(
+      votes,
+      myTeamPlayer?.id ?? null,
+      rosterSize,
+      voteHasEnded,
+      hideMyVote,
+    );
   }
 
   // Groups the event's votes by category, counts per votedTeamPlayerId, and
@@ -1005,6 +1012,7 @@ export class EventsService {
     myTeamPlayerId: string | null,
     totalVoters: number,
     voteHasEnded: boolean,
+    hideMyVote: boolean,
   ): EventVoteResults {
     const buildCategoryResults = (category: EventVoteCategory): EventVoteCandidateResult[] => {
       const counts = new Map<string, EventVoteCandidateResult>();
@@ -1056,7 +1064,10 @@ export class EventsService {
       worst: showResults ? buildCategoryResults(EventVoteCategory.WORST) : [],
       totalVoters,
       votesCast: distinctVoters.size,
-      myVote,
+      // Masked after showResults is decided, so the subject's screen keeps its
+      // real shape (leaderboard visible once they voted) without saying whom.
+      myVote: hideMyVote ? { best: null, worst: null } : myVote,
+      myVoteHidden: hideMyVote,
     };
   }
 

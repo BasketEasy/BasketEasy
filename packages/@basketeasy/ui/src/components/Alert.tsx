@@ -7,6 +7,12 @@ const alertVariants = cva('relative w-full rounded-lg border p-4', {
     variant: {
       default: 'border-border bg-cream text-charcoal',
       destructive: 'border-error bg-error/10 text-error',
+      /**
+       * A full-bleed banner for a standing state that must never read as
+       * product chrome (read-only impersonation): solid fill, edge to edge.
+       */
+      critical:
+        'rounded-none border-x-0 border-t-0 border-error bg-error px-4 py-2 text-cream md:px-8',
     },
   },
   defaultVariants: { variant: 'default' },

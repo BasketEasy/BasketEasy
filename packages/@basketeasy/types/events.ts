@@ -294,6 +294,14 @@ export interface EventVoteResults {
     best: string | null;
     worst: string | null;
   };
+  /**
+   * True when a back-office impersonation is reading this: `myVote` is then
+   * nulled, because staff watching the subject's screen must not learn whom
+   * they voted for (the vote is anonymous by construction, and the RGPD
+   * export withholds the nominee for the same reason). The leaderboards
+   * still follow the subject's real vote.
+   */
+  myVoteHidden: boolean;
 }
 
 /**

@@ -67,6 +67,12 @@ export class PlatformAdminGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
+    // An impersonation token authenticates as the *subject*, so without this
+    // an impersonated admin-subject could reach the back-office. Refused
+    // before any lookup: the back-office is never read as someone else.
+    if (request.user?.impersonation) {
+      throw new ForbiddenException('Accès refusé');
+    }
     const userId: string | undefined = request.user?.id;
     if (!userId) {
       throw new ForbiddenException('Accès refusé');

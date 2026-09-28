@@ -12,6 +12,7 @@ describe('RetentionService', () => {
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
+    impersonationSession: { deleteMany: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -40,6 +41,7 @@ describe('RetentionService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
+      impersonationSession: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
       retentionRun: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
       $transaction: jest.fn((run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     };
@@ -220,6 +222,18 @@ describe('RetentionService', () => {
 
       expect(summary.auditLogs).toEqual({ status: 'ok', count: 7 });
       expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('drops impersonation sessions a day after they expired, and only outside a dry run', async () => {
+      await service.run();
+
+      expect(prisma.impersonationSession.deleteMany).toHaveBeenCalledWith({
+        where: { expiresAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+      });
+
+      prisma.impersonationSession.deleteMany.mockClear();
+      await service.run(true);
+      expect(prisma.impersonationSession.deleteMany).not.toHaveBeenCalled();
     });
   });
 

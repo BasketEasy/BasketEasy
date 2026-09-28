@@ -3,13 +3,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAccount } from '../auth/useAccount';
 import { usePersonas } from './usePersonas';
 import { ActingAsContext, resolvePersona } from './useActingAs';
+import { isImpersonating } from '../impersonation/impersonationSession';
 
 const storageKey = (userId: string) => `kluvo.actingAs.${userId}`;
 
 // localStorage is a convenience here (reopen on the child you left), never a
 // source of truth: every access is guarded, and a missing or stale value
 // falls back through resolvePersona like any other.
+// Neither read nor written during a back-office impersonation: the subject's
+// persona must not land in the admin's browser storage, and the admin's
+// remembered choice means nothing on the subject's screen.
 function readStored(userId: string): string | null | undefined {
+  if (isImpersonating()) return undefined;
   try {
     const value = window.localStorage.getItem(storageKey(userId));
     if (value === null) return undefined;
@@ -20,6 +25,7 @@ function readStored(userId: string): string | null | undefined {
 }
 
 function writeStored(userId: string, playerId: string | null): void {
+  if (isImpersonating()) return;
   try {
     window.localStorage.setItem(storageKey(userId), playerId ?? 'self');
   } catch {

@@ -103,6 +103,10 @@
     "./platform-admin-actions": {
       "types": "./platform-admin-actions.ts",
       "default": "./platform-admin-actions.ts"
+    },
+    "./platform-admin-impersonation": {
+      "types": "./platform-admin-impersonation.ts",
+      "default": "./platform-admin-impersonation.ts"
     }
   },
   "scripts": {

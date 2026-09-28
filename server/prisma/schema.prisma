@@ -51,6 +51,8 @@ model User {
   guardianInvitesCreated        GuardianInvite[]         @relation("GuardianInviteCreatedBy")
   rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
   platformAdmin                 PlatformAdmin?
+  impersonationsActed           ImpersonationSession[]   @relation("ImpersonationActor")
+  impersonationsSubjected       ImpersonationSession[]   @relation("ImpersonationSubject")
 }
 
 // The two single-use links a user can be sent by e-mail. Both store only
@@ -711,6 +713,10 @@ enum AuditEventType {
   // mandatory reason in metadata.reason. Written in the same transaction as
   // the change it records.
   ADMIN_SUPPORT_ACTION
+  // Read-only impersonation (see ImpersonationSession): a disclosure, like
+  // export, so its own types rather than a support-action kind.
+  ADMIN_IMPERSONATION_STARTED
+  ADMIN_IMPERSONATION_ENDED
 }
 
 model AuditLog {
@@ -917,4 +923,33 @@ model PlatformAdmin {
   grantedByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// One read-only impersonation session: a DATA_OFFICER viewing the product as
+// another user. Operational state only (is this token still good?): the
+// record is the ADMIN_IMPERSONATION_STARTED/ENDED audit rows, which outlive
+// it. Checked on every impersonated request, which is what makes the token
+// revocable. Expiry is never written back: `expiresAt < now` is the state.
+// Design record: docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+model ImpersonationSession {
+  id            String                  @id @default(uuid())
+  actorUserId   String
+  actor         User                    @relation("ImpersonationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  subjectUserId String
+  subject       User                    @relation("ImpersonationSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  reason        String
+  startedAt     DateTime                @default(now())
+  expiresAt     DateTime
+  endedAt       DateTime?
+  endReason     ImpersonationEndReason?
+
+  @@index([actorUserId, endedAt])
+  @@index([expiresAt])
+}
+
+enum ImpersonationEndReason {
+  // The admin clicked « Quitter ».
+  EXITED
+  // The admin started another session: one live session per admin.
+  REPLACED
 }

@@ -256,3 +256,19 @@ Validated by the product owner on 2026-09-28, each as proposed:
    dozens per session. The `STARTED`/`ENDED` rows are the record.
 3. **Minors.** No second approver in v1. Impersonating a minor's account, or a guardian (which
    shows their children), takes the same reason + audit bar as export.
+
+## As built
+
+- Canvas approved: https://claude.ai/artifact/5i1896KeBFTzGA8j94Dw9M (boards Start, Banner desktop,
+  Mobile, Return).
+- A read-only refusal surfaces through the existing error helpers (`getClubErrorMessage`,
+  `getAccountErrorMessage`, `getAccountSecurityErrorMessage` check `isImpersonationReadOnly` first
+  and return « Action impossible en lecture seule. »), not a second, global toast: each mutation
+  already reports its own failure, and two toasts for one event would break the Feedback rule.
+- The banner is `Alert variant="critical"` with a `Button variant="inverse"`, both new variants in
+  `@basketeasy/ui`: a solid, edge-to-edge danger fill had no existing variant.
+- The session query reads `GET /auth/me` directly while impersonating (no refresh), and
+  `AdminRoute` ends an impersonation that was already live when the back-office mounts (the
+  browser's Back button), never one it has just started.
+- The subject's persona choice (`ActingAsProvider`) is neither read from nor written to storage.
+- Screenshot fixture: `scripts/fixtures/admin-impersonation.json`.

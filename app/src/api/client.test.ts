@@ -2,7 +2,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
-import { apiClient, ApiError, setAccessToken, subscribeToSessionExpiry } from './client';
+import { IMPERSONATION_READ_ONLY_CODE } from '@basketeasy/types/platform-admin-impersonation';
+import {
+  apiClient,
+  ApiError,
+  setAccessToken,
+  setImpersonationToken,
+  setPlatformToken,
+  subscribeToImpersonationExpiry,
+  subscribeToSessionExpiry,
+} from './client';
 
 describe('apiClient', () => {
   afterEach(() => {
@@ -209,5 +218,76 @@ describe('apiClient', () => {
 
     expect(caught).toBeInstanceOf(ApiError);
     expect((caught as ApiError).message).toBe('Invalid credentials');
+  });
+
+  describe('during a read-only impersonation', () => {
+    afterEach(() => {
+      setImpersonationToken(null);
+      setPlatformToken(null);
+    });
+
+    it('sends the impersonation token on product calls and the admin credentials on /admin/', async () => {
+      const seen: Record<string, string | null> = {};
+      server.use(
+        http.get('/api/me/teams', ({ request }) => {
+          seen.product = request.headers.get('Authorization');
+          return HttpResponse.json([]);
+        }),
+        http.post('/api/admin/impersonations/s-1/end', ({ request }) => {
+          seen.admin = request.headers.get('Authorization');
+          seen.platform = request.headers.get('x-platform-token');
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      setAccessToken('admin-access');
+      setPlatformToken('step-up');
+      setImpersonationToken('impersonation');
+
+      await apiClient.get('/me/teams');
+      await apiClient.post('/admin/impersonations/s-1/end');
+
+      expect(seen).toEqual({
+        product: 'Bearer impersonation',
+        admin: 'Bearer admin-access',
+        platform: 'step-up',
+      });
+    });
+
+    it('refuses a product write locally, without a request', async () => {
+      const onRequest = vi.fn();
+      server.events.on('request:start', onRequest);
+      setImpersonationToken('impersonation');
+
+      const err = await apiClient.post('/auth/logout').catch((e: unknown) => e);
+
+      server.events.removeListener('request:start', onRequest);
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe(IMPERSONATION_READ_ONLY_CODE);
+      expect(onRequest).not.toHaveBeenCalled();
+    });
+
+    it('on a 401 never refreshes: it reports the impersonation as over', async () => {
+      let refreshed = false;
+      server.use(
+        http.get('/api/me/teams', () => HttpResponse.json({}, { status: 401 })),
+        http.post('/api/auth/refresh', () => {
+          refreshed = true;
+          return HttpResponse.json({ accessToken: 'new' });
+        }),
+      );
+      const onImpersonationExpiry = vi.fn();
+      const onSessionExpiry = vi.fn();
+      const unsubscribe = subscribeToImpersonationExpiry(onImpersonationExpiry);
+      const unsubscribeSession = subscribeToSessionExpiry(onSessionExpiry);
+      setImpersonationToken('impersonation');
+
+      await expect(apiClient.get('/me/teams')).rejects.toBeInstanceOf(ApiError);
+
+      unsubscribe();
+      unsubscribeSession();
+      expect(refreshed).toBe(false);
+      expect(onImpersonationExpiry).toHaveBeenCalledTimes(1);
+      expect(onSessionExpiry).not.toHaveBeenCalled();
+    });
   });
 });

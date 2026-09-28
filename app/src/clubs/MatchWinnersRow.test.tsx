@@ -80,6 +80,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -101,6 +102,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 4,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -121,6 +123,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -142,6 +145,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -166,6 +170,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 5,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(

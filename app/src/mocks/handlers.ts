@@ -117,6 +117,7 @@ export const handlers = [
       totalVoters: 0,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     }),
   ),
 
