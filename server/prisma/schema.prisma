@@ -878,8 +878,10 @@ model PlatformAdmin {
 
   role PlatformRole
 
-  // Base32 RFC 6238 shared secret, generated out-of-band by
-  // server/scripts/platform-admin.ts. Nullable so a grant can exist in a
+  // RFC 6238 shared secret, generated out-of-band by
+  // server/scripts/platform-admin.ts and stored AES-256-GCM encrypted under
+  // PLATFORM_TOTP_ENCRYPTION_KEY (totp-secret-crypto.ts), never in clear: a
+  // database dump must not hand out the second factor. Nullable so a grant can exist in a
   // half-provisioned state, which is treated exactly like no grant at all:
   // with no secret there is no way to mint a step-up token, so the grant is
   // inert rather than dangerous.
@@ -895,6 +897,12 @@ model PlatformAdmin {
   // cleared only by an operator running `platform-admin.ts unlock` — a
   // lockout that expires on its own is a rate limit an attacker waits out.
   lockedUntil DateTime?
+
+  // The TOTP time step of the last accepted code. A code stays valid for up
+  // to ±1 step (90 s); refusing any step at or before this one makes each
+  // code single-use, so one read over a shoulder or out of a phishing page
+  // can't be replayed.
+  lastUsedTotpCounter Int?
 
   grantedByUserId String?
   createdAt       DateTime @default(now())

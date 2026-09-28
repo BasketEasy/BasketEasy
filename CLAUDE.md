@@ -263,11 +263,27 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
 - **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a
   dependency — both RFCs publish test vectors, so `totp.util.spec.ts` _proves_ it instead of
   trusting it. Don't swap in `otplib` without a reason beyond taste.
+- **The TOTP secret is encrypted at rest** (`totp-secret-crypto.ts`, AES-256-GCM under
+  `PLATFORM_TOTP_ENCRYPTION_KEY`, the row's `userId` as additional data), so a database dump
+  doesn't hand out the second factor and a ciphertext copied onto another row doesn't decrypt.
+  The key is its own env var, not derived from `PLATFORM_JWT_SECRET`: rotating the signing
+  secret after a token leak must not brick every admin's authenticator. Same opt-in rule —
+  unset or malformed, `/admin/*` is off. A secret that doesn't decrypt fails closed and is
+  fixed by re-running `grant`.
+- **A code works once.** `matchTotpCounter` returns the step a code matched and
+  `PlatformAdmin.lastUsedTotpCounter` records it; any step at or before it is a replay
+  (`replayed_code`), even inside its ±1-step validity.
 - **Lockout state is counted from `AuditLog`, not a counter column** — 5 `ADMIN_LOGIN_FAILURE`
   rows for one account in 15 minutes sets `lockedUntil` to a far-future sentinel ("until manually
   cleared", per `lockedUntilCleared`). Audit rows survive restarts and are shared across
   instances; an in-memory counter is neither. A lock that expired on its own would be a rate
   limit an attacker waits out, so only `platform-admin.ts unlock` clears it.
+- **`login` decides inside one transaction holding `SELECT … FOR UPDATE` on the grant**, so
+  parallel guesses are serialised and the lock lands on exactly the fifth failure. Its audit rows
+  go through the transaction (not `AuditService`) so the next attempt counts them, and a refusal
+  is _returned_ out of the transaction and thrown afterwards — throwing inside would roll back
+  the failure row. Past the limit, **any** caller (grant or not) gets `429` and nothing is
+  written: otherwise any logged-in account could fill the security log at request rate.
 - **List views carry no PII.** `GET /admin/users` returns `emailDomain`, `lastActiveAt`,
   `daysUntilErasure` and `clubCount` — never a local part or a name. Opening one record
   (`GET /admin/users/:userId`) is the `ADMIN_PII_VIEWED` moment, and `usePlatformUser` therefore

@@ -21,6 +21,7 @@ CREATE TABLE "PlatformAdmin" (
     "totpSecret" TEXT,
     "allowedCidrs" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "lockedUntil" TIMESTAMP(3),
+    "lastUsedTotpCounter" INTEGER,
     "grantedByUserId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

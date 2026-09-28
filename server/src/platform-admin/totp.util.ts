@@ -100,37 +100,42 @@ export function totpCounterAt(date: Date): number {
 }
 
 /**
+ * The time step a code matches, or null. Returning the step rather than a
+ * boolean is what makes replay protection possible: the caller records the
+ * last accepted step and refuses anything at or before it, so one code works
+ * once even though it stays valid for up to ±1 step.
+ *
  * Constant-time over the candidate codes: a timing side channel on a
  * six-digit code is a small leak, but this is the one credential standing
  * between a stolen password and every club's roster.
  */
-export function verifyTotp(
+export function matchTotpCounter(
   base32Secret: string,
   code: string,
   now: Date = new Date(),
   skewSteps: number = TOTP_SKEW_STEPS,
-): boolean {
+): number | null {
   const candidate = code.trim();
   if (!/^\d+$/.test(candidate) || candidate.length !== TOTP_DIGITS) {
-    return false;
+    return null;
   }
 
   let secret: Buffer;
   try {
     secret = base32Decode(base32Secret);
   } catch {
-    return false;
+    return null;
   }
 
   const counter = totpCounterAt(now);
-  let matched = false;
+  const actual = Buffer.from(candidate);
+  let matched: number | null = null;
   for (let step = -skewSteps; step <= skewSteps; step += 1) {
     const expected = Buffer.from(hotp(secret, counter + step));
-    const actual = Buffer.from(candidate);
     // No early return: every candidate step is compared even after a hit, so
     // the response time doesn't reveal *which* step matched.
     if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
-      matched = true;
+      matched = counter + step;
     }
   }
   return matched;

@@ -1,5 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
@@ -9,10 +16,17 @@ import { AuditService } from '../audit/audit.service';
 import { RetentionService } from '../retention/retention.service';
 import { PLATFORM_TOKEN_SCOPE, PLATFORM_LOGIN_MAX_ATTEMPTS } from './platform-admin.constants';
 import { hotp, totpCounterAt } from './totp.util';
+import { encryptTotpSecret } from './totp-secret-crypto';
 
 const SECRET = 'platform-secret-that-is-long-enough-for-hs256';
 // RFC 4226's test secret, base32.
 const TOTP_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+const TOTP_KEY = Buffer.alloc(32, 7);
+
+function configValue(key: string): string | undefined {
+  if (key === 'PLATFORM_TOTP_ENCRYPTION_KEY') return TOTP_KEY.toString('base64');
+  return SECRET;
+}
 
 function currentCode(): string {
   return hotp(Buffer.from('12345678901234567890', 'ascii'), totpCounterAt(new Date()));
@@ -31,23 +45,26 @@ describe('PlatformAdminService', () => {
   let audit: { record: jest.Mock; recordAndWait: jest.Mock };
   let retention: { eraseUserAccount: jest.Mock; run: jest.Mock; listRuns: jest.Mock };
   let prisma: {
-    platformAdmin: { findUnique: jest.Mock; updateMany: jest.Mock };
+    platformAdmin: { findUnique: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
     auditLog: { count: jest.Mock; create: jest.Mock; findMany: jest.Mock };
     user: { count: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
     player: { findMany: jest.Mock };
     scoresheetExtraction: { findMany: jest.Mock };
     eventRsvp: { findMany: jest.Mock };
     parentalConsent: { findMany: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
 
   const grant = {
     userId: 'admin-1',
     role: 'DATA_OFFICER' as const,
-    totpSecret: TOTP_SECRET,
+    totpSecret: encryptTotpSecret(TOTP_SECRET, TOTP_KEY, 'admin-1'),
     allowedCidrs: [] as string[],
     lockedUntil: null as Date | null,
+    lastUsedTotpCounter: null as number | null,
   };
+  let config: { get: jest.Mock };
 
   beforeEach(async () => {
     audit = {
@@ -59,10 +76,12 @@ describe('PlatformAdminService', () => {
       run: jest.fn().mockResolvedValue({}),
       listRuns: jest.fn().mockResolvedValue([]),
     };
+    config = { get: jest.fn(configValue) };
     prisma = {
       platformAdmin: {
         findUnique: jest.fn().mockResolvedValue({ ...grant }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        update: jest.fn().mockResolvedValue({}),
       },
       auditLog: {
         count: jest.fn().mockResolvedValue(0),
@@ -78,13 +97,12 @@ describe('PlatformAdminService', () => {
       scoresheetExtraction: { findMany: jest.fn().mockResolvedValue([]) },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
       parentalConsent: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn().mockImplementation((fn: (tx: unknown) => unknown) =>
-        Promise.resolve(
-          fn({
-            auditLog: prisma.auditLog,
-          }),
-        ),
-      ),
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      // The transaction client is the same mock: what matters is which calls
+      // the service makes through it, not isolation.
+      $transaction: jest
+        .fn()
+        .mockImplementation((fn: (tx: unknown) => unknown) => Promise.resolve(fn(prisma))),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -92,7 +110,7 @@ describe('PlatformAdminService', () => {
       providers: [
         PlatformAdminService,
         { provide: PrismaService, useValue: prisma },
-        { provide: ConfigService, useValue: { get: jest.fn().mockReturnValue(SECRET) } },
+        { provide: ConfigService, useValue: config },
         { provide: AuditService, useValue: audit },
         { provide: RetentionService, useValue: retention },
       ],
@@ -103,15 +121,62 @@ describe('PlatformAdminService', () => {
   });
 
   describe('login', () => {
+    function auditRows(type: string) {
+      return prisma.auditLog.create.mock.calls
+        .map(([arg]) => arg.data)
+        .filter((data) => data.type === type);
+    }
+
     it('mints a scoped, account-bound step-up token for a valid code', async () => {
       const result = await service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest());
 
       const payload = await jwt.verifyAsync(result.platformAccessToken, { secret: SECRET });
       expect(payload).toMatchObject({ sub: 'admin-1', scope: PLATFORM_TOKEN_SCOPE });
       expect(result.role).toBe('DATA_OFFICER');
-      expect(audit.recordAndWait).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'ADMIN_LOGIN_SUCCESS', userId: 'admin-1' }),
-      );
+      expect(auditRows('ADMIN_LOGIN_SUCCESS')).toEqual([
+        expect.objectContaining({ userId: 'admin-1', metadata: { role: 'DATA_OFFICER' } }),
+      ]);
+    });
+
+    it('evaluates the attempt under a row lock on the grant', async () => {
+      // Serialises concurrent guesses, so each sees the failures the previous
+      // one committed and the lockout lands on exactly the fifth.
+      await service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest());
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      const [sql] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+      expect(sql.join('?')).toContain('FOR UPDATE');
+    });
+
+    it('records the accepted step and refuses the same code a second time', async () => {
+      const code = currentCode();
+      await service.login('admin-1', 'dpo@kluvo.net', code, buildRequest());
+
+      const [[update]] = prisma.platformAdmin.update.mock.calls;
+      const acceptedStep = update.data.lastUsedTotpCounter;
+      expect(acceptedStep).toBe(totpCounterAt(new Date()));
+
+      prisma.platformAdmin.findUnique.mockResolvedValue({
+        ...grant,
+        lastUsedTotpCounter: acceptedStep,
+      });
+      await expect(
+        service.login('admin-1', 'dpo@kluvo.net', code, buildRequest()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(auditRows('ADMIN_LOGIN_FAILURE')).toEqual([
+        expect.objectContaining({ metadata: { reason: 'replayed_code' } }),
+      ]);
+    });
+
+    it('refuses an older still-valid code once a newer one was accepted', async () => {
+      prisma.platformAdmin.findUnique.mockResolvedValue({
+        ...grant,
+        lastUsedTotpCounter: totpCounterAt(new Date()) + 1,
+      });
+
+      await expect(
+        service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
     it('rejects a wrong code and audits the failure', async () => {
@@ -119,9 +184,12 @@ describe('PlatformAdminService', () => {
         service.login('admin-1', 'dpo@kluvo.net', '000000', buildRequest()),
       ).rejects.toBeInstanceOf(UnauthorizedException);
 
-      expect(audit.recordAndWait).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'ADMIN_LOGIN_FAILURE', metadata: { reason: 'bad_code' } }),
-      );
+      expect(auditRows('ADMIN_LOGIN_FAILURE')).toEqual([
+        expect.objectContaining({ userId: 'admin-1', metadata: { reason: 'bad_code' } }),
+      ]);
+      // Written through the transaction and committed despite the refusal:
+      // the service returns out of the transaction before throwing.
+      expect(prisma.platformAdmin.update).not.toHaveBeenCalled();
     });
 
     it('answers a non-admin exactly as it answers a wrong code', async () => {
@@ -132,16 +200,33 @@ describe('PlatformAdminService', () => {
       await expect(
         service.login('nobody-1', 'x@kluvo.net', currentCode(), buildRequest()),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(auditRows('ADMIN_LOGIN_FAILURE')).toEqual([
+        expect.objectContaining({ metadata: { reason: 'no_grant' } }),
+      ]);
     });
 
-    it('locks the grant once the failures in the window reach the limit', async () => {
+    it('throttles any caller past the limit, without writing another row', async () => {
+      // Bounds what one logged-in account can write to the security log.
+      prisma.platformAdmin.findUnique.mockResolvedValue(null);
       prisma.auditLog.count.mockResolvedValue(PLATFORM_LOGIN_MAX_ATTEMPTS);
+
+      const attempt = service.login('nobody-1', 'x@kluvo.net', '000000', buildRequest());
+
+      await expect(attempt).rejects.toBeInstanceOf(HttpException);
+      await expect(attempt).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('locks the grant on the failure that reaches the limit', async () => {
+      prisma.auditLog.count
+        .mockResolvedValueOnce(PLATFORM_LOGIN_MAX_ATTEMPTS - 1)
+        .mockResolvedValueOnce(PLATFORM_LOGIN_MAX_ATTEMPTS);
 
       await expect(
         service.login('admin-1', 'dpo@kluvo.net', '000000', buildRequest()),
       ).rejects.toBeInstanceOf(UnauthorizedException);
 
-      const [[call]] = prisma.platformAdmin.updateMany.mock.calls;
+      const [[call]] = prisma.platformAdmin.update.mock.calls;
       expect(call.where).toEqual({ userId: 'admin-1' });
       // "Until manually cleared" — a lock that expired on its own would be a
       // rate limit an attacker waits out.
@@ -151,12 +236,12 @@ describe('PlatformAdminService', () => {
     });
 
     it('does not lock while the failures stay under the limit', async () => {
-      prisma.auditLog.count.mockResolvedValue(PLATFORM_LOGIN_MAX_ATTEMPTS - 1);
+      prisma.auditLog.count.mockResolvedValue(PLATFORM_LOGIN_MAX_ATTEMPTS - 2);
 
       await expect(
         service.login('admin-1', 'dpo@kluvo.net', '000000', buildRequest()),
       ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(prisma.platformAdmin.updateMany).not.toHaveBeenCalled();
+      expect(prisma.platformAdmin.update).not.toHaveBeenCalled();
     });
 
     it('refuses a locked grant without spending an attempt', async () => {
@@ -168,6 +253,7 @@ describe('PlatformAdminService', () => {
       await expect(
         service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest()),
       ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
     it("will not even test the code from outside an allowlisted admin's network", async () => {
@@ -179,9 +265,44 @@ describe('PlatformAdminService', () => {
       await expect(
         service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest('198.51.100.9')),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(audit.recordAndWait).toHaveBeenCalledWith(
+      expect(auditRows('ADMIN_LOGIN_FAILURE')).toEqual([
         expect.objectContaining({ metadata: { reason: 'ip_not_allowed' } }),
+      ]);
+    });
+
+    it('fails closed on a secret that does not decrypt, without locking the grant', async () => {
+      // A plaintext value from before encryption, a wrong key, or a row
+      // copied from another admin: all an operator problem, fixed by re-granting.
+      for (const totpSecret of [
+        TOTP_SECRET,
+        encryptTotpSecret(TOTP_SECRET, Buffer.alloc(32, 9), 'admin-1'),
+        encryptTotpSecret(TOTP_SECRET, TOTP_KEY, 'someone-else'),
+      ]) {
+        prisma.platformAdmin.findUnique.mockResolvedValue({ ...grant, totpSecret });
+        prisma.auditLog.count.mockResolvedValue(PLATFORM_LOGIN_MAX_ATTEMPTS - 1);
+
+        await expect(
+          service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest()),
+        ).rejects.toBeInstanceOf(UnauthorizedException);
+      }
+      expect(auditRows('ADMIN_LOGIN_FAILURE')).toHaveLength(3);
+      expect(
+        auditRows('ADMIN_LOGIN_FAILURE').every(
+          (row) => row.metadata.reason === 'secret_unreadable',
+        ),
+      ).toBe(true);
+      expect(prisma.platformAdmin.update).not.toHaveBeenCalled();
+    });
+
+    it('is off (503) without a usable encryption key', async () => {
+      config.get.mockImplementation((key: string) =>
+        key === 'PLATFORM_TOTP_ENCRYPTION_KEY' ? 'too-short' : SECRET,
       );
+
+      await expect(
+        service.login('admin-1', 'dpo@kluvo.net', currentCode(), buildRequest()),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

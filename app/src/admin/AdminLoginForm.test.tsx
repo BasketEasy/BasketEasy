@@ -51,4 +51,17 @@ describe('AdminLoginForm', () => {
       await screen.findByText("Le back-office n'est pas activé sur ce déploiement."),
     ).toBeInTheDocument();
   });
+
+  it('asks to wait when the attempts are throttled', async () => {
+    server.use(http.post('/api/admin/login', () => HttpResponse.json({}, { status: 429 })));
+    const user = userEvent.setup();
+    renderWithProviders(<AdminLoginForm />);
+
+    await user.type(screen.getByLabelText('Code de vérification'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Entrer' }));
+
+    expect(
+      await screen.findByText('Trop de tentatives. Réessayez dans quelques minutes.'),
+    ).toBeInTheDocument();
+  });
 });

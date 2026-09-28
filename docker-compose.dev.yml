@@ -72,6 +72,7 @@ services:
       # or a developer working on the back-office has no way to turn it on
       # without editing this file.
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      PLATFORM_TOTP_ENCRYPTION_KEY: ${PLATFORM_TOTP_ENCRYPTION_KEY:-}
       # No proxy in front of the API in local dev, so X-Forwarded-For is
       # never trustworthy here. See .env.example — this is a hop count, not a
       # boolean.

@@ -268,3 +268,19 @@ result to a `Blob` + object URL, revoked immediately after the click.
 `platform-admin.service.spec.ts`: each of the three art. 15(4) redactions, the `reason` reaching
 the `ADMIN_EXPORT_GENERATED` row, a 404 for an unknown subject writing no audit row. Vitest: the
 button producing a download and surfacing a failure as a toast.
+
+# Addendum: step-up hardening
+
+Four gaps found reviewing the step-up before merge, each closed in `PlatformAdminService.login`
+and its helpers.
+
+| Gap                                                                                          | Fix                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `totpSecret` stored in clear: a database dump hands out the second factor.                   | AES-256-GCM under `PLATFORM_TOTP_ENCRYPTION_KEY` (`totp-secret-crypto.ts`), `userId` as additional data so a ciphertext moved to another row fails. Separate from `PLATFORM_JWT_SECRET` so rotating one doesn't force the other. Unset → back-office off, like the signing secret. |
+| A code could be replayed for ~90 s (±1 step).                                                | `matchTotpCounter` returns the matched step; `PlatformAdmin.lastUsedTotpCounter` refuses any step at or before the last accepted one.                                                                                                                                              |
+| No rate limit: any logged-in account could write `ADMIN_LOGIN_FAILURE` rows at request rate. | Past `PLATFORM_LOGIN_MAX_ATTEMPTS` failures in the window, every caller gets `429` and no row is written.                                                                                                                                                                          |
+| Parallel guesses could all pass the lockout check before any failure was recorded.           | The attempt runs in one transaction behind `SELECT … FOR UPDATE` on the grant; audit rows are written through the transaction so the next attempt sees them, and refusals are returned out of the transaction and thrown after it commits.                                         |
+
+A secret that doesn't decrypt (wrong key, tampered row, a plaintext value written before this) is
+recorded as `secret_unreadable`, fails closed and never locks the grant by itself; `grant` re-arms
+it. The column was added to this branch's own unmerged migration rather than a new one.

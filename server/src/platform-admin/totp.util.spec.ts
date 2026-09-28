@@ -4,7 +4,7 @@ import {
   generateTotpSecret,
   hotp,
   totpCounterAt,
-  verifyTotp,
+  matchTotpCounter,
 } from './totp.util';
 
 // RFC 4226 Appendix D — the ASCII secret "12345678901234567890", base32
@@ -54,7 +54,7 @@ describe('hotp (RFC 4226 Appendix D)', () => {
   );
 });
 
-describe('verifyTotp (RFC 6238 Appendix B)', () => {
+describe('matchTotpCounter (RFC 6238 Appendix B)', () => {
   // RFC 6238's SHA-1 vectors, truncated to the 6 digits this implementation
   // emits (the RFC tabulates 8).
   const vectors: [number, string][] = [
@@ -66,26 +66,33 @@ describe('verifyTotp (RFC 6238 Appendix B)', () => {
   ];
 
   it.each(vectors)('accepts the code for T=%i', (epochSeconds, code) => {
-    expect(verifyTotp(RFC4226_SECRET_BASE32, code, new Date(epochSeconds * 1000), 0)).toBe(true);
+    const now = new Date(epochSeconds * 1000);
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, code, now, 0)).toBe(totpCounterAt(now));
   });
 
-  it('accepts a code one step early or late but not two', () => {
+  it('accepts a code one step early or late but not two, reporting the step it matched', () => {
     const now = new Date(1111111109 * 1000);
     const secret = Buffer.from(RFC4226_SECRET_ASCII, 'ascii');
     const counter = totpCounterAt(now);
 
-    expect(verifyTotp(RFC4226_SECRET_BASE32, hotp(secret, counter - 1), now)).toBe(true);
-    expect(verifyTotp(RFC4226_SECRET_BASE32, hotp(secret, counter + 1), now)).toBe(true);
-    expect(verifyTotp(RFC4226_SECRET_BASE32, hotp(secret, counter + 2), now)).toBe(false);
+    // The matched step, not "now": replay protection records the code's own
+    // step, so an early code can't be reused once the clock catches up.
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, hotp(secret, counter - 1), now)).toBe(
+      counter - 1,
+    );
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, hotp(secret, counter + 1), now)).toBe(
+      counter + 1,
+    );
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, hotp(secret, counter + 2), now)).toBeNull();
   });
 
   it('rejects malformed input without throwing', () => {
     const now = new Date(1111111109 * 1000);
-    expect(verifyTotp(RFC4226_SECRET_BASE32, '', now)).toBe(false);
-    expect(verifyTotp(RFC4226_SECRET_BASE32, '12345', now)).toBe(false);
-    expect(verifyTotp(RFC4226_SECRET_BASE32, '08180a', now)).toBe(false);
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, '', now)).toBeNull();
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, '12345', now)).toBeNull();
+    expect(matchTotpCounter(RFC4226_SECRET_BASE32, '08180a', now)).toBeNull();
     // A corrupted secret must fail closed, not throw a 500 out of the guard.
-    expect(verifyTotp('not base32!', '081804', now)).toBe(false);
+    expect(matchTotpCounter('not base32!', '081804', now)).toBeNull();
   });
 });
 

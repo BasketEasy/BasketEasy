@@ -16,9 +16,18 @@
  *
  * `grant` prints the otpauth:// URI once. It is not stored anywhere else and
  * cannot be re-read afterwards — re-run `grant` to rotate the secret.
+ *
+ * `grant` also needs PLATFORM_TOTP_ENCRYPTION_KEY, the same value the server
+ * runs with: the secret is written encrypted under it (totp-secret-crypto.ts).
+ * A grant written under a different key simply fails to verify, so after
+ * rotating that key every admin is re-granted.
  */
 import { PlatformRole, PrismaClient } from '@prisma/client';
 import { buildOtpAuthUri, generateTotpSecret } from '../src/platform-admin/totp.util';
+import {
+  encryptTotpSecret,
+  resolveTotpEncryptionKey,
+} from '../src/platform-admin/totp-secret-crypto';
 
 const prisma = new PrismaClient();
 
@@ -66,12 +75,20 @@ async function grant(email: string, role: string, cidrList?: string): Promise<vo
     throw new Error(`role must be one of ${Object.values(PlatformRole).join(', ')}`);
   }
 
+  const key = resolveTotpEncryptionKey(process.env.PLATFORM_TOTP_ENCRYPTION_KEY);
+  if (!key) {
+    throw new Error(
+      "PLATFORM_TOTP_ENCRYPTION_KEY must be set to the server's value (32 bytes, base64).",
+    );
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     throw new Error(`No account with email ${email}`);
   }
 
-  const totpSecret = generateTotpSecret();
+  const plainSecret = generateTotpSecret();
+  const totpSecret = encryptTotpSecret(plainSecret, key, user.id);
   const allowedCidrs = cidrList
     ? cidrList
         .split(',')
@@ -85,12 +102,12 @@ async function grant(email: string, role: string, cidrList?: string): Promise<vo
     // @unique on userId means one grant per account, and rotation is the
     // remedy for a secret that may have leaked.
     create: { userId: user.id, role, totpSecret, allowedCidrs },
-    update: { role, totpSecret, allowedCidrs, lockedUntil: null },
+    update: { role, totpSecret, allowedCidrs, lockedUntil: null, lastUsedTotpCounter: null },
   });
 
   console.log(`Granted ${role} to ${email}.`);
   console.log('Enroll this in an authenticator app now — it is not shown again:');
-  console.log(buildOtpAuthUri(totpSecret, email));
+  console.log(buildOtpAuthUri(plainSecret, email));
 }
 
 async function unlock(email: string): Promise<void> {

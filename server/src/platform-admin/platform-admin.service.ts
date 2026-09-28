@@ -1,6 +1,9 @@
 import {
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -9,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Prisma } from '@prisma/client';
 import type { Request } from 'express';
+import { PLATFORM_ADMIN_LOCKED_CODE } from '@basketeasy/types/platform-admin';
 import type {
   AuditLogEntry,
   ErasePlatformUserResponse,
@@ -37,7 +41,8 @@ import {
   PLATFORM_TOKEN_TTL_SECONDS,
   resolvePlatformSecret,
 } from './platform-admin.constants';
-import { verifyTotp } from './totp.util';
+import { matchTotpCounter } from './totp.util';
+import { decryptTotpSecret, resolveTotpEncryptionKey } from './totp-secret-crypto';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -61,6 +66,8 @@ const EXPORT_NOTICE = {
 
 @Injectable()
 export class PlatformAdminService {
+  private readonly logger = new Logger(PlatformAdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -74,8 +81,20 @@ export class PlatformAdminService {
    * route is behind JwtAuthGuard) and trades a TOTP code for a second,
    * separately-signed, 15-minute token that PlatformAdminGuard requires.
    *
-   * Every outcome is audited, success and failure alike — the failures are
-   * both the brute-force signal and the input to the lockout below.
+   * Every attempt is audited, success and failure alike — the failures are
+   * both the brute-force signal and the input to the throttle and lockout.
+   *
+   * The whole decision runs in one transaction holding a row lock on the
+   * grant, so concurrent guesses are evaluated one after another: each sees
+   * the failures the previous one committed, and the lockout lands on exactly
+   * the fifth. Without the lock, a burst of parallel requests could all pass
+   * the check before any of them recorded its failure.
+   *
+   * The audit rows are written through the transaction rather than
+   * AuditService so they count towards the next attempt the moment it takes
+   * the lock. That is also why a refusal is returned out of the transaction
+   * and thrown afterwards: throwing inside would roll back the failure row
+   * that is the whole point of recording it.
    */
   async login(
     userId: string,
@@ -84,59 +103,126 @@ export class PlatformAdminService {
     request: Request,
   ): Promise<PlatformLoginResponse> {
     const secret = this.getPlatformSecret();
-    const admin = await this.prisma.platformAdmin.findUnique({ where: { userId } });
+    const totpKey = this.getTotpEncryptionKey();
+    const context = auditContextOf(request);
 
-    // No grant, or a grant that was never armed with a secret. Audited
-    // without a userId-scoped lockout: there is no grant to lock, and the
-    // caller must not learn from the response that no grant exists.
-    if (!admin?.totpSecret) {
-      await this.audit.recordAndWait({
-        type: 'ADMIN_LOGIN_FAILURE',
-        userId,
-        actorEmail: email,
-        metadata: { reason: 'no_grant' },
-        context: auditContextOf(request),
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const recordFailure = (reason: string) =>
+        tx.auditLog.create({
+          data: {
+            type: 'ADMIN_LOGIN_FAILURE',
+            userId,
+            actorEmail: email,
+            ipAddress: context.ipAddress ?? null,
+            userAgent: context.userAgent ?? null,
+            metadata: { reason },
+          },
+        });
+      const recentFailures = () =>
+        tx.auditLog.count({
+          where: {
+            type: 'ADMIN_LOGIN_FAILURE',
+            userId,
+            createdAt: { gte: new Date(Date.now() - PLATFORM_LOGIN_WINDOW_MS) },
+          },
+        });
+
+      // A no-op for an account with no grant: there is nothing to guess and
+      // nothing to lock, only the throttle below to bound its audit rows.
+      await tx.$queryRaw`SELECT 1 FROM "PlatformAdmin" WHERE "userId" = ${userId} FOR UPDATE`;
+      const admin = await tx.platformAdmin.findUnique({ where: { userId } });
+
+      if (admin?.lockedUntil && admin.lockedUntil > new Date()) {
+        return { kind: 'locked' } as const;
+      }
+
+      // The throttle, for every caller. Past the limit nothing is written:
+      // any logged-in account could otherwise fill the security log with
+      // failure rows at request rate. For a grant holder the lockout below
+      // normally fires first; this also covers a grant unlocked by an operator
+      // while its failures are still inside the window.
+      if ((await recentFailures()) >= PLATFORM_LOGIN_MAX_ATTEMPTS) {
+        return { kind: 'throttled' } as const;
+      }
+
+      // No grant, or a grant that was never armed. Same answer as a wrong
+      // code: the caller must not learn from the response that no grant exists.
+      if (!admin?.totpSecret) {
+        await recordFailure('no_grant');
+        return { kind: 'invalid' } as const;
+      }
+
+      // Checked here as well as in the guard: an allowlisted admin's TOTP code
+      // must not even be *testable* from outside their network, or the
+      // allowlist protects the data but not the credential.
+      if (!isIpAllowed(admin.allowedCidrs, clientIpOf(request))) {
+        await recordFailure('ip_not_allowed');
+        return { kind: 'forbidden' } as const;
+      }
+
+      const totpSecret = decryptTotpSecret(admin.totpSecret, totpKey, userId);
+      if (totpSecret === null) {
+        // Wrong key, a tampered or transplanted row, or a value written before
+        // secrets were encrypted. An operator problem, not a guess: logged and
+        // audited, but it never locks the grant by itself (only a wrong or
+        // replayed code does). Re-running `platform-admin.ts grant` fixes it.
+        this.logger.error(`TOTP secret for platform admin ${userId} does not decrypt`);
+        await recordFailure('secret_unreadable');
+        return { kind: 'invalid' } as const;
+      }
+
+      const counter = matchTotpCounter(totpSecret, totpCode);
+      // A code at or before the last accepted step is a replay, even if it is
+      // still inside its ±1-step validity window.
+      const replayed =
+        counter !== null &&
+        admin.lastUsedTotpCounter !== null &&
+        counter <= admin.lastUsedTotpCounter;
+
+      if (counter === null || replayed) {
+        await recordFailure(replayed ? 'replayed_code' : 'bad_code');
+        if ((await recentFailures()) >= PLATFORM_LOGIN_MAX_ATTEMPTS) {
+          await tx.platformAdmin.update({
+            where: { userId },
+            data: { lockedUntil: lockedUntilCleared() },
+          });
+        }
+        return { kind: 'invalid' } as const;
+      }
+
+      await tx.platformAdmin.update({
+        where: { userId },
+        data: { lastUsedTotpCounter: counter },
       });
-      throw new UnauthorizedException('Code invalide');
-    }
-
-    if (admin.lockedUntil && admin.lockedUntil > new Date()) {
-      throw new ForbiddenException('Accès back-office verrouillé. Contactez un opérateur.');
-    }
-
-    // Checked here as well as in the guard: an allowlisted admin's TOTP code
-    // must not even be *testable* from outside their network, or the
-    // allowlist protects the data but not the credential.
-    if (!isIpAllowed(admin.allowedCidrs, clientIpOf(request))) {
-      await this.audit.recordAndWait({
-        type: 'ADMIN_LOGIN_FAILURE',
-        userId,
-        actorEmail: email,
-        metadata: { reason: 'ip_not_allowed' },
-        context: auditContextOf(request),
+      await tx.auditLog.create({
+        data: {
+          type: 'ADMIN_LOGIN_SUCCESS',
+          userId,
+          actorEmail: email,
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null,
+          metadata: { role: admin.role },
+        },
       });
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    if (!verifyTotp(admin.totpSecret, totpCode)) {
-      await this.audit.recordAndWait({
-        type: 'ADMIN_LOGIN_FAILURE',
-        userId,
-        actorEmail: email,
-        metadata: { reason: 'bad_code' },
-        context: auditContextOf(request),
-      });
-      await this.lockOutIfOverAttemptLimit(userId);
-      throw new UnauthorizedException('Code invalide');
-    }
-
-    await this.audit.recordAndWait({
-      type: 'ADMIN_LOGIN_SUCCESS',
-      userId,
-      actorEmail: email,
-      metadata: { role: admin.role },
-      context: auditContextOf(request),
+      return { kind: 'ok', role: admin.role } as const;
     });
+
+    switch (outcome.kind) {
+      case 'locked':
+        throw new ForbiddenException({
+          message: 'Accès back-office verrouillé. Contactez un opérateur.',
+          code: PLATFORM_ADMIN_LOCKED_CODE,
+        });
+      case 'throttled':
+        throw new HttpException(
+          'Trop de tentatives. Réessayez dans quelques minutes.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      case 'forbidden':
+        throw new ForbiddenException('Accès refusé');
+      case 'invalid':
+        throw new UnauthorizedException('Code invalide');
+    }
 
     const platformAccessToken = await this.jwt.signAsync(
       { sub: userId, scope: PLATFORM_TOKEN_SCOPE },
@@ -146,30 +232,8 @@ export class PlatformAdminService {
     return {
       platformAccessToken,
       expiresAt: new Date(Date.now() + PLATFORM_TOKEN_TTL_SECONDS * 1000).toISOString(),
-      role: admin.role,
+      role: outcome.role,
     };
-  }
-
-  /**
-   * Counts this account's failures inside the window from the audit rows that
-   * were just written, and locks the grant once it reaches the limit. The
-   * lock does not expire on its own — see `lockedUntilCleared`.
-   */
-  private async lockOutIfOverAttemptLimit(userId: string): Promise<void> {
-    const failures = await this.prisma.auditLog.count({
-      where: {
-        type: 'ADMIN_LOGIN_FAILURE',
-        userId,
-        createdAt: { gte: new Date(Date.now() - PLATFORM_LOGIN_WINDOW_MS) },
-      },
-    });
-
-    if (failures >= PLATFORM_LOGIN_MAX_ATTEMPTS) {
-      await this.prisma.platformAdmin.updateMany({
-        where: { userId },
-        data: { lockedUntil: lockedUntilCleared() },
-      });
-    }
   }
 
   /**
@@ -710,6 +774,18 @@ export class PlatformAdminService {
       page,
       pageSize,
     };
+  }
+
+  /**
+   * Same opt-in rule as the signing secret: without a usable key there is no
+   * way to read a TOTP secret, so the back-office is off rather than armed.
+   */
+  private getTotpEncryptionKey(): Buffer {
+    const key = resolveTotpEncryptionKey(this.config.get<string>('PLATFORM_TOTP_ENCRYPTION_KEY'));
+    if (!key) {
+      throw new ServiceUnavailableException("Le back-office n'est pas activé sur ce déploiement");
+    }
+    return key;
   }
 
   private getPlatformSecret(): string {

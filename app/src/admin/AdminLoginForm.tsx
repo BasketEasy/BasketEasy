@@ -28,6 +28,9 @@ function stepUpErrorMessage(err: unknown): string {
     if (err.status === 401) {
       return 'Code invalide.';
     }
+    if (err.status === 429) {
+      return 'Trop de tentatives. Réessayez dans quelques minutes.';
+    }
   }
   return 'Vérification impossible. Réessayez.';
 }
