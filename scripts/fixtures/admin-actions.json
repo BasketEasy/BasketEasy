@@ -1629,5 +1629,9 @@
     "action": "CLUB_CREATED",
     "auditLogId": "log-new",
     "clubId": "club-1"
+  },
+  "POST /api/admin/clubs/club-1/delete": {
+    "action": "CLUB_DELETED",
+    "auditLogId": "log-99"
   }
 }

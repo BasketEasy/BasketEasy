@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -7,6 +7,7 @@ import type { AdminClubDetail } from '@basketeasy/types/platform-admin-browse';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { AdminClubDetailPage } from './AdminClubDetailPage';
+import { clearPlatformSession, startPlatformSession } from './platformSession';
 
 const CLUB: AdminClubDetail = {
   id: 'club-1',
@@ -26,12 +27,28 @@ function renderClub(route = '/admin/clubs/club-1') {
   return renderWithProviders(
     <Routes>
       <Route path="/admin/clubs/:clubId" element={<AdminClubDetailPage />} />
+      <Route path="/admin/clubs" element={<p>Liste des clubs</p>} />
     </Routes>,
     { route },
   );
 }
 
+function serveClub() {
+  server.use(
+    http.get('/api/admin/clubs/club-1', () => HttpResponse.json(CLUB)),
+    http.get('/api/admin/clubs/club-1/members', () =>
+      HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+    ),
+  );
+}
+
+function signInAs(role: 'SUPPORT' | 'DATA_OFFICER') {
+  startPlatformSession('platform-token', new Date(Date.now() + 15 * 60 * 1000).toISOString(), role);
+}
+
 describe('AdminClubDetailPage', () => {
+  afterEach(() => clearPlatformSession());
+
   it('opens on the members tab, each member linking to their account', async () => {
     server.use(
       http.get('/api/admin/clubs/club-1', () => HttpResponse.json(CLUB)),
@@ -95,5 +112,36 @@ describe('AdminClubDetailPage', () => {
     renderClub();
 
     expect(await screen.findByText('Club indisponible')).toBeInTheDocument();
+  });
+
+  it('offers club deletion to a DATA_OFFICER only', async () => {
+    serveClub();
+    signInAs('SUPPORT');
+
+    renderClub();
+
+    expect(await screen.findByRole('heading', { name: 'BC Nantes Erdre' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Supprimer' })).not.toBeInTheDocument();
+  });
+
+  it('deletes the club with a reason, then leaves for the clubs list', async () => {
+    serveClub();
+    let body: unknown = null;
+    server.use(
+      http.post('/api/admin/clubs/club-1/delete', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+      }),
+    );
+    signInAs('DATA_OFFICER');
+    const user = userEvent.setup();
+
+    renderClub();
+    await user.click(await screen.findByRole('button', { name: 'Supprimer' }));
+    await user.type(screen.getByLabelText('Motif'), 'Club dissous, ticket #42');
+    await user.click(screen.getByRole('button', { name: 'Supprimer définitivement' }));
+
+    expect(await screen.findByText('Liste des clubs')).toBeInTheDocument();
+    expect(body).toEqual({ reason: 'Club dissous, ticket #42' });
   });
 });

@@ -20,7 +20,10 @@ import { SelectField } from '@basketeasy/ui/select-field';
 import { Text } from '@basketeasy/ui/text';
 import { Textarea } from '@basketeasy/ui/textarea';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
-import type { AdminReasonRequest } from '@basketeasy/types/platform-admin-actions';
+import type {
+  AdminActionResult,
+  AdminReasonRequest,
+} from '@basketeasy/types/platform-admin-actions';
 import { adminActionErrorMessage, reasonSchema, toastActionDone } from './adminActionForm';
 import { useAdminAction } from './useAdminAction';
 
@@ -153,6 +156,7 @@ export function AdminActionDialog({
   confirmLabel,
   danger = false,
   path,
+  onDone,
 }: {
   trigger: ReactElement;
   title: string;
@@ -163,6 +167,8 @@ export function AdminActionDialog({
   confirmLabel: string;
   danger?: boolean;
   path: string;
+  /** After the success toast, e.g. to leave a page whose record is gone. */
+  onDone?: (result: AdminActionResult) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { mutate, isPending } = useAdminAction<AdminReasonRequest>(path);
@@ -206,6 +212,7 @@ export function AdminActionDialog({
       onSuccess: (result) => {
         handleOpenChange(false);
         toastActionDone(result);
+        onDone?.(result);
       },
       onError: (error) => setError('root', { message: adminActionErrorMessage(error) }),
     });
