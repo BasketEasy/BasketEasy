@@ -142,7 +142,7 @@ export function matchTotpCounter(
 }
 
 /**
- * The `otpauth://` enrollment URI, printed by server/scripts/platform-admin.ts
+ * The `otpauth://` enrollment URI, printed by server/src/cli/platform-admin.ts
  * for the operator to paste or render as a QR. There is deliberately no
  * in-app enrollment screen: an enrollment screen is a self-service path to
  * arming a grant, and the design says grants are provisioned out-of-band.

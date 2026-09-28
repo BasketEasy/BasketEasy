@@ -256,8 +256,11 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   `REDIS_URL`/`R2_*`/`GEMINI_API_KEY`/`VAPID_*`): unset, every `/admin/*` route answers 503 and
   the surface does not exist for that deployment. Opt-in per deploy is the right default for the
   one place a compromised credential exposes every club's roster at once.
-- **Grants are provisioned out-of-band only** — `server/scripts/platform-admin.ts`
-  (`grant`/`revoke`/`unlock`/`list`), which needs `DATABASE_URL`. There is no "promote to admin"
+- **Grants are provisioned out-of-band only** — `server/src/cli/platform-admin.ts`
+  (`grant`/`revoke`/`unlock`/`list`), compiled into the image and run in the server container as
+  `docker compose exec server node server/dist/cli/platform-admin.js <command>`, where
+  `DATABASE_URL` and `PLATFORM_TOTP_ENCRYPTION_KEY` are already set. It lives under `src/`, not a
+  `scripts/` folder, precisely so it ships: the runtime image carries `dist/` only. There is no "promote to admin"
   button and no in-app TOTP enrollment screen: an enrollment screen _is_ a self-service path to
   arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret.
 - **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a

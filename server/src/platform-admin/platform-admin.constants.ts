@@ -20,7 +20,7 @@ export const PLATFORM_LOGIN_WINDOW_MS = 15 * 60 * 1000;
 /**
  * "Locked until manually cleared", expressed in a `DateTime?` column. A lock
  * that expires on its own would be a rate limit an attacker simply waits out;
- * clearing this is `server/scripts/platform-admin.ts unlock`.
+ * clearing this is `server/src/cli/platform-admin.ts unlock`.
  */
 export function lockedUntilCleared(now: Date = new Date()): Date {
   const locked = new Date(now.getTime());

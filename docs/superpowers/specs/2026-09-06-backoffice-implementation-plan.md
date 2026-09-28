@@ -74,7 +74,7 @@ The design mentions "a QR-code enrollment screen", but its own Hardening section
 provisioned out-of-band with no self-service path. Those two pull in opposite directions, and
 the Hardening rule wins: an in-app enrollment screen is a self-service path to arming a grant.
 
-`server/scripts/platform-admin.ts` is the ops tool — `grant`, `revoke`, `unlock`, `list`. `grant`
+`server/src/cli/platform-admin.ts` is the ops tool — `grant`, `revoke`, `unlock`, `list`. `grant`
 generates the TOTP secret and prints the `otpauth://totp/...` URI, which every authenticator app
 accepts pasted or rendered as a QR by the operator's own terminal. No QR dependency reaches the
 client bundle, and the frontend never has an enrollment route to protect.
@@ -167,7 +167,7 @@ server/src/platform-admin/totp.util.ts
 server/src/platform-admin/client-ip.util.ts     trusted-proxy-aware IP + BlockList matching
 server/src/auth/guards/platform-admin.guard.ts
 server/src/auth/decorators/platform-roles.decorator.ts
-server/scripts/platform-admin.ts                grant / revoke / unlock / list
+server/src/cli/platform-admin.ts                grant / revoke / unlock / list
 
 app/src/api/client.ts                           setPlatformToken() + X-Platform-Token injection
 app/src/admin/                                  AdminRoute, AdminShell, TOTP prompt, 3 pages,

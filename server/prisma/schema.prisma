@@ -879,7 +879,7 @@ model PlatformAdmin {
   role PlatformRole
 
   // RFC 6238 shared secret, generated out-of-band by
-  // server/scripts/platform-admin.ts and stored AES-256-GCM encrypted under
+  // server/src/cli/platform-admin.ts and stored AES-256-GCM encrypted under
   // PLATFORM_TOTP_ENCRYPTION_KEY (totp-secret-crypto.ts), never in clear: a
   // database dump must not hand out the second factor. Nullable so a grant can exist in a
   // half-provisioned state, which is treated exactly like no grant at all:

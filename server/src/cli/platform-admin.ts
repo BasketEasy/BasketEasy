@@ -6,13 +6,16 @@
  * and no in-app TOTP enrollment screen: an enrollment screen is a
  * self-service path to arming a grant, and the back-office design says grants
  * are provisioned out-of-band only. This script is that band — it needs
- * DATABASE_URL, i.e. an operator who already has database access.
+ * DATABASE_URL, i.e. an operator with shell access to the server.
  *
- * Usage (from server/):
- *   pnpm exec ts-node scripts/platform-admin.ts list
- *   pnpm exec ts-node scripts/platform-admin.ts grant <email> <SUPPORT|DATA_OFFICER> [cidr,cidr]
- *   pnpm exec ts-node scripts/platform-admin.ts unlock <email>
- *   pnpm exec ts-node scripts/platform-admin.ts revoke <email>
+ * Compiled with the rest of `src`, so it ships in the server image. In
+ * production, run it inside the running container, where DATABASE_URL and
+ * PLATFORM_TOTP_ENCRYPTION_KEY are already set:
+ *   docker compose exec server node server/dist/cli/platform-admin.js list
+ *   docker compose exec server node server/dist/cli/platform-admin.js grant <email> <SUPPORT|DATA_OFFICER> [cidr,cidr]
+ *   docker compose exec server node server/dist/cli/platform-admin.js unlock <email>
+ *   docker compose exec server node server/dist/cli/platform-admin.js revoke <email>
+ * In development, from server/: `pnpm exec ts-node src/cli/platform-admin.ts <command> ...`.
  *
  * `grant` prints the otpauth:// URI once. It is not stored anywhere else and
  * cannot be re-read afterwards — re-run `grant` to rotate the secret.
@@ -23,11 +26,8 @@
  * rotating that key every admin is re-granted.
  */
 import { PlatformRole, PrismaClient } from '@prisma/client';
-import { buildOtpAuthUri, generateTotpSecret } from '../src/platform-admin/totp.util';
-import {
-  encryptTotpSecret,
-  resolveTotpEncryptionKey,
-} from '../src/platform-admin/totp-secret-crypto';
+import { buildOtpAuthUri, generateTotpSecret } from '../platform-admin/totp.util';
+import { encryptTotpSecret, resolveTotpEncryptionKey } from '../platform-admin/totp-secret-crypto';
 
 const prisma = new PrismaClient();
 
