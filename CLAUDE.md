@@ -317,6 +317,12 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   club's attestation. Frontend: `app/src/admin/actions/` — one `AdminActionDialog`
   (react-hook-form + zod, server refusal in the dialog's `Alert`, success as a toast), with
   `AdminMemberDialog` and `AdminAddTeamAdminDialog` for the two that need more than text fields.
+- **Staff can create a club, never a person.** `POST /admin/clubs` (`CLUB_CREATED`) writes the club, its
+  first `ADMIN` membership and the audit row in one transaction through `createClubWithAdmin`
+  (`clubs/club-writes.ts`, shared with `ClubsService.createClub`). The first admin must be an existing
+  account, picked through the global search (exact e-mail for `SUPPORT`); an unverified one is allowed
+  and only warned about, since `EmailVerifiedGuard` still gates what they can hand out. A duplicate FFBB
+  code is the one 409 and lands on its field in `AdminCreateClubDialog`.
 - **Erasure requires a reason**, stored in the `ADMIN_USER_ERASED` row in the _same transaction_
   as the deletion. `AuditLog.userId`/`actorEmail` is always the acting **admin**; the subject is
   `metadata.subjectUserId`, which is why `GET /admin/audit-log?userId=` matches both — filtering

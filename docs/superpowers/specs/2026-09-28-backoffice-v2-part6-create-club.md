@@ -31,3 +31,21 @@ restricted to users (so `SUPPORT` finds by exact e-mail); on success toast + nav
 
 Creation writes club + membership + audit row; unknown user; duplicate FFBB code as a field
 error; the unverified warning renders.
+
+## 5. As built
+
+- Canvas approved: https://claude.ai/artifact/7B3ciP82ACBDbu42qLVkzx (boards Main, Errors, Mobile,
+  Success).
+- `POST /admin/clubs` returns `AdminCreateClubResult` (`AdminActionResult` + `clubId`) rather than
+  `AdminClubDetail`: the dialog only needs the id to open the club's page, which then loads the
+  detail itself, and every support action keeps one result shape.
+- Creation moved to `createClubWithAdmin` in `server/src/clubs/club-writes.ts` (with
+  `toFfbbClubCodeError`), called by `ClubsService.createClub` and the back-office alike, instead of
+  a `tx` parameter on `ClubsService`: the platform-admin module doesn't import `ClubsModule`, the
+  same choice Part 5 made for membership and consent writes.
+- The unverified warning reads a new `emailVerified` on user search hits
+  (`AdminSearchHit.emailVerified`), so picking a first admin never opens (and audits) their record.
+- A blank FFBB code is stored as none (`AdminCreateClubDto` maps `""` to `undefined`), so two clubs
+  without a code can't collide on the column's unique index.
+- Screenshot fixture: `scripts/fixtures/admin-actions.json` gained the search hits and the create
+  route.
