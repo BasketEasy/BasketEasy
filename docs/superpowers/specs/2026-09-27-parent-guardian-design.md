@@ -9,7 +9,12 @@ profile, invite acceptance, admin player table and « Parents » dialog, coach a
 player removing a parent). The app-wide restyle the canvas asked for shipped first, in #187.
 
 Implementation is split into four PRs, each small enough to review on its own (see
-[Delivery plan](#delivery-plan)).
+[Delivery plan](#delivery-plan)), each with its own spec:
+
+1. [Backend: guardian links](./2026-09-27-parent-guardian-part1-links-backend.md)
+2. [Backend: acting as, respondent, fan-out](./2026-09-27-parent-guardian-part2-acting-as-backend.md)
+3. [Frontend: linking](./2026-09-27-parent-guardian-part3-linking-ui.md)
+4. [Frontend: acting as](./2026-09-27-parent-guardian-part4-acting-as-ui.md)
 
 ## Why
 
