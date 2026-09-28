@@ -69,7 +69,8 @@ export function DashboardPage() {
               {`Vous gérez ${persona.firstName} ${persona.lastName}`}
             </Text>
           ) : (
-            hasManageRights && user && (
+            hasManageRights &&
+            user && (
               <Text variant="meta" size="md" className="mt-1 break-all">
                 {user.email}
               </Text>
