@@ -50,6 +50,8 @@ function counts(convokedCount: number) {
     role: 'PLAYER' as const,
     isMe: false,
     rsvpStatus: null,
+    respondedBy: null,
+    respondedByGuardian: false,
     travelMode: null,
     convoked: i < convokedCount,
   }));

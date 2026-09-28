@@ -5,11 +5,13 @@ import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Spinner } from '@basketeasy/ui/icons/spinner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@basketeasy/ui/tooltip';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { EventRsvpStatus } from '@basketeasy/types/events';
+import type { EventRsvpRespondent, EventRsvpStatus } from '@basketeasy/types/events';
 import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
 import { useEventRsvpSet } from './useEventRsvpSet';
 import { useEventRsvpClear } from './useEventRsvpClear';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { useTeamActingAs } from '../guardians/useActingAs';
+import { respondedByLine } from '../guardians/respondentLabel';
 
 const ACTIVE_CLASSES: Record<EventRsvpStatus, string> = {
   GOING: 'border-success bg-success text-cream',
@@ -57,6 +59,9 @@ const GENERIC_FALLBACK = 'Une erreur est survenue. Merci de réessayer.';
 export interface EventRsvpControlEvent {
   id: string;
   myRsvpStatus: EventRsvpStatus | null;
+  /** Who gave the answer — optional so a call site without it still fits. */
+  myRsvpRespondedBy?: EventRsvpRespondent | null;
+  myRsvpRespondedAt?: string | null;
 }
 
 /**
@@ -107,6 +112,14 @@ export function EventRsvpControl({
   const isPending = isSetting || isClearing;
   const hasResponded = event.myRsvpStatus !== null;
   const hintId = `rsvp-hint-${event.id}`;
+  // Who answered matters when it might not be the reader: a parent reading
+  // their child's answer (« Répondu par vous » or by the other parent), or a
+  // player whose parent answered for them. A player's own answer, read by
+  // themself, needs no byline.
+  const isActingForChild = useTeamActingAs(teamId) !== undefined;
+  const respondent = event.myRsvpRespondedBy ?? null;
+  const showRespondent =
+    hasResponded && respondent !== null && (isActingForChild || !respondent.isMe);
 
   // No success toast here: the segmented control's own highlighted state is
   // the feedback, and RSVP is a frequent, low-stakes action — a toast on
@@ -193,6 +206,11 @@ export function EventRsvpControl({
             );
           })}
         </div>
+        {showRespondent && respondent && (
+          <Text variant="meta" size="xs" className={cn(compactOnDesktop && 'lg:hidden')}>
+            {respondedByLine(respondent, event.myRsvpRespondedAt ?? null)}
+          </Text>
+        )}
         {hasResponded && (
           <Text
             id={hintId}
