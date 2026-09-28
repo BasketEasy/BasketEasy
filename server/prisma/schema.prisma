@@ -175,7 +175,7 @@ model Player {
   licenseType      String?
   createdAt        DateTime          @default(now())
   club             Club              @relation(fields: [clubId], references: [id])
-  user             User?             @relation(fields: [userId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   teamPlayers      TeamPlayer[]
   invite           PlayerInvite?
   parentalConsents ParentalConsent[]
@@ -598,7 +598,7 @@ model ScoresheetExtraction {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
   eventScoresheet   EventScoresheet @relation(fields: [eventScoresheetId], references: [id], onDelete: Cascade)
-  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id])
+  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 
   @@index([reviewedByUserId])
 }
@@ -647,18 +647,23 @@ enum ClubRole {
   MEMBER
 }
 
+// userId cascades: erasing an account (retention sweep or back-office) must
+// be able to delete the User row. A RESTRICT here made every erasure of
+// anyone who ever joined a club fail with a foreign-key violation.
 model ClubMembership {
   id        String   @id @default(uuid())
   userId    String
   clubId    String
   role      ClubRole
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   club      Club     @relation(fields: [clubId], references: [id])
 
   @@unique([userId, clubId])
 }
 
+// userId cascades for the same reason as ClubMembership: a session must not
+// block erasing the account it belongs to.
 model RefreshToken {
   id        String    @id @default(uuid())
   userId    String
@@ -667,7 +672,7 @@ model RefreshToken {
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([familyId])
   @@index([userId])
