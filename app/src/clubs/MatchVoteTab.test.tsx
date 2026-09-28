@@ -233,6 +233,24 @@ describe('MatchVoteTab', () => {
     expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
   });
 
+  it('under a back-office impersonation, shows no ballot and says the vote is masked', async () => {
+    mockData({
+      best: [{ teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 }],
+      worst: [],
+      totalVoters: 3,
+      votesCast: 2,
+      myVote: { best: null, worst: null },
+      myVoteHidden: true,
+    });
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+
+    expect(await screen.findByText('Vote masqué (consultation support)')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Envoyer mon vote' })).not.toBeInTheDocument();
+    expect(screen.getByText('Meilleur joueur')).toBeInTheDocument();
+    expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
+  });
+
   it('gives tied leaders the same rank badge, skips the next number, and shows an "Égalité en tête" caption', async () => {
     mockData({
       best: [

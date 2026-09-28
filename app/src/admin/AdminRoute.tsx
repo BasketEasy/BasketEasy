@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { isImpersonating, useImpersonation } from '../impersonation/impersonationSession';
+import { useImpersonationControls } from '../impersonation/useImpersonationControls';
 import { useAccount } from '../auth/useAccount';
 import { AdminLoginForm } from './AdminLoginForm';
 import { AdminShell } from './AdminShell';
@@ -15,10 +18,22 @@ import { usePlatformSession } from './platformSession';
 export function AdminRoute() {
   const { user, isLoading } = useAccount();
   const { session } = usePlatformSession();
+  const impersonation = useImpersonation();
+  const { exit } = useImpersonationControls();
+  // Read once, at mount: a session this shell has just *started* (the
+  // dialog's success, on its way to /dashboard) must not be ended by it.
+  const [liveAtMount] = useState(isImpersonating);
+
+  // Back into the back-office (the browser's Back button, a typed URL) with
+  // an impersonation still live: that is leaving it. The back-office is never
+  // shown while "me" is someone else.
+  useEffect(() => {
+    if (liveAtMount) exit('exited');
+  }, [liveAtMount, exit]);
 
   // No AppHeader skeleton here, unlike ProtectedRoute: this shell has no
   // chrome whose shape is known before the session is.
-  if (isLoading) {
+  if (isLoading || impersonation) {
     return null;
   }
 

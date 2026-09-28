@@ -1,4 +1,4 @@
-import { ApiError } from '../api/client';
+import { ApiError, IMPERSONATION_READ_ONLY_MESSAGE, isImpersonationReadOnly } from '../api/client';
 
 const GENERIC_ERROR = 'Une erreur est survenue. Merci de réessayer.';
 
@@ -13,6 +13,8 @@ export function getClubErrorMessage(
   err: unknown,
   overrides?: Partial<Record<number, string>>,
 ): string {
+  // A write refused during a back-office impersonation, whatever the route.
+  if (isImpersonationReadOnly(err)) return IMPERSONATION_READ_ONLY_MESSAGE;
   if (err instanceof ApiError) {
     if (overrides?.[err.status]) {
       return overrides[err.status] as string;

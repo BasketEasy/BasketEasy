@@ -415,6 +415,27 @@ export function MatchVoteTab({
     return <SkeletonList rows={4} variant="card" />;
   }
 
+  // A back-office impersonation: whom the subject voted for is withheld by
+  // the server (the vote is anonymous, support included), so there is no
+  // ballot to show them filled in, and none to fill.
+  if (results.myVoteHidden) {
+    return (
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+        <Card variant="panel" className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <TrophyIcon tone="secondary" className="h-5 w-5" />
+            <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
+          </div>
+          <Text variant="meta">Vote masqué (consultation support)</Text>
+        </Card>
+        <MatchVoteResultsCard
+          results={results}
+          gateMessage={results.best.length > 0 ? null : 'Votez pour voir les résultats.'}
+        />
+      </div>
+    );
+  }
+
   const candidates: VoteCandidate[] = roster.filter((r) => !r.isMe);
 
   if (candidates.length === 0) {

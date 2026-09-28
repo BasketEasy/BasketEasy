@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { Alert } from './Alert';
 import { Button } from './Button';
 
 const meta: Meta<typeof Button> = {
@@ -13,6 +14,17 @@ export const Secondary: Story = { args: { children: 'Annuler', variant: 'seconda
 export const Outline: Story = { args: { children: 'Voir plus', variant: 'outline' } };
 export const Ghost: Story = { args: { children: 'Fermer', variant: 'ghost' } };
 export const Destructive: Story = { args: { children: 'Supprimer', variant: 'destructive' } };
+export const Inverse: Story = {
+  args: { children: 'Quitter', variant: 'inverse' },
+  // Its ground is a critical Alert; a hand-coloured wrapper would name a colour here.
+  decorators: [
+    (Story) => (
+      <Alert variant="critical">
+        <Story />
+      </Alert>
+    ),
+  ],
+};
 export const Disabled: Story = { args: { children: 'Indisponible', disabled: true } };
 export const Icon: Story = {
   args: { children: '☰', size: 'icon', variant: 'ghost', 'aria-label': 'Menu' },

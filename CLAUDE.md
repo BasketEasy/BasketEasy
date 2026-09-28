@@ -359,7 +359,12 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   makes `PlatformAdminGuard` refuse outright, `LastActiveInterceptor` skip (staff viewing must not
   reset the erasure clock) and the vote endpoint null `myVote` (`myVoteHidden`). Start, replace
   and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; expired rows
-  are dropped by the audit-log sweep step a day later. Design record:
+  are dropped by the audit-log sweep step a day later. Frontend (`app/src/impersonation/`): the
+  token lives in memory beside the admin's own (`setImpersonationToken`), replaces it on product
+  calls only, never triggers a refresh, and every non-`GET` product call is refused in
+  `apiClient` before it leaves the browser (`/auth/logout` included). Entering and leaving clear
+  the whole query cache; `ImpersonationBanner` (under `AppHeader` in `ProtectedRoute`) counts down
+  and owns expiry. Design record:
   [`2026-09-28-backoffice-impersonation-design.md`](./docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md).
 - The frontend is `app/src/admin/`, its own top-level route tree outside `ProtectedRoute`,
   `React.lazy`-loaded so admin-only code is never bundled for the 99.9% of users who aren't

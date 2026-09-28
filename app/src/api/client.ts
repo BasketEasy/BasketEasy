@@ -5,6 +5,7 @@
 
 import type { RefreshResponse } from '@basketeasy/types/auth';
 import { PLATFORM_TOKEN_HEADER } from '@basketeasy/types/platform-admin';
+import { IMPERSONATION_READ_ONLY_CODE } from '@basketeasy/types/platform-admin-impersonation';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -29,7 +30,14 @@ let accessToken: string | null = null;
 // a reload is the point — a back-office session left open on a shared
 // machine has to go cold.
 let platformToken: string | null = null;
+// A back-office read-only impersonation token (see app/src/impersonation).
+// Same memory-only rule as the step-up token: a reload ends the session.
+// While set, it replaces the admin's own access token on product calls,
+// never on /admin/ ones, which keep the admin's credentials so « Quitter »
+// can still reach the back-office.
+let impersonationToken: string | null = null;
 const sessionExpiryListeners = new Set<() => void>();
+const impersonationExpiryListeners = new Set<() => void>();
 let refreshPromise: Promise<boolean> | null = null;
 
 export function setAccessToken(token: string | null): void {
@@ -38,6 +46,23 @@ export function setAccessToken(token: string | null): void {
 
 export function setPlatformToken(token: string | null): void {
   platformToken = token;
+}
+
+export function setImpersonationToken(token: string | null): void {
+  impersonationToken = token;
+}
+
+/** Fired when a product call's impersonation token is refused (expired, ended, revoked). */
+export function subscribeToImpersonationExpiry(listener: () => void): () => void {
+  impersonationExpiryListeners.add(listener);
+  return () => impersonationExpiryListeners.delete(listener);
+}
+
+/** The copy every read-only refusal shows, whichever error helper renders it. */
+export const IMPERSONATION_READ_ONLY_MESSAGE = 'Action impossible en lecture seule.';
+
+export function isImpersonationReadOnly(err: unknown): boolean {
+  return err instanceof ApiError && err.code === IMPERSONATION_READ_ONLY_CODE;
 }
 
 export function subscribeToSessionExpiry(listener: () => void): () => void {
@@ -51,10 +76,15 @@ export function subscribeToSessionExpiry(listener: () => void): () => void {
 // benefit.
 const PLATFORM_PATH_PREFIX = '/admin/';
 
+function isImpersonatedPath(path: string): boolean {
+  return impersonationToken !== null && !path.startsWith(PLATFORM_PATH_PREFIX);
+}
+
 function buildHeaders(path: string): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  const bearer = isImpersonatedPath(path) ? impersonationToken : accessToken;
+  if (bearer) {
+    headers.Authorization = `Bearer ${bearer}`;
   }
   if (platformToken && path.startsWith(PLATFORM_PATH_PREFIX)) {
     headers[PLATFORM_TOKEN_HEADER] = platformToken;
@@ -62,7 +92,16 @@ function buildHeaders(path: string): Record<string, string> {
   return headers;
 }
 
+const READ_METHODS = new Set(['GET', 'HEAD']);
+
 async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  // Refused here as well as on the server (ImpersonationStrategy, which is
+  // the enforcement): a write never leaves the browser, and that includes
+  // /auth/refresh and /auth/logout, which would rotate or revoke the admin's
+  // own refresh cookie.
+  if (isImpersonatedPath(path) && !READ_METHODS.has(init?.method ?? 'GET')) {
+    throw new ApiError(IMPERSONATION_READ_ONLY_MESSAGE, 403, IMPERSONATION_READ_ONLY_CODE);
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     credentials: 'include',
     headers: buildHeaders(path),
@@ -126,6 +165,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await rawRequest<T>(path, init);
   } catch (err) {
+    if (err instanceof ApiError && err.status === 401 && isImpersonatedPath(path)) {
+      // Never a refresh: that would silently swap the subject's view for the
+      // admin's own session. The impersonation is over; say so instead.
+      impersonationExpiryListeners.forEach((listener) => listener());
+      throw err;
+    }
     if (err instanceof ApiError && err.status === 401 && path !== '/auth/refresh') {
       const refreshed = await attemptRefresh();
       if (refreshed) {

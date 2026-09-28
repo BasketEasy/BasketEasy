@@ -5,6 +5,7 @@ import type {
   PlatformUserExport,
   RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
+import type { StartImpersonationResponse } from '@basketeasy/types/platform-admin-impersonation';
 import { apiClient } from '../api/client';
 import { adminQueryKeyPrefix, retentionRunsQueryKey } from './queryKeys';
 import { startPlatformSession } from './platformSession';
@@ -57,5 +58,13 @@ export function useExportPlatformUser(userId: string) {
   return useMutation({
     mutationFn: (reason: string) =>
       apiClient.post<PlatformUserExport>(`/admin/users/${userId}/export`, { reason }),
+  });
+}
+
+/** Starts a read-only impersonation; the caller enters it with the response. */
+export function useStartImpersonation(userId: string) {
+  return useMutation({
+    mutationFn: (reason: string) =>
+      apiClient.post<StartImpersonationResponse>(`/admin/users/${userId}/impersonate`, { reason }),
   });
 }

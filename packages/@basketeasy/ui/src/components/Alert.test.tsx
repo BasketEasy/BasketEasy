@@ -21,4 +21,9 @@ describe('Alert', () => {
     render(<Alert variant="destructive">Erreur</Alert>);
     expect(screen.getByRole('alert')).toHaveClass('border-error');
   });
+
+  it('fills the critical variant', () => {
+    render(<Alert variant="critical">Lecture seule</Alert>);
+    expect(screen.getByRole('alert')).toHaveClass('bg-error', 'text-cream');
+  });
 });

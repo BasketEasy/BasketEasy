@@ -7,6 +7,7 @@ import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { ActingAsProvider } from '../guardians/ActingAsContext';
 import { ActingAsBanner } from '../guardians/ActingAsBanner';
 import { PersonaSheet } from '../guardians/PersonaSheet';
+import { ImpersonationBanner } from '../impersonation/ImpersonationBanner';
 
 export function ProtectedRoute() {
   const { user, isLoading } = useAccount();
@@ -46,6 +47,9 @@ export function ProtectedRoute() {
           page background below the bar. */}
         <div className="safe-area-top flex min-h-dvh flex-col">
           <AppHeader />
+          {/* First under the header, above every other banner: while it
+            shows, nothing on the page is the reader's own. */}
+          <ImpersonationBanner />
           {/* The one place that renders on every protected page at *both*
             breakpoints — inside AppHeader the banner would be invisible on a
             phone, inside AppBottomNav invisible on a desktop. It renders
