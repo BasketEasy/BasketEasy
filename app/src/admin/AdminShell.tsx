@@ -6,6 +6,7 @@ import { Text } from '@basketeasy/ui/text';
 import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { usePlatformSession } from './platformSession';
+import { AdminSearchBox } from './AdminSearchBox';
 import { adminPaths } from './shared/adminPaths';
 
 const NAV_ITEMS: { to: string; label: string; dataOfficerOnly?: boolean }[] = [
@@ -136,6 +137,9 @@ export function AdminShell() {
       </header>
 
       <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-10 md:py-8">
+        <div className="flex justify-end">
+          <AdminSearchBox />
+        </div>
         <Outlet />
       </main>
     </div>

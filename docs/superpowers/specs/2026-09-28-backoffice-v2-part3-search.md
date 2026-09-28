@@ -6,6 +6,8 @@ Depends on: [Part 2](./2026-09-28-backoffice-v2-part2-browse-ui.md)
 
 ## 1. Design gate
 
+Canvas: https://claude.ai/artifact/6ybq7qg5K1izf1FsQjQhTm (validated 2026-09-28).
+
 Canvas first: the search box in `AdminShell` (desktop and phone), its grouped dropdown (kind
 headings, keyboard highlight, « Voir tous les résultats »), the `/admin/search` page, and the
 no-result and « identifiant inconnu » states.
@@ -42,7 +44,7 @@ export interface AdminSearchResult {
 
 ## 3. Frontend
 
-- `AdminSearchBox` in `AdminShell`: `Input` + a listbox popover (`role="combobox"` /
+- `AdminSearchBox` at the top of `AdminShell`'s main column (both breakpoints, one instance): `Input` + a listbox popover (`role="combobox"` /
   `aria-activedescendant`, arrow keys, Enter, Escape), 300 ms debounce, minimum 2 characters.
   Enter on an `exactId` navigates straight to that record; Enter otherwise opens `/admin/search?q=`.
 - `/admin/search?q=`: the same groups with a « voir la liste » link per kind into the Part 2 list

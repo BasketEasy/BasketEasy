@@ -56,3 +56,5 @@ export const adminScoresheetsQueryKey = (query: AdminScoresheetsQuery) =>
 
 export const adminAuditLogQueryKey = (query: ListAuditLogParams) =>
   [...adminQueryKeyPrefix, 'audit-log', query] as const;
+
+export const adminSearchQueryKey = (q: string) => [...adminQueryKeyPrefix, 'search', q] as const;

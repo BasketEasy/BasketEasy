@@ -72,6 +72,9 @@ const AdminEventDetailPage = lazy(() =>
 const AdminScoresheetsPage = lazy(() =>
   import('./admin/AdminScoresheetsPage').then((m) => ({ default: m.AdminScoresheetsPage })),
 );
+const AdminSearchPage = lazy(() =>
+  import('./admin/AdminSearchPage').then((m) => ({ default: m.AdminSearchPage })),
+);
 const AdminAuditLogPage = lazy(() =>
   import('./admin/AdminAuditLogPage').then((m) => ({ default: m.AdminAuditLogPage })),
 );
@@ -147,6 +150,7 @@ export default function App() {
           <Route path="scoresheets" element={<AdminScoresheetsPage />} />
           <Route path="retention" element={<AdminRetentionPage />} />
           <Route path="audit-log" element={<AdminAuditLogPage />} />
+          <Route path="search" element={<AdminSearchPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 

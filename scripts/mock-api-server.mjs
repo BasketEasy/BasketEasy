@@ -155,6 +155,16 @@ const routeDefs = [
   ],
   ['GET', '/api/admin/retention/runs', () => []],
   ['GET', '/api/admin/users', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  [
+    'GET',
+    '/api/admin/search',
+    (_params, query) => ({
+      query: query.get('q') ?? '',
+      exactId: null,
+      unknownId: false,
+      groups: { club: [], team: [], user: [], player: [] },
+    }),
+  ],
   ['GET', '/api/admin/clubs', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
   ['GET', '/api/admin/teams', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
   ['GET', '/api/admin/players', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],

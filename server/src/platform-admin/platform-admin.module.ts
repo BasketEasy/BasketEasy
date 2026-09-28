@@ -6,11 +6,12 @@ import { RetentionModule } from '../retention/retention.module';
 import { PlatformAdminController } from './platform-admin.controller';
 import { PlatformAdminBrowseController } from './platform-admin-browse.controller';
 import { PlatformAdminBrowseService } from './platform-admin-browse.service';
+import { PlatformAdminSearchService } from './platform-admin-search.service';
 import { PlatformAdminService } from './platform-admin.service';
 
 @Module({
   imports: [AuthModule, AuditModule, RetentionModule, JwtModule.register({})],
   controllers: [PlatformAdminController, PlatformAdminBrowseController],
-  providers: [PlatformAdminService, PlatformAdminBrowseService],
+  providers: [PlatformAdminService, PlatformAdminBrowseService, PlatformAdminSearchService],
 })
 export class PlatformAdminModule {}
