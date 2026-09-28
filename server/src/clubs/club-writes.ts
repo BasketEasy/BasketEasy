@@ -1,11 +1,50 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import type { ParentalConsent as ParentalConsentRow, Prisma } from '@prisma/client';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Prisma,
+  type Club as ClubRow,
+  type ParentalConsent as ParentalConsentRow,
+} from '@prisma/client';
 import type { ParentalConsentSource } from '@basketeasy/types/guardians';
 
 // Writes that both ClubsService (a club admin) and the platform back-office
 // (Kluvo staff, audited) perform. They take the transaction client so the
 // back-office can commit its audit row in the same transaction as the change,
 // and live here once so the two paths can't drift apart.
+
+const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
+
+/** A duplicate FFBB club code (the column is unique) as the 409 both callers show. */
+export function toFfbbClubCodeError(err: unknown): unknown {
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === UNIQUE_CONSTRAINT_VIOLATION
+  ) {
+    return new ConflictException('Ce code club FFBB est déjà utilisé par un autre club');
+  }
+  return err;
+}
+
+/**
+ * Creates a club with `userId` as its first ADMIN. A club never exists
+ * without an admin: the membership is written in the same statement.
+ */
+export async function createClubWithAdmin(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  data: { name: string; ffbbClubCode?: string | null },
+): Promise<ClubRow> {
+  try {
+    return await tx.club.create({
+      data: {
+        name: data.name,
+        ffbbClubCode: data.ffbbClubCode ?? null,
+        memberships: { create: { userId, role: 'ADMIN' } },
+      },
+    });
+  } catch (err) {
+    throw toFfbbClubCodeError(err);
+  }
+}
 
 /**
  * Takes a user out of a club. Their roster entries are unlinked, not deleted:

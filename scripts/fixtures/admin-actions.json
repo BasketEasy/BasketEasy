@@ -875,9 +875,17 @@
       "user": [
         {
           "kind": "user",
+          "id": "user-9",
+          "label": "Claire Durand",
+          "sublabel": "claire.durand@example.fr",
+          "emailVerified": false
+        },
+        {
+          "kind": "user",
           "id": "user-1",
           "label": "Nicolas Bernard",
-          "sublabel": "n.bernard@example.fr"
+          "sublabel": "n.bernard@example.fr",
+          "emailVerified": true
         }
       ],
       "player": [
@@ -1616,5 +1624,10 @@
       "statusCode": 409,
       "message": "C’est le dernier admin du club : nommez d’abord un autre admin"
     }
+  },
+  "POST /api/admin/clubs": {
+    "action": "CLUB_CREATED",
+    "auditLogId": "log-new",
+    "clubId": "club-1"
   }
 }

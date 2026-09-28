@@ -114,7 +114,13 @@ describe('PlatformAdminSearchService', () => {
 
     it('matches people for a DATA_OFFICER by name and labels them in full', async () => {
       prisma.user.findMany.mockResolvedValue([
-        { id: 'user-1', email: 'n.bernard@example.fr', firstName: 'Nicolas', lastName: 'Bernard' },
+        {
+          id: 'user-1',
+          email: 'n.bernard@example.fr',
+          firstName: 'Nicolas',
+          lastName: 'Bernard',
+          emailVerifiedAt: null,
+        },
       ]);
 
       const result = await service.search('DATA_OFFICER', 'bernard');
@@ -123,7 +129,13 @@ describe('PlatformAdminSearchService', () => {
         expect.arrayContaining([{ lastName: { contains: 'bernard', mode: 'insensitive' } }]),
       );
       expect(result.groups.user).toEqual([
-        { kind: 'user', id: 'user-1', label: 'Nicolas Bernard', sublabel: 'n.bernard@example.fr' },
+        {
+          kind: 'user',
+          id: 'user-1',
+          label: 'Nicolas Bernard',
+          sublabel: 'n.bernard@example.fr',
+          emailVerified: false,
+        },
       ]);
     });
   });

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
@@ -41,6 +42,7 @@ describe('PlatformAdminActionsService', () => {
     teamAdmin: { findUnique: jest.Mock; create: jest.Mock; deleteMany: jest.Mock };
     clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
     eventScoresheet: { findUnique: jest.Mock };
+    club: { create: jest.Mock };
     guardianInvite: { deleteMany: jest.Mock };
     playerGuardian: { deleteMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; create: jest.Mock };
@@ -68,6 +70,7 @@ describe('PlatformAdminActionsService', () => {
       teamAdmin: { findUnique: jest.fn(), create: jest.fn(), deleteMany: jest.fn() },
       clubTeam: { findMany: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
       eventScoresheet: { findUnique: jest.fn() },
+      club: { create: jest.fn() },
       guardianInvite: { deleteMany: jest.fn() },
       playerGuardian: { deleteMany: jest.fn() },
       parentalConsent: { updateMany: jest.fn(), create: jest.fn() },
@@ -179,6 +182,78 @@ describe('PlatformAdminActionsService', () => {
       await expect(
         service.revokeSessions(actor, 'admin-1', 'Test sur soi-même', request),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('club creation', () => {
+    const data = {
+      name: 'Saint-Herblain BC',
+      ffbbClubCode: 'PDL0044051',
+      firstAdminUserId: 'user-9',
+    };
+
+    it('creates the club with its first ADMIN and one audit row, together', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'c@x.fr',
+        emailVerifiedAt: null,
+      });
+      prisma.club.create.mockResolvedValue({
+        id: 'club-9',
+        name: data.name,
+        ffbbClubCode: data.ffbbClubCode,
+      });
+
+      const result = await service.createClub(
+        actor,
+        data,
+        'Demande du comité 44, ticket #830',
+        request,
+      );
+
+      expect(prisma.club.create).toHaveBeenCalledWith({
+        data: {
+          name: data.name,
+          ffbbClubCode: data.ffbbClubCode,
+          memberships: { create: { userId: 'user-9', role: 'ADMIN' } },
+        },
+      });
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+      expect(prisma.auditLog.create.mock.calls[0][0].data.metadata).toMatchObject({
+        action: 'CLUB_CREATED',
+        clubId: 'club-9',
+        subjectUserId: 'user-9',
+      });
+      expect(result).toEqual({ action: 'CLUB_CREATED', auditLogId: 'log-1', clubId: 'club-9' });
+    });
+
+    it('refuses an unknown first admin and writes nothing', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.createClub(actor, data, 'raison assez longue', request)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.club.create).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('turns a duplicate FFBB code into a 409 and writes no audit row', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'c@x.fr',
+        emailVerifiedAt: null,
+      });
+      prisma.club.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(service.createClub(actor, data, 'raison assez longue', request)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
   });
 

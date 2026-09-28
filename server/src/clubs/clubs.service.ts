@@ -27,7 +27,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
-import { removeClubMembership, writeParentalConsent } from './club-writes';
+import {
+  createClubWithAdmin,
+  removeClubMembership,
+  toFfbbClubCodeError,
+  writeParentalConsent,
+} from './club-writes';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
@@ -47,18 +52,7 @@ export class ClubsService {
   ) {}
 
   async createClub(userId: string, data: { name: string; ffbbClubCode?: string }): Promise<Club> {
-    try {
-      const club = await this.prisma.club.create({
-        data: {
-          name: data.name,
-          ffbbClubCode: data.ffbbClubCode ?? null,
-          memberships: { create: { userId, role: 'ADMIN' } },
-        },
-      });
-      return this.toClub(club);
-    } catch (err) {
-      throw this.toFfbbClubCodeError(err);
-    }
+    return this.toClub(await createClubWithAdmin(this.prisma, userId, data));
   }
 
   async listClubsForUser(userId: string): Promise<Club[]> {
@@ -85,7 +79,7 @@ export class ClubsService {
       const club = await this.prisma.club.update({ where: { id: clubId }, data: { ffbbClubCode } });
       return this.toClub(club);
     } catch (err) {
-      throw this.toFfbbClubCodeError(err);
+      throw toFfbbClubCodeError(err);
     }
   }
 
@@ -99,16 +93,6 @@ export class ClubsService {
     if (!club) {
       throw new NotFoundException('Club not found');
     }
-  }
-
-  private toFfbbClubCodeError(err: unknown): unknown {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === UNIQUE_CONSTRAINT_VIOLATION
-    ) {
-      return new ConflictException('Ce code club FFBB est déjà utilisé par un autre club');
-    }
-    return err;
   }
 
   async addMember(clubId: string, email: string): Promise<ClubMember> {

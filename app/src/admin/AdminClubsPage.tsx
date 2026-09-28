@@ -5,6 +5,7 @@ import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import { Text } from '@basketeasy/ui/text';
 import type { AdminClubSummary, AdminClubsQuery } from '@basketeasy/types/platform-admin-browse';
 import { useAdminClubs } from './useAdminQueries';
+import { AdminCreateClubDialog } from './actions/AdminCreateClubDialog';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSearchFilter, AdminSelectFilter } from './shared/AdminFilters';
 import { AdminPageHeader, AdminPagination, AdminTable } from './shared/AdminLayout';
@@ -87,6 +88,7 @@ export function AdminClubsPage() {
             <span className="tabular">{clubs.data?.total ?? '…'}</span> clubs
           </>
         }
+        actions={<AdminCreateClubDialog />}
       />
       <AdminFilterBar>
         <AdminSearchFilter

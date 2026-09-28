@@ -15,11 +15,14 @@ import { adminQueryKeyPrefix } from '../queryKeys';
  * offering an action that already ran is the confusion an audited write must
  * not create.
  */
-export function useAdminAction<TBody extends AdminReasonRequest>(path: string) {
+export function useAdminAction<
+  TBody extends AdminReasonRequest,
+  TResult extends AdminActionResult = AdminActionResult,
+>(path: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: TBody) => apiClient.post<AdminActionResult>(`/admin/${path}`, body),
+    mutationFn: (body: TBody) => apiClient.post<TResult>(`/admin/${path}`, body),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminQueryKeyPrefix });
     },

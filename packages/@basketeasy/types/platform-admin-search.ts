@@ -11,6 +11,8 @@ export interface AdminSearchHit {
   label: string;
   /** Context that tells two hits apart: a club, an e-mail domain, a date. */
   sublabel: string | null;
+  /** Users only: whether the account confirmed its address. Picking a first club admin warns on false. */
+  emailVerified?: boolean;
 }
 
 export interface AdminSearchResult {
