@@ -26,7 +26,7 @@ describe('Toast', () => {
         <ToastViewport />
       </ToastProvider>,
     );
-    expect(screen.getByTestId('toast-root')).toHaveClass('border-success');
+    expect(screen.getByTestId('toast-root')).toHaveClass('border-success', 'bg-success-tint');
   });
 
   it('applies the destructive variant class', () => {
@@ -38,7 +38,7 @@ describe('Toast', () => {
         <ToastViewport />
       </ToastProvider>,
     );
-    expect(screen.getByTestId('toast-root')).toHaveClass('border-error');
+    expect(screen.getByTestId('toast-root')).toHaveClass('border-error', 'bg-error-tint');
   });
 
   it("stacks above Dialog's overlay (z-50) — a toast fired from an open dialog must stay readable", () => {
