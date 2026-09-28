@@ -11,6 +11,7 @@ import type { AdminPersonRef } from '@basketeasy/types/platform-admin-browse';
 import { PrismaService } from '../prisma/prisma.service';
 import { playerSearchWhere, userSearchWhere } from './platform-admin-browse.service';
 import { playerRef, userRef } from './redaction';
+import { escapeLike } from './like-pattern';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -100,7 +101,7 @@ export class PlatformAdminSearchService {
       this.prisma.club.findMany({
         where: {
           OR: [
-            { name: { contains: query, mode: 'insensitive' } },
+            { name: { contains: escapeLike(query), mode: 'insensitive' } },
             { ffbbClubCode: query.toUpperCase() },
           ],
         },
@@ -109,7 +110,7 @@ export class PlatformAdminSearchService {
         select: clubSelect,
       }),
       this.prisma.team.findMany({
-        where: { name: { contains: query, mode: 'insensitive' } },
+        where: { name: { contains: escapeLike(query), mode: 'insensitive' } },
         orderBy: { name: 'asc' },
         take,
         select: teamSelect,

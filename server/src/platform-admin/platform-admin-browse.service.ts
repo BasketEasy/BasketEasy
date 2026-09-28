@@ -40,6 +40,7 @@ import {
 } from '../retention/retention.constants';
 import { auditContextOf } from './audit-context';
 import { playerRef, redactName, userRef } from './redaction';
+import { escapeLike } from './like-pattern';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Below this a person search is ignored rather than matching half the base. */
@@ -106,7 +107,10 @@ export class PlatformAdminBrowseService {
     const q = normaliseQuery(query.q);
     if (q) {
       and.push({
-        OR: [{ name: { contains: q, mode: 'insensitive' } }, { ffbbClubCode: q.toUpperCase() }],
+        OR: [
+          { name: { contains: escapeLike(q), mode: 'insensitive' } },
+          { ffbbClubCode: q.toUpperCase() },
+        ],
       });
     }
     const hasAdmin = parseBoolean(query.hasAdmin);
@@ -202,7 +206,7 @@ export class PlatformAdminBrowseService {
     const { page, pageSize, skip, take } = resolvePagination(query.page, query.pageSize);
     const and: Prisma.TeamWhereInput[] = [];
     const q = normaliseQuery(query.q);
-    if (q) and.push({ name: { contains: q, mode: 'insensitive' } });
+    if (q) and.push({ name: { contains: escapeLike(q), mode: 'insensitive' } });
     if (query.clubId) and.push({ clubTeams: { some: { clubId: query.clubId } } });
     if (query.category) and.push({ category: query.category });
     if (query.gender) and.push({ gender: query.gender });
@@ -1011,26 +1015,29 @@ export function minorBirthDateBound(now: Date): Date {
  */
 export function userSearchWhere(role: PlatformRole, q: string): Prisma.UserWhereInput {
   if (role !== 'DATA_OFFICER') {
-    return { email: { equals: q, mode: 'insensitive' } };
+    return { email: { equals: escapeLike(q), mode: 'insensitive' } };
   }
   return {
-    OR: [{ email: { contains: q, mode: 'insensitive' } }, ...nameSearchClauses(q)],
+    OR: [{ email: { contains: escapeLike(q), mode: 'insensitive' } }, ...nameSearchClauses(q)],
   };
 }
 
 export function playerSearchWhere(role: PlatformRole, q: string): Prisma.PlayerWhereInput {
   if (role !== 'DATA_OFFICER') {
-    return { user: { email: { equals: q, mode: 'insensitive' } } };
+    return { user: { email: { equals: escapeLike(q), mode: 'insensitive' } } };
   }
   return {
-    OR: [{ user: { email: { contains: q, mode: 'insensitive' } } }, ...nameSearchClauses(q)],
+    OR: [
+      { user: { email: { contains: escapeLike(q), mode: 'insensitive' } } },
+      ...nameSearchClauses(q),
+    ],
   };
 }
 
 function nameSearchClauses(q: string): { firstName?: object; lastName?: object; AND?: object[] }[] {
   const clauses: { firstName?: object; lastName?: object; AND?: object[] }[] = [
-    { firstName: { contains: q, mode: 'insensitive' } },
-    { lastName: { contains: q, mode: 'insensitive' } },
+    { firstName: { contains: escapeLike(q), mode: 'insensitive' } },
+    { lastName: { contains: escapeLike(q), mode: 'insensitive' } },
   ];
   const space = q.indexOf(' ');
   if (space > 0) {
@@ -1039,8 +1046,8 @@ function nameSearchClauses(q: string): { firstName?: object; lastName?: object; 
     if (first && last) {
       clauses.push({
         AND: [
-          { firstName: { contains: first, mode: 'insensitive' } },
-          { lastName: { contains: last, mode: 'insensitive' } },
+          { firstName: { contains: escapeLike(first), mode: 'insensitive' } },
+          { lastName: { contains: escapeLike(last), mode: 'insensitive' } },
         ],
       });
     }
