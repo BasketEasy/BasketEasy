@@ -107,7 +107,7 @@ export function EventMatchTimeline({
       <div className="flex flex-col gap-3.5 p-4">
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <Text variant="label" className="flex-1 font-bold">
+            <Text variant="label" className="flex-1">
               Déroulé du match
             </Text>
             <Button variant="outline" size="sm" onClick={() => setIsAdjusting(true)}>
@@ -121,7 +121,7 @@ export function EventMatchTimeline({
               time={plan.meetsAt ? formatEventTime(plan.meetsAt) : null}
               tone="structure"
             >
-              <Text variant="label" size="sm" className="font-bold">
+              <Text variant="label" size="sm">
                 RDV · {meetingPoint.name}
               </Text>
               <Text variant="meta" size="xs">
@@ -143,7 +143,7 @@ export function EventMatchTimeline({
             </TimelineStep>
           )}
           <TimelineStep time={formatEventTime(plan.arrivalAt)} tone="structure">
-            <Text variant="label" size="sm" className="font-bold">
+            <Text variant="label" size="sm">
               Arrivée à la salle
             </Text>
             <Text variant="meta" size="xs">
@@ -154,7 +154,7 @@ export function EventMatchTimeline({
             )}
           </TimelineStep>
           <TimelineStep time={formatEventTime(event.startsAt)} tone="brand" last>
-            <Text variant="label" size="sm" className="font-bold">
+            <Text variant="label" size="sm">
               Coup d’envoi
             </Text>
             {event.opponentName && (

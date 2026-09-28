@@ -16,6 +16,7 @@ import { MapPinIcon } from './eventDetailIcons';
 import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { EventMatchTimeline } from '../meeting-points/EventMatchTimeline';
 
@@ -81,16 +82,11 @@ function LogisticsFieldRow({
 
   return (
     <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <Text
-        as="span"
-        variant="body"
-        tone="structure"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-      >
+      <IconBadge>
         <Icon size={19} />
-      </Text>
+      </IconBadge>
       <div className="flex min-w-0 flex-col gap-px">
-        <Text as="span" variant="label" size="sm" className="font-bold">
+        <Text as="span" variant="label" size="sm">
           {fieldLabel}
         </Text>
         <Text as="span" variant="meta" size="xs">
@@ -158,16 +154,11 @@ function LogisticsFieldRow({
 function EventVenueRow({ event }: { event: TeamEvent }) {
   return (
     <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <Text
-        as="span"
-        variant="body"
-        tone="structure"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-      >
+      <IconBadge>
         <MapPinIcon size={19} />
-      </Text>
+      </IconBadge>
       <div className="flex min-w-0 flex-col gap-px">
-        <Text as="span" variant="label" size="sm" className="break-words font-bold">
+        <Text as="span" variant="label" size="sm" className="break-words">
           {event.location}
         </Text>
         <Text as="span" variant="meta" size="xs">
@@ -281,9 +272,7 @@ export function EventLogisticsCard({
         <Card variant="flush">
           {canManage && (
             <div className="border-b border-border px-3.5 pt-4 pb-3">
-              <Text variant="label" className="font-bold">
-                Matériel
-              </Text>
+              <Text variant="label">Matériel</Text>
             </div>
           )}
           {kitRows}

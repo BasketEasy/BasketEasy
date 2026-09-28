@@ -7,6 +7,7 @@ import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { EventType, EventVenue } from '@prisma/client';
 
 const RESPONDED_AT = new Date('2026-01-01T12:00:00.000Z');
 // The account answering in the write tests — the caller, as themself.
@@ -1039,6 +1040,67 @@ describe('EventsService', () => {
       });
       // The meeting time moved with the kick-off.
       expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('announces the first meeting plan when a TRAINING becomes a MATCH', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue({
+        ...row,
+        type: 'MATCH',
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+      });
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { type: EventType.MATCH, opponentName: 'Rezé', venue: EventVenue.AWAY },
+        'user-1',
+      );
+
+      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('does not announce an edit that neither moves the kick-off nor changes the type', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue({ ...row, notes: 'Maillots blancs' });
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { notes: 'Maillots blancs' },
+        'user-1',
+      );
+
+      expect(meetingPoints.announceMeetingChanges).not.toHaveBeenCalled();
     });
 
     it('returns the meeting plan MeetingPointsService resolves for each event', async () => {

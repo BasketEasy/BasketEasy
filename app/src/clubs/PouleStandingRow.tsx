@@ -38,7 +38,7 @@ export function PouleStandingRow({
               </Badge>
             )}
           </span>
-          <Text as="span" variant="label" size="sm" className="tabular font-bold">
+          <Text as="span" variant="label" size="sm" className="tabular">
             {points} pts
           </Text>
         </div>
