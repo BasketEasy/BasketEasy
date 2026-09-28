@@ -334,6 +334,8 @@ with the brand palette: blue-green for structure/series, orange only for the hig
 - Deserves its own spec and threat model before code: it's the first time a credential acts as
   someone else.
 
+Specified in [`2026-09-28-backoffice-impersonation-design.md`](./2026-09-28-backoffice-impersonation-design.md).
+
 ## Out of scope
 
 - Editing arbitrary fields (names, birth dates, event details): clubs own their data, and every

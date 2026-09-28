@@ -163,4 +163,4 @@ write fails. Component tests for reason validation and 409 display.
 ## After phase 6
 
 Write the impersonation spec (design record, "Next step") as its own document, with a threat
-model, before any code.
+model, before any code. Done: [`2026-09-28-backoffice-impersonation-design.md`](./2026-09-28-backoffice-impersonation-design.md).
