@@ -48,7 +48,9 @@ module.exports = {
         // `text` mirrors `gold.text`/`error`'s darker-shade pattern: the flat
         // DEFAULT only measures 4.27:1 on a `/10` tint background, under the
         // 4.5:1 AA bar for Badge's small text — `text` clears it at 6.4:1.
-        success: { DEFAULT: '#2F7D5C', text: '#245F48' },
+        // tint = success at 10% over `surface`, pre-mixed so it is opaque
+        // (a toast floats over content; a translucent fill let it show through).
+        success: { DEFAULT: '#2F7D5C', text: '#245F48', tint: '#EAEFE8' },
       },
       fontSize: {
         // In-graphic numerals — the counts printed inside a
