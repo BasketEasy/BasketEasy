@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventVoteCategory, TeamMemberRole } from '@prisma/client';
 import type { TeamSeasonPlayerStats, TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { PrismaService } from '../prisma/prisma.service';
+import { assertCanActForPlayer } from '../common/acting-as';
 
 // A French basketball season runs September to August, so a calendar year is
 // the wrong window: it would cut a season in half at Christmas. seasonYear is
@@ -64,8 +65,12 @@ export class TeamStatsService {
     teamId: string,
     userId: string,
     seasonYear?: number,
+    forPlayerId?: string,
   ): Promise<TeamSeasonStats> {
     await this.assertTeamInClub(clubId, teamId);
+    if (forPlayerId) {
+      await assertCanActForPlayer(this.prisma, userId, forPlayerId);
+    }
     const year = seasonYear ?? seasonYearFor(new Date());
     const { start, end } = seasonWindow(year);
     const window = { gte: start, lte: end };
@@ -80,6 +85,7 @@ export class TeamStatsService {
         select: {
           id: true,
           role: true,
+          playerId: true,
           player: { select: { firstName: true, lastName: true, userId: true } },
         },
       }),
@@ -134,7 +140,9 @@ export class TeamStatsService {
             firstName: member.player.firstName,
             lastName: member.player.lastName,
             role: member.role,
-            isMe: member.player.userId === userId,
+            // The persona's row: a parent reading their child's team sees
+            // the child's line highlighted, not nothing.
+            isMe: forPlayerId ? member.playerId === forPlayerId : member.player.userId === userId,
           },
           rowsByPlayer.get(member.id) ?? [],
           awardsByPlayer.get(member.id) ?? { mvp: 0, worst: 0 },

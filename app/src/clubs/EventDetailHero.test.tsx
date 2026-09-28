@@ -17,6 +17,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     recurrenceId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     myRsvpStatus: null,
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     myConvocation: false,
     rsvpSummary: {
       rosterSize: 0,

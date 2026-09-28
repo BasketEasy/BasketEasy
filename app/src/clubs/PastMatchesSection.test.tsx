@@ -18,6 +18,8 @@ const baseMatch: MyAgendaEvent = {
   venue: 'HOME',
   recurrenceId: null,
   myRsvpStatus: 'GOING',
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   myConvocation: true,
   rsvpSummary: {
     rosterSize: 12,

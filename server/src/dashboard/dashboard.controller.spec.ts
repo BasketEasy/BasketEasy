@@ -33,6 +33,7 @@ describe('DashboardController', () => {
       'user-1',
       '2026-08-11T00:00:00.000Z',
       '2026-08-18T00:00:00.000Z',
+      undefined,
     );
     expect(result).toEqual({ totalPlayers: 3, upcomingEvents: [] });
   });

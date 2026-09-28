@@ -26,6 +26,11 @@ export interface AppNotification {
    * when a notification has nowhere useful to go.
    */
   deepLink: string | null;
+  /**
+   * First name(s) of the child a guardian is told about (« Léo », « Léo et
+   * Emma ») — the « pour qui » tag. Null on a notification about the reader.
+   */
+  subjectFirstName: string | null;
   readAt: string | null;
   createdAt: string;
 }

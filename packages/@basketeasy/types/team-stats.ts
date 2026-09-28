@@ -34,7 +34,7 @@ export interface TeamSeasonPlayerStats {
   mvpAwards: number;
   /** Times voted "joueur en difficulté" over the season's matches. */
   worstPlayerAwards: number;
-  /** True when this roster row belongs to the requesting user. */
+  /** True when this roster row is the persona's (the caller's own, or `forPlayerId`'s). */
   isMe: boolean;
 }
 
