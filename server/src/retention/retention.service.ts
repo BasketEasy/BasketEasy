@@ -10,6 +10,9 @@ import {
   subMonths,
 } from './retention.constants';
 
+/** How long an expired impersonation session row is kept before the sweep drops it. */
+const IMPERSONATION_SESSION_GRACE_MS = 24 * 60 * 60 * 1000;
+
 export type RetentionStepName =
   'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
 
@@ -245,6 +248,14 @@ export class RetentionService {
       return { status: 'ok', count: await this.prisma.auditLog.count({ where }) };
     }
     const { count } = await this.prisma.auditLog.deleteMany({ where });
+    // Impersonation sessions ride along: a session row is only the "is this
+    // token still good" state, dead a day after it expires, and the
+    // ADMIN_IMPERSONATION_* audit rows are the record that outlives it (under
+    // the 12-month rule just applied). Not counted in this step's figure,
+    // which stays "audit rows".
+    await this.prisma.impersonationSession.deleteMany({
+      where: { expiresAt: { lt: new Date(now.getTime() - IMPERSONATION_SESSION_GRACE_MS) } },
+    });
     return { status: 'ok', count };
   }
 

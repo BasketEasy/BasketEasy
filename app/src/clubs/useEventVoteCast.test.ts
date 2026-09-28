@@ -24,6 +24,7 @@ describe('useEventVoteCast', () => {
       totalVoters: 3,
       votesCast: 1,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     };
     server.use(
       http.patch('/api/clubs/club-1/teams/team-1/events/event-1/votes', async ({ request }) => {

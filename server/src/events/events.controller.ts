@@ -291,7 +291,13 @@ export class EventsController {
     @Param('eventId') eventId: string,
     @CurrentUser() user: RequestUser,
   ): Promise<EventVoteResults> {
-    return this.eventsService.getEventVoteResults(clubId, teamId, eventId, user.id);
+    return this.eventsService.getEventVoteResults(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      user.impersonation !== undefined,
+    );
   }
 
   // ClubRolesGuard only — any rostered member may capture the scoresheet

@@ -37,7 +37,9 @@ export class LastActiveInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<Request & { user?: RequestUser }>();
     const userId = request.user?.id;
-    if (userId) {
+    // A back-office impersonation is staff viewing, not the subject being
+    // active: counting it would reset the clock the retention sweep reads.
+    if (userId && !request.user?.impersonation) {
       this.touch(userId);
     }
     return next.handle();

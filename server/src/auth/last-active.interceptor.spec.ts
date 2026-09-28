@@ -34,6 +34,20 @@ describe('LastActiveInterceptor', () => {
     });
   });
 
+  it('does nothing on an impersonated request: staff viewing is not the subject being active', () => {
+    const context = {
+      switchToHttp: () => ({
+        getRequest: () => ({
+          user: { id: 'user-1', impersonation: { sessionId: 's-1', actorUserId: 'admin-1' } },
+        }),
+      }),
+    } as unknown as ExecutionContext;
+
+    interceptor.intercept(context, next);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it('does nothing on an unauthenticated request', () => {
     interceptor.intercept(contextFor(), next);
 

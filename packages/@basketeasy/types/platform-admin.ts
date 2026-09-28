@@ -71,7 +71,9 @@ export type AuditEventType =
   | 'ADMIN_PII_VIEWED'
   | 'ADMIN_USER_ERASED'
   | 'ADMIN_EXPORT_GENERATED'
-  | 'ADMIN_SUPPORT_ACTION';
+  | 'ADMIN_SUPPORT_ACTION'
+  | 'ADMIN_IMPERSONATION_STARTED'
+  | 'ADMIN_IMPERSONATION_ENDED';
 
 export interface AuditLogEntry {
   id: string;

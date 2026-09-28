@@ -75,6 +75,10 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - **Responsive tables:** a record shown as a table row on desktop and a card on mobile is **one** component, not a `…Row`/`…Card` pair. Wrap the list in `ResponsiveTable` (`@basketeasy/ui/responsive-table`), give it `columns`, and branch inside the record on `useTableLayout()` — the behaviour (mutations, error branching, toast copy) is then written once. Six twin pairs were merged this way; the pair that survived, `TeamPlayerRow`, has no twin because its mobile view (`TeamRosterCards`) is a genuinely different layout.
 - **Charts:** every chart goes through `@basketeasy/ui/chart` (`ColumnChart`, `BarListChart`), the only file that imports `recharts`. A call site passes data and a `tone` (`structure` | `brand`), never a colour: marks are `fill="currentColor"` under a Tailwind text class, so the preset stays the one place a hex lives. Each chart renders its numbers as a visually hidden table, which is what assistive tech reads. Need a new shape (line, stacked)? Add it to the wrapper.
 - **Radio cards:** a set of selectable cards is `RadioCardGroup` (`@basketeasy/ui/radio-card-group`), never hand-rolled `role="radio"` buttons — it owns the roving tabindex, arrow/Home/End navigation and the focus ring that a hand-rolled version forgets.
+- **A `GET` handler never writes user-owned state.** Read-only impersonation relies on it: its
+  strategy refuses every other method, so a `GET` that marks something read or records an answer
+  would be the one write staff could make as someone else. System upkeep (a cache fill, a queued
+  route recompute) is fine.
 - **Query branches:** every query consumer branches `error → loading → empty → data`, in that order. An error must never fall through to an `EmptyState` — that tells the user their data doesn't exist when it merely failed to load.
 - The `?tab=` `TabsTrigger`s in `MembersPage`/`TeamDetailPage` are the documented exception to "every URL-changing control is a link" — `role="tab"` is the correct ARIA and `replace: true` means no history entry.
 
@@ -343,6 +347,20 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   accessed, not by whom), and a push subscription's **endpoint and keys** (together a live
   capability to push to that browser, not a description of the person). Don't "complete" the
   export by adding them back.
+- **Read-only impersonation is a disclosure, enforced where authentication happens.** A
+  `DATA_OFFICER` starts one with a reason (`POST /admin/users/:userId/impersonate`, refused for
+  oneself and for any account holding a grant) and gets a 15-minute, never-refreshed token signed
+  with `PLATFORM_JWT_SECRET`, scope `impersonation-readonly` (the `scope` claim is what keeps it
+  apart from the step-up token, which shares the secret). `JwtAuthGuard` is
+  `AuthGuard(['jwt', 'jwt-impersonation'])`, and `ImpersonationStrategy` refuses every
+  non-`GET`/`HEAD` (403 `IMPERSONATION_READ_ONLY`) and re-reads the `ImpersonationSession` row and
+  the actor's grant, lock and `allowedCidrs` on every request, so « Quitter » or a revoked grant
+  ends it at once. The subject becomes `request.user`, with `user.impersonation` set: that is what
+  makes `PlatformAdminGuard` refuse outright, `LastActiveInterceptor` skip (staff viewing must not
+  reset the erasure clock) and the vote endpoint null `myVote` (`myVoteHidden`). Start, replace
+  and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; expired rows
+  are dropped by the audit-log sweep step a day later. Design record:
+  [`2026-09-28-backoffice-impersonation-design.md`](./docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md).
 - The frontend is `app/src/admin/`, its own top-level route tree outside `ProtectedRoute`,
   `React.lazy`-loaded so admin-only code is never bundled for the 99.9% of users who aren't
   platform staff. `AdminShell` deliberately wears no product chrome — no `AppHeader`, no club

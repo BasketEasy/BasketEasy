@@ -100,6 +100,7 @@ const emptyResults: EventVoteResults = {
   totalVoters: 3,
   votesCast: 0,
   myVote: { best: null, worst: null },
+  myVoteHidden: false,
 };
 
 function mockData(results: EventVoteResults = emptyResults) {
@@ -168,6 +169,7 @@ describe('MatchVoteTab', () => {
         return HttpResponse.json({
           ...emptyResults,
           myVote: { best: 'tp-2', worst: null },
+          myVoteHidden: false,
         });
       }),
     );
@@ -200,6 +202,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 3,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -218,6 +221,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 3,
       votesCast: 3,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -240,6 +244,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 5,
       votesCast: 5,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -264,6 +269,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 5,
       votesCast: 3,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -281,6 +287,7 @@ describe('MatchVoteTab', () => {
           totalVoters: 3,
           votesCast: 2,
           myVote: { best: null, worst: null },
+          myVoteHidden: false,
         }),
       ),
     );

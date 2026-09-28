@@ -395,6 +395,7 @@ describe('EventsController', () => {
       totalVoters: 2,
       votesCast: 1,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     };
     service.castVote.mockResolvedValue(results);
 
@@ -424,6 +425,7 @@ describe('EventsController', () => {
       totalVoters: 2,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     };
     service.getEventVoteResults.mockResolvedValue(results);
 
@@ -434,8 +436,26 @@ describe('EventsController', () => {
       'team-1',
       'event-1',
       'user-1',
+      false,
     );
     expect(result).toBe(results);
+  });
+
+  it("getEventVoteResults asks for the caller's vote to be hidden under impersonation", async () => {
+    service.getEventVoteResults.mockResolvedValue({});
+
+    await controller.getEventVoteResults('club-1', 'team-1', 'event-1', {
+      ...user,
+      impersonation: { sessionId: 'session-1', actorUserId: 'admin-1' },
+    });
+
+    expect(service.getEventVoteResults).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      true,
+    );
   });
 
   it('getScoresheetUploadUrl delegates clubId, teamId, eventId, the caller id, and contentType', async () => {

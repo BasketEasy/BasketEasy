@@ -12,6 +12,8 @@ import { PlatformAdminActionsController } from './platform-admin-actions.control
 import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import { ScoresheetsModule } from '../scoresheets/scoresheets.module';
 import { PlatformAdminService } from './platform-admin.service';
+import { PlatformAdminImpersonationController } from './platform-admin-impersonation.controller';
+import { PlatformAdminImpersonationService } from './platform-admin-impersonation.service';
 
 @Module({
   imports: [AuthModule, AuditModule, RetentionModule, ScoresheetsModule, JwtModule.register({})],
@@ -19,6 +21,7 @@ import { PlatformAdminService } from './platform-admin.service';
     PlatformAdminController,
     PlatformAdminBrowseController,
     PlatformAdminActionsController,
+    PlatformAdminImpersonationController,
   ],
   providers: [
     PlatformAdminService,
@@ -26,6 +29,7 @@ import { PlatformAdminService } from './platform-admin.service';
     PlatformAdminSearchService,
     PlatformAdminStatsService,
     PlatformAdminActionsService,
+    PlatformAdminImpersonationService,
   ],
 })
 export class PlatformAdminModule {}

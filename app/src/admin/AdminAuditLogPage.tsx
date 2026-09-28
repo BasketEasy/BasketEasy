@@ -46,6 +46,8 @@ const TYPE_LABELS: Record<AuditEventType, string> = {
   ADMIN_USER_ERASED: 'Compte effacé',
   ADMIN_EXPORT_GENERATED: 'Export RGPD généré',
   ADMIN_SUPPORT_ACTION: 'Action support',
+  ADMIN_IMPERSONATION_STARTED: 'Consultation en tant que',
+  ADMIN_IMPERSONATION_ENDED: 'Fin de consultation',
 };
 
 function metadataString(entry: AuditLogEntry, key: string): string | null {

@@ -3085,6 +3085,7 @@ describe('EventsService', () => {
         totalVoters: 2,
         votesCast: 1,
         myVote: { best: 'tp-2', worst: null },
+        myVoteHidden: false,
       });
     });
   });
@@ -3211,6 +3212,31 @@ describe('EventsService', () => {
       const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
 
       expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
+    });
+
+    it("hides the caller's own vote, but not the leaderboard it unlocks, when asked to", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        true,
+      );
+
+      expect(result.myVote).toEqual({ best: null, worst: null });
+      expect(result.myVoteHidden).toBe(true);
+      expect(result.best).toHaveLength(1);
     });
 
     it('breaks a vote-count tie alphabetically (lastName, then firstName) for a stable order', async () => {

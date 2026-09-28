@@ -69,6 +69,16 @@ describe('PlatformAdminGuard', () => {
     jwt = module.get(JwtService);
   });
 
+  it('refuses an impersonated request before any lookup', async () => {
+    const token = await stepUpTokenFor('user-1');
+    const context = buildContext({ id: 'user-1' }, { [PLATFORM_TOKEN_HEADER]: token });
+    const request = context.switchToHttp().getRequest();
+    request.user.impersonation = { sessionId: 'session-1', actorUserId: 'admin-1' };
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.platformAdmin.findUnique).not.toHaveBeenCalled();
+  });
+
   it('allows a grant holder presenting a valid step-up token', async () => {
     const token = await stepUpTokenFor('user-1');
 
