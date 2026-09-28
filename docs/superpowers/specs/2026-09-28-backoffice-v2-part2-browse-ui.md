@@ -21,36 +21,39 @@ this part. It covers:
 
 The validated canvas is the reference for the rest of this part; its link goes in the PR.
 
-## 2. Structure
+## 2. Structure (as built)
 
-```
-app/src/admin/
-  AdminShell.tsx, AdminRoute.tsx, AdminLoginForm.tsx, platformSession.ts, queryKeys.ts
-  shared/   AdminPersonLink, AdminRecordLink, AdminFilterBar, useAdminListParams, AdminDetailHeader
-  clubs/    AdminClubsPage, AdminClubDetailPage (tabs), useAdminClubs
-  teams/    AdminTeamsPage, AdminTeamDetailPage, useAdminTeams
-  users/    AdminUsersPage, AdminUserDetailPage, AdminEraseDialog, AdminUserExportDialog, useAdminUsers
-  players/  AdminPlayersPage, AdminPlayerDetailPage, useAdminPlayers
-  events/   AdminEventsPage, AdminEventDetailPage, useAdminEvents
-  scoresheets/ AdminScoresheetsPage
-  retention/   AdminRetentionPage
-  audit/       AdminAuditLogPage
-```
+Canvas: https://claude.ai/artifact/BWG7d8qBDX7xRjKK5Xs5k7 (validated 2026-09-28).
 
-Moving files keeps their tests next to them. `useAdminQueries.ts` is split per area and deleted.
+One page per file directly under `app/src/admin/` (`AdminClubsPage`, `AdminClubDetailPage`,
+`AdminTeamsPage`, `AdminTeamDetailPage`, `AdminUsersPage`, `AdminUserDetailPage`,
+`AdminPlayersPage`, `AdminPlayerDetailPage`, `AdminEventsPage`, `AdminEventDetailPage`,
+`AdminScoresheetsPage`, `AdminAuditLogPage`, `AdminRetentionPage`), with the shared pieces in
+`app/src/admin/shared/`. All reads live in `useAdminQueries.ts`, keys in `queryKeys.ts` (one
+prefix per area so a later mutation can invalidate a whole area). A folder per area was planned;
+thirteen files didn't earn the extra nesting.
+
+The lists that a record page embeds (`AdminTeamsList`, `AdminPlayersList`, `AdminEventsList`)
+are exported next to their page and take the fixed scope (`clubId`, `teamId`) plus a URL
+`prefix`, so a club page's tabs keep separate filters in one URL (`t.q`, `p.minor`, `e.page`).
 
 ## 3. Shared pieces
 
-- `useAdminListParams<T>(defaults)`: reads and writes filters + `page` in the URL search params
-  (`replace: true` on filter changes, a history entry on page changes), resets `page` to 1 when a
-  filter changes. Every list uses it, so any view can be pasted into a ticket.
-- `AdminFilterBar`: a row of `SelectField`s / a search `Input` / boolean `Checkbox`es, wrapping on
-  mobile; driven by react-hook-form (`watch` → params, debounced 300 ms for text).
-- `AdminPersonLink`: renders `displayName` as a `TextLink` to `/admin/users/:id` or
-  `/admin/players/:id`; when `redacted`, a `Badge variant="soft" tone="muted"` « masqué ».
-  E-mail on a second `Text variant="meta"` line when present.
-- `AdminRecordLink`: club / team / event refs to their detail pages.
-- Dates via one `formatAdminDate` / `formatAdminDateTime` (Europe/Paris, `.tabular`).
+- `useAdminListParams(keys, prefix)`: filters + `page` in the URL (`replace` on filter changes,
+  a history entry on page changes, page reset on filter change). Filters are controlled by the
+  URL directly rather than a react-hook-form form: nothing is submitted or validated, and a
+  second copy of the state would have to be kept in sync with Back/Forward.
+- `AdminFilters.tsx`: `AdminFilterBar`, `AdminSearchFilter` (debounced 300 ms, re-seeded when
+  the URL changes under it), `AdminSelectFilter` (an « all » sentinel never sent to the API),
+  `AdminPresets` (`SegmentedControl`).
+- `AdminLinks.tsx`: `AdminLink`, `AdminClubLink`, `AdminTeamLink`, `AdminPersonLink` (« masqué »
+  badge when redacted, optional contact line); `adminPaths.ts` is the only place a route is spelled.
+- `AdminLayout.tsx`: `AdminPageHeader` (breadcrumb), `AdminSection`, `AdminFacts`, `AdminTable`
+  (`ResponsiveTable` in a flush card on desktop, unwrapped card stack on a phone),
+  `AdminLinkedList` (a record's linked records, one row each), `AdminStat(s)`, `AdminPagination`,
+  `AdminTwoColumn`.
+- `AdminQueryBranch`: the `error → loading → empty → data` ladder, once.
+- `adminFormat.ts`: dates in Europe/Paris, labels and badge tones.
 
 ## 4. Pages
 
@@ -70,7 +73,8 @@ Moving files keeps their tests next to them. `useAdminQueries.ts` is split per a
 | `/admin/retention`   | the existing page, moved                                                                                                                                                                                                              |
 | `/admin/audit-log`   | the existing audit table (moved out of the user page into its own route) with `userId` / `playerId` filters; the user page links to it                                                                                                |
 
-`/admin` redirects to `/admin/clubs` until Part 4 adds the dashboard.
+`/admin` redirects to `/admin/clubs` until Part 4 adds the dashboard, and the nav has no
+« Tableau de bord » entry until then. The audit log entry is shown to a `DATA_OFFICER` only.
 
 Person detail queries keep the v1 settings (`staleTime: Infinity`, no focus/reconnect refetch,
 no retry), since each fetch can be an audit row. Every query consumer branches
@@ -80,6 +84,6 @@ no retry), since each fetch can be an audit row. Every query consumer branches
 
 - Vitest + RTL per page: the four branches, filters written to the URL, redacted rendering,
   links resolving to the right routes, tabs.
-- `scripts/fixtures/admin-browse.json` (a `DATA_OFFICER` session, one CTC team across two clubs, a
-  minor with a guardian, a failed scoresheet) plus an `admin-browse-support.json` variant with
-  redacted refs. Screenshots of every page at desktop and phone width in the PR.
+- `scripts/fixtures/admin-browse.json`: a `DATA_OFFICER` session, a CTC team across two clubs, a
+  minor with a guardian, a failed scoresheet. The redacted rendering is covered by component
+  tests rather than a second fixture.

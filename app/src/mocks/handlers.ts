@@ -143,4 +143,22 @@ export const handlers = [
   http.get('/api/admin/users', () =>
     HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
   ),
+  http.get('/api/admin/clubs', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
+  http.get('/api/admin/teams', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
+  http.get('/api/admin/players', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
+  http.get('/api/admin/events', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
+  http.get('/api/admin/scoresheets', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
+  http.get('/api/admin/audit-log', () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 25 }),
+  ),
 ];

@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@basketeasy/ui/toaster';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ProtectedRoute } from './auth/ProtectedRoute';
@@ -39,11 +39,41 @@ const AdminRoute = lazy(() =>
 const AdminRetentionPage = lazy(() =>
   import('./admin/AdminRetentionPage').then((m) => ({ default: m.AdminRetentionPage })),
 );
+const AdminClubsPage = lazy(() =>
+  import('./admin/AdminClubsPage').then((m) => ({ default: m.AdminClubsPage })),
+);
+const AdminClubDetailPage = lazy(() =>
+  import('./admin/AdminClubDetailPage').then((m) => ({ default: m.AdminClubDetailPage })),
+);
+const AdminTeamsPage = lazy(() =>
+  import('./admin/AdminTeamsPage').then((m) => ({ default: m.AdminTeamsPage })),
+);
+const AdminTeamDetailPage = lazy(() =>
+  import('./admin/AdminTeamDetailPage').then((m) => ({ default: m.AdminTeamDetailPage })),
+);
 const AdminUsersPage = lazy(() =>
   import('./admin/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
 );
 const AdminUserDetailPage = lazy(() =>
   import('./admin/AdminUserDetailPage').then((m) => ({ default: m.AdminUserDetailPage })),
+);
+const AdminPlayersPage = lazy(() =>
+  import('./admin/AdminPlayersPage').then((m) => ({ default: m.AdminPlayersPage })),
+);
+const AdminPlayerDetailPage = lazy(() =>
+  import('./admin/AdminPlayerDetailPage').then((m) => ({ default: m.AdminPlayerDetailPage })),
+);
+const AdminEventsPage = lazy(() =>
+  import('./admin/AdminEventsPage').then((m) => ({ default: m.AdminEventsPage })),
+);
+const AdminEventDetailPage = lazy(() =>
+  import('./admin/AdminEventDetailPage').then((m) => ({ default: m.AdminEventDetailPage })),
+);
+const AdminScoresheetsPage = lazy(() =>
+  import('./admin/AdminScoresheetsPage').then((m) => ({ default: m.AdminScoresheetsPage })),
+);
+const AdminAuditLogPage = lazy(() =>
+  import('./admin/AdminAuditLogPage').then((m) => ({ default: m.AdminAuditLogPage })),
 );
 
 export default function App() {
@@ -103,9 +133,20 @@ export default function App() {
             </Suspense>
           }
         >
-          <Route index element={<AdminRetentionPage />} />
+          <Route index element={<Navigate to="clubs" replace />} />
+          <Route path="clubs" element={<AdminClubsPage />} />
+          <Route path="clubs/:clubId" element={<AdminClubDetailPage />} />
+          <Route path="teams" element={<AdminTeamsPage />} />
+          <Route path="teams/:teamId" element={<AdminTeamDetailPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="users/:userId" element={<AdminUserDetailPage />} />
+          <Route path="players" element={<AdminPlayersPage />} />
+          <Route path="players/:playerId" element={<AdminPlayerDetailPage />} />
+          <Route path="events" element={<AdminEventsPage />} />
+          <Route path="events/:eventId" element={<AdminEventDetailPage />} />
+          <Route path="scoresheets" element={<AdminScoresheetsPage />} />
+          <Route path="retention" element={<AdminRetentionPage />} />
+          <Route path="audit-log" element={<AdminAuditLogPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
 

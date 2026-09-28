@@ -1,0 +1,839 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "admin-1",
+    "email": "dpo@kluvo.net",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": []
+  },
+  "GET /api/admin/users": {
+    "items": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-27T19:10:00.000Z",
+        "daysUntilErasure": 364,
+        "clubCount": 2,
+        "guardianOfCount": 2,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-2",
+          "displayName": "Julie Roux",
+          "email": "julie.roux@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-02T08:00:00.000Z",
+        "daysUntilErasure": 339,
+        "clubCount": 3,
+        "guardianOfCount": 0,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-3",
+          "displayName": "Sophie Lefèvre",
+          "email": "sophie.lefevre@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": false,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-25T08:00:00.000Z",
+        "daysUntilErasure": 362,
+        "clubCount": 0,
+        "guardianOfCount": 1,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-4",
+          "displayName": "Thomas Girard",
+          "email": "thomas.g@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2026-09-19T08:00:00.000Z",
+        "daysUntilErasure": 356,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": "SUPPORT"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-5",
+          "displayName": "Marc Petit",
+          "email": "marc.petit@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": false,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2025-10-12T08:00:00.000Z",
+        "daysUntilErasure": 14,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-6",
+          "displayName": "Karim Mercier",
+          "email": "karim.m@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "emailVerified": true,
+        "createdAt": "2024-09-04T17:42:00.000Z",
+        "lastActiveAt": "2025-09-20T08:00:00.000Z",
+        "daysUntilErasure": -8,
+        "clubCount": 1,
+        "guardianOfCount": 0,
+        "platformRole": null
+      }
+    ],
+    "total": 1284,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/users/user-1": {
+    "person": {
+      "kind": "user",
+      "id": "user-1",
+      "displayName": "Nicolas Bernard",
+      "email": "n.bernard@example.fr",
+      "emailDomain": "example.fr",
+      "redacted": false
+    },
+    "emailVerified": true,
+    "createdAt": "2024-09-04T17:42:00.000Z",
+    "lastActiveAt": "2026-09-27T19:10:00.000Z",
+    "daysUntilErasure": 364,
+    "clubCount": 2,
+    "guardianOfCount": 2,
+    "platformRole": null,
+    "memberships": [
+      {
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T17:42:00.000Z"
+      },
+      {
+        "club": {
+          "id": "club-2",
+          "name": "ES Carquefou Basket"
+        },
+        "role": "MEMBER",
+        "joinedAt": "2026-01-12T17:42:00.000Z"
+      }
+    ],
+    "teamAdminOf": [
+      {
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "grantedAt": "2026-09-01T10:00:00.000Z"
+      }
+    ],
+    "linkedPlayers": [
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-4",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "teams": [
+          {
+            "id": "team-2",
+            "name": "Seniors M2",
+            "category": "SENIORS",
+            "gender": "MEN"
+          }
+        ]
+      }
+    ],
+    "guardianOf": [
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-1",
+          "displayName": "Léo Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      },
+      {
+        "player": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      }
+    ],
+    "activeSessionCount": 2
+  },
+  "GET /api/admin/clubs": {
+    "items": [
+      {
+        "id": "club-1",
+        "name": "BC Nantes Erdre",
+        "ffbbClubCode": "PDL0044012",
+        "createdAt": "2024-09-04T10:00:00.000Z",
+        "memberCount": 42,
+        "adminCount": 2,
+        "teamCount": 9,
+        "playerCount": 131
+      },
+      {
+        "id": "club-2",
+        "name": "ES Carquefou Basket",
+        "ffbbClubCode": "PDL0044031",
+        "createdAt": "2025-01-10T10:00:00.000Z",
+        "memberCount": 18,
+        "adminCount": 1,
+        "teamCount": 4,
+        "playerCount": 57
+      },
+      {
+        "id": "club-3",
+        "name": "AL Orvault",
+        "ffbbClubCode": null,
+        "createdAt": "2026-09-20T10:00:00.000Z",
+        "memberCount": 1,
+        "adminCount": 0,
+        "teamCount": 0,
+        "playerCount": 0
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/clubs/club-1": {
+    "id": "club-1",
+    "name": "BC Nantes Erdre",
+    "ffbbClubCode": "PDL0044012",
+    "createdAt": "2024-09-04T10:00:00.000Z",
+    "memberCount": 42,
+    "adminCount": 2,
+    "teamCount": 9,
+    "playerCount": 131,
+    "meetingPointName": "Gymnase de la Beaujoire",
+    "meetingPointAddress": "Route de Saint-Joseph, Nantes",
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/admin/clubs/club-1/members": {
+    "items": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-2",
+          "displayName": "Julie Roux",
+          "email": "julie.roux@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "ADMIN",
+        "joinedAt": "2024-09-04T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-7",
+          "displayName": "Camille Moreau",
+          "email": "camille.moreau@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-09-10T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-8",
+          "displayName": "Hugo Lambert",
+          "email": "hugo.lambert@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "role": "MEMBER",
+        "joinedAt": "2024-10-02T10:00:00.000Z"
+      }
+    ],
+    "total": 42,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/teams": {
+    "items": [
+      {
+        "id": "team-1",
+        "name": "U13 F CTC Erdre",
+        "category": "U13",
+        "gender": "WOMEN",
+        "createdAt": "2026-08-28T10:00:00.000Z",
+        "ownerClub": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "partnerClubs": [
+          {
+            "id": "club-2",
+            "name": "ES Carquefou Basket"
+          }
+        ],
+        "rosterCount": 11,
+        "teamAdminCount": 2
+      },
+      {
+        "id": "team-2",
+        "name": "Seniors M2",
+        "category": "SENIORS",
+        "gender": "MEN",
+        "createdAt": "2025-08-28T10:00:00.000Z",
+        "ownerClub": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "partnerClubs": [],
+        "rosterCount": 12,
+        "teamAdminCount": 0
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/teams/team-1": {
+    "id": "team-1",
+    "name": "U13 F CTC Erdre",
+    "category": "U13",
+    "gender": "WOMEN",
+    "createdAt": "2026-08-28T10:00:00.000Z",
+    "ownerClub": {
+      "id": "club-1",
+      "name": "BC Nantes Erdre"
+    },
+    "partnerClubs": [
+      {
+        "id": "club-2",
+        "name": "ES Carquefou Basket"
+      }
+    ],
+    "rosterCount": 3,
+    "teamAdminCount": 1,
+    "teamAdmins": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "grantedAt": "2026-09-01T10:00:00.000Z"
+      }
+    ],
+    "ffbbLinks": [
+      {
+        "id": "ffbb-1",
+        "engagementRef": "DF3-B-2026",
+        "label": "DF3 Poule B"
+      }
+    ]
+  },
+  "GET /api/admin/teams/team-1/roster": [
+    {
+      "teamPlayerId": "tp-1",
+      "player": {
+        "kind": "player",
+        "id": "player-2",
+        "displayName": "Inès Bernard",
+        "email": null,
+        "emailDomain": null,
+        "redacted": false
+      },
+      "club": {
+        "id": "club-1",
+        "name": "BC Nantes Erdre"
+      },
+      "role": "PLAYER",
+      "linkedUser": null,
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "player": {
+        "kind": "player",
+        "id": "player-3",
+        "displayName": "Lina Bouvier",
+        "email": null,
+        "emailDomain": null,
+        "redacted": false
+      },
+      "club": {
+        "id": "club-2",
+        "name": "ES Carquefou Basket"
+      },
+      "role": "PLAYER",
+      "linkedUser": null,
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "player": {
+        "kind": "player",
+        "id": "player-5",
+        "displayName": "Chloé André",
+        "email": "chloe.andre@example.fr",
+        "emailDomain": "example.fr",
+        "redacted": false
+      },
+      "club": {
+        "id": "club-1",
+        "name": "BC Nantes Erdre"
+      },
+      "role": "COACH",
+      "linkedUser": {
+        "kind": "user",
+        "id": "user-9",
+        "displayName": "Chloé André",
+        "email": "chloe.andre@example.fr",
+        "emailDomain": "example.fr",
+        "redacted": false
+      },
+      "joinedAt": "2026-09-01T10:00:00.000Z"
+    }
+  ],
+  "GET /api/admin/players": {
+    "items": [
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-1",
+          "displayName": "Léo Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": null,
+        "isMinor": true,
+        "consentState": "recorded",
+        "teamCount": 2,
+        "createdAt": "2026-08-28T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": null,
+        "isMinor": true,
+        "consentState": "missing",
+        "teamCount": 1,
+        "createdAt": "2026-08-28T10:00:00.000Z"
+      },
+      {
+        "person": {
+          "kind": "player",
+          "id": "player-4",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "club": {
+          "id": "club-1",
+          "name": "BC Nantes Erdre"
+        },
+        "linkedUserId": "user-1",
+        "isMinor": false,
+        "consentState": "not-required",
+        "teamCount": 1,
+        "createdAt": "2024-09-05T10:00:00.000Z"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/players/player-1": {
+    "person": {
+      "kind": "player",
+      "id": "player-1",
+      "displayName": "Léo Bernard",
+      "email": null,
+      "emailDomain": null,
+      "redacted": false
+    },
+    "club": {
+      "id": "club-1",
+      "name": "BC Nantes Erdre"
+    },
+    "linkedUserId": null,
+    "isMinor": true,
+    "consentState": "recorded",
+    "teamCount": 2,
+    "createdAt": "2026-08-28T10:00:00.000Z",
+    "birthDate": "2015-03-14T00:00:00.000Z",
+    "licenseNumber": "VT150314",
+    "gender": "MEN",
+    "linkedUser": null,
+    "teams": [
+      {
+        "teamPlayerId": "tp-9",
+        "team": {
+          "id": "team-3",
+          "name": "U11 M",
+          "category": "U11",
+          "gender": "MEN"
+        },
+        "role": "PLAYER"
+      }
+    ],
+    "guardians": [
+      {
+        "person": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "linkedAt": "2026-09-03T10:00:00.000Z"
+      }
+    ],
+    "guardianInvites": [
+      {
+        "id": "gi-1",
+        "createdAt": "2026-09-02T10:00:00.000Z",
+        "expiresAt": "2026-09-09T10:00:00.000Z",
+        "state": "accepted"
+      },
+      {
+        "id": "gi-2",
+        "createdAt": "2026-09-24T10:00:00.000Z",
+        "expiresAt": "2026-10-01T10:00:00.000Z",
+        "state": "live"
+      }
+    ],
+    "playerInvite": {
+      "createdAt": "2026-09-01T10:00:00.000Z",
+      "expiresAt": "2026-09-08T10:00:00.000Z",
+      "state": "expired"
+    },
+    "consents": [
+      {
+        "id": "pc-1",
+        "source": "GUARDIAN_IN_APP",
+        "attestedBy": "Nicolas Bernard",
+        "consentGivenAt": "2026-09-03T10:00:00.000Z"
+      },
+      {
+        "id": "pc-2",
+        "source": "STAFF_ATTESTATION",
+        "attestedBy": "Julie Roux",
+        "consentGivenAt": "2026-08-28T10:00:00.000Z"
+      }
+    ]
+  },
+  "GET /api/admin/events": {
+    "items": [
+      {
+        "id": "event-1",
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "type": "MATCH",
+        "startsAt": "2026-10-03T12:00:00.000Z",
+        "location": "Gymnase de la Beaujoire",
+        "opponentName": "ASB Rezé",
+        "rsvpCounts": {
+          "going": 2,
+          "notGoing": 0,
+          "maybe": 1
+        },
+        "convocationCount": 3,
+        "scoresheetStatus": "FAILED"
+      },
+      {
+        "id": "event-2",
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "type": "TRAINING",
+        "startsAt": "2026-09-30T16:30:00.000Z",
+        "location": "Salle Jules Verne",
+        "opponentName": null,
+        "rsvpCounts": {
+          "going": 6,
+          "notGoing": 1,
+          "maybe": 0
+        },
+        "convocationCount": 0,
+        "scoresheetStatus": null
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/events/event-1": {
+    "id": "event-1",
+    "team": {
+      "id": "team-1",
+      "name": "U13 F CTC Erdre",
+      "category": "U13",
+      "gender": "WOMEN"
+    },
+    "type": "MATCH",
+    "startsAt": "2026-10-03T12:00:00.000Z",
+    "location": "Gymnase de la Beaujoire",
+    "opponentName": "ASB Rezé",
+    "rsvpCounts": {
+      "going": 2,
+      "notGoing": 0,
+      "maybe": 1
+    },
+    "convocationCount": 3,
+    "scoresheetStatus": "FAILED",
+    "venue": "HOME",
+    "notes": "Maillots blancs.",
+    "recurrenceId": null,
+    "roster": [
+      {
+        "teamPlayerId": "tp-1",
+        "player": {
+          "kind": "player",
+          "id": "player-2",
+          "displayName": "Inès Bernard",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "PLAYER",
+        "rsvp": "GOING",
+        "respondedBy": {
+          "kind": "user",
+          "id": "user-1",
+          "displayName": "Nicolas Bernard",
+          "email": "n.bernard@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "convoked": true
+      },
+      {
+        "teamPlayerId": "tp-2",
+        "player": {
+          "kind": "player",
+          "id": "player-3",
+          "displayName": "Lina Bouvier",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "PLAYER",
+        "rsvp": "MAYBE",
+        "respondedBy": null,
+        "convoked": true
+      },
+      {
+        "teamPlayerId": "tp-3",
+        "player": {
+          "kind": "player",
+          "id": "player-5",
+          "displayName": "Chloé André",
+          "email": null,
+          "emailDomain": null,
+          "redacted": false
+        },
+        "role": "COACH",
+        "rsvp": "GOING",
+        "respondedBy": {
+          "kind": "user",
+          "id": "user-9",
+          "displayName": "Chloé André",
+          "email": "chloe.andre@example.fr",
+          "emailDomain": "example.fr",
+          "redacted": false
+        },
+        "convoked": true
+      }
+    ],
+    "scoresheet": {
+      "id": "sheet-1",
+      "event": {
+        "id": "event-1",
+        "startsAt": "2026-10-03T12:00:00.000Z",
+        "opponentName": "ASB Rezé"
+      },
+      "team": {
+        "id": "team-1",
+        "name": "U13 F CTC Erdre",
+        "category": "U13",
+        "gender": "WOMEN"
+      },
+      "status": "FAILED",
+      "attemptCount": 5,
+      "failureReason": "Le service de lecture est saturé. Relancez la lecture dans quelques minutes.",
+      "uploadedAt": "2026-10-03T15:12:00.000Z"
+    }
+  },
+  "GET /api/admin/scoresheets": {
+    "items": [
+      {
+        "id": "sheet-1",
+        "event": {
+          "id": "event-1",
+          "startsAt": "2026-10-03T12:00:00.000Z",
+          "opponentName": "ASB Rezé"
+        },
+        "team": {
+          "id": "team-1",
+          "name": "U13 F CTC Erdre",
+          "category": "U13",
+          "gender": "WOMEN"
+        },
+        "status": "FAILED",
+        "attemptCount": 5,
+        "failureReason": "Le service de lecture est saturé. Relancez la lecture dans quelques minutes.",
+        "uploadedAt": "2026-10-03T15:12:00.000Z"
+      },
+      {
+        "id": "sheet-2",
+        "event": {
+          "id": "event-3",
+          "startsAt": "2026-09-27T14:00:00.000Z",
+          "opponentName": "Orvault BC"
+        },
+        "team": {
+          "id": "team-2",
+          "name": "Seniors M2",
+          "category": "SENIORS",
+          "gender": "MEN"
+        },
+        "status": "NEEDS_REVIEW",
+        "attemptCount": 1,
+        "failureReason": null,
+        "uploadedAt": "2026-09-27T17:40:00.000Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/admin/audit-log": {
+    "items": [
+      {
+        "id": "log-1",
+        "type": "ADMIN_PII_VIEWED",
+        "userId": "admin-1",
+        "actorEmail": "dpo@kluvo.net",
+        "ipAddress": "203.0.113.7",
+        "metadata": {
+          "subjectUserId": "user-1",
+          "subjectEmail": "n.bernard@example.fr"
+        },
+        "createdAt": "2026-09-28T10:00:00.000Z"
+      },
+      {
+        "id": "log-2",
+        "type": "LOGIN_SUCCESS",
+        "userId": "user-1",
+        "actorEmail": "n.bernard@example.fr",
+        "ipAddress": "198.51.100.4",
+        "metadata": null,
+        "createdAt": "2026-09-27T19:10:00.000Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 25
+  }
+}

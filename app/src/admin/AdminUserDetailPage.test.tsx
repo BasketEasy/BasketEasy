@@ -82,10 +82,11 @@ describe('AdminUserDetailPage', () => {
 
     renderDetail();
 
-    expect(await screen.findByText('J. D.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'J. D.' })).toBeInTheDocument();
     expect(screen.getByText('…@example.org')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Effacer ce compte' })).not.toBeInTheDocument();
     expect(screen.queryByText('Export RGPD')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Journal d’audit/ })).not.toBeInTheDocument();
   });
 
   it('renders the full record behind the audited detail route', async () => {
@@ -94,7 +95,15 @@ describe('AdminUserDetailPage', () => {
     renderDetail();
 
     expect(await screen.findByText('jean.dupont@example.org')).toBeInTheDocument();
-    expect(screen.getByText('BC Nantes · membre')).toBeInTheDocument();
+    // Once as a membership, once as the linked player's club.
+    for (const link of screen.getAllByRole('link', { name: 'BC Nantes' })) {
+      expect(link).toHaveAttribute('href', '/admin/clubs/club-1');
+    }
+    expect(screen.getByText('Membre')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Journal d’audit de ce compte' })).toHaveAttribute(
+      'href',
+      '/admin/audit-log?userId=user-9',
+    );
   });
 
   it('shows the error branch when the record fails to load', async () => {

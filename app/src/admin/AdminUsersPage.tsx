@@ -1,125 +1,296 @@
-import { Link } from 'react-router-dom';
-import { useState } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
-import { Card, CardContent } from '@basketeasy/ui/card';
-import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Loader } from '@basketeasy/ui/loader';
-import { Pagination } from '@basketeasy/ui/pagination';
-import { QueryError } from '@basketeasy/ui/query-error';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@basketeasy/ui/table';
+import { Card } from '@basketeasy/ui/card';
+import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
-import { usePlatformUsers } from './useAdminQueries';
+import type { ClubRole } from '@basketeasy/types/club-members';
+import type { AdminUserSummary, AdminUsersQuery } from '@basketeasy/types/platform-admin-browse';
+import { useAdminClubs, useAdminTeams, useAdminUsers } from './useAdminQueries';
+import { usePlatformSession } from './platformSession';
+import { useAdminListParams } from './shared/useAdminListParams';
+import {
+  AdminFilterBar,
+  AdminPresets,
+  AdminSearchFilter,
+  AdminSelectFilter,
+} from './shared/AdminFilters';
+import { AdminPageHeader, AdminPagination, AdminTable } from './shared/AdminLayout';
+import { AdminPersonLink } from './shared/AdminLinks';
+import { AdminQueryBranch } from './shared/AdminQueryBranch';
+import { CLUB_ROLE_LABELS, formatAdminDate, teamLabel } from './shared/adminFormat';
 
-const PAGE_SIZE = 25;
+const FILTER_KEYS = [
+  'q',
+  'clubId',
+  'teamId',
+  'clubRole',
+  'verified',
+  'inactiveSoon',
+  'isGuardian',
+  'hasPlatformRole',
+  'sort',
+] as const;
 
-function formatLastActive(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    dateStyle: 'medium',
-    timeZone: 'Europe/Paris',
-  });
+type Preset = 'all' | 'inactive' | 'unverified' | 'guardians' | 'staff';
+
+/** Each preset is a set of filters; choosing one replaces the others it owns. */
+const PRESET_FILTERS: Record<Preset, Partial<Record<(typeof FILTER_KEYS)[number], string>>> = {
+  all: {},
+  inactive: { inactiveSoon: 'true' },
+  unverified: { verified: 'false' },
+  guardians: { isGuardian: 'true' },
+  staff: { hasPlatformRole: 'true' },
+};
+
+const PRESET_OPTIONS: { value: Preset; label: string }[] = [
+  { value: 'all', label: 'Tous' },
+  { value: 'inactive', label: 'Bientôt effacés' },
+  { value: 'unverified', label: 'Non vérifiés' },
+  { value: 'guardians', label: 'Parents' },
+  { value: 'staff', label: 'Staff Kluvo' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'lastActiveAt', label: 'Dernière activité' },
+  { value: 'createdAt', label: 'Inscription récente' },
+] as const;
+
+const ROLE_OPTIONS = (Object.keys(CLUB_ROLE_LABELS) as ClubRole[]).map((role) => ({
+  value: role,
+  label: CLUB_ROLE_LABELS[role],
+}));
+
+/** Pickers list at most one API page; beyond that, search by name instead. */
+const PICKER_PAGE_SIZE = 100;
+
+function presetOf(filters: Partial<Record<string, string>>): Preset {
+  if (filters.inactiveSoon === 'true') return 'inactive';
+  if (filters.verified === 'false') return 'unverified';
+  if (filters.isGuardian === 'true') return 'guardians';
+  if (filters.hasPlatformRole === 'true') return 'staff';
+  return 'all';
+}
+
+function ErasureBadge({ days }: { days: number }) {
+  if (days < 0) {
+    return (
+      <Badge variant="soft" tone="danger">
+        Dépassée
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="soft" tone={days <= 31 ? 'danger' : 'muted'}>
+      <span className="tabular">{days}</span>&nbsp;j
+    </Badge>
+  );
+}
+
+function VerifiedBadge({ verified }: { verified: boolean }) {
+  return (
+    <Badge variant="soft" tone={verified ? 'success' : 'muted'}>
+      {verified ? 'Vérifiée' : 'Non vérifiée'}
+    </Badge>
+  );
+}
+
+function PlatformRoleBadge({ role }: { role: AdminUserSummary['platformRole'] }) {
+  if (!role)
+    return (
+      <Text as="span" variant="meta" size="sm">
+        —
+      </Text>
+    );
+  return (
+    <Badge variant="soft" tone="brand">
+      {role === 'DATA_OFFICER' ? 'DPO' : 'Support'}
+    </Badge>
+  );
+}
+
+function UserRow({ user }: { user: AdminUserSummary }) {
+  const layout = useTableLayout();
+
+  if (layout === 'card') {
+    return (
+      <Card variant="inset" className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <AdminPersonLink person={user.person} withContact />
+          <ErasureBadge days={user.daysUntilErasure} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <VerifiedBadge verified={user.emailVerified} />
+          <Badge variant="soft" tone="structure">
+            <span className="tabular">{user.clubCount}</span>&nbsp;club(s)
+          </Badge>
+          {user.guardianOfCount > 0 && (
+            <Badge variant="soft" tone="structure">
+              Parent
+            </Badge>
+          )}
+          {user.platformRole && <PlatformRoleBadge role={user.platformRole} />}
+        </div>
+        <Text variant="meta" size="sm" className="tabular">
+          Dernière activité : {formatAdminDate(user.lastActiveAt)}
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <TableRow>
+      <TableCell>
+        <AdminPersonLink person={user.person} withContact />
+      </TableCell>
+      <TableCell>
+        <VerifiedBadge verified={user.emailVerified} />
+      </TableCell>
+      <TableCell className="tabular">{user.clubCount}</TableCell>
+      <TableCell className="tabular">{user.guardianOfCount}</TableCell>
+      <TableCell className="tabular whitespace-nowrap">
+        {formatAdminDate(user.lastActiveAt)}
+      </TableCell>
+      <TableCell>
+        <ErasureBadge days={user.daysUntilErasure} />
+      </TableCell>
+      <TableCell>
+        <PlatformRoleBadge role={user.platformRole} />
+      </TableCell>
+    </TableRow>
+  );
 }
 
 /**
- * The redacted list. No address, no name — only the e-mail domain, the last
- * activity date and how many clubs the account belongs to.
- *
- * That is not squeamishness: opening one record writes an ADMIN_PII_VIEWED
- * row naming the subject, and a list view that already showed who these
- * people are would make that audit trail a lie.
+ * Every account on the platform, filterable by club, team, role and state.
+ * What each row shows of the person is decided by the server for this
+ * admin's role; opening one is the audited moment for a DATA_OFFICER.
  */
 export function AdminUsersPage() {
-  const [page, setPage] = useState(1);
-  const { data, isLoading, isError, refetch, isFetching } = usePlatformUsers({
-    inactiveSoon: 'true',
+  const { session } = usePlatformSession();
+  const isDataOfficer = session?.role === 'DATA_OFFICER';
+  const { filters, page, setFilters, setPage, pageSize } = useAdminListParams(FILTER_KEYS);
+  const preset = presetOf(filters);
+
+  const query: AdminUsersQuery = {
+    ...filters,
+    clubRole: filters.clubRole as ClubRole | undefined,
+    verified: filters.verified as AdminUsersQuery['verified'],
+    inactiveSoon: filters.inactiveSoon as AdminUsersQuery['inactiveSoon'],
+    isGuardian: filters.isGuardian as AdminUsersQuery['isGuardian'],
+    hasPlatformRole: filters.hasPlatformRole as AdminUsersQuery['hasPlatformRole'],
+    sort: filters.sort as AdminUsersQuery['sort'],
     page,
-    pageSize: PAGE_SIZE,
-  });
+    pageSize,
+  };
+  const users = useAdminUsers(query);
+  const clubs = useAdminClubs({ pageSize: PICKER_PAGE_SIZE, sort: 'name' });
+  const teams = useAdminTeams({ clubId: filters.clubId, pageSize: PICKER_PAGE_SIZE });
 
   return (
-    <div className="flex flex-col gap-4">
-      <SectionHeading count={data?.total}>Comptes inactifs</SectionHeading>
-      <Text variant="meta">
-        Comptes sans activité depuis 11&nbsp;mois ou plus. La purge automatique les supprime à
-        12&nbsp;mois. Ouvrir une fiche est une consultation journalisée.
-      </Text>
+    <div className="flex flex-col gap-5">
+      <AdminPageHeader
+        title="Utilisateurs"
+        subtitle={
+          <>
+            <span className="tabular">{users.data?.total ?? '…'}</span> comptes
+            {isDataOfficer && ' · ouvrir une fiche est une consultation journalisée'}
+          </>
+        }
+      />
 
-      {isError ? (
-        <QueryError onRetry={() => void refetch()} isRetrying={isFetching} />
-      ) : isLoading ? (
-        <Loader>Chargement des comptes…</Loader>
-      ) : data && data.items.length === 0 ? (
-        <EmptyState
-          title="Aucun compte concerné"
-          description="Aucun compte n’approche du seuil d’inactivité de 12 mois."
+      <AdminPresets
+        ariaLabel="Vues rapides"
+        value={preset}
+        options={PRESET_OPTIONS}
+        onChange={(next) =>
+          setFilters({
+            inactiveSoon: undefined,
+            verified: undefined,
+            isGuardian: undefined,
+            hasPlatformRole: undefined,
+            ...PRESET_FILTERS[next],
+          })
+        }
+      />
+
+      <AdminFilterBar>
+        <AdminSearchFilter
+          label={isDataOfficer ? 'Recherche' : 'Adresse e-mail exacte'}
+          placeholder={isDataOfficer ? 'Nom, prénom ou e-mail' : 'prenom.nom@exemple.fr'}
+          hint={
+            isDataOfficer
+              ? undefined
+              : 'Profil support : les noms sont masqués et la recherche attend une adresse complète.'
+          }
+          value={filters.q}
+          onChange={(q) => setFilters({ q })}
         />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <Card variant="panel">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Domaine</TableHead>
-                    <TableHead>Dernière activité</TableHead>
-                    <TableHead>Échéance</TableHead>
-                    <TableHead>Clubs</TableHead>
-                    <TableHead>
-                      <span className="sr-only">Fiche</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.items.map((user) => (
-                    <TableRow key={user.person.id}>
-                      <TableCell>
-                        <Text variant="label">{user.person.emailDomain}</Text>
-                      </TableCell>
-                      <TableCell className="tabular whitespace-nowrap">
-                        {formatLastActive(user.lastActiveAt)}
-                      </TableCell>
-                      <TableCell>
-                        {user.daysUntilErasure < 0 ? (
-                          <Badge variant="soft" tone="danger" size="sm">
-                            Dépassée
-                          </Badge>
-                        ) : (
-                          <Badge variant="soft" tone="muted" size="sm">
-                            <span className="tabular">{user.daysUntilErasure}</span>&nbsp;j
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="tabular">{user.clubCount}</TableCell>
-                      <TableCell>
-                        <TextLink asChild>
-                          <Link to={`/admin/users/${user.person.id}`}>Ouvrir la fiche</Link>
-                        </TextLink>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+        <AdminSelectFilter
+          label="Club"
+          allLabel="Tous"
+          options={(clubs.data?.items ?? []).map((club) => ({ value: club.id, label: club.name }))}
+          value={filters.clubId}
+          onChange={(clubId) => setFilters({ clubId, teamId: undefined })}
+        />
+        <AdminSelectFilter
+          label="Équipe"
+          allLabel="Toutes"
+          options={(teams.data?.items ?? []).map((team) => ({
+            value: team.id,
+            label: teamLabel(team),
+          }))}
+          value={filters.teamId}
+          onChange={(teamId) => setFilters({ teamId })}
+        />
+        <AdminSelectFilter
+          label="Rôle club"
+          allLabel="Tous"
+          options={ROLE_OPTIONS}
+          value={filters.clubRole as ClubRole | undefined}
+          onChange={(clubRole) => setFilters({ clubRole })}
+        />
+        <AdminSelectFilter
+          label="Tri"
+          allLabel="Par défaut"
+          options={SORT_OPTIONS}
+          value={filters.sort as (typeof SORT_OPTIONS)[number]['value'] | undefined}
+          onChange={(sort) => setFilters({ sort })}
+        />
+      </AdminFilterBar>
 
-          {data && data.total > PAGE_SIZE && (
-            <Pagination
+      <AdminQueryBranch
+        query={users}
+        isEmpty={(data) => data.items.length === 0}
+        emptyTitle="Aucun compte"
+        emptyDescription="Aucun compte ne correspond à ces filtres."
+        loadingLabel="Chargement des comptes…"
+      >
+        {(data) => (
+          <div className="flex flex-col gap-4">
+            <AdminTable
+              columns={[
+                'Personne',
+                'Adresse',
+                'Clubs',
+                'Parent de',
+                'Dernière activité',
+                'Effacement',
+                'Plateforme',
+              ]}
+            >
+              {data.items.map((user) => (
+                <UserRow key={user.person.id} user={user} />
+              ))}
+            </AdminTable>
+            <AdminPagination
               page={page}
-              pageSize={PAGE_SIZE}
+              pageSize={pageSize}
               total={data.total}
               onPageChange={setPage}
             />
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </AdminQueryBranch>
     </div>
   );
 }
