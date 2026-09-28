@@ -151,7 +151,8 @@
       "omissions": [
         "Les votes émis par la personne sont listés sans le joueur désigné (art. 15.4).",
         "Les consultations effectuées par un administrateur sont datées mais n'identifient pas l'administrateur (art. 15.4).",
-        "Les abonnements push sont listés sans leur adresse technique ni leurs clés."
+        "Les abonnements push sont listés sans leur adresse technique ni leurs clés.",
+        "Les enfants dont la personne est responsable légal·e sont nommés, sans leur profil ni leurs propres réponses (art. 15.4)."
       ]
     },
     "account": {
@@ -172,7 +173,17 @@
       }
     ],
     "playerRecords": [],
+    "teamAdminGrants": [],
     "notifications": [],
+    "guardian": {
+      "children": [],
+      "invitesAccepted": [],
+      "answersGivenForOthers": []
+    },
+    "parentalConsents": {
+      "given": [],
+      "aboutThisPerson": []
+    },
     "pushSubscriptions": [],
     "reviewedScoresheets": [],
     "securityLog": []

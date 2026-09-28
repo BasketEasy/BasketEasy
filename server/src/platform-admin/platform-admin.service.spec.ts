@@ -36,6 +36,8 @@ describe('PlatformAdminService', () => {
     user: { count: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
     player: { findMany: jest.Mock };
     scoresheetExtraction: { findMany: jest.Mock };
+    eventRsvp: { findMany: jest.Mock };
+    parentalConsent: { findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -74,6 +76,8 @@ describe('PlatformAdminService', () => {
       },
       player: { findMany: jest.fn().mockResolvedValue([]) },
       scoresheetExtraction: { findMany: jest.fn().mockResolvedValue([]) },
+      eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
+      parentalConsent: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn().mockImplementation((fn: (tx: unknown) => unknown) =>
         Promise.resolve(
           fn({
@@ -337,6 +341,9 @@ describe('PlatformAdminService', () => {
       ],
       notifications: [],
       pushSubscriptions: [],
+      teamAdmins: [],
+      guardianOf: [],
+      guardianInvitesAccepted: [],
     };
 
     function mockSubject(overrides: Record<string, unknown> = {}) {
@@ -534,7 +541,250 @@ describe('PlatformAdminService', () => {
       );
 
       expect(result.notice.basis).toContain('article');
-      expect(result.notice.omissions).toHaveLength(3);
+      expect(result.notice.omissions).toHaveLength(4);
+    });
+
+    function playerWithRsvp(rsvp: Record<string, unknown>) {
+      return {
+        club: { name: 'ASC Nantes' },
+        firstName: 'Léo',
+        lastName: 'Martin',
+        birthDate: new Date('2014-05-01T00:00:00.000Z'),
+        gender: null,
+        licenseNumber: null,
+        licenseType: null,
+        nationalId: null,
+        createdAt: new Date('2024-01-05T09:00:00.000Z'),
+        teamPlayers: [
+          {
+            team: { name: 'U13 M', clubTeams: [{ club: { name: 'ASC Nantes' } }] },
+            role: 'PLAYER',
+            createdAt: new Date('2024-01-06T09:00:00.000Z'),
+            rsvps: [
+              {
+                status: 'GOING',
+                travelMode: 'DIRECT',
+                respondedAt: new Date('2025-03-10T20:00:00.000Z'),
+                event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+                ...rsvp,
+              },
+            ],
+            convocations: [],
+            matchStats: [],
+            votesCast: [],
+            uploadedScoresheets: [],
+            jerseysAssignedEvents: [],
+            ballsAssignedEvents: [],
+          },
+        ],
+      };
+    }
+
+    it('flags an answer a parent gave for the subject without naming the parent (art. 15.4)', async () => {
+      mockSubject();
+      prisma.player.findMany.mockResolvedValue([
+        playerWithRsvp({ respondedByUserId: 'guardian-user-42' }),
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.playerRecords[0].rosterEntries[0].rsvps).toEqual([
+        {
+          eventStartsAt: '2025-03-14T18:00:00.000Z',
+          status: 'GOING',
+          travelMode: 'DIRECT',
+          respondedAt: '2025-03-10T20:00:00.000Z',
+          respondedBy: 'SOMEONE_ELSE',
+        },
+      ]);
+      expect(JSON.stringify(result)).not.toContain('guardian-user-42');
+    });
+
+    it("tells the subject's own answers apart from unknown responders", async () => {
+      mockSubject();
+      prisma.player.findMany.mockResolvedValue([
+        playerWithRsvp({ respondedByUserId: SUBJECT }),
+        playerWithRsvp({ respondedByUserId: null }),
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.playerRecords.map((p) => p.rosterEntries[0].rsvps[0].respondedBy)).toEqual([
+        'SELF',
+        'UNKNOWN',
+      ]);
+    });
+
+    it("lists a parent's own guardian activity, naming the child but nothing else of theirs", async () => {
+      mockSubject({
+        guardianOf: [
+          {
+            createdAt: new Date('2026-09-28T08:00:00.000Z'),
+            player: { firstName: 'Léo', lastName: 'Martin', club: { name: 'ASC Nantes' } },
+          },
+        ],
+        guardianInvitesAccepted: [
+          {
+            acceptedAt: new Date('2026-09-28T08:00:00.000Z'),
+            player: { firstName: 'Léo' },
+          },
+        ],
+      });
+      prisma.eventRsvp.findMany.mockResolvedValue([
+        {
+          status: 'NOT_GOING',
+          travelMode: 'MEETING_POINT',
+          respondedAt: new Date('2026-09-29T19:00:00.000Z'),
+          event: { startsAt: new Date('2026-10-04T14:00:00.000Z') },
+          teamPlayer: { player: { firstName: 'Léo' } },
+        },
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.guardian).toEqual({
+        children: [
+          {
+            firstName: 'Léo',
+            lastName: 'Martin',
+            clubName: 'ASC Nantes',
+            linkedAt: '2026-09-28T08:00:00.000Z',
+          },
+        ],
+        invitesAccepted: [{ childFirstName: 'Léo', acceptedAt: '2026-09-28T08:00:00.000Z' }],
+        answersGivenForOthers: [
+          {
+            childFirstName: 'Léo',
+            eventStartsAt: '2026-10-04T14:00:00.000Z',
+            status: 'NOT_GOING',
+            travelMode: 'MEETING_POINT',
+            respondedAt: '2026-09-29T19:00:00.000Z',
+          },
+        ],
+      });
+      // The subject's own roster slots are already under playerRecords; the
+      // query must not count them twice as "for someone else".
+      expect(prisma.eventRsvp.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            respondedByUserId: SUBJECT,
+            teamPlayer: {
+              player: { OR: [{ userId: null }, { userId: { not: SUBJECT } }] },
+            },
+          },
+        }),
+      );
+    });
+
+    it('lists parental consents given and received without the minor’s birth date or the attester', async () => {
+      mockSubject();
+      prisma.parentalConsent.findMany
+        .mockResolvedValueOnce([
+          {
+            source: 'GUARDIAN_IN_APP',
+            club: { name: 'ASC Nantes' },
+            playerFirstName: 'Léo',
+            playerLastName: 'Martin',
+            playerBirthDate: new Date('2014-05-01T00:00:00.000Z'),
+            attestedByName: 'Jean Dupont',
+            consentGivenAt: new Date('2026-09-28T08:00:00.000Z'),
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            source: 'STAFF_ATTESTATION',
+            club: { name: 'ASC Nantes' },
+            playerFirstName: 'Jean',
+            playerLastName: 'Dupont',
+            playerBirthDate: new Date('1990-01-01T00:00:00.000Z'),
+            attestedByName: 'Marie Coach',
+            consentGivenAt: new Date('2004-09-01T08:00:00.000Z'),
+          },
+        ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.parentalConsents).toEqual({
+        given: [
+          {
+            source: 'GUARDIAN_IN_APP',
+            clubName: 'ASC Nantes',
+            minorFirstName: 'Léo',
+            minorLastName: 'Martin',
+            consentGivenAt: '2026-09-28T08:00:00.000Z',
+          },
+        ],
+        aboutThisPerson: [
+          {
+            source: 'STAFF_ATTESTATION',
+            clubName: 'ASC Nantes',
+            consentGivenAt: '2004-09-01T08:00:00.000Z',
+          },
+        ],
+      });
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain('2014-05-01');
+      expect(serialized).not.toContain('Marie Coach');
+    });
+
+    it('includes team-level manager grants and which child a notification is about', async () => {
+      mockSubject({
+        teamAdmins: [
+          { createdAt: new Date('2025-08-01T08:00:00.000Z'), team: { name: 'Seniors M' } },
+        ],
+        notifications: [
+          {
+            type: 'EVENT_MEETING_FIXED',
+            title: 'RDV fixé',
+            body: 'Samedi 13:15 au gymnase',
+            subjectFirstName: 'Léo',
+            createdAt: new Date('2026-10-01T08:00:00.000Z'),
+          },
+        ],
+      });
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.teamAdminGrants).toEqual([
+        { teamName: 'Seniors M', grantedAt: '2025-08-01T08:00:00.000Z' },
+      ]);
+      expect(result.notifications[0]).toEqual({
+        type: 'EVENT_MEETING_FIXED',
+        title: 'RDV fixé',
+        body: 'Samedi 13:15 au gymnase',
+        aboutFirstName: 'Léo',
+        createdAt: '2026-10-01T08:00:00.000Z',
+      });
     });
   });
 

@@ -55,6 +55,7 @@ const EXPORT_NOTICE = {
     'Les votes émis par la personne sont listés sans le joueur désigné : le vote entre coéquipiers est anonyme par construction, et la désignation est une donnée relative à un tiers (art. 15.4).',
     "Les consultations et actions effectuées par un administrateur sur ce compte sont datées mais n'identifient pas l'administrateur concerné (art. 15.4).",
     "Les abonnements aux notifications push sont listés sans leur adresse technique ni leurs clés : celles-ci constituent un moyen d'envoi actif vers l'appareil, et non une donnée descriptive de la personne.",
+    "Les enfants dont la personne est responsable légal·e sont nommés, mais leur profil, leurs statistiques et leurs propres réponses n'y figurent pas : ce sont les données de l'enfant (art. 15.4). Une réponse donnée au nom de la personne par un parent est signalée sans identifier ce parent, et un consentement parental la concernant est daté sans nommer qui l'a donné.",
   ],
 };
 
@@ -400,6 +401,18 @@ export class PlatformAdminService {
         memberships: { include: { club: { select: { name: true } } } },
         notifications: { orderBy: { createdAt: 'asc' } },
         pushSubscriptions: true,
+        teamAdmins: { include: { team: { select: { name: true } } } },
+        guardianOf: {
+          include: {
+            player: {
+              select: { firstName: true, lastName: true, club: { select: { name: true } } },
+            },
+          },
+        },
+        guardianInvitesAccepted: {
+          where: { acceptedAt: { not: null } },
+          include: { player: { select: { firstName: true } } },
+        },
       },
     });
 
@@ -407,7 +420,14 @@ export class PlatformAdminService {
       throw new NotFoundException('Compte introuvable');
     }
 
-    const [players, auditEntries, reviewedExtractions] = await Promise.all([
+    const [
+      players,
+      auditEntries,
+      reviewedExtractions,
+      answersGivenForOthers,
+      consentsGiven,
+      consentsAboutSubject,
+    ] = await Promise.all([
       this.prisma.player.findMany({
         where: { userId: subjectUserId },
         include: {
@@ -443,6 +463,32 @@ export class PlatformAdminService {
       this.prisma.scoresheetExtraction.findMany({
         where: { reviewedByUserId: subjectUserId },
         include: { eventScoresheet: { include: { event: { select: { startsAt: true } } } } },
+      }),
+      // Answers this person gave for someone else's roster slot — a parent
+      // answering for a child. The subject's own slots are already under
+      // playerRecords; a null userId is an unclaimed child and still counts.
+      this.prisma.eventRsvp.findMany({
+        where: {
+          respondedByUserId: subjectUserId,
+          teamPlayer: {
+            player: { OR: [{ userId: null }, { userId: { not: subjectUserId } }] },
+          },
+        },
+        include: {
+          event: { select: { startsAt: true } },
+          teamPlayer: { select: { player: { select: { firstName: true } } } },
+        },
+        orderBy: { respondedAt: 'asc' },
+      }),
+      this.prisma.parentalConsent.findMany({
+        where: { attestedByUserId: subjectUserId },
+        include: { club: { select: { name: true } } },
+        orderBy: { consentGivenAt: 'asc' },
+      }),
+      this.prisma.parentalConsent.findMany({
+        where: { player: { userId: subjectUserId } },
+        include: { club: { select: { name: true } } },
+        orderBy: { consentGivenAt: 'asc' },
       }),
     ]);
 
@@ -491,7 +537,15 @@ export class PlatformAdminService {
           rsvps: teamPlayer.rsvps.map((rsvp) => ({
             eventStartsAt: rsvp.event.startsAt.toISOString(),
             status: rsvp.status,
+            travelMode: rsvp.travelMode,
             respondedAt: rsvp.respondedAt.toISOString(),
+            // Never the responder's id: a guardian's identity is their data.
+            respondedBy:
+              rsvp.respondedByUserId === null
+                ? ('UNKNOWN' as const)
+                : rsvp.respondedByUserId === subjectUserId
+                  ? ('SELF' as const)
+                  : ('SOMEONE_ELSE' as const),
           })),
           convocations: teamPlayer.convocations.map((convocation) => ({
             eventStartsAt: convocation.event.startsAt.toISOString(),
@@ -525,12 +579,60 @@ export class PlatformAdminService {
           ],
         })),
       })),
+      teamAdminGrants: user.teamAdmins.map((grant) => ({
+        teamName: grant.team.name,
+        grantedAt: grant.createdAt.toISOString(),
+      })),
       notifications: user.notifications.map((notification) => ({
         type: notification.type,
         title: notification.title,
         body: notification.body,
+        aboutFirstName: notification.subjectFirstName,
         createdAt: notification.createdAt.toISOString(),
       })),
+      // The parent's own actions only. A child is named so each line is
+      // intelligible; their profile, stats and own answers are theirs.
+      guardian: {
+        children: user.guardianOf.map((link) => ({
+          firstName: link.player.firstName,
+          lastName: link.player.lastName,
+          clubName: link.player.club.name,
+          linkedAt: link.createdAt.toISOString(),
+        })),
+        invitesAccepted: user.guardianInvitesAccepted.flatMap((invite) =>
+          invite.acceptedAt
+            ? [
+                {
+                  childFirstName: invite.player.firstName,
+                  acceptedAt: invite.acceptedAt.toISOString(),
+                },
+              ]
+            : [],
+        ),
+        answersGivenForOthers: answersGivenForOthers.map((rsvp) => ({
+          childFirstName: rsvp.teamPlayer.player.firstName,
+          eventStartsAt: rsvp.event.startsAt.toISOString(),
+          status: rsvp.status,
+          travelMode: rsvp.travelMode,
+          respondedAt: rsvp.respondedAt.toISOString(),
+        })),
+      },
+      parentalConsents: {
+        // playerBirthDate is deliberately not read: it is the minor's data.
+        given: consentsGiven.map((consent) => ({
+          source: consent.source,
+          clubName: consent.club.name,
+          minorFirstName: consent.playerFirstName,
+          minorLastName: consent.playerLastName,
+          consentGivenAt: consent.consentGivenAt.toISOString(),
+        })),
+        // attestedByName/attestedByUserId deliberately not read: art. 15(4).
+        aboutThisPerson: consentsAboutSubject.map((consent) => ({
+          source: consent.source,
+          clubName: consent.club.name,
+          consentGivenAt: consent.consentGivenAt.toISOString(),
+        })),
+      },
       // endpoint/p256dh/auth are never selected: together they are a live
       // capability to push to that browser, not a description of the person.
       pushSubscriptions: user.pushSubscriptions.map((subscription) => ({

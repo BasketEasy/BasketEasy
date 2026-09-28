@@ -161,7 +161,19 @@ export interface ExportedRosterEntry {
   clubNames: string[];
   role: 'COACH' | 'PLAYER';
   joinedAt: string;
-  rsvps: { eventStartsAt: string; status: string; respondedAt: string }[];
+  rsvps: {
+    eventStartsAt: string;
+    status: string;
+    travelMode: string;
+    respondedAt: string;
+    /**
+     * Who gave the answer, without naming them: `SOMEONE_ELSE` is a guardian
+     * answering for this player. Their identity is a third party's data
+     * (art. 15(4)). `UNKNOWN` when the responder's account no longer exists
+     * or the answer predates the column.
+     */
+    respondedBy: 'SELF' | 'SOMEONE_ELSE' | 'UNKNOWN';
+  }[];
   convocations: { eventStartsAt: string; convokedAt: string }[];
   matchStats: {
     eventStartsAt: string;
@@ -203,10 +215,54 @@ export interface ExportedAuditEntry {
 }
 
 /**
+ * What this person did as a parent. Their own actions only: a child is named
+ * (first and last name, club) so each link and answer is intelligible, but
+ * the child's profile, stats and own answers are the child's data, not the
+ * parent's (art. 15(4)), and are never included here.
+ */
+export interface ExportedGuardianActivity {
+  children: { firstName: string; lastName: string; clubName: string; linkedAt: string }[];
+  invitesAccepted: { childFirstName: string; acceptedAt: string }[];
+  /** Answers this person gave on a child's behalf. */
+  answersGivenForOthers: {
+    childFirstName: string;
+    eventStartsAt: string;
+    status: string;
+    travelMode: string;
+    respondedAt: string;
+  }[];
+}
+
+export interface ExportedParentalConsents {
+  /**
+   * Consents this person gave or attested — as a parent accepting an invite
+   * (`GUARDIAN_IN_APP`) or as club staff (`STAFF_ATTESTATION`). The minor is
+   * named; their birth date is left out.
+   */
+  given: {
+    source: 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
+    clubName: string;
+    minorFirstName: string;
+    minorLastName: string;
+    consentGivenAt: string;
+  }[];
+  /**
+   * Consents recorded for this person while they were a minor. Who gave it is
+   * left out: that is the attester's data (art. 15(4)); `source` says whether
+   * it was a parent in the app or club staff.
+   */
+  aboutThisPerson: {
+    source: 'STAFF_ATTESTATION' | 'GUARDIAN_IN_APP';
+    clubName: string;
+    consentGivenAt: string;
+  }[];
+}
+
+/**
  * One data subject's complete record, RGPD art. 15 / art. 20.
  *
  * Self-describing on purpose: `notice` states the legal basis and names the
- * three deliberate omissions, so the file still explains itself when it
+ * deliberate omissions, so the file still explains itself when it
  * surfaces a year later detached from the request it answered.
  */
 export interface PlatformUserExport {
@@ -228,7 +284,18 @@ export interface PlatformUserExport {
   };
   clubMemberships: ExportedClubMembership[];
   playerRecords: ExportedPlayerRecord[];
-  notifications: { type: string; title: string; body: string | null; createdAt: string }[];
+  /** Team-level manager grants (TeamAdmin), separate from club roles. */
+  teamAdminGrants: { teamName: string; grantedAt: string }[];
+  notifications: {
+    type: string;
+    title: string;
+    body: string | null;
+    /** On a guardian's copy, the child the notification is about. */
+    aboutFirstName: string | null;
+    createdAt: string;
+  }[];
+  guardian: ExportedGuardianActivity;
+  parentalConsents: ExportedParentalConsents;
   /** Never the endpoint or its keys — that is a live push capability, not a description of the person. */
   pushSubscriptions: { userAgent: string | null; createdAt: string }[];
   reviewedScoresheets: { eventStartsAt: string; reviewedAt: string }[];
