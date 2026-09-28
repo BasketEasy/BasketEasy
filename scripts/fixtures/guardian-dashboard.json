@@ -69,7 +69,7 @@
     "totalPlayers": 0,
     "actionItems": []
   },
-  "GET /api/me/teams": { "items": [], "total": 0 },
+  "GET /api/me/teams": [],
   "GET /api/me/notifications/unread-count": { "count": 2 },
   "GET /api/me/notifications": { "items": [], "total": 0, "page": 1, "pageSize": 20 }
 }
