@@ -138,3 +138,10 @@ query count (≤ 45 per call), not wall time.
 Service spec per metric on a fixture that includes a CTC team linked to two clubs (counted in
 both scoped results, once globally), an empty club (every ratio null), and a range boundary.
 Component tests: range in the URL, each linked tile's URL, null ratio rendering.
+
+## 6. As built
+
+- Charts moved from hand-rolled SVG to Recharts (review on #207) behind the new
+  `@basketeasy/ui/chart` wrapper (`ColumnChart`, `BarListChart`). Colours stay tokens
+  (`currentColor` + tone class), the hidden table moved into the wrapper, and the dashboard's
+  `WeeklyBars` / `BreakdownBars` keep their props.
