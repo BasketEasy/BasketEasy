@@ -10,6 +10,9 @@ import { useLogout } from '../auth/mutations';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useShowCreateClub } from '../clubs/useShowCreateClub';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
+import { usePersonas } from '../guardians/usePersonas';
+import { MyChildrenCard } from '../guardians/MyChildrenCard';
+import { ParentAccessCard } from '../guardians/ParentAccessCard';
 
 /**
  * The profile page is also where the top bar's mobile-only job lives now:
@@ -26,6 +29,10 @@ export function AccountPage() {
   const { activeClubId, setActiveClubId } = useActiveClub();
   const showCreateClub = useShowCreateClub();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
+  // Both guardian sections are optional extras of this page: a failed or
+  // pending personas read simply leaves them out rather than blocking it.
+  const { data: personas } = usePersonas();
+  const ownPlayerIds = personas?.self?.playerIds ?? [];
 
   return (
     <PageContainer size="md">
@@ -39,6 +46,10 @@ export function AccountPage() {
       </Card>
 
       <NotificationPreferencesCard />
+
+      {personas && personas.children.length > 0 && <MyChildrenCard personas={personas.children} />}
+
+      {ownPlayerIds.length > 0 && <ParentAccessCard playerIds={ownPlayerIds} />}
 
       {adminClubs.length > 0 && (
         <Card>
