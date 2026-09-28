@@ -11,6 +11,7 @@ import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountSecurityService } from '../auth/account-security.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
+import { StorageService } from '../storage/storage.service';
 
 // Concurrency (two staff demoting a two-admin club at once) relies on the
 // SELECT … FOR UPDATE in assertNotLastAdmin; it was exercised against a real
@@ -37,12 +38,12 @@ describe('PlatformAdminActionsService', () => {
       count: jest.Mock;
       delete: jest.Mock;
     };
-    player: { findUnique: jest.Mock; updateMany: jest.Mock };
-    team: { findUnique: jest.Mock };
+    player: { findUnique: jest.Mock; updateMany: jest.Mock; count: jest.Mock };
+    team: { findUnique: jest.Mock; deleteMany: jest.Mock };
     teamAdmin: { findUnique: jest.Mock; create: jest.Mock; deleteMany: jest.Mock };
     clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
-    eventScoresheet: { findUnique: jest.Mock };
-    club: { create: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock };
+    club: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     guardianInvite: { deleteMany: jest.Mock };
     playerGuardian: { deleteMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; create: jest.Mock };
@@ -52,6 +53,7 @@ describe('PlatformAdminActionsService', () => {
   };
   let accountSecurity: { sendVerificationEmail: jest.Mock; requestPasswordReset: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
+  let storage: { deleteObject: jest.Mock };
 
   beforeEach(async () => {
     order = [];
@@ -65,12 +67,23 @@ describe('PlatformAdminActionsService', () => {
         count: jest.fn().mockResolvedValue(2),
         delete: jest.fn(),
       },
-      player: { findUnique: jest.fn(), updateMany: jest.fn() },
-      team: { findUnique: jest.fn().mockResolvedValue({ id: 'team-1' }) },
+      player: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      team: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'team-1' }),
+        deleteMany: jest.fn().mockImplementation(async () => order.push('delete-teams')),
+      },
       teamAdmin: { findUnique: jest.fn(), create: jest.fn(), deleteMany: jest.fn() },
       clubTeam: { findMany: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
-      eventScoresheet: { findUnique: jest.fn() },
-      club: { create: jest.fn() },
+      eventScoresheet: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+      club: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn().mockImplementation(async () => order.push('delete-club')),
+      },
       guardianInvite: { deleteMany: jest.fn() },
       playerGuardian: { deleteMany: jest.fn() },
       parentalConsent: { updateMany: jest.fn(), create: jest.fn() },
@@ -90,6 +103,7 @@ describe('PlatformAdminActionsService', () => {
       requestPasswordReset: jest.fn().mockImplementation(async () => order.push('email')),
     };
     scoresheets = { enqueueOcr: jest.fn().mockImplementation(async () => order.push('enqueue')) };
+    storage = { deleteObject: jest.fn().mockImplementation(async () => order.push('storage')) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -97,6 +111,7 @@ describe('PlatformAdminActionsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: AccountSecurityService, useValue: accountSecurity },
         { provide: ScoresheetsService, useValue: scoresheets },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
     service = module.get(PlatformAdminActionsService);
@@ -451,6 +466,68 @@ describe('PlatformAdminActionsService', () => {
         attestedByUserId: 'admin-1',
         attestedByName: 'Camille Staff (Kluvo) — Nicolas Bernard, père, formulaire papier',
       });
+    });
+  });
+
+  describe('deleteClub', () => {
+    beforeEach(() => {
+      prisma.club.findUnique.mockResolvedValue({ name: 'BC Nantes', ffbbClubCode: 'PDL0044001' });
+      prisma.clubTeam.findMany.mockResolvedValue([{ teamId: 'team-1' }, { teamId: 'team-2' }]);
+      prisma.player.count.mockResolvedValue(12);
+      prisma.eventScoresheet.findMany.mockResolvedValue([
+        { storageKey: 'sheets/a.jpg' },
+        { storageKey: 'sheets/b.pdf' },
+      ]);
+    });
+
+    it('deletes the owned teams and the club with its audit row, then the files', async () => {
+      const result = await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(result).toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', isOwner: true },
+        select: { teamId: true },
+      });
+      expect(prisma.team.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['team-1', 'team-2'] } },
+      });
+      expect(prisma.club.delete).toHaveBeenCalledWith({ where: { id: 'club-1' } });
+      expect(prisma.auditLog.create.mock.calls[0][0].data.metadata).toEqual({
+        action: 'CLUB_DELETED',
+        reason: 'Club fermé, ticket #42',
+        clubId: 'club-1',
+        before: {
+          name: 'BC Nantes',
+          ffbbClubCode: 'PDL0044001',
+          ownedTeamCount: 2,
+          playerCount: 12,
+        },
+      });
+      expect(storage.deleteObject.mock.calls.map(([key]) => key)).toEqual([
+        'sheets/a.jpg',
+        'sheets/b.pdf',
+      ]);
+      expect(order).toEqual(['delete-teams', 'delete-club', 'audit', 'storage', 'storage']);
+    });
+
+    it('still succeeds when storage cleanup fails', async () => {
+      storage.deleteObject.mockRejectedValue(new Error('R2 down'));
+
+      await expect(
+        service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),
+      ).resolves.toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+    });
+
+    it('refuses an unknown club, and deletes nothing', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.deleteClub(actor, 'club-x', 'Club fermé, ticket #42', request),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.team.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.club.delete).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(storage.deleteObject).not.toHaveBeenCalled();
     });
   });
 });

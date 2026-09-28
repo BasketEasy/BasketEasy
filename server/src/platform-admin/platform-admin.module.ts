@@ -11,10 +11,18 @@ import { PlatformAdminStatsService } from './platform-admin-stats.service';
 import { PlatformAdminActionsController } from './platform-admin-actions.controller';
 import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import { ScoresheetsModule } from '../scoresheets/scoresheets.module';
+import { StorageModule } from '../storage/storage.module';
 import { PlatformAdminService } from './platform-admin.service';
 
 @Module({
-  imports: [AuthModule, AuditModule, RetentionModule, ScoresheetsModule, JwtModule.register({})],
+  imports: [
+    AuthModule,
+    AuditModule,
+    RetentionModule,
+    ScoresheetsModule,
+    StorageModule,
+    JwtModule.register({}),
+  ],
   controllers: [
     PlatformAdminController,
     PlatformAdminBrowseController,
