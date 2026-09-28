@@ -1,4 +1,4 @@
-import type { ListPlatformUsersParams } from '@basketeasy/types/platform-admin';
+import type { AdminUsersQuery } from '@basketeasy/types/platform-admin-browse';
 
 // Its own prefix, and deliberately not under `me` or `clubs`: back-office
 // data is platform-scoped, and every one of these queries becomes
@@ -8,7 +8,7 @@ export const adminQueryKeyPrefix = ['admin'] as const;
 
 export const retentionRunsQueryKey = [...adminQueryKeyPrefix, 'retention', 'runs'] as const;
 
-export const platformUsersQueryKey = (params?: ListPlatformUsersParams) =>
+export const platformUsersQueryKey = (params?: AdminUsersQuery) =>
   [...adminQueryKeyPrefix, 'users', params ?? {}] as const;
 
 export const platformUserQueryKey = (userId: string) =>

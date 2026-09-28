@@ -39,7 +39,7 @@ function formatLastActive(iso: string): string {
 export function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, refetch, isFetching } = usePlatformUsers({
-    status: 'inactive-soon',
+    inactiveSoon: 'true',
     page,
     pageSize: PAGE_SIZE,
   });
@@ -79,9 +79,9 @@ export function AdminUsersPage() {
                 </TableHeader>
                 <TableBody>
                   {data?.items.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.person.id}>
                       <TableCell>
-                        <Text variant="label">{user.emailDomain}</Text>
+                        <Text variant="label">{user.person.emailDomain}</Text>
                       </TableCell>
                       <TableCell className="tabular whitespace-nowrap">
                         {formatLastActive(user.lastActiveAt)}
@@ -100,7 +100,7 @@ export function AdminUsersPage() {
                       <TableCell className="tabular">{user.clubCount}</TableCell>
                       <TableCell>
                         <TextLink asChild>
-                          <Link to={`/admin/users/${user.id}`}>Ouvrir la fiche</Link>
+                          <Link to={`/admin/users/${user.person.id}`}>Ouvrir la fiche</Link>
                         </TextLink>
                       </TableCell>
                     </TableRow>

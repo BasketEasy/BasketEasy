@@ -206,8 +206,8 @@ none of the fixture's first name, last name or e-mail local part.
 
 ## 4. Endpoints
 
-All under `JwtAuthGuard, PlatformAdminGuard`, no `@PlatformRoles` (both roles), one controller
-per area, one `platform-admin-browse.service.ts` holding the queries. Every list: one `count` +
+All under `JwtAuthGuard, PlatformAdminGuard`, no `@PlatformRoles` (both roles), in one
+`PlatformAdminBrowseController` backed by one `platform-admin-browse.service.ts`. Every list: one `count` +
 one `findMany` with `select` + `_count`, never per-row queries. Detail endpoints: one
 `findUnique` with nested `select`, plus at most one extra query where Prisma can't express it.
 

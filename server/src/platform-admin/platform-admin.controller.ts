@@ -16,9 +16,7 @@ import type {
   AuditLogEntry,
   ErasePlatformUserResponse,
   PlatformLoginResponse,
-  PlatformUserDetail,
   PlatformUserExport,
-  RedactedUserSummary,
   RetentionRunSummary,
   RetentionStepSummary,
 } from '@basketeasy/types/platform-admin';
@@ -29,7 +27,6 @@ import { PlatformRoles } from '../auth/decorators/platform-roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { PlatformAdminService } from './platform-admin.service';
 import { PlatformLoginDto } from './dto/platform-login.dto';
-import { ListPlatformUsersDto } from './dto/list-platform-users.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
 import { ErasePlatformUserDto } from './dto/erase-platform-user.dto';
 import { ExportPlatformUserDto } from './dto/export-platform-user.dto';
@@ -39,7 +36,9 @@ const DEFAULT_PAGE_SIZE = 25;
 const RETENTION_RUN_HISTORY_LIMIT = 30;
 
 /**
- * The platform back-office, mounted at /api/admin.
+ * The platform back-office, mounted at /api/admin: step-up login, retention,
+ * the audit log, export and erasure. Browsing lives beside it in
+ * PlatformAdminBrowseController.
  *
  * Not club-scoped — same reasoning as MyTeamsController and
  * DashboardController, except here there is no club to scope *to*: this is
@@ -89,27 +88,6 @@ export class PlatformAdminController {
     return this.platformAdmin.runRetentionDryRun();
   }
 
-  /** Redacted, so both roles may read it. */
-  @Get('users')
-  @UseGuards(JwtAuthGuard, PlatformAdminGuard)
-  listUsers(@Query() query: ListPlatformUsersDto): Promise<PaginatedResult<RedactedUserSummary>> {
-    return this.platformAdmin.listInactiveSoonUsers(
-      query.page ?? 1,
-      query.pageSize ?? DEFAULT_PAGE_SIZE,
-    );
-  }
-
-  @Get('users/:userId')
-  @UseGuards(JwtAuthGuard, PlatformAdminGuard)
-  @PlatformRoles('DATA_OFFICER')
-  getUser(
-    @CurrentUser() user: RequestUser,
-    @Param('userId', ParseUUIDPipe) userId: string,
-    @Req() request: Request,
-  ): Promise<PlatformUserDetail> {
-    return this.platformAdmin.getUserDetail(user.id, user.email, userId, request);
-  }
-
   /**
    * RGPD art. 15 / art. 20. A POST, and reason-carrying, because it is a
    * disclosure rather than a read — see the service method.
@@ -144,7 +122,7 @@ export class PlatformAdminController {
   @PlatformRoles('DATA_OFFICER')
   listAuditLog(@Query() query: ListAuditLogDto): Promise<PaginatedResult<AuditLogEntry>> {
     return this.platformAdmin.listAuditLog(
-      query.userId,
+      { subjectUserId: query.userId, subjectPlayerId: query.playerId },
       query.page ?? 1,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
     );

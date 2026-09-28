@@ -77,6 +77,15 @@ describe('PlatformAdminGuard', () => {
     ).resolves.toBe(true);
   });
 
+  it('attaches the grant role for @CurrentPlatformRole', async () => {
+    const token = await stepUpTokenFor('user-1');
+    const context = buildContext({ id: 'user-1' }, { [PLATFORM_TOKEN_HEADER]: token });
+
+    await guard.canActivate(context);
+
+    expect(context.switchToHttp().getRequest().platformRole).toBe('DATA_OFFICER');
+  });
+
   it('treats a secret too short to sign with as no back-office at all', async () => {
     // Failing closed is the only safe reading of a misconfiguration here: the
     // alternative is an *armed* back-office behind a guessable signing key,

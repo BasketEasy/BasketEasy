@@ -306,94 +306,6 @@ describe('PlatformAdminService', () => {
     });
   });
 
-  describe('listInactiveSoonUsers', () => {
-    it('returns the domain only, never the address or a name', async () => {
-      const lastActiveAt = new Date(Date.now() - 350 * 24 * 60 * 60 * 1000);
-      prisma.user.count.mockResolvedValue(1);
-      prisma.user.findMany.mockResolvedValue([
-        {
-          id: 'user-9',
-          email: 'jean.dupont@example.org',
-          lastActiveAt,
-          _count: { memberships: 2 },
-        },
-      ]);
-
-      const result = await service.listInactiveSoonUsers(1, 25);
-
-      expect(result.items[0]).toEqual({
-        id: 'user-9',
-        emailDomain: 'example.org',
-        lastActiveAt: lastActiveAt.toISOString(),
-        daysUntilErasure: expect.any(Number),
-        clubCount: 2,
-      });
-      expect(JSON.stringify(result)).not.toContain('jean.dupont');
-    });
-
-    it('includes accounts already past the cutoff, with a negative countdown', async () => {
-      const lastActiveAt = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
-      prisma.user.count.mockResolvedValue(1);
-      prisma.user.findMany.mockResolvedValue([
-        { id: 'user-9', email: 'a@b.fr', lastActiveAt, _count: { memberships: 0 } },
-      ]);
-
-      const result = await service.listInactiveSoonUsers(1, 25);
-
-      expect(result.items[0].daysUntilErasure).toBeLessThan(0);
-    });
-  });
-
-  describe('getUserDetail', () => {
-    const subject = {
-      id: 'user-9',
-      email: 'jean@example.org',
-      firstName: 'Jean',
-      lastName: 'Dupont',
-      emailVerifiedAt: new Date(),
-      lastActiveAt: new Date(),
-      createdAt: new Date(),
-      memberships: [{ role: 'MEMBER', club: { id: 'club-1', name: 'BC Nantes' } }],
-      linkedPlayers: [
-        { id: 'p-1', firstName: 'Jean', lastName: 'Dupont', club: { name: 'BC Nantes' } },
-      ],
-    };
-
-    it('writes ADMIN_PII_VIEWED naming the subject before returning the profile', async () => {
-      prisma.user.findUnique.mockResolvedValue(subject);
-
-      const detail = await service.getUserDetail(
-        'admin-1',
-        'dpo@kluvo.net',
-        'user-9',
-        buildRequest(),
-      );
-
-      expect(detail.email).toBe('jean@example.org');
-      expect(detail.emailVerified).toBe(true);
-      expect(audit.recordAndWait).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'ADMIN_PII_VIEWED',
-          // The acting admin on the row; the subject in metadata.
-          userId: 'admin-1',
-          metadata: { subjectUserId: 'user-9', subjectEmail: 'jean@example.org' },
-          // The stricter back-office IP resolution, not Express's req.ip:
-          // the same value gates the per-admin network allowlist.
-          context: { ipAddress: '203.0.113.7', userAgent: 'jest' },
-        }),
-      );
-    });
-
-    it('does not audit a view of an account that does not exist', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-
-      await expect(
-        service.getUserDetail('admin-1', 'dpo@kluvo.net', 'ghost', buildRequest()),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      expect(audit.recordAndWait).not.toHaveBeenCalled();
-    });
-  });
-
   describe('eraseUser', () => {
     it('erases through RetentionService and records the reason in the same transaction', async () => {
       prisma.user.findUnique.mockResolvedValue({ email: 'jean@example.org' });
@@ -913,7 +825,7 @@ describe('PlatformAdminService', () => {
     it('matches rows the account acted as AND rows it was acted on', async () => {
       // Filtering on either alone answers only half of "who accessed this
       // person's data".
-      await service.listAuditLog('user-9', 1, 25);
+      await service.listAuditLog({ subjectUserId: 'user-9' }, 1, 25);
 
       expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
         OR: [{ userId: 'user-9' }, { metadata: { path: ['subjectUserId'], equals: 'user-9' } }],
@@ -921,8 +833,27 @@ describe('PlatformAdminService', () => {
     });
 
     it('lists everything when no subject is given', async () => {
-      await service.listAuditLog(undefined, 1, 25);
+      await service.listAuditLog({}, 1, 25);
       expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({});
+    });
+
+    it('finds views of a player record, which may have no account', async () => {
+      await service.listAuditLog({ subjectPlayerId: 'player-3' }, 1, 25);
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
+        metadata: { path: ['subjectPlayerId'], equals: 'player-3' },
+      });
+    });
+
+    it('narrows by both subjects when both are given', async () => {
+      await service.listAuditLog({ subjectUserId: 'user-9', subjectPlayerId: 'player-3' }, 1, 25);
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
+        AND: [
+          {
+            OR: [{ userId: 'user-9' }, { metadata: { path: ['subjectUserId'], equals: 'user-9' } }],
+          },
+          { metadata: { path: ['subjectPlayerId'], equals: 'player-3' } },
+        ],
+      });
     });
   });
 });
