@@ -95,6 +95,10 @@
     "./platform-admin-search": {
       "types": "./platform-admin-search.ts",
       "default": "./platform-admin-search.ts"
+    },
+    "./platform-admin-stats": {
+      "types": "./platform-admin-stats.ts",
+      "default": "./platform-admin-stats.ts"
     }
   },
   "scripts": {

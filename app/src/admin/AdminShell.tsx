@@ -9,7 +9,8 @@ import { usePlatformSession } from './platformSession';
 import { AdminSearchBox } from './AdminSearchBox';
 import { adminPaths } from './shared/adminPaths';
 
-const NAV_ITEMS: { to: string; label: string; dataOfficerOnly?: boolean }[] = [
+const NAV_ITEMS: { to: string; label: string; end?: boolean; dataOfficerOnly?: boolean }[] = [
+  { to: adminPaths.dashboard, label: 'Tableau de bord', end: true },
   { to: adminPaths.clubs, label: 'Clubs' },
   { to: adminPaths.teams, label: 'Équipes' },
   { to: adminPaths.users, label: 'Utilisateurs' },
@@ -42,6 +43,7 @@ function AdminNav() {
         <NavLink
           key={item.to}
           to={item.to}
+          end={item.end}
           className={({ isActive }) =>
             cn(
               'rounded-md px-3 py-2.5 text-sm font-bold',

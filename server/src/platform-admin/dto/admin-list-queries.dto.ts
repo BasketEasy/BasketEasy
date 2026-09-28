@@ -22,6 +22,11 @@ import type {
   AdminUsersQuery,
 } from '@basketeasy/types/platform-admin-browse';
 import type { AdminSearchQuery } from '@basketeasy/types/platform-admin-search';
+import {
+  ADMIN_STATS_RANGES,
+  type AdminStatsQuery,
+  type AdminStatsRange,
+} from '@basketeasy/types/platform-admin-stats';
 import type { ClubRole } from '@basketeasy/types/club-members';
 import type { EventScoresheetStatus, EventType } from '@basketeasy/types/events';
 import type { Gender, TeamCategory } from '@basketeasy/types/teams';
@@ -237,4 +242,14 @@ export class AdminSearchQueryDto implements AdminSearchQuery {
   @Transform(trim)
   @IsString()
   q!: string;
+}
+
+export class AdminStatsQueryDto implements AdminStatsQuery {
+  @IsOptional()
+  @IsIn(ADMIN_STATS_RANGES)
+  range?: AdminStatsRange;
+
+  @IsOptional()
+  @IsUUID()
+  clubId?: string;
 }

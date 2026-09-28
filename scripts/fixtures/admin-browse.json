@@ -879,5 +879,684 @@
       ],
       "team": []
     }
+  },
+  "GET /api/admin/stats": {
+    "range": "90d",
+    "from": "2026-06-30T12:00:00.000Z",
+    "to": "2026-09-28T12:00:00.000Z",
+    "clubId": null,
+    "growth": {
+      "users": {
+        "total": 1284,
+        "added": 146
+      },
+      "clubs": {
+        "total": 214,
+        "added": 9
+      },
+      "teams": {
+        "total": 1102,
+        "added": 88
+      },
+      "players": {
+        "total": 12480,
+        "added": 1210
+      },
+      "claimedPlayerShare": 0.38,
+      "active7d": 612,
+      "active30d": 941,
+      "active90d": 1120,
+      "guardianOnlyAccounts": 188,
+      "ctcTeams": 37,
+      "newUsers": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 6
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 7
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 11
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 19
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 17
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 13
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 11
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 2
+        }
+      ],
+      "newClubs": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 0
+        }
+      ],
+      "newTeams": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 4
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 14
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 20
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 7
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 5
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 4
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 1
+        }
+      ],
+      "newPlayers": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 22
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 25
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 30
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 41
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 96
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 140
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 88
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 60
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 52
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 48
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 71
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 66
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 75
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 12
+        }
+      ],
+      "teamsByCategory": [
+        {
+          "category": "U9",
+          "gender": "MEN",
+          "count": 50
+        },
+        {
+          "category": "U9",
+          "gender": "WOMEN",
+          "count": 46
+        },
+        {
+          "category": "U11",
+          "gender": "MEN",
+          "count": 90
+        },
+        {
+          "category": "U11",
+          "gender": "WOMEN",
+          "count": 74
+        },
+        {
+          "category": "U13",
+          "gender": "MEN",
+          "count": 110
+        },
+        {
+          "category": "U13",
+          "gender": "WOMEN",
+          "count": 102
+        },
+        {
+          "category": "U15",
+          "gender": "MEN",
+          "count": 98
+        },
+        {
+          "category": "U15",
+          "gender": "WOMEN",
+          "count": 90
+        },
+        {
+          "category": "U18",
+          "gender": "MEN",
+          "count": 75
+        },
+        {
+          "category": "U18",
+          "gender": "WOMEN",
+          "count": 66
+        },
+        {
+          "category": "U21",
+          "gender": "MEN",
+          "count": 20
+        },
+        {
+          "category": "U21",
+          "gender": "WOMEN",
+          "count": 18
+        },
+        {
+          "category": "SENIORS",
+          "gender": "MEN",
+          "count": 150
+        },
+        {
+          "category": "SENIORS",
+          "gender": "WOMEN",
+          "count": 113
+        }
+      ]
+    },
+    "engagement": {
+      "matchesByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 18
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 64
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 88
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 91
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 96
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 102
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 99
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 104
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 20
+        }
+      ],
+      "trainingsByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 8
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 14
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 180
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 610
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 702
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 715
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 720
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 731
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 728
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 740
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 745
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 110
+        }
+      ],
+      "recurringShare": 0.82,
+      "rsvpResponseRate": 0.71,
+      "rsvpResponseRateByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": null
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0.6
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 0.61
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 0.63
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 0.66
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 0.69
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 0.7
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 0.72
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 0.71
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 0.73
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 0.74
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 0.71
+        }
+      ],
+      "rsvpSplit": {
+        "going": 7420,
+        "notGoing": 2870,
+        "maybe": 1680
+      },
+      "guardianAnswers": 2104,
+      "convocationsByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 0
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 120
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 300
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 320
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 330
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 310
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 350
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 340
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 360
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 60
+        }
+      ],
+      "matchesWithMeetingPointShare": 0.58,
+      "travelSplit": {
+        "meetingPoint": 3120,
+        "direct": 1270
+      },
+      "votesCast": 1120,
+      "scoresheetCoverage": 0.64,
+      "guardianLinksByWeek": [
+        {
+          "weekStart": "2026-06-29",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-06",
+          "value": 1
+        },
+        {
+          "weekStart": "2026-07-13",
+          "value": 3
+        },
+        {
+          "weekStart": "2026-07-20",
+          "value": 2
+        },
+        {
+          "weekStart": "2026-07-27",
+          "value": 20
+        },
+        {
+          "weekStart": "2026-08-03",
+          "value": 55
+        },
+        {
+          "weekStart": "2026-08-10",
+          "value": 40
+        },
+        {
+          "weekStart": "2026-08-17",
+          "value": 25
+        },
+        {
+          "weekStart": "2026-08-24",
+          "value": 18
+        },
+        {
+          "weekStart": "2026-08-31",
+          "value": 15
+        },
+        {
+          "weekStart": "2026-09-07",
+          "value": 12
+        },
+        {
+          "weekStart": "2026-09-14",
+          "value": 10
+        },
+        {
+          "weekStart": "2026-09-21",
+          "value": 9
+        },
+        {
+          "weekStart": "2026-09-28",
+          "value": 2
+        }
+      ],
+      "emailOptOutShare": 0.06,
+      "pushEnabledUsers": 402,
+      "ffbbLinkedClubs": 131,
+      "ffbbLinkedTeams": 640
+    },
+    "health": {
+      "scoresheetsByStatus": {
+        "UPLOADED": 2,
+        "QUEUED": 3,
+        "PROCESSING": 0,
+        "PARSED": 31,
+        "NEEDS_REVIEW": 12,
+        "CONFIRMED": 214,
+        "FAILED": 17
+      },
+      "ocrFailureRate": 0.0612,
+      "avgOcrAttempts": 1.4,
+      "needsReview": 12,
+      "stuckScoresheets": 1,
+      "unverifiedUsers": 41,
+      "unverifiedOlderThan7d": 19,
+      "pendingPlayerInvites": {
+        "live": 88,
+        "expired": 140
+      },
+      "pendingGuardianInvites": {
+        "live": 24,
+        "expired": 31
+      },
+      "minorsMissingConsent": 23,
+      "accountsNearingErasure": 23,
+      "clubsWithoutAdmin": 2,
+      "teamsWithoutManager": 57,
+      "lastRetentionRun": {
+        "ranAt": "2026-09-28T01:15:00.000Z",
+        "ok": true
+      },
+      "staleMeetingRoutes": 4
+    }
   }
 }

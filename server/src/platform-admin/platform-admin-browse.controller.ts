@@ -24,6 +24,8 @@ import { CurrentPlatformRole } from '../auth/decorators/current-platform-role.de
 import type { AdminSearchResult } from '@basketeasy/types/platform-admin-search';
 import { PlatformAdminBrowseService } from './platform-admin-browse.service';
 import { PlatformAdminSearchService } from './platform-admin-search.service';
+import { PlatformAdminStatsService } from './platform-admin-stats.service';
+import type { AdminStats } from '@basketeasy/types/platform-admin-stats';
 import {
   AdminClubMembersQueryDto,
   AdminClubsQueryDto,
@@ -31,6 +33,7 @@ import {
   AdminPlayersQueryDto,
   AdminScoresheetsQueryDto,
   AdminSearchQueryDto,
+  AdminStatsQueryDto,
   AdminTeamsQueryDto,
   AdminUsersQueryDto,
 } from './dto/admin-list-queries.dto';
@@ -49,7 +52,14 @@ export class PlatformAdminBrowseController {
   constructor(
     private readonly browse: PlatformAdminBrowseService,
     private readonly searchService: PlatformAdminSearchService,
+    private readonly statsService: PlatformAdminStatsService,
   ) {}
+
+  /** Aggregates only, so both roles; `clubId` scopes every metric to one club. */
+  @Get('stats')
+  stats(@Query() query: AdminStatsQueryDto): Promise<AdminStats> {
+    return this.statsService.getStats(query.range ?? '30d', query.clubId);
+  }
 
   /** The global search box: an id in any table, or names (per-role rule). */
   @Get('search')

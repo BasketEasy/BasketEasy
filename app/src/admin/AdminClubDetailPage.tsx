@@ -11,6 +11,7 @@ import { useAdminClub, useAdminClubMembers } from './useAdminQueries';
 import { AdminTeamsList } from './AdminTeamsPage';
 import { AdminPlayersList } from './AdminPlayersPage';
 import { AdminEventsList } from './AdminEventsPage';
+import { AdminStatsPanel } from './stats/AdminStatsPanel';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
 import {
@@ -25,8 +26,8 @@ import { AdminQueryBranch } from './shared/AdminQueryBranch';
 import { adminPaths } from './shared/adminPaths';
 import { CLUB_ROLE_LABELS, CLUB_ROLE_TONES, formatAdminDate } from './shared/adminFormat';
 
-type ClubTab = 'members' | 'teams' | 'players' | 'events';
-const TABS: ClubTab[] = ['members', 'teams', 'players', 'events'];
+type ClubTab = 'members' | 'teams' | 'players' | 'events' | 'stats';
+const TABS: ClubTab[] = ['members', 'teams', 'players', 'events', 'stats'];
 
 const MEMBER_FILTER_KEYS = ['role'] as const;
 const ROLE_OPTIONS = (Object.keys(CLUB_ROLE_LABELS) as ClubRole[]).map((role) => ({
@@ -166,6 +167,7 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           <TabsTrigger value="teams">Équipes</TabsTrigger>
           <TabsTrigger value="players">Joueurs</TabsTrigger>
           <TabsTrigger value="events">Événements</TabsTrigger>
+          <TabsTrigger value="stats">Statistiques</TabsTrigger>
         </TabsList>
         <TabsContent value="members" className="mt-4">
           <ClubMembers clubId={club.id} />
@@ -178,6 +180,9 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
         </TabsContent>
         <TabsContent value="events" className="mt-4">
           <AdminEventsList clubId={club.id} prefix="e." />
+        </TabsContent>
+        <TabsContent value="stats" className="mt-4">
+          <AdminStatsPanel clubId={club.id} prefix="s." />
         </TabsContent>
       </Tabs>
     </div>

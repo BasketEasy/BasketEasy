@@ -31,6 +31,7 @@ import {
   ADMIN_SEARCH_MIN_LENGTH,
   type AdminSearchResult,
 } from '@basketeasy/types/platform-admin-search';
+import type { AdminStats, AdminStatsQuery } from '@basketeasy/types/platform-admin-stats';
 import { apiClient } from '../api/client';
 import {
   adminAuditLogQueryKey,
@@ -43,6 +44,7 @@ import {
   adminPlayersQueryKey,
   adminScoresheetsQueryKey,
   adminSearchQueryKey,
+  adminStatsQueryKey,
   adminTeamQueryKey,
   adminTeamRosterQueryKey,
   adminTeamsQueryKey,
@@ -198,5 +200,15 @@ export function useAdminSearch(q: string) {
     enabled: query.length >= ADMIN_SEARCH_MIN_LENGTH,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+  });
+}
+
+/** The dashboard. The previous range stays on screen while the next one computes. */
+export function useAdminStats(query: AdminStatsQuery) {
+  return useQuery({
+    queryKey: adminStatsQueryKey(query),
+    queryFn: () => apiClient.get<AdminStats>('/admin/stats', query),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
   });
 }
