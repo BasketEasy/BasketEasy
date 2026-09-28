@@ -15,6 +15,7 @@ import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
 import { isScoresheetPending, useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
 import { useRetryEventScoresheetExtraction } from './useRetryEventScoresheetExtraction';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -359,14 +360,9 @@ export function MatchScoresheetTab({
         variant="panel"
         className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
       >
-        <Text
-          as="span"
-          variant="body"
-          tone="danger"
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-error-tint"
-        >
+        <IconBadge tone="danger" className="h-12 w-12">
           <AlertCircleIcon aria-hidden="true" className="h-6 w-6" />
-        </Text>
+        </IconBadge>
         <h3 className="font-heading text-lg font-extrabold">L&apos;analyse a échoué</h3>
         {extraction?.failureReason && (
           <div className="w-full rounded-lg border border-error/40 bg-error-tint p-3 text-left">
@@ -440,15 +436,10 @@ export function MatchScoresheetTab({
   return (
     <Card variant="panel" className="flex max-w-sm flex-col gap-5 md:max-w-lg">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
-        <Text
-          as="span"
-          variant="body"
-          tone="structure"
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint"
-        >
+        <IconBadge className="h-14 w-14">
           <UploadIcon className="h-7 w-7" />
-        </Text>
-        <Text as="span" variant="label" size="sm" className="font-bold">
+        </IconBadge>
+        <Text as="span" variant="label" size="sm">
           Ajoutez la feuille de marque
         </Text>
         <Text as="span" variant="meta" size="xs" className="leading-relaxed">

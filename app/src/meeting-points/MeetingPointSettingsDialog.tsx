@@ -93,7 +93,7 @@ function defaultsFrom(
 function RadioLabel({ title, detail }: { title: string; detail?: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <Text as="span" variant="label" size="sm" className="font-bold">
+      <Text as="span" variant="label" size="sm">
         {title}
       </Text>
       {detail && (

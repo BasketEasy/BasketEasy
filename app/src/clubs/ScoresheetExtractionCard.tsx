@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@basketeasy/ui/table';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import type {
@@ -756,14 +757,9 @@ export function ScoresheetExtractionCard({
 
       {isReadOnly ? (
         <Card variant="inset" className="flex items-center gap-2.5">
-          <Text
-            as="span"
-            variant="body"
-            tone="structure"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-          >
+          <IconBadge className="h-7 w-7">
             <Check aria-hidden="true" className="h-3.5 w-3.5" />
-          </Text>
+          </IconBadge>
           <div className="flex flex-col gap-0.5">
             <Text variant="label" size="sm">
               Feuille de match confirmée

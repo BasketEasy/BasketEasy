@@ -335,8 +335,11 @@ export class EventsService {
       ...meetingCleanup,
     ]);
     const updated = results.slice(0, ids.length) as EventRow[];
-    // A new kick-off moves the meeting time with it.
-    if (data.startsAt !== undefined && !becomesTraining) {
+    // A new kick-off moves the meeting time with it, and a TRAINING that
+    // becomes a MATCH gets its first meeting plan: both announce now rather
+    // than waiting on a travel recompute that may never be queued.
+    const becomesMatch = resultingType === EventType.MATCH && event.type === EventType.TRAINING;
+    if ((data.startsAt !== undefined && !becomesTraining) || becomesMatch) {
       await this.meetingPoints.announceMeetingChanges(ids);
     }
     return this.buildTeamEventsForUser(teamId, userId, updated);

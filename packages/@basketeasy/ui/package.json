@@ -35,6 +35,10 @@
       "types": "./src/components/CountBadge.tsx",
       "default": "./src/components/CountBadge.tsx"
     },
+    "./icon-badge": {
+      "types": "./src/components/IconBadge.tsx",
+      "default": "./src/components/IconBadge.tsx"
+    },
     "./badge": {
       "types": "./src/components/Badge.tsx",
       "default": "./src/components/Badge.tsx"

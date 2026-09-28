@@ -226,6 +226,27 @@ describe('MeetingPointsService', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
+    it('queues a team announcement, not recomputes, when only the buffer changed', async () => {
+      await service.updateTeamSettings('club-1', 'team-1', {
+        meetingPoint: null,
+        arrivalBufferMinutes: 60,
+      });
+
+      expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith('announce', { teamId: 'team-1' }, expect.anything());
+    });
+
+    it('queues a team announcement, not recomputes, when only the place name changed', async () => {
+      await service.updateTeamSettings('club-1', 'team-1', {
+        // Same address as the inherited club place, different name.
+        meetingPoint: { name: 'Devant le gymnase', address: ' 1 RUE du club, nantes' },
+        arrivalBufferMinutes: null,
+      });
+
+      expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith('announce', { teamId: 'team-1' }, expect.anything());
+    });
+
     it('returns the owner club defaults alongside the team’s own settings', async () => {
       prisma.team.findUnique.mockResolvedValue({
         ...teamRow,

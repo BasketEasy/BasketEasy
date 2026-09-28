@@ -26,7 +26,7 @@ function ChoiceCard({
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Text as="span" variant="label" size="sm" className="font-bold">
+        <Text as="span" variant="label" size="sm">
           {title}
         </Text>
         <Text as="span" variant="meta" size="xs" className="tabular">
@@ -107,7 +107,7 @@ export function EventTravelModeControl({
   return (
     <div className={cn('flex flex-col gap-2.5', divided && 'mt-1')}>
       {divided && <Divider tone="brand" className="mb-1" />}
-      <Text variant="label" size="sm" className="font-bold" id={`travel-mode-${event.id}`}>
+      <Text variant="label" size="sm" id={`travel-mode-${event.id}`}>
         Comment venez-vous&nbsp;?
       </Text>
       <RadioCardGroup<EventTravelMode>

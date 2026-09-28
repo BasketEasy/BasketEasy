@@ -3,6 +3,7 @@ import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { Skeleton } from '@basketeasy/ui/skeleton';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import type { MeetingPoint } from '@basketeasy/types/meeting-points';
 import { MapPinIcon } from '../clubs/eventDetailIcons';
@@ -76,9 +77,7 @@ export function MeetingPointSettingsCard({
     return (
       <Card variant="placeholder" className="flex flex-wrap items-center gap-3.5">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text variant="label" className="font-bold">
-            Aucun point de rendez-vous
-          </Text>
+          <Text variant="label">Aucun point de rendez-vous</Text>
           <Text variant="meta">
             Les joueurs vont directement à la salle, {arrivalBufferMinutes} min avant le match.
           </Text>
@@ -91,17 +90,12 @@ export function MeetingPointSettingsCard({
   return (
     <div className="flex flex-col gap-3">
       <Card variant="inset" className="flex flex-wrap items-center gap-3.5">
-        <Text
-          as="span"
-          variant="body"
-          tone="structure"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-        >
+        <IconBadge>
           <MapPinIcon size={19} />
-        </Text>
+        </IconBadge>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Text as="span" variant="label" className="break-words font-bold">
+            <Text as="span" variant="label" className="break-words">
               {meetingPoint.name}
             </Text>
             {showSources && <SourceBadge inherited={Boolean(inheritsPlace)} />}

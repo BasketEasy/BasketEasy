@@ -164,7 +164,7 @@ function BestResultRow({
         variant="label"
         size="xs"
         tone="accent"
-        className="tabular w-6 shrink-0 text-right font-bold"
+        className="tabular w-6 shrink-0 text-right"
       >
         {result.voteCount}
       </Text>
@@ -197,7 +197,7 @@ function WorstResultRow({
         variant="label"
         size="xs"
         tone="secondary"
-        className="tabular w-5 shrink-0 text-right font-bold"
+        className="tabular w-5 shrink-0 text-right"
       >
         {result.voteCount}
       </Text>

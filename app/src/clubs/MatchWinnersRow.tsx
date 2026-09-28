@@ -55,19 +55,19 @@ export function MatchWinnersRow({
     <div className="flex flex-col gap-1.5 border-t border-border pt-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="flex min-w-0 items-center gap-1.5">
         <TrophyIcon tone="accent" className="h-4 w-4 shrink-0" />
-        <Text as="span" variant="label" className="truncate font-bold">
+        <Text as="span" variant="label" className="truncate">
           {winnerLabel(bestWinner, bestTiedCount)}
         </Text>
-        <Text as="span" variant="label" tone="accent" className="tabular shrink-0 font-bold">
+        <Text as="span" variant="label" tone="accent" className="tabular shrink-0">
           - {bestPct}%
         </Text>
       </span>
       {worstWinner && (
         <span className="flex min-w-0 items-center gap-1.5 sm:justify-end">
-          <Text as="span" variant="label" tone="structure" className="tabular shrink-0 font-bold">
+          <Text as="span" variant="label" tone="structure" className="tabular shrink-0">
             {worstPct}% -
           </Text>
-          <Text as="span" variant="label" className="truncate font-bold">
+          <Text as="span" variant="label" className="truncate">
             {winnerLabel(worstWinner, worstTiedCount)}
           </Text>
           <WorstIcon size={15} tone="structure" className="shrink-0" />
