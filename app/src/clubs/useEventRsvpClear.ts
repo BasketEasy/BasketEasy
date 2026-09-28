@@ -7,13 +7,17 @@ import {
   teamEventQueryKey,
   teamEventsQueryKey,
 } from './queryKeys';
+import { actingAsQuery, useTeamActingAs } from '../guardians/useActingAs';
 
 export function useEventRsvpClear(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
+  const forPlayerId = useTeamActingAs(teamId);
 
   return useMutation({
     mutationFn: ({ eventId }: { eventId: string }) =>
-      apiClient.delete<TeamEvent>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp`),
+      apiClient.delete<TeamEvent>(
+        `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp${actingAsQuery(forPlayerId)}`,
+      ),
     onSuccess: (_data, { eventId }) => {
       queryClient.invalidateQueries({ queryKey: teamEventQueryKey(clubId, teamId, eventId) });
       queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });

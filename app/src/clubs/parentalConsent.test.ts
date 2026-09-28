@@ -20,6 +20,21 @@ describe('isMinorBirthDate', () => {
     expect(isMinorBirthDate('2008-09-06', on)).toBe(false);
   });
 
+  // A leap-day birth date plus eighteen years lands on a 29 February that does
+  // not exist, which Date rolls forward to 1 March unless the day is clamped.
+  it('treats 28 February as the eighteenth birthday of a 29 February baby', () => {
+    expect(isMinorBirthDate('2008-02-29', new Date('2026-02-27T12:00:00.000Z'))).toBe(true);
+    expect(isMinorBirthDate('2008-02-29', new Date('2026-02-28T12:00:00.000Z'))).toBe(false);
+    expect(isMinorBirthDate('2008-02-29', new Date('2026-03-01T12:00:00.000Z'))).toBe(false);
+  });
+
+  it('leaves every other birth date on its own anniversary', () => {
+    expect(isMinorBirthDate('2008-02-28', new Date('2026-02-27T12:00:00.000Z'))).toBe(true);
+    expect(isMinorBirthDate('2008-02-28', new Date('2026-02-28T12:00:00.000Z'))).toBe(false);
+    expect(isMinorBirthDate('2008-03-01', new Date('2026-02-28T12:00:00.000Z'))).toBe(true);
+    expect(isMinorBirthDate('2008-01-31', new Date('2026-01-31T00:00:00.000Z'))).toBe(false);
+  });
+
   it('accepts both a date-only string and the API’s full timestamp', () => {
     expect(isMinorBirthDate('2015-04-03', on)).toBe(true);
     expect(isMinorBirthDate('2015-04-03T00:00:00.000Z', on)).toBe(true);

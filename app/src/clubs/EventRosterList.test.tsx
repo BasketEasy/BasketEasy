@@ -18,6 +18,9 @@ const rsvps: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: 'GOING',
     respondedAt: '2026-01-02T00:00:00.000Z',
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     isMe: false,
   },
   {
@@ -28,6 +31,9 @@ const rsvps: EventRsvpRosterEntry[] = [
     role: 'COACH',
     status: null,
     respondedAt: null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     isMe: true,
   },
 ];
@@ -116,5 +122,19 @@ describe('EventRosterList', () => {
     renderList();
 
     expect(await screen.findByText('Effectif vide')).toBeInTheDocument();
+  });
+
+  it('tells the coach when a parent gave the answer', async () => {
+    mockRoster([
+      {
+        ...rsvps[0],
+        respondedBy: { firstName: 'Sophie', lastInitial: 'R', isMe: false },
+        respondedByGuardian: true,
+      },
+      rsvps[1],
+    ]);
+    renderList();
+
+    expect(await screen.findByText('Sophie R. · parent')).toBeInTheDocument();
   });
 });

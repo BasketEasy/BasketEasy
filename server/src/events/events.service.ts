@@ -5,7 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EventRsvpStatus, EventType, EventVenue, EventVoteCategory, Prisma } from '@prisma/client';
+import {
+  EventRsvpStatus,
+  EventTravelMode,
+  EventType,
+  EventVenue,
+  EventVoteCategory,
+  Prisma,
+} from '@prisma/client';
 import type {
   EventConvocationRosterEntry,
   EventLogisticsAssignee,
@@ -13,6 +20,7 @@ import type {
   EventMatchPlayerStats,
   EventMatchResult,
   EventRecurrenceRequest,
+  EventRsvpRespondent,
   EventRsvpRosterEntry,
   EventRsvpSummary,
   EventScoresheet,
@@ -23,6 +31,7 @@ import type {
   TeamEvent,
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
@@ -31,7 +40,16 @@ import { resolvePagination } from '../common/pagination';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
+import { assertCanActForPlayer, resolveActingTeamPlayer } from '../common/acting-as';
+import {
+  groupByRecipient,
+  recipientDeepLink,
+  resolvePlayerAudience,
+} from '../common/player-audience';
+import { subjectLabel } from '../common/notification-subject';
+import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { ListEventsDto } from './dto/list-events.dto';
 import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
@@ -73,6 +91,21 @@ type EventRow = {
   createdAt: Date;
 };
 
+// Who gave an answer, and when — read off the same EventRsvp row as its status.
+type RsvpAnswerMeta = { respondedAt: Date; respondedBy: EventRsvpRespondent | null };
+
+// The persona's slice of a batch — the caller's own, or the player they act
+// for through `forPlayerId`: their RSVP and convocation per event, and their
+// TeamPlayer on this team (null when not rostered).
+type CallerEventState = {
+  rsvpStatuses: Map<string, EventRsvpStatus>;
+  answers: Map<string, RsvpAnswerMeta>;
+  convokedEventIds: Set<string>;
+  // Read off the same EventRsvp rows as rsvpStatuses — no extra query.
+  travelModes: Map<string, EventTravelMode>;
+  myTeamPlayerId: string | null;
+};
+
 @Injectable()
 export class EventsService {
   constructor(
@@ -81,6 +114,7 @@ export class EventsService {
     private readonly storage: StorageService,
     private readonly scoresheets: ScoresheetsService,
     private readonly notifications: NotificationsService,
+    private readonly meetingPoints: MeetingPointsService,
   ) {}
 
   async listEvents(
@@ -117,30 +151,8 @@ export class EventsService {
       this.prisma.event.count({ where }),
     ]);
 
-    const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      eventIds,
-    );
-    const logisticsAssignees = await this.resolveLogisticsAssignees(events);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      events,
-      myTeamPlayerId,
-    );
     return {
-      items: events.map((e) =>
-        this.toTeamEvent(
-          e,
-          rsvpStatuses.get(e.id) ?? null,
-          convokedEventIds.has(e.id),
-          logisticsAssignees,
-          this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-          resultsByEventId.get(e.id) ?? null,
-          myStatsByEventId.get(e.id) ?? null,
-        ),
-      ),
+      items: await this.buildTeamEventsForUser(teamId, userId, events, query.forPlayerId),
       total,
       page,
       pageSize,
@@ -156,28 +168,11 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    forPlayerId?: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      [eventId],
-    );
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      myTeamPlayerId,
-    );
-    return this.toTeamEvent(
-      event,
-      rsvpStatuses.get(eventId) ?? null,
-      convokedEventIds.has(eventId),
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-    );
+    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [event], forPlayerId);
+    return teamEvent;
   }
 
   async createEvent(
@@ -226,35 +221,9 @@ export class EventsService {
         }),
       ),
     );
-    const eventIds = events.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      eventIds,
-    );
-    // A freshly created event never has a jersey/ball assignee yet (those
-    // columns aren't part of create data), so there's nothing to resolve —
-    // an empty map short-circuits every lookup in toTeamEvent to null.
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, eventIds);
-    // Likewise: a just-created event can't have a confirmed scoresheet yet,
-    // so this always resolves to empty maps — kept for the same "same call
-    // sites, called alongside" consistency the rsvpSummaries call above
-    // documents, not because it can find anything here.
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      events,
-      myTeamPlayerId,
-    );
-    return events.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        new Map(),
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-      ),
-    );
+    // A fresh event has no logistics assignee and no confirmed scoresheet,
+    // so those resolvers short-circuit without a query.
+    return this.buildTeamEventsForUser(teamId, userId, events);
   }
 
   // A recurring create is materialized as one independent Event row per
@@ -345,32 +314,32 @@ export class EventsService {
           : {}),
     };
 
-    const updated = await this.prisma.$transaction(
-      ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
-    );
-    const updatedIds = updated.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      updatedIds,
-    );
-    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      updated,
-      myTeamPlayerId,
-    );
-    return updated.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        logisticsAssignees,
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-      ),
-    );
+    const becomesTraining = resultingType === EventType.TRAINING && event.type === EventType.MATCH;
+    // The meeting point is a MATCH concept — a switch to TRAINING drops the
+    // whole EventMeeting row rather than leaving a hidden override behind.
+    // Otherwise, a meeting-time override was set against the old tip-off,
+    // and keeping it across a reschedule would send the group to the wrong
+    // hour. Same transaction as the event write, so neither lands alone.
+    const meetingCleanup = becomesTraining
+      ? [this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } })]
+      : data.startsAt !== undefined
+        ? [
+            this.prisma.eventMeeting.updateMany({
+              where: { eventId: { in: ids } },
+              data: { meetsAtOverride: null },
+            }),
+          ]
+        : [];
+    const results = await this.prisma.$transaction([
+      ...ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
+      ...meetingCleanup,
+    ]);
+    const updated = results.slice(0, ids.length) as EventRow[];
+    // A new kick-off moves the meeting time with it.
+    if (data.startsAt !== undefined && !becomesTraining) {
+      await this.meetingPoints.announceMeetingChanges(ids);
+    }
+    return this.buildTeamEventsForUser(teamId, userId, updated);
   }
 
   // Retries a Serializable transaction on Postgres's serialization failure
@@ -430,29 +399,25 @@ export class EventsService {
     // setEventConvocations's own read+write. runSerializableTransaction
     // retries the (expected, occasional) loser of that race instead of
     // surfacing a serialization failure as a 500.
-    const recipientUserIds = await this.runSerializableTransaction(async (tx) => {
+    const convokedTeamPlayerIds = await this.runSerializableTransaction(async (tx) => {
       const convocations = await tx.eventConvocation.findMany({
         where: { eventId: { in: ids }, teamPlayer: { teamId } },
-        select: { teamPlayer: { select: { player: { select: { userId: true } } } } },
+        select: { teamPlayerId: true },
       });
 
       await tx.event.deleteMany({ where: { id: { in: ids } } });
 
       // Everyone convoked to any of the events being cancelled, deduplicated
-      // by user. Deliberately the convoked list rather than the whole
+      // by roster slot. Deliberately the convoked list rather than the whole
       // roster: a cancellation is only news to someone who was expecting to
       // play, and notifying an entire roster about a training two of them
       // were called up for is noise that trains people to ignore the bell.
-      return [
-        ...new Set(
-          convocations
-            .map((row) => row.teamPlayer.player.userId)
-            .filter((userId): userId is string => userId !== null),
-        ),
-      ];
+      // Slots, not users: the audience (the player and their guardians) is
+      // resolved after the delete, which removes events, never roster slots.
+      return [...new Set(convocations.map((row) => row.teamPlayerId))];
     });
 
-    await this.notifyCancellation(clubId, teamId, event, ids.length, recipientUserIds);
+    await this.notifyCancellation(clubId, teamId, event, ids.length, convokedTeamPlayerIds);
   }
 
   private async notifyCancellation(
@@ -460,26 +425,36 @@ export class EventsService {
     teamId: string,
     event: EventRow,
     cancelledCount: number,
-    userIds: string[],
+    teamPlayerIds: string[],
   ): Promise<void> {
-    if (userIds.length === 0) return;
+    if (teamPlayerIds.length === 0) return;
 
-    const team = await this.prisma.team.findUnique({
-      where: { id: teamId },
-      select: { name: true },
-    });
-    const copy = cancellationNotification(team?.name ?? 'votre équipe', event, cancelledCount);
+    const [team, audience] = await Promise.all([
+      this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+      resolvePlayerAudience(this.prisma, teamPlayerIds),
+    ]);
+    const recipients = groupByRecipient(audience);
+    if (recipients.length === 0) return;
+    const teamName = team?.name ?? 'votre équipe';
 
     await this.notifications.notify(
-      userIds.map((userId) => ({
-        userId,
-        type: 'EVENT_CANCELLED' as const,
-        title: copy.title,
-        body: copy.body,
-        // The team's calendar, not the event: the event no longer exists, so
-        // its own page would 404 the moment the reader tapped through.
-        deepLink: `/clubs/${clubId}/teams/${teamId}`,
-      })),
+      recipients.map((recipient) => {
+        const copy = cancellationNotification(teamName, event, cancelledCount, recipient);
+        return {
+          userId: recipient.userId,
+          type: 'EVENT_CANCELLED' as const,
+          title: copy.title,
+          body: copy.body,
+          subjectFirstName: subjectLabel(recipient),
+          // The team's calendar, not the event: the event no longer exists,
+          // so its own page would 404 the moment the reader tapped through.
+          deepLink: recipientDeepLink(
+            recipient,
+            `/clubs/${clubId}/teams/${teamId}`,
+            (childClubId) => `/clubs/${childClubId}/teams/${teamId}`,
+          ),
+        };
+      }),
     );
   }
 
@@ -523,42 +498,30 @@ export class EventsService {
     const ids = await this.resolveScopeIds(teamId, event, data.scope);
     const rows = await this.prisma.event.findMany({ where: { id: { in: ids } } });
 
-    const updated = await this.prisma.$transaction(
-      rows.map((row) => {
+    const results = await this.prisma.$transaction([
+      ...rows.map((row) => {
         const startsAt = new Date(row.startsAt);
         startsAt.setUTCHours(data.hour, data.minute, 0, 0);
         return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
       }),
-    );
-    const updatedIds = updated.map((e) => e.id);
-    const { rsvpStatuses, convokedEventIds, myTeamPlayerId } = await this.resolveMyEventState(
-      teamId,
-      userId,
-      updatedIds,
-    );
-    const logisticsAssignees = await this.resolveLogisticsAssignees(updated);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, updatedIds);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      updated,
-      myTeamPlayerId,
-    );
-    return updated.map((e) =>
-      this.toTeamEvent(
-        e,
-        rsvpStatuses.get(e.id) ?? null,
-        convokedEventIds.has(e.id),
-        logisticsAssignees,
-        this.rsvpSummaryOrZero(e.id, rsvpSummaries),
-        resultsByEventId.get(e.id) ?? null,
-        myStatsByEventId.get(e.id) ?? null,
-      ),
-    );
+      // Same rule as updateEvent: a meeting-time override belongs to the old
+      // kick-off.
+      this.prisma.eventMeeting.updateMany({
+        where: { eventId: { in: ids } },
+        data: { meetsAtOverride: null },
+      }),
+    ]);
+    const updated = results.slice(0, rows.length) as EventRow[];
+    await this.meetingPoints.announceMeetingChanges(ids);
+    return this.buildTeamEventsForUser(teamId, userId, updated);
   }
 
-  // Self-service only: the caller can only ever set/clear their own
-  // TeamPlayer's status, resolved from player.userId — never an arbitrary
-  // teamPlayerId from the request. Mirrors assertEventInTeam's re-verify
-  // pattern rather than trusting the route params alone.
+  // Self-service only: the caller can only ever set/clear the status of a
+  // persona they may act for — their own TeamPlayer, or with `forPlayerId` a
+  // child they are a guardian of — resolved through resolveActingTeamPlayer,
+  // never an arbitrary teamPlayerId from the request. The row records who
+  // answered (respondedByUserId: the caller, never the persona), which is
+  // what « Répondu par Sophie M. » reads.
   //
   // The resulting myRsvpStatus is already known from the write itself (it's
   // exactly `status`), and the event row doesn't change from the write —
@@ -574,33 +537,37 @@ export class EventsService {
     eventId: string,
     userId: string,
     status: EventRsvpStatus,
+    forPlayerId?: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
-    if (!teamPlayer) {
-      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
-    }
-    await this.prisma.eventRsvp.upsert({
+    const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
+    const respondedAt = new Date();
+    const rsvp = await this.prisma.eventRsvp.upsert({
       where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
-      create: { eventId, teamPlayerId: teamPlayer.id, status, respondedAt: new Date() },
-      update: { status, respondedAt: new Date() },
+      create: {
+        eventId,
+        teamPlayerId: teamPlayer.id,
+        status,
+        respondedAt,
+        respondedByUserId: userId,
+      },
+      update: {
+        status,
+        respondedAt,
+        respondedByUserId: userId,
+        // Leaving GOING drops the travel choice, so GOING → MAYBE → GOING
+        // starts again from the meeting point rather than a stale « Direct ».
+        // Re-answering GOING keeps it: re-tapping « Présent » mustn't undo it.
+        ...(status !== EventRsvpStatus.GOING ? { travelMode: EventTravelMode.MEETING_POINT } : {}),
+      },
+      include: { respondedBy: RSVP_RESPONDENT_SELECT },
     });
-    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      teamPlayer.id,
-    );
-    return this.toTeamEvent(
-      event,
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
       status,
-      myConvocation,
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-    );
+      travelMode: rsvp.travelMode,
+      respondedAt: rsvp.respondedAt,
+      respondedBy: toRsvpRespondent(rsvp.respondedBy, userId),
+    });
   }
 
   // Same round-trip-avoiding shape as setMyRsvp above — myRsvpStatus is
@@ -610,57 +577,142 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    forPlayerId?: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
-    if (!teamPlayer) {
-      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
-    }
+    const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
     await this.prisma.eventRsvp.deleteMany({
       where: { eventId, teamPlayerId: teamPlayer.id },
     });
-    const myConvocation = await this.isConvoked(eventId, teamPlayer.id);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([event]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [event],
-      teamPlayer.id,
-    );
-    return this.toTeamEvent(
-      event,
-      null,
-      myConvocation,
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-    );
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, null);
+  }
+
+  // Self-service like RSVP (same persona rule), and only once the persona is
+  // coming: a travel choice means nothing for someone who isn't. The
+  // respondent isn't rewritten — « Répondu par » is about the presence
+  // answer, and switching RDV to Direct isn't a new one.
+  async setMyTravelMode(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    travelMode: EventTravelMode,
+    forPlayerId?: string,
+  ): Promise<TeamEvent> {
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (event.type !== EventType.MATCH) {
+      throw new BadRequestException('Le mode de déplacement ne concerne que les matchs');
+    }
+    const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
+    const { count } = await this.prisma.eventRsvp.updateMany({
+      where: { eventId, teamPlayerId: teamPlayer.id, status: EventRsvpStatus.GOING },
+      data: { travelMode },
+    });
+    if (count === 0) {
+      throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
+    }
+    const rsvp = await this.prisma.eventRsvp.findUniqueOrThrow({
+      where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
+      select: { respondedAt: true, respondedBy: RSVP_RESPONDENT_SELECT },
+    });
+    return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
+      status: EventRsvpStatus.GOING,
+      travelMode,
+      respondedAt: rsvp.respondedAt,
+      respondedBy: toRsvpRespondent(rsvp.respondedBy, userId),
+    });
+  }
+
+  // The persona's roster slot for a write, or the 403 every self-service
+  // write has always answered for someone who isn't on the team.
+  private async findActingTeamPlayer(teamId: string, userId: string, forPlayerId?: string) {
+    const teamPlayer = await resolveActingTeamPlayer(this.prisma, {
+      userId,
+      teamId,
+      forPlayerId,
+    });
+    if (!teamPlayer) {
+      throw new ForbiddenException("Vous n'êtes pas inscrit sur l'effectif de cette équipe");
+    }
+    return teamPlayer;
+  }
+
+  // The TeamEvent after the caller changed their own answer: that answer is
+  // known from the write, so only the convocation flag is read back.
+  private async buildOwnAnswer(
+    teamId: string,
+    event: EventRow,
+    teamPlayerId: string,
+    answer: ({ status: EventRsvpStatus; travelMode: EventTravelMode } & RsvpAnswerMeta) | null,
+  ): Promise<TeamEvent> {
+    const convoked = await this.isConvoked(event.id, teamPlayerId);
+    const [teamEvent] = await this.buildTeamEvents(teamId, [event], {
+      rsvpStatuses: answer ? new Map([[event.id, answer.status]]) : new Map(),
+      answers: answer
+        ? new Map([
+            [event.id, { respondedAt: answer.respondedAt, respondedBy: answer.respondedBy }],
+          ])
+        : new Map(),
+      travelModes: answer ? new Map([[event.id, answer.travelMode]]) : new Map(),
+      convokedEventIds: convoked ? new Set([event.id]) : new Set(),
+      myTeamPlayerId: teamPlayerId,
+    });
+    return teamEvent;
   }
 
   // Full roster (not just responders) so managers/teammates see who hasn't
-  // answered yet, not only who has.
+  // answered yet, not only who has — and who gave each answer, which is the
+  // coach's « Sophie M. · parent ».
   async listEventRsvps(
     clubId: string,
     teamId: string,
     eventId: string,
     userId: string,
+    forPlayerId?: string,
   ): Promise<EventRsvpRosterEntry[]> {
-    await this.assertEventInTeam(clubId, teamId, eventId);
+    const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    const isPersona = await this.personaMatcher(userId, forPlayerId);
     const roster = await this.prisma.teamPlayer.findMany({
       where: { teamId },
-      include: { player: true, rsvps: { where: { eventId } } },
+      include: {
+        player: true,
+        rsvps: { where: { eventId }, include: { respondedBy: RSVP_RESPONDENT_SELECT } },
+      },
       orderBy: [{ player: { lastName: 'asc' } }, { player: { firstName: 'asc' } }],
     });
-    return roster.map((tp) => ({
-      teamPlayerId: tp.id,
-      playerId: tp.playerId,
-      firstName: tp.player.firstName,
-      lastName: tp.player.lastName,
-      role: tp.role,
-      status: tp.rsvps[0]?.status ?? null,
-      respondedAt: tp.rsvps[0]?.respondedAt.toISOString() ?? null,
-      isMe: tp.player.userId === userId,
-    }));
+    return roster.map((tp) => {
+      const rsvp = tp.rsvps[0];
+      return {
+        teamPlayerId: tp.id,
+        playerId: tp.playerId,
+        firstName: tp.player.firstName,
+        lastName: tp.player.lastName,
+        role: tp.role,
+        status: rsvp?.status ?? null,
+        respondedAt: rsvp?.respondedAt.toISOString() ?? null,
+        respondedBy: toRsvpRespondent(rsvp?.respondedBy ?? null, userId),
+        respondedByGuardian:
+          !!rsvp?.respondedByUserId && rsvp.respondedByUserId !== tp.player.userId,
+        travelMode:
+          event.type === EventType.MATCH && rsvp?.status === EventRsvpStatus.GOING
+            ? rsvp.travelMode
+            : null,
+        isMe: isPersona(tp),
+      };
+    });
+  }
+
+  // Which roster row is « me »: the persona's when acting for someone (after
+  // checking the caller may), the caller's own otherwise.
+  private async personaMatcher(
+    userId: string,
+    forPlayerId?: string,
+  ): Promise<(tp: { playerId: string; player: { userId: string | null } }) => boolean> {
+    if (!forPlayerId) {
+      return (tp) => tp.player.userId === userId;
+    }
+    await assertCanActForPlayer(this.prisma, userId, forPlayerId);
+    return (tp) => tp.playerId === forPlayerId;
   }
 
   // Full replace: every id in teamPlayerIds ends up convoked, every other
@@ -743,35 +795,40 @@ export class EventsService {
   ): Promise<void> {
     if (newlyConvokedTeamPlayerIds.length === 0) return;
 
-    const [team, recipients] = await Promise.all([
+    const [team, audience] = await Promise.all([
       this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
-      this.prisma.teamPlayer.findMany({
-        where: { id: { in: newlyConvokedTeamPlayerIds } },
-        select: { player: { select: { userId: true } } },
-      }),
+      resolvePlayerAudience(this.prisma, newlyConvokedTeamPlayerIds),
     ]);
 
-    // Player.userId is nullable — a rostered player who has never claimed an
-    // account (the dashboard's own PLAYERS_WITHOUT_ACCOUNT action item) has
-    // nobody to notify, so they're filtered out rather than skipped later.
-    const userIds = [
-      ...new Set(
-        recipients
-          .map((entry) => entry.player.userId)
-          .filter((userId): userId is string => userId !== null),
-      ),
-    ];
-    if (userIds.length === 0) return;
+    // Each convoked player's own account (if they ever claimed one — a
+    // player who hasn't has no userId, the dashboard's PLAYERS_WITHOUT_ACCOUNT
+    // item) plus every guardian, merged so a parent convoked alongside their
+    // child, or a parent of two convoked children, gets one message.
+    const recipients = groupByRecipient(audience);
+    if (recipients.length === 0) return;
 
-    const copy = convocationNotification(team?.name ?? 'votre équipe', event);
+    const plan = (await this.meetingPoints.resolvePlans(teamId, [event])).get(event.id);
+    const meeting =
+      plan?.meetingPoint && plan.meetsAt
+        ? { meetsAt: new Date(plan.meetsAt), placeName: plan.meetingPoint.name }
+        : null;
+    const teamName = team?.name ?? 'votre équipe';
     await this.notifications.notify(
-      userIds.map((userId) => ({
-        userId,
-        type: 'EVENT_CONVOCATION' as const,
-        title: copy.title,
-        body: copy.body,
-        deepLink: `/clubs/${clubId}/teams/${teamId}/events/${event.id}`,
-      })),
+      recipients.map((recipient) => {
+        const copy = convocationNotification(teamName, event, meeting, recipient);
+        return {
+          userId: recipient.userId,
+          type: 'EVENT_CONVOCATION' as const,
+          title: copy.title,
+          body: copy.body,
+          subjectFirstName: subjectLabel(recipient),
+          deepLink: recipientDeepLink(
+            recipient,
+            `/clubs/${clubId}/teams/${teamId}/events/${event.id}`,
+            (childClubId) => `/clubs/${childClubId}/teams/${teamId}/events/${event.id}`,
+          ),
+        };
+      }),
     );
   }
 
@@ -782,9 +839,10 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    forPlayerId?: string,
   ): Promise<EventConvocationRosterEntry[]> {
     await this.assertEventInTeam(clubId, teamId, eventId);
-    return this.fetchConvocationRoster(teamId, eventId, userId);
+    return this.fetchConvocationRoster(teamId, eventId, userId, forPlayerId);
   }
 
   // Self-service: any rostered member may assign themself or clear their
@@ -830,27 +888,8 @@ export class EventsService {
           ? { jerseysTeamPlayerId: teamPlayerId }
           : { ballsTeamPlayerId: teamPlayerId },
     });
-    const { rsvpStatuses, convokedEventIds } = await this.resolveMyEventState(teamId, userId, [
-      eventId,
-    ]);
-    const logisticsAssignees = await this.resolveLogisticsAssignees([updated]);
-    const rsvpSummaries = await this.resolveEventRosterSummaries(teamId, [eventId]);
-    // Reuses myTeamPlayer, already resolved above for the self-action check
-    // — not resolveMyEventState's own copy — so this route still costs only
-    // one teamPlayer.findFirst call, not two.
-    const { resultsByEventId, myStatsByEventId } = await this.resolveMatchResults(
-      [updated],
-      myTeamPlayer?.id ?? null,
-    );
-    return this.toTeamEvent(
-      updated,
-      rsvpStatuses.get(eventId) ?? null,
-      convokedEventIds.has(eventId),
-      logisticsAssignees,
-      this.rsvpSummaryOrZero(eventId, rsvpSummaries),
-      resultsByEventId.get(eventId) ?? null,
-      myStatsByEventId.get(eventId) ?? null,
-    );
+    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [updated]);
+    return teamEvent;
   }
 
   // Anonymous peer voting — see the match interface spec's Voting visibility
@@ -1129,7 +1168,9 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    forPlayerId?: string,
   ): Promise<EventConvocationRosterEntry[]> {
+    const isPersona = await this.personaMatcher(userId, forPlayerId);
     const roster = await this.prisma.teamPlayer.findMany({
       where: { teamId },
       include: { player: true, convocations: { where: { eventId } } },
@@ -1143,7 +1184,7 @@ export class EventsService {
       role: tp.role,
       convoked: tp.convocations.length > 0,
       convokedAt: tp.convocations[0]?.convokedAt.toISOString() ?? null,
-      isMe: tp.player.userId === userId,
+      isMe: isPersona(tp),
     }));
   }
 
@@ -1178,7 +1219,7 @@ export class EventsService {
   }
 
   private async findMyTeamPlayer(teamId: string, userId: string) {
-    return this.prisma.teamPlayer.findFirst({ where: { teamId, player: { userId } } });
+    return resolveActingTeamPlayer(this.prisma, { userId, teamId });
   }
 
   private async isConvoked(eventId: string, teamPlayerId: string): Promise<boolean> {
@@ -1188,33 +1229,35 @@ export class EventsService {
     return convocation !== null;
   }
 
-  // Resolves the acting user's own RSVP status and convocation flag for a
-  // bounded set of events on one team, in at most three queries total
-  // (one findMyTeamPlayer shared by both, plus one findMany per concern)
+  // Resolves the persona's RSVP status (and who gave it) and convocation flag
+  // for a bounded set of events on one team, in at most three queries total
+  // (one resolveActingTeamPlayer shared by both, plus one findMany per concern)
   // regardless of how many event ids are passed — never one query per event
   // (see RSVP spec's Scope: no per-event aggregate embedded in TeamEvent).
   private async resolveMyEventState(
     teamId: string,
     userId: string,
     eventIds: string[],
-  ): Promise<{
-    rsvpStatuses: Map<string, EventRsvpStatus>;
-    convokedEventIds: Set<string>;
-    // Handed back so resolveMatchResults (see below) can reuse this same
-    // lookup instead of re-querying teamPlayer.findFirst a second time for
-    // the same caller/team pair.
-    myTeamPlayerId: string | null;
-  }> {
-    if (eventIds.length === 0) {
-      return { rsvpStatuses: new Map(), convokedEventIds: new Set(), myTeamPlayerId: null };
-    }
-    const teamPlayer = await this.findMyTeamPlayer(teamId, userId);
-    if (!teamPlayer) {
-      return { rsvpStatuses: new Map(), convokedEventIds: new Set(), myTeamPlayerId: null };
-    }
+    forPlayerId?: string,
+  ): Promise<CallerEventState> {
+    const nobody: CallerEventState = {
+      rsvpStatuses: new Map(),
+      answers: new Map(),
+      travelModes: new Map(),
+      convokedEventIds: new Set(),
+      myTeamPlayerId: null,
+    };
+    if (eventIds.length === 0) return nobody;
+    const teamPlayer = await resolveActingTeamPlayer(this.prisma, {
+      userId,
+      teamId,
+      forPlayerId,
+    });
+    if (!teamPlayer) return nobody;
     const [rsvps, convocations] = await Promise.all([
       this.prisma.eventRsvp.findMany({
         where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
+        include: { respondedBy: RSVP_RESPONDENT_SELECT },
       }),
       this.prisma.eventConvocation.findMany({
         where: { teamPlayerId: teamPlayer.id, eventId: { in: eventIds } },
@@ -1222,6 +1265,13 @@ export class EventsService {
     ]);
     return {
       rsvpStatuses: new Map(rsvps.map((r) => [r.eventId, r.status])),
+      answers: new Map(
+        rsvps.map((r) => [
+          r.eventId,
+          { respondedAt: r.respondedAt, respondedBy: toRsvpRespondent(r.respondedBy, userId) },
+        ]),
+      ),
+      travelModes: new Map(rsvps.map((r) => [r.eventId, r.travelMode])),
       convokedEventIds: new Set(convocations.map((c) => c.eventId)),
       myTeamPlayerId: teamPlayer.id,
     };
@@ -1384,15 +1434,79 @@ export class EventsService {
     return event;
   }
 
-  private toTeamEvent(
-    event: EventRow,
-    myRsvpStatus: EventRsvpStatus | null,
-    myConvocation: boolean,
-    logisticsAssignees: Map<string, EventLogisticsAssignee>,
-    rsvpSummary: EventRsvpSummary,
-    result: EventMatchResult | null,
-    myMatchStats: EventMatchPlayerStats | null,
-  ): TeamEvent {
+  // Assembles the TeamEvents for a batch of events on one team. Every
+  // per-event concern is resolved once for the whole batch — never per event
+  // — and the independent resolvers run in parallel. Callers that already
+  // know the caller's own RSVP state from the write they just made pass it
+  // in rather than re-reading it (see setMyRsvp).
+  private async buildTeamEvents(
+    teamId: string,
+    events: EventRow[],
+    caller: CallerEventState,
+  ): Promise<TeamEvent[]> {
+    const eventIds = events.map((e) => e.id);
+    const [logisticsAssignees, rsvpSummaries, { resultsByEventId, myStatsByEventId }, plans] =
+      await Promise.all([
+        this.resolveLogisticsAssignees(events),
+        this.resolveEventRosterSummaries(teamId, eventIds),
+        this.resolveMatchResults(events, caller.myTeamPlayerId),
+        this.meetingPoints.resolvePlans(teamId, events),
+      ]);
+    return events.map((event) =>
+      this.toTeamEvent({
+        event,
+        myRsvpStatus: caller.rsvpStatuses.get(event.id) ?? null,
+        answer: caller.answers.get(event.id) ?? null,
+        travelMode: caller.travelModes.get(event.id) ?? null,
+        myConvocation: caller.convokedEventIds.has(event.id),
+        logisticsAssignees,
+        rsvpSummary: this.rsvpSummaryOrZero(event.id, rsvpSummaries),
+        result: resultsByEventId.get(event.id) ?? null,
+        myMatchStats: myStatsByEventId.get(event.id) ?? null,
+        meetingPlan: plans.get(event.id) ?? null,
+      }),
+    );
+  }
+
+  private async buildTeamEventsForUser(
+    teamId: string,
+    userId: string,
+    events: EventRow[],
+    forPlayerId?: string,
+  ): Promise<TeamEvent[]> {
+    const caller = await this.resolveMyEventState(
+      teamId,
+      userId,
+      events.map((e) => e.id),
+      forPlayerId,
+    );
+    return this.buildTeamEvents(teamId, events, caller);
+  }
+
+  private toTeamEvent({
+    event,
+    myRsvpStatus,
+    answer,
+    travelMode,
+    myConvocation,
+    logisticsAssignees,
+    rsvpSummary,
+    result,
+    myMatchStats,
+    meetingPlan,
+  }: {
+    event: EventRow;
+    myRsvpStatus: EventRsvpStatus | null;
+    answer: RsvpAnswerMeta | null;
+    // The caller's stored choice; only surfaced for a MATCH they're GOING to.
+    travelMode: EventTravelMode | null;
+    myConvocation: boolean;
+    logisticsAssignees: Map<string, EventLogisticsAssignee>;
+    rsvpSummary: EventRsvpSummary;
+    result: EventMatchResult | null;
+    myMatchStats: EventMatchPlayerStats | null;
+    meetingPlan: EventMeetingPlan | null;
+  }): TeamEvent {
     return {
       id: event.id,
       teamId: event.teamId,
@@ -1407,10 +1521,17 @@ export class EventsService {
       isImported: event.externalId !== null,
       timeConfirmed: event.timeConfirmed,
       myRsvpStatus,
+      myRsvpRespondedBy: answer?.respondedBy ?? null,
+      myRsvpRespondedAt: answer?.respondedAt.toISOString() ?? null,
       myConvocation,
       rsvpSummary,
       result,
       myMatchStats,
+      meetingPlan,
+      myTravelMode:
+        event.type === EventType.MATCH && myRsvpStatus === EventRsvpStatus.GOING
+          ? (travelMode ?? EventTravelMode.MEETING_POINT)
+          : null,
       // Populated for both event types — the jersey slot is just labeled
       // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
       // frontend, see eventLogisticsFieldLabel.

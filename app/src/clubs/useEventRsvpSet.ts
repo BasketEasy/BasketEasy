@@ -7,15 +7,20 @@ import {
   teamEventQueryKey,
   teamEventsQueryKey,
 } from './queryKeys';
+import { actingAsQuery, useTeamActingAs } from '../guardians/useActingAs';
 
 export function useEventRsvpSet(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
+  // Answers for the child on the child's teams; the prefix invalidations
+  // below match every persona's copy of each key.
+  const forPlayerId = useTeamActingAs(teamId);
 
   return useMutation({
     mutationFn: ({ eventId, status }: { eventId: string; status: SetEventRsvpRequest['status'] }) =>
-      apiClient.patch<TeamEvent>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp`, {
-        status,
-      }),
+      apiClient.patch<TeamEvent>(
+        `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp${actingAsQuery(forPlayerId)}`,
+        { status },
+      ),
     onSuccess: (_data, { eventId }) => {
       queryClient.invalidateQueries({ queryKey: teamEventQueryKey(clubId, teamId, eventId) });
       queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });

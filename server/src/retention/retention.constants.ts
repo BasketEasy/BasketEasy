@@ -13,6 +13,13 @@ export const AUDIT_LOG_RETENTION_MONTHS = 12;
 export const INACTIVE_SOON_LEAD_MONTHS = 1;
 
 /**
+ * A cached geocode nobody has looked up for this long is dropped. It holds a
+ * typed address, so it is not kept for the life of the app, and a gym still
+ * in use is refreshed by its next lookup long before this.
+ */
+export const GEOCODE_CACHE_RETENTION_MONTHS = 12;
+
+/**
  * Ceiling on how many accounts one nightly run erases. The first real run
  * after a deployment has been observing in dry-run mode can have a large
  * backlog, and deleting it in one unbounded burst of transactions is how a

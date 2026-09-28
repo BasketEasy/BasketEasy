@@ -79,6 +79,18 @@ module.exports = {
         'nav-active-top': 'inset 0 2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
       },
+      // Radius scale, overridden like boxShadow so every existing rounded-*
+      // call site picks up the Parquet shapes without being touched: `md`
+      // for controls (buttons, inputs, time blocks), `lg` for cards, `xl`
+      // for dialogs, `2xl` for a bottom sheet's top corners. `sm`, DEFAULT
+      // and `full` keep Tailwind's values — they're used for hairline
+      // details (swatches, bars, pills) the revamp didn't reshape.
+      borderRadius: {
+        md: '10px',
+        lg: '14px',
+        xl: '16px',
+        '2xl': '20px',
+      },
       minWidth: {
         // The dropdown-menu content's floor width, previously an arbitrary
         // min-w-[14rem] at the DropdownMenuContent call site.

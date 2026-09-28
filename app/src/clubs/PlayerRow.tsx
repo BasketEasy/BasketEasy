@@ -18,6 +18,7 @@ import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import { PlayerEditForm } from './PlayerEditForm';
 import { PlayerInviteDialog } from './PlayerInviteDialog';
+import { GuardiansDialog } from './GuardiansDialog';
 import { ParentalConsentDialog } from './ParentalConsentDialog';
 import { usePlayerDelete } from './usePlayerDelete';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -50,6 +51,10 @@ export function PlayerRow({
       Autorisation manquante
     </Badge>
   ) : null;
+
+  // Its own table column (the admin scans who has parents linked), folded
+  // into the action row on a card.
+  const guardians = isAdmin ? <GuardiansDialog clubId={clubId} player={player} /> : null;
 
   const adminActions = isAdmin ? (
     <div className="flex flex-wrap gap-2">
@@ -102,6 +107,7 @@ export function PlayerRow({
         <Text as="span" variant="meta" className="break-all">
           Compte lié : {linkedMemberEmail ?? '—'}
         </Text>
+        {guardians}
         {adminActions}
       </Card>
     );
@@ -115,7 +121,8 @@ export function PlayerRow({
         {consentBadge}
       </TableCell>
       <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
-      <TableCell className="flex flex-col gap-2">{adminActions}</TableCell>
+      {isAdmin && <TableCell>{guardians}</TableCell>}
+      {isAdmin && <TableCell className="flex flex-col gap-2">{adminActions}</TableCell>}
     </TableRow>
   );
 }

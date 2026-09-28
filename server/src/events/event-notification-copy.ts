@@ -1,46 +1,35 @@
 import type { EventType } from '@prisma/client';
+import { describeEvent, formatEventMoment } from '../common/event-copy';
+import { describeMeeting, type KnownMeeting } from '../meeting-points/meeting-notification-copy';
+import {
+  SELF_SUBJECT,
+  convocationSentence,
+  forWhomPrefix,
+  type NotificationSubject,
+} from '../common/notification-subject';
 
-// The app stores no per-club timezone (see the bulk hour-of-day update's
-// documented limitation in CLAUDE.md), and Kluvo launches in Loire-Atlantique,
-// so notification copy formats dates in Europe/Paris. Formatting in UTC would
-// put a Saturday 20:30 match on "samedi 19:30" for every French reader, which
-// is worse than the DST edge case a fixed zone leaves open. This becomes a
-// per-club setting when the app has one.
-const TIMEZONE = 'Europe/Paris';
+// Dates are formatted in Europe/Paris — see common/event-copy.ts. Every
+// function takes who the reader is told about (themself, their children, or
+// both — see common/notification-subject.ts); the default is the reader
+// alone, whose copy is unchanged.
 
-const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  timeZone: TIMEZONE,
-});
-
-const TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: TIMEZONE,
-});
-
-/** e.g. "samedi 12 septembre à 20:30" */
-export function formatEventMoment(startsAt: Date): string {
-  return `${DATE_FORMAT.format(startsAt)} à ${TIME_FORMAT.format(startsAt)}`;
-}
-
-/** e.g. "le match contre ASVEL" or "l'entraînement" */
-export function describeEvent(event: { type: EventType; opponentName: string | null }): string {
-  if (event.type === 'MATCH') {
-    return event.opponentName ? `le match contre ${event.opponentName}` : 'le match';
-  }
-  return 'l’entraînement';
+function presenceRequest(subject: NotificationSubject): string {
+  if (subject.children.length === 0) return 'votre présence';
+  if (subject.self) return 'vos présences';
+  return subject.children.length === 1 ? 'sa présence' : 'leur présence';
 }
 
 export function convocationNotification(
   teamName: string,
   event: { type: EventType; startsAt: Date; location: string; opponentName: string | null },
+  meeting: KnownMeeting | null = null,
+  subject: NotificationSubject = SELF_SUBJECT,
 ): { title: string; body: string } {
+  const meetingSentence = meeting ? ` RDV à ${describeMeeting(meeting)}.` : '';
+  const sentence = convocationSentence(subject);
   return {
-    title: `Vous êtes convoqué·e — ${teamName}`,
-    body: `Vous êtes convoqué·e pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}. Merci d’indiquer votre présence.`,
+    title: `${sentence} — ${teamName}`,
+    body: `${sentence} pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}.${meetingSentence} Merci d’indiquer ${presenceRequest(subject)}.`,
   };
 }
 
@@ -55,17 +44,19 @@ export function cancellationNotification(
   teamName: string,
   event: { type: EventType; startsAt: Date; opponentName: string | null },
   cancelledCount: number,
+  subject: NotificationSubject = SELF_SUBJECT,
 ): { title: string; body: string } {
+  const prefix = forWhomPrefix(subject);
   if (cancelledCount > 1) {
     return {
       title: `${cancelledCount} séances annulées — ${teamName}`,
-      body: `${cancelledCount} occurrences de cette série ont été annulées, à partir du ${formatEventMoment(event.startsAt)}.`,
+      body: `${prefix}${cancelledCount} occurrences de cette série ont été annulées, à partir du ${formatEventMoment(event.startsAt)}.`,
     };
   }
 
   return {
     title: `Annulation — ${teamName}`,
-    body: `${capitalise(describeEvent(event))} du ${formatEventMoment(event.startsAt)} a été annulé.`,
+    body: `${prefix}${capitalise(describeEvent(event))} du ${formatEventMoment(event.startsAt)} a été annulé.`,
   };
 }
 

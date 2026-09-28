@@ -23,6 +23,8 @@ const matchEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: 'GOING',
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: true,
@@ -39,6 +41,8 @@ const matchEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 const uploadedStatus: EventScoresheet = {

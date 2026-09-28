@@ -22,6 +22,16 @@ export const CONSENT_EXPLAINER =
   'Le club conserve l’autorisation signée du représentant légal (dossier de licence FFBB ou ' +
   'écrit libre). Rien à téléverser ici.';
 
+/**
+ * Shown against the attestation checkbox when the API answers
+ * `PARENTAL_CONSENT_REQUIRED` — i.e. the server decided this birth date makes
+ * the player a minor and the client had not. It names the disagreement rather
+ * than repeating the client-side wording, because the reader is looking at a
+ * form they believed was complete.
+ */
+export const CONSENT_REQUIRED_BY_SERVER =
+  'Le serveur considère ce joueur comme mineur : cochez l’attestation pour continuer.';
+
 /** Disambiguates the attester field: the club's side of the paper, not the parent's. */
 export const CONSENT_ATTESTER_HINT = 'Vous, ou un autre responsable du club. Pas le parent.';
 

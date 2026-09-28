@@ -15,6 +15,8 @@ import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit/audit.module';
 import { RetentionModule } from './retention/retention.module';
+import { MeetingPointsModule } from './meeting-points/meeting-points.module';
+import { GuardiansModule } from './guardians/guardians.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
@@ -58,6 +60,8 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     NotificationsModule,
     AuditModule,
     RetentionModule,
+    MeetingPointsModule,
+    GuardiansModule,
     PlatformAdminModule,
   ],
 })

@@ -12,6 +12,7 @@ import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useHasManageRights } from '../clubs/useHasManageRights';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useMyTeamList } from '../clubs/useMyTeamList';
+import { useActingAs } from '../guardians/useActingAs';
 
 /**
  * One routed item. `TabBarItem` owns the look and needs `active` as a
@@ -45,6 +46,12 @@ function BottomNavItem({
   );
 }
 
+/** « Mon équipe » / « Mes équipes », or « Son/Ses » when acting for a child. */
+function teamsLabel(teamCount: number, isChild: boolean): string {
+  if (teamCount > 1) return isChild ? 'Ses équipes' : 'Mes équipes';
+  return isChild ? 'Son équipe' : 'Mon équipe';
+}
+
 /**
  * The primary navigation on a phone, replacing the burger panel the header
  * used to hold.
@@ -66,6 +73,9 @@ export function AppBottomNav() {
   const { data: dashboard } = useMyAgenda();
   const adminClubs = useAdminClubs();
   const { activeClubId: contextActiveClubId } = useActiveClub();
+  // Acting for a child, the possessives follow them: « Semaine », « Son
+  // équipe » — the screen is the child's, not the reader's.
+  const { persona } = useActingAs();
 
   // Same fallback the header's switcher uses: the first admin club covers the
   // one-render gap before ActiveClubProvider's default-selection effect runs,
@@ -92,7 +102,7 @@ export function AppBottomNav() {
       <BottomNavItem
         to="/dashboard"
         icon={<HomeIcon className="h-5 w-5" />}
-        label={hasManageRights ? 'Accueil' : 'Ma semaine'}
+        label={hasManageRights ? 'Accueil' : persona ? 'Semaine' : 'Ma semaine'}
         // The manager's pip counts what is waiting to be handled, which is
         // the « À traiter » band — phase 9, and no endpoint answers it yet.
         // Until then only the player's answers-owed count is real.
@@ -103,7 +113,7 @@ export function AppBottomNav() {
         <BottomNavItem
           to="/my-teams"
           icon={<UsersIcon className="h-5 w-5" />}
-          label={hasManageRights ? 'Équipes' : myTeams.length > 1 ? 'Mes équipes' : 'Mon équipe'}
+          label={hasManageRights ? 'Équipes' : teamsLabel(myTeams.length, persona !== null)}
         />
       ) : (
         // A player with exactly one team goes straight to it — /my-teams
@@ -113,7 +123,7 @@ export function AppBottomNav() {
         <BottomNavItem
           to={`/clubs/${soleTeam.clubId}/teams/${soleTeam.teamId}?tab=stats`}
           icon={<UsersIcon className="h-5 w-5" />}
-          label="Mon équipe"
+          label={teamsLabel(1, persona !== null)}
         />
       )}
 

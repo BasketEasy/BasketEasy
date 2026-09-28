@@ -29,6 +29,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     recurrenceId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     myRsvpStatus: null,
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     myConvocation: false,
     rsvpSummary: {
       rosterSize: 0,
@@ -45,6 +47,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     logistics: { jerseys: null, balls: null },
     result: null,
     myMatchStats: null,
+    meetingPlan: null,
+    myTravelMode: null,
     ...overrides,
   };
 }
@@ -64,6 +68,9 @@ function mockRoster(people: Person[]) {
     role: 'PLAYER',
     status: p.status,
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     isMe: false,
   }));
   const convocations: EventConvocationRosterEntry[] = people.map((p, i) => ({

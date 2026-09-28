@@ -13,6 +13,7 @@ import { useEventSectionAnchor } from '../clubs/useEventSectionAnchor';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
+import { useActingAs, useTeamActingAs } from '../guardians/useActingAs';
 
 /**
  * Shared detail page for both event types (MATCH and TRAINING) and both
@@ -62,7 +63,13 @@ export function EventDetailPage() {
   } = useTeamShow(clubId!, teamId!);
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
-  const canManage = useIsTeamManager(clubId!, teamId!);
+  const isTeamManager = useIsTeamManager(clubId!, teamId!);
+  // A parent reading their child's match sees the child's player view —
+  // a guardian link never carries manager rights, whatever the reader holds
+  // as themself. On any other team the reader is themself again.
+  const { persona } = useActingAs();
+  const childName = useTeamActingAs(teamId!) ? (persona?.firstName ?? null) : null;
+  const canManage = isTeamManager && childName === null;
 
   if (isEventError || isTeamError) {
     return (
@@ -136,6 +143,7 @@ export function EventDetailPage() {
           teamName={team.name}
           isRostered={isRostered}
           showVote={showVote}
+          childName={childName}
         />
       )}
     </PageContainer>

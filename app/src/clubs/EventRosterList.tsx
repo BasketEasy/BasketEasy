@@ -7,6 +7,7 @@ import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Text } from '@basketeasy/ui/text';
+import { respondentName } from '../guardians/respondentLabel';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
@@ -14,6 +15,9 @@ import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRoster, type EventRosterRow } from './useEventRoster';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
+import { formatEventTime } from './eventDateFormat';
 
 // Meaning, not hue: the same three-value convention the RSVP breakdowns use,
 // expressed on Badge's own tone axis.
@@ -35,6 +39,23 @@ function RsvpBadge({ status }: { status: EventRsvpStatus | null }) {
     <Badge variant="soft" tone={RSVP_TONE[status]}>
       {eventRsvpAnswerLabel(status)}
     </Badge>
+  );
+}
+
+/**
+ * The answer, and — when a parent gave it — who: « Sophie M. · parent ». A
+ * coach chasing answers needs to know a child's « oui » came from home.
+ */
+function RsvpCell({ row }: { row: EventRosterRow }) {
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <RsvpBadge status={row.rsvpStatus} />
+      {row.rsvpStatus !== null && row.respondedByGuardian && row.respondedBy && (
+        <Text as="span" variant="meta" size="xs">
+          {respondentName(row.respondedBy)} · parent
+        </Text>
+      )}
+    </div>
   );
 }
 
@@ -82,7 +103,35 @@ function RosterIdentity({ row }: { row: EventRosterRow }) {
  * replaces the `EventRosterCard` / inline-`TableRow` pair the Effectif tab
  * carried.
  */
-function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
+/** The hour each travel mode is expected — « RDV 19:15 », « Direct 19:45 ». */
+interface TravelTimes {
+  meetingPoint: string | null;
+  direct: string;
+}
+
+function TravelCell({ row, times }: { row: EventRosterRow; times: TravelTimes }) {
+  if (row.travelMode === null) {
+    return (
+      <Text as="span" variant="meta">
+        —
+      </Text>
+    );
+  }
+  return (
+    <TravelModeBadge
+      travelMode={row.travelMode}
+      time={row.travelMode === 'DIRECT' ? times.direct : times.meetingPoint}
+    />
+  );
+}
+
+function EventRosterMemberRow({
+  row,
+  travel,
+}: {
+  row: EventRosterRow;
+  travel: TravelTimes | null;
+}) {
   if (useTableLayout() === 'row') {
     return (
       <TableRow>
@@ -93,8 +142,13 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
           <ConvocationMark convoked={row.convoked} />
         </TableCell>
         <TableCell>
-          <RsvpBadge status={row.rsvpStatus} />
+          <RsvpCell row={row} />
         </TableCell>
+        {travel && (
+          <TableCell>
+            <TravelCell row={row} times={travel} />
+          </TableCell>
+        )}
       </TableRow>
     );
   }
@@ -103,7 +157,8 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
       <RosterIdentity row={row} />
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <ConvocationMark convoked={row.convoked} />
-        <RsvpBadge status={row.rsvpStatus} />
+        <RsvpCell row={row} />
+        {travel && row.travelMode !== null && <TravelCell row={row} times={travel} />}
       </div>
     </Card>
   );
@@ -122,11 +177,20 @@ export function EventRosterList({
   clubId,
   teamId,
   eventId,
+  meetingPlan = null,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /** A match with a meeting point gets a « Déplacement » column: RDV or direct, with the hour. */
+  meetingPlan?: EventMeetingPlan | null;
 }) {
+  const travel: TravelTimes | null = meetingPlan?.meetingPoint
+    ? {
+        meetingPoint: meetingPlan.meetsAt ? formatEventTime(meetingPlan.meetsAt) : null,
+        direct: formatEventTime(meetingPlan.arrivalAt),
+      }
+    : null;
   const { rows, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
 
   if (isError) {
@@ -148,9 +212,15 @@ export function EventRosterList({
   }
 
   return (
-    <ResponsiveTable columns={['Joueur', 'Convocation', 'Présence']}>
+    <ResponsiveTable
+      columns={
+        travel
+          ? ['Joueur', 'Convocation', 'Présence', 'Déplacement']
+          : ['Joueur', 'Convocation', 'Présence']
+      }
+    >
       {rows.map((row) => (
-        <EventRosterMemberRow key={row.teamPlayerId} row={row} />
+        <EventRosterMemberRow key={row.teamPlayerId} row={row} travel={travel} />
       ))}
     </ResponsiveTable>
   );

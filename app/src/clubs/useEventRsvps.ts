@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { EventRsvpRosterEntry } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
 import { eventRsvpsQueryKey } from './queryKeys';
+import { useTeamPersona } from '../guardians/useActingAs';
 
 /**
  * Roster-wide RSVP breakdown for one event. `enabled` is passed by the
@@ -9,12 +10,18 @@ import { eventRsvpsQueryKey } from './queryKeys';
  * opened, not once per visible event on the page.
  */
 export function useEventRsvps(clubId: string, teamId: string, eventId: string, enabled: boolean) {
-  return useQuery({
-    queryKey: eventRsvpsQueryKey(clubId, teamId, eventId),
+  // `isMe` marks the persona's row, so the persona is part of the key.
+  const { forPlayerId, isReady } = useTeamPersona(teamId);
+  const query = useQuery({
+    queryKey: eventRsvpsQueryKey(clubId, teamId, eventId, forPlayerId),
     queryFn: () =>
       apiClient.get<EventRsvpRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps`,
+        forPlayerId ? { forPlayerId } : undefined,
       ),
-    enabled,
+    enabled: enabled && isReady,
   });
+  // A query held back for the persona is still loading, not empty: callers
+  // branch on isLoading, and a disabled query reports false.
+  return { ...query, isLoading: query.isLoading || !isReady };
 }

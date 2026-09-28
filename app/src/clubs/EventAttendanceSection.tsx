@@ -15,6 +15,10 @@ import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { useEventRoster, type EventRosterCounts, type EventRosterRow } from './useEventRoster';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
+import { formatEventTime } from './eventDateFormat';
+import { useMeSuffix } from '../guardians/useActingAs';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -38,6 +42,41 @@ function attendanceSummary(counts: EventRosterCounts): string {
 }
 
 /**
+ * The two travel tiles — how many meet the group, how many go straight to
+ * the gym, each with the hour they are expected. They take the avatar row's
+ * place on a match with a meeting point: the question there is no longer
+ * "who is coming" but "who is in the car".
+ */
+function TravelTiles({
+  travel,
+  plan,
+}: {
+  travel: EventRosterCounts['travel'];
+  plan: EventMeetingPlan;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <Card variant="inset" tone="structure" className="flex flex-col gap-0.5">
+        <Text variant="display" size="2xl" tone="structure" className="tabular">
+          {travel.meetingPoint}
+        </Text>
+        <Text variant="meta" size="xs" className="tabular">
+          au RDV{plan.meetsAt ? ` · ${formatEventTime(plan.meetsAt)}` : ''}
+        </Text>
+      </Card>
+      <Card variant="inset" className="flex flex-col gap-0.5">
+        <Text variant="display" size="2xl" className="tabular">
+          {travel.direct}
+        </Text>
+        <Text variant="meta" size="xs" className="tabular">
+          en direct · {formatEventTime(plan.arrivalAt)}
+        </Text>
+      </Card>
+    </div>
+  );
+}
+
+/**
  * Answered first, and inside each answer the people who are coming first:
  * the question this block exists for is "is there a real session tonight",
  * and the top of the list should answer it without scrolling.
@@ -52,7 +91,15 @@ function sortForDisplay(rows: EventRosterRow[]): EventRosterRow[] {
   );
 }
 
-function AttendanceRow({ row }: { row: EventRosterRow }) {
+function AttendanceRow({
+  row,
+  showTravelMode,
+  meSuffix,
+}: {
+  row: EventRosterRow;
+  showTravelMode: boolean;
+  meSuffix: string;
+}) {
   return (
     <li className="flex items-center gap-2.5 border-t border-border py-2.5 first:border-t-0">
       <Avatar size="sm" className="shrink-0">
@@ -60,9 +107,10 @@ function AttendanceRow({ row }: { row: EventRosterRow }) {
       </Avatar>
       <Text as="span" variant="label" size="sm" className="min-w-0 break-words">
         {row.firstName} {row.lastName}
-        {row.isMe && ' (vous)'}
+        {row.isMe && meSuffix}
       </Text>
-      <span className="ml-auto shrink-0">
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        {showTravelMode && <TravelModeBadge travelMode={row.travelMode} />}
         {row.rsvpStatus === null ? (
           <Badge variant="outline" tone="muted">
             {eventRsvpAnswerLabel(null)}
@@ -95,15 +143,21 @@ export function EventAttendanceSection({
   clubId,
   teamId,
   eventId,
+  meetingPlan = null,
   id,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /** A match with a meeting point: who comes to the RDV and who goes direct. */
+  meetingPlan?: EventMeetingPlan | null;
   id?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   const { rows, counts, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
+  const meSuffix = useMeSuffix(teamId);
+  const travelPlan = meetingPlan?.meetingPoint ? meetingPlan : null;
+  const showTravelMode = travelPlan !== null;
 
   const body = () => {
     if (isError) {
@@ -142,12 +196,21 @@ export function EventAttendanceSection({
             notGoing={counts.notGoing}
             pending={counts.pending}
           />
-          {going.length > 0 && <AvatarGroup people={going} max={6} className="pt-0.5" />}
+          {travelPlan ? (
+            <TravelTiles travel={counts.travel} plan={travelPlan} />
+          ) : (
+            going.length > 0 && <AvatarGroup people={going} max={6} className="pt-0.5" />
+          )}
         </div>
         <div className="border-t border-border px-3.5">
           <ul className="flex flex-col">
             {visible.map((row) => (
-              <AttendanceRow key={row.teamPlayerId} row={row} />
+              <AttendanceRow
+                key={row.teamPlayerId}
+                row={row}
+                showTravelMode={showTravelMode}
+                meSuffix={meSuffix}
+              />
             ))}
           </ul>
         </div>

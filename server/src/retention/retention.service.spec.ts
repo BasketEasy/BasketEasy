@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { RetentionService } from './retention.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MAX_ACCOUNTS_PER_SWEEP, subMonths } from './retention.constants';
@@ -6,10 +7,11 @@ import { MAX_ACCOUNTS_PER_SWEEP, subMonths } from './retention.constants';
 describe('RetentionService', () => {
   let service: RetentionService;
   let prisma: {
-    user: { findMany: jest.Mock; delete: jest.Mock };
+    user: { findMany: jest.Mock; deleteMany: jest.Mock };
     player: { findMany: jest.Mock; updateMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
+    geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -19,7 +21,10 @@ describe('RetentionService', () => {
   beforeEach(async () => {
     jest.useFakeTimers().setSystemTime(now);
     prisma = {
-      user: { findMany: jest.fn().mockResolvedValue([]), delete: jest.fn() },
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       player: { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn() },
       parentalConsent: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -28,6 +33,10 @@ describe('RetentionService', () => {
       },
       auditLog: {
         create: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      geocodedAddress: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -54,7 +63,9 @@ describe('RetentionService', () => {
       expect(prisma.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { lastActiveAt: { lt: subMonths(now, 12) } } }),
       );
-      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+      expect(prisma.user.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'user-1', lastActiveAt: { lt: subMonths(now, 12) } },
+      });
       expect(summary.inactiveAccounts).toEqual({ status: 'ok', count: 1 });
     });
 
@@ -104,13 +115,88 @@ describe('RetentionService', () => {
       );
     });
 
+    it('carries on past one account whose erasure throws, and reports it', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'user-1', email: 'a@b.com' },
+        { id: 'user-2', email: 'boom@b.com' },
+        { id: 'user-3', email: 'c@b.com' },
+      ]);
+      prisma.user.deleteMany.mockImplementation(({ where }: { where: { id: string } }) => {
+        if (where.id === 'user-2') {
+          throw new Error('constraint violation');
+        }
+        return Promise.resolve({ count: 1 });
+      });
+
+      const summary = await service.run();
+
+      expect(prisma.user.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: 'user-3' }) }),
+      );
+      expect(summary.inactiveAccounts).toEqual({
+        status: 'ok',
+        count: 2,
+        failedCount: 1,
+        failedIds: ['user-2'],
+      });
+    });
+
+    it('reports the step as ok — it finished — even with a failed account in it', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'boom@b.com' }]);
+      prisma.user.deleteMany.mockRejectedValue(new Error('constraint violation'));
+
+      const summary = await service.run();
+
+      expect(summary.inactiveAccounts.status).toBe('ok');
+      expect(summary.inactiveAccounts.count).toBe(0);
+      expect(prisma.retentionRun.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            summary: expect.objectContaining({
+              inactiveAccounts: expect.objectContaining({ failedIds: ['user-1'] }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('spares an account that became active again between selection and erasure', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'user-1', email: 'back@b.com' },
+        { id: 'user-2', email: 'gone@b.com' },
+      ]);
+      // The guarded delete matches nothing for user-1: they logged back in
+      // after the candidate query read them as inactive.
+      prisma.user.deleteMany.mockImplementation(({ where }: { where: { id: string } }) =>
+        Promise.resolve({ count: where.id === 'user-1' ? 0 : 1 }),
+      );
+
+      const summary = await service.run();
+
+      expect(summary.inactiveAccounts).toEqual({ status: 'ok', count: 1, skippedCount: 1 });
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ actorEmail: 'gone@b.com' }) }),
+      );
+    });
+
+    it('counts a reactivated account as skipped, never as a failure', async () => {
+      prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'back@b.com' }]);
+      prisma.user.deleteMany.mockResolvedValue({ count: 0 });
+
+      const summary = await service.run();
+
+      expect(summary.inactiveAccounts.failedIds).toBeUndefined();
+      expect(summary.inactiveAccounts.status).toBe('ok');
+    });
+
     it('counts candidates but deletes nothing in a dry run', async () => {
       prisma.user.findMany.mockResolvedValue([{ id: 'user-1', email: 'gone@b.com' }]);
 
       const summary = await service.run(true);
 
       expect(summary.inactiveAccounts).toEqual({ status: 'ok', count: 1 });
-      expect(prisma.user.delete).not.toHaveBeenCalled();
+      expect(prisma.user.deleteMany).not.toHaveBeenCalled();
       expect(prisma.player.updateMany).not.toHaveBeenCalled();
     });
   });
@@ -156,6 +242,28 @@ describe('RetentionService', () => {
 
       expect(summary.parentalConsents).toEqual({ status: 'ok', count: 2 });
       expect(prisma.parentalConsent.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('geocode cache', () => {
+    it('drops addresses nobody has looked up for 12 months', async () => {
+      prisma.geocodedAddress.deleteMany.mockResolvedValue({ count: 4 });
+
+      const summary = await service.run();
+
+      expect(prisma.geocodedAddress.deleteMany).toHaveBeenCalledWith({
+        where: { lastUsedAt: { lt: subMonths(now, 12) } },
+      });
+      expect(summary.geocodeCache).toEqual({ status: 'ok', count: 4 });
+    });
+
+    it('only counts in a dry run', async () => {
+      prisma.geocodedAddress.count.mockResolvedValue(4);
+
+      const summary = await service.run(true);
+
+      expect(summary.geocodeCache).toEqual({ status: 'ok', count: 4 });
+      expect(prisma.geocodedAddress.deleteMany).not.toHaveBeenCalled();
     });
   });
 
@@ -216,7 +324,9 @@ describe('RetentionService', () => {
 
       await service.run();
 
-      expect(spy).toHaveBeenCalledWith(expect.anything(), 'user-1', now);
+      expect(spy).toHaveBeenCalledWith(expect.anything(), 'user-1', now, {
+        inactiveBefore: expect.any(Date),
+      });
     });
 
     it('unlinks roster entries instead of deleting them, and reports how many', async () => {
@@ -234,8 +344,31 @@ describe('RetentionService', () => {
         where: { userId: 'user-1' },
         data: { userId: null },
       });
-      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'user-1' } });
       expect(result.unlinkedPlayerCount).toBe(2);
+    });
+
+    it('does not re-check inactivity for a manual erasure', async () => {
+      // A named RGPD request is honoured however recently the person logged
+      // in; only the sweep guards on the 12-month cutoff.
+      await service.eraseUserAccount(
+        prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+        'user-1',
+        now,
+      );
+
+      expect(prisma.user.deleteMany).toHaveBeenCalledWith({ where: { id: 'user-1' } });
+    });
+
+    it('refuses with 404 when the account vanished before the delete', async () => {
+      prisma.user.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.eraseUserAccount(
+          prisma as unknown as Parameters<RetentionService['eraseUserAccount']>[0],
+          'user-1',
+          now,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('starts the five-year consent clock for the players it unlinked', async () => {

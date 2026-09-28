@@ -20,6 +20,8 @@ const trainingEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
@@ -36,6 +38,8 @@ const trainingEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 const matchEvent: TeamEvent = {

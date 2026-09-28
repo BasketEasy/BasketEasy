@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -34,11 +35,13 @@ import { UpdateEventTimeDto } from './dto/update-event-time.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { DeleteEventQueryDto } from './dto/delete-event-query.dto';
 import { SetEventRsvpDto } from './dto/set-event-rsvp.dto';
+import { SetEventTravelModeDto } from './dto/set-event-travel-mode.dto';
 import { SetEventConvocationsDto } from './dto/set-event-convocations.dto';
 import { SetEventLogisticsDto } from './dto/set-event-logistics.dto';
 import { CastEventVoteDto } from './dto/cast-event-vote.dto';
 import { GetScoresheetUploadUrlDto } from './dto/get-scoresheet-upload-url.dto';
 import { ConfirmScoresheetUploadDto } from './dto/confirm-scoresheet-upload.dto';
+import { ActingAsQueryDto } from '../common/dto/acting-as-query.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/events')
 @UseGuards(JwtAuthGuard)
@@ -48,6 +51,7 @@ export class EventsController {
   @Get()
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEvents(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -60,13 +64,15 @@ export class EventsController {
   @Get(':eventId')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getEvent(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
+    @Query() query: ActingAsQueryDto,
     @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent> {
-    return this.eventsService.getEvent(clubId, teamId, eventId, user.id);
+    return this.eventsService.getEvent(clubId, teamId, eventId, user.id, query.forPlayerId);
   }
 
   @Post()
@@ -119,38 +125,75 @@ export class EventsController {
   @Patch(':eventId/rsvp')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   setMyRsvp(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
     @Body() dto: SetEventRsvpDto,
+    @Query() query: ActingAsQueryDto,
     @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent> {
-    return this.eventsService.setMyRsvp(clubId, teamId, eventId, user.id, dto.status);
+    return this.eventsService.setMyRsvp(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.status,
+      query.forPlayerId,
+    );
   }
 
   @Delete(':eventId/rsvp')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   clearMyRsvp(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
+    @Query() query: ActingAsQueryDto,
     @CurrentUser() user: RequestUser,
   ): Promise<TeamEvent> {
-    return this.eventsService.clearMyRsvp(clubId, teamId, eventId, user.id);
+    return this.eventsService.clearMyRsvp(clubId, teamId, eventId, user.id, query.forPlayerId);
+  }
+
+  // ClubRolesGuard only — self-service, narrowed in EventsService to a
+  // rostered member who has answered GOING, same split as RSVP above.
+  @Patch(':eventId/travel-mode')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
+  setMyTravelMode(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: SetEventTravelModeDto,
+    @Query() query: ActingAsQueryDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamEvent> {
+    return this.eventsService.setMyTravelMode(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      dto.travelMode,
+      query.forPlayerId,
+    );
   }
 
   @Get(':eventId/rsvps')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEventRsvps(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
+    @Query() query: ActingAsQueryDto,
     @CurrentUser() user: RequestUser,
   ): Promise<EventRsvpRosterEntry[]> {
-    return this.eventsService.listEventRsvps(clubId, teamId, eventId, user.id);
+    return this.eventsService.listEventRsvps(clubId, teamId, eventId, user.id, query.forPlayerId);
   }
 
   @Patch(':eventId/convocations')
@@ -174,13 +217,21 @@ export class EventsController {
   @Get(':eventId/convocations')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listEventConvocations(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('eventId') eventId: string,
+    @Query() query: ActingAsQueryDto,
     @CurrentUser() user: RequestUser,
   ): Promise<EventConvocationRosterEntry[]> {
-    return this.eventsService.listEventConvocations(clubId, teamId, eventId, user.id);
+    return this.eventsService.listEventConvocations(
+      clubId,
+      teamId,
+      eventId,
+      user.id,
+      query.forPlayerId,
+    );
   }
 
   // ClubRolesGuard only (not TeamManagerGuard) — self-assign/self-clear is
@@ -233,6 +284,7 @@ export class EventsController {
   @Get(':eventId/votes')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getEventVoteResults(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -296,6 +348,7 @@ export class EventsController {
   @Get(':eventId/scoresheet')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   async getScoresheetStatus(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

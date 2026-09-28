@@ -15,6 +15,8 @@ const baseEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
@@ -31,6 +33,8 @@ const baseEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 describe('EventVoteBadge', () => {

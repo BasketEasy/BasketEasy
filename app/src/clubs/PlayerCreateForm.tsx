@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +20,11 @@ import {
 import { toast } from '@basketeasy/ui/toast-store';
 import type { ClubMember } from '@basketeasy/types/club-members';
 import type { Gender } from '@basketeasy/types/teams';
-import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
+import {
+  PARENTAL_CONSENT_REQUIRED_CODE,
+  isMinorBirthDate,
+} from '@basketeasy/types/parental-consent';
+import { ApiError } from '../api/client';
 import { useAccount } from '../auth/useAccount';
 import { usePlayerCreate } from './usePlayerCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -27,6 +32,7 @@ import {
   CONSENT_ATTESTATION_LABEL,
   CONSENT_ATTESTER_HINT,
   CONSENT_EXPLAINER,
+  CONSENT_REQUIRED_BY_SERVER,
   defaultAttesterName,
 } from './parentalConsentCopy';
 
@@ -84,6 +90,11 @@ export function PlayerCreateForm({
 }) {
   const { user } = useAccount();
   const { mutate: createPlayer, isPending } = usePlayerCreate(clubId);
+  // Set only when the API answers PARENTAL_CONSENT_REQUIRED for a birth date
+  // this form read as an adult's. Keeping it in state rather than deriving it
+  // is the whole point: without it the consent block stays hidden and the
+  // field error the API asked us to show would have nowhere to render.
+  const [serverRequiresConsent, setServerRequiresConsent] = useState(false);
   const {
     register,
     control,
@@ -113,6 +124,7 @@ export function PlayerCreateForm({
   // entered birth date makes the player a minor — never stored on the record,
   // since a stored flag is wrong the day after their eighteenth birthday.
   const isMinor = isMinorBirthDate(watch('birthDate'));
+  const showConsentBlock = isMinor || serverRequiresConsent;
 
   const onSubmit = (values: PlayerFormValues) => {
     createPlayer(
@@ -125,7 +137,13 @@ export function PlayerCreateForm({
         birthDate: values.birthDate || undefined,
         gender: values.gender === UNSPECIFIED_GENDER ? undefined : (values.gender as Gender),
         licenseType: values.licenseType.trim() || undefined,
-        parentalConsent: isMinorBirthDate(values.birthDate)
+        // Keyed off the tick rather than off isMinorBirthDate: when the
+        // server has told us it wants a consent for a birth date this form
+        // read as an adult's, re-deriving the flag here would drop the
+        // attestation the admin just gave and resubmit the same rejected
+        // payload. An unticked box on a non-minor still sends nothing, since
+        // the block is only rendered when consent is in play.
+        parentalConsent: values.parentalConsentAttested
           ? { attestedByName: values.parentalConsentAttestedByName.trim() }
           : undefined,
       },
@@ -135,7 +153,20 @@ export function PlayerCreateForm({
           reset();
           onSuccess?.();
         },
-        onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
+        onError: (err) => {
+          // The one API error this form can point at a specific control. The
+          // code exists precisely so a consent rejection lands on the
+          // attestation checkbox instead of the generic "informations
+          // invalides" a bare 400 would produce — which is all the reader
+          // would otherwise get if the client and the server ever disagreed
+          // about whether this birth date belongs to a minor.
+          if (err instanceof ApiError && err.code === PARENTAL_CONSENT_REQUIRED_CODE) {
+            setServerRequiresConsent(true);
+            setError('parentalConsentAttested', { message: CONSENT_REQUIRED_BY_SERVER });
+            return;
+          }
+          setError('root', { message: getClubErrorMessage(err) });
+        },
       },
     );
   };
@@ -174,7 +205,7 @@ export function PlayerCreateForm({
         {...register('birthDate')}
       />
 
-      {isMinor && (
+      {showConsentBlock && (
         <Card variant="inset" className="flex flex-col gap-3">
           <Text variant="label" as="span">
             Autorisation parentale

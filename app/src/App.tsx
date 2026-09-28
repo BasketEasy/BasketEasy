@@ -8,6 +8,8 @@ import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { InviteAcceptPage } from './pages/InviteAcceptPage';
+import { GuardianInvitePage } from './pages/GuardianInvitePage';
+import { ChildProfilePage } from './pages/ChildProfilePage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -22,6 +24,10 @@ import { EventDetailPage } from './pages/EventDetailPage';
 import { MyTeamsPage } from './pages/MyTeamsPage';
 import { ResultsPage } from './pages/ResultsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { MentionsLegalesPage } from './pages/legal/MentionsLegalesPage';
+import { PolitiqueConfidentialitePage } from './pages/legal/PolitiqueConfidentialitePage';
+import { CGUPage } from './pages/legal/CGUPage';
+import { RegistreTraitementsPage } from './pages/legal/RegistreTraitementsPage';
 
 // The back-office is lazy-loaded, and that is the point rather than an
 // optimisation: it must never render, fetch, or *bundle* admin-only code for
@@ -50,8 +56,16 @@ export default function App() {
             state — PublicOnlyRoute would bounce a visitor who still holds a
             stale session straight to the dashboard mid-recovery. */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
+        <Route path="/guardian-invite/:token" element={<GuardianInvitePage />} />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        {/* Legal documents: reachable by anyone, logged in or not, without
+            being routed through PublicOnlyRoute (a logged-in user must be
+            able to read them too) or ProtectedRoute. */}
+        <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
+        <Route path="/confidentialite" element={<PolitiqueConfidentialitePage />} />
+        <Route path="/cgu" element={<CGUPage />} />
+        <Route path="/registre-traitements" element={<RegistreTraitementsPage />} />
 
         <Route element={<PublicOnlyRoute />}>
           <Route path="/login" element={<LoginPage />} />
@@ -62,6 +76,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/account" element={<AccountPage />} />
+          <Route path="/children/:playerId" element={<ChildProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/my-teams" element={<MyTeamsPage />} />
           <Route path="/results" element={<ResultsPage />} />

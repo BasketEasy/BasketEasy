@@ -29,6 +29,8 @@ const openMatchEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: 'GOING',
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: true,
@@ -45,6 +47,8 @@ const openMatchEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 const futureMatchEvent: TeamEvent = {

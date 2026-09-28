@@ -15,7 +15,8 @@ import { useActiveClub } from '../auth/useActiveClub';
 import { useAccount } from '../auth/useAccount';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { AccountMenu } from './AccountMenu';
-import { NotificationBell } from '../notifications/NotificationBell';
+import { NotificationBell, NotificationBellLink } from '../notifications/NotificationBell';
+import { PersonaSwitcher } from '../guardians/PersonaSwitcher';
 import { Text } from '@basketeasy/ui/text';
 
 interface AppHeaderProps {
@@ -38,21 +39,20 @@ interface AppHeaderProps {
  * Nav for every protected page — mounted once in ProtectedRoute so it's
  * guaranteed a logged-in user, rather than re-checking that here.
  *
- * On a phone there is no top bar at all: `AppBottomNav` is the only
- * navigation, and everything the header used to hold for a phone (the club
- * switcher, "Créer un club", logout) lives on `/account` instead — reachable
- * from the bottom bar's Profil tab. This component renders nothing below the
- * desktop breakpoint.
+ * On a phone it is a compact bar — wordmark and notification bell only.
+ * `AppBottomNav` stays the navigation there, and everything else the desktop
+ * header holds (the club switcher, "Créer un club", logout) lives on
+ * `/account` instead, reachable from the bottom bar's Profil tab.
  */
 export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
   const isDesktop = useIsDesktopViewport();
-  if (!isDesktop) return null;
+  if (!isDesktop) return <MobileTopBar isResolving={isResolving} />;
 
   if (isResolving) {
     return (
       <header className="border-b border-border">
         <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-6 py-4">
-          <Text as="span" variant="display" size="2xl" tone="brand">
+          <Text as="span" variant="display" size="2xl" tone="brand" className="uppercase">
             Kluvo
           </Text>
           <div className="flex items-center gap-2">
@@ -66,6 +66,28 @@ export function AppHeader({ isResolving = false }: AppHeaderProps = {}) {
   }
 
   return <AppHeaderResolved />;
+}
+
+function MobileTopBar({ isResolving }: { isResolving: boolean }) {
+  const { user } = useAccount();
+  return (
+    <header className="sticky top-0 z-10 border-b border-border bg-surface">
+      <div className="flex h-14 items-center justify-between gap-2 pl-4 pr-2">
+        <Link
+          to={user ? '/dashboard' : '/'}
+          className="font-heading text-2xl font-extrabold uppercase text-orange-text no-underline"
+        >
+          Kluvo
+        </Link>
+        {!isResolving && (
+          <div className="flex items-center gap-1">
+            <PersonaSwitcher />
+            <NotificationBellLink />
+          </div>
+        )}
+      </div>
+    </header>
+  );
 }
 
 function HeaderLink({ to, children }: { to: string; children: ReactNode }) {
@@ -145,11 +167,12 @@ function AppHeaderResolved() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to={user ? '/dashboard' : '/'}
-            className="font-heading text-2xl font-extrabold text-orange-text no-underline"
+            className="font-heading text-2xl font-extrabold uppercase text-orange-text no-underline"
           >
             Kluvo
           </Link>
           {switcher}
+          <PersonaSwitcher />
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-1">

@@ -6,6 +6,7 @@ import type { EventConvocationRosterEntry, EventRsvpRosterEntry } from '@baskete
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { EventAttendanceSection } from './EventAttendanceSection';
+import { computedPlan } from '../meeting-points/testEvents';
 
 const RSVPS = '/api/clubs/club-1/teams/team-1/events/event-1/rsvps';
 const CONVOCATIONS = '/api/clubs/club-1/teams/team-1/events/event-1/convocations';
@@ -17,6 +18,7 @@ type Person = {
   status: EventRsvpRosterEntry['status'];
   convoked: boolean;
   isMe?: boolean;
+  travelMode?: EventRsvpRosterEntry['travelMode'];
 };
 
 const SQUAD: Person[] = [
@@ -45,6 +47,9 @@ function mockRoster(people: Person[] = SQUAD) {
     role: 'PLAYER',
     status: p.status,
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: p.travelMode ?? null,
     isMe: p.isMe ?? false,
   }));
   const convocations: EventConvocationRosterEntry[] = people.map((p) => ({
@@ -70,6 +75,43 @@ function renderSection() {
 }
 
 describe('EventAttendanceSection', () => {
+  it('shows who comes to the meeting point and who goes direct, on a match that has one', async () => {
+    mockRoster(
+      SQUAD.map((p) =>
+        p.id === 'tp-1'
+          ? { ...p, travelMode: 'DIRECT' }
+          : p.status === 'GOING'
+            ? { ...p, travelMode: 'MEETING_POINT' }
+            : p,
+      ),
+    );
+    renderWithProviders(
+      <EventAttendanceSection
+        clubId="club-1"
+        teamId="team-1"
+        eventId="event-1"
+        meetingPlan={computedPlan}
+      />,
+    );
+
+    // Two tiles — the count, and the hour each group is expected.
+    expect(await screen.findByText('au RDV · 19:15')).toBeInTheDocument();
+    expect(screen.getByText('en direct · 19:45')).toBeInTheDocument();
+    expect(screen.getByText('Direct')).toBeInTheDocument();
+    expect(screen.getByText('RDV')).toBeInTheDocument();
+  });
+
+  it('leaves travel out when the match has no meeting point', async () => {
+    mockRoster(
+      SQUAD.map((p) => (p.status === 'GOING' ? { ...p, travelMode: 'MEETING_POINT' } : p)),
+    );
+    renderSection();
+
+    await screen.findByText(/sur 5 convoqué·es/);
+    expect(screen.queryByText('RDV')).not.toBeInTheDocument();
+    expect(screen.queryByText(/au RDV/)).not.toBeInTheDocument();
+  });
+
   it('summarises the convoked group and previews who is coming first', async () => {
     mockRoster();
     renderSection();

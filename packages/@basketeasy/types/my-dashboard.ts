@@ -2,11 +2,13 @@ import type {
   EventLogisticsAssignee,
   EventMatchPlayerStats,
   EventMatchResult,
+  EventRsvpRespondent,
   EventRsvpStatus,
   EventRsvpSummary,
   EventType,
   EventVenue,
 } from './events';
+import type { ActingAsParams } from './guardians';
 
 /** An upcoming event across every team the caller manages or is rostered on. */
 export interface MyAgendaEvent {
@@ -25,8 +27,12 @@ export interface MyAgendaEvent {
   venue: EventVenue | null;
   /** Shared by every occurrence created in the same recurring POST; null for a single event. */
   recurrenceId: string | null;
-  /** The caller's own RSVP status for this event; null if unset or not rostered on the team. */
+  /** The persona's RSVP status for this event; null if unset or not rostered on the team. */
   myRsvpStatus: EventRsvpStatus | null;
+  /** Mirrors TeamEvent.myRsvpRespondedBy. */
+  myRsvpRespondedBy: EventRsvpRespondent | null;
+  /** Mirrors TeamEvent.myRsvpRespondedAt. */
+  myRsvpRespondedAt: string | null;
   /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
   myConvocation: boolean;
   /** The whole roster's RSVP/convocation breakdown, for list/card contexts — see EventRsvpSummary. */
@@ -82,7 +88,7 @@ export interface MyDashboardSummary {
   actionItems: ActionItem[];
 }
 
-export interface GetDashboardParams {
+export interface GetDashboardParams extends ActingAsParams {
   /** ISO 8601 date/datetime — defaults to now when omitted. */
   from?: string;
   /** ISO 8601 date/datetime — defaults to from + 7 days when omitted. */

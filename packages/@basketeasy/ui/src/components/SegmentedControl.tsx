@@ -110,10 +110,7 @@ export function SegmentedControl<T extends string>({
       role="group"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
-      className={cn(
-        'flex w-fit overflow-hidden rounded-md border border-border bg-sunk',
-        className,
-      )}
+      className={cn('flex w-fit gap-1 rounded-lg bg-sunk p-1', className)}
     >
       {options.map((option, index) => {
         const pressed = option.value === value;
@@ -127,10 +124,9 @@ export function SegmentedControl<T extends string>({
             tabIndex={tabbable ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex min-h-11 items-center justify-center whitespace-nowrap px-3.5 text-sm font-semibold transition-colors',
+              'flex min-h-11 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-bold transition-colors',
               focusRing,
-              index > 0 && 'border-l border-border-strong',
-              pressed ? PRESSED_CLASSES[tone] : 'bg-surface text-muted hover:bg-sunk',
+              pressed ? PRESSED_CLASSES[tone] : 'text-muted hover:bg-surface-2 hover:text-charcoal',
             )}
           >
             {option.label}

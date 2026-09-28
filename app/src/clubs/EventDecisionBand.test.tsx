@@ -18,6 +18,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     recurrenceId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     myRsvpStatus: null,
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     myConvocation: false,
     rsvpSummary: {
       rosterSize: 0,
@@ -34,6 +36,8 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     logistics: { jerseys: null, balls: null },
     result: null,
     myMatchStats: null,
+    meetingPlan: null,
+    myTravelMode: null,
     ...overrides,
   };
 }
@@ -46,6 +50,9 @@ function counts(convokedCount: number) {
     role: 'PLAYER' as const,
     isMe: false,
     rsvpStatus: null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     convoked: i < convokedCount,
   }));
   return countEventRoster(rows);

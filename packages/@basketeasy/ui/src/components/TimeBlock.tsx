@@ -34,12 +34,12 @@ const TYPE_SHORT_LABELS: Record<TimeBlockEventType, string> = {
 const timeFormatter = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 const timeBlockVariants = cva(
-  'flex shrink-0 flex-col items-center justify-center gap-0.5 text-center',
+  'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-md text-center',
   {
     variants: {
       type: {
         MATCH: 'bg-blue-green text-cream',
-        TRAINING: 'border-r border-border bg-surface-2 text-charcoal',
+        TRAINING: 'border border-border-strong bg-surface-2 text-charcoal',
       },
       size: {
         sm: 'w-16 py-3',

@@ -6,6 +6,7 @@ import { ConvocationIcon } from './eventDetailIcons';
 import { EventRsvpControl } from './EventRsvpControl';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import type { EventRosterCounts } from './useEventRoster';
+import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
 
 /**
  * Says what the call-up *means*, in a sentence.
@@ -22,17 +23,34 @@ import type { EventRosterCounts } from './useEventRoster';
  * (`schema.prisma:185-207`) and inventing one in the UI would be a promise
  * the product cannot keep. It is `player-journey.md` §6.3, phase 10+.
  */
-function convocationSentence(event: TeamEvent, counts: EventRosterCounts | null): string {
+function convocationSentence(
+  event: TeamEvent,
+  counts: EventRosterCounts | null,
+  childName: string | null,
+): string {
   const occasion = event.type === 'MATCH' ? 'cette rencontre' : 'cette séance';
   if (event.myConvocation) {
+    const retained = childName ? `a retenu ${childName}` : 'vous a retenu·e';
     return counts?.isConvocationScoped
-      ? `Le coach vous a retenu·e dans le groupe des ${counts.convoked} pour ${occasion}.`
-      : `Le coach vous a retenu·e dans le groupe pour ${occasion}.`;
+      ? `Le coach ${retained} dans le groupe des ${counts.convoked} pour ${occasion}.`
+      : `Le coach ${retained} dans le groupe pour ${occasion}.`;
   }
   if (counts?.isConvocationScoped) {
-    return `Vous n’êtes pas dans le groupe des ${counts.convoked} retenu·es pour ${occasion}.`;
+    return childName
+      ? `${childName} n’est pas dans le groupe des ${counts.convoked} retenu·es pour ${occasion}.`
+      : `Vous n’êtes pas dans le groupe des ${counts.convoked} retenu·es pour ${occasion}.`;
   }
   return `Le groupe n’a pas encore été annoncé pour ${occasion}.`;
+}
+
+function answerSentence(event: TeamEvent, childName: string | null): string {
+  if (event.myRsvpStatus === null) {
+    return childName
+      ? `${childName} sera là ? Pas encore de réponse.`
+      : 'Vous n’avez pas encore répondu.';
+  }
+  const answer = eventRsvpAnswerLabel(event.myRsvpStatus).toLowerCase();
+  return childName ? `Réponse pour ${childName} : ${answer}.` : `Votre réponse : ${answer}.`;
 }
 
 /**
@@ -53,12 +71,15 @@ export function EventDecisionBand({
   event,
   counts,
   id,
+  childName = null,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   counts: EventRosterCounts | null;
   id?: string;
+  /** The child's first name when a parent is answering for them, else null. */
+  childName?: string | null;
 }) {
   return (
     <Card
@@ -70,16 +91,15 @@ export function EventDecisionBand({
       {event.myConvocation && (
         <Badge variant="solid" tone="brand" size="md" className="w-fit gap-1.5">
           <ConvocationIcon size={13} className="shrink-0" />
-          Vous êtes convoqué·e
+          {childName ? `${childName} est convoqué·e` : 'Vous êtes convoqué·e'}
         </Badge>
       )}
-      <Text variant="label">{convocationSentence(event, counts)}</Text>
+      <Text variant="label">{convocationSentence(event, counts, childName)}</Text>
       <Text variant="meta" size="xs">
-        {event.myRsvpStatus === null
-          ? 'Vous n’avez pas encore répondu.'
-          : `Votre réponse : ${eventRsvpAnswerLabel(event.myRsvpStatus).toLowerCase()}.`}
+        {answerSentence(event, childName)}
       </Text>
       <EventRsvpControl clubId={clubId} teamId={teamId} event={event} fullWidth className="mt-1" />
+      <EventTravelModeControl clubId={clubId} teamId={teamId} event={event} />
     </Card>
   );
 }

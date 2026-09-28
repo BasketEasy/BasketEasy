@@ -1,0 +1,206 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/members": {
+    "items": [
+      {
+        "userId": "user-1",
+        "email": "admin@asc-nantes.fr",
+        "firstName": "Camille",
+        "lastName": "Martin",
+        "role": "ADMIN",
+        "joinedAt": "2026-01-01T00:00:00.000Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/players": {
+    "items": [
+      {
+        "id": "p1",
+        "clubId": "club-1",
+        "firstName": "Léa",
+        "lastName": "Bertrand",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601234",
+        "birthDate": "2012-03-14T00:00:00.000Z",
+        "gender": "WOMEN",
+        "licenseType": "C",
+        "isMinor": true,
+        "parentalConsentGivenAt": null,
+        "guardianCount": 2,
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      },
+      {
+        "id": "p2",
+        "clubId": "club-1",
+        "firstName": "Noah",
+        "lastName": "Diallo",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601235",
+        "birthDate": "2011-11-02T00:00:00.000Z",
+        "gender": "MEN",
+        "licenseType": "C",
+        "isMinor": true,
+        "parentalConsentGivenAt": "2026-02-03T00:00:00.000Z",
+        "guardianCount": 0,
+        "createdAt": "2026-01-02T00:00:00.000Z"
+      },
+      {
+        "id": "p3",
+        "clubId": "club-1",
+        "firstName": "Sofiane",
+        "lastName": "Renaud",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": "VT2601236",
+        "birthDate": "1994-07-21T00:00:00.000Z",
+        "gender": "MEN",
+        "licenseType": "C",
+        "isMinor": false,
+        "parentalConsentGivenAt": null,
+        "guardianCount": 0,
+        "createdAt": "2026-01-03T00:00:00.000Z"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/players/p1/guardians": {
+    "guardians": [
+      {
+        "userId": "g1",
+        "firstName": "Sophie",
+        "lastName": "Bertrand",
+        "email": "sophie.bertrand@example.fr",
+        "linkedAt": "2026-09-02T18:00:00.000Z",
+        "consentGivenAt": "2026-09-02T18:00:00.000Z"
+      },
+      {
+        "userId": "g2",
+        "firstName": "Marc",
+        "lastName": "Bertrand",
+        "email": "marc.b@example.fr",
+        "linkedAt": "2026-09-05T09:30:00.000Z",
+        "consentGivenAt": null
+      }
+    ],
+    "pendingInvites": [
+      {
+        "id": "inv-1",
+        "createdAt": "2026-09-25T10:00:00.000Z",
+        "expiresAt": "2026-10-02T10:00:00.000Z"
+      }
+    ]
+  },
+  "POST /api/clubs/club-1/players/p1/guardians/invites": {
+    "id": "inv-2",
+    "token": "b7c1e2",
+    "url": "http://localhost:5173/guardian-invite/b7c1e2",
+    "expiresAt": "2026-10-04T10:00:00.000Z"
+  },
+  "GET /api/me/personas": {
+    "self": {
+      "pendingCount": 1,
+      "playerIds": ["me-1"]
+    },
+    "children": [
+      {
+        "playerId": "p1",
+        "firstName": "Léa",
+        "lastName": "Bertrand",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teams": [
+          {
+            "teamId": "team-1",
+            "teamName": "U15 F"
+          }
+        ],
+        "pendingCount": 2
+      }
+    ]
+  },
+  "GET /api/me/players/me-1/guardians": {
+    "playerId": "me-1",
+    "isMinor": false,
+    "guardians": [
+      {
+        "userId": "g9",
+        "firstName": "Anne",
+        "lastName": "Martin",
+        "linkedAt": "2026-08-01T00:00:00.000Z"
+      }
+    ]
+  },
+  "GET /api/me/children/p1": {
+    "playerId": "p1",
+    "firstName": "Léa",
+    "lastName": "Bertrand",
+    "birthDate": "2012-03-14T00:00:00.000Z",
+    "gender": "WOMEN",
+    "isMinor": true,
+    "clubId": "club-1",
+    "clubName": "ASC Nantes",
+    "teams": [
+      {
+        "teamId": "team-1",
+        "teamName": "U15 F"
+      }
+    ],
+    "coGuardians": [
+      {
+        "firstName": "Marc",
+        "lastName": "Bertrand"
+      }
+    ],
+    "consent": {
+      "consentGivenAt": "2026-09-02T18:00:00.000Z",
+      "attestedByName": "Sophie Bertrand",
+      "source": "GUARDIAN_IN_APP"
+    }
+  },
+  "GET /api/guardian-invites/b7c1e2": {
+    "playerFirstName": "Léa",
+    "playerLastName": "Bertrand",
+    "clubName": "ASC Nantes",
+    "teamNames": ["U15 F"],
+    "requiresConsent": true,
+    "expiresAt": "2026-10-04T10:00:00.000Z"
+  }
+}

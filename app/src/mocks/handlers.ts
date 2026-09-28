@@ -30,6 +30,11 @@ export const handlers = [
   ),
   http.post('/api/me/notifications/read-all', () => new HttpResponse(null, { status: 204 })),
 
+  // Default: nobody to act for — no child linked and no « Moi » persona. The
+  // account page reads it for « Mes enfants » / « Accès parents »; guardian
+  // tests override it with server.use(...).
+  http.get('/api/me/personas', () => HttpResponse.json({ self: null, children: [] })),
+
   // Default: no VAPID key configured, matching a deployment with no push
   // credentials — NotificationPreferencesCard then hides its push control
   // rather than offering a subscription nothing could deliver to.
@@ -79,6 +84,20 @@ export const handlers = [
   // Default: no FFBB links for any team. TeamDetailPage always queries this
   // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
+
+  // Default: no meeting point anywhere, the default 45-minute buffer.
+  // ClubMeetingPointSettings (MembersPage) and TeamMeetingPointSettings
+  // (TeamDetailPage) query these for every admin/manager render.
+  http.get('/api/clubs/:clubId/meeting-settings', () =>
+    HttpResponse.json({ meetingPoint: null, arrivalBufferMinutes: 45 }),
+  ),
+  http.get('/api/clubs/:clubId/teams/:teamId/meeting-settings', () =>
+    HttpResponse.json({
+      meetingPoint: null,
+      arrivalBufferMinutes: null,
+      clubDefaults: { clubName: '', meetingPoint: null, arrivalBufferMinutes: 45 },
+    }),
+  ),
 
   // Default: no FFBB link, matching the ffbb-links default above — renders
   // PouleResultsPanel's empty state (no error code). Poule-focused tests

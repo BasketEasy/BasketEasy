@@ -59,7 +59,7 @@ export function NotificationList({
   }
 
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col divide-y divide-border">
       {items.map((notification) => (
         <li key={notification.id}>
           <NotificationItem notification={notification} onRead={markRead} onNavigate={onNavigate} />

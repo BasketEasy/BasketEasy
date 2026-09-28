@@ -49,6 +49,8 @@ const matchEvent: TeamEvent = {
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
@@ -65,6 +67,8 @@ const matchEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 const trainingEvent: TeamEvent = {
@@ -84,6 +88,9 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: 'GOING',
     respondedAt: '2026-01-02T00:00:00.000Z',
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     isMe: false,
   },
   {
@@ -94,6 +101,9 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: null,
     respondedAt: null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    travelMode: null,
     isMe: true,
   },
 ];

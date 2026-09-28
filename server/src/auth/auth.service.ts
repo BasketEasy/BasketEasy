@@ -8,7 +8,7 @@ import type { ClubMembershipInfo, User } from '@basketeasy/types/auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService, type AuditRequestContext } from '../audit/audit.service';
 import { hashToken } from '../common/token-hash';
-import { REFRESH_REUSE_GRACE_MS, REFRESH_TOKEN_TTL_MS } from './auth.constants';
+import { REFRESH_TOKEN_TTL_MS } from './auth.constants';
 
 const ACCESS_TOKEN_TTL = '15m';
 
@@ -169,14 +169,17 @@ export class AuthService {
     });
 
     if (claimed.count === 0) {
-      // Lost the CAS: either a concurrent legitimate request already claimed
-      // this exact token (revokedAt was null on our read, so the claim just
-      // happened — "now"), or this is a resubmission of a token revoked
-      // earlier (use its actual revokedAt). Either way, within
-      // REFRESH_REUSE_GRACE_MS of that revocation this is treated as a
-      // same-client race rather than theft — see the constant's doc comment.
-      const revokedAt = stored.revokedAt ?? new Date();
-      if (Date.now() - revokedAt.getTime() < REFRESH_REUSE_GRACE_MS) {
+      // Two different situations lose the CAS, and only one of them is safe.
+      //
+      // The row was unrevoked when we read it, so whoever beat us to the
+      // claim did so in the microseconds since — a concurrent request from
+      // the same client (two tabs, or a tab plus an installed PWA, both
+      // restoring a session at once). A thief cannot manufacture this: it
+      // requires presenting the token while it is still live, which is
+      // indistinguishable from, and no more powerful than, simply using it.
+      // Issue a fresh pair rather than logging every device out; this is the
+      // "leave the page and come back and I'm logged out" report.
+      if (stored.revokedAt === null) {
         const user = await this.prisma.user.findUnique({ where: { id: stored.userId } });
         if (!user) {
           throw new UnauthorizedException('Invalid refresh token');
@@ -184,13 +187,20 @@ export class AuthService {
         return this.issueTokenPair(user.id, user.email, stored.familyId);
       }
 
+      // Otherwise the token was already revoked before this request even read
+      // it: a token being presented after it was rotated away, which is
+      // exactly what reuse detection exists to catch. How recently it was
+      // rotated says nothing about who is presenting it — timing alone cannot
+      // tell a legitimate straggler from a replay of an intercepted token, so
+      // this stays fail-secure and kills the family.
+
       await this.prisma.refreshToken.updateMany({
         where: { familyId: stored.familyId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      // Only this branch is logged, not the grace-window one above: a reuse
-      // inside the grace window is a legitimate client racing itself, and
-      // logging it would bury the real signal in noise.
+      // Only this branch is logged, not the lost-race one above: a client
+      // racing itself is not a security event, and logging it would bury the
+      // real signal in noise.
       this.audit.record({
         type: 'REFRESH_TOKEN_REUSE_DETECTED',
         userId: stored.userId,

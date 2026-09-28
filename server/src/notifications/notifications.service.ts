@@ -19,6 +19,8 @@ export interface NotifyInput {
   body?: string | null;
   /** Frontend-relative path, never an absolute URL. See the Notification model. */
   deepLink?: string | null;
+  /** The child a guardian is told about (« Léo »); null or absent when it's the reader. */
+  subjectFirstName?: string | null;
 }
 
 @Injectable()
@@ -60,6 +62,7 @@ export class NotificationsService {
         title: input.title,
         body: input.body ?? null,
         deepLink: input.deepLink ?? null,
+        subjectFirstName: input.subjectFirstName ?? null,
       })),
     });
 
@@ -213,6 +216,7 @@ function toAppNotification(row: {
   title: string;
   body: string | null;
   deepLink: string | null;
+  subjectFirstName: string | null;
   readAt: Date | null;
   createdAt: Date;
 }): AppNotification {
@@ -222,6 +226,7 @@ function toAppNotification(row: {
     title: row.title,
     body: row.body,
     deepLink: row.deepLink,
+    subjectFirstName: row.subjectFirstName,
     readAt: row.readAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
   };

@@ -1,5 +1,7 @@
 import type { PaginationParams, SortOrder } from './pagination';
 import type { TeamMemberRole } from './teams';
+import type { ActingAsParams } from './guardians';
+import type { EventMeetingPlan, EventTravelMode } from './meeting-points';
 
 export type EventType = 'TRAINING' | 'MATCH';
 
@@ -65,6 +67,19 @@ export interface EventMatchPlayerStats {
   fouls: number | null;
 }
 
+/**
+ * Who gave an RSVP answer: the player or one of their guardians. First name
+ * and last initial only (« Sophie M. »), never a relationship label.
+ */
+export interface EventRsvpRespondent {
+  // No account id: every roster reader gets this, and nothing needs more
+  // than « is it me » to tell respondents apart.
+  firstName: string | null;
+  lastInitial: string | null;
+  /** The respondent is the caller (not the persona they act for). */
+  isMe: boolean;
+}
+
 export interface TeamEvent {
   id: string;
   teamId: string;
@@ -79,9 +94,16 @@ export interface TeamEvent {
   /** Shared by every occurrence created in the same recurring POST; null for a single event. */
   recurrenceId: string | null;
   createdAt: string;
-  /** The caller's own RSVP status for this event; null if unset or not rostered on the team. */
+  /**
+   * The persona's RSVP status for this event (the caller, or the player named
+   * by `forPlayerId`); null if unset or not rostered on the team.
+   */
   myRsvpStatus: EventRsvpStatus | null;
-  /** Whether the caller is called up (convoked) for this event; false if unset or not rostered. */
+  /** Who gave `myRsvpStatus`; null when there is no answer or its author is unknown. */
+  myRsvpRespondedBy: EventRsvpRespondent | null;
+  /** When `myRsvpStatus` was given; null when there is no answer. */
+  myRsvpRespondedAt: string | null;
+  /** Whether the persona is called up (convoked) for this event; false if unset or not rostered. */
   myConvocation: boolean;
   /** The whole roster's RSVP/convocation breakdown, for list/card contexts — see EventRsvpSummary. */
   rsvpSummary: EventRsvpSummary;
@@ -108,6 +130,14 @@ export interface TeamEvent {
   result: EventMatchResult | null;
   /** The caller's own line for this match; null under the same conditions as `result`, or when the caller isn't the player mapped on the sheet. */
   myMatchStats: EventMatchPlayerStats | null;
+  /** Where and when the group meets before a MATCH; null for TRAINING. */
+  meetingPlan: EventMeetingPlan | null;
+  /**
+   * How the caller gets to this MATCH — null unless they answered GOING. A
+   * GOING player who never chose reads MEETING_POINT: not choosing counts as
+   * coming to the meeting point.
+   */
+  myTravelMode: EventTravelMode | null;
 }
 
 export type EventLogisticsField = 'JERSEYS' | 'BALLS';
@@ -173,7 +203,7 @@ export interface UpdateEventTimeOfDayRequest {
   minute: number;
 }
 
-export interface ListEventsParams extends PaginationParams {
+export interface ListEventsParams extends PaginationParams, ActingAsParams {
   /** ISO 8601 date/datetime — filters startsAt >= from. */
   from?: string;
   /** ISO 8601 date/datetime — filters startsAt <= to. */
@@ -195,8 +225,18 @@ export interface EventRsvpRosterEntry {
   /** Null when this roster member hasn't responded yet. */
   status: EventRsvpStatus | null;
   respondedAt: string | null;
-  /** True when this roster row belongs to the requesting user. */
+  /** Who answered; null when nobody has, or the author is unknown. */
+  respondedBy: EventRsvpRespondent | null;
+  /** The answer was given by someone other than the player themself — one of their guardians. */
+  respondedByGuardian: boolean;
+  /** Null unless this member answered GOING to a MATCH — same rule as TeamEvent.myTravelMode. */
+  travelMode: EventTravelMode | null;
+  /** True when this roster row is the persona's (the caller's own, or `forPlayerId`'s). */
   isMe: boolean;
+}
+
+export interface SetEventTravelModeRequest {
+  travelMode: EventTravelMode;
 }
 
 export interface SetEventConvocationsRequest {
@@ -214,7 +254,7 @@ export interface EventConvocationRosterEntry {
   convoked: boolean;
   /** Null when not convoked. */
   convokedAt: string | null;
-  /** True when this roster row belongs to the requesting user. */
+  /** True when this roster row is the persona's (the caller's own, or `forPlayerId`'s). */
   isMe: boolean;
 }
 
