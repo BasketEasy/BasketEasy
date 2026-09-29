@@ -26,7 +26,11 @@ describe('Toast', () => {
         <ToastViewport />
       </ToastProvider>,
     );
-    expect(screen.getByTestId('toast-root')).toHaveClass('border-success', 'bg-success-tint');
+    expect(screen.getByTestId('toast-root')).toHaveClass(
+      'border-success',
+      'bg-success-tint',
+      'text-success-text',
+    );
   });
 
   it('applies the destructive variant class', () => {
