@@ -154,7 +154,7 @@ function ClubDeleteAction({ club }: { club: AdminClubDetail }) {
           <AdminActionDialog
             trigger={<Button variant="outline">Supprimer</Button>}
             title={`Supprimer ${club.name} ?`}
-            description="Le club est supprimé définitivement avec ses adhésions, ses joueurs et les équipes dont il est propriétaire : événements, feuilles de marque, statistiques et points de rendez-vous compris. Une équipe partagée dont il n’est que partenaire reste à son propriétaire, sans les joueurs de ce club. Pour garder une équipe partagée, transférez-en d’abord la propriété."
+            description="Le club est supprimé définitivement avec ses adhésions, ses joueurs et les équipes dont il est propriétaire : événements, feuilles de marque, statistiques et points de rendez-vous compris. Une équipe partagée dont il n’est que partenaire reste à son propriétaire, sans les joueurs de ce club. S’il est propriétaire d’une équipe partagée, la suppression est refusée : transférez-en d’abord la propriété. Les autorisations parentales sont conservées cinq ans."
             facts={[
               { label: 'Membres', value: club.memberCount },
               { label: 'Équipes liées', value: club.teamCount },

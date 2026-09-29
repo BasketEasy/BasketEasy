@@ -185,7 +185,7 @@ describe('MyGuardiansService', () => {
         id: 'child-1',
         firstName: 'Léo',
         lastName: 'Martin',
-        birthDate: null,
+        birthDate: MINOR_BIRTH,
         gender: null,
         clubId: 'club-1',
         club: { name: 'ASBC' },
@@ -206,6 +206,21 @@ describe('MyGuardiansService', () => {
           birthDate: new Date('2015-05-01'),
         },
       });
+    });
+
+    it.each([
+      ['an adult', ADULT_BIRTH],
+      ['a player with no birth date', null],
+    ])('refuses to edit %s', async (_label, birthDate) => {
+      prisma.player.findUniqueOrThrow.mockResolvedValue({ birthDate });
+
+      await expect(
+        service.updateChild('parent-1', 'child-1', { firstName: 'X' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.updateChild('parent-1', 'child-1', { birthDate: '2015-05-01' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.player.update).not.toHaveBeenCalled();
     });
 
     it('lets a parent correct a minor’s birth date within minority', async () => {

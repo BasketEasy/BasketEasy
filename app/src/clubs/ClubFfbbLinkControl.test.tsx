@@ -78,4 +78,29 @@ describe('ClubFfbbLinkControl', () => {
 
     await waitFor(() => expect(capturedBody).toEqual({ ffbbClubCode: 'pdl0044999' }));
   });
+
+  it('shows a refused save under the field and keeps it open', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/ffbb-link', () =>
+        HttpResponse.json({ message: 'invalid' }, { status: 400 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <ClubFfbbLinkControl
+        clubId="club-1"
+        club={{ id: 'club-1', name: 'COC', ffbbClubCode: null, createdAt: 'x' }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /lier ce club à la ffbb/i }));
+    await user.type(screen.getByLabelText(/code club ffbb/i), 'nope');
+    await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+    expect(
+      await screen.findByText('Certaines informations saisies sont invalides.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/code club ffbb/i)).toHaveValue('nope');
+  });
 });

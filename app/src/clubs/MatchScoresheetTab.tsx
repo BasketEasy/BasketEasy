@@ -9,6 +9,7 @@ import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamEvent } from '@basketeasy/types/events';
+import type { ScoresheetExtraction } from '@basketeasy/types/scoresheet-extraction';
 import { formatEventDate } from './eventDateFormat';
 import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
 import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
@@ -19,6 +20,14 @@ import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import { getClubErrorMessage } from './clubErrorMessages';
+
+function extractionVersion(extraction: ScoresheetExtraction): string {
+  return JSON.stringify([
+    extraction.status,
+    extraction.parsedData,
+    extraction.suggestedRosterMapping,
+  ]);
+}
 
 // Must match the allowlist EventsService.getScoresheetUploadUrl enforces
 // server-side — kept in sync by hand since it's four literal strings, not
@@ -414,6 +423,10 @@ export function MatchScoresheetTab({
     }
     return (
       <ScoresheetExtractionCard
+        // The card's form is seeded from the extraction once; a retry or a
+        // refetch that brings a different read remounts it, so corrections
+        // made against the old read can never be confirmed onto the new one.
+        key={extractionVersion(extraction)}
         clubId={clubId}
         teamId={teamId}
         event={event}

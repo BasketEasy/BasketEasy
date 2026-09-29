@@ -118,7 +118,15 @@ export class GuardiansService {
     playerId: string,
     createdByUserId: string,
   ): Promise<GuardianInviteLink> {
-    await this.findPlayerInClub(clubId, playerId);
+    const player = await this.findPlayerInClub(clubId, playerId);
+    // A parent follows a minor, or a player whose age the club never recorded.
+    // An adult decides for themself who follows them (decision 13), and an
+    // adult with no account couldn't remove a parent the club linked.
+    if (isAdultBirthDate(player.birthDate)) {
+      throw new BadRequestException(
+        'Ce joueur est majeur : il n’est pas possible d’inviter un parent',
+      );
+    }
     const rawToken = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + GUARDIAN_INVITE_TTL_MS);
 
@@ -422,15 +430,23 @@ export class GuardiansService {
     return `${frontendUrl}/guardian-invite/${token}`;
   }
 
-  private async findPlayerInClub(clubId: string, playerId: string): Promise<void> {
+  private async findPlayerInClub(
+    clubId: string,
+    playerId: string,
+  ): Promise<{ birthDate: Date | null }> {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
-      select: { clubId: true },
+      select: { clubId: true, birthDate: true },
     });
     if (!player || player.clubId !== clubId) {
       throw new NotFoundException('Player not found');
     }
+    return player;
   }
+}
+
+function isAdultBirthDate(birthDate: Date | null): boolean {
+  return birthDate !== null && !isMinorBirthDate(birthDate.toISOString());
 }
 
 // An unknown birth date requires none: a consent record snapshots the birth
