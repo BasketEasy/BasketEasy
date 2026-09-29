@@ -88,7 +88,7 @@ describe('GuardiansService', () => {
 
   beforeEach(async () => {
     prisma = {
-      player: { findUnique: jest.fn().mockResolvedValue({ clubId: 'club-1' }) },
+      player: { findUnique: jest.fn().mockResolvedValue({ clubId: 'club-1', birthDate: null }) },
       playerGuardian: {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue(null),
@@ -204,6 +204,18 @@ describe('GuardiansService', () => {
       const data = prisma.guardianInvite.create.mock.calls[0][0].data;
       expect(data).toMatchObject({ playerId: 'player-1', createdByUserId: 'admin-1' });
       expect(data.tokenHash).not.toBe(link.token);
+    });
+
+    it('refuses an invite for an adult player', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        birthDate: new Date('1990-05-01T00:00:00.000Z'),
+      });
+
+      await expect(service.createInvite('club-1', 'player-1', 'admin-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.guardianInvite.create).not.toHaveBeenCalled();
     });
 
     it('refuses a fifth guardian and a fifth pending invite', async () => {

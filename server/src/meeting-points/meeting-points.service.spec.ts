@@ -334,6 +334,13 @@ describe('MeetingPointsService', () => {
       }
     });
 
+    it('keys each recompute job without a colon, which BullMQ refuses in a custom id', async () => {
+      await service.enqueueRecompute(['event-1']);
+      const [[jobs]] = queue.addBulk.mock.calls;
+      expect(jobs[0].opts.jobId).toBe('meeting-travel-event-1');
+      expect(jobs[0].opts.jobId).not.toContain(':');
+    });
+
     it('never fails the read when the queue is unreachable', async () => {
       queue.addBulk.mockRejectedValue(new Error('redis down'));
       await expect(service.resolvePlans('team-1', [match()])).resolves.toBeInstanceOf(Map);
@@ -664,6 +671,39 @@ describe('MeetingPointsService', () => {
     it('swallows its own failures', async () => {
       prisma.event.findMany.mockRejectedValue(new Error('db down'));
       await expect(service.announceMeetingChanges(['event-1'])).resolves.toBeUndefined();
+    });
+  });
+
+  describe('a TRAINING that just became a MATCH', () => {
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    soon.setUTCHours(19, 30, 0, 0);
+
+    it('has no meeting hour to announce until its route is computed, then announces it', async () => {
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', teamPlayerId: 'tp-1' }]);
+      prisma.teamPlayer.findMany.mockResolvedValue([audienceRow('tp-1', 'user-1')]);
+
+      // Straight after the flip: no EventMeeting row, so no travel time.
+      prisma.event.findMany.mockResolvedValue([
+        { ...stored(null, { startsAt: soon }), opponentName: 'Rezé' },
+      ]);
+      await service.announceMeetingChanges(['event-1']);
+      expect(notifications.notify).not.toHaveBeenCalled();
+
+      // The queued recompute stores the route and announces from it.
+      prisma.event.findUnique.mockResolvedValue(stored(null, { startsAt: soon }));
+      geocoding.geocode.mockResolvedValue({ latitude: 1, longitude: 1 });
+      routing.drivingMinutes.mockResolvedValue(23);
+      prisma.event.findMany.mockResolvedValue([
+        {
+          ...stored(meeting({ travelMinutes: 23, travelRouteKey: clubRoute }), { startsAt: soon }),
+          opponentName: 'Rezé',
+        },
+      ]);
+      await service.recomputeTravel('event-1');
+
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({ userId: 'user-1', type: 'EVENT_MEETING_FIXED' }),
+      ]);
     });
   });
 

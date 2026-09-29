@@ -43,10 +43,11 @@ function mockSession(personas: MyPersonas) {
 }
 
 function Probe() {
-  const { forPlayerId, persona } = useActingAs();
+  const { forPlayerId, persona, isReady } = useActingAs();
   const location = useLocation();
   return (
     <>
+      <p>ready:{String(isReady)}</p>
       <p>persona:{forPlayerId ?? 'moi'}</p>
       <p>name:{persona?.firstName ?? '-'}</p>
       <p>search:{location.search}</p>
@@ -100,6 +101,27 @@ describe('ActingAsProvider', () => {
     renderProbe();
 
     expect(await screen.findByText('persona:moi')).toBeInTheDocument();
+  });
+
+  it('waits on the persona list even when « Moi » was remembered', async () => {
+    // A user who was « Moi » last time and has since become guardian-only:
+    // until the list says so, persona-scoped queries must not run as « Moi ».
+    window.localStorage.setItem('kluvo.actingAs.user-1', 'self');
+    let answer: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    mockSession({ self: null, children: [child('leo', 'Léo')] });
+    server.use(
+      http.get('/api/me/personas', async () => {
+        await answered;
+        return HttpResponse.json({ self: null, children: [child('leo', 'Léo')] });
+      }),
+    );
+    renderProbe();
+
+    expect(await screen.findByText('ready:false')).toBeInTheDocument();
+    answer();
+    expect(await screen.findByText('ready:true')).toBeInTheDocument();
+    expect(screen.getByText('persona:leo')).toBeInTheDocument();
   });
 
   it('opens a parent who is nothing else on their child', async () => {

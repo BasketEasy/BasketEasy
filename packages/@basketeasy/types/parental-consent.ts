@@ -16,7 +16,8 @@ export interface ParentalConsent {
   id: string;
   /** Null once the player it documented has been deleted — the record outlives them. */
   playerId: string | null;
-  clubId: string;
+  /** Null once the club itself has been deleted — the record outlives it too. */
+  clubId: string | null;
   /** Identity snapshot taken at consent time, kept even after playerId goes null. */
   playerFirstName: string;
   playerLastName: string;

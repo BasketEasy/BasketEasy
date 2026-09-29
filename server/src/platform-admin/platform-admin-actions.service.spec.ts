@@ -41,13 +41,13 @@ describe('PlatformAdminActionsService', () => {
     player: { findUnique: jest.Mock; updateMany: jest.Mock; count: jest.Mock };
     team: { findUnique: jest.Mock; deleteMany: jest.Mock };
     teamAdmin: { findUnique: jest.Mock; create: jest.Mock; deleteMany: jest.Mock };
-    clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
+    clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock; count: jest.Mock };
     eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock };
     club: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     guardianInvite: { deleteMany: jest.Mock };
     playerGuardian: { deleteMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; create: jest.Mock };
-    auditLog: { create: jest.Mock };
+    auditLog: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
@@ -82,7 +82,12 @@ describe('PlatformAdminActionsService', () => {
         deleteMany: jest.fn().mockImplementation(async () => order.push('delete-teams')),
       },
       teamAdmin: { findUnique: jest.fn(), create: jest.fn(), deleteMany: jest.fn() },
-      clubTeam: { findMany: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
+      clubTeam: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
       eventScoresheet: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       club: {
         create: jest.fn(),
@@ -97,6 +102,8 @@ describe('PlatformAdminActionsService', () => {
           order.push('audit');
           return { id: 'log-1' };
         }),
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
       $queryRaw: jest.fn(),
       $transaction: jest
@@ -548,10 +555,17 @@ describe('PlatformAdminActionsService', () => {
   });
 
   describe('deleteClub', () => {
+    const owned = (teamId: string, partners: { clubId: string }[] = []) => ({
+      teamId,
+      team: { clubTeams: partners },
+    });
+
     beforeEach(() => {
       prisma.club.findUnique.mockResolvedValue({ name: 'BC Nantes', ffbbClubCode: 'PDL0044001' });
-      prisma.clubTeam.findMany.mockResolvedValue([{ teamId: 'team-1' }, { teamId: 'team-2' }]);
+      prisma.clubTeam.findMany.mockResolvedValue([owned('team-1'), owned('team-2')]);
+      prisma.clubTeam.count.mockResolvedValue(1);
       prisma.player.count.mockResolvedValue(12);
+      prisma.parentalConsent.updateMany.mockResolvedValue({ count: 3 });
       prisma.eventScoresheet.findMany.mockResolvedValue([
         { storageKey: 'sheets/a.jpg' },
         { storageKey: 'sheets/b.pdf' },
@@ -564,7 +578,10 @@ describe('PlatformAdminActionsService', () => {
       expect(result).toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
       expect(prisma.clubTeam.findMany).toHaveBeenCalledWith({
         where: { clubId: 'club-1', isOwner: true },
-        select: { teamId: true },
+        select: {
+          teamId: true,
+          team: { select: { clubTeams: { where: { clubId: { not: 'club-1' } } } } },
+        },
       });
       expect(prisma.team.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['team-1', 'team-2'] } },
@@ -578,7 +595,10 @@ describe('PlatformAdminActionsService', () => {
           name: 'BC Nantes',
           ffbbClubCode: 'PDL0044001',
           ownedTeamCount: 2,
+          partnerOnTeamCount: 1,
           playerCount: 12,
+          parentalConsentsKept: 3,
+          scoresheetFileCount: 2,
         },
       });
       expect(storage.deleteObject.mock.calls.map(([key]) => key)).toEqual([
@@ -586,14 +606,58 @@ describe('PlatformAdminActionsService', () => {
         'sheets/b.pdf',
       ]);
       expect(order).toEqual(['delete-teams', 'delete-club', 'audit', 'storage', 'storage']);
+      expect(prisma.auditLog.update).not.toHaveBeenCalled();
     });
 
-    it('still succeeds when storage cleanup fails', async () => {
-      storage.deleteObject.mockRejectedValue(new Error('R2 down'));
+    it('runs with a timeout sized for a large club, not Prisma’s 5s default', async () => {
+      await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(prisma.$transaction.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      expect(prisma.$transaction.mock.calls[0][1].timeout).toBeGreaterThan(5_000);
+    });
+
+    it('refuses a club that owns a team shared with another club, and deletes nothing', async () => {
+      prisma.clubTeam.findMany.mockResolvedValue([
+        owned('team-1'),
+        owned('team-ctc', [{ clubId: 'club-2' }]),
+      ]);
+
+      await expect(
+        service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.team.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.club.delete).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('keeps the parental consents: snapshots the club name and starts their clock', async () => {
+      await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1' },
+        data: { clubName: 'BC Nantes' },
+      });
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', retentionExpiresAt: null },
+        data: { retentionExpiresAt: expect.any(Date) },
+      });
+    });
+
+    it('still succeeds when storage cleanup fails, and records the keys it left behind', async () => {
+      storage.deleteObject.mockImplementation(async (key: string) => {
+        if (key === 'sheets/b.pdf') throw new Error('R2 down');
+      });
+      prisma.auditLog.findUnique.mockResolvedValue({ metadata: { action: 'CLUB_DELETED' } });
 
       await expect(
         service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),
       ).resolves.toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+      expect(prisma.auditLog.update).toHaveBeenCalledWith({
+        where: { id: 'log-1' },
+        data: { metadata: { action: 'CLUB_DELETED', failedStorageKeys: ['sheets/b.pdf'] } },
+      });
     });
 
     it('refuses an unknown club, and deletes nothing', async () => {

@@ -29,7 +29,7 @@ describe('TeamsService', () => {
       delete: jest.Mock;
       count: jest.Mock;
     };
-    player: { findUnique: jest.Mock };
+    player: { findUnique: jest.Mock; findFirst: jest.Mock; findUniqueOrThrow: jest.Mock };
     teamPlayer: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -76,7 +76,7 @@ describe('TeamsService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
-      player: { findUnique: jest.fn() },
+      player: { findUnique: jest.fn(), findFirst: jest.fn(), findUniqueOrThrow: jest.fn() },
       teamPlayer: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -1058,6 +1058,56 @@ describe('TeamsService', () => {
   });
 
   describe('listTeamsForUser', () => {
+    it('403s a player the caller neither is nor guards', async () => {
+      prisma.player.findFirst.mockResolvedValue(null);
+
+      await expect(service.listTeamsForUser('user-1', 'stranger')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.player.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(prisma.teamAdmin.findMany).not.toHaveBeenCalled();
+    });
+
+    it('lists only the child’s roster teams, through the child’s club, with no manager grant', async () => {
+      prisma.player.findFirst.mockResolvedValue({ id: 'leo' });
+      prisma.player.findUniqueOrThrow.mockResolvedValue({
+        clubId: 'club-2',
+        teamPlayers: [
+          {
+            role: 'PLAYER',
+            team: {
+              id: 'team-2',
+              name: 'U11',
+              category: 'U11',
+              gender: 'MEN',
+              clubTeams: [
+                { club: { id: 'club-1', name: 'COC Basket' } },
+                { club: { id: 'club-2', name: 'ASBC' } },
+              ],
+            },
+          },
+        ],
+      });
+
+      const result = await service.listTeamsForUser('parent-1', 'leo');
+
+      expect(result).toEqual([
+        {
+          teamId: 'team-2',
+          teamName: 'U11',
+          category: 'U11',
+          gender: 'MEN',
+          clubId: 'club-2',
+          clubName: 'ASBC',
+          isTeamAdmin: false,
+          rosterRole: 'PLAYER',
+        },
+      ]);
+      // The parent's own grants and rosters are never read for the child.
+      expect(prisma.teamAdmin.findMany).not.toHaveBeenCalled();
+      expect(prisma.teamPlayer.findMany).not.toHaveBeenCalled();
+    });
+
     it('returns a team where the user is only a TeamAdmin', async () => {
       prisma.teamAdmin.findMany.mockResolvedValue([
         {

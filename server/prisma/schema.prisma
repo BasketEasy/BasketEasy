@@ -766,8 +766,14 @@ model ParentalConsent {
   id                 String                @id @default(uuid())
   playerId           String?
   player             Player?               @relation(fields: [playerId], references: [id], onDelete: SetNull)
-  clubId             String
-  club               Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: deleting the club must not destroy the evidence
+  // (RGPD art. 17.3.b). The back-office club deletion snapshots the club's
+  // name into clubName and starts the retention clock first.
+  clubId             String?
+  club               Club?                 @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  // Null while the club exists (read it through the relation); written once,
+  // when the club is deleted, so the record still says which club held it.
+  clubName           String?
   // Snapshot of the minor's identity at consent time, kept even once
   // playerId goes null: a proof of consent that no longer says whose consent
   // it was is worthless as evidence.

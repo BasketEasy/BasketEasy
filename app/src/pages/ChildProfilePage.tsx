@@ -90,7 +90,15 @@ export function ChildProfilePage() {
           <CardTitle>Profil</CardTitle>
         </CardHeader>
         <CardContent>
-          <ChildProfileForm key={child.playerId} child={child} />
+          {child.isMinor ? (
+            <ChildProfileForm key={child.playerId} child={child} />
+          ) : (
+            <Text variant="meta">
+              {child.birthDate
+                ? `${child.firstName} est majeur·e : son profil est géré par le club ou par ${child.firstName} depuis son propre compte.`
+                : `La date de naissance de ${child.firstName} n’est pas renseignée : seul le club peut modifier son profil.`}
+            </Text>
+          )}
         </CardContent>
       </Card>
 

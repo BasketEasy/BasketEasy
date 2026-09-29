@@ -98,6 +98,18 @@ describe('ChildProfilePage', () => {
     expect(patched).toBe(false);
   });
 
+  it('shows an adult’s profile read-only', async () => {
+    server.use(
+      http.get('/api/me/children/child-1', () =>
+        HttpResponse.json({ ...child, birthDate: '1990-05-01T00:00:00.000Z', isMinor: false }),
+      ),
+    );
+    renderPage();
+
+    expect(await screen.findByText(/Léo est majeur·e/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Enregistrer' })).not.toBeInTheDocument();
+  });
+
   it('stops following after a confirmation and returns to the account page', async () => {
     let deleted = false;
     server.use(

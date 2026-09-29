@@ -1,8 +1,10 @@
 import type { PaginationParams, SortOrder } from './pagination';
 
-export type TeamCategory = 'U9' | 'U11' | 'U13' | 'U15' | 'U18' | 'U21' | 'SENIORS';
+export const TEAM_CATEGORIES = ['U9', 'U11', 'U13', 'U15', 'U18', 'U21', 'SENIORS'] as const;
+export type TeamCategory = (typeof TEAM_CATEGORIES)[number];
 
-export type Gender = 'MEN' | 'WOMEN';
+export const GENDERS = ['MEN', 'WOMEN'] as const;
+export type Gender = (typeof GENDERS)[number];
 
 export type TeamMemberRole = 'COACH' | 'PLAYER';
 

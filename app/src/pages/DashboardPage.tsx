@@ -66,7 +66,7 @@ export function DashboardPage() {
               (`player-journey.md` §3.3). */}
           {persona ? (
             <Text variant="meta" size="md" className="mt-1">
-              {`Vous gérez ${persona.firstName} ${persona.lastName}`}
+              {`Vous suivez ${persona.firstName} ${persona.lastName}`}
             </Text>
           ) : (
             hasManageRights &&
