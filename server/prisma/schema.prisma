@@ -698,6 +698,12 @@ enum AuditEventType {
   REFRESH_TOKEN_REUSE_DETECTED
   EMAIL_VERIFIED
   GUARDIAN_INVITE_ACCEPTED
+  // A guardian link grants access to a minor's data, so issuing, cancelling
+  // and removing one are recorded beside its acceptance. `userId` is the
+  // actor; the player is `metadata.playerId`.
+  GUARDIAN_INVITE_CREATED
+  GUARDIAN_INVITE_CANCELLED
+  GUARDIAN_LINK_REMOVED
   // Back-office actions (see the companion back-office spec). Their own event
   // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
   // filter precisely on "who looked at this person's data". On one of these
