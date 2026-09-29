@@ -85,6 +85,10 @@ export const handlers = [
   // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
 
+  // Default: the team's guest RSVP link is off. TeamGuestLinkSettings
+  // (TeamDetailPage) queries it for every manager render.
+  http.get('/api/clubs/:clubId/teams/:teamId/guest-link', () => HttpResponse.json(null)),
+
   // Default: no meeting point anywhere, the default 45-minute buffer.
   // ClubMeetingPointSettings (MembersPage) and TeamMeetingPointSettings
   // (TeamDetailPage) query these for every admin/manager render.

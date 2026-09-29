@@ -11,6 +11,7 @@ function row(overrides: Partial<EventRosterRow> = {}): EventRosterRow {
     rsvpStatus: null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     convoked: false,
     ...overrides,
