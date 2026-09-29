@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from '@basketeasy/ui/toaster';
 import type { GuestEvent, GuestTeamPage } from '@basketeasy/types/guest-links';
 import { server } from '../mocks/server';
@@ -65,15 +65,21 @@ function serve(body: GuestTeamPage) {
   server.use(http.get('/api/public/guest/tok', () => HttpResponse.json(body)));
 }
 
-function renderPage() {
+function LocationProbe() {
+  const { pathname, search } = useLocation();
+  return <output data-testid="location">{`${pathname}${search}`}</output>;
+}
+
+function renderPage(route = '/r/tok') {
   return renderWithProviders(
     <>
+      <LocationProbe />
       <Routes>
         <Route path="/r/:token" element={<GuestRsvpPage />} />
       </Routes>
       <Toaster />
     </>,
-    { route: '/r/tok' },
+    { route },
   );
 }
 
@@ -184,6 +190,46 @@ describe('GuestRsvpPage', () => {
     );
     expect(body).toEqual({ teamPlayerId: 'tp-leo', status: 'GOING' });
     expect(screen.getByText('Allez plus loin avec un compte Kluvo')).toBeInTheDocument();
+  });
+
+  it('sends via WHATSAPP after a ?src=wa visit, and strips the param from the URL', async () => {
+    window.localStorage.setItem('kluvo.guest.tok', 'tp-leo');
+    serve(page([training()]));
+    let body: unknown;
+    server.use(
+      http.put('/api/public/guest/tok/events/event-train/rsvp', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(training());
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage('/r/tok?src=wa');
+
+    await user.click(await screen.findByRole('button', { name: 'Présent' }));
+
+    await waitFor(() =>
+      expect(body).toEqual({ teamPlayerId: 'tp-leo', status: 'GOING', via: 'WHATSAPP' }),
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/r\/tok$/);
+  });
+
+  it('sends no via for a plain visit', async () => {
+    window.localStorage.setItem('kluvo.guest.tok', 'tp-leo');
+    serve(page([training()]));
+    let body: Record<string, unknown> = {};
+    server.use(
+      http.put('/api/public/guest/tok/events/event-train/rsvp', async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(training());
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Présent' }));
+
+    await waitFor(() => expect(body.status).toBe('GOING'));
+    expect(body).not.toHaveProperty('via');
   });
 
   it('clears the answer when the active one is touched again', async () => {

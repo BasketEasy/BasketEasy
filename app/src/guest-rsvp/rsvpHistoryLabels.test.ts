@@ -7,6 +7,7 @@ const change = (o: Partial<EventRsvpChangeEntry>): EventRsvpChangeEntry => ({
   status: 'GOING',
   travelMode: null,
   source: 'GUEST_LINK',
+  via: null,
   respondedBy: null,
   createdAt: at,
   ...o,
@@ -15,6 +16,12 @@ const change = (o: Partial<EventRsvpChangeEntry>): EventRsvpChangeEntry => ({
 describe('rsvpChangeLine', () => {
   it('names the link as the source of a guest change', () => {
     expect(rsvpChangeLine(change({}))).toMatch(/^Présent · via lien · sam\. 14:32$/);
+  });
+
+  it('names WhatsApp when the answer came through the shared message', () => {
+    expect(rsvpChangeLine(change({ via: 'WHATSAPP' }))).toMatch(
+      /^Présent · via lien \(WhatsApp\) · sam\. 14:32$/,
+    );
   });
 
   it('names the person behind an app change', () => {

@@ -52,6 +52,7 @@ model User {
   rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
   rsvpChangesMade               EventRsvpChange[]        @relation("EventRsvpChangeRespondedBy")
   guestLinksCreated             TeamGuestLink[]          @relation("TeamGuestLinkCreatedBy")
+  eventSharesSent               EventShare[]             @relation("EventShareSentBy")
   platformAdmin                 PlatformAdmin?
   impersonationsActed           ImpersonationSession[]   @relation("ImpersonationActor")
   impersonationsSubjected       ImpersonationSession[]   @relation("ImpersonationSubject")
@@ -303,6 +304,8 @@ model Team {
   teamAdmins           TeamAdmin[]
   ffbbLinks            TeamFfbbLink[]
   guestLink            TeamGuestLink?
+  // null = DEFAULT_REMINDER_TEMPLATE (@basketeasy/types/whatsapp-reminder).
+  waReminderTemplate   String?
   // Team-level overrides of the owner club's meeting point and arrival
   // buffer; null inherits (a CTC team inherits from its owner club only).
   meetingPointName     String?
@@ -453,6 +456,7 @@ model Event {
   scoresheet          EventScoresheet?
   playerStats         MatchPlayerStat[]
   meeting             EventMeeting?
+  shares              EventShare[]
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -536,6 +540,8 @@ model EventRsvpChange {
   status            EventRsvpStatus?
   travelMode        EventTravelMode?
   source            EventRsvpSource
+  // Which shared message the answer came through; null for a plain link or the app.
+  via               EventRsvpVia?
   respondedByUserId String?
   createdAt         DateTime         @default(now())
   event             Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -1032,4 +1038,42 @@ enum ImpersonationEndReason {
   EXITED
   // The admin started another session: one live session per admin.
   REPLACED
+}
+
+enum EventRsvpVia {
+  WHATSAPP
+}
+
+// WhatsApp share of an event to the team group — see
+// docs/superpowers/specs/2026-09-29-whatsapp-reminder-design.md.
+enum EventShareType {
+  REMINDER
+}
+
+enum EventShareState {
+  SENT
+}
+
+enum EventSharePlatform {
+  SHARE_SHEET
+  WA_ME
+  COPY
+}
+
+model EventShare {
+  id             String              @id @default(uuid())
+  eventId        String
+  type           EventShareType
+  state          EventShareState
+  sentByUserId   String?
+  sentAt         DateTime?
+  platform       EventSharePlatform?
+  // contentKey() of the sent message's variables (link excluded).
+  sentContentKey String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  event          Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sentBy         User?               @relation("EventShareSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, type])
 }

@@ -261,9 +261,24 @@ describe('GuestRsvpService', () => {
           status: 'GOING',
           travelMode: 'DIRECT',
           source: 'GUEST_LINK',
+          via: null,
           respondedByUserId: null,
         },
       });
+    });
+
+    it('tags the history row with the WhatsApp attribution, and never touches EventRsvp with it', async () => {
+      await service.setRsvp('team-1', 'tok', undefined, 'event-1', {
+        teamPlayerId: 'tp-1',
+        status: 'GOING',
+        via: 'WHATSAPP',
+      });
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ via: 'WHATSAPP', source: 'GUEST_LINK' }),
+      });
+      const { create, update } = prisma.eventRsvp.upsert.mock.calls[0][0];
+      expect(create).not.toHaveProperty('via');
+      expect(update).not.toHaveProperty('via');
     });
 
     it('keeps the travel choice on a re-tapped GOING and resets it when leaving GOING', async () => {
@@ -303,6 +318,14 @@ describe('GuestRsvpService', () => {
 
       expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ status: null, travelMode: null, source: 'GUEST_LINK' }),
+      });
+    });
+
+    it('tags a cleared answer with the attribution too', async () => {
+      await service.clearRsvp('team-1', 'tok', undefined, 'event-1', 'tp-1', 'WHATSAPP');
+
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ via: 'WHATSAPP' }),
       });
     });
 

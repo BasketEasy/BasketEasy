@@ -26,12 +26,15 @@ export function GuestEventCard({
   event,
   roster,
   teamPlayerId,
+  via,
   onAnswered,
 }: {
   token: string;
   event: GuestEvent;
   roster: GuestRosterMember[];
   teamPlayerId: string;
+  /** Set when the visit came through the WhatsApp message, and sent with every write. */
+  via?: 'WHATSAPP';
   /** Fired after a successful write, so the page can offer its account nudge once. */
   onAnswered: () => void;
 }) {
@@ -53,15 +56,15 @@ export function GuestEventCard({
   const select = (next: EventRsvpStatus) => {
     setPendingValue(next);
     if (status === next) {
-      clearRsvp({ eventId: event.id, teamPlayerId }, callbacks);
+      clearRsvp({ eventId: event.id, teamPlayerId, via }, callbacks);
     } else {
-      setRsvp({ eventId: event.id, teamPlayerId, status: next }, callbacks);
+      setRsvp({ eventId: event.id, teamPlayerId, status: next, via }, callbacks);
     }
   };
 
   const selectTravel = (travelMode: EventTravelMode) => {
     if (travelMode === (mine?.travelMode ?? 'MEETING_POINT')) return;
-    setRsvp({ eventId: event.id, teamPlayerId, status: 'GOING', travelMode }, callbacks);
+    setRsvp({ eventId: event.id, teamPlayerId, status: 'GOING', travelMode, via }, callbacks);
   };
 
   return (

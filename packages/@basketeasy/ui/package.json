@@ -258,6 +258,10 @@
     "./icons/bell": {
       "types": "./src/components/icons/BellIcon.tsx",
       "default": "./src/components/icons/BellIcon.tsx"
+    },
+    "./template-editor": {
+      "types": "./src/components/TemplateEditor.tsx",
+      "default": "./src/components/TemplateEditor.tsx"
     }
   },
   "scripts": {
@@ -283,6 +287,13 @@
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-document": "^3.31.3",
+    "@tiptap/extension-paragraph": "^3.31.3",
+    "@tiptap/extension-text": "^3.31.3",
+    "@tiptap/extensions": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "recharts": "^3.10.1",

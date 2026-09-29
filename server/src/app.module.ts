@@ -18,6 +18,7 @@ import { RetentionModule } from './retention/retention.module';
 import { MeetingPointsModule } from './meeting-points/meeting-points.module';
 import { GuardiansModule } from './guardians/guardians.module';
 import { GuestLinksModule } from './guest-links/guest-links.module';
+import { WhatsAppRemindersModule } from './whatsapp-reminders/whatsapp-reminders.module';
 import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
@@ -64,6 +65,7 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     MeetingPointsModule,
     GuardiansModule,
     GuestLinksModule,
+    WhatsAppRemindersModule,
     PlatformAdminModule,
   ],
 })

@@ -111,6 +111,10 @@
     "./platform-admin-impersonation": {
       "types": "./platform-admin-impersonation.ts",
       "default": "./platform-admin-impersonation.ts"
+    },
+    "./whatsapp-reminder": {
+      "types": "./whatsapp-reminder.ts",
+      "default": "./whatsapp-reminder.ts"
     }
   },
   "scripts": {

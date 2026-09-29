@@ -61,6 +61,8 @@ export interface GuestRsvpRequest {
   status: EventRsvpStatus;
   /** Only with GOING on a MATCH. */
   travelMode?: EventTravelMode;
+  /** Set by the guest page when the visit came from a WhatsApp-shared link. */
+  via?: 'WHATSAPP';
 }
 
 export interface GuestInviteRequest {
@@ -73,6 +75,7 @@ export interface EventRsvpChangeEntry {
   status: EventRsvpStatus | null;
   travelMode: EventTravelMode | null;
   source: EventRsvpSource;
+  via: 'WHATSAPP' | null;
   /** Null for a guest-link change, or an author whose account is gone. */
   respondedBy: EventRsvpRespondent | null;
   createdAt: string;

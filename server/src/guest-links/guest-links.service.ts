@@ -91,6 +91,7 @@ export class GuestLinksService {
       status: row.status,
       travelMode: row.travelMode,
       source: row.source,
+      via: row.via,
       respondedBy: toRsvpRespondent(row.respondedBy, callerId),
       createdAt: row.createdAt.toISOString(),
     }));
