@@ -6,7 +6,11 @@ import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamEvent } from '@basketeasy/types/events';
-import type { EventTravelMode } from '@basketeasy/types/meeting-points';
+import type {
+  EventMeetingPlan,
+  EventTravelMode,
+  MeetingPoint,
+} from '@basketeasy/types/meeting-points';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { formatEventTime } from '../clubs/eventDateFormat';
 import { useEventTravelModeSet } from './useEventTravelModeSet';
@@ -53,6 +57,77 @@ function ChoiceCard({
 }
 
 /**
+ * The two ways to get to a match, as radio cards with their hours. Pure
+ * presentation: the event page saves the pick through an authenticated
+ * mutation, the guest page through the link's, and both pass the same plan.
+ */
+export function TravelModeChoice({
+  eventId,
+  plan,
+  meetingPoint,
+  location,
+  value,
+  onChange,
+  divided = true,
+}: {
+  eventId: string;
+  plan: EventMeetingPlan;
+  meetingPoint: MeetingPoint;
+  location: string;
+  value: EventTravelMode;
+  onChange: (travelMode: EventTravelMode) => void;
+  /** A rule above the question — for the decision band, where it follows the RSVP answer. */
+  divided?: boolean;
+}) {
+  const meetsAt = plan.meetsAt ? formatEventTime(plan.meetsAt) : null;
+  return (
+    <div className={cn('flex flex-col gap-2.5', divided && 'mt-1')}>
+      {divided && <Divider tone="brand" className="mb-1" />}
+      <Text variant="label" size="sm" id={`travel-mode-${eventId}`}>
+        Comment venez-vous&nbsp;?
+      </Text>
+      <RadioCardGroup<EventTravelMode>
+        aria-labelledby={`travel-mode-${eventId}`}
+        tone="choice"
+        indicator
+        className="gap-2"
+        value={value}
+        onChange={onChange}
+        options={[
+          {
+            value: 'MEETING_POINT',
+            render: ({ selected }) => (
+              <ChoiceCard
+                title="Avec le groupe, au RDV"
+                detail={meetsAt ? `${meetsAt} · ${meetingPoint.name}` : meetingPoint.name}
+                time={meetsAt}
+                selected={selected}
+              />
+            ),
+          },
+          {
+            value: 'DIRECT',
+            render: ({ selected }) => (
+              <ChoiceCard
+                title="Directement à la salle"
+                detail={location}
+                time={formatEventTime(plan.arrivalAt)}
+                selected={selected}
+              />
+            ),
+          },
+        ]}
+      />
+      <Text variant="meta" size="xs">
+        {meetsAt
+          ? 'Sans réponse de votre part, vous comptez avec le groupe au RDV.'
+          : 'Le coach n’a pas encore confirmé l’heure du RDV. Vous serez prévenu·e dès qu’elle est fixée.'}
+      </Text>
+    </div>
+  );
+}
+
+/**
  * « Comment venez-vous ? » — for a player who answered « Présent » to a match
  * with a meeting point. Inline radio cards rather than a dialog: a
  * single-field, low-risk, high-frequency answer, like the RSVP control above
@@ -90,8 +165,6 @@ export function EventTravelModeControl({
     );
   }
 
-  const meetingPoint = plan.meetingPoint;
-  const meetsAt = plan.meetsAt ? formatEventTime(plan.meetsAt) : null;
   const select = (travelMode: EventTravelMode) => {
     if (travelMode === (pending ?? event.myTravelMode)) return;
     setPending(travelMode);
@@ -105,48 +178,14 @@ export function EventTravelModeControl({
   };
 
   return (
-    <div className={cn('flex flex-col gap-2.5', divided && 'mt-1')}>
-      {divided && <Divider tone="brand" className="mb-1" />}
-      <Text variant="label" size="sm" id={`travel-mode-${event.id}`}>
-        Comment venez-vous&nbsp;?
-      </Text>
-      <RadioCardGroup<EventTravelMode>
-        aria-labelledby={`travel-mode-${event.id}`}
-        tone="choice"
-        indicator
-        className="gap-2"
-        value={pending ?? event.myTravelMode}
-        onChange={select}
-        options={[
-          {
-            value: 'MEETING_POINT',
-            render: ({ selected }) => (
-              <ChoiceCard
-                title="Avec le groupe, au RDV"
-                detail={meetsAt ? `${meetsAt} · ${meetingPoint.name}` : meetingPoint.name}
-                time={meetsAt}
-                selected={selected}
-              />
-            ),
-          },
-          {
-            value: 'DIRECT',
-            render: ({ selected }) => (
-              <ChoiceCard
-                title="Directement à la salle"
-                detail={event.location}
-                time={formatEventTime(plan.arrivalAt)}
-                selected={selected}
-              />
-            ),
-          },
-        ]}
-      />
-      <Text variant="meta" size="xs">
-        {meetsAt
-          ? 'Sans réponse de votre part, vous comptez avec le groupe au RDV.'
-          : 'Le coach n’a pas encore confirmé l’heure du RDV. Vous serez prévenu·e dès qu’elle est fixée.'}
-      </Text>
-    </div>
+    <TravelModeChoice
+      eventId={event.id}
+      plan={plan}
+      meetingPoint={plan.meetingPoint}
+      location={event.location}
+      value={pending ?? event.myTravelMode}
+      onChange={select}
+      divided={divided}
+    />
   );
 }

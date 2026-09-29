@@ -17,6 +17,7 @@ describe('GuestRsvpService', () => {
     teamId: 'team-1',
     type: 'MATCH',
     startsAt: new Date(Date.now() + 2 * DAY),
+    timeConfirmed: true,
     location: 'Salle A',
     opponentName: 'Rezé',
     venue: 'HOME',

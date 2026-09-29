@@ -1,48 +1,14 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { cn } from '@basketeasy/ui/cn';
 import { Text } from '@basketeasy/ui/text';
-import { focusRing } from '@basketeasy/ui/focus-ring';
-import { Spinner } from '@basketeasy/ui/icons/spinner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@basketeasy/ui/tooltip';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { EventRsvpRespondent, EventRsvpStatus } from '@basketeasy/types/events';
-import { EVENT_RSVP_STATUS_OPTIONS } from './eventRsvpLabels';
+import { RsvpAnswerButtons } from './RsvpAnswerButtons';
 import { useEventRsvpSet } from './useEventRsvpSet';
 import { useEventRsvpClear } from './useEventRsvpClear';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { useTeamActingAs } from '../guardians/useActingAs';
 import { respondedByLine } from '../guardians/respondentLabel';
-
-const ACTIVE_CLASSES: Record<EventRsvpStatus, string> = {
-  GOING: 'border-success bg-success text-cream',
-  MAYBE: 'border-gold-text bg-gold-text text-cream',
-  NOT_GOING: 'border-error bg-error text-cream',
-};
-
-const ICONS: Record<EventRsvpStatus, ReactNode> = {
-  GOING: (
-    <path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-  ),
-  MAYBE: (
-    <>
-      <circle cx="12" cy="12" r="8.5" strokeWidth={1.6} />
-      <path
-        d="M9.6 9.6a2.4 2.4 0 1 1 3.5 2.1c-.8.4-1.1.9-1.1 1.8"
-        strokeWidth={1.6}
-        strokeLinecap="round"
-      />
-      <circle cx="12" cy="16.6" r="0.35" fill="currentColor" stroke="none" />
-    </>
-  ),
-  NOT_GOING: (
-    <path
-      d="M6.5 6.5l11 11M17.5 6.5l-11 11"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  ),
-};
 
 // 409 isn't a realistic outcome of an upsert/delete RSVP write, but the
 // shared default 409 message is worded for club-membership forms — pass a
@@ -142,86 +108,26 @@ export function EventRsvpControl({
   };
 
   return (
-    <TooltipProvider>
-      <div className={cn('flex flex-col gap-1.5', className)}>
-        {/* Below md the three answers always split the row into equal
-            thirds, labelled with the short word only ("Oui", "Peut-être",
-            "Non") — icon-only there left touch users with no reliable way to
-            learn what a button means, since a hover tooltip never fires on
-            tap, and an icon beside the word is what used to push "Non" onto
-            a second row. From md up the full label and its icon take over;
-            the tooltip is a bonus for mouse/keyboard users. */}
-        <div
-          role="group"
-          aria-label="Ma réponse"
-          className={cn('flex w-full max-w-full gap-1.5', !fullWidth && 'md:w-fit')}
-        >
-          {EVENT_RSVP_STATUS_OPTIONS.map((option) => {
-            const active = event.myRsvpStatus === option.value;
-            const isThisPending = pendingValue === option.value;
-            return (
-              <Tooltip key={option.value}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-pressed={active}
-                    aria-label={option.label}
-                    aria-describedby={hasResponded ? hintId : undefined}
-                    disabled={isPending}
-                    onClick={() => select(option.value)}
-                    className={cn(
-                      'flex min-h-11 grow items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-sm font-bold transition-colors md:px-3.5',
-                      'disabled:pointer-events-none disabled:opacity-50',
-                      focusRing,
-                      // basis-0 so grow splits the row into three equal
-                      // thirds rather than growing each button from its own
-                      // label width ("Peut-être" is twice "Oui").
-                      fullWidth ? 'basis-0' : 'basis-0 md:basis-auto',
-                      compactOnDesktop && 'lg:w-11 lg:px-0',
-                      active
-                        ? cn(ACTIVE_CLASSES[option.value], 'shadow-segment-active')
-                        : 'border-border-strong bg-surface-2 text-charcoal hover:bg-sunk',
-                    )}
-                  >
-                    {isThisPending ? (
-                      <Spinner className="h-4 w-4 shrink-0 animate-spin" />
-                    ) : (
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        className="hidden h-4 w-4 shrink-0 md:block"
-                      >
-                        {ICONS[option.value]}
-                      </svg>
-                    )}
-                    <span className="md:hidden">{option.shortLabel}</span>
-                    <span className={cn('hidden md:inline', compactOnDesktop && 'lg:hidden')}>
-                      {option.label}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>{option.label}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
-        {showRespondent && respondent && (
-          <Text variant="meta" size="xs" className={cn(compactOnDesktop && 'lg:hidden')}>
-            {respondedByLine(respondent, event.myRsvpRespondedAt ?? null)}
-          </Text>
-        )}
-        {hasResponded && (
-          <Text
-            id={hintId}
-            variant="meta"
-            size="xs"
-            className={cn(compactOnDesktop && 'lg:hidden')}
-          >
-            Touchez à nouveau votre réponse pour l&apos;annuler.
-          </Text>
-        )}
-      </div>
-    </TooltipProvider>
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      <RsvpAnswerButtons
+        value={event.myRsvpStatus}
+        onSelect={select}
+        pendingValue={pendingValue}
+        disabled={isPending}
+        describedBy={hasResponded ? hintId : undefined}
+        fullWidth={fullWidth}
+        compactOnDesktop={compactOnDesktop}
+      />
+      {showRespondent && respondent && (
+        <Text variant="meta" size="xs" className={cn(compactOnDesktop && 'lg:hidden')}>
+          {respondedByLine(respondent, event.myRsvpRespondedAt ?? null)}
+        </Text>
+      )}
+      {hasResponded && (
+        <Text id={hintId} variant="meta" size="xs" className={cn(compactOnDesktop && 'lg:hidden')}>
+          Touchez à nouveau votre réponse pour l&apos;annuler.
+        </Text>
+      )}
+    </div>
   );
 }

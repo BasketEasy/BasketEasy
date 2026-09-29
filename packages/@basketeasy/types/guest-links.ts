@@ -37,6 +37,8 @@ export interface GuestEvent {
   id: string;
   type: EventType;
   startsAt: string;
+  /** False for an FFBB-imported match whose kick-off hour isn't known yet. */
+  timeConfirmed: boolean;
   location: string;
   opponentName: string | null;
   venue: EventVenue | null;
