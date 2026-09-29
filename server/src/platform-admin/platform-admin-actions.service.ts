@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,6 +28,24 @@ import {
 } from '../clubs/club-writes';
 import { auditContextOf } from './audit-context';
 import type { PlatformActor } from './platform-admin-browse.service';
+
+/**
+ * Staff never act on their own account from here: marking your own address
+ * verified would bypass EmailVerifiedGuard, and granting yourself a club or
+ * team role would make a support tool a way into a club's data.
+ */
+function assertNotSelf(actor: PlatformActor, userId: string): void {
+  if (userId === actor.id) {
+    throw new ForbiddenException('Impossible sur votre propre compte');
+  }
+}
+
+function throttled(): HttpException {
+  return new HttpException(
+    'Un e-mail a déjà été envoyé à ce compte il y a moins d’une minute. Réessayez dans un instant.',
+    HttpStatus.TOO_MANY_REQUESTS,
+  );
+}
 
 /** Who and what an action row is about, beside `action` and `reason`. */
 interface ActionSubjects {
@@ -74,15 +94,21 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
     if (user.emailVerifiedAt) {
       throw new ConflictException('Cette adresse est déjà vérifiée');
     }
+    // Throttled like the product's own resend (one a minute). Checked before
+    // the row is written, so an audit entry never claims an e-mail the
+    // throttle then swallowed.
+    if (await this.accountSecurity.isVerificationThrottled(userId)) {
+      throw throttled();
+    }
     const result = await this.prisma.$transaction((tx) =>
       this.record(tx, actor, request, 'RESEND_VERIFICATION', reason, { subjectUserId: userId }),
     );
-    // After the commit: an e-mail can't be rolled back. Throttled like the
-    // product's own resend (one a minute).
+    // After the commit: an e-mail can't be rolled back.
     await this.accountSecurity.sendVerificationEmail(userId);
     return result;
   }
@@ -93,6 +119,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
     if (user.emailVerifiedAt) {
       throw new ConflictException('Cette adresse est déjà vérifiée');
@@ -112,11 +139,17 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
+    if (await this.accountSecurity.isPasswordResetThrottled(userId)) {
+      throw throttled();
+    }
     const result = await this.prisma.$transaction((tx) =>
       this.record(tx, actor, request, 'SEND_PASSWORD_RESET', reason, { subjectUserId: userId }),
     );
-    await this.accountSecurity.requestPasswordReset(user.email, auditContextOf(request));
+    // Staff-origin: the reset's own audit row must not carry the staff
+    // member's IP under the subject's userId (see requestPasswordReset).
+    await this.accountSecurity.requestPasswordReset(user.email, undefined, { byStaff: true });
     return result;
   }
 
@@ -126,10 +159,9 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
-    if (userId === actor.id) {
-      // Revoking your own sessions would end the step-up session mid-request.
-      throw new ForbiddenException('Impossible sur votre propre compte');
-    }
+    // Also: revoking your own sessions would end the step-up session
+    // mid-request.
+    assertNotSelf(actor, userId);
     await this.findUser(userId);
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
@@ -154,6 +186,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const membership = await this.findMembership(tx, clubId, userId);
       if (membership.role === role) {
@@ -182,6 +215,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const membership = await this.findMembership(tx, clubId, userId);
       if (membership.role === 'ADMIN') {
@@ -209,6 +243,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     await this.findTeam(teamId);
     const eligible = await this.prisma.clubMembership.findFirst({
       where: { userId, club: { clubTeams: { some: { teamId } } } },
@@ -240,6 +275,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.teamAdmin.deleteMany({ where: { teamId, userId } });
       if (count === 0) {
@@ -312,14 +348,18 @@ export class PlatformAdminActionsService {
     if (inFlight && sheet.uploadedAt.getTime() > Date.now() - ADMIN_OCR_STUCK_AFTER_MS) {
       throw new ConflictException('Une lecture est déjà en cours pour cette feuille');
     }
-    const result = await this.prisma.$transaction((tx) =>
-      this.record(tx, actor, request, 'RETRY_OCR', reason, {
+    // The enqueue runs inside the transaction, last: if the queue is
+    // unreachable the audit row rolls back with it instead of recording a
+    // retry that never happened. A stuck sheet's leftover job is replaced,
+    // since BullMQ would otherwise ignore the new one.
+    return this.prisma.$transaction(async (tx) => {
+      const result = await this.record(tx, actor, request, 'RETRY_OCR', reason, {
         eventId: sheet.eventId,
         before: { status: sheet.status },
-      }),
-    );
-    await this.scoresheets.enqueueOcr(sheet.id);
-    return result;
+      });
+      await this.scoresheets.enqueueOcr(sheet.id, { replaceStale: inFlight });
+      return result;
+    });
   }
 
   // ----------------------------------------------------- guardians/consent
@@ -434,6 +474,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminCreateClubResult> {
+    assertNotSelf(actor, data.firstAdminUserId);
     await this.findUser(data.firstAdminUserId);
     return this.prisma.$transaction(async (tx) => {
       const club = await createClubWithAdmin(tx, data.firstAdminUserId, data);

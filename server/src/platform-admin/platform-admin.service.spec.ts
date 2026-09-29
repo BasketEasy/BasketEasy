@@ -500,6 +500,15 @@ describe('PlatformAdminService', () => {
           ipAddress: '198.51.100.2',
           createdAt: new Date('2026-09-01T08:00:00.000Z'),
         },
+        {
+          // A reset link staff sent: the subject's userId, not their act.
+          type: 'PASSWORD_RESET_REQUESTED',
+          userId: SUBJECT,
+          actorEmail: 'jean@example.org',
+          ipAddress: null,
+          metadata: { requestedByStaff: true },
+          createdAt: new Date('2026-09-02T08:00:00.000Z'),
+        },
       ]);
 
       const result = await service.exportUser(
@@ -521,6 +530,12 @@ describe('PlatformAdminService', () => {
           type: 'ADMIN_PII_VIEWED',
           createdAt: '2026-09-01T08:00:00.000Z',
           // The subject learns their data was accessed, not by whom.
+          ipAddress: null,
+          actedByThisPerson: false,
+        },
+        {
+          type: 'PASSWORD_RESET_REQUESTED',
+          createdAt: '2026-09-02T08:00:00.000Z',
           ipAddress: null,
           actedByThisPerson: false,
         },

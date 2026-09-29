@@ -602,7 +602,10 @@ export class PlatformAdminService {
           : [],
       ),
       securityLog: auditEntries.map((entry) => {
-        const actedByThisPerson = entry.userId === subjectUserId;
+        // A reset link staff sent carries the subject's userId but was not
+        // something the subject did.
+        const byStaff = asMetadata(entry.metadata)?.requestedByStaff === true;
+        const actedByThisPerson = entry.userId === subjectUserId && !byStaff;
         return {
           type: entry.type,
           createdAt: entry.createdAt.toISOString(),
