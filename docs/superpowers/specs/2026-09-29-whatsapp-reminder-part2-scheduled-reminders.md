@@ -2,6 +2,7 @@
 
 Status: spec (implements Part 2 of [`2026-09-29-whatsapp-reminder-design.md`](./2026-09-29-whatsapp-reminder-design.md), on top of [Part 1](./2026-09-29-whatsapp-reminder-part1-manual-share.md))
 Date: 2026-09-29
+Design: [Claude Design canvas](https://claude.ai/artifact/NAv8Bx7keKLph7XUBEsXHK), row « Partie 2 ».
 
 The app now tells the team's managers when it is time to share: X before each event (team default,
 per-event override), once more an hour later if nobody has, and the share status becomes a real state
