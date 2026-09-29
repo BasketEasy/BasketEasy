@@ -9,6 +9,7 @@ import type {
 } from '@basketeasy/types/guardians';
 import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 // How far ahead « à répondre » looks: two weeks covers the next match and the
@@ -31,7 +32,10 @@ const teamPlayerWithTeam = {
  */
 @Injectable()
 export class MyGuardiansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /**
    * Every persona the caller can act as, with its unanswered count. Bounded
@@ -228,6 +232,11 @@ export class MyGuardiansService {
     if (count === 0) {
       throw new NotFoundException('Joueur introuvable');
     }
+    this.audit.record({
+      type: 'GUARDIAN_LINK_REMOVED',
+      userId,
+      metadata: { playerId, guardianUserId: userId, removedBy: 'GUARDIAN' },
+    });
   }
 
   async listMyGuardians(userId: string, playerId: string): Promise<MyPlayerGuardians> {
@@ -266,6 +275,11 @@ export class MyGuardiansService {
     if (count === 0) {
       throw new NotFoundException('Ce parent n’est pas lié à votre profil');
     }
+    this.audit.record({
+      type: 'GUARDIAN_LINK_REMOVED',
+      userId,
+      metadata: { playerId, guardianUserId, removedBy: 'PLAYER' },
+    });
   }
 
   private async assertGuardian(userId: string, playerId: string): Promise<void> {
