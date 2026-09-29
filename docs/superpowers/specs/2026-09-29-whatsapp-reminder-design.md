@@ -157,6 +157,13 @@ Each part is its own PR and gated as in the source doc.
 3. **Part 3, updates and cancellations:** UPDATE/CANCELLATION states, edit/cancel hooks in `EventsService`, series
    handling, the two templates' UI.
 
+Step-by-step specs, each correcting this doc where the code disagrees (cancellation is a delete, the FFBB
+import is a second write path, the offset is capped at the guest page's 14 days):
+
+- [Part 1, manual share](./2026-09-29-whatsapp-reminder-part1-manual-share.md)
+- [Part 2, scheduled reminders](./2026-09-29-whatsapp-reminder-part2-scheduled-reminders.md)
+- [Part 3, updates and cancellations](./2026-09-29-whatsapp-reminder-part3-updates-cancellations.md)
+
 Beta with a handful of teams with many non-app members before general release. Metric targets stay TBD until
 Part 1 has real data.
 
