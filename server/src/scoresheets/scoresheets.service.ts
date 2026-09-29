@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -180,6 +181,8 @@ function suggestTeamPlayerId(sheetName: string | null, roster: RosterEntry[]): s
 
 @Injectable()
 export class ScoresheetsService {
+  private readonly logger = new Logger(ScoresheetsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(SCORESHEET_OCR_QUEUE) private readonly ocrQueue: Queue<ScoresheetOcrJobData>,
@@ -202,7 +205,25 @@ export class ScoresheetsService {
   // failed job under its id indefinitely by default) — removeOnComplete/
   // removeOnFail free the id back up once the job is actually done, so
   // dedup only ever applies to a genuinely in-flight job.
-  async enqueueOcr(eventScoresheetId: string): Promise<void> {
+  /**
+   * `replaceStale`: the back-office retry of a sheet stuck in QUEUED or
+   * PROCESSING. BullMQ ignores `add` for a job id that still exists, so the
+   * leftover job is removed first — otherwise the status would read QUEUED
+   * with nothing new queued. A job a worker still holds can't be removed;
+   * that one is left to BullMQ's stalled-job recovery.
+   */
+  async enqueueOcr(
+    eventScoresheetId: string,
+    { replaceStale = false }: { replaceStale?: boolean } = {},
+  ): Promise<void> {
+    if (replaceStale) {
+      const existing = await this.ocrQueue.getJob(eventScoresheetId);
+      if (existing) {
+        await existing.remove().catch((err: unknown) => {
+          this.logger.warn(`Could not replace OCR job ${eventScoresheetId}: ${String(err)}`);
+        });
+      }
+    }
     await this.ocrQueue.add(
       'extract',
       { eventScoresheetId },

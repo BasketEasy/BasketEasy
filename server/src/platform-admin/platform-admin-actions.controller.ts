@@ -55,6 +55,7 @@ export class PlatformAdminActionsController {
   }
 
   @Post('users/:userId/mark-verified')
+  @PlatformRoles('DATA_OFFICER')
   @HttpCode(HttpStatus.OK)
   markVerified(
     @CurrentUser() user: RequestUser,
@@ -182,6 +183,7 @@ export class PlatformAdminActionsController {
   }
 
   @Post('teams/:teamId/owner')
+  @PlatformRoles('DATA_OFFICER')
   @HttpCode(HttpStatus.OK)
   transferOwnership(
     @CurrentUser() user: RequestUser,

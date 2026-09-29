@@ -326,11 +326,11 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   the CLI revokes the grant first.
 - **Support actions are named routes, never a field editor.** `PlatformAdminActionsController`
   (`POST /admin/users/:id/revoke-sessions`, `…/clubs/:id/members/:userId/role`, `…/scoresheets/:id/retry`,
-  thirteen in all) is open to both roles (club deletion aside: `DATA_OFFICER` only), and every route takes a 10–500 character reason
+  fifteen in all) is open to both roles except club deletion, marking an address verified and transferring team ownership (`DATA_OFFICER` only), never targets the acting staff member's own account (403), and every route takes a 10–500 character reason
   (`ReasonDto`). `PlatformAdminActionsService` writes the change and exactly one
   `ADMIN_SUPPORT_ACTION` audit row (`metadata.action`, `reason`, the subject ids, `before`/`after`)
   in the **same transaction**, so a refused or failed action leaves no row; side effects that can't
-  roll back (an e-mail, an OCR enqueue) run after the commit. Domain rules are reused, not
+  roll back (an e-mail) run after the commit, after a throttle pre-check that answers 429 instead of writing a row for an e-mail that would be swallowed; the OCR retry enqueues inside the transaction, so a dead queue rolls its row back. A staff-sent reset link records the subject's `PASSWORD_RESET_REQUESTED` without the staff IP (`metadata.requestedByStaff`), and the RGPD export does not count it as the subject's own act. Domain rules are reused, not
   re-implemented: `server/src/clubs/club-writes.ts` holds the membership removal and consent write
   `ClubsService` also calls, and the last club `ADMIN` is protected under `SELECT … FOR UPDATE`
   (409). A consent staff record is `ParentalConsentSource.PLATFORM_STAFF`, never passed off as the

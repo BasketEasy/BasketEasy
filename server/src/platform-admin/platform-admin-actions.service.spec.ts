@@ -51,7 +51,12 @@ describe('PlatformAdminActionsService', () => {
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
-  let accountSecurity: { sendVerificationEmail: jest.Mock; requestPasswordReset: jest.Mock };
+  let accountSecurity: {
+    sendVerificationEmail: jest.Mock;
+    requestPasswordReset: jest.Mock;
+    isVerificationThrottled: jest.Mock;
+    isPasswordResetThrottled: jest.Mock;
+  };
   let scoresheets: { enqueueOcr: jest.Mock };
   let storage: { deleteObject: jest.Mock };
 
@@ -108,6 +113,8 @@ describe('PlatformAdminActionsService', () => {
     accountSecurity = {
       sendVerificationEmail: jest.fn().mockImplementation(async () => order.push('email')),
       requestPasswordReset: jest.fn().mockImplementation(async () => order.push('email')),
+      isVerificationThrottled: jest.fn().mockResolvedValue(false),
+      isPasswordResetThrottled: jest.fn().mockResolvedValue(false),
     };
     scoresheets = { enqueueOcr: jest.fn().mockImplementation(async () => order.push('enqueue')) };
     storage = { deleteObject: jest.fn().mockImplementation(async () => order.push('storage')) };
@@ -194,10 +201,61 @@ describe('PlatformAdminActionsService', () => {
 
       await service.sendPasswordReset(actor, 'user-9', 'Mot de passe oublié', request);
 
-      expect(accountSecurity.requestPasswordReset).toHaveBeenCalledWith(
-        'a@b.fr',
-        expect.anything(),
-      );
+      // Staff-origin: no request context, so the subject's own reset row
+      // never carries the staff member's IP.
+      expect(accountSecurity.requestPasswordReset).toHaveBeenCalledWith('a@b.fr', undefined, {
+        byStaff: true,
+      });
+    });
+
+    it('refuses a throttled e-mail before writing a row that would claim it was sent', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'a@b.fr',
+        emailVerifiedAt: null,
+      });
+      accountSecurity.isVerificationThrottled.mockResolvedValue(true);
+      accountSecurity.isPasswordResetThrottled.mockResolvedValue(true);
+
+      for (const run of [
+        () => service.resendVerification(actor, 'user-9', 'Relance demandée', request),
+        () => service.sendPasswordReset(actor, 'user-9', 'Mot de passe oublié', request),
+      ]) {
+        await expect(run()).rejects.toMatchObject({ status: 429 });
+      }
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(accountSecurity.sendVerificationEmail).not.toHaveBeenCalled();
+      expect(accountSecurity.requestPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('never lets staff act on their own account', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        email: 'support@kluvo.net',
+        emailVerifiedAt: null,
+      });
+      const self = 'admin-1';
+      const attempts = [
+        () => service.markEmailVerified(actor, self, 'Vérifié par téléphone', request),
+        () => service.resendVerification(actor, self, 'Relance demandée', request),
+        () => service.sendPasswordReset(actor, self, 'Mot de passe oublié', request),
+        () => service.changeClubRole(actor, 'club-1', self, 'ADMIN', 'Promotion demandée', request),
+        () => service.removeMembership(actor, 'club-1', self, 'Départ du club', request),
+        () => service.addTeamAdmin(actor, 'team-1', self, 'Coach remplaçant', request),
+        () => service.removeTeamAdmin(actor, 'team-1', self, 'Coach remplaçant', request),
+        () =>
+          service.createClub(
+            actor,
+            { name: 'BC Test', firstAdminUserId: self },
+            'Nouveau club créé',
+            request,
+          ),
+      ];
+      for (const attempt of attempts) {
+        await expect(attempt()).rejects.toBeInstanceOf(ForbiddenException);
+      }
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('refuses to revoke the acting admin’s own sessions', async () => {
@@ -406,6 +464,26 @@ describe('PlatformAdminActionsService', () => {
       });
       await service.retryOcr(actor, 'sheet-1', 'Club bloqué', request);
       expect(order).toEqual(['audit', 'enqueue']);
+      // A stuck sheet's leftover job is replaced, or BullMQ ignores the add.
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: true });
+    });
+
+    it('rolls the audit row back when the queue is unreachable', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        id: 'sheet-1',
+        eventId: 'event-1',
+        status: 'FAILED',
+        uploadedAt: new Date(),
+      });
+      scoresheets.enqueueOcr.mockRejectedValue(new Error('redis down'));
+
+      await expect(service.retryOcr(actor, 'sheet-1', 'Club bloqué', request)).rejects.toThrow(
+        'redis down',
+      );
+      // Enqueued inside the transaction callback, so the row's write fails
+      // with it rather than committing on its own.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: false });
     });
   });
 
