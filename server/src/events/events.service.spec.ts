@@ -38,7 +38,11 @@ describe('EventsService', () => {
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
   let notifications: { notify: jest.Mock };
-  let meetingPoints: { resolvePlans: jest.Mock; announceMeetingChanges: jest.Mock };
+  let meetingPoints: {
+    resolvePlans: jest.Mock;
+    announceMeetingChanges: jest.Mock;
+    enqueueRecompute: jest.Mock;
+  };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     team: { findUnique: jest.Mock };
@@ -162,6 +166,7 @@ describe('EventsService', () => {
     meetingPoints = {
       resolvePlans: jest.fn().mockResolvedValue(new Map()),
       announceMeetingChanges: jest.fn().mockResolvedValue(undefined),
+      enqueueRecompute: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -1042,7 +1047,7 @@ describe('EventsService', () => {
       expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     });
 
-    it('announces the first meeting plan when a TRAINING becomes a MATCH', async () => {
+    it('queues the first travel recompute when a TRAINING becomes a MATCH', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       const row = {
         id: 'event-1',
@@ -1072,7 +1077,10 @@ describe('EventsService', () => {
         'user-1',
       );
 
-      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+      // Nothing to announce yet: no travel time, so no meeting hour. The
+      // recompute job announces once the route is known.
+      expect(meetingPoints.enqueueRecompute).toHaveBeenCalledWith(['event-1']);
+      expect(meetingPoints.announceMeetingChanges).not.toHaveBeenCalled();
     });
 
     it('does not announce an edit that neither moves the kick-off nor changes the type', async () => {

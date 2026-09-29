@@ -335,11 +335,15 @@ export class EventsService {
       ...meetingCleanup,
     ]);
     const updated = results.slice(0, ids.length) as EventRow[];
-    // A new kick-off moves the meeting time with it, and a TRAINING that
-    // becomes a MATCH gets its first meeting plan: both announce now rather
-    // than waiting on a travel recompute that may never be queued.
+    // A TRAINING that becomes a MATCH has no EventMeeting row yet, so no
+    // travel time and no known meeting hour: announcing now would be a no-op.
+    // Queue the route instead; the recompute job announces once the hour is
+    // known (« RDV fixé »). A new kick-off on an existing match moves an
+    // already-known meeting time with it, which announces straight away.
     const becomesMatch = resultingType === EventType.MATCH && event.type === EventType.TRAINING;
-    if ((data.startsAt !== undefined && !becomesTraining) || becomesMatch) {
+    if (becomesMatch) {
+      await this.meetingPoints.enqueueRecompute(ids);
+    } else if (data.startsAt !== undefined && !becomesTraining) {
       await this.meetingPoints.announceMeetingChanges(ids);
     }
     return this.buildTeamEventsForUser(teamId, userId, updated);
