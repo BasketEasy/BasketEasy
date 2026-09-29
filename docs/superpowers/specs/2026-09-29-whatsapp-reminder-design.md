@@ -64,7 +64,7 @@ Add `NotificationType.WHATSAPP_SHARE_REQUESTED` and `AuditEventType` is **not** 
 
 ## Shared types: `@basketeasy/types/whatsapp-reminder`
 
-`WhatsAppTemplateVariable` (`event_name event_date event_time location team_name link`), `renderTemplate`,
+`WhatsAppTemplateVariable` (`event_name opponent event_date meeting_time meeting_place event_time location team_name link`, shown to admins by French label, never as `{…}`; a line whose variable is empty for this event is dropped, so one template serves matches and trainings; see Part 1), `renderTemplate`,
 `validateTemplate` (must contain `{link}`, max 1000 chars, unknown `{vars}` refused), the three default templates,
 `EventShareStatus`, `TeamWhatsAppSettings`, `EventWhatsAppSettings`. Shared so the live preview and the server
 render identically. New file plus its `exports` entry, no barrel.
@@ -123,7 +123,8 @@ direction as meeting-points):
   `Dialog`-free inline "Vous l'avez envoyé ? Oui / Non" row → `confirm` mutation → `toast()`. "Non" leaves it
   `PENDING`. Query branches per convention.
 - `WhatsAppSettingsCard` on the team settings tab: toggle, `DurationField` for X, three template editors
-  (react-hook-form + zod using the shared `validateTemplate`), live preview from a sample event, per-template
+  (Tiptap behind `@basketeasy/ui/template-editor`, variables as labelled chips, lazy-loaded;
+  react-hook-form + zod using the shared `validateTemplate`), live preview from a sample event, per-template
   "Rétablir le texte par défaut".
 - Event create/edit dialogs: a "Rappel WhatsApp" toggle (inherit / on / off, `SelectField`) and offset field, shown only
   when the team has a guest link; both go through the existing `useForm`.
@@ -156,6 +157,16 @@ Each part is its own PR and gated as in the source doc.
    inside the window, `WHATSAPP_SHARE_REQUESTED` notification, deep link.
 3. **Part 3, updates and cancellations:** UPDATE/CANCELLATION states, edit/cancel hooks in `EventsService`, series
    handling, the two templates' UI.
+
+Screens for all three parts: [Claude Design canvas](https://claude.ai/artifact/NAv8Bx7keKLph7XUBEsXHK). The
+message is casual (« tu ») and carries the RDV as well as the start time.
+
+Step-by-step specs, each correcting this doc where the code disagrees (cancellation is a delete, the FFBB
+import is a second write path, the offset is capped at the guest page's 14 days):
+
+- [Part 1, manual share](./2026-09-29-whatsapp-reminder-part1-manual-share.md)
+- [Part 2, scheduled reminders](./2026-09-29-whatsapp-reminder-part2-scheduled-reminders.md)
+- [Part 3, updates and cancellations](./2026-09-29-whatsapp-reminder-part3-updates-cancellations.md)
 
 Beta with a handful of teams with many non-app members before general release. Metric targets stay TBD until
 Part 1 has real data.
