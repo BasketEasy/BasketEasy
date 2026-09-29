@@ -13,23 +13,22 @@ import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
 const UNSPECIFIED_GENDER = 'unspecified';
 
-// A minor's birth date can be corrected but not cleared or moved past 18 —
-// the API refuses both (only the club can), so the form says so first.
-function childSchema(isMinor: boolean) {
-  return z
-    .object({
-      firstName: z.string().trim().min(1, 'Prénom requis'),
-      lastName: z.string().trim().min(1, 'Nom requis'),
-      birthDate: z.string(),
-      gender: z.string(),
-    })
-    .refine((values) => !isMinor || isMinorBirthDate(values.birthDate), {
-      message: 'Pour un joueur mineur, seul le club peut retirer cette date ou le déclarer majeur.',
-      path: ['birthDate'],
-    });
-}
+// Only a minor's profile is editable by a parent. Their birth date can be
+// corrected but not cleared or moved past 18 — the API refuses both (only the
+// club can), so the form says so first.
+const childSchema = z
+  .object({
+    firstName: z.string().trim().min(1, 'Prénom requis'),
+    lastName: z.string().trim().min(1, 'Nom requis'),
+    birthDate: z.string(),
+    gender: z.string(),
+  })
+  .refine((values) => isMinorBirthDate(values.birthDate), {
+    message: 'Pour un joueur mineur, seul le club peut retirer cette date ou le déclarer majeur.',
+    path: ['birthDate'],
+  });
 
-type ChildFormValues = z.infer<ReturnType<typeof childSchema>>;
+type ChildFormValues = z.infer<typeof childSchema>;
 
 /**
  * The four fields a family is the source of truth for. Licence details and
@@ -44,7 +43,7 @@ export function ChildProfileForm({ child }: { child: MyChildProfile }) {
     formState: { errors, isSubmitting, isDirty },
     reset,
   } = useForm<ChildFormValues>({
-    resolver: zodResolver(childSchema(child.isMinor)),
+    resolver: zodResolver(childSchema),
     defaultValues: {
       firstName: child.firstName,
       lastName: child.lastName,
