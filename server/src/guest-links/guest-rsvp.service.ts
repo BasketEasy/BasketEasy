@@ -161,6 +161,7 @@ export class GuestRsvpService {
         player: {
           select: {
             id: true,
+            clubId: true,
             firstName: true,
             lastName: true,
             userId: true,
@@ -174,26 +175,18 @@ export class GuestRsvpService {
     if (player.userId) return;
     if (player.invite && !player.invite.acceptedAt && player.invite.expiresAt > new Date()) return;
 
-    const [admins, ownerLink] = await Promise.all([
-      this.prisma.teamAdmin.findMany({ where: { teamId }, select: { userId: true } }),
-      this.prisma.clubTeam.findFirst({
-        where: { teamId, isOwner: true },
-        select: {
-          clubId: true,
-          club: { select: { memberships: { where: { role: 'ADMIN' }, select: { userId: true } } } },
-        },
-      }),
-    ]);
-    if (!ownerLink) return;
-    const recipients = [
-      ...new Set([
-        ...admins.map((a) => a.userId),
-        ...ownerLink.club.memberships.map((m) => m.userId),
-      ]),
-    ];
+    // Only an ADMIN of the player's own club can issue their PlayerInvite
+    // (the route is club-scoped to Player.clubId), so they are the audience:
+    // telling someone who can't act on it would just be noise. On a CTC team
+    // the player's club is not necessarily the owner club.
+    const admins = await this.prisma.clubMembership.findMany({
+      where: { clubId: player.clubId, role: 'ADMIN' },
+      select: { userId: true },
+    });
+    const recipients = admins.map((a) => a.userId);
     if (recipients.length === 0) return;
 
-    const deepLink = `/clubs/${ownerLink.clubId}/teams/${teamId}?tab=roster&invite=${player.id}`;
+    const deepLink = `/clubs/${player.clubId}/members?tab=players&invite=${player.id}`;
     const recent = await this.prisma.notification.findFirst({
       where: {
         type: NotificationType.GUEST_INVITE_REQUESTED,

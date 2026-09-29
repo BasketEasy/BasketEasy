@@ -700,4 +700,52 @@ describe('MembersPage', () => {
     await user.click(screen.getByRole('link', { name: /u15 garçons/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
   });
+
+  describe('invite-request landing (?invite=)', () => {
+    const player = (overrides: Record<string, unknown> = {}) => ({
+      id: 'player-1',
+      firstName: 'Léo',
+      lastName: 'Martin',
+      clubId: 'club-1',
+      userId: null,
+      isMinor: false,
+      parentalConsentGivenAt: null,
+      ...overrides,
+    });
+
+    function mockClub(players: unknown[]) {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      server.use(
+        http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated(players))),
+        http.get('/api/clubs/club-1/players/player-1/invite', () =>
+          HttpResponse.json({ status: 'NONE', expiresAt: null }),
+        ),
+      );
+    }
+
+    it('opens the invite dialog for the player the notification names, and drops the param on close', async () => {
+      mockClub([player()]);
+      const user = userEvent.setup();
+      renderWithProviders(<App />, {
+        route: '/clubs/club-1/members?tab=players&invite=player-1',
+      });
+
+      expect(await screen.findByRole('dialog', { name: /Inviter Léo Martin/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /close|fermer/i }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('opens nothing for a player who already has an account', async () => {
+      mockClub([player({ userId: 'user-9' })]);
+      renderWithProviders(<App />, {
+        route: '/clubs/club-1/members?tab=players&invite=player-1',
+      });
+
+      await screen.findByText('Léo');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
 });

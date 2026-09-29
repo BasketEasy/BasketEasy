@@ -33,8 +33,28 @@ const STATUS_LABEL: Record<PlayerInviteState, string> = {
  * `!player.userId` (see PlayerRow), so a fresh ACCEPTED status here just
  * means the roster list hasn't refetched yet.
  */
-export function PlayerInviteDialog({ clubId, player }: { clubId: string; player: Player }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function PlayerInviteDialog({
+  clubId,
+  player,
+  open,
+  onOpenChange,
+}: {
+  clubId: string;
+  player: Pick<Player, 'id' | 'firstName' | 'lastName'>;
+  /**
+   * Controlled mode, for a caller that opens the dialog itself (the « invite
+   * request » notification lands on it): no trigger button is drawn.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : ownOpen;
+  const setIsOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
   const [link, setLink] = useState<PlayerInviteLink | null>(null);
   const {
     data: status,
@@ -74,9 +94,11 @@ export function PlayerInviteDialog({ clubId, player }: { clubId: string; player:
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Inviter</Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline">Inviter</Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>

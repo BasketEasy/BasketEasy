@@ -37,6 +37,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
 import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
 import { PlayerRow } from '../clubs/PlayerRow';
+import { PlayerInviteDialog } from '../clubs/PlayerInviteDialog';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { TeamRow } from '../clubs/TeamRow';
 import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
@@ -340,6 +341,12 @@ export function MembersPage() {
   const allPlayers = useMemo(() => allPlayersResult?.items ?? [], [allPlayersResult]);
   const teams = teamsResult?.items;
 
+  // « X demande un lien d'invitation » lands here with ?invite=<playerId>.
+  // A player past the capped full list, or already linked, opens nothing.
+  const inviteId = searchParams.get('invite');
+  const invitePlayer =
+    isAdmin && inviteId ? allPlayers.find((p) => p.id === inviteId && !p.userId) : undefined;
+
   const linkedUserIds = useMemo(
     () => new Set(allPlayers.flatMap((p) => (p.userId ? [p.userId] : []))),
     [allPlayers],
@@ -380,6 +387,25 @@ export function MembersPage() {
         <Alert variant="destructive">
           <AlertDescription>{removeError}</AlertDescription>
         </Alert>
+      )}
+
+      {invitePlayer && (
+        <PlayerInviteDialog
+          clubId={clubId!}
+          player={invitePlayer}
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            setSearchParams(
+              (previous) => {
+                const next = new URLSearchParams(previous);
+                next.delete('invite');
+                return next;
+              },
+              { replace: true },
+            );
+          }}
+        />
       )}
 
       <Tabs

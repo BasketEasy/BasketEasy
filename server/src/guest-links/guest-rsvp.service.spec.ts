@@ -40,8 +40,7 @@ describe('GuestRsvpService', () => {
       },
       eventRsvpChange: { create: jest.fn() },
       eventConvocation: { findMany: jest.fn().mockResolvedValue([]) },
-      teamAdmin: { findMany: jest.fn().mockResolvedValue([]) },
-      clubTeam: { findFirst: jest.fn() },
+      clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
       notification: { findFirst: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     } as never;
@@ -331,6 +330,7 @@ describe('GuestRsvpService', () => {
     const rosterRow = (overrides: Record<string, unknown> = {}) => ({
       player: {
         id: 'player-1',
+        clubId: 'club-9',
         firstName: 'Léo',
         lastName: 'Martin',
         userId: null,
@@ -341,22 +341,25 @@ describe('GuestRsvpService', () => {
 
     beforeEach(() => {
       prisma.teamPlayer.findFirst.mockResolvedValue(rosterRow());
-      prisma.teamAdmin.findMany.mockResolvedValue([{ userId: 'coach-1' }]);
-      prisma.clubTeam.findFirst.mockResolvedValue({
-        clubId: 'club-1',
-        club: { memberships: [{ userId: 'admin-1' }, { userId: 'coach-1' }] },
-      });
+      prisma.clubMembership.findMany.mockResolvedValue([
+        { userId: 'admin-1' },
+        { userId: 'admin-2' },
+      ]);
     });
 
-    it('notifies the team admins and owner club admins once each', async () => {
+    it('notifies the admins of the player’s own club, the only ones who can issue the invite', async () => {
       await service.requestInvite('team-1', 'tok', undefined, 'tp-1');
 
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-9', role: 'ADMIN' },
+        select: { userId: true },
+      });
       const inputs = notifications.notify.mock.calls[0][0];
-      expect(inputs.map((i: { userId: string }) => i.userId)).toEqual(['coach-1', 'admin-1']);
+      expect(inputs.map((i: { userId: string }) => i.userId)).toEqual(['admin-1', 'admin-2']);
       expect(inputs[0]).toMatchObject({
         type: 'GUEST_INVITE_REQUESTED',
         title: "Léo M. demande un lien d'invitation Kluvo",
-        deepLink: '/clubs/club-1/teams/team-1?tab=roster&invite=player-1',
+        deepLink: '/clubs/club-9/members?tab=players&invite=player-1',
       });
     });
 
@@ -383,6 +386,14 @@ describe('GuestRsvpService', () => {
       await expect(
         service.requestInvite('team-1', 'tok', undefined, 'tp-1'),
       ).resolves.toBeUndefined();
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('stays quiet when the club has no admin to tell', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+
+      await service.requestInvite('team-1', 'tok', undefined, 'tp-1');
 
       expect(notifications.notify).not.toHaveBeenCalled();
     });

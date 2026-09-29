@@ -408,12 +408,12 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
 
 ## Guest RSVP link
 
-`server/src/guest-links` lets a team share one link (`/r/:token`) so roster members without an account can answer events. Design record: [`docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md`](./docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md); one spec per part next to it. Parts 1 (backend) and 2 (guest page, `app/src/guest-rsvp/`) are built; the manager card is not yet.
+`server/src/guest-links` lets a team share one link (`/r/:token`) so roster members without an account can answer events. Design record: [`docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md`](./docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md); one spec per part next to it. All three parts are built (backend, guest page and manager card in `app/src/guest-rsvp/`).
 
 - **The token is a bearer credential for a WhatsApp group**, stored in clear (a manager re-copies it), killed by regenerate or disable. Disable deletes the row, so re-enabling issues a new token. An unknown, regenerated or disabled token is a plain 404 from `GuestLinkGuard`.
 - **A guest answer is the same `EventRsvp` row an app answer is**, tagged `source: GUEST_LINK` with `respondedByUserId: null`. Every RSVP / travel-mode write, app or guest, also appends an `EventRsvpChange` in the same transaction; that log is what a coach reads to spot someone answering for others. It is not `AuditLog`.
 - Public payloads carry first name + last initial only, events of the next 14 days, answerable until kickoff (`409 GUEST_RSVP_CLOSED` otherwise). The visitor's own row is picked client-side: the server does not know who they are.
-- `invite-request` always answers 204 and notifies only when it is useful, so the shared link cannot reveal which teammates have accounts. Turning a guest into an account stays the existing `PlayerInvite` flow.
+- `invite-request` always answers 204 and notifies only when it is useful, so the shared link cannot reveal which teammates have accounts. Turning a guest into an account stays the existing `PlayerInvite` flow: the request goes to the `ADMIN`s of the **player's own club** (the only ones who can issue that invite, which lives on the club's Joueurs tab, not the team roster) and lands on `/clubs/<clubId>/members?tab=players&invite=<playerId>`, which opens the invite dialog.
 
 ## Meeting points module
 
