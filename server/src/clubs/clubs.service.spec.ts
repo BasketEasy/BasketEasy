@@ -35,6 +35,7 @@ describe('ClubsService', () => {
       updateMany: jest.Mock;
     };
     playerGuardian: { groupBy: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
 
@@ -67,6 +68,7 @@ describe('ClubsService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       playerGuardian: { groupBy: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn((arg: unknown) =>
         typeof arg === 'function'
           ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
@@ -376,10 +378,13 @@ describe('ClubsService', () => {
 
     it('throws BadRequestException when removing the last admin', async () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'ADMIN' });
-      prisma.clubMembership.count.mockResolvedValue(1);
+      prisma.$queryRaw.mockResolvedValue([{ id: 'm-1' }]);
 
       await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(BadRequestException);
       expect(prisma.clubMembership.delete).not.toHaveBeenCalled();
+      // Counted under a row lock, so two concurrent removals can't both pass.
+      const [sql] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+      expect(sql.join('?')).toContain('FOR UPDATE');
     });
 
     it('removes a non-last-admin membership', async () => {

@@ -47,6 +47,24 @@ export async function createClubWithAdmin(
 }
 
 /**
+ * Counts a club's ADMINs while holding their rows (`FOR UPDATE`), so two
+ * transactions removing or demoting the club's last two admins at once run
+ * one after the other: the second sees one admin left and refuses. A plain
+ * `count` lets both see two and both succeed, leaving the club with none.
+ * Shared by the product's removal and the back-office's role change.
+ */
+export async function lockClubAdmins(
+  tx: Prisma.TransactionClient,
+  clubId: string,
+): Promise<number> {
+  const admins = await tx.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "ClubMembership"
+    WHERE "clubId" = ${clubId} AND "role" = 'ADMIN'
+    FOR UPDATE`;
+  return admins.length;
+}
+
+/**
  * Takes a user out of a club. Their roster entries are unlinked, not deleted:
  * the account loses club access, but the player's history (stats,
  * attendance) belongs to the club.
@@ -63,11 +81,8 @@ export async function removeClubMembership(
     throw new NotFoundException('Membership not found');
   }
 
-  if (membership.role === 'ADMIN') {
-    const adminCount = await tx.clubMembership.count({ where: { clubId, role: 'ADMIN' } });
-    if (adminCount <= 1) {
-      throw new BadRequestException('Cannot remove the last admin of a club');
-    }
+  if (membership.role === 'ADMIN' && (await lockClubAdmins(tx, clubId)) <= 1) {
+    throw new BadRequestException('Impossible de retirer le dernier admin du club');
   }
 
   await tx.player.updateMany({ where: { clubId, userId }, data: { userId: null } });

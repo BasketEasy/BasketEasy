@@ -21,6 +21,7 @@ import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { StorageService } from '../storage/storage.service';
 import {
   createClubWithAdmin,
+  lockClubAdmins,
   removeClubMembership,
   writeParentalConsent,
 } from '../clubs/club-writes';
@@ -574,11 +575,7 @@ export class PlatformAdminActionsService {
    * and the second sees one admin left and is refused.
    */
   private async assertNotLastAdmin(tx: Prisma.TransactionClient, clubId: string): Promise<void> {
-    const admins = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "ClubMembership"
-      WHERE "clubId" = ${clubId} AND "role" = 'ADMIN'
-      FOR UPDATE`;
-    if (admins.length <= 1) {
+    if ((await lockClubAdmins(tx, clubId)) <= 1) {
       throw new ConflictException('C’est le dernier admin du club : nommez d’abord un autre admin');
     }
   }
