@@ -81,8 +81,46 @@ jobs:
       - name: Test app
         run: pnpm --filter @basketeasy/app run test
 
+  # Specs that need a real Postgres: FK cascades, FOR UPDATE races, JSON-path
+  # filters, raw SQL aggregates. Unit specs mock Prisma and can't see any of
+  # these. See server/test/db/db.ts.
+  test-db:
+    needs: install
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: basketeasy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
+      NEON_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations
+        run: pnpm --filter @basketeasy/server exec prisma migrate deploy
+      - name: Test server against Postgres
+        run: pnpm --filter @basketeasy/server run test:db
+
   build:
-    needs: [format, lint, test]
+    needs: [format, lint, test, test-db]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
