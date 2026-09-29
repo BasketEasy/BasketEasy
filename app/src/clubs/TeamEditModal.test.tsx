@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { Team } from '@basketeasy/types/teams';
@@ -51,5 +52,35 @@ describe('TeamEditModal', () => {
 
     expect(await screen.findByText("Nom de l'équipe requis")).toBeInTheDocument();
     expect(called).toBe(false);
+  });
+
+  it('keeps what the manager is typing when the team is refetched while open', async () => {
+    // A background refetch hands the open dialog a new, equal team object.
+    function Refetching() {
+      const [current, setCurrent] = useState(team);
+      return (
+        <>
+          <button type="button" onClick={() => setCurrent({ ...team })}>
+            refetch
+          </button>
+          <TeamEditModal
+            clubId="club-1"
+            teamId="team-1"
+            team={current}
+            open
+            onOpenChange={() => {}}
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    renderWithProviders(<Refetching />);
+
+    const name = screen.getByLabelText("Nom de l'équipe");
+    await user.clear(name);
+    await user.type(name, 'U11 F2');
+    fireEvent.click(screen.getByRole('button', { name: 'refetch', hidden: true }));
+
+    expect(screen.getByLabelText("Nom de l'équipe")).toHaveValue('U11 F2');
   });
 });
