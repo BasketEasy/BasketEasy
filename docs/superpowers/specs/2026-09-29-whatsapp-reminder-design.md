@@ -46,7 +46,7 @@ enum EventShareType  { REMINDER UPDATE CANCELLATION }
 enum EventShareState { SCHEDULED PENDING SENT EXPIRED VOID }
 
 model Team  { waReminderEnabled Boolean @default(false)
-              waDefaultOffsetMinutes Int @default(1440)
+              waDefaultOffsetMinutes Int @default(4320)
               waReminderTemplate String? ; waUpdateTemplate String? ; waCancellationTemplate String? }
 model Event { waReminderOverride Boolean?      // null inherits the team
               waOffsetMinutes Int? }           // null inherits the team
@@ -71,7 +71,7 @@ render identically. New file plus its `exports` entry, no barrel.
 
 ## Rules that need a decision the doc left open (proposed)
 
-1. **Default X:** 24h (kept; Johan's 6h question is still open, one constant `DEFAULT_WA_OFFSET_MINUTES`).
+1. **Default X:** 3 days (4320 min), decided by the product owner; one constant `DEFAULT_WA_OFFSET_MINUTES`. Events created inside the window notify immediately (rule 9).
 2. **Update prompt fires on `startsAt`, `location`, `type`/`opponentName` changes only**, not notes. Notes are
    not in the template.
 3. **Cancel and update templates are admin-editable with a provided default**, per the settings table.
@@ -162,7 +162,6 @@ Part 1 has real data.
 
 ## Open points to confirm at review
 
-- 24h or 6h default X.
 - Whether members (not just admins) see "Envoyé le … par …".
 - Series: per-occurrence reminders (proposed) or one share for the series.
 - FR only copy (proposed, per the repo's locale rule) versus a per-team language.
