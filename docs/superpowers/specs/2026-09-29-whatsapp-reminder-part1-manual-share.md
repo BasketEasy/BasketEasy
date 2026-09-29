@@ -178,15 +178,39 @@ WA_SHARE_CLOSED`) and a disabled guest link (`409 GUEST_LINK_DISABLED`). Upsert 
   `WHATSAPP_TEMPLATE_ERROR_MESSAGES`), server refusals via `setError('reminderTemplate')`, « Insérer une
   info » buttons (one per variable, by label), a live preview with a « Match / Entraînement » switch so
   the line-drop rule is visible, and « Rétablir le texte par défaut ». Save ends in a `toast()`.
-- **`TemplateEditor`** (`TemplateEditor.tsx`), the field behind it, wired through `Controller`. A
-  `contenteditable` box whose variables are atomic chips (`contenteditable="false"` spans showing the
-  label, `data-key` holding the key), serialised to and from the `{key}` string on every change, so the
-  form value and the API only ever see `{key}` text. Rules it must hold, each tested: paste is inserted as
-  plain text; a chip is deleted whole by one Backspace/Delete; the insert buttons put the chip at the
-  caret (at the end when the box never had focus); Enter inserts `\n`; typing `{` is just a character (a
-  typed `{link}` is serialised as text and refused by validation like any unknown token, never silently
-  turned into a chip). It is labelled by its field label, `aria-multiline`, and each chip reads as its
-  label. No rich-text dependency: the model is a flat list of text runs and chips.
+- **`TemplateEditor`**, the field behind it, wired through `Controller`, built on **Tiptap**
+  (ProseMirror). A hand-rolled `contenteditable` with non-editable chips was the first idea and was
+  dropped: caret placement around atomic spans, IME and predictive-text input, and undo are exactly
+  where browsers disagree, and managers edit this on a phone.
+  - **Where it lives:** `packages/@basketeasy/ui/template-editor.tsx`, exported as
+    `@basketeasy/ui/template-editor` (new `exports` entry), and the **only** file in either package that
+    imports `@tiptap/*`, the way `@basketeasy/ui/chart` is the only one importing `recharts`. The app
+    knows nothing about Tiptap, so a later swap is one file.
+  - **Dependencies** (in `packages/@basketeasy/ui/package.json`, versions pinned when built):
+    `@tiptap/core`, `@tiptap/react`, `@tiptap/pm` and the `document`, `paragraph`, `text`, `history` and
+    `placeholder` extensions. No starter kit: bold, lists, headings and the rest have no meaning in a
+    WhatsApp message and would be one more thing to strip on paste.
+  - **Model:** one paragraph per line, text, and a custom inline atom node `variable` (`attrs: { key }`)
+    whose React node view renders the French label as a token chip (`tone="structure"`, colour owned by
+    the component). `atom: true` gives whole-chip selection and deletion for free.
+  - **API:** `value: string` (the `{key}` text) and `onChange(value)`; `variables: { key; label }[]`; a
+    ref exposing `insertVariable(key)` for the « Insérer une info » buttons (inserts at the selection, at
+    the end when the editor never had focus); `aria-labelledby` / `aria-describedby` passed to the
+    editable element, which also gets `role="textbox"` and `aria-multiline="true"`. `focusRing` on the
+    wrapper, surface `surface-2` like `Input`.
+  - **Serialisation:** `parseTemplate(text, variables)` → editor JSON (a `{key}` whose key is known
+    becomes a node, anything else stays text) and `serializeTemplate(doc)` → text (paragraphs joined by
+    `\n`, nodes as `{key}`), pure and unit-tested beside the component. `onChange` fires the serialised
+    string, so the form value and the API only ever see `{key}` text. The value is compared before
+    `setContent` so typing never resets the caret.
+  - **Rules it must hold:** paste is plain text only (`editorProps.transformPastedHTML` / clipboard
+    parser reduce it to text; a pasted `{link}` stays text); Enter starts a new line; typing `{` is just
+    a character (a typed `{link}` is serialised as text and refused by validation like any unknown
+    token, never silently turned into a chip); undo/redo via `history`.
+  - **Loaded lazily.** `WhatsAppSettingsCard` imports the editor through `React.lazy` with a
+    `Skeleton` of the field's height as fallback, so the Tiptap bundle is fetched only when a manager
+    opens team settings, never by players and parents. Same reasoning as the lazy admin route.
+  - `docs/frontend-stack.md` and `CLAUDE.md` record the choice and the one-file rule in the same PR.
 - **Guest page:** `GuestRsvpPage` reads `?src=wa` once on mount, keeps it in component state (not
   localStorage: attribution is per visit), strips it with `replace`, and sends `via: 'WHATSAPP'` on RSVP
   writes. `rsvpHistoryLabels` renders « via lien (WhatsApp) ».
@@ -204,10 +228,15 @@ WA_SHARE_CLOSED`) and a disabled guest link (`409 GUEST_LINK_DISABLED`). Upsert 
 - Vitest + MSW: card not sent / sent / link off / error; share falls back to `wa.me` without
   `navigator.share`; `AbortError` shows no confirm row; « Oui » posts and toasts, « Pas encore » posts
   nothing; settings form blocks save on a missing link and an unknown variable, preview updates and
-  drops the RDV line on « Entraînement », reset restores the default; `TemplateEditor` round-trips
-  `{key}` text, pastes plain text, deletes a chip whole, inserts at the caret, keeps a typed `{link}` as text; guest page sends `via` and strips `?src=wa`.
+  drops the RDV line on « Entraînement », reset restores the default; `TemplateEditor` (Vitest in
+  `packages/@basketeasy/ui`) round-trips `{key}` text through `parseTemplate`/`serializeTemplate`,
+  pastes plain text, deletes a chip whole, inserts at the selection and at the end without focus, keeps
+  a typed `{link}` as text, doesn't move the caret on a re-render with the same value; one Playwright
+  pass in the screenshot run types, backspaces over a chip and pastes in a real Chromium, since jsdom has
+  no layout for ProseMirror's caret; guest page sends `via` and strips `?src=wa`.
 - Screenshots (`pnpm mock-api` + new fixture `scripts/fixtures/whatsapp-share.json`, built on
-  `authenticated-admin-session.json`): card not sent, confirm row, card sent, link off, settings card.
+  `authenticated-admin-session.json`): card not sent, confirm row, card sent, link off, settings card (editor with chips, preview on
+  « Entraînement »).
 
 ## 7. Done when
 

@@ -123,7 +123,8 @@ direction as meeting-points):
   `Dialog`-free inline "Vous l'avez envoyé ? Oui / Non" row → `confirm` mutation → `toast()`. "Non" leaves it
   `PENDING`. Query branches per convention.
 - `WhatsAppSettingsCard` on the team settings tab: toggle, `DurationField` for X, three template editors
-  (react-hook-form + zod using the shared `validateTemplate`), live preview from a sample event, per-template
+  (Tiptap behind `@basketeasy/ui/template-editor`, variables as labelled chips, lazy-loaded;
+  react-hook-form + zod using the shared `validateTemplate`), live preview from a sample event, per-template
   "Rétablir le texte par défaut".
 - Event create/edit dialogs: a "Rappel WhatsApp" toggle (inherit / on / off, `SelectField`) and offset field, shown only
   when the team has a guest link; both go through the existing `useForm`.

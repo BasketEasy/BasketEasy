@@ -148,7 +148,7 @@ CANCELLATION: they start `PENDING`.
 ## 5. Frontend
 
 - **`WhatsAppSettingsCard`** gets three tabs or stacked sections (« Rappel », « Changement »,
-  « Annulation », the segmented control on the canvas), each the Part 1 `TemplateEditor` with its own
+  « Annulation », the segmented control on the canvas), each the Part 1 `TemplateEditor` (Tiptap) with its own
   preview and reset; the cancellation editor doesn't require the link.
 - **`WhatsAppShareCard`** shows the UPDATE share above the reminder when it exists (« Changement à
   partager », same share + confirm flow, same message disclosure) and says what moved, old value struck
