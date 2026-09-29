@@ -630,7 +630,7 @@ export class ClubsService {
   private toParentalConsent(consent: {
     id: string;
     playerId: string | null;
-    clubId: string;
+    clubId: string | null;
     playerFirstName: string;
     playerLastName: string;
     playerBirthDate: Date;
