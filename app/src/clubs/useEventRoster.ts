@@ -74,7 +74,9 @@ function mergeRoster(
   }));
 }
 
-export function countEventRoster(rows: EventRosterRow[]): EventRosterCounts {
+export function countEventRoster(
+  rows: Pick<EventRosterRow, 'convoked' | 'rsvpStatus' | 'travelMode'>[],
+): EventRosterCounts {
   const convoked = rows.filter((row) => row.convoked);
   const isConvocationScoped = convoked.length > 0;
   const answering = isConvocationScoped ? convoked : rows;

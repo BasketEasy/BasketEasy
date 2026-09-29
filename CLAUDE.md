@@ -408,7 +408,7 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
 
 ## Guest RSVP link
 
-`server/src/guest-links` lets a team share one link (`/r/:token`) so roster members without an account can answer events. Design record: [`docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md`](./docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md); one spec per part next to it. Part 1 (backend) is built; the guest page and the manager card are not yet.
+`server/src/guest-links` lets a team share one link (`/r/:token`) so roster members without an account can answer events. Design record: [`docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md`](./docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md); one spec per part next to it. Parts 1 (backend) and 2 (guest page, `app/src/guest-rsvp/`) are built; the manager card is not yet.
 
 - **The token is a bearer credential for a WhatsApp group**, stored in clear (a manager re-copies it), killed by regenerate or disable. Disable deletes the row, so re-enabling issues a new token. An unknown, regenerated or disabled token is a plain 404 from `GuestLinkGuard`.
 - **A guest answer is the same `EventRsvp` row an app answer is**, tagged `source: GUEST_LINK` with `respondedByUserId: null`. Every RSVP / travel-mode write, app or guest, also appends an `EventRsvpChange` in the same transaction; that log is what a coach reads to spot someone answering for others. It is not `AuditLog`.

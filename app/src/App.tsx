@@ -78,6 +78,9 @@ const AdminDashboardPage = lazy(() =>
 const AdminSearchPage = lazy(() =>
   import('./admin/AdminSearchPage').then((m) => ({ default: m.AdminSearchPage })),
 );
+const GuestRsvpPage = lazy(() =>
+  import('./guest-rsvp/GuestRsvpPage').then((m) => ({ default: m.GuestRsvpPage })),
+);
 const AdminAuditLogPage = lazy(() =>
   import('./admin/AdminAuditLogPage').then((m) => ({ default: m.AdminAuditLogPage })),
 );
@@ -93,6 +96,16 @@ export default function App() {
             stale session straight to the dashboard mid-recovery. */}
         <Route path="/invite/:token" element={<InviteAcceptPage />} />
         <Route path="/guardian-invite/:token" element={<GuardianInvitePage />} />
+        {/* A team's shared RSVP link, opened from a WhatsApp group: no session
+            needed and none redirected, so it sits outside both route guards. */}
+        <Route
+          path="/r/:token"
+          element={
+            <Suspense fallback={null}>
+              <GuestRsvpPage />
+            </Suspense>
+          }
+        />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         {/* Legal documents: reachable by anyone, logged in or not, without
