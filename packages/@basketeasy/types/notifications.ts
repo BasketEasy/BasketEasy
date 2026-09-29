@@ -12,7 +12,8 @@ export type NotificationType =
   | 'SCORESHEET_READY'
   | 'SCORESHEET_FAILED'
   | 'EVENT_MEETING_FIXED'
-  | 'EVENT_MEETING_CHANGED';
+  | 'EVENT_MEETING_CHANGED'
+  | 'GUEST_INVITE_REQUESTED';
 
 export interface AppNotification {
   id: string;

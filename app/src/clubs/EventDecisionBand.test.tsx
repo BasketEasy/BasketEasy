@@ -52,6 +52,7 @@ function counts(convokedCount: number) {
     rsvpStatus: null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     convoked: i < convokedCount,
   }));

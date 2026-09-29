@@ -406,6 +406,15 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
 - **Frontend persona state lives in `ActingAsProvider`** (`app/src/guardians/`, mounted in `ProtectedRoute`): `?pour=` wins and is stripped, then the remembered choice (localStorage, a convenience only), then « Moi », then the first child for a guardian-only user. **Team-scoped hooks act for the child only on the child's own teams** (`useTeamActingAs`) — on any other team the reader is themself, so a parent who coaches a different team still manages it while switched to their child. On the child's own team the child wins: a parent who coaches their child's team switches back to « Moi » to manage it (the banner's « Changer » is one tap away). The persona is the last segment of every persona-scoped query key, so switching never reuses the other persona's cache; prefix invalidations match both. Acting for a child forces the player view (`useHasManageRights` is false, the event and team pages drop their manager branch).
 - `PersonaSwitcher` (header chip, hidden with one persona, pip = the _other_ personas' pending answers), `PersonaSheet` (a `Dialog` with `variant="sheet"`, not a second modal primitive) and `ActingAsBanner` (beside `EmailVerificationBanner`, same reasoning) are the three surfaces; there is no fifth bottom-nav tab.
 
+## Guest RSVP link
+
+`server/src/guest-links` lets a team share one link (`/r/:token`) so roster members without an account can answer events. Design record: [`docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md`](./docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md); one spec per part next to it. Part 1 (backend) is built; the guest page and the manager card are not yet.
+
+- **The token is a bearer credential for a WhatsApp group**, stored in clear (a manager re-copies it), killed by regenerate or disable. Disable deletes the row, so re-enabling issues a new token. An unknown, regenerated or disabled token is a plain 404 from `GuestLinkGuard`.
+- **A guest answer is the same `EventRsvp` row an app answer is**, tagged `source: GUEST_LINK` with `respondedByUserId: null`. Every RSVP / travel-mode write, app or guest, also appends an `EventRsvpChange` in the same transaction; that log is what a coach reads to spot someone answering for others. It is not `AuditLog`.
+- Public payloads carry first name + last initial only, events of the next 14 days, answerable until kickoff (`409 GUEST_RSVP_CLOSED` otherwise). The visitor's own row is picked client-side: the server does not know who they are.
+- `invite-request` always answers 204 and notifies only when it is useful, so the shared link cannot reveal which teammates have accounts. Turning a guest into an account stays the existing `PlayerInvite` flow.
+
 ## Meeting points module
 
 `server/src/meeting-points` backs the match meeting point (« point de rendez-vous »). Players who are coming either meet the group there or go straight to the gym. Design record: [`docs/superpowers/specs/2026-09-27-match-meeting-point-design.md`](./docs/superpowers/specs/2026-09-27-match-meeting-point-design.md), plus one spec per part next to it.
