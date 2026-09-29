@@ -4,7 +4,10 @@ import { PlatformAdminService } from '../../src/platform-admin/platform-admin.se
 import { PlatformAdminStatsService } from '../../src/platform-admin/platform-admin-stats.service';
 import type { AuditService } from '../../src/audit/audit.service';
 import type { RetentionService } from '../../src/retention/retention.service';
+import type { Request } from 'express';
 import { asService, createClub, createTeam, createUser, prisma, resetDb } from './db';
+
+const request = { headers: {}, socket: { remoteAddress: '203.0.113.7' } } as unknown as Request;
 
 describe('back-office queries against Postgres', () => {
   beforeEach(resetDb);
@@ -15,9 +18,11 @@ describe('back-office queries against Postgres', () => {
       asService(prisma),
       {} as JwtService,
       {} as ConfigService,
-      {} as AuditService,
+      { recordAndWait: jest.fn() } as unknown as AuditService,
       {} as RetentionService,
     );
+    const list = (filter: Parameters<PlatformAdminService['listAuditLog']>[1]) =>
+      service.listAuditLog({ id: 'dpo', email: 'dpo@kluvo.net' }, filter, 1, 25, request);
     const [admin, subject] = await Promise.all([createUser(), createUser()]);
     await prisma.auditLog.createMany({
       data: [
@@ -25,15 +30,18 @@ describe('back-office queries against Postgres', () => {
         { type: 'ADMIN_PII_VIEWED', userId: admin.id, metadata: { subjectUserId: subject.id } },
         { type: 'ADMIN_PII_VIEWED', userId: admin.id, metadata: { subjectPlayerId: 'p-1' } },
         { type: 'ADMIN_SUPPORT_ACTION', userId: admin.id, metadata: { action: 'RETRY_OCR' } },
+        // Shown on a list page: found through the disclosed-id arrays.
+        {
+          type: 'ADMIN_PII_LISTED',
+          userId: admin.id,
+          metadata: { view: 'users', disclosedUserIds: [subject.id], disclosedPlayerIds: ['p-1'] },
+        },
       ],
     });
 
-    const bySubject = await service.listAuditLog({ subjectUserId: subject.id }, 1, 25);
-    expect(bySubject.total).toBe(2);
-    const byPlayer = await service.listAuditLog({ subjectPlayerId: 'p-1' }, 1, 25);
-    expect(byPlayer.total).toBe(1);
-    const byAction = await service.listAuditLog({ action: 'RETRY_OCR' }, 1, 25);
-    expect(byAction.total).toBe(1);
+    expect((await list({ subjectUserId: subject.id })).total).toBe(3);
+    expect((await list({ subjectPlayerId: 'p-1' })).total).toBe(2);
+    expect((await list({ action: 'RETRY_OCR' })).total).toBe(1);
   });
 
   it('counts matches with a meeting point at any level in one SQL statement', async () => {
