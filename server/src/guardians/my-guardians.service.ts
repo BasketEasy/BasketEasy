@@ -184,9 +184,7 @@ export class MyGuardiansService {
     },
   ): Promise<MyChildProfile> {
     await this.assertGuardian(userId, playerId);
-    if (data.birthDate !== undefined) {
-      await this.assertBirthDateKeepsMinor(playerId, data.birthDate);
-    }
+    await this.assertEditableByGuardian(playerId, data.birthDate);
     await this.prisma.player.update({
       where: { id: playerId },
       data: {
@@ -204,19 +202,24 @@ export class MyGuardiansService {
     return this.getChild(userId, playerId);
   }
 
-  // A parent may correct a minor's birth date, but not clear it or move it
-  // past 18: either would silently drop the club's « autorisation manquante »
-  // flag (isMinor turns false) and, past 18, let the player remove their
-  // parents (decision 13). Only the club can make that change.
-  private async assertBirthDateKeepsMinor(playerId: string, birthDate: string | null) {
+  // A parent edits a profile only while it is a minor's. An adult (or a player
+  // whose age the club never recorded, who may well be one) owns their own
+  // profile: otherwise a parent could rename them, or give them a minor's
+  // birth date and raise the club's « autorisation manquante » flag. Within
+  // minority a parent may correct the birth date, but not clear it or move it
+  // past 18: either would silently drop that flag and, past 18, let the player
+  // remove their parents (decision 13). Only the club can make those changes.
+  private async assertEditableByGuardian(playerId: string, birthDate: string | null | undefined) {
     const current = await this.prisma.player.findUniqueOrThrow({
       where: { id: playerId },
       select: { birthDate: true },
     });
     if (!isMinorBirthDate(current.birthDate?.toISOString())) {
-      return;
+      throw new ForbiddenException(
+        'Seul le club peut modifier le profil d’un joueur majeur ou sans date de naissance',
+      );
     }
-    if (!birthDate || !isMinorBirthDate(birthDate)) {
+    if (birthDate !== undefined && (!birthDate || !isMinorBirthDate(birthDate))) {
       throw new ForbiddenException(
         'Seul le club peut retirer la date de naissance d’un joueur mineur ou le déclarer majeur',
       );
