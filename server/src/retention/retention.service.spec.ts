@@ -291,8 +291,17 @@ describe('RetentionService', () => {
         data: {
           dryRun: false,
           ranAt: now,
+          triggeredByUserId: null,
           summary: expect.objectContaining({ auditLogs: { status: 'ok', count: 3 } }),
         },
+      });
+    });
+
+    it('records who asked for a manual dry run', async () => {
+      await service.run(true, 'admin-1');
+
+      expect(prisma.retentionRun.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ dryRun: true, triggeredByUserId: 'admin-1' }),
       });
     });
 

@@ -302,13 +302,25 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   follows the same line: substring for a `DATA_OFFICER`, exact e-mail only for `SUPPORT`, so
   names can't be rebuilt from result counts. `PlatformAdminGuard` puts the role on the request
   for `@CurrentPlatformRole()`.
-- **Only a person detail read is audited, and only a `DATA_OFFICER`'s.** Opening
+- **Every read that shows a `DATA_OFFICER` people's names is audited.** Opening
   `GET /admin/users/:userId` or `GET /admin/players/:playerId` as a `DATA_OFFICER` writes
   `ADMIN_PII_VIEWED` (awaited before the response; the player variant carries
-  `metadata.subjectPlayerId`, matched by `GET /admin/audit-log?playerId=`). Lists and a
-  `SUPPORT` read carry no PII and write nothing. `usePlatformUser` never refetches on window
-  focus: "who looked at this person's data" must not be padded with rows produced by a tab
-  regaining focus.
+  `metadata.subjectPlayerId`, and both carry `disclosedUserIds`/`disclosedPlayerIds` for the
+  guardians/children the profile names). A `DATA_OFFICER`'s person list, club member list,
+  team, roster or event page writes `ADMIN_PII_LISTED` (one row per page: `view`, `filters`,
+  every person shown by id, collected structurally by `pii-disclosure.ts`), and so does any
+  search, `SUPPORT`'s included, since even a redacted hit confirms an address has an account.
+  Reading `GET /admin/audit-log` is itself recorded. `GET /admin/audit-log?userId=`/`?playerId=`
+  matches the disclosed-id arrays too. A `SUPPORT` list shows initials only and writes nothing;
+  its lists are ordered by date, not name, so the order can't rebuild what the initials hide,
+  and event `notes` are withheld from it. Neither `usePlatformUser` nor the audited list hooks
+  refetch on window focus: "who looked at this person's data" must not be padded with rows
+  produced by a tab regaining focus.
+- **`subjectEmail` outlives an erasure on purpose.** `ADMIN_PII_VIEWED`, `ADMIN_EXPORT_GENERATED`
+  and `ADMIN_USER_ERASED` rows keep the subject's address for the audit log's own 12-month
+  retention after the account is gone: a row that no longer says whose data was read or erased
+  is no evidence. Staff accounts can't be erased from the back-office (403, like impersonation);
+  the CLI revokes the grant first.
 - **Support actions are named routes, never a field editor.** `PlatformAdminActionsController`
   (`POST /admin/users/:id/revoke-sessions`, `…/clubs/:id/members/:userId/role`, `…/scoresheets/:id/retry`,
   thirteen in all) is open to both roles (club deletion aside: `DATA_OFFICER` only), and every route takes a 10–500 character reason

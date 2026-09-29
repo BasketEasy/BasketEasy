@@ -43,6 +43,7 @@ const TYPE_LABELS: Record<AuditEventType, string> = {
   ADMIN_LOGIN_SUCCESS: 'Accès back-office',
   ADMIN_LOGIN_FAILURE: 'Accès back-office refusé',
   ADMIN_PII_VIEWED: 'Fiche consultée',
+  ADMIN_PII_LISTED: 'Liste consultée',
   ADMIN_USER_ERASED: 'Compte effacé',
   ADMIN_EXPORT_GENERATED: 'Export RGPD généré',
   ADMIN_SUPPORT_ACTION: 'Action support',
