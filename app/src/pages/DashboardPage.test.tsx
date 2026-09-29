@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { DashboardPage } from './DashboardPage';
+import { ActingAsProvider } from '../guardians/ActingAsContext';
 
 /** Days between a request's `from` and `to` query params. */
 function requestSpanDays(url: URL): number {
@@ -763,5 +764,57 @@ describe('DashboardPage — player view (« Ma semaine »)', () => {
     await waitFor(() =>
       expect(screen.getAllByText('Chargement impossible').length).toBeGreaterThan(0),
     );
+  });
+});
+
+describe('DashboardPage — acting for a child', () => {
+  it('says whom the parent follows, not that they manage them, and shows the player view', async () => {
+    window.localStorage.setItem('kluvo.actingAs.user-1', 'leo');
+    server.use(
+      http.get('/api/me/personas', () =>
+        HttpResponse.json({
+          self: { pendingCount: 0, playerIds: ['me'] },
+          children: [
+            {
+              playerId: 'leo',
+              firstName: 'Léo',
+              lastName: 'Martin',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teams: [{ teamId: 'team-2', teamName: 'U11' }],
+              pendingCount: 0,
+            },
+          ],
+        }),
+      ),
+    );
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'a@b.com',
+          emailVerified: true,
+          firstName: 'Chris',
+          lastName: 'Rillesen',
+          avatarUrl: null,
+          // A club admin as themself: acting for the child still shows the
+          // child's player view, never the manager's.
+          memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
+        }),
+      ),
+      http.get('/api/clubs', () => HttpResponse.json([{ id: 'club-1', name: 'COC Basket' }])),
+    );
+    renderWithProviders(
+      <ActingAsProvider>
+        <DashboardPage />
+      </ActingAsProvider>,
+    );
+
+    expect(await screen.findByText('Vous suivez Léo Martin')).toBeInTheDocument();
+    expect(screen.queryByText(/Vous gérez/)).not.toBeInTheDocument();
+    expect(screen.queryByText('a@b.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('Équipes gérées')).not.toBeInTheDocument();
+    window.localStorage.clear();
   });
 });

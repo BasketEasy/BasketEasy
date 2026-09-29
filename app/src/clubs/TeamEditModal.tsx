@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,15 +8,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@basketeasy/ui
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { Team, TeamCategory, Gender } from '@basketeasy/types/teams';
+import {
+  GENDERS,
+  TEAM_CATEGORIES,
+  type Team,
+  type TeamCategory,
+  type Gender,
+} from '@basketeasy/types/teams';
 import { useTeamUpdate } from './useTeamUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
 
 const teamEditSchema = z.object({
   name: z.string().trim().min(1, "Nom de l'équipe requis"),
-  category: z.enum(['U9', 'U11', 'U13', 'U15', 'U18', 'U21', 'SENIORS']),
-  gender: z.enum(['MEN', 'WOMEN']),
+  category: z.enum(TEAM_CATEGORIES),
+  gender: z.enum(GENDERS),
 });
 
 type TeamEditFormValues = z.infer<typeof teamEditSchema>;
@@ -60,14 +66,17 @@ export function TeamEditModal({
     defaultValues: toFormValues(team),
   });
 
-  // Re-sync the form every time the dialog opens, so stale values from a
-  // previous open never leak into the fields — same pattern as
-  // EventEditModal's reset-on-open effect.
+  // Re-sync the form when the dialog opens, so stale values from a previous
+  // open never leak into the fields. Keyed on `open` alone: a background
+  // refetch hands a new `team` object while the dialog is open, and
+  // resetting on that would wipe what the manager is typing.
+  const teamRef = useRef(team);
+  teamRef.current = team;
   useEffect(() => {
     if (open) {
-      reset(toFormValues(team));
+      reset(toFormValues(teamRef.current));
     }
-  }, [open, team, reset]);
+  }, [open, reset]);
 
   const onSubmit = (values: TeamEditFormValues) => {
     updateTeam(values, {

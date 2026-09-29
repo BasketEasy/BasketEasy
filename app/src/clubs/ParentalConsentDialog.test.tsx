@@ -58,6 +58,24 @@ describe('ParentalConsentDialog', () => {
     expect(called).toBe(false);
   });
 
+  it('asks who attests when the box is ticked but the name is empty', async () => {
+    let called = false;
+    server.use(
+      http.post('/api/clubs/club-1/players/p1/parental-consent', () => {
+        called = true;
+        return HttpResponse.json({});
+      }),
+    );
+
+    const user = await openDialog();
+    await user.click(await screen.findByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: /^enregistrer$/i }));
+
+    expect(await screen.findByText(/indiquez qui atteste/i)).toBeInTheDocument();
+    expect(screen.queryByText(/cochez la case/i)).not.toBeInTheDocument();
+    expect(called).toBe(false);
+  });
+
   it('records the attestation and confirms with a toast', async () => {
     let capturedBody: unknown;
     server.use(

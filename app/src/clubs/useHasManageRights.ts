@@ -35,8 +35,11 @@ export interface ManageRights {
  */
 export function useHasManageRights(): ManageRights {
   const adminClubs = useAdminClubs();
-  // Acting for a child is the child's player view: a guardian link never
-  // carries manager rights, whatever the user holds as themself.
+  // The app-wide screens (dashboard, bottom nav) show the child's player view
+  // while acting for a child: a guardian link never carries manager rights,
+  // whatever the user holds as themself. A team or event page decides per
+  // team instead (`useTeamActingAs`), so a parent who coaches a different
+  // team still manages it there while switched to their child.
   const { forPlayerId } = useActingAs();
   const { data: teams, isPending: isTeamListPending } = useMyTeamList();
   // useAdminClubs() deliberately has no loading signal of its own (it returns

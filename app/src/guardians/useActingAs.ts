@@ -4,6 +4,7 @@
 // react-refresh reason.
 import { createContext, useContext } from 'react';
 import type { ChildPersona, MyPersonas } from '@basketeasy/types/guardians';
+import { usePersonas } from './usePersonas';
 
 export interface ActingAsContextValue {
   /** The child being acted for, or null for « Moi ». */
@@ -12,9 +13,9 @@ export interface ActingAsContextValue {
   persona: ChildPersona | null;
   personas: MyPersonas | undefined;
   /**
-   * False while a requested child (a `?pour=` link, the remembered choice)
-   * waits on the persona list — persona-scoped queries hold until then, so
-   * they never fetch as « Moi » and flash the wrong answers first.
+   * False until the persona list has answered — persona-scoped queries hold
+   * until then, so they never fetch as « Moi » and flash the wrong answers
+   * first.
    */
   isReady: boolean;
   setForPlayerId: (playerId: string | null) => void;
@@ -62,6 +63,10 @@ export function useTeamPersona(teamId: string): {
   isReady: boolean;
 } {
   const { forPlayerId, persona, isReady } = useActingAs();
+  // Mounting a team screen refetches a stale persona list: the child may
+  // have joined this team since it loaded, and a list that doesn't know it
+  // would have a parent who also plays here answer as themself.
+  usePersonas();
   if (!forPlayerId || !persona?.teams.some((team) => team.teamId === teamId)) {
     return { forPlayerId: undefined, isReady };
   }
@@ -85,7 +90,6 @@ export function resolvePersona(
   const isChild = (id: string | null | undefined) =>
     !!id && personas.children.some((child) => child.playerId === id);
   if (isChild(requested)) return requested as string;
-  if (requested === null && personas.self) return null;
   if (personas.self) return null;
   return personas.children[0]?.playerId ?? null;
 }
