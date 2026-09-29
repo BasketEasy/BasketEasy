@@ -35,6 +35,15 @@ export function isIpAllowed(allowedCidrs: string[], ip: string | null): boolean 
   }
 }
 
+/**
+ * Whether an allowlist entry is a usable address or CIDR. `isIpAllowed`
+ * silently skips a malformed entry, so the CLI checks each one up front: a
+ * typo would otherwise narrow a restriction, or lock an admin out, unseen.
+ */
+export function isValidCidrRule(entry: string): boolean {
+  return addRule(new BlockList(), entry);
+}
+
 function addRule(list: BlockList, entry: string): boolean {
   const trimmed = entry.trim();
   if (!trimmed) return false;

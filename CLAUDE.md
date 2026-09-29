@@ -268,7 +268,10 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   `DATABASE_URL` and `PLATFORM_TOTP_ENCRYPTION_KEY` are already set. It lives under `src/`, not a
   `scripts/` folder, precisely so it ships: the runtime image carries `dist/` only. There is no "promote to admin"
   button and no in-app TOTP enrollment screen: an enrollment screen _is_ a self-service path to
-  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret.
+  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret
+  and keeps the grant's CIDR allowlist unless a new one (or `none`) is passed; every entry is
+  validated. Each `grant`/`revoke`/`unlock` writes an `ADMIN_GRANT_CHANGED` row (`userId` null,
+  actor `cli:<os user>`).
 - **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a
   dependency — both RFCs publish test vectors, so `totp.util.spec.ts` _proves_ it instead of
   trusting it. Don't swap in `otplib` without a reason beyond taste.
@@ -359,8 +362,13 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   ends it at once. The subject becomes `request.user`, with `user.impersonation` set: that is what
   makes `PlatformAdminGuard` refuse outright, `LastActiveInterceptor` skip (staff viewing must not
   reset the erasure clock) and the vote endpoint null `myVote` (`myVoteHidden`). Start, replace
-  and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; expired rows
-  are dropped by the audit-log sweep step a day later. Frontend (`app/src/impersonation/`): the
+  and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; `start`
+  locks the actor's `PlatformAdmin` row first, so one live session per admin holds under
+  concurrency. `POST /admin/impersonations/:id/end` sits behind `JwtAuthGuard` alone
+  (`PlatformAdminImpersonationEndController`): the step-up token expires before the session,
+  and « Quitter » must still work then. Expired rows are dropped by the audit-log sweep step a
+  day later, which first writes the `_ENDED` row (`endReason: 'EXPIRED'`) for a session nobody
+  ended. Frontend (`app/src/impersonation/`): the
   token lives in memory beside the admin's own (`setImpersonationToken`), replaces it on product
   calls only, never triggers a refresh, and every non-`GET` product call is refused in
   `apiClient` before it leaves the browser (`/auth/logout` included). Entering and leaving clear

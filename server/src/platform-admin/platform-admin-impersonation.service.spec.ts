@@ -37,6 +37,7 @@ describe('PlatformAdminImpersonationService', () => {
       updateMany: jest.Mock;
     };
     auditLog: { create: jest.Mock; createMany: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
   let secret: string | undefined;
@@ -56,6 +57,7 @@ describe('PlatformAdminImpersonationService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       auditLog: { create: jest.fn(), createMany: jest.fn() },
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn((run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     };
     const config = { get: () => secret };
@@ -132,6 +134,23 @@ describe('PlatformAdminImpersonationService', () => {
           }),
         ],
       });
+    });
+
+    it('locks the admin’s grant before reading live sessions, so two starts can’t both stay live', async () => {
+      await service.start(
+        { userId: 'admin-1', email: 'dpo@kluvo.net' },
+        'user-9',
+        'Ticket #42, the parent sees no convocation',
+        request,
+      );
+
+      const [sql, actorId] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray, string];
+      expect(sql.join('?')).toContain('"PlatformAdmin"');
+      expect(sql.join('?')).toContain('FOR UPDATE');
+      expect(actorId).toBe('admin-1');
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.impersonationSession.findMany.mock.invocationCallOrder[0],
+      );
     });
 
     it('refuses to impersonate yourself', async () => {

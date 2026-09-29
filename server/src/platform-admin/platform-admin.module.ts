@@ -13,7 +13,10 @@ import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import { ScoresheetsModule } from '../scoresheets/scoresheets.module';
 import { StorageModule } from '../storage/storage.module';
 import { PlatformAdminService } from './platform-admin.service';
-import { PlatformAdminImpersonationController } from './platform-admin-impersonation.controller';
+import {
+  PlatformAdminImpersonationController,
+  PlatformAdminImpersonationEndController,
+} from './platform-admin-impersonation.controller';
 import { PlatformAdminImpersonationService } from './platform-admin-impersonation.service';
 
 @Module({
@@ -30,6 +33,7 @@ import { PlatformAdminImpersonationService } from './platform-admin-impersonatio
     PlatformAdminBrowseController,
     PlatformAdminActionsController,
     PlatformAdminImpersonationController,
+    PlatformAdminImpersonationEndController,
   ],
   providers: [
     PlatformAdminService,
