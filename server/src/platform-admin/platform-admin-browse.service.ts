@@ -41,6 +41,7 @@ import {
 import { auditContextOf } from './audit-context';
 import { playerRef, redactName, userRef } from './redaction';
 import { escapeLike } from './like-pattern';
+import { collectDisclosedPeople } from './pii-disclosure';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 /** Below this a person search is ignored rather than matching half the base. */
@@ -180,8 +181,13 @@ export class PlatformAdminBrowseService {
       this.prisma.clubMembership.count({ where }),
       this.prisma.clubMembership.findMany({
         where,
-        // ClubRole's declaration order puts ADMIN first.
-        orderBy: [{ role: 'asc' }, { user: { lastName: 'asc' } }, { createdAt: 'asc' }],
+        // ClubRole's declaration order puts ADMIN first. Alphabetical only for
+        // a DATA_OFFICER: behind SUPPORT's initials, the order itself would
+        // tell names apart.
+        orderBy:
+          role === 'DATA_OFFICER'
+            ? [{ role: 'asc' }, { user: { lastName: 'asc' } }, { createdAt: 'asc' }]
+            : [{ role: 'asc' }, { createdAt: 'asc' }],
         skip,
         take,
         select: { role: true, createdAt: true, user: { select: personSelect } },
@@ -198,6 +204,42 @@ export class PlatformAdminBrowseService {
       page,
       pageSize,
     };
+  }
+
+  /**
+   * ADMIN_PII_LISTED: a DATA_OFFICER's list, roster, event or search read,
+   * one row per page, naming the filters and every person on it. Lists show
+   * full names and addresses to that role, so without this a whole user base
+   * could be read page by page with no trace. Awaited before the response,
+   * for the same reason as ADMIN_PII_VIEWED. A SUPPORT read shows initials
+   * only and is not recorded, except a search (`always`), where even a
+   * redacted hit confirms that an exact address has an account.
+   */
+  async recordListed(
+    actor: PlatformActor,
+    request: Request,
+    view: string,
+    response: unknown,
+    details: Record<string, string | number | undefined> = {},
+    { always = false }: { always?: boolean } = {},
+  ): Promise<void> {
+    if (actor.role !== 'DATA_OFFICER' && !always) return;
+    const people = collectDisclosedPeople(response);
+    const filters = Object.fromEntries(
+      Object.entries(details).filter(([, value]) => value !== undefined),
+    ) as Record<string, string | number>;
+    await this.audit.recordAndWait({
+      type: 'ADMIN_PII_LISTED',
+      userId: actor.id,
+      actorEmail: actor.email,
+      metadata: {
+        view,
+        filters,
+        peopleCount: people.disclosedUserIds.length + people.disclosedPlayerIds.length,
+        ...people,
+      },
+      context: auditContextOf(request),
+    });
   }
 
   // ------------------------------------------------------------------ teams
@@ -267,8 +309,12 @@ export class PlatformAdminBrowseService {
     await this.assertExists('team', teamId);
     const entries = await this.prisma.teamPlayer.findMany({
       where: { teamId },
-      // TeamMemberRole's declaration order puts COACH first.
-      orderBy: [{ role: 'asc' }, { player: { lastName: 'asc' } }, { createdAt: 'asc' }],
+      // TeamMemberRole's declaration order puts COACH first; by name for a
+      // DATA_OFFICER only (see listClubMembers).
+      orderBy:
+        role === 'DATA_OFFICER'
+          ? [{ role: 'asc' }, { player: { lastName: 'asc' } }, { createdAt: 'asc' }]
+          : [{ role: 'asc' }, { createdAt: 'asc' }],
       select: {
         id: true,
         role: true,
@@ -426,7 +472,18 @@ export class PlatformAdminBrowseService {
         type: 'ADMIN_PII_VIEWED',
         userId: actor.id,
         actorEmail: actor.email,
-        metadata: { subjectUserId: userId, subjectEmail: user.email },
+        metadata: {
+          subjectUserId: userId,
+          subjectEmail: user.email,
+          // The profile also names the players linked to or followed by this
+          // account; they must find this read in their own history too.
+          disclosedPlayerIds: [
+            ...new Set([
+              ...user.linkedPlayers.map((player) => player.id),
+              ...user.guardianOf.map((link) => link.player.id),
+            ]),
+          ],
+        },
         context: auditContextOf(request),
       });
     }
@@ -496,7 +553,11 @@ export class PlatformAdminBrowseService {
       this.prisma.player.count({ where }),
       this.prisma.player.findMany({
         where,
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }],
+        // By name for a DATA_OFFICER only (see listClubMembers).
+        orderBy:
+          role === 'DATA_OFFICER'
+            ? [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }]
+            : [{ createdAt: 'desc' }, { id: 'asc' }],
         skip,
         take,
         select: playerSummarySelect,
@@ -557,6 +618,8 @@ export class PlatformAdminBrowseService {
         metadata: {
           subjectPlayerId: playerId,
           ...(player.userId ? { subjectUserId: player.userId } : {}),
+          // The guardians shown on the profile are disclosed as well.
+          disclosedUserIds: player.guardians.map((link) => link.user.id),
         },
         context: auditContextOf(request),
       });
@@ -644,7 +707,10 @@ export class PlatformAdminBrowseService {
           select: {
             ...teamRefSelect,
             teamPlayers: {
-              orderBy: [{ role: 'asc' }, { player: { lastName: 'asc' } }],
+              orderBy:
+                role === 'DATA_OFFICER'
+                  ? [{ role: 'asc' }, { player: { lastName: 'asc' } }]
+                  : [{ role: 'asc' }, { createdAt: 'asc' }],
               select: { id: true, role: true, player: { select: playerPersonSelect } },
             },
           },
@@ -672,7 +738,9 @@ export class PlatformAdminBrowseService {
     return {
       ...toEventSummary(event, counts),
       venue: event.venue,
-      notes: event.notes,
+      // Free text a manager wrote for the team: it can name anyone, so it is
+      // not something SUPPORT's redaction could cover.
+      notes: role === 'DATA_OFFICER' ? event.notes : null,
       recurrenceId: event.recurrenceId,
       roster: event.team.teamPlayers.map((entry) => {
         const rsvp = rsvpByPlayer.get(entry.id);

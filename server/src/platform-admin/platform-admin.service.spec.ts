@@ -342,6 +342,18 @@ describe('PlatformAdminService', () => {
       expect(retention.eraseUserAccount).not.toHaveBeenCalled();
     });
 
+    it('refuses to erase another platform admin', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        email: 'ops@kluvo.net',
+        platformAdmin: { userId: 'admin-2' },
+      });
+
+      await expect(
+        service.eraseUser('admin-1', 'dpo@kluvo.net', 'admin-2', 'a valid reason', buildRequest()),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(retention.eraseUserAccount).not.toHaveBeenCalled();
+    });
+
     it('404s on an unknown account rather than writing an erasure row', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
 
@@ -822,38 +834,61 @@ describe('PlatformAdminService', () => {
   });
 
   describe('listAuditLog', () => {
-    it('matches rows the account acted as AND rows it was acted on', async () => {
+    const dpo = { id: 'admin-1', email: 'dpo@kluvo.net' };
+    const list = (filter: Parameters<PlatformAdminService['listAuditLog']>[1]) =>
+      service.listAuditLog(dpo, filter, 1, 25, buildRequest());
+    const userClause = {
+      OR: [
+        { userId: 'user-9' },
+        { metadata: { path: ['subjectUserId'], equals: 'user-9' } },
+        { metadata: { path: ['disclosedUserIds'], array_contains: ['user-9'] } },
+      ],
+    };
+    const playerClause = {
+      OR: [
+        { metadata: { path: ['subjectPlayerId'], equals: 'player-3' } },
+        { metadata: { path: ['disclosedPlayerIds'], array_contains: ['player-3'] } },
+      ],
+    };
+
+    it('matches rows the account acted as, was acted on, or was shown in', async () => {
       // Filtering on either alone answers only half of "who accessed this
       // person's data".
-      await service.listAuditLog({ subjectUserId: 'user-9' }, 1, 25);
+      await list({ subjectUserId: 'user-9' });
 
-      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
-        OR: [{ userId: 'user-9' }, { metadata: { path: ['subjectUserId'], equals: 'user-9' } }],
-      });
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual(userClause);
     });
 
     it('lists everything when no subject is given', async () => {
-      await service.listAuditLog({}, 1, 25);
+      await list({});
       expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({});
     });
 
     it('finds views of a player record, which may have no account', async () => {
-      await service.listAuditLog({ subjectPlayerId: 'player-3' }, 1, 25);
-      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
-        metadata: { path: ['subjectPlayerId'], equals: 'player-3' },
-      });
+      await list({ subjectPlayerId: 'player-3' });
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual(playerClause);
     });
 
     it('narrows by both subjects when both are given', async () => {
-      await service.listAuditLog({ subjectUserId: 'user-9', subjectPlayerId: 'player-3' }, 1, 25);
+      await list({ subjectUserId: 'user-9', subjectPlayerId: 'player-3' });
       expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
-        AND: [
-          {
-            OR: [{ userId: 'user-9' }, { metadata: { path: ['subjectUserId'], equals: 'user-9' } }],
-          },
-          { metadata: { path: ['subjectPlayerId'], equals: 'player-3' } },
-        ],
+        AND: [userClause, playerClause],
       });
+    });
+
+    it('records the read itself before answering', async () => {
+      await list({ subjectUserId: 'user-9' });
+
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'ADMIN_PII_LISTED',
+          userId: 'admin-1',
+          metadata: { view: 'audit-log', filters: { subjectUserId: 'user-9', page: 1 } },
+        }),
+      );
+      expect(audit.recordAndWait.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.auditLog.findMany.mock.invocationCallOrder[0],
+      );
     });
   });
 });

@@ -66,7 +66,7 @@ export class RetentionService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async run(dryRun = false): Promise<RetentionSweepSummary> {
+  async run(dryRun = false, triggeredByUserId?: string): Promise<RetentionSweepSummary> {
     const now = new Date();
     const settled = await Promise.allSettled([
       this.sweepInactiveAccounts(dryRun, now),
@@ -84,7 +84,12 @@ export class RetentionService {
     // is itself the evidence that the policy was evaluated, which RGPD
     // art. 5.2 (accountability) asks for just as much as the deletions are.
     await this.prisma.retentionRun.create({
-      data: { dryRun, ranAt: now, summary: summary as unknown as Prisma.InputJsonValue },
+      data: {
+        dryRun,
+        ranAt: now,
+        triggeredByUserId: triggeredByUserId ?? null,
+        summary: summary as unknown as Prisma.InputJsonValue,
+      },
     });
 
     this.logger.log(

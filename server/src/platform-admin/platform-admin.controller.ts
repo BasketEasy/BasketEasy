@@ -84,8 +84,8 @@ export class PlatformAdminController {
   @Post('retention/dry-run')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   @PlatformRoles('DATA_OFFICER')
-  runRetentionDryRun(): Promise<RetentionStepSummary[]> {
-    return this.platformAdmin.runRetentionDryRun();
+  runRetentionDryRun(@CurrentUser() user: RequestUser): Promise<RetentionStepSummary[]> {
+    return this.platformAdmin.runRetentionDryRun(user.id);
   }
 
   /**
@@ -120,11 +120,17 @@ export class PlatformAdminController {
   @Get('audit-log')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   @PlatformRoles('DATA_OFFICER')
-  listAuditLog(@Query() query: ListAuditLogDto): Promise<PaginatedResult<AuditLogEntry>> {
+  listAuditLog(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListAuditLogDto,
+    @Req() request: Request,
+  ): Promise<PaginatedResult<AuditLogEntry>> {
     return this.platformAdmin.listAuditLog(
+      { id: user.id, email: user.email },
       { subjectUserId: query.userId, subjectPlayerId: query.playerId, action: query.action },
       query.page ?? 1,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
+      request,
     );
   }
 }
