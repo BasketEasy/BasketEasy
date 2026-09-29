@@ -77,23 +77,22 @@ describe('LandingPage', () => {
     expect(screen.getByText('Page de connexion')).toBeInTheDocument();
   });
 
-  it('shows a "Mon espace" link to the dashboard when logged in', async () => {
+  it('redirects a signed-in visitor to the dashboard', async () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
+        HttpResponse.json({
+          id: 'user-1',
+          email: 'a@b.com',
+          firstName: 'Ana',
+          emailVerified: true,
+          memberships: [],
+        }),
       ),
     );
 
-    const user = userEvent.setup();
     renderLandingPage();
 
-    await waitFor(() =>
-      expect(screen.getAllByRole('link', { name: /mon espace/i }).length).toBeGreaterThan(0),
-    );
-    expect(screen.queryByRole('link', { name: /se connecter/i })).not.toBeInTheDocument();
-
-    await user.click(screen.getAllByRole('link', { name: /mon espace/i })[0]);
-    expect(screen.getByText('Tableau de bord')).toBeInTheDocument();
+    expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
   });
 });

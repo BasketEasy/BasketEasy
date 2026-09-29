@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/card';
 import { Badge } from '@basketeasy/ui/badge';
@@ -95,8 +95,27 @@ function HeroAgendaMock() {
   );
 }
 
+function isStandalone(): boolean {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(display-mode: standalone)').matches
+  );
+}
+
 export function LandingPage() {
   const { user, isLoading } = useAccount();
+
+  // A signed-in visitor (an installed PWA opened from its icon included) has
+  // no use for the pitch: send them where PublicOnlyRoute sends /login.
+  if (!isLoading && user) {
+    return <Navigate to={user.firstName ? '/dashboard' : '/account'} replace />;
+  }
+
+  // An installed app opened without a session goes straight to the sign-in
+  // form; the marketing page is for the browser.
+  if (!isLoading && isStandalone()) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-ground text-charcoal">
@@ -117,20 +136,12 @@ export function LandingPage() {
               bénévoles, pas pour les DSI.
             </Text>
             <div className="flex flex-wrap justify-center gap-3 md:justify-start">
-              {!isLoading && user ? (
-                <Button asChild size="lg">
-                  <Link to="/dashboard">Aller à mon espace</Link>
-                </Button>
-              ) : (
-                <>
-                  <Button asChild size="lg">
-                    <Link to="/register">Créer un compte gratuitement</Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline">
-                    <Link to="/login">Se connecter</Link>
-                  </Button>
-                </>
-              )}
+              <Button asChild size="lg">
+                <Link to="/register">Créer un compte gratuitement</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/login">Se connecter</Link>
+              </Button>
             </div>
           </div>
           <div className="flex justify-center md:justify-end">
