@@ -83,7 +83,11 @@ export class PlatformAdminImpersonationService {
     const expiresAt = new Date(now.getTime() + IMPERSONATION_TTL_SECONDS * 1000);
 
     const session = await this.prisma.$transaction(async (tx) => {
-      // One live session per admin: a new one replaces the old.
+      // One live session per admin: a new one replaces the old. The grant row
+      // is locked first (as login does), so two concurrent starts run one
+      // after the other and the second replaces the first instead of both
+      // staying live.
+      await tx.$queryRaw`SELECT 1 FROM "PlatformAdmin" WHERE "userId" = ${actor.userId} FOR UPDATE`;
       const live = await tx.impersonationSession.findMany({
         where: { actorUserId: actor.userId, endedAt: null, expiresAt: { gt: now } },
         select: { id: true, subjectUserId: true },

@@ -255,8 +255,8 @@ export class PlatformAdminService {
    * "the newest row" could hand the caller the nightly sweep's row instead of
    * their own. The client refreshes the history list anyway.
    */
-  async runRetentionDryRun(): Promise<RetentionStepSummary[]> {
-    const summary = await this.retention.run(true);
+  async runRetentionDryRun(adminUserId: string): Promise<RetentionStepSummary[]> {
+    const summary = await this.retention.run(true, adminUserId);
     return toStepSummaries(summary as unknown as Prisma.JsonValue);
   }
 
@@ -285,10 +285,17 @@ export class PlatformAdminService {
 
     const subject = await this.prisma.user.findUnique({
       where: { id: subjectUserId },
-      select: { email: true },
+      select: { email: true, platformAdmin: { select: { userId: true } } },
     });
     if (!subject) {
       throw new NotFoundException('Compte introuvable');
+    }
+    // Same line as impersonation: staff accounts are managed out-of-band
+    // (the CLI revokes the grant first), never by another staff member here.
+    if (subject.platformAdmin) {
+      throw new ForbiddenException(
+        'Ce compte détient un accès back-office : révoquez-le d’abord avec la CLI',
+      );
     }
 
     const ipAddress = clientIpOf(request);
@@ -630,22 +637,51 @@ export class PlatformAdminService {
    * `subjectPlayerId` covers views of a player record, which may have no
    * account at all. Given together, the two filters narrow each other.
    */
+  /**
+   * The log holds subject addresses and free-text reasons, so reading it is
+   * itself recorded (ADMIN_PII_LISTED, view `audit-log`), awaited first.
+   */
   async listAuditLog(
+    actor: { id: string; email: string },
     filter: { subjectUserId?: string; subjectPlayerId?: string; action?: string },
     page: number,
     pageSize: number,
+    request: Request,
   ): Promise<PaginatedResult<AuditLogEntry>> {
+    await this.audit.recordAndWait({
+      type: 'ADMIN_PII_LISTED',
+      userId: actor.id,
+      actorEmail: actor.email,
+      metadata: {
+        view: 'audit-log',
+        filters: Object.fromEntries(
+          Object.entries({ ...filter, page }).filter(([, value]) => value !== undefined),
+        ),
+      },
+      context: auditContextOf(request),
+    });
     const clauses: Prisma.AuditLogWhereInput[] = [];
     if (filter.subjectUserId) {
       clauses.push({
         OR: [
           { userId: filter.subjectUserId },
           { metadata: { path: ['subjectUserId'], equals: filter.subjectUserId } },
+          // Shown on someone else's profile, or on a list page.
+          {
+            metadata: { path: ['disclosedUserIds'], array_contains: [filter.subjectUserId] },
+          },
         ],
       });
     }
     if (filter.subjectPlayerId) {
-      clauses.push({ metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } });
+      clauses.push({
+        OR: [
+          { metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } },
+          {
+            metadata: { path: ['disclosedPlayerIds'], array_contains: [filter.subjectPlayerId] },
+          },
+        ],
+      });
     }
     if (filter.action) {
       clauses.push({

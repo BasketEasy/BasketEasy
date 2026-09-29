@@ -50,7 +50,7 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 - **Language:** TypeScript everywhere, strict mode on. Shared shapes go in `packages/@basketeasy/types`, mirrored (not auto-generated yet) by backend DTOs. No barrel `index.ts` — each module (e.g. `health.ts`) is exposed as its own subpath via the package's `exports` field in `package.json` and imported as `@basketeasy/types/health`. Add a new file + a matching `exports` entry together when adding a domain area, rather than growing a single re-export file.
 - **Formatting:** Prettier (`pnpm format:check` is what CI runs — run `pnpm format` before committing).
 - **Linting:** ESLint per package (`server`, `app` each have their own config — Nest's decorator-heavy style differs from the frontend's React rules).
-- **Tests:** Jest for the API (`server`, colocated `*.spec.ts`), Vitest + React Testing Library for the frontend (`app`, colocated `*.test.tsx`). Add tests alongside new modules/components, not in a separate mirror tree.
+- **Tests:** Jest for the API (`server`, colocated `*.spec.ts`), Vitest + React Testing Library for the frontend (`app`, colocated `*.test.tsx`). Add tests alongside new modules/components, not in a separate mirror tree. The one exception is `server/test/db/*.db-spec.ts`: specs that need a real Postgres (FK cascades, `FOR UPDATE` races, JSON-path filters, raw SQL aggregates), run by `pnpm --filter @basketeasy/server test:db` against a migrated `DATABASE_URL` and by CI's `test-db` job. Unit specs mock Prisma and can't see any of those — when a change depends on the database enforcing something, add a case there.
 - **Verification cadence (agents):** don't run lint/format/test after every individual edit — that serializes work that should happen once. Make all the changes a task needs first, then verify a single time before calling the task done or committing. Scope that verification to what you touched instead of the whole repo:
   - Format/lint only the files you changed, e.g. `pnpm exec prettier --check <files>` / `pnpm --filter @basketeasy/server exec eslint <files>` / `pnpm --filter @basketeasy/app exec eslint <files>` — not the root `pnpm format`/`pnpm lint` (repo-wide) unless you're about to push.
   - Run only the relevant tests, not the full suite: `pnpm --filter @basketeasy/server test -- <path-or-pattern>` (Jest) or `pnpm --filter @basketeasy/app test -- <path>` (Vitest, or `vitest related <file>`), not root `pnpm test`.
@@ -230,7 +230,7 @@ Beyond the Working conventions above, four traps this direction has already fall
 - **One nightly BullMQ repeatable job** (`retention-sweep`, registered by `RetentionModule.onModuleInit` via `upsertJobScheduler`, so a redeploy re-registers rather than duplicates). `RETENTION_SWEEP_ENABLED` and `RETENTION_SWEEP_DRY_RUN` gate it; a scheduling failure is logged and swallowed, same "REDIS_URL is not boot-validated" policy as `QueueModule`. The policy itself lives in `RetentionService`, not the processor, so it is unit-testable without a queue.
 - **Four independent steps under `Promise.allSettled`** — inactive accounts (12 months), audit logs (12 months, CNIL), expired parental consents, and meeting-point geocodes unused for 12 months (`GeocodedAddress.lastUsedAt`) — because "audit logs couldn't be pruned" is no reason to leave inactive accounts standing. Every run, dry-run included, writes a `RetentionRun` row: proving the policy executes is itself RGPD art. 5.2 accountability, and a log line is neither queryable nor durable enough to be that proof.
 - **Erasing an account must not erase the club's history.** Rule 3 keeps stats forever, so the sweep sets `Player.userId = null` (the state an unclaimed roster entry has always been in) and lets everything hanging off `User` cascade. Never make it `player.deleteMany` — a `MatchPlayerStat` row is the club's record, not the person's account. One transaction per account, capped at `MAX_ACCOUNTS_PER_SWEEP` (500) a night.
-- **`AuditLog` is authentication activity only**, not a general mutation trail — broadening it multiplies write volume on every request for a rule that only asks about authentication. `actorEmail` is denormalised precisely so an entry still reads after `userId` is `SetNull`ed by the account's deletion. Every write goes through `AuditService.record()`, which is fire-and-forget like `MailService.sendAndForget`: an audit insert must never turn a successful login into a 500. Emission points are all in `AuthService`/`AccountSecurityService`; a `LOGIN_FAILURE` or `PASSWORD_RESET_REQUESTED` against an unknown address is recorded with `userId: null` (the log is never served back, so it leaks no enumeration the endpoints hide).
+- **`AuditLog` is authentication and access-granting activity only** (the one non-login case is a guardian link, which opens a minor's data: `GUARDIAN_INVITE_CREATED`/`_CANCELLED`/`_ACCEPTED` and `GUARDIAN_LINK_REMOVED`, actor as `userId`, player in `metadata.playerId`), not a general mutation trail — broadening it multiplies write volume on every request for a rule that only asks about authentication. `actorEmail` is denormalised precisely so an entry still reads after `userId` is `SetNull`ed by the account's deletion. Every write goes through `AuditService.record()`, which is fire-and-forget like `MailService.sendAndForget`: an audit insert must never turn a successful login into a 500. Emission points are all in `AuthService`/`AccountSecurityService`; a `LOGIN_FAILURE` or `PASSWORD_RESET_REQUESTED` against an unknown address is recorded with `userId: null` (the log is never served back, so it leaks no enumeration the endpoints hide).
 - **`User.lastActiveAt` is the only inactivity signal.** Written by `LastActiveInterceptor` (global `APP_INTERCEPTOR`, debounced to once an hour per user per instance through an in-process map — deliberately not Redis: an activity ping must not depend on the queue) and directly by `login`/`refresh`, the two signals that don't pass `JwtAuthGuard`.
 - **Parental consent is a staff attestation, not an e-signature** — the "easiest possible" v1. Required by `ClubsService.createPlayer` when `birthDate` makes the player a minor (`400 PARENTAL_CONSENT_REQUIRED`), and deliberately **not** required by bulk import: failing an import because row 34 is sixteen would make the feature unusable, so those players surface in the roster as _autorisation manquante_ and are resolved through `POST .../players/:playerId/parental-consent`. `isMinorBirthDate` (`@basketeasy/types/parental-consent`) is shared by the form and the API so the two can't drift.
 - **`ParentalConsent` outlives what it documents** — `SetNull` to `Player`/`User`, never `Cascade` and never Prisma's default `Restrict` (which would block the deletion instead of surviving it). RGPD art. 17.3.b is the carve-out. The row snapshots the minor's name and birth date, because a proof that no longer says whose consent it was is not evidence. Its five-year clock starts at _deletion_ (`ClubsService.deletePlayer`, or the sweep erasing the linked account — `startParentalConsentRetention` in `server/src/common`), never at creation, and re-recording consent clears it.
@@ -268,7 +268,10 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   `DATABASE_URL` and `PLATFORM_TOTP_ENCRYPTION_KEY` are already set. It lives under `src/`, not a
   `scripts/` folder, precisely so it ships: the runtime image carries `dist/` only. There is no "promote to admin"
   button and no in-app TOTP enrollment screen: an enrollment screen _is_ a self-service path to
-  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret.
+  arming a grant. `grant` prints the `otpauth://` URI once; re-running it rotates the secret
+  and keeps the grant's CIDR allowlist unless a new one (or `none`) is passed; every entry is
+  validated. Each `grant`/`revoke`/`unlock` writes an `ADMIN_GRANT_CHANGED` row (`userId` null,
+  actor `cli:<os user>`).
 - **TOTP is hand-rolled** (`totp.util.ts`, RFC 6238 over `node:crypto`, ±1 step) rather than a
   dependency — both RFCs publish test vectors, so `totp.util.spec.ts` _proves_ it instead of
   trusting it. Don't swap in `otplib` without a reason beyond taste.
@@ -302,13 +305,25 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   follows the same line: substring for a `DATA_OFFICER`, exact e-mail only for `SUPPORT`, so
   names can't be rebuilt from result counts. `PlatformAdminGuard` puts the role on the request
   for `@CurrentPlatformRole()`.
-- **Only a person detail read is audited, and only a `DATA_OFFICER`'s.** Opening
+- **Every read that shows a `DATA_OFFICER` people's names is audited.** Opening
   `GET /admin/users/:userId` or `GET /admin/players/:playerId` as a `DATA_OFFICER` writes
   `ADMIN_PII_VIEWED` (awaited before the response; the player variant carries
-  `metadata.subjectPlayerId`, matched by `GET /admin/audit-log?playerId=`). Lists and a
-  `SUPPORT` read carry no PII and write nothing. `usePlatformUser` never refetches on window
-  focus: "who looked at this person's data" must not be padded with rows produced by a tab
-  regaining focus.
+  `metadata.subjectPlayerId`, and both carry `disclosedUserIds`/`disclosedPlayerIds` for the
+  guardians/children the profile names). A `DATA_OFFICER`'s person list, club member list,
+  team, roster or event page writes `ADMIN_PII_LISTED` (one row per page: `view`, `filters`,
+  every person shown by id, collected structurally by `pii-disclosure.ts`), and so does any
+  search, `SUPPORT`'s included, since even a redacted hit confirms an address has an account.
+  Reading `GET /admin/audit-log` is itself recorded. `GET /admin/audit-log?userId=`/`?playerId=`
+  matches the disclosed-id arrays too. A `SUPPORT` list shows initials only and writes nothing;
+  its lists are ordered by date, not name, so the order can't rebuild what the initials hide,
+  and event `notes` are withheld from it. Neither `usePlatformUser` nor the audited list hooks
+  refetch on window focus: "who looked at this person's data" must not be padded with rows
+  produced by a tab regaining focus.
+- **`subjectEmail` outlives an erasure on purpose.** `ADMIN_PII_VIEWED`, `ADMIN_EXPORT_GENERATED`
+  and `ADMIN_USER_ERASED` rows keep the subject's address for the audit log's own 12-month
+  retention after the account is gone: a row that no longer says whose data was read or erased
+  is no evidence. Staff accounts can't be erased from the back-office (403, like impersonation);
+  the CLI revokes the grant first.
 - **Support actions are named routes, never a field editor.** `PlatformAdminActionsController`
   (`POST /admin/users/:id/revoke-sessions`, `…/clubs/:id/members/:userId/role`, `…/scoresheets/:id/retry`,
   fifteen in all) is open to both roles except club deletion, marking an address verified and transferring team ownership (`DATA_OFFICER` only), never targets the acting staff member's own account (403), and every route takes a 10–500 character reason
@@ -359,8 +374,13 @@ beside it. It is a _reader_ of the Retention, audit & parental consent module ab
   ends it at once. The subject becomes `request.user`, with `user.impersonation` set: that is what
   makes `PlatformAdminGuard` refuse outright, `LastActiveInterceptor` skip (staff viewing must not
   reset the erasure clock) and the vote endpoint null `myVote` (`myVoteHidden`). Start, replace
-  and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; expired rows
-  are dropped by the audit-log sweep step a day later. Frontend (`app/src/impersonation/`): the
+  and exit write `ADMIN_IMPERSONATION_STARTED`/`_ENDED` in the session's transaction; `start`
+  locks the actor's `PlatformAdmin` row first, so one live session per admin holds under
+  concurrency. `POST /admin/impersonations/:id/end` sits behind `JwtAuthGuard` alone
+  (`PlatformAdminImpersonationEndController`): the step-up token expires before the session,
+  and « Quitter » must still work then. Expired rows are dropped by the audit-log sweep step a
+  day later, which first writes the `_ENDED` row (`endReason: 'EXPIRED'`) for a session nobody
+  ended. Frontend (`app/src/impersonation/`): the
   token lives in memory beside the admin's own (`setImpersonationToken`), replaces it on product
   calls only, never triggers a refresh, and every non-`GET` product call is refused in
   `apiClient` before it leaves the browser (`/auth/logout` included). Entering and leaving clear

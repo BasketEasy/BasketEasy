@@ -43,6 +43,21 @@ export class PlatformAdminImpersonationController {
       request,
     );
   }
+}
+
+/**
+ * « Quitter », behind the admin's ordinary session only. The step-up token
+ * is minted before a session starts and so expires first; behind
+ * PlatformAdminGuard, « Quitter » in that gap answered 403 while the session
+ * stayed live and no EXITED row was written. Ending can only reduce access,
+ * and the service matches the session to its actor, so the ordinary session
+ * is enough. An impersonation token never reaches here: its strategy
+ * refuses every non-GET.
+ */
+@Controller('admin')
+@UseGuards(JwtAuthGuard)
+export class PlatformAdminImpersonationEndController {
+  constructor(private readonly impersonation: PlatformAdminImpersonationService) {}
 
   @Post('impersonations/:sessionId/end')
   @HttpCode(HttpStatus.NO_CONTENT)

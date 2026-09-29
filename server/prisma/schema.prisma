@@ -698,6 +698,12 @@ enum AuditEventType {
   REFRESH_TOKEN_REUSE_DETECTED
   EMAIL_VERIFIED
   GUARDIAN_INVITE_ACCEPTED
+  // A guardian link grants access to a minor's data, so issuing, cancelling
+  // and removing one are recorded beside its acceptance. `userId` is the
+  // actor; the player is `metadata.playerId`.
+  GUARDIAN_INVITE_CREATED
+  GUARDIAN_INVITE_CANCELLED
+  GUARDIAN_LINK_REMOVED
   // Back-office actions (see the companion back-office spec). Their own event
   // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
   // filter precisely on "who looked at this person's data". On one of these
@@ -706,6 +712,9 @@ enum AuditEventType {
   ADMIN_LOGIN_SUCCESS
   ADMIN_LOGIN_FAILURE
   ADMIN_PII_VIEWED
+  // A DATA_OFFICER's list, roster, event or search page (any role's search):
+  // metadata.view, the filters, and every person shown, by id.
+  ADMIN_PII_LISTED
   ADMIN_USER_ERASED
   ADMIN_EXPORT_GENERATED
   // Every back-office support action (resend a verification e-mail, change a
@@ -717,6 +726,10 @@ enum AuditEventType {
   // export, so its own types rather than a support-action kind.
   ADMIN_IMPERSONATION_STARTED
   ADMIN_IMPERSONATION_ENDED
+  // A grant, revoke or unlock run from the out-of-band CLI. No account acted
+  // (userId null); the operator is named in actorEmail as `cli:<os user>`,
+  // the grant's owner in metadata.subjectUserId.
+  ADMIN_GRANT_CHANGED
 }
 
 model AuditLog {
@@ -812,15 +825,19 @@ model ParentalConsent {
 // after the fact. These rows are never swept themselves; a retention record
 // that expires defeats its own purpose, and it is a few hundred rows a year.
 model RetentionRun {
-  id      String   @id @default(uuid())
-  ranAt   DateTime @default(now())
-  dryRun  Boolean  @default(false)
+  id                String   @id @default(uuid())
+  ranAt             DateTime @default(now())
+  dryRun            Boolean  @default(false)
+  // The DATA_OFFICER who asked for a manual dry run from the back-office;
+  // null for the nightly job. A plain id, not a relation: the run is
+  // evidence and must outlive the account.
+  triggeredByUserId String?
   // One entry per independent step —
   // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
   //   parentalConsents: {...}, geocodeCache: {...} } — so a step that threw
   // stays visible next to the steps that succeeded instead of losing the
   // whole run.
-  summary Json
+  summary           Json
 
   @@index([ranAt])
 }
