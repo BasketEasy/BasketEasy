@@ -720,6 +720,10 @@ enum AuditEventType {
   // export, so its own types rather than a support-action kind.
   ADMIN_IMPERSONATION_STARTED
   ADMIN_IMPERSONATION_ENDED
+  // A grant, revoke or unlock run from the out-of-band CLI. No account acted
+  // (userId null); the operator is named in actorEmail as `cli:<os user>`,
+  // the grant's owner in metadata.subjectUserId.
+  ADMIN_GRANT_CHANGED
 }
 
 model AuditLog {

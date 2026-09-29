@@ -74,7 +74,8 @@ export type AuditEventType =
   | 'ADMIN_EXPORT_GENERATED'
   | 'ADMIN_SUPPORT_ACTION'
   | 'ADMIN_IMPERSONATION_STARTED'
-  | 'ADMIN_IMPERSONATION_ENDED';
+  | 'ADMIN_IMPERSONATION_ENDED'
+  | 'ADMIN_GRANT_CHANGED';
 
 export interface AuditLogEntry {
   id: string;

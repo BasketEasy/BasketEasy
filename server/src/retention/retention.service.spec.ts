@@ -10,9 +10,9 @@ describe('RetentionService', () => {
     user: { findMany: jest.Mock; deleteMany: jest.Mock };
     player: { findMany: jest.Mock; updateMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
-    auditLog: { create: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
+    auditLog: { create: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
-    impersonationSession: { deleteMany: jest.Mock };
+    impersonationSession: { deleteMany: jest.Mock; findMany: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -34,6 +34,7 @@ describe('RetentionService', () => {
       },
       auditLog: {
         create: jest.fn(),
+        createMany: jest.fn(),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -41,7 +42,10 @@ describe('RetentionService', () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
-      impersonationSession: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      impersonationSession: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       retentionRun: { create: jest.fn().mockResolvedValue({}), findMany: jest.fn() },
       $transaction: jest.fn((run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     };
@@ -234,6 +238,45 @@ describe('RetentionService', () => {
       prisma.impersonationSession.deleteMany.mockClear();
       await service.run(true);
       expect(prisma.impersonationSession.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('records the end of a session nobody ended before dropping it', async () => {
+      const expiresAt = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+      prisma.impersonationSession.findMany.mockResolvedValue([
+        {
+          id: 'imp-1',
+          actorUserId: 'admin-1',
+          subjectUserId: 'user-9',
+          expiresAt,
+          actor: { email: 'dpo@kluvo.net' },
+        },
+      ]);
+
+      await service.run();
+
+      expect(prisma.impersonationSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { expiresAt: { lt: expect.any(Date) }, endedAt: null },
+        }),
+      );
+      expect(prisma.auditLog.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            type: 'ADMIN_IMPERSONATION_ENDED',
+            userId: 'admin-1',
+            actorEmail: 'dpo@kluvo.net',
+            metadata: {
+              sessionId: 'imp-1',
+              subjectUserId: 'user-9',
+              endReason: 'EXPIRED',
+              expiredAt: expiresAt.toISOString(),
+            },
+          },
+        ],
+      });
+      expect(prisma.auditLog.createMany.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.impersonationSession.deleteMany.mock.invocationCallOrder[0],
+      );
     });
   });
 
