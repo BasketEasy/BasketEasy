@@ -50,6 +50,8 @@ model User {
   guardianInvitesAccepted       GuardianInvite[]         @relation("GuardianInviteAcceptedBy")
   guardianInvitesCreated        GuardianInvite[]         @relation("GuardianInviteCreatedBy")
   rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
+  rsvpChangesMade               EventRsvpChange[]        @relation("EventRsvpChangeRespondedBy")
+  guestLinksCreated             TeamGuestLink[]          @relation("TeamGuestLinkCreatedBy")
   platformAdmin                 PlatformAdmin?
   impersonationsActed           ImpersonationSession[]   @relation("ImpersonationActor")
   impersonationsSubjected       ImpersonationSession[]   @relation("ImpersonationSubject")
@@ -106,6 +108,7 @@ enum NotificationType {
   SCORESHEET_FAILED
   EVENT_MEETING_FIXED
   EVENT_MEETING_CHANGED
+  GUEST_INVITE_REQUESTED
 }
 
 // One in-app notification addressed to one user.
@@ -299,6 +302,7 @@ model Team {
   events               Event[]
   teamAdmins           TeamAdmin[]
   ffbbLinks            TeamFfbbLink[]
+  guestLink            TeamGuestLink?
   // Team-level overrides of the owner club's meeting point and arrival
   // buffer; null inherits (a CTC team inherits from its owner club only).
   meetingPointName     String?
@@ -359,6 +363,7 @@ model TeamPlayer {
   team                  Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   player                Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
   rsvps                 EventRsvp[]
+  rsvpChanges           EventRsvpChange[]
   convocations          EventConvocation[]
   jerseysAssignedEvents Event[]            @relation("EventJerseysAssignee")
   ballsAssignedEvents   Event[]            @relation("EventBallsAssignee")
@@ -442,6 +447,7 @@ model Event {
   createdAt           DateTime           @default(now())
   team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps               EventRsvp[]
+  rsvpChanges         EventRsvpChange[]
   convocations        EventConvocation[]
   votes               EventVote[]
   scoresheet          EventScoresheet?
@@ -486,12 +492,57 @@ model EventRsvp {
   // is erased — both read as "no author known".
   respondedByUserId String?
   respondedBy       User?           @relation("EventRsvpRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+  // How the current answer was given. GUEST_LINK rows have respondedByUserId
+  // null: an anonymous link carries no author, even if the person holds an
+  // account.
+  source            EventRsvpSource @default(APP)
   event             Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
   teamPlayer        TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
 
   // No separate @@index([eventId]) — the unique constraint below already
   // provides a usable btree prefix index for eventId-only lookups.
   @@unique([eventId, teamPlayerId])
+}
+
+enum EventRsvpSource {
+  APP
+  GUEST_LINK
+}
+
+// One shareable RSVP link per team — see
+// docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md. No row means
+// the link is off. Regenerating replaces `token`; disabling deletes the row.
+model TeamGuestLink {
+  teamId          String   @id
+  // Stored in clear, unlike PlayerInvite/PasswordResetToken: the whole point
+  // of this link is that a manager re-copies it any time (a pinned WhatsApp
+  // message, a new group). It grants less than any session, and regenerating
+  // is the kill switch. 32 random bytes, base64url.
+  token           String   @unique
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy       User?    @relation("TeamGuestLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+}
+
+// Append-only log of every RSVP / travel-mode change, from any source — the
+// history a manager reads to spot someone answering for others through the
+// shared link. Cascades with its event and roster slot, like EventRsvp.
+model EventRsvpChange {
+  id                String           @id @default(uuid())
+  eventId           String
+  teamPlayerId      String
+  // Null when the answer was cleared.
+  status            EventRsvpStatus?
+  travelMode        EventTravelMode?
+  source            EventRsvpSource
+  respondedByUserId String?
+  createdAt         DateTime         @default(now())
+  event             Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer        TeamPlayer       @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+  respondedBy       User?            @relation("EventRsvpChangeRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, teamPlayerId, createdAt])
 }
 
 // A team manager's call-up of a specific roster member for one event —
@@ -704,6 +755,12 @@ enum AuditEventType {
   GUARDIAN_INVITE_CREATED
   GUARDIAN_INVITE_CANCELLED
   GUARDIAN_LINK_REMOVED
+  // A team's shared RSVP link opens roster names to anyone with the URL, so
+  // turning it on, replacing it and turning it off are recorded. `userId` is
+  // the actor; the team is `metadata.teamId`.
+  GUEST_LINK_ENABLED
+  GUEST_LINK_REGENERATED
+  GUEST_LINK_DISABLED
   // Back-office actions (see the companion back-office spec). Their own event
   // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
   // filter precisely on "who looked at this person's data". On one of these

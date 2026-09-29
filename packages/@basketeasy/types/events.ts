@@ -229,6 +229,8 @@ export interface EventRsvpRosterEntry {
   respondedBy: EventRsvpRespondent | null;
   /** The answer was given by someone other than the player themself — one of their guardians. */
   respondedByGuardian: boolean;
+  /** The answer was given through the team's shared guest link, not by a signed-in user. */
+  viaLink: boolean;
   /** Null unless this member answered GOING to a MATCH — same rule as TeamEvent.myTravelMode. */
   travelMode: EventTravelMode | null;
   /** True when this roster row is the persona's (the caller's own, or `forPlayerId`'s). */

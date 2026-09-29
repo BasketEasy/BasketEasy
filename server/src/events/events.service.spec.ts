@@ -66,6 +66,7 @@ describe('EventsService', () => {
       updateMany: jest.Mock;
       deleteMany: jest.Mock;
     };
+    eventRsvpChange: { create: jest.Mock };
     eventConvocation: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -110,8 +111,9 @@ describe('EventsService', () => {
           .fn()
           .mockResolvedValue({ respondedAt: RESPONDED_AT, respondedBy: CALLER }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        deleteMany: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      eventRsvpChange: { create: jest.fn().mockResolvedValue({}) },
       eventConvocation: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -1963,9 +1965,25 @@ describe('EventsService', () => {
           status: 'GOING',
           respondedAt: expect.any(Date),
           respondedByUserId: 'user-1',
+          source: 'APP',
         },
-        update: { status: 'GOING', respondedAt: expect.any(Date), respondedByUserId: 'user-1' },
+        update: {
+          status: 'GOING',
+          respondedAt: expect.any(Date),
+          respondedByUserId: 'user-1',
+          source: 'APP',
+        },
         include: { respondedBy: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: {
+          eventId: 'event-1',
+          teamPlayerId: 'tp-1',
+          status: 'GOING',
+          travelMode: 'MEETING_POINT',
+          source: 'APP',
+          respondedByUserId: 'user-1',
+        },
       });
       expect(result.myRsvpStatus).toBe('GOING');
       expect(result.myConvocation).toBe(true);
@@ -2013,6 +2031,17 @@ describe('EventsService', () => {
         service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING', 'stranger-1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.eventRsvp.upsert).not.toHaveBeenCalled();
+    });
+
+    it('logs no change when there was no answer to clear', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+      await service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.eventRsvpChange.create).not.toHaveBeenCalled();
     });
 
     it('resolves the write in a bounded number of queries, without re-fetching the event or re-resolving the caller TeamPlayer', async () => {
@@ -2078,6 +2107,9 @@ describe('EventsService', () => {
 
       expect(prisma.eventRsvp.deleteMany).toHaveBeenCalledWith({
         where: { eventId: 'event-1', teamPlayerId: 'tp-1' },
+      });
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ status: null, travelMode: null, source: 'APP' }),
       });
       expect(result.myRsvpStatus).toBeNull();
       expect(result.myConvocation).toBe(false);
@@ -2167,6 +2199,7 @@ describe('EventsService', () => {
           respondedAt: '2026-01-02T00:00:00.000Z',
           respondedBy: { firstName: 'Lea', lastInitial: 'B', isMe: true },
           respondedByGuardian: false,
+          viaLink: false,
           travelMode: null,
           isMe: true,
         },
@@ -2180,6 +2213,7 @@ describe('EventsService', () => {
           respondedAt: null,
           respondedBy: null,
           respondedByGuardian: false,
+          viaLink: false,
           travelMode: null,
           isMe: false,
         },

@@ -70,6 +70,7 @@ function mockRoster(people: Person[]) {
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: false,
   }));

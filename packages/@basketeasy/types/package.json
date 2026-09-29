@@ -80,6 +80,10 @@
       "types": "./meeting-points.ts",
       "default": "./meeting-points.ts"
     },
+    "./guest-links": {
+      "types": "./guest-links.ts",
+      "default": "./guest-links.ts"
+    },
     "./guardians": {
       "types": "./guardians.ts",
       "default": "./guardians.ts"

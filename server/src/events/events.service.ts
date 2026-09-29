@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EventRsvpSource,
   EventRsvpStatus,
   EventTravelMode,
   EventType,
@@ -549,25 +550,44 @@ export class EventsService {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
     const respondedAt = new Date();
-    const rsvp = await this.prisma.eventRsvp.upsert({
-      where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
-      create: {
-        eventId,
-        teamPlayerId: teamPlayer.id,
-        status,
-        respondedAt,
-        respondedByUserId: userId,
-      },
-      update: {
-        status,
-        respondedAt,
-        respondedByUserId: userId,
-        // Leaving GOING drops the travel choice, so GOING → MAYBE → GOING
-        // starts again from the meeting point rather than a stale « Direct ».
-        // Re-answering GOING keeps it: re-tapping « Présent » mustn't undo it.
-        ...(status !== EventRsvpStatus.GOING ? { travelMode: EventTravelMode.MEETING_POINT } : {}),
-      },
-      include: { respondedBy: RSVP_RESPONDENT_SELECT },
+    // The answer and its history row commit together: a history that can miss
+    // an answer is worse than none, since a coach reads it to spot tampering.
+    const rsvp = await this.prisma.$transaction(async (tx) => {
+      const written = await tx.eventRsvp.upsert({
+        where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
+        create: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status,
+          respondedAt,
+          respondedByUserId: userId,
+          source: EventRsvpSource.APP,
+        },
+        update: {
+          status,
+          respondedAt,
+          respondedByUserId: userId,
+          source: EventRsvpSource.APP,
+          // Leaving GOING drops the travel choice, so GOING → MAYBE → GOING
+          // starts again from the meeting point rather than a stale « Direct ».
+          // Re-answering GOING keeps it: re-tapping « Présent » mustn't undo it.
+          ...(status !== EventRsvpStatus.GOING
+            ? { travelMode: EventTravelMode.MEETING_POINT }
+            : {}),
+        },
+        include: { respondedBy: RSVP_RESPONDENT_SELECT },
+      });
+      await tx.eventRsvpChange.create({
+        data: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status,
+          travelMode: status === EventRsvpStatus.GOING ? written.travelMode : null,
+          source: EventRsvpSource.APP,
+          respondedByUserId: userId,
+        },
+      });
+      return written;
     });
     return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
       status,
@@ -588,8 +608,23 @@ export class EventsService {
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
-    await this.prisma.eventRsvp.deleteMany({
-      where: { eventId, teamPlayerId: teamPlayer.id },
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.eventRsvp.deleteMany({
+        where: { eventId, teamPlayerId: teamPlayer.id },
+      });
+      // Clearing an answer that was never given is not a change.
+      if (count > 0) {
+        await tx.eventRsvpChange.create({
+          data: {
+            eventId,
+            teamPlayerId: teamPlayer.id,
+            status: null,
+            travelMode: null,
+            source: EventRsvpSource.APP,
+            respondedByUserId: userId,
+          },
+        });
+      }
     });
     return this.buildOwnAnswer(teamId, event, teamPlayer.id, null);
   }
@@ -611,13 +646,25 @@ export class EventsService {
       throw new BadRequestException('Le mode de déplacement ne concerne que les matchs');
     }
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
-    const { count } = await this.prisma.eventRsvp.updateMany({
-      where: { eventId, teamPlayerId: teamPlayer.id, status: EventRsvpStatus.GOING },
-      data: { travelMode },
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.eventRsvp.updateMany({
+        where: { eventId, teamPlayerId: teamPlayer.id, status: EventRsvpStatus.GOING },
+        data: { travelMode },
+      });
+      if (count === 0) {
+        throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
+      }
+      await tx.eventRsvpChange.create({
+        data: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status: EventRsvpStatus.GOING,
+          travelMode,
+          source: EventRsvpSource.APP,
+          respondedByUserId: userId,
+        },
+      });
     });
-    if (count === 0) {
-      throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
-    }
     const rsvp = await this.prisma.eventRsvp.findUniqueOrThrow({
       where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
       select: { respondedAt: true, respondedBy: RSVP_RESPONDENT_SELECT },
@@ -700,6 +747,7 @@ export class EventsService {
         respondedBy: toRsvpRespondent(rsvp?.respondedBy ?? null, userId),
         respondedByGuardian:
           !!rsvp?.respondedByUserId && rsvp.respondedByUserId !== tp.player.userId,
+        viaLink: rsvp?.source === EventRsvpSource.GUEST_LINK,
         travelMode:
           event.type === EventType.MATCH && rsvp?.status === EventRsvpStatus.GOING
             ? rsvp.travelMode
