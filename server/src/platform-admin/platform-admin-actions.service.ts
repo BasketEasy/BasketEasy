@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -24,8 +25,12 @@ import {
   removeClubMembership,
   writeParentalConsent,
 } from '../clubs/club-writes';
+import { parentalConsentRetentionExpiry } from '../common/parental-consent-retention';
 import { auditContextOf } from './audit-context';
 import type { PlatformActor } from './platform-admin-browse.service';
+
+const CLUB_DELETE_TIMEOUT_MS = 120_000;
+const STORAGE_DELETE_CONCURRENCY = 10;
 
 /** Who and what an action row is about, beside `action` and `reason`. */
 interface ActionSubjects {
@@ -59,6 +64,8 @@ interface ActionSubjects {
  */
 @Injectable()
 export class PlatformAdminActionsService {
+  private readonly logger = new Logger(PlatformAdminActionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly accountSecurity: AccountSecurityService,
@@ -465,52 +472,122 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
-    const { result, storageKeys } = await this.prisma.$transaction(async (tx) => {
-      const club = await tx.club.findUnique({
-        where: { id: clubId },
-        select: { name: true, ffbbClubCode: true },
-      });
-      if (!club) {
-        throw new NotFoundException('Club introuvable');
-      }
-      const owned = await tx.clubTeam.findMany({
-        where: { clubId, isOwner: true },
-        select: { teamId: true },
-      });
-      const ownedTeamIds = owned.map((link) => link.teamId);
-      // Both the owned teams' sheets and any sheet one of this club's players
-      // uploaded on a partner's team: EventScoresheet cascades with its
-      // uploader's roster slot, so those rows go too.
-      const [sheets, playerCount] = await Promise.all([
-        tx.eventScoresheet.findMany({
-          where: {
-            OR: [
-              { event: { teamId: { in: ownedTeamIds } } },
-              { uploadedBy: { player: { clubId } } },
-            ],
+    const { result, storageKeys } = await this.prisma.$transaction(
+      async (tx) => {
+        const club = await tx.club.findUnique({
+          where: { id: clubId },
+          select: { name: true, ffbbClubCode: true },
+        });
+        if (!club) {
+          throw new NotFoundException('Club introuvable');
+        }
+        const [owned, partnerOnCount] = await Promise.all([
+          tx.clubTeam.findMany({
+            where: { clubId, isOwner: true },
+            select: {
+              teamId: true,
+              team: { select: { clubTeams: { where: { clubId: { not: clubId } } } } },
+            },
+          }),
+          tx.clubTeam.count({ where: { clubId, isOwner: false } }),
+        ]);
+        // A CTC team the club owns also holds its partners' rosters, events,
+        // scoresheets and stats. Deleting it would destroy another club's
+        // data, so the ownership has to move to a partner first.
+        const shared = owned.filter((link) => link.team.clubTeams.length > 0);
+        if (shared.length > 0) {
+          throw new ConflictException({
+            message: `Ce club possède ${shared.length} équipe(s) partagée(s) avec d'autres clubs : transférez-en la propriété avant de supprimer le club.`,
+            sharedTeamIds: shared.map((link) => link.teamId),
+          });
+        }
+        const ownedTeamIds = owned.map((link) => link.teamId);
+        // Both the owned teams' sheets and any sheet one of this club's players
+        // uploaded on a partner's team: EventScoresheet cascades with its
+        // uploader's roster slot, so those rows go too.
+        const [sheets, playerCount] = await Promise.all([
+          tx.eventScoresheet.findMany({
+            where: {
+              OR: [
+                { event: { teamId: { in: ownedTeamIds } } },
+                { uploadedBy: { player: { clubId } } },
+              ],
+            },
+            select: { storageKey: true },
+          }),
+          tx.player.count({ where: { clubId } }),
+        ]);
+        // Consent evidence outlives the club (RGPD art. 17.3.b): it keeps the
+        // club's name, and its five-year clock starts now, the same as when a
+        // club removes a single player.
+        const [consentCount] = await Promise.all([
+          tx.parentalConsent.updateMany({ where: { clubId }, data: { clubName: club.name } }),
+          tx.parentalConsent.updateMany({
+            where: { clubId, retentionExpiresAt: null },
+            data: { retentionExpiresAt: parentalConsentRetentionExpiry() },
+          }),
+        ]);
+        await tx.team.deleteMany({ where: { id: { in: ownedTeamIds } } });
+        await tx.club.delete({ where: { id: clubId } });
+        const result = await this.record(tx, actor, request, 'CLUB_DELETED', reason, {
+          clubId,
+          // The club no longer exists, so the row has to say what it was.
+          before: {
+            name: club.name,
+            ffbbClubCode: club.ffbbClubCode,
+            ownedTeamCount: ownedTeamIds.length,
+            partnerOnTeamCount: partnerOnCount,
+            playerCount,
+            parentalConsentsKept: consentCount.count,
+            scoresheetFileCount: sheets.length,
           },
-          select: { storageKey: true },
-        }),
-        tx.player.count({ where: { clubId } }),
-      ]);
-      await tx.team.deleteMany({ where: { id: { in: ownedTeamIds } } });
-      await tx.club.delete({ where: { id: clubId } });
-      const result = await this.record(tx, actor, request, 'CLUB_DELETED', reason, {
-        clubId,
-        // The club no longer exists, so the row has to say what it was.
-        before: {
-          name: club.name,
-          ffbbClubCode: club.ffbbClubCode,
-          ownedTeamCount: ownedTeamIds.length,
-          playerCount,
+        });
+        return { result, storageKeys: sheets.map((sheet) => sheet.storageKey) };
+      },
+      // A large club has many rows to cascade; Prisma's 5s default would roll
+      // the whole deletion back (P2028) for exactly the biggest clubs.
+      { maxWait: 10_000, timeout: CLUB_DELETE_TIMEOUT_MS },
+    );
+    await this.deleteScoresheetFiles(result.auditLogId, storageKeys);
+    return result;
+  }
+
+  /**
+   * Best-effort, after the commit: the rows that held the keys are gone, so a
+   * failed delete is logged and written onto the CLUB_DELETED row, where a
+   * later cleanup can find it, instead of disappearing silently. Bounded, so
+   * a club with hundreds of sheets doesn't open hundreds of requests at once.
+   */
+  private async deleteScoresheetFiles(auditLogId: string, keys: string[]): Promise<void> {
+    const failed: string[] = [];
+    for (let i = 0; i < keys.length; i += STORAGE_DELETE_CONCURRENCY) {
+      const batch = keys.slice(i, i + STORAGE_DELETE_CONCURRENCY);
+      const outcomes = await Promise.allSettled(batch.map((key) => this.storage.deleteObject(key)));
+      outcomes.forEach((outcome, index) => {
+        if (outcome.status === 'rejected') failed.push(batch[index]);
+      });
+    }
+    if (failed.length === 0) return;
+    this.logger.error(
+      `Club deletion ${auditLogId}: ${failed.length} scoresheet file(s) not deleted: ${failed.join(', ')}`,
+    );
+    try {
+      const row = await this.prisma.auditLog.findUnique({
+        where: { id: auditLogId },
+        select: { metadata: true },
+      });
+      await this.prisma.auditLog.update({
+        where: { id: auditLogId },
+        data: {
+          metadata: {
+            ...(row?.metadata as Prisma.JsonObject | null),
+            failedStorageKeys: failed,
+          },
         },
       });
-      return { result, storageKeys: sheets.map((sheet) => sheet.storageKey) };
-    });
-    await Promise.all(
-      storageKeys.map((key) => this.storage.deleteObject(key).catch(() => undefined)),
-    );
-    return result;
+    } catch (err: unknown) {
+      this.logger.error(`Could not record failed storage keys: ${String(err)}`);
+    }
   }
 
   // --------------------------------------------------------------- helpers

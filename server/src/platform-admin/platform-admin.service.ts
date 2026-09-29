@@ -573,7 +573,7 @@ export class PlatformAdminService {
         // playerBirthDate is deliberately not read: it is the minor's data.
         given: consentsGiven.map((consent) => ({
           source: consent.source,
-          clubName: consent.club.name,
+          clubName: consent.club?.name ?? consent.clubName ?? 'Club supprimé',
           minorFirstName: consent.playerFirstName,
           minorLastName: consent.playerLastName,
           consentGivenAt: consent.consentGivenAt.toISOString(),
@@ -581,7 +581,7 @@ export class PlatformAdminService {
         // attestedByName/attestedByUserId deliberately not read: art. 15(4).
         aboutThisPerson: consentsAboutSubject.map((consent) => ({
           source: consent.source,
-          clubName: consent.club.name,
+          clubName: consent.club?.name ?? consent.clubName ?? 'Club supprimé',
           consentGivenAt: consent.consentGivenAt.toISOString(),
         })),
       },
