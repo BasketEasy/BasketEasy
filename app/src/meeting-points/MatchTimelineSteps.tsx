@@ -58,7 +58,12 @@ function TimelineStep({
           className="mt-2.5 block h-3 w-3 rounded-full bg-current"
         />
         {!last && (
-          <Divider orientation="vertical" tone="structure" weight="rule" className="my-1 flex-1" />
+          <Divider
+            orientation="vertical"
+            tone="structure"
+            weight="rule"
+            className="my-1 flex-1 self-center"
+          />
         )}
       </div>
       <div
