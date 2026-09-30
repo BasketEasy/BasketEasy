@@ -207,8 +207,10 @@ Rules:
 - **Rate limit:** 30 writes per 10 minutes per token + IP, and 300 per hour per token, in memory per
   instance (the `LastActiveInterceptor` shape, no Redis dependency). A breach is `429`. The limit
   is generous for a family answering for three kids and tight for a script.
-- **`invite-request`:** notifies every `TeamAdmin` of the team plus the `ADMIN`s of the owner club:
-  « Léo M. demande un lien d'invitation Kluvo », deep link to the roster. It does nothing (and
+- **`invite-request`:** notifies the `ADMIN`s of the **player's own club** (the only ones who can
+  issue that `PlayerInvite`, which lives on the club's Joueurs tab, not the team roster; on a CTC
+  team it is not necessarily the owner club): « Léo M. demande un lien d'invitation Kluvo », deep
+  link `/clubs/<clubId>/members?tab=players&invite=<playerId>`. It does nothing (and
   still answers 204) when the player already has an account, already has a live `PlayerInvite`, or
   already requested one in the last 7 days. The constant 204 means the link can't be used to find
   out which teammates have accounts.

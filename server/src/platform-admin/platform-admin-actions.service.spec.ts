@@ -555,14 +555,16 @@ describe('PlatformAdminActionsService', () => {
   });
 
   describe('deleteClub', () => {
-    const owned = (teamId: string, partners: { clubId: string }[] = []) => ({
-      teamId,
-      team: { clubTeams: partners },
-    });
+    // Two reads: the club's owned links, then the partner links on those teams.
+    const arrange = (ownedIds: string[], partnered: string[] = []) => {
+      prisma.clubTeam.findMany
+        .mockResolvedValueOnce(ownedIds.map((teamId) => ({ teamId })))
+        .mockResolvedValueOnce(partnered.map((teamId) => ({ teamId })));
+    };
 
     beforeEach(() => {
       prisma.club.findUnique.mockResolvedValue({ name: 'BC Nantes', ffbbClubCode: 'PDL0044001' });
-      prisma.clubTeam.findMany.mockResolvedValue([owned('team-1'), owned('team-2')]);
+      arrange(['team-1', 'team-2']);
       prisma.clubTeam.count.mockResolvedValue(1);
       prisma.player.count.mockResolvedValue(12);
       prisma.parentalConsent.updateMany.mockResolvedValue({ count: 3 });
@@ -578,11 +580,19 @@ describe('PlatformAdminActionsService', () => {
       expect(result).toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
       expect(prisma.clubTeam.findMany).toHaveBeenCalledWith({
         where: { clubId: 'club-1', isOwner: true },
-        select: {
-          teamId: true,
-          team: { select: { clubTeams: { where: { clubId: { not: 'club-1' } } } } },
-        },
+        select: { teamId: true },
       });
+      // The owned Team rows are locked before partners are looked up, so a
+      // partner link added concurrently can't slip in after the check.
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.clubTeam.findMany.mock.invocationCallOrder[1],
+      );
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { teamId: { in: ['team-1', 'team-2'] }, clubId: { not: 'club-1' } },
+        }),
+      );
       expect(prisma.team.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['team-1', 'team-2'] } },
       });
@@ -619,10 +629,8 @@ describe('PlatformAdminActionsService', () => {
     });
 
     it('refuses a club that owns a team shared with another club, and deletes nothing', async () => {
-      prisma.clubTeam.findMany.mockResolvedValue([
-        owned('team-1'),
-        owned('team-ctc', [{ clubId: 'club-2' }]),
-      ]);
+      prisma.clubTeam.findMany.mockReset();
+      arrange(['team-1', 'team-ctc'], ['team-ctc']);
 
       await expect(
         service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),

@@ -51,6 +51,10 @@ function throttled(): HttpException {
 }
 
 const CLUB_DELETE_TIMEOUT_MS = 120_000;
+// The OCR retry enqueues inside its transaction (so a dead queue rolls the
+// audit row back); a slow Redis must not hit Prisma's 5 s default and roll back
+// a row whose job did land.
+const OCR_RETRY_TX_OPTIONS = { maxWait: 10_000, timeout: 30_000 };
 const STORAGE_DELETE_CONCURRENCY = 10;
 
 /** Who and what an action row is about, beside `action` and `reason`. */
@@ -367,7 +371,7 @@ export class PlatformAdminActionsService {
       });
       await this.scoresheets.enqueueOcr(sheet.id, { replaceStale: inFlight });
       return result;
-    });
+    }, OCR_RETRY_TX_OPTIONS);
   }
 
   // ----------------------------------------------------- guardians/consent
@@ -524,26 +528,33 @@ export class PlatformAdminActionsService {
           throw new NotFoundException('Club introuvable');
         }
         const [owned, partnerOnCount] = await Promise.all([
-          tx.clubTeam.findMany({
-            where: { clubId, isOwner: true },
-            select: {
-              teamId: true,
-              team: { select: { clubTeams: { where: { clubId: { not: clubId } } } } },
-            },
-          }),
+          tx.clubTeam.findMany({ where: { clubId, isOwner: true }, select: { teamId: true } }),
           tx.clubTeam.count({ where: { clubId, isOwner: false } }),
         ]);
+        const lockedTeamIds = owned.map((link) => link.teamId);
+        // Lock the owned Team rows before looking for partners: linking a club
+        // to a team takes a key-share lock on that row, so a link added by a
+        // concurrent request either commits before this read (and is seen) or
+        // waits until this deletion is done. Without it the check below is a
+        // plain READ COMMITTED read and a fresh partner's rosters would go too.
+        if (lockedTeamIds.length > 0) {
+          await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" IN (${Prisma.join(lockedTeamIds)}) FOR UPDATE`;
+        }
+        const partnered = await tx.clubTeam.findMany({
+          where: { teamId: { in: lockedTeamIds }, clubId: { not: clubId } },
+          select: { teamId: true },
+          distinct: ['teamId'],
+        });
         // A CTC team the club owns also holds its partners' rosters, events,
         // scoresheets and stats. Deleting it would destroy another club's
         // data, so the ownership has to move to a partner first.
-        const shared = owned.filter((link) => link.team.clubTeams.length > 0);
-        if (shared.length > 0) {
+        if (partnered.length > 0) {
           throw new ConflictException({
-            message: `Ce club possède ${shared.length} équipe(s) partagée(s) avec d'autres clubs : transférez-en la propriété avant de supprimer le club.`,
-            sharedTeamIds: shared.map((link) => link.teamId),
+            message: `Ce club possède ${partnered.length} équipe(s) partagée(s) avec d'autres clubs : transférez-en la propriété avant de supprimer le club.`,
+            sharedTeamIds: partnered.map((link) => link.teamId),
           });
         }
-        const ownedTeamIds = owned.map((link) => link.teamId);
+        const ownedTeamIds = lockedTeamIds;
         // Only the owned teams' sheets go. One of this club's players may have
         // uploaded on a partner's team, but the sheet belongs to that team:
         // its uploader link is merely nulled (SetNull), the file stays.
