@@ -55,6 +55,9 @@ export function toSnapshot(vars: WhatsAppTemplateVars): WhatsAppTemplateVars {
 
 /** Variables the group reads and that can change on their own, in the order the diff lists them. */
 const DIFFED: WhatsAppTemplateVariable[] = [
+  // In `contentKey`, so a rename is a change: it has to be listed, or an
+  // unrelated edit after a rename would raise an UPDATE that says nothing moved.
+  'team_name',
   'event_name',
   'opponent',
   'event_date',

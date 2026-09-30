@@ -129,8 +129,14 @@ describe('diffVars', () => {
     expect(diffVars({}, before).length).toBeGreaterThan(0);
   });
 
-  it('ignores the link and the team name, which the group does not read as news', () => {
-    expect(diffVars(before, { ...before, link: 'https://other', team_name: 'Autre' })).toEqual([]);
+  it('ignores the link, which is not part of what the group reads', () => {
+    expect(diffVars(before, { ...before, link: 'https://other' })).toEqual([]);
+  });
+
+  it('lists a team rename, since contentKey counts it as a change', () => {
+    expect(diffVars(before, { ...before, team_name: 'Autre' })).toEqual([
+      { label: 'Équipe', from: before.team_name, to: 'Autre' },
+    ]);
   });
 
   it('is empty for an identical message', () => {

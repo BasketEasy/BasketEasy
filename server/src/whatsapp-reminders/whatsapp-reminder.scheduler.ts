@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
-import { EventShareState, EventShareType, NotificationType } from '@prisma/client';
+import { EventShareState, EventShareType, NotificationType, Prisma } from '@prisma/client';
 import type { WhatsAppTemplateVars } from '@basketeasy/types/whatsapp-reminder';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -268,22 +268,40 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     // No row, or VOID.
     if (!enabled || !eventInFuture) return;
 
-    const row = await this.prisma.eventShare.upsert({
-      where: { eventId_type: { eventId: event.id, type: EventShareType.REMINDER } },
-      create: {
-        eventId: event.id,
-        teamId: event.teamId,
-        type: EventShareType.REMINDER,
-        state: EventShareState.SCHEDULED,
-        dueAt,
-      },
-      update: {
-        state: EventShareState.SCHEDULED,
-        dueAt,
-        firstNotifiedAt: null,
-        nudgedAt: null,
-      },
-    });
+    // Conditional writes, not an upsert: `share` was read a moment ago, and a
+    // concurrent confirm may have made it SENT since. Only a row that is still
+    // VOID (or absent) may go back to SCHEDULED.
+    const scheduled = {
+      state: EventShareState.SCHEDULED,
+      dueAt,
+      firstNotifiedAt: null,
+      nudgedAt: null,
+    };
+    let row: { id: string };
+    if (share) {
+      const { count } = await this.prisma.eventShare.updateMany({
+        where: { id: share.id, state: EventShareState.VOID },
+        data: scheduled,
+      });
+      if (count === 0) return;
+      row = share;
+    } else {
+      try {
+        row = await this.prisma.eventShare.create({
+          data: {
+            eventId: event.id,
+            teamId: event.teamId,
+            type: EventShareType.REMINDER,
+            ...scheduled,
+          },
+          select: { id: true },
+        });
+      } catch (error) {
+        // A concurrent sync created it first: it owns the scheduling.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
+        throw error;
+      }
+    }
     if (dueAt > now) {
       await this.queueSend(row.id, dueAt);
       await this.ensureExpire(row.id, event.startsAt);

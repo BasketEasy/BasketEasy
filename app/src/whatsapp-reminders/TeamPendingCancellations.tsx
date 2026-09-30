@@ -19,7 +19,11 @@ import { useConfirmCancellation, useTeamPendingCancellations } from './useTeamPe
  */
 export function TeamPendingCancellations({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, refetch } = useTeamPendingCancellations(clubId, teamId);
-  const { mutate: confirm, isPending: isConfirming } = useConfirmCancellation(clubId, teamId);
+  const {
+    mutate: confirm,
+    isPending,
+    variables: confirming,
+  } = useConfirmCancellation(clubId, teamId);
   const [searchParams] = useSearchParams();
   // `?partage=<shareId>` from the notification: focus that cancellation's button.
   const focusedShareId = searchParams.get('partage');
@@ -68,7 +72,8 @@ export function TeamPendingCancellations({ clubId, teamId }: { clubId: string; t
               message={cancellation.message}
               isSent={cancellation.status.state === 'SENT'}
               confirm={confirmThis}
-              isConfirming={isConfirming}
+              // Only the card being confirmed shows a spinner, not every card.
+              isConfirming={isPending && confirming?.shareId === cancellation.shareId}
               focusOnMount={focusedShareId === cancellation.shareId}
             />
           </Card>
