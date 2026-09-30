@@ -6,7 +6,10 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
+import { Badge } from '@basketeasy/ui/badge';
+import { PageHero } from '@basketeasy/ui/page-hero';
+import { SectionAccordion, SectionAccordionItem } from '@basketeasy/ui/section-accordion';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Input } from '@basketeasy/ui/input';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Pagination } from '@basketeasy/ui/pagination';
@@ -31,7 +34,7 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useClubShow } from '../clubs/useClubShow';
-import { ClubFfbbLinkControl } from '../clubs/ClubFfbbLinkControl';
+import { ClubFfbbFactTile } from '../clubs/ClubFfbbFactTile';
 import { ClubMeetingPointSettings } from '../meeting-points/ClubMeetingPointSettings';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
@@ -331,6 +334,8 @@ export function MembersPage() {
   const { mutate: removeMember } = useClubMemberRemove(clubId!);
 
   const [removeError, setRemoveError] = useState<string | null>(null);
+  // « Réglages du club », folded: the lists are what the page is for.
+  const [openSettings, setOpenSettings] = useState<string[]>([]);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
@@ -373,15 +378,34 @@ export function MembersPage() {
     return <ForbiddenPage />;
   }
 
+  // The unfiltered lists when they exist (a search must not change the
+  // club's own size), the tab's list otherwise. Every list runs on mount for
+  // an admin, so the counts cost no request; a part shows once it is known.
+  const memberTotal = allMembersResult?.total ?? membersResult?.total;
+  const playerTotal = allPlayersResult?.total ?? playersResult?.total;
+  const teamTotal = teamsResult?.total;
+  const clubCounts = [
+    memberTotal !== undefined && `${memberTotal} membre${memberTotal > 1 ? 's' : ''}`,
+    playerTotal !== undefined && `${playerTotal} joueur${playerTotal > 1 ? 's' : ''}`,
+    teamTotal !== undefined && `${teamTotal} équipe${teamTotal > 1 ? 's' : ''}`,
+  ].filter((part): part is string => typeof part === 'string');
+
   return (
     <PageContainer size="lg">
-      <Heading as="h1" className="m-0">
-        Effectif · {club?.name ?? '…'}
-      </Heading>
-
-      {isAdmin && club && <ClubFfbbLinkControl clubId={clubId!} club={club} />}
-
-      {isAdmin && <ClubMeetingPointSettings clubId={clubId!} />}
+      {/* An entity page reached from the « Club » tab: a hero, no page bar. */}
+      <PageHero
+        badges={
+          club?.ffbbClubCode && (
+            <Badge variant="soft" tone="structure">
+              FFBB {club.ffbbClubCode}
+            </Badge>
+          )
+        }
+        eyebrow="Club"
+        title={club?.name ?? '…'}
+        meta={clubCounts.length > 0 ? clubCounts.join(' · ') : undefined}
+        aside={club && <ClubFfbbFactTile clubId={clubId!} club={club} />}
+      />
 
       {removeError && (
         <Alert variant="destructive">
@@ -422,9 +446,15 @@ export function MembersPage() {
         }
       >
         <TabsList>
-          <TabsTrigger value="members">Membres</TabsTrigger>
-          <TabsTrigger value="players">Joueurs</TabsTrigger>
-          <TabsTrigger value="teams">Équipes</TabsTrigger>
+          <TabsTrigger value="members" badge={memberTotal}>
+            Membres
+          </TabsTrigger>
+          <TabsTrigger value="players" badge={playerTotal}>
+            Joueurs
+          </TabsTrigger>
+          <TabsTrigger value="teams" badge={teamTotal}>
+            Équipes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="members" className="mt-4 flex flex-col gap-4">
@@ -758,6 +788,15 @@ export function MembersPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <section className="flex flex-col gap-3.5">
+        <SectionHeading as="h2">Réglages du club</SectionHeading>
+        <SectionAccordion value={openSettings} onValueChange={setOpenSettings}>
+          <SectionAccordionItem value="rdv" title="RDV par défaut">
+            <ClubMeetingPointSettings clubId={clubId!} />
+          </SectionAccordionItem>
+        </SectionAccordion>
+      </section>
     </PageContainer>
   );
 }

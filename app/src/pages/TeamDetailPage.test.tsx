@@ -1035,7 +1035,7 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => expect(deleteCalled).toBe(true));
     expect(
-      await screen.findByRole('heading', { name: /effectif · coc basket/i }),
+      await screen.findByRole('heading', { level: 1, name: 'COC Basket' }),
     ).toBeInTheDocument();
   });
 
