@@ -108,14 +108,10 @@ export function renderTemplate(template: string, vars: WhatsAppTemplateVars): st
 }
 
 export type WhatsAppTemplateErrorCode =
-  | 'MISSING_LINK'
-  | 'TOO_LONG'
-  | 'UNKNOWN_VARIABLE'
-  | 'LINK_ON_DROPPABLE_LINE';
+  'MISSING_LINK' | 'TOO_LONG' | 'UNKNOWN_VARIABLE' | 'LINK_ON_DROPPABLE_LINE';
 
 export type WhatsAppTemplateValidation =
-  | { ok: true }
-  | { ok: false; code: WhatsAppTemplateErrorCode; variable?: string };
+  { ok: true } | { ok: false; code: WhatsAppTemplateErrorCode; variable?: string };
 
 // A training has no opponent and no RDV, so a line holding one of these
 // disappears; the link must never share a line with them.
