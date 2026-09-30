@@ -1,0 +1,142 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "U15 Filles",
+      "category": "U15",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": true,
+      "rosterRole": null
+    },
+    {
+      "teamId": "team-2",
+      "teamName": "Seniors M",
+      "category": "SENIOR",
+      "gender": "MEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": false,
+      "rosterRole": "COACH"
+    }
+  ],
+  "GET /api/me/dashboard": {
+    "totalPlayers": 42,
+    "actionItems": [
+      {
+        "kind": "MATCH_WITHOUT_CONVOCATIONS",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teamId": "team-1",
+        "teamName": "U15 Filles",
+        "eventId": "event-1",
+        "message": "Match contre l'ES Rezé samedi : personne n'a encore été convoqué."
+      },
+      {
+        "kind": "MATCH_WITHOUT_CONFIRMED_SCORESHEET",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teamId": "team-1",
+        "teamName": "U15 Filles",
+        "eventId": "event-0",
+        "message": "Match contre Vertou (dimanche dernier) : la feuille de match n'est pas confirmée."
+      },
+      {
+        "kind": "EVENT_PENDING_RSVPS",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teamId": "team-1",
+        "teamName": "U15 Filles",
+        "eventId": "event-2",
+        "message": "Entraînement jeudi : 7 joueurs n'ont pas répondu."
+      },
+      {
+        "kind": "PLAYERS_WITHOUT_ACCOUNT",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teamId": null,
+        "teamName": null,
+        "eventId": null,
+        "message": "3 joueurs n'ont pas encore de compte Kluvo."
+      }
+    ],
+    "upcomingEvents": [
+      {
+        "eventId": "event-1",
+        "teamId": "team-1",
+        "teamName": "U15 Filles",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-10-03T18:00:00.000Z",
+        "location": "Gymnase A, Nantes",
+        "notes": null,
+        "opponentName": "ES Rezé",
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 0,
+          "answering": 5,
+          "going": 4,
+          "maybe": 0,
+          "notGoing": 1,
+          "pending": 7,
+          "isConvocationScoped": false
+        }
+      },
+      {
+        "eventId": "event-2",
+        "teamId": "team-1",
+        "teamName": "U15 Filles",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "TRAINING",
+        "startsAt": "2026-10-02T17:30:00.000Z",
+        "location": "Gymnase B, Nantes",
+        "notes": null,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 0,
+          "answering": 5,
+          "going": 4,
+          "maybe": 0,
+          "notGoing": 1,
+          "pending": 7,
+          "isConvocationScoped": false
+        }
+      }
+    ]
+  }
+}

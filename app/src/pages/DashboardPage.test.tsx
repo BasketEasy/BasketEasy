@@ -235,8 +235,67 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    await waitFor(() => expect(screen.getByText('U15 Filles')).toBeInTheDocument());
-    expect(screen.getByRole('link', { name: /voir l.équipe/i })).toBeInTheDocument();
+    const row = await screen.findByRole('link', { name: /U15 Filles/ });
+    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1');
+    expect(within(row).getByText('COC Basket · U15')).toBeInTheDocument();
+    expect(within(row).getByText('Administrateur')).toBeInTheDocument();
+  });
+
+  it('puts « Cette semaine » and « Mes équipes » on the court line, as h2 sections', async () => {
+    renderLoggedIn();
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cette semaine' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 2, name: 'Mes équipes' })).toBeVisible();
+  });
+
+  it('links « Voir le calendrier » to the teams list', async () => {
+    renderLoggedIn();
+
+    expect(await screen.findByRole('link', { name: /voir le calendrier/i })).toHaveAttribute(
+      'href',
+      '/my-teams',
+    );
+  });
+
+  it('lists « À traiter » as tiles, accent for what only the manager can fix', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [],
+          actionItems: [
+            {
+              kind: 'MATCH_WITHOUT_CONVOCATIONS',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              eventId: 'event-1',
+              message: 'Match sans convocation',
+            },
+            {
+              kind: 'EVENT_PENDING_RSVPS',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-1',
+              teamName: 'U15 Filles',
+              eventId: 'event-2',
+              message: 'Réponses en attente',
+            },
+          ],
+        }),
+      ),
+    );
+    renderLoggedIn();
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'À traiter (2)' });
+    const section = heading.closest('section')!;
+    const tiles = section.querySelectorAll('[data-tone]');
+    expect(Array.from(tiles).map((tile) => tile.getAttribute('data-tone'))).toEqual([
+      'accent',
+      'neutral',
+    ]);
+    expect(within(section).getByRole('button', { name: 'Convoquer le groupe' })).toBeVisible();
   });
 
   it('shows an empty state when the user has no teams', async () => {
