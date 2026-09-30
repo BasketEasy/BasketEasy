@@ -169,11 +169,11 @@ export function EventDetailManagerView({
       {isRostered && <CoachOwnRsvpCard clubId={clubId} teamId={teamId} event={event} />}
 
       {isDesktop ? (
-        <div className="grid grid-cols-2 items-start gap-6">
+        <div className="grid grid-cols-2 items-stretch gap-6">
           {logistics}
           <section id={EVENT_SECTION_IDS.presences} className={`flex flex-col gap-3.5 ${scroll}`}>
             <SectionHeading as="h2">{presencesHeading}</SectionHeading>
-            <Card className="p-4">{roster}</Card>
+            <Card className="flex-1 p-4">{roster}</Card>
           </section>
         </div>
       ) : (

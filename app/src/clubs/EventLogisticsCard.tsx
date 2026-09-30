@@ -223,7 +223,11 @@ export function EventLogisticsCard({
   // MATCH, so the second test only narrows the type.
   if (event.type === 'MATCH' && event.meetingPlan) {
     return (
-      <div className={`grid items-start gap-3.5 ${stacked ? '' : 'lg:grid-cols-2'}`}>
+      <div
+        className={
+          stacked ? 'flex flex-1 flex-col gap-3.5' : 'grid items-start gap-3.5 lg:grid-cols-2'
+        }
+      >
         <EventMatchTimeline
           clubId={clubId}
           teamId={teamId}
@@ -231,7 +235,7 @@ export function EventLogisticsCard({
           plan={event.meetingPlan}
           canManage={canManage}
         />
-        <Card variant="flush">
+        <Card variant="flush" className={stacked ? 'flex-1' : undefined}>
           {canManage && (
             <div className="border-b border-border px-3.5 pt-4 pb-3">
               <Text variant="label">Matériel</Text>
