@@ -26,20 +26,27 @@ describe('FfbbImportService', () => {
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
   let meetingPoints: { announceMeetingChanges: jest.Mock };
+  let whatsAppReminders: { syncEvents: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       clubTeam: { findUnique: jest.fn() },
       teamFfbbLink: { findMany: jest.fn() },
-      event: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      event: {
+        findUnique: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'event-new' }),
+        update: jest.fn(),
+      },
       eventMeeting: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     ffbbProvider = { getMatchesForEngagement: jest.fn(), parseEngagementRef: jest.fn() };
     meetingPoints = { announceMeetingChanges: jest.fn().mockResolvedValue(undefined) };
+    whatsAppReminders = { syncEvents: jest.fn().mockResolvedValue(undefined) };
     service = new FfbbImportService(
       prisma as never,
       ffbbProvider as unknown as FfbbProvider,
       meetingPoints as unknown as MeetingPointsService,
+      whatsAppReminders as never,
     );
     prisma.clubTeam.findUnique.mockResolvedValue({
       clubId: 'club-1',
@@ -90,6 +97,37 @@ describe('FfbbImportService', () => {
       },
     });
     expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
+  });
+
+  it('reconciles the WhatsApp reminders for a created match and an updated one, not an unchanged one', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      { id: 'link-1', teamId: 'team-1', ffbbEngagementRef: 'r', ffbbEngagementLabel: 'C' },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [
+        match({ id: 'new' }),
+        match({ id: 'moved', startsAt: '2026-09-27T18:30:00' }),
+        match({ id: 'same' }),
+      ],
+    });
+    const stored = (id: string, startsAt: string) => ({
+      id,
+      startsAt: new Date(startsAt),
+      location: 'Lieu non communiqué',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    });
+    prisma.event.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(stored('event-moved', '2026-09-20T18:30:00Z'))
+      .mockResolvedValueOnce(stored('event-same', '2026-09-20T18:30:00Z'));
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(whatsAppReminders.syncEvents).toHaveBeenCalledTimes(1);
+    expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-new', 'event-moved']);
   });
 
   it('asks the provider to resolve venues and writes the address to the event', async () => {

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TeamEvent, UpdateEventRequest } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
-import { teamEventsQueryKey } from './queryKeys';
+import { teamEventsQueryKeyPrefix } from './queryKeys';
 
 export function useEventUpdate(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
@@ -10,7 +10,7 @@ export function useEventUpdate(clubId: string, teamId: string) {
     mutationFn: ({ eventId, dto }: { eventId: string; dto: UpdateEventRequest }) =>
       apiClient.patch<TeamEvent[]>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}`, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });
+      queryClient.invalidateQueries({ queryKey: teamEventsQueryKeyPrefix(clubId, teamId) });
     },
   });
 }

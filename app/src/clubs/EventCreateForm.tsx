@@ -13,6 +13,13 @@ import type { EventType, EventVenue } from '@basketeasy/types/events';
 import { useEventCreate } from './useEventCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { EVENT_TYPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
+import { EventWhatsAppReminderFields } from '../whatsapp-reminders/EventWhatsAppReminderFields';
+import {
+  WHATSAPP_REMINDER_DEFAULTS,
+  refineReminderOffset,
+  reminderFormShape,
+  toReminderRequestFields,
+} from '../whatsapp-reminders/eventReminderForm';
 
 const eventSchema = z
   .object({
@@ -24,7 +31,9 @@ const eventSchema = z
     venue: z.enum(['HOME', 'AWAY']).optional(),
     isRecurring: z.boolean(),
     recurrenceUntil: z.string().optional(),
+    ...reminderFormShape,
   })
+  .superRefine(refineReminderOffset)
   .refine((data) => !data.isRecurring || !!data.recurrenceUntil, {
     message: 'Date de fin requise pour un événement récurrent',
     path: ['recurrenceUntil'],
@@ -69,10 +78,12 @@ export function EventCreateForm({
       venue: undefined,
       isRecurring: false,
       recurrenceUntil: '',
+      ...WHATSAPP_REMINDER_DEFAULTS,
     },
   });
   const isRecurring = watch('isRecurring');
   const type = watch('type');
+  const waReminder = watch('waReminder');
 
   const onSubmit = (values: EventFormValues) => {
     createEvent(
@@ -86,6 +97,7 @@ export function EventCreateForm({
         recurrence: values.isRecurring
           ? { frequency: 'WEEKLY', until: new Date(values.recurrenceUntil!).toISOString() }
           : undefined,
+        ...toReminderRequestFields(values),
       },
       {
         onSuccess: () => {
@@ -197,6 +209,15 @@ export function EventCreateForm({
           {...register('recurrenceUntil')}
         />
       )}
+
+      <EventWhatsAppReminderFields
+        clubId={clubId}
+        teamId={teamId}
+        control={control}
+        idPrefix="event"
+        watchedChoice={waReminder}
+        offsetError={errors.waOffsetValue?.message}
+      />
 
       <Button type="submit" loading={isSubmitting || isPending}>
         Créer l'événement

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -46,8 +47,17 @@ export function EventDetailPage() {
     eventId: string;
   }>();
   const { state: navState } = useLocation();
-  const [searchParams] = useSearchParams();
-  useEventSectionAnchor(searchParams.get('tab'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?partage=<shareId>` comes from a « à partager » notification. Captured
+  // once, then dropped from the URL so a copied address doesn't carry it.
+  const [cameFromShareNotification] = useState(() => searchParams.has('partage'));
+  useEffect(() => {
+    if (!searchParams.has('partage')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('partage');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  useEventSectionAnchor(searchParams.get('tab') ?? (cameFromShareNotification ? 'partage' : null));
 
   const {
     data: event,
@@ -134,6 +144,7 @@ export function EventDetailPage() {
           teamName={team.name}
           isRostered={isRostered}
           showVote={showVote}
+          focusShare={cameFromShareNotification}
         />
       ) : (
         <EventDetailPlayerView

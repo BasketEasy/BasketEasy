@@ -15,6 +15,7 @@ import type {
   EventShareStatus,
   EventWhatsAppShare,
   TeamWhatsAppSettings,
+  UpdateTeamWhatsAppSettingsResponse,
 } from '@basketeasy/types/whatsapp-reminder';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -40,8 +41,9 @@ export class WhatsAppReminderController {
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Body() dto: UpdateTeamWhatsAppSettingsDto,
-  ): Promise<TeamWhatsAppSettings> {
-    return this.reminders.updateTeamSettings(clubId, teamId, dto);
+    @CurrentUser() user: RequestUser,
+  ): Promise<UpdateTeamWhatsAppSettingsResponse> {
+    return this.reminders.updateTeamSettings(clubId, teamId, dto, user.id);
   }
 
   @Get('events/:eventId/whatsapp-share')

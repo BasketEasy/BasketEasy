@@ -1,5 +1,6 @@
 import { asService, createClub, createTeam, createUser, prisma, resetDb } from './db';
 import { WhatsAppReminderService } from '../../src/whatsapp-reminders/whatsapp-reminder.service';
+import { WhatsAppReminderScheduler } from '../../src/whatsapp-reminders/whatsapp-reminder.scheduler';
 
 describe('WhatsApp share against Postgres', () => {
   beforeEach(resetDb);
@@ -16,12 +17,23 @@ describe('WhatsApp share against Postgres', () => {
         location: 'Salle',
       },
     });
+    const queue = {
+      add: async () => undefined,
+      remove: async () => 1,
+      getJob: async () => undefined,
+    };
+    const scheduler = new WhatsAppReminderScheduler(
+      asService(prisma),
+      { notify: async () => undefined } as never,
+      queue as never,
+    );
     const service = new WhatsAppReminderService(
       asService(prisma),
       { get: async () => ({ url: 'https://kluvo.test/r/abc' }) } as never,
       { resolvePlans: async () => new Map([[event.id, null]]) } as never,
+      scheduler,
     );
-    return { club, team, event, service };
+    return { club, team, event, service, scheduler };
   }
 
   it('keeps one row per (event, type)', async () => {
@@ -61,5 +73,48 @@ describe('WhatsApp share against Postgres', () => {
     expect(rows).toHaveLength(1);
     expect([a.id, b.id]).toContain(rows[0].sentByUserId);
     expect(first.platform).toBe(second.platform);
+  });
+
+  it('leaves SENT when the scheduled send and a confirm race', async () => {
+    const { club, team, event, service, scheduler } = await setup();
+    await prisma.team.update({ where: { id: team.id }, data: { waReminderEnabled: true } });
+    const share = await prisma.eventShare.create({
+      data: { eventId: event.id, type: 'REMINDER', state: 'SCHEDULED', dueAt: new Date() },
+    });
+    const user = await createUser();
+
+    await Promise.all([
+      scheduler.send(share.id),
+      service.confirmShare(club.id, team.id, event.id, 'REMINDER', user.id, 'COPY'),
+    ]);
+
+    const row = await prisma.eventShare.findUniqueOrThrow({ where: { id: share.id } });
+    expect(row.state).toBe('SENT');
+    expect(row.sentByUserId).toBe(user.id);
+  });
+
+  it('withdraws only the notifications that end with its own share id', async () => {
+    const { scheduler } = await setup();
+    const user = await createUser();
+    const notification = (deepLink: string) =>
+      prisma.notification.create({
+        data: {
+          userId: user.id,
+          type: 'WHATSAPP_SHARE_REQUESTED',
+          title: 't',
+          deepLink,
+        },
+      });
+    const mine = await notification('/clubs/c/teams/t/events/e?partage=share-1');
+    const other = await notification('/clubs/c/teams/t/events/e?partage=share-10');
+    const other2 = await notification('/clubs/c/teams/t/events/e?partage=other-share-1');
+
+    await scheduler.withdraw('share-1');
+
+    const read = async (id: string) =>
+      (await prisma.notification.findUniqueOrThrow({ where: { id } })).readAt;
+    expect(await read(mine.id)).not.toBeNull();
+    expect(await read(other.id)).toBeNull();
+    expect(await read(other2.id)).toBeNull();
   });
 });

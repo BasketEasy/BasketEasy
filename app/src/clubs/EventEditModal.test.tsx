@@ -39,6 +39,8 @@ const trainingEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
 };
 
@@ -162,5 +164,107 @@ describe('EventEditModal', () => {
 
     await waitFor(() => expect(timeBody).toBeDefined());
     expect(timeBody).toMatchObject({ scope: 'THIS_AND_FUTURE', hour: 20, minute: 15 });
+  });
+
+  describe('WhatsApp reminder field', () => {
+    const settings = {
+      reminderTemplate: null,
+      reminderEnabled: true,
+      defaultOffsetMinutes: 4320,
+      hasReachableManager: true,
+    };
+    const withSettings = (over: Partial<NonNullable<TeamEvent['whatsAppSettings']>> = {}) => ({
+      ...trainingEvent,
+      whatsAppSettings: {
+        override: null,
+        offsetMinutes: null,
+        effective: { enabled: true, offsetMinutes: 4320 },
+        ...over,
+      },
+    });
+
+    function servePatch() {
+      const bodies: Record<string, unknown>[] = [];
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/whatsapp-settings', () =>
+          HttpResponse.json(settings),
+        ),
+        http.patch('/api/clubs/club-1/teams/team-1/events/event-1', async ({ request }) => {
+          bodies.push((await request.json()) as Record<string, unknown>);
+          return HttpResponse.json([trainingEvent]);
+        }),
+      );
+      return bodies;
+    }
+
+    it('names what « Comme l’équipe » means for this team', async () => {
+      servePatch();
+      const user = userEvent.setup();
+      renderModal(withSettings());
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+
+      expect(await screen.findByRole('combobox', { name: 'Rappel WhatsApp' })).toHaveTextContent(
+        "Comme l'équipe (activé, 3 jours avant)",
+      );
+    });
+
+    it('starts from the event’s own override and offset', async () => {
+      servePatch();
+      const user = userEvent.setup();
+      renderModal(withSettings({ override: true, offsetMinutes: 120 }));
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+
+      expect(screen.getByRole('combobox', { name: 'Rappel WhatsApp' })).toHaveTextContent('Activé');
+      expect(screen.getByLabelText('Me rappeler')).toHaveValue('2');
+      expect(screen.getByRole('combobox', { name: 'Unité de durée' })).toHaveTextContent('heures');
+    });
+
+    it('sends nothing about the reminder when the field was not touched', async () => {
+      const bodies = servePatch();
+      const user = userEvent.setup();
+      renderModal(withSettings({ override: true, offsetMinutes: 120 }));
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).not.toHaveProperty('waReminderOverride');
+      expect(bodies[0]).not.toHaveProperty('waOffsetMinutes');
+    });
+
+    it('sends the override and the offset in minutes once touched, null meaning inherit', async () => {
+      const bodies = servePatch();
+      const user = userEvent.setup();
+      renderModal(withSettings({ override: true, offsetMinutes: 120 }));
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      await user.click(screen.getByRole('combobox', { name: 'Rappel WhatsApp' }));
+      await user.click(await screen.findByRole('option', { name: /Comme l'équipe/ }));
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toMatchObject({ waReminderOverride: null });
+    });
+
+    it('refuses an offset beyond 14 days', async () => {
+      const bodies = servePatch();
+      const user = userEvent.setup();
+      renderModal(withSettings({ override: true, offsetMinutes: 120 }));
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      const offset = screen.getByLabelText('Me rappeler');
+      await user.clear(offset);
+      await user.type(offset, '3');
+      await user.click(screen.getByRole('combobox', { name: 'Unité de durée' }));
+      await user.click(await screen.findByRole('option', { name: 'jours' }));
+      await user.clear(offset);
+      await user.type(offset, '20');
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      expect(await screen.findByText('14 jours avant au maximum')).toBeInTheDocument();
+      expect(bodies).toHaveLength(0);
+    });
   });
 });

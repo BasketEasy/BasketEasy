@@ -56,6 +56,11 @@ export function EventRow({
               Importé
             </Badge>
           )}
+          {canManage && event.whatsAppShare?.state === 'PENDING' && (
+            <Badge variant="soft" tone="brand">
+              À partager
+            </Badge>
+          )}
         </div>
       </TableCell>
       <TableCell>{event.location}</TableCell>

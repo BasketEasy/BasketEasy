@@ -3,6 +3,7 @@
 // Part 1 spec beside it. Shared so the settings preview and the server render
 // a message identically.
 import type { EventRsvpRespondent } from './events';
+import { GUEST_WINDOW_DAYS } from './guest-links';
 
 export const WHATSAPP_TEMPLATE_VARIABLES = [
   'event_name',
@@ -159,12 +160,14 @@ export function contentKey(vars: WhatsAppTemplateVars): string {
 }
 
 export type EventShareType = 'REMINDER';
-export type EventShareState = 'SENT';
+export type EventShareState = 'SCHEDULED' | 'PENDING' | 'SENT' | 'EXPIRED' | 'VOID';
 export type EventSharePlatform = 'SHARE_SHEET' | 'WA_ME' | 'COPY';
 
 export interface EventShareStatus {
   type: EventShareType;
   state: EventShareState | 'NOT_SENT';
+  /** When the scheduled reminder is (or was) due; null before one is scheduled. */
+  dueAt: string | null;
   sentAt: string | null;
   sentBy: EventRsvpRespondent | null;
   platform: EventSharePlatform | null;
@@ -176,13 +179,37 @@ export interface EventWhatsAppShare {
   shares: Array<EventShareStatus & { message: string | null }>;
 }
 
+/** 3 days before the event, unless a team or an event says otherwise. */
+export const DEFAULT_WA_OFFSET_MINUTES = 4320;
+export const WA_OFFSET_MINUTES_MIN = 60;
+/** The guest page lists only the next GUEST_WINDOW_DAYS days: a reminder further out would link to a page that doesn't show the event yet. */
+export const WA_OFFSET_MINUTES_MAX = GUEST_WINDOW_DAYS * 1440;
+
 export interface TeamWhatsAppSettings {
   /** Null means the default template. */
   reminderTemplate: string | null;
+  reminderEnabled: boolean;
+  defaultOffsetMinutes: number;
+  /** False when no manager has e-mail notifications on or a push subscription: nobody would hear the reminder. */
+  hasReachableManager: boolean;
 }
 
 export interface UpdateTeamWhatsAppSettingsRequest {
-  reminderTemplate: string | null;
+  reminderTemplate?: string | null;
+  reminderEnabled?: boolean;
+  defaultOffsetMinutes?: number;
+}
+
+/** Answer to the settings PATCH: the settings, and whether this save switched the guest link on. */
+export interface UpdateTeamWhatsAppSettingsResponse extends TeamWhatsAppSettings {
+  guestLinkEnabled: boolean;
+}
+
+/** A manager's view of one event's reminder settings; null fields inherit the team. */
+export interface EventWhatsAppSettings {
+  override: boolean | null;
+  offsetMinutes: number | null;
+  effective: { enabled: boolean; offsetMinutes: number };
 }
 
 export interface ConfirmEventShareRequest {

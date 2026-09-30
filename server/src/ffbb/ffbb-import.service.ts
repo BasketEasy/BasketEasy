@@ -9,6 +9,7 @@ import type { FfbbImportResult } from '@basketeasy/types/ffbb';
 import { PrismaService } from '../prisma/prisma.service';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 
 type UpsertOutcome = 'created' | 'updated' | 'unchanged';
 
@@ -39,6 +40,7 @@ export class FfbbImportService {
     private readonly prisma: PrismaService,
     @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
     private readonly meetingPoints: MeetingPointsService,
+    private readonly whatsAppReminders: WhatsAppReminderService,
   ) {}
 
   async importSchedule(clubId: string, teamId: string): Promise<FfbbImportResult> {
@@ -81,9 +83,12 @@ export class FfbbImportService {
     let updated = 0;
     let unchanged = 0;
     const rescheduledEventIds: string[] = [];
+    // Every created or changed match: this import is a second write path for
+    // Event rows, so it reconciles the WhatsApp reminders itself.
+    const touchedEventIds: string[] = [];
     for (const matches of matchesByLink) {
       for (const match of matches) {
-        const outcome = await this.upsertMatch(teamId, match, rescheduledEventIds);
+        const outcome = await this.upsertMatch(teamId, match, rescheduledEventIds, touchedEventIds);
         if (outcome === 'created') created += 1;
         else if (outcome === 'updated') updated += 1;
         else unchanged += 1;
@@ -101,6 +106,8 @@ export class FfbbImportService {
       await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
     }
 
+    await this.whatsAppReminders.syncEvents(touchedEventIds);
+
     return { created, updated, unchanged };
   }
 
@@ -108,6 +115,7 @@ export class FfbbImportService {
     teamId: string,
     match: FfbbMatch,
     rescheduledEventIds: string[],
+    touchedEventIds: string[],
   ): Promise<UpsertOutcome> {
     const existing = await this.prisma.event.findUnique({
       where: { teamId_externalId: { teamId, externalId: match.id } },
@@ -128,7 +136,7 @@ export class FfbbImportService {
     const venue = match.isHome ? 'HOME' : 'AWAY';
 
     if (!existing) {
-      await this.prisma.event.create({
+      const createdEvent = await this.prisma.event.create({
         data: {
           teamId,
           type: 'MATCH',
@@ -140,6 +148,7 @@ export class FfbbImportService {
           venue,
         },
       });
+      touchedEventIds.push(createdEvent.id);
       return 'created';
     }
 
@@ -173,6 +182,7 @@ export class FfbbImportService {
       },
     });
     if (rescheduled) rescheduledEventIds.push(existing.id);
+    touchedEventIds.push(existing.id);
     return 'updated';
   }
 

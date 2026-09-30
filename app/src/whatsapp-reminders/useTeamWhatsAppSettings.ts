@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   TeamWhatsAppSettings,
   UpdateTeamWhatsAppSettingsRequest,
+  UpdateTeamWhatsAppSettingsResponse,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
+import { teamEventsQueryKeyPrefix } from '../clubs/queryKeys';
 
 const settingsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'whatsapp-settings'] as const;
@@ -22,14 +24,17 @@ export function useUpdateTeamWhatsAppSettings(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateTeamWhatsAppSettingsRequest) =>
-      apiClient.patch<TeamWhatsAppSettings>(path(clubId, teamId), body),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(settingsQueryKey(clubId, teamId), settings);
-      // Every event's rendered message depends on the template.
-      return queryClient.invalidateQueries({
-        queryKey: ['clubs', clubId, 'teams', teamId, 'events'],
-        predicate: (q) => q.queryKey[q.queryKey.length - 1] === 'whatsapp-share',
-      });
+      apiClient.patch<UpdateTeamWhatsAppSettingsResponse>(path(clubId, teamId), body),
+    onSuccess: ({ guestLinkEnabled, ...settings }) => {
+      queryClient.setQueryData<TeamWhatsAppSettings>(settingsQueryKey(clubId, teamId), settings);
+      // A save can switch the guest link on, reschedule every upcoming event's
+      // reminder, and change the message every event renders from the template.
+      if (guestLinkEnabled) {
+        void queryClient.invalidateQueries({
+          queryKey: ['clubs', clubId, 'teams', teamId, 'guest-link'],
+        });
+      }
+      return queryClient.invalidateQueries({ queryKey: teamEventsQueryKeyPrefix(clubId, teamId) });
     },
   });
 }

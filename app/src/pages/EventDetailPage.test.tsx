@@ -68,6 +68,8 @@ const matchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
 };
 
@@ -454,5 +456,70 @@ describe('EventDetailPage — ?tab= deep links', () => {
 
     await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
     expect(scrollSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('EventDetailPage — WhatsApp share, manager view', () => {
+  const shareBody = (state: string) => ({
+    guestLinkActive: true,
+    shares: [
+      {
+        type: 'REMINDER',
+        state,
+        dueAt: null,
+        sentAt: null,
+        sentBy: null,
+        platform: null,
+        message: 'Le message',
+      },
+    ],
+  });
+
+  it('shows the share card to a manager on an upcoming event, never to a player', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('NOT_SENT')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    expect(await screen.findByRole('heading', { name: 'Partage WhatsApp' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Partager sur WhatsApp' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens from a notification: focuses the share button, then drops ?partage= from the URL', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('PENDING')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: `${route}?partage=share-1` });
+
+    const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
+    await waitFor(() => expect(button).toHaveFocus());
+    expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('does not steal focus on a plain visit', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('PENDING')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
+    expect(button).not.toHaveFocus();
   });
 });

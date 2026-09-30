@@ -35,6 +35,8 @@ const trainingEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
 };
 

@@ -108,7 +108,23 @@
       },
       "defaultMeetingPointSource": "CLUB"
     },
-    "myTravelMode": "MEETING_POINT"
+    "myTravelMode": "MEETING_POINT",
+    "whatsAppShare": {
+      "type": "REMINDER",
+      "state": "PENDING",
+      "dueAt": "2026-10-07T18:30:00.000Z",
+      "sentAt": null,
+      "sentBy": null,
+      "platform": null
+    },
+    "whatsAppSettings": {
+      "override": null,
+      "offsetMinutes": null,
+      "effective": {
+        "enabled": true,
+        "offsetMinutes": 4320
+      }
+    }
   },
   "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps": [
     {
@@ -277,18 +293,22 @@
     "url": "https://kluvo.net/r/new"
   },
   "GET /api/clubs/club-1/teams/team-1/whatsapp-settings": {
-    "reminderTemplate": null
+    "reminderTemplate": null,
+    "reminderEnabled": true,
+    "defaultOffsetMinutes": 4320,
+    "hasReachableManager": false
   },
   "GET /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share": {
     "guestLinkActive": true,
     "shares": [
       {
         "type": "REMINDER",
-        "state": "NOT_SENT",
+        "state": "PENDING",
         "sentAt": null,
         "sentBy": null,
         "platform": null,
-        "message": "🏀 Match contre Rezé Basket, sam. 10 oct. !\nRDV 19:15 – Parking salle Coubertin.\nOn commence à 20:30 (Salle des Sports de la Trocardière, Rezé).\nDis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa"
+        "message": "🏀 Match contre Rezé Basket, sam. 10 oct. !\nRDV 19:15 – Parking salle Coubertin.\nOn commence à 20:30 (Salle des Sports de la Trocardière, Rezé).\nDis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa",
+        "dueAt": "2026-10-07T18:30:00.000Z"
       }
     ]
   },
