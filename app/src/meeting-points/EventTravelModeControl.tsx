@@ -16,6 +16,8 @@ import { formatEventTime } from '../clubs/eventDateFormat';
 import { useEventTravelModeSet } from './useEventTravelModeSet';
 import { eventVenueLabel } from '@basketeasy/types/events';
 
+export type TravelModeLayout = 'stack' | 'split';
+
 /** One card's contents: what it is, where, and — big, on the right — when. */
 function ChoiceCard({
   title,
@@ -70,6 +72,7 @@ export function TravelModeChoice({
   value,
   onChange,
   divided = true,
+  layout = 'stack',
 }: {
   eventId: string;
   plan: EventMeetingPlan;
@@ -80,6 +83,8 @@ export function TravelModeChoice({
   onChange: (travelMode: EventTravelMode) => void;
   /** A rule above the question — for the decision band, where it follows the RSVP answer. */
   divided?: boolean;
+  /** `split`: the two cards side by side from `md`, for a full-width card (the home's hero). */
+  layout?: TravelModeLayout;
 }) {
   const meetsAt = plan.meetsAt ? formatEventTime(plan.meetsAt) : null;
   return (
@@ -92,7 +97,7 @@ export function TravelModeChoice({
         aria-labelledby={`travel-mode-${eventId}`}
         tone="choice"
         indicator
-        className="gap-2"
+        className={cn('gap-2', layout === 'split' && 'md:grid md:grid-cols-2')}
         value={value}
         onChange={onChange}
         options={[
@@ -160,12 +165,14 @@ export function EventTravelModeControl({
   teamId,
   event,
   divided = true,
+  layout = 'stack',
 }: {
   clubId: string;
   teamId: string;
   event: TravelModeEvent;
   /** A rule above the question — for the decision band, where it follows the RSVP answer. */
   divided?: boolean;
+  layout?: TravelModeLayout;
 }) {
   const { mutate: setTravelMode } = useEventTravelModeSet(clubId, teamId);
   // Optimistic: the selection moves on click, and snaps back on failure.
@@ -203,6 +210,7 @@ export function EventTravelModeControl({
       value={pending ?? event.myTravelMode}
       onChange={select}
       divided={divided}
+      layout={layout}
     />
   );
 }

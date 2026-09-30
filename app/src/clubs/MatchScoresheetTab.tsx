@@ -266,7 +266,7 @@ export function MatchScoresheetTab({
   if (selectedFile) {
     const isPdf = selectedFile.type === 'application/pdf';
     return (
-      <Card variant="panel" className="flex max-w-sm flex-col gap-4 md:max-w-lg">
+      <Card variant="panel" className="flex flex-col gap-4">
         {isUploadError && (
           <QueryError
             title="Échec de l'envoi"
@@ -320,10 +320,7 @@ export function MatchScoresheetTab({
     status?.status === 'PROCESSING'
   ) {
     return (
-      <Card
-        variant="panel"
-        className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
-      >
+      <Card variant="panel" className="flex flex-col items-center gap-3 text-center">
         <Text
           as="span"
           variant="body"
@@ -365,10 +362,7 @@ export function MatchScoresheetTab({
       return <SkeletonList rows={3} variant="card" />;
     }
     return (
-      <Card
-        variant="panel"
-        className="flex max-w-sm flex-col items-center gap-3 text-center md:max-w-lg"
-      >
+      <Card variant="panel" className="flex flex-col items-center gap-3 text-center">
         <IconBadge tone="danger" className="h-12 w-12">
           <AlertCircleIcon aria-hidden="true" className="h-6 w-6" />
         </IconBadge>
@@ -447,7 +441,7 @@ export function MatchScoresheetTab({
   }
 
   return (
-    <Card variant="panel" className="flex max-w-sm flex-col gap-5 md:max-w-lg">
+    <Card variant="panel" className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
         <IconBadge className="h-14 w-14">
           <UploadIcon className="h-7 w-7" />
