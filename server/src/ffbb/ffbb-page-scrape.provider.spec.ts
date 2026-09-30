@@ -1116,5 +1116,61 @@ describe('FfbbPageScrapeProvider', () => {
         'Gymnase de la Chesnaie, 12 rue des Sports, 44115 Basse-Goulaine',
       );
     });
+
+    it('loads detail pages one at a time, as a navigation from the fixture list', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      let inFlight = 0;
+      let maxInFlight = 0;
+      fetchSpy.mockImplementation(async (input: unknown) => {
+        if (String(input).endsWith(ENGAGEMENT_REF)) {
+          return fakeResponse({ text: async () => listHtml });
+        }
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight -= 1;
+        return fakeResponse({ text: async () => detailPageHtml({ libelle: 'Salle Mangin' }) });
+      });
+
+      await provider.getMatchesForEngagement(ENGAGEMENT_REF, { resolveVenues: true });
+
+      expect(maxInFlight).toBe(1);
+      const [, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Referer).toBe(`https://competitions.ffbb.com/${ENGAGEMENT_REF}`);
+      expect(headers['Sec-Fetch-Mode']).toBe('navigate');
+    });
+
+    it('stops loading detail pages once FFBB refuses one, and still imports the matches', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2'), rawMatch('m-3')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      routeFetch(fetchSpy, listHtml, () => fakeResponse({ ok: false, status: 403 }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      // The fixture list plus the one refused detail page, nothing after it.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.matches).toHaveLength(3);
+      expect(result.matches.every((m) => m.location === null)).toBe(true);
+    });
+
+    it('keeps going past a detail page that is simply missing', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      routeFetch(fetchSpy, listHtml, (url) =>
+        url.endsWith('m-1')
+          ? fakeResponse({ ok: false, status: 404 })
+          : detailPageHtml({ libelle: 'Salle Mangin' }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches.map((m) => m.location)).toEqual([null, 'Salle Mangin']);
+    });
   });
 });

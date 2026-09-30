@@ -262,6 +262,15 @@ characters.
    item's `value` is always a plain string — it is on the sampled page, and
    an object is handled as well.
 
+   **Second real-world result (2026-09-30): every detail page answered 403.**
+   The fixture-list load went through, then four parallel detail-page loads
+   were all refused by FFBB's CDN. Detail pages are now loaded one at a
+   time, as a navigation from the fixture list (its URL as `Referer`, plus
+   a browser's `Accept`/`Sec-Fetch-*` headers), and the first 403/429 stops
+   the remaining lookups for that import. The refusal is logged with the
+   CDN's `server`/`cf-mitigated` headers. If the 403s persist, those
+   headers say whether it is a bot challenge no header set will pass.
+
 2. **Whether the venue is published as far ahead as the fixture list.** The
    parent spec's one detail-page check (~3 weeks out) found no venue, which
    may mean "not yet set" rather than "not on this page." If venues only

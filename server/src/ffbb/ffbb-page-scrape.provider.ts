@@ -48,9 +48,10 @@ const POULE_PAGE_PATTERN =
   /^(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+)\?phase=(\d+)&poule=(\d+)$/;
 
 // Bounds on the extra page loads venue resolution costs us: FFBB publishes
-// no rate limit or terms, so an import of a full season stays a handful of
-// small sequential waves rather than one N-wide burst.
-const VENUE_FETCH_CONCURRENCY = 4;
+// no rate limit or terms. One at a time, because the CDN answered a burst of
+// four parallel detail-page loads with a 403 on every one (2026-09-30 logs)
+// while the fixture-list load just before it went through.
+const VENUE_FETCH_CONCURRENCY = 1;
 const MAX_VENUE_LOOKUPS = 60;
 const FETCH_TIMEOUT_MS = 10_000;
 // A per-request timeout alone doesn't bound the total: 60 slow pages four at
@@ -58,6 +59,10 @@ const FETCH_TIMEOUT_MS = 10_000;
 // timeout shows the admin a 504 for work that actually succeeded. Once the
 // budget is spent, the remaining matches simply keep location null.
 const VENUE_RESOLUTION_BUDGET_MS = 15_000;
+/** A CDN refusal, not a missing page: every later request in the same import would be refused too. */
+const BLOCKED_STATUSES = new Set([403, 429]);
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 // Venue field names are unverified against a live detail page (this
 // design's sandbox has no egress to competitions.ffbb.com), so extraction
@@ -176,6 +181,12 @@ interface VenueCandidate {
   side?: 'home' | 'away';
 }
 
+type VenueFetchOutcome =
+  | { kind: 'venue'; location: string }
+  | { kind: 'unread' }
+  | { kind: 'failed' }
+  | { kind: 'blocked'; reason: string };
+
 /** Detail-page paths read off a fixture-list page: per match, plus the shared prefix so a row whose own link is missing can still be addressed by id. */
 interface DetailPathIndex {
   byMatchId: Map<string, string>;
@@ -287,7 +298,13 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     const pouleRef = this.derivePouleRef(rawMatches, chunks);
 
     if (options.resolveVenues) {
-      await this.resolveVenues(matches, rawMatches, chunks, options.knownVenueMatchIds);
+      await this.resolveVenues(
+        engagementRef,
+        matches,
+        rawMatches,
+        chunks,
+        options.knownVenueMatchIds,
+      );
     }
 
     return { competitionLabel, matches, pouleRef };
@@ -401,8 +418,34 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return this.config.get<string>('FFBB_BASE_URL') ?? DEFAULT_FFBB_BASE_URL;
   }
 
-  private async fetchPage(path: string): Promise<string> {
+  /**
+   * `navigatedFrom` makes the request look like a click from that FFBB page:
+   * its URL as Referer, plus the headers a browser sends on a same-site
+   * navigation. Detail pages are loaded that way — they are the ones the
+   * CDN refused while the fixture list itself went through.
+   */
+  private async fetchPage(path: string, navigatedFrom?: string): Promise<string> {
     const url = `${this.baseUrl}/${path}`;
+    // The CDN in front of competitions.ffbb.com WAF-blocks requests with no
+    // Referer/Origin/browser User-Agent — confirmed during this design's
+    // research.
+    const headers: Record<string, string> = navigatedFrom
+      ? {
+          'User-Agent': USER_AGENT,
+          Referer: `${DEFAULT_FFBB_BASE_URL}/${navigatedFrom}`,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+        }
+      : {
+          'User-Agent': USER_AGENT,
+          Referer: 'https://competitions.ffbb.com/',
+          Origin: 'https://competitions.ffbb.com',
+        };
     let response: Response;
     try {
       response = await fetch(url, {
@@ -410,22 +453,23 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         // request open until the client gives up — and an import makes one
         // of these calls per match, not one per request.
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: {
-          // The CDN in front of competitions.ffbb.com WAF-blocks requests
-          // with no Referer/Origin/browser User-Agent — confirmed during
-          // this design's research.
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          Referer: 'https://competitions.ffbb.com/',
-          Origin: 'https://competitions.ffbb.com',
-        },
+        headers,
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       throw new FfbbPageFormatError(`Could not reach FFBB for "${path}": ${reason}`);
     }
     if (!response.ok) {
-      throw new FfbbPageFormatError(`FFBB returned ${response.status} for "${path}"`);
+      // Which layer refused is the one thing a 403 log line needs to say.
+      const server = response.headers?.get('server');
+      const mitigated = response.headers?.get('cf-mitigated');
+      const via = [server && `server=${server}`, mitigated && `cf-mitigated=${mitigated}`]
+        .filter(Boolean)
+        .join(', ');
+      throw new FfbbPageFormatError(
+        `FFBB returned ${response.status} for "${path}"${via ? ` (${via})` : ''}`,
+        response.status,
+      );
     }
     return response.text();
   }
@@ -765,6 +809,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
 
   /** Fills `location` in place on the matches we just built — they're local objects, not anything a caller has seen yet. */
   private async resolveVenues(
+    engagementRef: string,
     matches: FfbbMatch[],
     rawMatches: RawFfbbMatch[],
     chunks: string[],
@@ -798,11 +843,16 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     const queued = pending.slice(0, MAX_VENUE_LOOKUPS);
 
     const deadline = Date.now() + VENUE_RESOLUTION_BUDGET_MS;
+    let resolved = 0;
     let noPath = 0;
     let outOfBudget = 0;
     let unread = 0;
+    let failed = 0;
+    let blocked: string | null = null;
     await this.runWithConcurrency(queued, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
-      if (Date.now() >= deadline) {
+      // Once the CDN refuses one detail page it refuses the rest: more
+      // requests only dig the block deeper, so the import stops asking.
+      if (blocked !== null || Date.now() >= deadline) {
         outOfBudget += 1;
         return;
       }
@@ -811,17 +861,30 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         noPath += 1;
         return;
       }
-      match.location = await this.fetchVenue(path);
-      if (!match.location) unread += 1;
+      const outcome = await this.fetchVenue(path, engagementRef);
+      if (outcome.kind === 'venue') {
+        match.location = outcome.location;
+        resolved += 1;
+      } else if (outcome.kind === 'blocked') {
+        blocked = outcome.reason;
+      } else if (outcome.kind === 'failed') {
+        failed += 1;
+      } else {
+        unread += 1;
+      }
     });
     const skipped = pending.length - queued.length + outOfBudget;
-    if (noPath + unread + skipped > 0) {
+    if (blocked !== null) {
+      this.logger.warn(`Venue resolution stopped, FFBB refused a detail page: ${blocked}`);
+    }
+    if (resolved < pending.length) {
       // No venue on a page is often legit (not published yet), but a spike
       // here is the only trace a changed FFBB page shape leaves.
       this.logger.warn(
-        `Venue resolution: ${queued.length - noPath - unread - outOfBudget}/${pending.length} resolved, ` +
-          `${unread} detail pages without a readable venue, ${noPath} without a detail link, ` +
-          `${skipped} skipped (cap or time budget)`,
+        `Venue resolution: ${resolved}/${pending.length} resolved, ` +
+          `${unread} detail pages without a readable venue, ${failed} fetches failed, ` +
+          `${blocked !== null ? 1 : 0} refused (403/429), ${noPath} without a detail link, ` +
+          `${skipped} skipped (cap, time budget or refusal)`,
       );
     }
   }
@@ -865,17 +928,26 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return null;
   }
 
-  private async fetchVenue(path: string): Promise<string | null> {
+  private async fetchVenue(path: string, navigatedFrom: string): Promise<VenueFetchOutcome> {
+    let html: string;
     try {
-      const html = await this.fetchPage(path);
-      const chunks = this.extractNextFPushChunks(html);
-      return (
-        this.extractVenueFromInformationGroups(chunks) ??
-        this.pickVenue(this.collectVenueCandidatesFromChunks(chunks))
-      );
+      html = await this.fetchPage(path, navigatedFrom);
     } catch (err: unknown) {
+      if (err instanceof FfbbPageFormatError && BLOCKED_STATUSES.has(err.status ?? 0)) {
+        return { kind: 'blocked', reason: err.message };
+      }
       this.logger.warn(`Venue fetch failed for "${path}": ${String(err)}`);
-      return null;
+      return { kind: 'failed' };
+    }
+    try {
+      const chunks = this.extractNextFPushChunks(html);
+      const location =
+        this.extractVenueFromInformationGroups(chunks) ??
+        this.pickVenue(this.collectVenueCandidatesFromChunks(chunks));
+      return location ? { kind: 'venue', location } : { kind: 'unread' };
+    } catch (err: unknown) {
+      this.logger.warn(`Venue parse failed for "${path}": ${String(err)}`);
+      return { kind: 'unread' };
     }
   }
 
