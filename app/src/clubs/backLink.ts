@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 export type TeamOrigin =
   { from: 'members'; clubId: string } | { from: 'my-teams' } | { from: 'dashboard' };
 
-const FALLBACK = { to: '/my-teams', label: '← Mes équipes' } as const;
+const FALLBACK = { to: '/my-teams', label: 'Mes équipes' } as const;
 
 /**
  * Resolves where "back" should go from a team page. The link used to be
@@ -16,8 +16,8 @@ export function useBackLink(): { to: string; label: string } {
   const origin = (useLocation().state as { origin?: TeamOrigin } | null)?.origin;
   if (!origin) return { ...FALLBACK };
   if (origin.from === 'members') {
-    return { to: `/clubs/${origin.clubId}/members?tab=teams`, label: '← Effectif du club' };
+    return { to: `/clubs/${origin.clubId}/members?tab=teams`, label: 'Effectif du club' };
   }
-  if (origin.from === 'dashboard') return { to: '/dashboard', label: '← Tableau de bord' };
+  if (origin.from === 'dashboard') return { to: '/dashboard', label: 'Tableau de bord' };
   return { ...FALLBACK };
 }

@@ -51,6 +51,17 @@ export function toDatetimeLocalValue(isoDate: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const dayShortFormatter = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+});
+
+/** Formats an ISO date string as a short day, e.g. "sam. 10 oct." — a fact tile's label. */
+export function formatEventDayShort(isoDate: string): string {
+  return dayShortFormatter.format(new Date(isoDate));
+}
+
 const dayFullFormatter = new Intl.DateTimeFormat('fr-FR', {
   weekday: 'long',
   day: 'numeric',

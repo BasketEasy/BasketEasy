@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
@@ -99,7 +99,9 @@ describe('TeamDetailPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
 
-    expect(await screen.findByText('COC Basket')).toBeInTheDocument();
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
@@ -122,8 +124,8 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.getByText('U15 · Masculin')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
+    expect(screen.getByText(/^U15 · Masculin/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^supprimer l’équipe$/i })).toBeInTheDocument();
 
     // Événements is the default tab.
     expect(screen.getByRole('tab', { name: 'Événements', selected: true })).toBeInTheDocument();
@@ -164,10 +166,12 @@ describe('TeamDetailPage', () => {
     // other three sections — they aren't even in the DOM at the same time.
     await goToTab(user, /^administrateurs$/i);
     expect(await screen.findByText('a@b.com')).toBeInTheDocument();
-    expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('tabpanel')).queryByText('COC Basket')).not.toBeInTheDocument();
 
     await goToTab(user, /clubs partenaires/i);
-    expect(await screen.findByText('COC Basket')).toBeInTheDocument();
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('a@b.com')).not.toBeInTheDocument();
   });
 
@@ -232,7 +236,9 @@ describe('TeamDetailPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
 
-    expect(await screen.findByText('COC Basket')).toBeInTheDocument();
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('tab', { name: /clubs partenaires/i, selected: true }),
     ).toBeInTheDocument();
@@ -258,14 +264,14 @@ describe('TeamDetailPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
-    await waitFor(() => expect(screen.getByText('U15 · Masculin')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /modifier/i }));
+    await waitFor(() => expect(screen.getByText(/^U15 · Masculin/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^modifier l’équipe$/i }));
 
     await user.click(screen.getByRole('combobox', { name: /^genre$/i }));
     await user.click(await screen.findByRole('option', { name: 'Féminin' }));
     await user.click(screen.getByRole('button', { name: /enregistrer/i }));
 
-    await waitFor(() => expect(screen.getByText('U15 · Féminin')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/^U15 · Féminin/)).toBeInTheDocument());
   });
 
   it('hides all admin controls for a MEMBER, and hides the Clubs partenaires/Administrateurs tabs entirely', async () => {
@@ -285,7 +291,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
 
     // A plain roster MEMBER (no club-admin rights, no TeamAdmin grant) never
     // sees the management-only tabs at all.
@@ -346,7 +352,7 @@ describe('TeamDetailPage', () => {
     expect(
       (await screen.findAllByRole('button', { name: /créer un événement/i })).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^modifier l’équipe$/i })).toBeInTheDocument();
 
     // Team-day management is available to this TeamAdmin...
     await goToTab(user, /^effectif$/i);
@@ -360,7 +366,7 @@ describe('TeamDetailPage', () => {
     // ...but CTC governance and team deletion stay owner-club-ADMIN-only.
     await goToTab(user, /clubs partenaires/i);
     expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
   });
 
   it('shows an empty state on each tab when the team has nothing yet', async () => {
@@ -422,7 +428,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-2/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
 
     // Roster management stays available to any linked club's admin.
     await goToTab(user, /^effectif$/i);
@@ -1021,7 +1027,7 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    await user.click(screen.getByRole('button', { name: /^supprimer l’équipe$/i }));
     // Deletion is now gated behind typing the team name to confirm — a
     // single click no longer suffices (see Task 9 of the Parquet revamp).
     await user.type(await screen.findByLabelText(/Saisissez/), 'U15 Garçons');
@@ -1033,7 +1039,7 @@ describe('TeamDetailPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a "← Mes équipes" back link that navigates to /my-teams', async () => {
+  it('shows a « Mes équipes » back link that navigates to /my-teams', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
@@ -1048,29 +1054,29 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /retour à l'effectif/i })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('link', { name: /^← mes équipes$/i }));
+    // The main nav carries a « Mes équipes » link too; the back link is in main.
+    await user.click(
+      within(screen.getByRole('main')).getByRole('link', { name: /^mes équipes$/i }),
+    );
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
   });
 
-  it('hides the back link on a narrow screen — the bottom bar is the way back there', async () => {
-    setViewportWidth(375);
+  it('names the page bar’s back link after where it goes (the mobile bar, depth 2)', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
       http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
-      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([]))),
-      http.get('/api/me/teams', () => HttpResponse.json([])),
     );
 
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
-    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('link', { name: /^← mes équipes$/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Retour à Mes équipes' })).toHaveAttribute(
+      'href',
+      '/my-teams',
+    );
   });
 
   describe('player role (no manage rights)', () => {
@@ -1269,6 +1275,215 @@ describe('TeamDetailPage', () => {
       await goToTab(user, /^effectif$/i);
       expect(await screen.findByText('Alex Dupont')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('hero and settings (page grammar)', () => {
+    function nextMatch(daysFromNow: number, overrides: Record<string, unknown> = {}) {
+      return {
+        id: `event-${daysFromNow}`,
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: futureIso(daysFromNow),
+        location: 'Gymnase A',
+        locationName: null,
+        notes: null,
+        opponentName: 'Carquefou',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+        meetingPlan: null,
+        myTravelMode: null,
+        ...overrides,
+      };
+    }
+
+    function mockTeam({
+      clubs = [{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }],
+      upcoming = [] as unknown[],
+      past = [] as unknown[],
+      ffbbLinks = [] as unknown[],
+    } = {}) {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated(clubs))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/ffbb-links', () => HttpResponse.json(ffbbLinks)),
+        http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+          const url = new URL(request.url);
+          return HttpResponse.json(paginated(url.searchParams.has('to') ? past : upcoming));
+        }),
+      );
+    }
+
+    it('titles the page with the team, the owning club as eyebrow, and the roster size', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({
+        clubs: [
+          { clubId: 'club-2', clubName: 'Rezé Basket', isOwner: true, linkedAt: 'x' },
+          { clubId: 'club-1', clubName: 'COC Basket', isOwner: false, linkedAt: 'x' },
+        ],
+      });
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' }),
+      ).toBeInTheDocument();
+      expect(await screen.findByText('Rezé Basket')).toBeInTheDocument();
+      expect(screen.getByText('Entente CTC')).toBeInTheDocument();
+      expect(await screen.findByText('U15 · Masculin · 1 joueur')).toBeInTheDocument();
+    });
+
+    it('shows « Entente CTC » only when the team is linked to more than one club', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await screen.findByText('COC Basket');
+      expect(screen.queryByText('Entente CTC')).not.toBeInTheDocument();
+      expect(screen.queryByText('FFBB')).not.toBeInTheDocument();
+    });
+
+    it('links the hero to the next event, and keeps it when the agenda shows past events', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({
+        upcoming: [nextMatch(3), nextMatch(10, { opponentName: 'Vertou' })],
+        past: [nextMatch(-7, { opponentName: 'Orvault' })],
+      });
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Prochain : vs Carquefou')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Voir le match' })).toHaveAttribute(
+        'href',
+        '/clubs/club-1/teams/team-1/events/event-3',
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Passés' }));
+      await screen.findAllByText(/Orvault/);
+      expect(screen.getByText('Prochain : vs Carquefou')).toBeInTheDocument();
+    });
+
+    it('has no next-event tile when nothing is upcoming', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await waitFor(() => expect(screen.queryAllByRole('status')).toHaveLength(0));
+      expect(screen.queryByText(/^Prochain :/)).not.toBeInTheDocument();
+    });
+
+    it('gives a rostered player their own answer on the next-event tile', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      server.use(
+        http.get('/api/me/teams', () =>
+          HttpResponse.json([
+            {
+              teamId: 'team-1',
+              teamName: baseTeam.name,
+              category: baseTeam.category,
+              gender: baseTeam.gender,
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              isTeamAdmin: false,
+              rosterRole: 'PLAYER',
+            },
+          ]),
+        ),
+      );
+      mockTeam({ upcoming: [nextMatch(3, { myRsvpStatus: 'GOING' })] });
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Prochain : vs Carquefou · Présent')).toBeInTheDocument();
+    });
+
+    it('folds the four team settings for a manager, each opening its own content', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({ ffbbLinks: [{ id: 'link-1', ffbbEngagementLabel: 'U15 D2' }] });
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/guest-link', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/whatsapp-settings', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(
+        await screen.findByRole('heading', { name: 'Réglages de l’équipe' }),
+      ).toBeInTheDocument();
+      const trigger = (name: RegExp) =>
+        within(screen.getByRole('heading', { name })).getByRole('button');
+      await screen.findByText('1 lien');
+      for (const name of [/calendrier ffbb/i, /^rdv$/i, /lien invité/i, /message whatsapp/i]) {
+        expect(trigger(name)).toHaveAttribute('aria-expanded', 'false');
+      }
+      expect(screen.getByText('FFBB')).toBeInTheDocument();
+
+      await user.click(trigger(/calendrier ffbb/i));
+      expect(await screen.findByText('U15 D2')).toBeInTheDocument();
+      await user.click(trigger(/^rdv$/i));
+      await user.click(trigger(/lien invité/i));
+      await user.click(trigger(/message whatsapp/i));
+      expect(await screen.findByText('Lien indisponible')).toBeInTheDocument();
+      expect(await screen.findByText('Message indisponible')).toBeInTheDocument();
+      expect(screen.getAllByRole('alert').length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('shows a player no settings, only « Compétitions FFBB » when the team has links', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeam({ ffbbLinks: [{ id: 'link-1', ffbbEngagementLabel: 'U15 D2' }] });
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      const heading = await screen.findByRole('heading', { name: /compétitions ffbb/i });
+      expect(
+        screen.queryByRole('heading', { name: 'Réglages de l’équipe' }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /^rdv$/i })).not.toBeInTheDocument();
+
+      await user.click(within(heading).getByRole('button'));
+      expect(await screen.findByText('U15 D2')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /importer le calendrier ffbb/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows a player without FFBB links no accordion at all', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await waitFor(() => expect(screen.queryAllByRole('status')).toHaveLength(0));
+      expect(screen.queryByRole('heading', { name: /compétitions ffbb/i })).not.toBeInTheDocument();
     });
   });
 });

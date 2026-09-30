@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { toast } from '@basketeasy/ui/toast-store';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { cn } from '@basketeasy/ui/cn';
@@ -40,7 +39,8 @@ function importResultToast(result: FfbbImportResult) {
  * an add row (sharing FfbbLinkField's copy with TeamCreateForm) + the
  * import button, all in one component since they're all driven by the same
  * link list. Renders nothing when there's nothing to see and nothing to do
- * (no links, and the viewer can't manage the team).
+ * (no links, and the viewer can't manage the team). No heading of its own: it
+ * is the content of the team page's FFBB accordion item.
  */
 export function TeamFfbbLinkList({
   clubId,
@@ -104,14 +104,16 @@ export function TeamFfbbLinkList({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading count={links.length}>Compétitions FFBB liées</SectionHeading>
-        {canManage && links.length > 0 && (
-          <Button variant="secondary" loading={isImporting} onClick={handleImport}>
-            Importer le calendrier FFBB
-          </Button>
-        )}
-      </div>
+      {canManage && links.length > 0 && (
+        <Button
+          variant="secondary"
+          loading={isImporting}
+          onClick={handleImport}
+          className="self-start"
+        >
+          Importer le calendrier FFBB
+        </Button>
+      )}
 
       {links.length === 0 ? (
         <Text variant="meta">Aucune compétition FFBB liée pour l&apos;instant.</Text>
