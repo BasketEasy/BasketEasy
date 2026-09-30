@@ -159,6 +159,10 @@
       "types": "./src/components/icons/Check.tsx",
       "default": "./src/components/icons/Check.tsx"
     },
+    "./icons/chevron-down": {
+      "types": "./src/components/icons/ChevronDownIcon.tsx",
+      "default": "./src/components/icons/ChevronDownIcon.tsx"
+    },
     "./icons/chevron-left": {
       "types": "./src/components/icons/ChevronLeftIcon.tsx",
       "default": "./src/components/icons/ChevronLeftIcon.tsx"
@@ -214,6 +218,10 @@
     "./skeleton": {
       "types": "./src/components/Skeleton.tsx",
       "default": "./src/components/Skeleton.tsx"
+    },
+    "./section-accordion": {
+      "types": "./src/components/SectionAccordion.tsx",
+      "default": "./src/components/SectionAccordion.tsx"
     },
     "./section-heading": {
       "types": "./src/components/SectionHeading.tsx",
@@ -285,6 +293,7 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",

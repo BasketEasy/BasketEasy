@@ -11,7 +11,7 @@ import { EventDetailManagerView } from '../clubs/EventDetailManagerView';
 import { EventDetailPlayerView } from '../clubs/EventDetailPlayerView';
 import { hasVoteWindowClosed } from '../clubs/voteWindow';
 import { useEventShow } from '../clubs/useEventShow';
-import { useEventSectionAnchor } from '../clubs/useEventSectionAnchor';
+import { EVENT_TAB_ANCHORS, useEventSectionAnchor } from '../clubs/useEventSectionAnchor';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
@@ -67,7 +67,9 @@ export function EventDetailPage() {
     next.delete('partage');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
-  useEventSectionAnchor(searchParams.get('tab') ?? (cameFromShareNotification ? 'partage' : null));
+  const anchorTab = searchParams.get('tab') ?? (cameFromShareNotification ? 'partage' : null);
+  useEventSectionAnchor(anchorTab);
+  const openSection = anchorTab ? (EVENT_TAB_ANCHORS[anchorTab] ?? null) : null;
 
   const {
     data: event,
@@ -155,6 +157,7 @@ export function EventDetailPage() {
             isRostered={isRostered}
             showVote={showVote}
             focusShare={cameFromShareNotification}
+            openSection={openSection}
           />
         ) : (
           <EventDetailPlayerView
