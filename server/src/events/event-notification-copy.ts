@@ -67,6 +67,32 @@ export function cancellationNotification(
   };
 }
 
+/**
+ * « Changement de salle » for a match whose known venue moved. One per
+ * recipient for the whole edit: a series scope summarises the count rather
+ * than sending one per occurrence, the same rule as a cancellation.
+ */
+export function venueChangedNotification(
+  teamName: string,
+  event: { type: EventType; startsAt: Date; opponentName: string | null },
+  newLabel: string,
+  matchCount: number,
+  subject: NotificationSubject = SELF_SUBJECT,
+): { title: string; body: string } {
+  const prefix = forWhomPrefix(subject);
+  const title = `Changement de salle — ${teamName}`;
+  if (matchCount > 1) {
+    return {
+      title,
+      body: `${prefix}Les ${matchCount} prochains matchs de cette série se joueront à ${newLabel}.`,
+    };
+  }
+  return {
+    title,
+    body: `${prefix}${capitalise(describeEvent(event))} du ${formatEventMoment(event.startsAt)} se jouera à ${newLabel}.`,
+  };
+}
+
 function capitalise(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

@@ -1224,6 +1224,202 @@ describe('EventsService', () => {
       });
     });
 
+    describe('« Changement de salle »', () => {
+      const future = new Date('2099-01-10T19:30:00.000Z');
+      const match = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: future,
+        location: '1 rue A, Rezé',
+        locationName: 'Salle A',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        externalId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      const convoked = [{ eventId: 'event-1', teamPlayerId: 'tp-1' }];
+      const rsvps = [
+        { eventId: 'event-1', teamPlayerId: 'tp-2', status: 'GOING' },
+        { eventId: 'event-1', teamPlayerId: 'tp-3', status: 'MAYBE' },
+      ];
+
+      function givenMatch(row: Record<string, unknown>) {
+        prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+        prisma.event.findUnique.mockResolvedValue(row);
+        prisma.event.update.mockImplementation(({ where, data }) =>
+          Promise.resolve({ ...row, id: where.id, ...data }),
+        );
+        // Only the venue audience reads filter on the roster's team; the
+        // TeamEvent builders read the same tables without it.
+        prisma.eventConvocation.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(where.teamPlayer ? convoked : []),
+        );
+        prisma.eventRsvp.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(
+            where.teamPlayer ? rsvps.filter((r) => !where.status || r.status === where.status) : [],
+          ),
+        );
+        prisma.teamPlayer.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(
+            (where?.id?.in ?? []).map((id: string) =>
+              audienceRow(id, `user-of-${id}`, id === 'tp-2' ? { guardians: ['parent-1'] } : {}),
+            ),
+          ),
+        );
+      }
+
+      function venueNotifications() {
+        return notifications.notify.mock.calls
+          .flatMap(([inputs]) => inputs)
+          .filter((input: { type: string }) => input.type === 'EVENT_VENUE_CHANGED');
+      }
+
+      it('tells the convoked and GOING players when a known venue moves', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B' },
+          'user-1',
+        );
+
+        const sent = venueNotifications();
+        expect(sent.map((n: { userId: string }) => n.userId).sort()).toEqual([
+          'parent-1',
+          'user-of-tp-1',
+          'user-of-tp-2',
+        ]);
+        expect(sent[0]).toEqual(
+          expect.objectContaining({
+            title: 'Changement de salle — U15 M',
+            deepLink: '/clubs/club-1/teams/team-1/events/event-1',
+          }),
+        );
+        expect(sent[0].body).toContain('se jouera à Salle B.');
+        // MAYBE and unanswered players aren't expected there.
+        expect(sent.map((n: { userId: string }) => n.userId)).not.toContain('user-of-tp-3');
+      });
+
+      it('is silent when « Lieu non communiqué » is filled in', async () => {
+        givenMatch({ ...match, location: UNKNOWN_EVENT_LOCATION, locationName: null });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a name-only change', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: match.location, locationName: 'Salle Alpha' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent when only whitespace or case changes', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '1  RUE A, rezé' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a match that has already started', async () => {
+        givenMatch({ ...match, startsAt: new Date('2020-01-10T19:30:00.000Z') });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a training', async () => {
+        givenMatch({ ...match, type: 'TRAINING', opponentName: null, venue: null });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('sends one notification per reader for a whole series, with the count', async () => {
+        givenMatch({ ...match, recurrenceId: 'series-1' });
+        prisma.event.findMany.mockImplementation(({ select }) =>
+          Promise.resolve(
+            select?.location
+              ? [
+                  { id: 'event-1', location: match.location },
+                  { id: 'event-2', location: match.location },
+                ]
+              : [{ id: 'event-1' }, { id: 'event-2' }],
+          ),
+        );
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B', scope: 'ALL' },
+          'user-1',
+        );
+
+        const sent = venueNotifications();
+        expect(sent).toHaveLength(3);
+        expect(sent[0].body).toContain(
+          'Les 2 prochains matchs de cette série se joueront à Salle B.',
+        );
+        expect(sent[0].deepLink).toBe('/clubs/club-1/teams/team-1');
+      });
+
+      it('never fails the edit when the notification does', async () => {
+        givenMatch(match);
+        notifications.notify.mockRejectedValueOnce(new Error('db down'));
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { location: '2 rue B, Nantes' },
+            'user-1',
+          ),
+        ).resolves.toHaveLength(1);
+      });
+    });
+
     it('clears the meeting-time override when the kick-off moves', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       const row = {
