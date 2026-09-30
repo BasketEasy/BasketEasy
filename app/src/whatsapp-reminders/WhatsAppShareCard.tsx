@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -7,11 +6,15 @@ import { QueryError } from '@basketeasy/ui/query-error';
 import { Skeleton } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { EventSharePlatform, EventShareStatus } from '@basketeasy/types/whatsapp-reminder';
+import type {
+  EventShareChange,
+  EventShareStatus,
+  EventShareType,
+} from '@basketeasy/types/whatsapp-reminder';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { respondentName } from '../guardians/respondentLabel';
 import { useTeamGuestLinkEnable } from '../guest-rsvp/useTeamGuestLink';
-import { copyMessage, shareMessage } from './shareMessage';
+import { WhatsAppShareAction, type ConfirmShare } from './WhatsAppShareAction';
 import {
   useConfirmEventShare,
   useEventWhatsAppShare,
@@ -27,7 +30,7 @@ function formatSentAt(iso: string): string {
   return `${DAY.format(date)} à ${TIME.format(date)}`;
 }
 
-/** What the card says about the share's state, apart from the buttons. */
+/** What a share says about its state, apart from the buttons. */
 function ShareStatus({
   share,
   reminderEnabled,
@@ -35,12 +38,13 @@ function ShareStatus({
   share: EventShareStatus;
   reminderEnabled: boolean | null;
 }) {
+  const isUpdate = share.type === 'UPDATE';
   switch (share.state) {
     case 'SENT':
       return (
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="soft" tone="structure">
-            Envoyé
+            {isUpdate ? 'Changement envoyé' : 'Envoyé'}
           </Badge>
           <Text variant="meta" size="sm">
             {share.sentAt && `Envoyé le ${formatSentAt(share.sentAt)}`}
@@ -52,10 +56,12 @@ function ShareStatus({
       return (
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="soft" tone="brand">
-            À partager
+            {isUpdate ? 'Changement à partager' : 'À partager'}
           </Badge>
           <Text variant="meta" size="sm">
-            Le message est prêt : envoyez-le dans le groupe WhatsApp de l’équipe.
+            {isUpdate
+              ? 'Le groupe a déjà reçu le message : envoyez la mise à jour.'
+              : 'Le message est prêt : envoyez-le dans le groupe WhatsApp de l’équipe.'}
           </Text>
         </div>
       );
@@ -89,12 +95,31 @@ function ShareStatus({
   }
 }
 
+/** « Heure de début : ~~15:30~~ → 16:00 »: what the group read, and what it should read now. */
+function ChangeList({ changes }: { changes: EventShareChange[] }) {
+  if (changes.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1" aria-label="Ce qui a changé">
+      {changes.map((change) => (
+        <li key={change.label}>
+          <Text as="span" variant="body" size="sm">
+            {change.label} :{' '}
+            <Text as="span" variant="meta" size="sm" className="line-through">
+              {change.from}
+            </Text>{' '}
+            → {change.to}
+          </Text>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * « Partage WhatsApp » — the manager's ready-made reminder for one upcoming
- * event. The app prepares the message; the manager sends it from their own
- * WhatsApp, so a share always ends in an explicit « Vous l'avez envoyé ? »
- * (the web gives no completion signal). The confirm row is state set on
- * click, so it is still there when the user comes back from WhatsApp.
+ * « Partage WhatsApp » — the manager's ready-made messages for one upcoming
+ * event: the reminder, and above it the update raised when the event changed
+ * after the group was told. Each ends in the same explicit « Vous l'avez
+ * envoyé ? » (see `WhatsAppShareAction`).
  */
 export function WhatsAppShareCard({
   clubId,
@@ -111,10 +136,7 @@ export function WhatsAppShareCard({
   initialShare?: EventShareStatus | null;
   /** `event.whatsAppSettings.effective.enabled`; null when unknown. */
   reminderEnabled?: boolean | null;
-  /**
-   * Arriving from a notification: scroll here and focus the share button once
-   * it exists. `navigator.share` needs a user gesture, so it never auto-fires.
-   */
+  /** Arriving from a notification: bring the first share button into focus. */
   focusOnLoad?: boolean;
 }) {
   const { data, isError, isLoading, refetch } = useEventWhatsAppShare(clubId, teamId, eventId);
@@ -125,18 +147,6 @@ export function WhatsAppShareCard({
   );
   const { mutate: enableLink, isPending: isEnabling } = useTeamGuestLinkEnable(clubId, teamId);
   const refetchShare = useInvalidateEventWhatsAppShare(clubId, teamId, eventId);
-  const [pendingPlatform, setPendingPlatform] = useState<EventSharePlatform | null>(null);
-  const [showMessage, setShowMessage] = useState(false);
-  const shareButton = useRef<HTMLButtonElement>(null);
-  const isReady = data !== undefined;
-
-  useEffect(() => {
-    if (!focusOnLoad || !isReady) return;
-    const button = shareButton.current;
-    if (!button) return;
-    if (typeof button.scrollIntoView === 'function') button.scrollIntoView({ block: 'center' });
-    button.focus();
-  }, [focusOnLoad, isReady]);
 
   if (isError) {
     return (
@@ -158,10 +168,12 @@ export function WhatsAppShareCard({
     );
   }
 
-  const share = data.shares[0];
-  const message = share.message;
+  const reminder = data.shares.find((s) => s.type === 'REMINDER');
+  const update = data.shares.find(
+    (s) => s.type === 'UPDATE' && (s.state === 'PENDING' || s.state === 'SENT'),
+  );
 
-  if (!data.guestLinkActive || message === null) {
+  if (!data.guestLinkActive || !reminder || reminder.message === null) {
     return (
       <Card variant="panel" className="flex flex-col gap-3">
         <Alert variant="destructive">
@@ -186,81 +198,30 @@ export function WhatsAppShareCard({
     );
   }
 
-  const isSent = share.state === 'SENT';
+  const confirmType =
+    (type: Exclude<EventShareType, 'CANCELLATION'>): ConfirmShare =>
+    (platform, callbacks) =>
+      confirm({ type, platform }, callbacks);
 
-  const onShare = async () => {
-    const platform = await shareMessage(message);
-    if (platform) setPendingPlatform(platform);
-  };
-
-  const onCopy = async () => {
-    try {
-      setPendingPlatform(await copyMessage(message));
-      toast({ variant: 'success', title: 'Message copié' });
-    } catch {
-      toast({ variant: 'destructive', description: 'Impossible de copier le message.' });
-    }
-  };
-
-  const onConfirm = (platform: EventSharePlatform) =>
-    confirm(
-      { platform },
-      {
-        onSuccess: () => {
-          setPendingPlatform(null);
-          toast({ variant: 'success', title: 'Partage enregistré' });
-        },
-        onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
-      },
-    );
+  // The update comes first: it is what the manager was notified about, and the
+  // reminder below stays as history of what the group was first told.
+  const sections = [update, reminder].filter((s): s is NonNullable<typeof s> => s !== undefined);
 
   return (
-    <Card variant="panel" className="flex flex-col gap-3">
-      <ShareStatus share={share} reminderEnabled={reminderEnabled} />
-
-      <div className="flex flex-wrap gap-2">
-        <Button
-          ref={shareButton}
-          variant={isSent ? 'outline' : 'default'}
-          onClick={() => void onShare()}
-        >
-          {isSent ? 'Partager à nouveau' : 'Partager sur WhatsApp'}
-        </Button>
-        <Button variant="outline" onClick={() => void onCopy()}>
-          Copier le message
-        </Button>
-        <Button
-          variant="ghost"
-          aria-expanded={showMessage}
-          onClick={() => setShowMessage((open) => !open)}
-        >
-          Voir le message
-        </Button>
-      </div>
-
-      {showMessage && (
-        <Card variant="inset">
-          <Text variant="body" size="sm" className="whitespace-pre-line">
-            {message}
-          </Text>
-        </Card>
-      )}
-
-      {pendingPlatform && (
-        <div role="group" aria-label="Confirmer l’envoi" className="flex flex-col gap-2">
-          <Text variant="label" size="sm">
-            Vous l&apos;avez envoyé dans le groupe&nbsp;?
-          </Text>
-          <div className="flex flex-wrap gap-2">
-            <Button loading={isConfirming} onClick={() => onConfirm(pendingPlatform)}>
-              Oui, c&apos;est envoyé
-            </Button>
-            <Button variant="ghost" onClick={() => setPendingPlatform(null)}>
-              Pas encore
-            </Button>
-          </div>
-        </div>
-      )}
+    <Card variant="panel" className="flex flex-col gap-4">
+      {sections.map((share, index) => (
+        <section key={share.type} className="flex flex-col gap-3">
+          <ShareStatus share={share} reminderEnabled={reminderEnabled} />
+          <ChangeList changes={share.changes} />
+          <WhatsAppShareAction
+            message={share.message ?? ''}
+            isSent={share.state === 'SENT'}
+            confirm={confirmType(share.type as 'REMINDER' | 'UPDATE')}
+            isConfirming={isConfirming}
+            focusOnMount={focusOnLoad && index === 0}
+          />
+        </section>
+      ))}
     </Card>
   );
 }

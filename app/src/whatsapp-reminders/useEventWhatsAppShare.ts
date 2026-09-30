@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   ConfirmEventShareRequest,
   EventShareStatus,
+  EventShareType,
   EventWhatsAppShare,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
@@ -22,8 +23,11 @@ export function useEventWhatsAppShare(clubId: string, teamId: string, eventId: s
 export function useConfirmEventShare(clubId: string, teamId: string, eventId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: ConfirmEventShareRequest) =>
-      apiClient.post<EventShareStatus>(`${path(clubId, teamId, eventId)}/REMINDER/confirm`, body),
+    mutationFn: ({
+      type,
+      ...body
+    }: ConfirmEventShareRequest & { type: Exclude<EventShareType, 'CANCELLATION'> }) =>
+      apiClient.post<EventShareStatus>(`${path(clubId, teamId, eventId)}/${type}/confirm`, body),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: shareQueryKey(clubId, teamId, eventId) }),
   });

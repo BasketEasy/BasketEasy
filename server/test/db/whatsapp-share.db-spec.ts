@@ -32,25 +32,34 @@ describe('WhatsApp share against Postgres', () => {
       { get: async () => ({ url: 'https://kluvo.test/r/abc' }) } as never,
       { resolvePlans: async () => new Map([[event.id, null]]) } as never,
       scheduler,
+      { subscribe: () => () => undefined } as never,
     );
     return { club, team, event, service, scheduler };
   }
 
   it('keeps one row per (event, type)', async () => {
-    const { event } = await setup();
+    const { team, event } = await setup();
     await prisma.eventShare.create({
-      data: { eventId: event.id, type: 'REMINDER', state: 'SENT' },
+      data: { eventId: event.id, teamId: team.id, type: 'REMINDER', state: 'SENT' },
     });
     await expect(
-      prisma.eventShare.create({ data: { eventId: event.id, type: 'REMINDER', state: 'SENT' } }),
+      prisma.eventShare.create({
+        data: { eventId: event.id, teamId: team.id, type: 'REMINDER', state: 'SENT' },
+      }),
     ).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it('cascades with the event, and keeps the row when the sender is erased', async () => {
-    const { event } = await setup();
+    const { team, event } = await setup();
     const user = await createUser();
     await prisma.eventShare.create({
-      data: { eventId: event.id, type: 'REMINDER', state: 'SENT', sentByUserId: user.id },
+      data: {
+        eventId: event.id,
+        teamId: team.id,
+        type: 'REMINDER',
+        state: 'SENT',
+        sentByUserId: user.id,
+      },
     });
     await prisma.user.delete({ where: { id: user.id } });
     expect(
@@ -79,7 +88,13 @@ describe('WhatsApp share against Postgres', () => {
     const { club, team, event, service, scheduler } = await setup();
     await prisma.team.update({ where: { id: team.id }, data: { waReminderEnabled: true } });
     const share = await prisma.eventShare.create({
-      data: { eventId: event.id, type: 'REMINDER', state: 'SCHEDULED', dueAt: new Date() },
+      data: {
+        eventId: event.id,
+        teamId: team.id,
+        type: 'REMINDER',
+        state: 'SCHEDULED',
+        dueAt: new Date(),
+      },
     });
     const user = await createUser();
 
@@ -116,5 +131,61 @@ describe('WhatsApp share against Postgres', () => {
     expect(await read(mine.id)).not.toBeNull();
     expect(await read(other.id)).toBeNull();
     expect(await read(other2.id)).toBeNull();
+  });
+
+  it('keeps a CANCELLATION when its event is deleted, with eventId null', async () => {
+    const { team, event } = await setup();
+    await prisma.eventShare.create({
+      data: {
+        eventId: event.id,
+        teamId: team.id,
+        type: 'CANCELLATION',
+        state: 'PENDING',
+        eventSnapshot: { event_name: 'Entraînement' },
+        expiresAt: event.startsAt,
+      },
+    });
+
+    await prisma.event.delete({ where: { id: event.id } });
+
+    const row = await prisma.eventShare.findFirstOrThrow({ where: { teamId: team.id } });
+    expect(row.eventId).toBeNull();
+    expect(row.eventSnapshot).toEqual({ event_name: 'Entraînement' });
+  });
+
+  it('lets several CANCELLATIONs with a null eventId coexist', async () => {
+    const { team } = await setup();
+    const cancelled = () =>
+      prisma.eventShare.create({
+        data: { eventId: null, teamId: team.id, type: 'CANCELLATION', state: 'PENDING' },
+      });
+    await cancelled();
+    await expect(cancelled()).resolves.toBeDefined();
+    expect(await prisma.eventShare.count({ where: { teamId: team.id } })).toBe(2);
+  });
+
+  it('cascades every share with the team', async () => {
+    const { team } = await setup();
+    await prisma.eventShare.create({
+      data: { eventId: null, teamId: team.id, type: 'CANCELLATION', state: 'PENDING' },
+    });
+    await prisma.team.delete({ where: { id: team.id } });
+    expect(await prisma.eventShare.count()).toBe(0);
+  });
+
+  it('a delete that prepares cancellations leaves the CANCELLATION and no orphan reminder', async () => {
+    const { club, team, event, service } = await setup();
+    const user = await createUser();
+    await service.confirmShare(club.id, team.id, event.id, 'REMINDER', user.id, 'COPY');
+
+    await prisma.$transaction(async (tx) => {
+      await service.prepareCancellations(tx, team.id, [event.id]);
+      await tx.event.deleteMany({ where: { id: event.id } });
+    });
+
+    const rows = await prisma.eventShare.findMany({ where: { teamId: team.id } });
+    expect(rows.map((r) => r.type)).toEqual(['CANCELLATION']);
+    expect(rows[0].eventId).toBeNull();
+    expect(rows[0].eventSnapshot).toMatchObject({ event_name: 'Entraînement', link: null });
   });
 });

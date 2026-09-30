@@ -11,6 +11,8 @@ const SETTINGS = '/api/clubs/club-1/teams/team-1/whatsapp-settings';
 
 const settings = (over: Record<string, unknown> = {}) => ({
   reminderTemplate: null,
+  updateTemplate: null,
+  cancellationTemplate: null,
   reminderEnabled: false,
   defaultOffsetMinutes: 4320,
   hasReachableManager: true,
@@ -116,7 +118,7 @@ describe('WhatsAppSettingsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() =>
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         reminderTemplate: 'Salut {link}{team_name}',
         reminderEnabled: false,
         defaultOffsetMinutes: 4320,
@@ -244,5 +246,112 @@ describe('WhatsAppSettingsCard', () => {
 
     expect(await screen.findByText('14 jours avant au maximum')).toBeInTheDocument();
     expect(saved).toBe(false);
+  });
+
+  describe('the three templates', () => {
+    const kind = (name: string) => screen.getByRole('button', { name, pressed: false });
+
+    it('switches between reminder, change and cancellation, each with its own editor', async () => {
+      serve(null);
+      const user = userEvent.setup();
+      renderCard();
+      expect(await screen.findByRole('textbox', { name: 'Message de rappel' })).toHaveTextContent(
+        'Dis-nous si tu viens',
+      );
+
+      await user.click(kind('Changement'));
+      expect(
+        await screen.findByRole('textbox', { name: 'Message de changement' }),
+      ).toHaveTextContent('Changement');
+
+      await user.click(kind('Annulation'));
+      expect(
+        await screen.findByRole('textbox', { name: 'Message d’annulation' }),
+      ).toHaveTextContent("c'est annulé");
+    });
+
+    it('shows the reminder toggle only in the reminder section', async () => {
+      serve(null);
+      const user = userEvent.setup();
+      renderCard();
+      await editor();
+      expect(screen.getByRole('checkbox', { name: 'Rappel automatique' })).toBeInTheDocument();
+
+      await user.click(kind('Annulation'));
+
+      expect(
+        screen.queryByRole('checkbox', { name: 'Rappel automatique' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('previews the cancellation as one line with no link', async () => {
+      serve(null);
+      const user = userEvent.setup();
+      renderCard();
+      await editor();
+      await user.click(kind('Annulation'));
+
+      expect(
+        await screen.findByText(
+          "❌ Match contre ES Vertou du sam. 4 oct. : c'est annulé. On te tient au courant !",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('does not require the link in a cancellation, while a change still does', async () => {
+      serve(null, { cancellationTemplate: 'Annulé', updateTemplate: 'Changement {team_name}' });
+      let saved = false;
+      server.use(
+        http.patch(SETTINGS, () => {
+          saved = true;
+          return HttpResponse.json({ ...settings(), guestLinkEnabled: false });
+        }),
+      );
+      const user = userEvent.setup();
+      renderCard();
+      await editor();
+
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      // The change template lacks the link, so the save is blocked and the form
+      // jumps to the section that is wrong.
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Le message doit contenir le lien',
+      );
+      expect(screen.getByRole('textbox', { name: 'Message de changement' })).toBeInTheDocument();
+      expect(saved).toBe(false);
+    });
+
+    it('saves a cancellation with no link', async () => {
+      serve(null, { cancellationTemplate: 'Annulé' });
+      let body: Record<string, unknown> = {};
+      server.use(
+        http.patch(SETTINGS, async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ ...settings(), guestLinkEnabled: false });
+        }),
+      );
+      const user = userEvent.setup();
+      renderCard();
+      await editor();
+
+      await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+      await waitFor(() => expect(body.cancellationTemplate).toBe('Annulé'));
+    });
+
+    it('restores the default of the section being edited only', async () => {
+      serve(null, { updateTemplate: 'Yo {link}' });
+      const user = userEvent.setup();
+      renderCard();
+      await editor();
+      await user.click(kind('Changement'));
+      const box = await screen.findByRole('textbox', { name: 'Message de changement' });
+      expect(box).toHaveTextContent('Yo');
+
+      await user.click(screen.getByRole('button', { name: 'Rétablir le texte par défaut' }));
+
+      await waitFor(() => expect(box).toHaveTextContent('Nouveau RDV'));
+    });
   });
 });

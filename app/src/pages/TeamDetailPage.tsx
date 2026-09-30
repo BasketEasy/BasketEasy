@@ -39,6 +39,7 @@ import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { Text } from '@basketeasy/ui/text';
 import { TeamMeetingPointSettings } from '../meeting-points/TeamMeetingPointSettings';
 import { TeamGuestLinkSettings } from '../guest-rsvp/TeamGuestLinkSettings';
+import { TeamPendingCancellations } from '../whatsapp-reminders/TeamPendingCancellations';
 import { WhatsAppSettingsCard } from '../whatsapp-reminders/WhatsAppSettingsCard';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
@@ -413,6 +414,8 @@ export function TeamDetailPage() {
         open={isEditing}
         onOpenChange={setIsEditing}
       />
+
+      {canManageTeam && <TeamPendingCancellations clubId={clubId!} teamId={teamId!} />}
 
       <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={canManageTeam} />
 

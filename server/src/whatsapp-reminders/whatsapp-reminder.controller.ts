@@ -14,6 +14,7 @@ import { EventShareType } from '@prisma/client';
 import type {
   EventShareStatus,
   EventWhatsAppShare,
+  TeamPendingCancellation,
   TeamWhatsAppSettings,
   UpdateTeamWhatsAppSettingsResponse,
 } from '@basketeasy/types/whatsapp-reminder';
@@ -44,6 +45,28 @@ export class WhatsAppReminderController {
     @CurrentUser() user: RequestUser,
   ): Promise<UpdateTeamWhatsAppSettingsResponse> {
     return this.reminders.updateTeamSettings(clubId, teamId, dto, user.id);
+  }
+
+  // Cancellations whose event is gone: the team page is the only place they live.
+  @Get('whatsapp-shares/pending-cancellations')
+  pendingCancellations(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<TeamPendingCancellation[]> {
+    return this.reminders.listPendingCancellations(clubId, teamId, user.id);
+  }
+
+  @Post('whatsapp-shares/:shareId/confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmByShareId(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('shareId') shareId: string,
+    @Body() dto: ConfirmEventShareDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<EventShareStatus> {
+    return this.reminders.confirmCancellation(clubId, teamId, shareId, user.id, dto.platform);
   }
 
   @Get('events/:eventId/whatsapp-share')

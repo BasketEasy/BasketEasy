@@ -16,6 +16,7 @@ import type {
   TeamMeetingSettings,
   UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
+import { GUEST_WINDOW_DAYS } from '@basketeasy/types/guest-links';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   groupByRecipient,
@@ -26,6 +27,7 @@ import { subjectLabel } from '../common/notification-subject';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
+import { MeetingChangeFeed } from './meeting-change-feed';
 import { meetingChangedNotification, meetingFixedNotification } from './meeting-notification-copy';
 import {
   isTravelStale,
@@ -46,6 +48,8 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
 // club-wide default change must not send one notification per future match.
 // Further-off matches update quietly and read correctly when opened.
 export const MEETING_CHANGE_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// What the change feed covers: the WhatsApp reminders reach as far as the guest page does.
+export const MEETING_CHANGE_FEED_WINDOW_MS = GUEST_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 // Two job kinds share the rate-limited `meeting-travel` queue: a route
 // recompute for one match, and the announcement sweep a settings change that
@@ -177,6 +181,7 @@ export class MeetingPointsService {
     @Inject(ROUTING_CLIENT) private readonly routing: RoutingClient,
     @InjectQueue(MEETING_TRAVEL_QUEUE) private readonly queue: Queue<MeetingTravelJobData>,
     private readonly notifications: NotificationsService,
+    private readonly changeFeed: MeetingChangeFeed,
   ) {}
 
   async getClubSettings(clubId: string): Promise<ClubMeetingSettings> {
@@ -463,17 +468,24 @@ export class MeetingPointsService {
   /** The ANNOUNCE_JOB: every match of the scope inside the notification window. */
   async announceUpcoming(scope: MeetingAnnounceJobData): Promise<void> {
     const now = Date.now();
-    const events = await this.prisma.event.findMany({
+    // Published for the whole change-feed window, before the narrower player
+    // notification window below: the WhatsApp group hears about a moved RDV
+    // up to 14 days out, players only 7.
+    const feedEvents = await this.prisma.event.findMany({
       where: {
         type: EventType.MATCH,
-        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_NOTIFY_WINDOW_MS) },
+        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_FEED_WINDOW_MS) },
         ...('teamId' in scope
           ? { teamId: scope.teamId }
           : { team: { clubTeams: { some: { clubId: scope.clubId, isOwner: true } } } }),
       },
-      select: { id: true },
+      select: { id: true, startsAt: true },
     });
-    await this.announceMeetingChanges(events.map((e) => e.id));
+    this.changeFeed.publish(feedEvents.map((e) => e.id));
+    const notifyBefore = now + MEETING_CHANGE_NOTIFY_WINDOW_MS;
+    await this.announceQuietly(
+      feedEvents.filter((e) => e.startsAt.getTime() <= notifyBefore).map((e) => e.id),
+    );
   }
 
   /**
@@ -495,6 +507,14 @@ export class MeetingPointsService {
    * not fail a manager's save or a recompute job.
    */
   async announceMeetingChanges(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
+    // Before the window filter below: listeners (the WhatsApp update prompts)
+    // have their own, wider window.
+    this.changeFeed.publish(eventIds);
+    await this.announceQuietly(eventIds);
+  }
+
+  private async announceQuietly(eventIds: string[]): Promise<void> {
     if (eventIds.length === 0) return;
     try {
       await this.announce(eventIds);

@@ -14,6 +14,14 @@ export class UpdateTeamWhatsAppSettingsDto implements UpdateTeamWhatsAppSettings
   reminderTemplate?: string | null;
 
   @IsOptional()
+  @IsString()
+  updateTemplate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  cancellationTemplate?: string | null;
+
+  @IsOptional()
   @IsBoolean()
   reminderEnabled?: boolean;
 

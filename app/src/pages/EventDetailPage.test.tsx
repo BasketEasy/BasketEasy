@@ -471,6 +471,7 @@ describe('EventDetailPage — WhatsApp share, manager view', () => {
         sentBy: null,
         platform: null,
         message: 'Le message',
+        changes: [],
       },
     ],
   });

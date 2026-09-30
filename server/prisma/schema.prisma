@@ -307,6 +307,9 @@ model Team {
   guestLink              TeamGuestLink?
   // null = DEFAULT_REMINDER_TEMPLATE (@basketeasy/types/whatsapp-reminder).
   waReminderTemplate     String?
+  waUpdateTemplate       String?
+  waCancellationTemplate String?
+  eventShares            EventShare[]
   // Reminder scheduling: on/off and how long before an event the managers are
   // asked to share it. Events inherit both unless they override (Event.wa*).
   waReminderEnabled      Boolean        @default(false)
@@ -1056,6 +1059,8 @@ enum EventRsvpVia {
 // docs/superpowers/specs/2026-09-29-whatsapp-reminder-design.md.
 enum EventShareType {
   REMINDER
+  UPDATE
+  CANCELLATION
 }
 
 enum EventShareState {
@@ -1074,7 +1079,11 @@ enum EventSharePlatform {
 
 model EventShare {
   id              String              @id @default(uuid())
-  eventId         String
+  // Null once the event is deleted: a CANCELLATION share must outlive the
+  // event it is about (cancelling an event deletes it), so it reads from
+  // eventSnapshot and `teamId`, like Notification reads from its own copy.
+  eventId         String?
+  teamId          String
   type            EventShareType
   state           EventShareState
   sentByUserId    String?
@@ -1082,14 +1091,23 @@ model EventShare {
   platform        EventSharePlatform?
   // contentKey() of the sent message's variables (link excluded).
   sentContentKey  String?
+  // The variables of the message that was confirmed, for the « what moved » line.
+  sentVars        Json?
+  // WhatsAppTemplateVars minus the link, taken before the delete. CANCELLATION only.
+  eventSnapshot   Json?
+  // CANCELLATION: the deleted event's startsAt, after which it is no longer worth sharing.
+  expiresAt       DateTime?
   firstNotifiedAt DateTime?
   nudgedAt        DateTime?
   // The send time the current SCHEDULED job was queued for.
   dueAt           DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event           Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
   sentBy          User?               @relation("EventShareSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
 
+  // Postgres treats NULLs as distinct, so many CANCELLATION rows may have a null eventId.
   @@unique([eventId, type])
+  @@index([teamId, state])
 }

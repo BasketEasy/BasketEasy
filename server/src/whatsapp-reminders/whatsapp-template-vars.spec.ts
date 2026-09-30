@@ -1,5 +1,6 @@
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
-import { buildTemplateVars, type ShareEvent } from './whatsapp-template-vars';
+import { WHATSAPP_TEMPLATE_EXAMPLES } from '@basketeasy/types/whatsapp-reminder';
+import { buildTemplateVars, diffVars, toSnapshot, type ShareEvent } from './whatsapp-template-vars';
 
 const match: ShareEvent = {
   type: 'MATCH',
@@ -96,5 +97,43 @@ describe('buildTemplateVars', () => {
       meeting_time: null,
       meeting_place: null,
     });
+  });
+});
+
+describe('link handling', () => {
+  it('has no link at all when there is none to carry', () => {
+    expect(buildTemplateVars(match, 'T', null, null).link).toBeNull();
+  });
+
+  it('nulls the link in a snapshot, keeping everything else', () => {
+    const vars = buildTemplateVars(match, 'T', null, 'https://k.test/r/abc');
+    expect(toSnapshot(vars)).toEqual({ ...vars, link: null });
+  });
+});
+
+describe('diffVars', () => {
+  const before = WHATSAPP_TEMPLATE_EXAMPLES.MATCH;
+
+  it('lists what moved, old value first, by label', () => {
+    expect(diffVars(before, { ...before, event_time: '16:00', meeting_time: '15:00' })).toEqual([
+      { label: 'Heure de début', from: '15:30', to: '16:00' },
+      { label: 'Heure de RDV', from: '14:30', to: '15:00' },
+    ]);
+  });
+
+  it('says « aucun » for a value that appeared or vanished', () => {
+    expect(diffVars(before, { ...before, meeting_place: null, meeting_time: null })).toEqual([
+      { label: 'Heure de RDV', from: '14:30', to: 'aucun' },
+      { label: 'Lieu de RDV', from: 'Parking du club', to: 'aucun' },
+    ]);
+    expect(diffVars({}, before).length).toBeGreaterThan(0);
+  });
+
+  it('ignores the link and the team name, which the group does not read as news', () => {
+    expect(diffVars(before, { ...before, link: 'https://other', team_name: 'Autre' })).toEqual([]);
+  });
+
+  it('is empty for an identical message', () => {
+    expect(diffVars(before, before)).toEqual([]);
   });
 });

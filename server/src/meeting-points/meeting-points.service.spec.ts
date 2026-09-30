@@ -9,6 +9,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { GeocodingService } from './geocoding.service';
 import { travelRouteKey } from './meeting-plan';
 import type { NotificationsService } from '../notifications/notifications.service';
+import type { MeetingChangeFeed } from './meeting-change-feed';
 import {
   MEETING_CHANGE_NOTIFY_WINDOW_MS,
   MeetingPointsService,
@@ -54,6 +55,7 @@ describe('MeetingPointsService', () => {
     clubMembership: { findMany: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
+  let changeFeed: { publish: jest.Mock };
   let geocoding: { geocode: jest.Mock };
   let routing: { geocode: jest.Mock; drivingMinutes: jest.Mock };
   let queue: { addBulk: jest.Mock; add: jest.Mock };
@@ -128,6 +130,7 @@ describe('MeetingPointsService', () => {
       clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
     };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+    changeFeed = { publish: jest.fn() };
     geocoding = { geocode: jest.fn() };
     routing = { geocode: jest.fn(), drivingMinutes: jest.fn() };
     queue = { addBulk: jest.fn().mockResolvedValue([]), add: jest.fn().mockResolvedValue({}) };
@@ -137,6 +140,7 @@ describe('MeetingPointsService', () => {
       routing as unknown as RoutingClient,
       queue as unknown as Queue<MeetingTravelJobData>,
       notifications as unknown as NotificationsService,
+      changeFeed as unknown as MeetingChangeFeed,
     );
   });
 
@@ -708,8 +712,10 @@ describe('MeetingPointsService', () => {
   });
 
   describe('announceUpcoming', () => {
+    const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
     it('announces the window’s matches of the club’s owned teams', async () => {
-      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-1' }]);
+      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-1', startsAt: inDays(3) }]);
 
       await service.announceUpcoming({ clubId: 'club-1' });
 
@@ -717,12 +723,39 @@ describe('MeetingPointsService', () => {
         where: expect.objectContaining({
           team: { clubTeams: { some: { clubId: 'club-1', isOwner: true } } },
         }),
-        select: { id: true },
+        select: { id: true, startsAt: true },
       });
       expect(prisma.event.findMany).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({ where: expect.objectContaining({ id: { in: ['event-1'] } }) }),
       );
+    });
+
+    it('publishes the 14-day window to the change feed but only announces to players inside 7 days', async () => {
+      prisma.event.findMany.mockResolvedValueOnce([
+        { id: 'near', startsAt: inDays(3) },
+        { id: 'far', startsAt: inDays(10) },
+      ]);
+
+      await service.announceUpcoming({ teamId: 'team-1' });
+
+      expect(changeFeed.publish).toHaveBeenCalledWith(['near', 'far']);
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ where: expect.objectContaining({ id: { in: ['near'] } }) }),
+      );
+    });
+  });
+
+  describe('the meeting change feed', () => {
+    it('announceMeetingChanges publishes every id, before any window filter', async () => {
+      await service.announceMeetingChanges(['event-1', 'event-far']);
+      expect(changeFeed.publish).toHaveBeenCalledWith(['event-1', 'event-far']);
+    });
+
+    it('publishes nothing for an empty batch', async () => {
+      await service.announceMeetingChanges([]);
+      expect(changeFeed.publish).not.toHaveBeenCalled();
     });
   });
 });
