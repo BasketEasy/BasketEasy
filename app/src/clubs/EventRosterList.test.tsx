@@ -182,7 +182,9 @@ describe('EventRosterList', () => {
       renderList();
 
       await user.click(
-        await screen.findByRole('button', { name: 'Historique des réponses de Camille Roussel' }),
+        await screen.findByRole('button', {
+          name: /^Historique des réponses de Camille Roussel \(.+\)$/,
+        }),
       );
 
       const dialog = await screen.findByRole('dialog', { name: /Historique · Camille Roussel/ });
@@ -198,7 +200,9 @@ describe('EventRosterList', () => {
       renderList();
 
       await user.click(
-        await screen.findByRole('button', { name: 'Historique des réponses de Camille Roussel' }),
+        await screen.findByRole('button', {
+          name: /^Historique des réponses de Camille Roussel \(.+\)$/,
+        }),
       );
 
       expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();

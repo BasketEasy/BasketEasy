@@ -43,8 +43,22 @@ export function GuestRsvpPage() {
   const { token = '' } = useParams<{ token: string }>();
   useNoIndex();
   const { data, isLoading, isError, error, refetch } = useGuestPage(token);
-  const { teamPlayerId: storedId, choose, reset } = useGuestIdentity(token);
+  const {
+    teamPlayerId: storedId,
+    choose: chooseIdentity,
+    reset: resetIdentity,
+  } = useGuestIdentity(token);
   const [hasAnswered, setHasAnswered] = useState(false);
+  // A new identity has not answered yet: the invite nudge (and its
+  // invite-request) must not fire for someone who only picked their name.
+  const choose = (teamPlayerId: string) => {
+    setHasAnswered(false);
+    chooseIdentity(teamPlayerId);
+  };
+  const reset = () => {
+    setHasAnswered(false);
+    resetIdentity();
+  };
   const via = useWhatsAppAttribution();
 
   // A remembered player who has since left the roster is treated as unset.

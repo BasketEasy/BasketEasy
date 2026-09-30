@@ -21,7 +21,15 @@
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy"
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prebuild": "pnpm --filter @basketeasy/types build",
+    "prestart": "pnpm --filter @basketeasy/types build",
+    "prestart:dev": "pnpm --filter @basketeasy/types build",
+    "pretest": "pnpm --filter @basketeasy/types build",
+    "pretest:watch": "pnpm --filter @basketeasy/types build",
+    "pretest:cov": "pnpm --filter @basketeasy/types build",
+    "pretest:e2e": "pnpm --filter @basketeasy/types build",
+    "pretest:db": "pnpm --filter @basketeasy/types build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1120.0",

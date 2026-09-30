@@ -44,6 +44,42 @@ describe('back-office queries against Postgres', () => {
     expect((await list({ action: 'RETRY_OCR' })).total).toBe(1);
   });
 
+  it('finds GUARDIAN_* rows by the child and by the removed parent', async () => {
+    const service = new PlatformAdminService(
+      asService(prisma),
+      {} as JwtService,
+      {} as ConfigService,
+      { recordAndWait: jest.fn() } as unknown as AuditService,
+      {} as RetentionService,
+    );
+    const list = (filter: Parameters<PlatformAdminService['listAuditLog']>[1]) =>
+      service.listAuditLog({ id: 'dpo', email: 'dpo@kluvo.net' }, filter, 1, 25, request);
+    const [clubAdmin, parent] = await Promise.all([createUser(), createUser()]);
+    await prisma.auditLog.createMany({
+      data: [
+        {
+          type: 'GUARDIAN_INVITE_CREATED',
+          userId: clubAdmin.id,
+          metadata: { playerId: 'child-1', inviteId: 'i-1' },
+        },
+        {
+          type: 'GUARDIAN_LINK_REMOVED',
+          userId: clubAdmin.id,
+          metadata: { playerId: 'child-1', guardianUserId: parent.id, removedBy: 'CLUB_ADMIN' },
+        },
+        {
+          type: 'GUARDIAN_INVITE_CREATED',
+          userId: clubAdmin.id,
+          metadata: { playerId: 'child-2', inviteId: 'i-2' },
+        },
+      ],
+    });
+
+    expect((await list({ subjectPlayerId: 'child-1' })).total).toBe(2);
+    const forParent = await list({ subjectUserId: parent.id });
+    expect(forParent.items.map((entry) => entry.type)).toEqual(['GUARDIAN_LINK_REMOVED']);
+  });
+
   it('counts matches with a meeting point at any level in one SQL statement', async () => {
     const stats = new PlatformAdminStatsService(asService(prisma));
     const withClubDefault = await createClub();

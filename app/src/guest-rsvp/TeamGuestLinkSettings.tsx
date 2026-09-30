@@ -17,7 +17,7 @@ import {
 } from './useTeamGuestLink';
 
 const EXPOSURE =
-  "Toute personne ayant ce lien voit les prénoms de l'équipe et peut répondre pour n'importe quel joueur.";
+  "Toute personne ayant ce lien voit les prénoms de l'équipe et les événements des 14 prochains jours (notes comprises), et peut répondre pour n'importe quel joueur.";
 
 const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 

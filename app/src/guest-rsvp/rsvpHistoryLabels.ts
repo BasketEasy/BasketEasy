@@ -4,12 +4,14 @@ import { respondentName } from '../guardians/respondentLabel';
 
 const whenFormatter = new Intl.DateTimeFormat('fr-FR', {
   weekday: 'short',
+  day: 'numeric',
+  month: 'short',
   hour: '2-digit',
   minute: '2-digit',
 });
 
 /**
- * One history line: « Présent · via lien · sam. 14:32 ». Who did it is the
+ * One history line: « Présent · via lien · sam. 14 juin 14:32 ». Who did it is the
  * link, the named person, or — for an app change whose author's account is
  * gone — the app.
  */

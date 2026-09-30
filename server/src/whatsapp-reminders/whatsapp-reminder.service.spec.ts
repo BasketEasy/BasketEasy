@@ -24,6 +24,7 @@ describe('WhatsAppReminderService', () => {
     resolveManagers: jest.Mock;
     syncEvents: jest.Mock;
     onShared: jest.Mock;
+    ensureExpire: jest.Mock;
   };
   let feed: { subscribe: jest.Mock };
   let service: WhatsAppReminderService;
@@ -66,6 +67,7 @@ describe('WhatsAppReminderService', () => {
       resolveManagers: jest.fn().mockResolvedValue([{ userId: 'm1', clubId: 'c' }]),
       syncEvents: jest.fn().mockResolvedValue(undefined),
       onShared: jest.fn().mockResolvedValue(undefined),
+      ensureExpire: jest.fn().mockResolvedValue(undefined),
     };
     feed = { subscribe: jest.fn() };
     service = new WhatsAppReminderService(
@@ -488,6 +490,15 @@ describe('WhatsAppReminderService', () => {
       expect(prisma.eventShare.create).not.toHaveBeenCalled();
       expect(prisma.eventShare.updateMany).not.toHaveBeenCalled();
       expect(notifiedFor()).toHaveBeenCalledWith('t1', 'UPDATE', []);
+    });
+
+    it('moves a pending UPDATE expiry to the event current kick-off', async () => {
+      prisma.eventShare.findMany.mockResolvedValue([
+        sent(),
+        sent({ id: 'u1', type: 'UPDATE', state: 'PENDING', sentAt: null, sentContentKey: null }),
+      ]);
+      await service.onEventsChanged(['e1']);
+      expect(scheduler.ensureExpire).toHaveBeenCalledWith('u1', expect.any(Date));
     });
 
     it('voids a pending UPDATE when the edit is reverted', async () => {
