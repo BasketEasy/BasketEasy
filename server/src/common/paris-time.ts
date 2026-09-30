@@ -30,3 +30,16 @@ export function endOfParisDay(date: Date): Date {
   const offset = parisWallClockAsUtc(new Date(guess)) - guess;
   return new Date(guess - offset);
 }
+
+/**
+ * The instant a Paris wall-clock reading (an offset-less ISO string such as
+ * FFBB's "2026-09-20T18:30:00") denotes. Two passes: the offset at the first
+ * guess can differ from the offset at the answer when the reading sits within
+ * an hour or two of a DST change.
+ */
+export function parisWallClockToDate(isoLocal: string): Date {
+  const wall = Date.parse(`${isoLocal}Z`);
+  let instant = wall - (parisWallClockAsUtc(new Date(wall)) - wall);
+  instant = wall - (parisWallClockAsUtc(new Date(instant)) - instant);
+  return new Date(instant);
+}
