@@ -57,10 +57,14 @@ function fakeResponse(
 describe('FfbbPageScrapeProvider', () => {
   let provider: FfbbPageScrapeProvider;
   let fetchSpy: jest.SpyInstance;
+  let pauseSpy: jest.SpyInstance;
 
   beforeEach(() => {
     const config = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
     provider = new FfbbPageScrapeProvider(config);
+    pauseSpy = jest
+      .spyOn(provider as unknown as { pause: (ms: number) => Promise<void> }, 'pause')
+      .mockResolvedValue(undefined);
     fetchSpy = jest.spyOn(global, 'fetch');
   });
 
@@ -1136,6 +1140,8 @@ describe('FfbbPageScrapeProvider', () => {
       await provider.getMatchesForEngagement(ENGAGEMENT_REF, { resolveVenues: true });
 
       expect(maxInFlight).toBe(1);
+      // Spaced out: a pause before every detail page but the first.
+      expect(pauseSpy).toHaveBeenCalledTimes(1);
       const [, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
       const headers = init.headers as Record<string, string>;
       expect(headers.Referer).toBe(`https://competitions.ffbb.com/${ENGAGEMENT_REF}`);
