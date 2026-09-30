@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { GuestLinksService } from './guest-links.service';
 
 describe('GuestLinksService', () => {
@@ -6,7 +7,8 @@ describe('GuestLinksService', () => {
     clubTeam: { findUnique: jest.Mock };
     teamGuestLink: {
       findUnique: jest.Mock;
-      upsert: jest.Mock;
+      create: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       update: jest.Mock;
       deleteMany: jest.Mock;
     };
@@ -22,7 +24,8 @@ describe('GuestLinksService', () => {
       clubTeam: { findUnique: jest.fn().mockResolvedValue({ teamId: 'team-1' }) },
       teamGuestLink: {
         findUnique: jest.fn(),
-        upsert: jest.fn(),
+        create: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         update: jest.fn(),
         deleteMany: jest.fn(),
       },
@@ -54,7 +57,7 @@ describe('GuestLinksService', () => {
 
   it('enable creates a 32-byte url-safe token and audits it', async () => {
     prisma.teamGuestLink.findUnique.mockResolvedValue(null);
-    prisma.teamGuestLink.upsert.mockImplementation(({ create }) => Promise.resolve(create));
+    prisma.teamGuestLink.create.mockImplementation(({ data }) => Promise.resolve(data));
 
     const { url } = await service.enable('club-1', 'team-1', 'user-1');
 
@@ -73,8 +76,31 @@ describe('GuestLinksService', () => {
     await expect(service.enable('club-1', 'team-1', 'user-1')).resolves.toEqual({
       url: 'https://kluvo.test/r/live',
     });
-    expect(prisma.teamGuestLink.upsert).not.toHaveBeenCalled();
+    expect(prisma.teamGuestLink.create).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('enable that loses a race returns the winner’s link and audits nothing', async () => {
+    prisma.teamGuestLink.findUnique.mockResolvedValue(null);
+    prisma.teamGuestLink.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+    prisma.teamGuestLink.findUniqueOrThrow.mockResolvedValue({ token: 'winner' });
+
+    await expect(service.enable('club-1', 'team-1', 'user-1')).resolves.toEqual({
+      url: 'https://kluvo.test/r/winner',
+    });
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('enable rethrows anything that is not the unique-key race', async () => {
+    prisma.teamGuestLink.findUnique.mockResolvedValue(null);
+    prisma.teamGuestLink.create.mockRejectedValue(new Error('db down'));
+
+    await expect(service.enable('club-1', 'team-1', 'user-1')).rejects.toThrow('db down');
   });
 
   it('regenerate swaps the token and audits it', async () => {
@@ -105,12 +131,10 @@ describe('GuestLinksService', () => {
     );
 
     prisma.teamGuestLink.findUnique.mockResolvedValue(null);
-    prisma.teamGuestLink.upsert.mockImplementation(({ create }) => Promise.resolve(create));
+    prisma.teamGuestLink.create.mockImplementation(({ data }) => Promise.resolve(data));
     const { url } = await service.enable('club-1', 'team-1', 'user-1');
     expect(url.split('/r/')[1]).not.toBe('old');
-    expect(prisma.teamGuestLink.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: {} }),
-    );
+    expect(prisma.teamGuestLink.create).toHaveBeenCalled();
   });
 
   it('disable of an already-off link audits nothing', async () => {
