@@ -140,7 +140,10 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
 
-  return res.json() as Promise<T>;
+  // Nest serialises a handler's `null` as a 200 with an empty body (« lien
+  // désactivé »), which `res.json()` would reject on.
+  const text = await res.text();
+  return (text === '' ? null : JSON.parse(text)) as T;
 }
 
 // One refresh in flight at a time: the refresh token is single-use, so two
