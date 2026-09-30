@@ -1,0 +1,294 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-09-30T18:14:34Z"
+  },
+  "title": "Kluvo — cohérence des écrans",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1640,
+      "title": "Grammaire commune"
+    },
+    "Dashboard-gestionnaire.dc.html": {
+      "x": 0,
+      "y": 2060,
+      "w": 390,
+      "h": 1560,
+      "title": "Accueil · gestionnaire"
+    },
+    "Equipe-gestionnaire.dc.html": {
+      "x": 470,
+      "y": 2060,
+      "w": 390,
+      "h": 1400,
+      "title": "Équipe · gestionnaire"
+    },
+    "Club.dc.html": {
+      "x": 940,
+      "y": 2060,
+      "w": 390,
+      "h": 1250,
+      "title": "Club · effectif"
+    },
+    "Mes-equipes.dc.html": {
+      "x": 1410,
+      "y": 2060,
+      "w": 390,
+      "h": 900,
+      "title": "Mes équipes"
+    },
+    "Compte.dc.html": {
+      "x": 1880,
+      "y": 2060,
+      "w": 390,
+      "h": 1200,
+      "title": "Mon compte"
+    },
+    "Notifications.dc.html": {
+      "x": 2350,
+      "y": 2060,
+      "w": 390,
+      "h": 900,
+      "title": "Notifications"
+    },
+    "Accueil-joueur.dc.html": {
+      "x": 0,
+      "y": 4180,
+      "w": 390,
+      "h": 1000,
+      "title": "Ma semaine · joueur"
+    },
+    "Equipe-joueur.dc.html": {
+      "x": 470,
+      "y": 4180,
+      "w": 390,
+      "h": 1250,
+      "title": "Équipe · joueur"
+    },
+    "Resultats.dc.html": {
+      "x": 940,
+      "y": 4180,
+      "w": 390,
+      "h": 844,
+      "title": "Résultats"
+    },
+    "Enfant.dc.html": {
+      "x": 1410,
+      "y": 4180,
+      "w": 390,
+      "h": 1580,
+      "title": "Profil enfant"
+    },
+    "Invite-RSVP.dc.html": {
+      "x": 1880,
+      "y": 4180,
+      "w": 390,
+      "h": 1100,
+      "title": "Réponse invité (/r/:token)"
+    },
+    "Import.dc.html": {
+      "x": 0,
+      "y": 6180,
+      "w": 390,
+      "h": 1050,
+      "title": "Importer les licenciés"
+    },
+    "Creer-club.dc.html": {
+      "x": 470,
+      "y": 6180,
+      "w": 390,
+      "h": 844,
+      "title": "Créer un club"
+    },
+    "Connexion.dc.html": {
+      "x": 940,
+      "y": 6180,
+      "w": 390,
+      "h": 844,
+      "title": "Auth · connexion"
+    },
+    "Erreur.dc.html": {
+      "x": 1410,
+      "y": 6180,
+      "w": 390,
+      "h": 844,
+      "title": "404 · 403"
+    },
+    "Legal.dc.html": {
+      "x": 1880,
+      "y": 6180,
+      "w": 390,
+      "h": 900,
+      "title": "Pages légales"
+    },
+    "Desktop-accueil.dc.html": {
+      "x": 0,
+      "y": 7650,
+      "w": 1280,
+      "h": 950,
+      "title": "Desktop · accueil"
+    },
+    "Desktop-equipe.dc.html": {
+      "x": 1360,
+      "y": 7650,
+      "w": 1280,
+      "h": 1000,
+      "title": "Desktop · équipe"
+    },
+    "Desktop-backoffice.dc.html": {
+      "x": 2720,
+      "y": 7650,
+      "w": 1280,
+      "h": 900,
+      "title": "Desktop · back-office"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Dashboard-gestionnaire.dc.html",
+    "Equipe-gestionnaire.dc.html",
+    "Club.dc.html",
+    "Mes-equipes.dc.html",
+    "Compte.dc.html",
+    "Notifications.dc.html",
+    "Accueil-joueur.dc.html",
+    "Equipe-joueur.dc.html",
+    "Resultats.dc.html",
+    "Enfant.dc.html",
+    "Invite-RSVP.dc.html",
+    "Import.dc.html",
+    "Creer-club.dc.html",
+    "Connexion.dc.html",
+    "Erreur.dc.html",
+    "Legal.dc.html",
+    "Desktop-accueil.dc.html",
+    "Desktop-equipe.dc.html",
+    "Desktop-backoffice.dc.html"
+  ],
+  "notes": {
+    "t0": {
+      "x": 0,
+      "y": -300,
+      "text": "Kluvo : la page match comme grammaire de tous les écrans",
+      "kind": "title1",
+      "maxW": 3200
+    },
+    "t1": {
+      "x": 0,
+      "y": 1760,
+      "text": "Gestionnaire · mobile 390",
+      "kind": "title1",
+      "maxW": 3200
+    },
+    "n1": {
+      "x": 0,
+      "y": 1870,
+      "w": 390,
+      "maxH": 150,
+      "fill": "green",
+      "text": "Accueil : À traiter en tuiles (accent quand seul ce lecteur peut agir), sections à ligne de terrain, plus de CardTitle."
+    },
+    "n2": {
+      "x": 470,
+      "y": 1870,
+      "w": 390,
+      "maxH": 150,
+      "fill": "blue",
+      "text": "Équipe : barre de page, héros + tuile « prochain match », réglages repliés en bas au lieu de 5 cartes au-dessus des onglets."
+    },
+    "n3": {
+      "x": 940,
+      "y": 1870,
+      "w": 390,
+      "maxH": 150,
+      "fill": "purple",
+      "text": "Club : héros du club (racine d’onglet, donc sans barre de page), code FFBB en tuile (facultatif, donc neutre), RDV replié."
+    },
+    "n4": {
+      "x": 1410,
+      "y": 1870,
+      "w": 860,
+      "maxH": 150,
+      "fill": "orange",
+      "text": "Pages personnelles : en-tête de page (h1 + méta + action), sections, secondaire replié. Notifications retrouve un vrai h1."
+    },
+    "t2": {
+      "x": 0,
+      "y": 3880,
+      "text": "Joueur, parent, invité · mobile 390",
+      "kind": "title1",
+      "maxW": 3200
+    },
+    "n5": {
+      "x": 0,
+      "y": 3990,
+      "w": 860,
+      "maxH": 150,
+      "fill": "green",
+      "text": "Joueur : le prochain rendez-vous prend la forme du héros match (badges, eyebrow, titre, tuile lieu, trois boutons RSVP)."
+    },
+    "n6": {
+      "x": 1410,
+      "y": 3990,
+      "w": 860,
+      "maxH": 150,
+      "fill": "blue",
+      "text": "Enfant : barre de page vers Mon compte, héros de la personne, consentement en tuile. Invité : même héros, sans chrome."
+    },
+    "t3": {
+      "x": 0,
+      "y": 5880,
+      "text": "Parcours et pages publiques · mobile 390",
+      "kind": "title1",
+      "maxW": 3200
+    },
+    "n7": {
+      "x": 0,
+      "y": 5990,
+      "w": 860,
+      "maxH": 150,
+      "fill": "orange",
+      "text": "Parcours de profondeur 2 : barre de page vers l’origine. L’import garde ses étapes, dessinées comme la timeline (points + rail)."
+    },
+    "n8": {
+      "x": 940,
+      "y": 5990,
+      "w": 1330,
+      "maxH": 150,
+      "fill": "gray",
+      "text": "Publiques : wordmark + une carte, h1 dans la carte (Heading, plus CardTitle). Erreurs : même carte, IconBadge accent."
+    },
+    "t4": {
+      "x": 0,
+      "y": 7350,
+      "text": "Desktop 1280",
+      "kind": "title1",
+      "maxW": 4200
+    },
+    "n9": {
+      "x": 0,
+      "y": 7460,
+      "w": 1280,
+      "maxH": 150,
+      "fill": "purple",
+      "text": "Desktop : la paire principale côte à côte (comme Logistique | Présences), le héros en deux colonnes avec la tuile à droite."
+    },
+    "n10": {
+      "x": 2720,
+      "y": 7460,
+      "w": 1280,
+      "maxH": 150,
+      "fill": "gray",
+      "text": "Back-office : garde son propre chrome (pas d’AppHeader), mais AdminPageHeader adopte le héros (badges, eyebrow, h1, méta, stats en tuile)."
+    }
+  },
+  "designSystems": []
+}
