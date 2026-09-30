@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { FfbbImportResult } from '@basketeasy/types/ffbb';
+import { FFBB_MISSING_VENUE_LIST_LIMIT, type FfbbImportResult } from '@basketeasy/types/ffbb';
 import { EVENT_LOCATION_MAX_LENGTH, UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { parisWallClockToDate } from '../common/paris-time';
@@ -127,7 +127,40 @@ export class FfbbImportService {
     // Only matches FFBB changed can have made a shared message stale.
     await this.whatsAppReminders.onEventsChanged(changedEventIds);
 
-    return { created, updated, unchanged };
+    const { missingVenue, missingVenueTotal } = await this.findMissingVenues(teamId);
+    return { created, updated, unchanged, missingVenue, missingVenueTotal };
+  }
+
+  // Read after the upserts rather than collected during them: upsertMatch
+  // returns early for a played match and never sees one whose FFBB link was
+  // removed, and both can still be upcoming rows with no venue.
+  private async findMissingVenues(
+    teamId: string,
+  ): Promise<Pick<FfbbImportResult, 'missingVenue' | 'missingVenueTotal'>> {
+    const where = {
+      teamId,
+      type: 'MATCH' as const,
+      externalId: { not: null },
+      location: UNKNOWN_EVENT_LOCATION,
+      startsAt: { gt: new Date() },
+    };
+    const [rows, missingVenueTotal] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { startsAt: 'asc' },
+        take: FFBB_MISSING_VENUE_LIST_LIMIT,
+        select: { id: true, opponentName: true, startsAt: true },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+    return {
+      missingVenue: rows.map((row) => ({
+        eventId: row.id,
+        opponentName: row.opponentName,
+        startsAt: row.startsAt.toISOString(),
+      })),
+      missingVenueTotal,
+    };
   }
 
   private async upsertMatch(

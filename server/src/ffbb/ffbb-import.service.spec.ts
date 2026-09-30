@@ -26,6 +26,7 @@ describe('FfbbImportService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      count: jest.Mock;
     };
     eventMeeting: { updateMany: jest.Mock };
   };
@@ -42,6 +43,7 @@ describe('FfbbImportService', () => {
         findUnique: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'event-new' }),
         update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
       },
       eventMeeting: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
@@ -105,7 +107,7 @@ describe('FfbbImportService', () => {
         venue: 'HOME',
       },
     });
-    expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, unchanged: 0 });
   });
 
   it('reconciles the WhatsApp reminders for a created match and an updated one, not an unchanged one', async () => {
@@ -145,7 +147,7 @@ describe('FfbbImportService', () => {
     prisma.teamFfbbLink.findMany.mockResolvedValue([
       { id: 'link-1', teamId: 'team-1', ffbbEngagementRef: 'ref-1', ffbbEngagementLabel: null },
     ]);
-    prisma.event.findMany.mockResolvedValue([{ externalId: 'm-known' }]);
+    prisma.event.findMany.mockResolvedValueOnce([{ externalId: 'm-known' }]);
     ffbbProvider.getMatchesForEngagement.mockResolvedValue({ competitionLabel: null, matches: [] });
 
     await service.importSchedule('club-1', 'team-1');
@@ -222,7 +224,7 @@ describe('FfbbImportService', () => {
       where: { id: 'event-1' },
       data: expect.objectContaining({ location: 'Gymnase du Loquidy, Nantes' }),
     });
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('keeps an already-imported address when a re-sync resolves no venue', async () => {
@@ -250,7 +252,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
   });
 
   describe('a venue a manager typed', () => {
@@ -302,7 +304,7 @@ describe('FfbbImportService', () => {
       const result = await service.importSchedule('club-1', 'team-1');
 
       expect(prisma.event.update).not.toHaveBeenCalled();
-      expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+      expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
     });
 
     it('keeps its name when FFBB returns the same address and something else changed', async () => {
@@ -316,6 +318,83 @@ describe('FfbbImportService', () => {
       const { data } = prisma.event.update.mock.calls[0][0];
       expect(data.location).toBe('12 rue des Sports, Rezé');
       expect(data.locationName).toBeUndefined();
+    });
+  });
+
+  describe('matches left without a venue', () => {
+    beforeEach(() => {
+      prisma.teamFfbbLink.findMany.mockResolvedValue([
+        {
+          id: 'link-1',
+          teamId: 'team-1',
+          ffbbEngagementRef: 'ref-1',
+          ffbbEngagementLabel: 'Championnat',
+        },
+      ]);
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [],
+      });
+    });
+
+    it('lists the upcoming imported matches of this team still on the placeholder, soonest first', async () => {
+      prisma.event.findMany.mockImplementation(({ take }) =>
+        Promise.resolve(
+          take
+            ? [
+                {
+                  id: 'event-1',
+                  opponentName: 'Rezé',
+                  startsAt: new Date('2099-10-04T13:30:00Z'),
+                },
+              ]
+            : [],
+        ),
+      );
+      prisma.event.count.mockResolvedValue(1);
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      const where = {
+        teamId: 'team-1',
+        type: 'MATCH',
+        externalId: { not: null },
+        location: 'Lieu non communiqué',
+        startsAt: { gt: expect.any(Date) },
+      };
+      // A match with a manual venue no longer has the placeholder, so the
+      // query itself leaves it out.
+      expect(prisma.event.findMany).toHaveBeenCalledWith({
+        where,
+        orderBy: { startsAt: 'asc' },
+        take: 20,
+        select: { id: true, opponentName: true, startsAt: true },
+      });
+      expect(prisma.event.count).toHaveBeenCalledWith({ where });
+      expect(result.missingVenue).toEqual([
+        { eventId: 'event-1', opponentName: 'Rezé', startsAt: '2099-10-04T13:30:00.000Z' },
+      ]);
+      expect(result.missingVenueTotal).toBe(1);
+    });
+
+    it('caps the list at 20 and still reports the full count', async () => {
+      prisma.event.findMany.mockImplementation(({ take }) =>
+        Promise.resolve(
+          take
+            ? Array.from({ length: take }, (_, i) => ({
+                id: `event-${i}`,
+                opponentName: null,
+                startsAt: new Date(Date.UTC(2099, 0, i + 1)),
+              }))
+            : [],
+        ),
+      );
+      prisma.event.count.mockResolvedValue(23);
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      expect(result.missingVenue).toHaveLength(20);
+      expect(result.missingVenueTotal).toBe(23);
     });
   });
 
@@ -383,7 +462,7 @@ describe('FfbbImportService', () => {
     });
     expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     expect(prisma.event.create).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('leaves an existing event unchanged when nothing actually differs', async () => {
@@ -411,7 +490,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
   });
 
   it('never re-touches an already-played match even if fields differ', async () => {
@@ -438,7 +517,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
   });
 
   it('still creates a first-time import of an already-played match', async () => {
@@ -459,7 +538,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.create).toHaveBeenCalled();
-    expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, unchanged: 0 });
   });
 
   it('propagates isImported-relevant timeConfirmed:false onto the created event', async () => {
@@ -533,7 +612,7 @@ describe('FfbbImportService', () => {
     expect(prisma.event.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ venue: 'AWAY' }) }),
     );
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('imports matches from two linked engagements with no id collision, into one combined result', async () => {
@@ -557,7 +636,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.create).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ created: 2, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 2, updated: 0, unchanged: 0 });
   });
 
   it('aborts the whole import and names the failing link when one engagement fetch fails', async () => {
