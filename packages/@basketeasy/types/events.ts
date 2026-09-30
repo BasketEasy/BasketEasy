@@ -9,6 +9,17 @@ export type EventType = 'TRAINING' | 'MATCH';
 /** Home/away for a MATCH event; not applicable to TRAINING. */
 export type EventVenue = 'HOME' | 'AWAY';
 
+/**
+ * What the FFBB import writes as `location` when FFBB hasn't published the
+ * venue yet (`Event.location` is non-null). It names no place: never geocode
+ * it, never offer directions to it.
+ */
+export const UNKNOWN_EVENT_LOCATION = 'Lieu non communiqué';
+
+export function isUnknownEventLocation(location: string): boolean {
+  return location.trim() === UNKNOWN_EVENT_LOCATION;
+}
+
 /** A rostered team member's self-reported attendance status for one event. */
 export type EventRsvpStatus = 'GOING' | 'NOT_GOING' | 'MAYBE';
 

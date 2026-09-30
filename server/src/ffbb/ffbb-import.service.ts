@@ -6,14 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { FfbbImportResult } from '@basketeasy/types/ffbb';
+import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 
 type UpsertOutcome = 'created' | 'updated' | 'unchanged';
-
-const MISSING_LOCATION = 'Lieu non communiqué';
 
 // Events are written here through Prisma directly, bypassing the
 // class-validator @MaxLength(120) on Create/UpdateEventDto — so an
@@ -51,6 +50,18 @@ export class FfbbImportService {
       throw new BadRequestException("Cette équipe n'a aucune compétition FFBB liée");
     }
 
+    // Matches whose venue an earlier import already found: the provider reads
+    // the others' detail pages first, since its budget can't cover a season.
+    const withVenue = await this.prisma.event.findMany({
+      where: {
+        teamId,
+        externalId: { not: null },
+        location: { not: UNKNOWN_EVENT_LOCATION },
+      },
+      select: { externalId: true },
+    });
+    const knownVenueMatchIds = new Set(withVenue.map((e) => e.externalId as string));
+
     // Fetch every linked engagement's matches before writing anything: one
     // link's fetch failure aborts the whole import rather than partially
     // importing the others, so the admin never sees a silently half-done
@@ -65,7 +76,7 @@ export class FfbbImportService {
         // resolved comes back with location null and still imports.
         const { matches } = await this.ffbbProvider.getMatchesForEngagement(
           link.ffbbEngagementRef,
-          { resolveVenues: true },
+          { resolveVenues: true, knownVenueMatchIds },
         );
         matchesByLink.push(matches);
       } catch {
@@ -137,7 +148,7 @@ export class FfbbImportService {
     // silently wipe every venue back to the placeholder.
     const location = match.location
       ? clampLocation(match.location)
-      : (existing?.location ?? MISSING_LOCATION);
+      : (existing?.location ?? UNKNOWN_EVENT_LOCATION);
     // FFBB's date_rencontre has no offset; parse it as UTC explicitly
     // rather than relying on the server process's local timezone to
     // interpret an offset-less ISO string.

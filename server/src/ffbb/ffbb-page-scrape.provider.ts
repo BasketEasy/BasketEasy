@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   FfbbEngagementFetchResult,
@@ -259,6 +259,8 @@ interface RawFfbbPoule {
  */
 @Injectable()
 export class FfbbPageScrapeProvider implements FfbbProvider {
+  private readonly logger = new Logger(FfbbPageScrapeProvider.name);
+
   constructor(private readonly config: ConfigService) {}
 
   parseEngagementRef(url: string): string | null {
@@ -285,7 +287,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     const pouleRef = this.derivePouleRef(rawMatches, chunks);
 
     if (options.resolveVenues) {
-      await this.resolveVenues(matches, rawMatches, chunks);
+      await this.resolveVenues(matches, rawMatches, chunks, options.knownVenueMatchIds);
     }
 
     return { competitionLabel, matches, pouleRef };
@@ -766,6 +768,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     matches: FfbbMatch[],
     rawMatches: RawFfbbMatch[],
     chunks: string[],
+    knownVenueMatchIds: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     const detailIndex = this.buildDetailPathIndex(chunks);
     const pending: { match: FfbbMatch; raw: RawFfbbMatch }[] = [];
@@ -780,19 +783,47 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         match.location = inline;
         continue;
       }
-      // `continue`, not `break`: a match past the fetch cap can still have a
-      // venue on its own row, and that costs nothing.
-      if (pending.length >= MAX_VENUE_LOOKUPS) continue;
       pending.push({ match, raw });
     }
 
+    // The fetch cap and the time budget cut the tail of this list, so the
+    // matches that need a page load most go first: no venue known yet, then
+    // the soonest. In fixture order, a season's last matches were never
+    // reached, and a re-sync spent its budget re-reading venues it had.
+    pending.sort(
+      (a, b) =>
+        Number(knownVenueMatchIds.has(a.match.id)) - Number(knownVenueMatchIds.has(b.match.id)) ||
+        a.match.startsAt.localeCompare(b.match.startsAt),
+    );
+    const queued = pending.slice(0, MAX_VENUE_LOOKUPS);
+
     const deadline = Date.now() + VENUE_RESOLUTION_BUDGET_MS;
-    await this.runWithConcurrency(pending, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
-      if (Date.now() >= deadline) return;
+    let noPath = 0;
+    let outOfBudget = 0;
+    let unread = 0;
+    await this.runWithConcurrency(queued, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
+      if (Date.now() >= deadline) {
+        outOfBudget += 1;
+        return;
+      }
       const path = this.resolveDetailPath(raw, match.id, detailIndex);
-      if (!path) return;
+      if (!path) {
+        noPath += 1;
+        return;
+      }
       match.location = await this.fetchVenue(path);
+      if (!match.location) unread += 1;
     });
+    const skipped = pending.length - queued.length + outOfBudget;
+    if (noPath + unread + skipped > 0) {
+      // No venue on a page is often legit (not published yet), but a spike
+      // here is the only trace a changed FFBB page shape leaves.
+      this.logger.warn(
+        `Venue resolution: ${queued.length - noPath - unread - outOfBudget}/${pending.length} resolved, ` +
+          `${unread} detail pages without a readable venue, ${noPath} without a detail link, ` +
+          `${skipped} skipped (cap or time budget)`,
+      );
+    }
   }
 
   private buildDetailPathIndex(chunks: string[]): DetailPathIndex {
@@ -842,7 +873,8 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         this.extractVenueFromInformationGroups(chunks) ??
         this.pickVenue(this.collectVenueCandidatesFromChunks(chunks))
       );
-    } catch {
+    } catch (err: unknown) {
+      this.logger.warn(`Venue fetch failed for "${path}": ${String(err)}`);
       return null;
     }
   }
@@ -1118,9 +1150,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // salle-ish key — elsewhere it's as likely to name a club.
       (venueParent && this.readString(object, VENUE_GENERIC_NAME_KEYS) !== null);
     const hasStreet = this.readStreet(object) !== null;
-    const hasLocality =
-      this.readString(object, VENUE_CITY_KEYS) !== null ||
-      this.readString(object, VENUE_POSTAL_KEYS) !== null;
+    const hasLocality = this.readLocality(object) !== null;
     return hasName || (hasStreet && (hasLocality || venueParent));
   }
 
@@ -1144,7 +1174,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     if (parentKey !== null && VENUE_PARENT_KEY_PATTERN.test(parentKey)) score += 4;
     if (this.readString(object, VENUE_NAME_KEYS) !== null) score += 2;
     if (this.readStreet(object) !== null) score += 1;
-    if (this.readString(object, VENUE_CITY_KEYS) !== null) score += 1;
+    if (this.readLocality(object) !== null) score += 1;
     return score;
   }
 
@@ -1156,17 +1186,30 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // On anything not already known to be a venue, `nom`/`libelle` is as
       // likely to be a club's name as a gym's.
       (venueParent ? this.readString(object, VENUE_GENERIC_NAME_KEYS) : null);
-    const locality = [
-      this.readString(object, VENUE_POSTAL_KEYS),
-      this.readString(object, VENUE_CITY_KEYS),
-    ]
-      .filter((part): part is string => part !== null)
-      .join(' ');
-
-    const parts = [name, this.readStreet(object), locality || null].filter(
+    const parts = [name, this.readStreet(object), this.readLocality(object)].filter(
       (part): part is string => part !== null && part.length > 0,
     );
     return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  /**
+   * « 44115 Basse-Goulaine ». The commune is either flat keys beside the
+   * street or its own record (`commune: { codePostal, libelle }`, the shape
+   * FFBB's own API types give a salle), so both are read.
+   */
+  private readLocality(object: Record<string, unknown>): string | null {
+    let postal = this.readString(object, VENUE_POSTAL_KEYS);
+    let city = this.readString(object, VENUE_CITY_KEYS);
+    for (const key of VENUE_CITY_KEYS) {
+      const nested = object[key];
+      if (!nested || typeof nested !== 'object' || Array.isArray(nested)) continue;
+      const commune = nested as Record<string, unknown>;
+      postal ??= this.readString(commune, VENUE_POSTAL_KEYS);
+      city ??= this.readString(commune, [...VENUE_GENERIC_NAME_KEYS, ...VENUE_CITY_KEYS]);
+      break;
+    }
+    const locality = [postal, city].filter((part): part is string => part !== null).join(' ');
+    return locality || null;
   }
 
   private readStreet(object: Record<string, unknown>): string | null {
