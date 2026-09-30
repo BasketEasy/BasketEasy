@@ -15,12 +15,12 @@ const change = (o: Partial<EventRsvpChangeEntry>): EventRsvpChangeEntry => ({
 
 describe('rsvpChangeLine', () => {
   it('names the link as the source of a guest change', () => {
-    expect(rsvpChangeLine(change({}))).toMatch(/^Présent · via lien · sam\. 14:32$/);
+    expect(rsvpChangeLine(change({}))).toMatch(/^Présent · via lien · sam\. 3 oct\., 14:32$/);
   });
 
   it('names WhatsApp when the answer came through the shared message', () => {
     expect(rsvpChangeLine(change({ via: 'WHATSAPP' }))).toMatch(
-      /^Présent · via lien \(WhatsApp\) · sam\. 14:32$/,
+      /^Présent · via lien \(WhatsApp\) · sam\. 3 oct\., 14:32$/,
     );
   });
 

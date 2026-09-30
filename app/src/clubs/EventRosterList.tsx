@@ -1,3 +1,4 @@
+import { eventRsvpStatusLabel } from './eventRsvpLabels';
 import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { cn } from '@basketeasy/ui/cn';
@@ -70,7 +71,9 @@ function RsvpCell({
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
-          aria-label={`Historique des réponses de ${playerName}`}
+          // The label replaces the badge's text for assistive tech, so it has to carry
+          // the status the badge shows.
+          aria-label={`Historique des réponses de ${playerName} (${eventRsvpStatusLabel(row.rsvpStatus)})`}
           onClick={() => setIsHistoryOpen(true)}
           className={cn('rounded-md', focusRing)}
         >

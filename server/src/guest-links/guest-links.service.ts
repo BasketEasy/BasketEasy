@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import type { EventRsvpChangeEntry, TeamGuestLinkInfo } from '@basketeasy/types/guest-links';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -36,17 +37,26 @@ export class GuestLinksService {
     const existing = await this.prisma.teamGuestLink.findUnique({ where: { teamId } });
     if (existing) return this.toInfo(existing.token);
 
-    const created = await this.prisma.teamGuestLink.upsert({
-      where: { teamId },
-      create: { teamId, token: newToken(), createdByUserId: userId },
-      update: {},
-    });
-    this.audit.record({
-      type: 'GUEST_LINK_ENABLED',
-      userId,
-      metadata: { teamId },
-    });
-    return this.toInfo(created.token);
+    // `create`, not `upsert`: of two concurrent « activer » calls exactly one
+    // creates the row and audits it; the loser (unique teamId, P2002) returns
+    // the winner's link and writes nothing, since nothing was granted.
+    try {
+      const created = await this.prisma.teamGuestLink.create({
+        data: { teamId, token: newToken(), createdByUserId: userId },
+      });
+      this.audit.record({
+        type: 'GUEST_LINK_ENABLED',
+        userId,
+        metadata: { teamId },
+      });
+      return this.toInfo(created.token);
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+        throw error;
+      }
+      const winner = await this.prisma.teamGuestLink.findUniqueOrThrow({ where: { teamId } });
+      return this.toInfo(winner.token);
+    }
   }
 
   async regenerate(clubId: string, teamId: string, userId: string): Promise<{ url: string }> {
