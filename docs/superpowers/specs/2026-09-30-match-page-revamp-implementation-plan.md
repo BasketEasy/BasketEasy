@@ -73,7 +73,7 @@ Every modal opens as a bottom sheet below `sm` and as the centred dialog from `s
 
 ## Part 3: venue editing UI
 
-Frontend half of the venue spec, on top of Parts 1, 2 and 4.
+Frontend half of the venue spec, on top of Parts 1, 2 and 4. Specced as venue [Part 4](./2026-09-30-manual-match-venue-part4-editing-ui.md) and the UI half of venue [Part 3](./2026-09-30-manual-match-venue-part3-import-summary.md).
 
 - Header location block, `canManage` only: unknown venue → gold alert block with primary « Ajouter le lieu »; known → icon-only « Modifier le lieu » (mobile), labelled button (desktop).
 - `app/src/clubs/EventVenueDialog.tsx`: react-hook-form + zod, name + address, shared schema with `EventEditModal`. Imported-match note, notify note + « Enregistrer et prévenir » when a known venue changes.
@@ -82,7 +82,7 @@ Frontend half of the venue spec, on top of Parts 1, 2 and 4.
 
 ## Part 4: venue backend
 
-As specified in the venue spec: `Event.locationName` migration, `UpdateEventDto`, `EVENT_VENUE_CHANGED` + copy, FFBB import clearing `locationName` and returning `missingVenue`, `@basketeasy/types` first. Can land before Part 2.
+As specified in the venue spec: `Event.locationName` migration, `UpdateEventDto`, `EVENT_VENUE_CHANGED` + copy, FFBB import clearing `locationName` and returning `missingVenue`, `@basketeasy/types` first. Can land before Part 2. Specced as venue [Part 1](./2026-09-30-manual-match-venue-part1-backend.md), [Part 2](./2026-09-30-manual-match-venue-part2-notification.md) and the backend half of [Part 3](./2026-09-30-manual-match-venue-part3-import-summary.md).
 
 ## Part 5: collapsible sections
 

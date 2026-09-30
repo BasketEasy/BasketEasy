@@ -2,6 +2,17 @@
 
 **Status:** spec, not built. **Date:** 2026-09-30.
 
+## Parts
+
+Four specs, each its own PR:
+
+1. [Backend: `locationName` and the edit rules](./2026-09-30-manual-match-venue-part1-backend.md)
+2. [Backend: « Changement de salle » notification](./2026-09-30-manual-match-venue-part2-notification.md) (after 1)
+3. [Import summary: « N matchs sans lieu »](./2026-09-30-manual-match-venue-part3-import-summary.md) (after 1)
+4. [Editing UI on the match](./2026-09-30-manual-match-venue-part4-editing-ui.md) (after 1, 2 and the match page revamp's Parts 1–2)
+
+Each part opens with the corrections to this doc that reading the code turned up.
+
 ## Problem
 
 An FFBB-imported match whose venue FFBB hasn't published (or that FFBB refused to serve, see #282 / #283) shows « Lieu non communiqué ». A manager who knows the gym has no obvious way to set it.
