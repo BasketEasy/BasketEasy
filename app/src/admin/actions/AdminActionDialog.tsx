@@ -19,7 +19,6 @@ import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Text } from '@basketeasy/ui/text';
 import { Textarea } from '@basketeasy/ui/textarea';
-import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type {
   AdminActionResult,
   AdminReasonRequest,
@@ -83,7 +82,7 @@ function AdminActionFacts({ facts }: { facts: AdminActionFact[] }) {
   );
 }
 
-/** Dialog chrome shared by every action: header, placement by viewport. */
+/** Dialog chrome shared by every action: header (a sheet on a phone, a centred dialog on desktop, by `Dialog`'s default). */
 export function AdminActionDialogFrame({
   open,
   onOpenChange,
@@ -99,11 +98,10 @@ export function AdminActionDialogFrame({
   description: ReactNode;
   children: ReactNode;
 }) {
-  const isDesktop = useIsDesktopViewport();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent variant={isDesktop ? 'dialog' : 'sheet'}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
