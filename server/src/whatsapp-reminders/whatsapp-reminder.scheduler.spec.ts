@@ -54,7 +54,12 @@ describe('WhatsAppReminderScheduler', () => {
     clubMembership: { findMany: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
-  let queue: { add: jest.Mock; remove: jest.Mock; getJob: jest.Mock };
+  let queue: {
+    add: jest.Mock;
+    remove: jest.Mock;
+    getJob: jest.Mock;
+    upsertJobScheduler: jest.Mock;
+  };
   let scheduler: WhatsAppReminderScheduler;
 
   beforeEach(() => {
@@ -79,6 +84,7 @@ describe('WhatsAppReminderScheduler', () => {
       add: jest.fn().mockResolvedValue(undefined),
       remove: jest.fn().mockResolvedValue(1),
       getJob: jest.fn().mockResolvedValue(undefined),
+      upsertJobScheduler: jest.fn().mockResolvedValue(undefined),
     };
     scheduler = new WhatsAppReminderScheduler(
       prisma as never,
@@ -432,6 +438,9 @@ describe('WhatsAppReminderScheduler', () => {
     });
 
     it('expire moves an unshared share to EXPIRED and withdraws, never touching SENT', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'PENDING' }, { startsAt: new Date(NOW.getTime() - HOUR) }),
+      );
       await scheduler.expire('s1');
       expect(prisma.eventShare.updateMany).toHaveBeenCalledWith({
         where: { id: 's1', state: { in: ['SCHEDULED', 'PENDING'] } },
@@ -440,7 +449,19 @@ describe('WhatsAppReminderScheduler', () => {
       expect(prisma.notification.updateMany).toHaveBeenCalled();
     });
 
+    it('expire does nothing when the event was moved past the job it was queued for', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'PENDING' }, { startsAt: new Date(NOW.getTime() + DAY) }),
+      );
+      await scheduler.expire('s1');
+      expect(prisma.eventShare.updateMany).not.toHaveBeenCalled();
+      expect(prisma.notification.updateMany).not.toHaveBeenCalled();
+    });
+
     it('expire withdraws nothing when the share had already been sent', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'SENT' }, { startsAt: new Date(NOW.getTime() - HOUR) }),
+      );
       prisma.eventShare.updateMany.mockResolvedValue({ count: 0 });
       await scheduler.expire('s1');
       expect(prisma.notification.updateMany).not.toHaveBeenCalled();
@@ -693,5 +714,60 @@ describe('WhatsAppReminderScheduler', () => {
       expect.objectContaining({ data: { readAt: expect.any(Date) } }),
     );
     expect(queue.remove).toHaveBeenCalledTimes(3);
+  });
+
+  describe('lost jobs', () => {
+    it('registers one repeatable sweep at startup and survives an unreachable Redis', async () => {
+      await scheduler.onModuleInit();
+      expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+        'wa-sweep',
+        { every: 10 * 60 * 1000 },
+        expect.objectContaining({ name: 'sweep' }),
+      );
+
+      queue.upsertJobScheduler.mockRejectedValue(new Error('redis down'));
+      await expect(scheduler.onModuleInit()).resolves.toBeUndefined();
+    });
+
+    it('queues send, nudge and expire jobs with retries so one blip does not drop them', async () => {
+      arrange({ startsInMs: 10 * DAY, share: null });
+      await scheduler.syncEvents(['e1']);
+      const opts = queue.add.mock.calls.map(([, , o]) => o);
+      expect(opts.length).toBeGreaterThan(0);
+      for (const o of opts) {
+        expect(o).toMatchObject({ attempts: 3, backoff: { type: 'exponential' } });
+      }
+    });
+
+    it('sweep re-runs an overdue send and expires shares that outlived their event', async () => {
+      prisma.eventShare.findMany
+        .mockResolvedValueOnce([{ id: 'late' }])
+        .mockResolvedValueOnce([{ id: 'stale' }]);
+      const send = jest.spyOn(scheduler, 'send').mockResolvedValue(undefined);
+      const expire = jest.spyOn(scheduler, 'expire').mockResolvedValue(undefined);
+
+      await scheduler.sweep();
+
+      const [overdueQuery, staleQuery] = prisma.eventShare.findMany.mock.calls.map(([q]) => q);
+      expect(overdueQuery.where).toMatchObject({ state: 'SCHEDULED' });
+      expect(overdueQuery.where.dueAt.lte.getTime()).toBeLessThan(NOW.getTime());
+      expect(staleQuery.where.state).toEqual({ in: ['SCHEDULED', 'PENDING'] });
+      expect(send).toHaveBeenCalledWith('late');
+      expect(expire).toHaveBeenCalledWith('stale');
+    });
+
+    it('sweep keeps going when one share fails', async () => {
+      prisma.eventShare.findMany
+        .mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }])
+        .mockResolvedValueOnce([]);
+      const send = jest
+        .spyOn(scheduler, 'send')
+        .mockRejectedValueOnce(new Error('db down'))
+        .mockResolvedValue(undefined);
+
+      await scheduler.sweep();
+
+      expect(send).toHaveBeenCalledTimes(2);
+    });
   });
 });

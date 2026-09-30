@@ -355,15 +355,28 @@ describe('GuardiansService', () => {
       expect(prisma).not.toHaveProperty('clubMembership');
     });
 
-    it('needs no consent for an adult', async () => {
-      prisma.guardianInvite.findUnique.mockResolvedValue(
-        buildInvite({}, { birthDate: ADULT_BIRTH }),
-      );
+    it('needs no consent while the birth date is unknown', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { birthDate: null }));
 
       await service.acceptAsUser('t', 'parent-1', undefined);
 
       expect(prisma.playerGuardian.create).toHaveBeenCalled();
       expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses a link issued before the player was known to be an adult, writing nothing', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(
+        buildInvite({}, { birthDate: ADULT_BIRTH }),
+      );
+
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
+        BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
+      );
+      expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
+      expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+      expect(prisma.guardianInvite.update).not.toHaveBeenCalled();
     });
 
     it('refuses a minor without consent and writes nothing', async () => {
@@ -464,9 +477,7 @@ describe('GuardiansService', () => {
     });
 
     it('does not duplicate an existing link or count it against the cap', async () => {
-      prisma.guardianInvite.findUnique.mockResolvedValue(
-        buildInvite({}, { birthDate: ADULT_BIRTH }),
-      );
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { birthDate: null }));
       prisma.playerGuardian.findUnique.mockResolvedValue({ playerId: 'player-1' });
       prisma.playerGuardian.count.mockResolvedValue(4);
 

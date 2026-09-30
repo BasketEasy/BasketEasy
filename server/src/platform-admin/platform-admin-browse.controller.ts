@@ -152,7 +152,16 @@ export class PlatformAdminBrowseController {
     @Req() request: Request,
   ): Promise<PaginatedResult<AdminUserSummary>> {
     const result = await this.browse.listUsers(role, query);
-    await this.browse.recordListed(actorOf(user, role), request, 'users', result, { ...query });
+    // A search (`q`) is recorded for SUPPORT too: an exact-address hit, even
+    // redacted, confirms that the address has an account.
+    await this.browse.recordListed(
+      actorOf(user, role),
+      request,
+      'users',
+      result,
+      { ...query },
+      { always: !!query.q },
+    );
     return result;
   }
 
@@ -175,9 +184,14 @@ export class PlatformAdminBrowseController {
     @Req() request: Request,
   ): Promise<PaginatedResult<AdminPlayerSummary>> {
     const result = await this.browse.listPlayers(role, query);
-    await this.browse.recordListed(actorOf(user, role), request, 'players', result, {
-      ...query,
-    });
+    await this.browse.recordListed(
+      actorOf(user, role),
+      request,
+      'players',
+      result,
+      { ...query },
+      { always: !!query.q },
+    );
     return result;
   }
 

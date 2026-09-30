@@ -341,6 +341,11 @@ export class GuardiansService {
       if (player.userId === userId) {
         throw refused('Vous ne pouvez pas être votre propre parent');
       }
+      // createInvite refuses an adult, but the birth date can be recorded after
+      // the link was issued (or the link predate the rule): re-check under lock.
+      if (isAdultBirthDate(player.birthDate)) {
+        throw refused('Ce joueur est majeur : il n’est pas possible de le suivre comme parent');
+      }
       assertConsent(player.birthDate, consent);
 
       const existing = await tx.playerGuardian.findUnique({

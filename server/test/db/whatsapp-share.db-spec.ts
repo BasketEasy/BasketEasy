@@ -112,7 +112,7 @@ describe('WhatsApp share against Postgres', () => {
     expect(row.sentByUserId).toBe(user.id);
   });
 
-  it('withdraws only the notifications that end with its own share id', async () => {
+  it('withdraws only the notifications that name its own share id', async () => {
     const { scheduler } = await setup();
     const user = await createUser();
     const notification = (deepLink: string) =>

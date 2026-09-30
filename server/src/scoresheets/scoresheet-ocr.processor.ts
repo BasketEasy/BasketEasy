@@ -203,8 +203,9 @@ export class ScoresheetOcrProcessor extends WorkerHost {
         },
       });
 
-      const userId = scoresheet?.uploadedBy.player.userId;
-      if (!scoresheet || !userId) return;
+      // A null uploader (their roster slot was deleted) has nobody to tell.
+      const userId = scoresheet?.uploadedBy?.player.userId;
+      if (!scoresheet?.uploadedBy || !userId) return;
 
       const clubId = await this.resolveNavigationClubId(userId, scoresheet.uploadedBy.team);
       if (!clubId) return;

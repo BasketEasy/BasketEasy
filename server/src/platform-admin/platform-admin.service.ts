@@ -415,6 +415,8 @@ export class PlatformAdminService {
           OR: [
             { userId: subjectUserId },
             { metadata: { path: ['subjectUserId'], equals: subjectUserId } },
+            // A parent removed by a club admin: the row's actor is the admin.
+            { metadata: { path: ['guardianUserId'], equals: subjectUserId } },
           ],
         },
         orderBy: { createdAt: 'asc' },
@@ -666,6 +668,8 @@ export class PlatformAdminService {
         OR: [
           { userId: filter.subjectUserId },
           { metadata: { path: ['subjectUserId'], equals: filter.subjectUserId } },
+          // GUARDIAN_LINK_REMOVED names the parent here, the actor being the admin.
+          { metadata: { path: ['guardianUserId'], equals: filter.subjectUserId } },
           // Shown on someone else's profile, or on a list page.
           {
             metadata: { path: ['disclosedUserIds'], array_contains: [filter.subjectUserId] },
@@ -677,6 +681,8 @@ export class PlatformAdminService {
       clauses.push({
         OR: [
           { metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } },
+          // GUARDIAN_* rows (who was given access to this player's data).
+          { metadata: { path: ['playerId'], equals: filter.subjectPlayerId } },
           {
             metadata: { path: ['disclosedPlayerIds'], array_contains: [filter.subjectPlayerId] },
           },

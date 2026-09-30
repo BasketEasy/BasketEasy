@@ -425,7 +425,11 @@ export class WhatsAppReminderService implements OnModuleInit {
           if (update?.state === EventShareState.PENDING) await this.voidUpdate(update.id);
           continue;
         }
-        if (update?.state === EventShareState.PENDING) continue; // its message renders fresh
+        if (update?.state === EventShareState.PENDING) {
+          // Its message renders fresh, but its expiry must follow the event.
+          await this.scheduler.ensureExpire(update.id, event.startsAt);
+          continue;
+        }
 
         const shareId = await this.raiseUpdate(event, update?.id ?? null);
         if (shareId) {

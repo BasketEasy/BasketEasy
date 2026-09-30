@@ -23,7 +23,7 @@ function renderCard() {
   );
 }
 
-const EXPOSURE = /voit les prénoms de l'équipe et peut répondre pour n'importe quel joueur/;
+const EXPOSURE = /voit les prénoms de l'équipe .* et peut répondre pour n'importe quel joueur/;
 
 describe('TeamGuestLinkSettings', () => {
   beforeEach(() => {
