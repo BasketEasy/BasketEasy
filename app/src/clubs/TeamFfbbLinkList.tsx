@@ -11,6 +11,7 @@ import { useFfbbLinkAdd } from './useFfbbLinkAdd';
 import { useFfbbLinkRemove } from './useFfbbLinkRemove';
 import { useFfbbImport } from './useFfbbImport';
 import { FfbbLinkField } from './FfbbLinkField';
+import { FfbbMissingVenueAlert } from './FfbbMissingVenueAlert';
 import { isFfbbLinkError } from './ffbbLinkErrors';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { Text } from '@basketeasy/ui/text';
@@ -53,7 +54,11 @@ export function TeamFfbbLinkList({
   const { data: links } = useTeamFfbbLinks(clubId, teamId);
   const { mutate: addLink, isPending: isAdding } = useFfbbLinkAdd(clubId, teamId);
   const { mutate: removeLink } = useFfbbLinkRemove(clubId, teamId);
-  const { mutate: importSchedule, isPending: isImporting } = useFfbbImport(clubId, teamId);
+  const {
+    mutate: importSchedule,
+    isPending: isImporting,
+    data: importResult,
+  } = useFfbbImport(clubId, teamId);
   const [newUrl, setNewUrl] = useState('');
   const [addError, setAddError] = useState<string | undefined>();
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -142,6 +147,10 @@ export function TeamFfbbLinkList({
             );
           })}
         </div>
+      )}
+
+      {importResult && (
+        <FfbbMissingVenueAlert clubId={clubId} teamId={teamId} result={importResult} />
       )}
 
       {canManage && (

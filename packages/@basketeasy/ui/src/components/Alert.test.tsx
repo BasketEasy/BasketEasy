@@ -26,4 +26,9 @@ describe('Alert', () => {
     render(<Alert variant="critical">Lecture seule</Alert>);
     expect(screen.getByRole('alert')).toHaveClass('bg-error', 'text-cream');
   });
+
+  it('tints the warning variant', () => {
+    render(<Alert variant="warning">3 matchs sans lieu</Alert>);
+    expect(screen.getByRole('alert')).toHaveClass('border-gold', 'bg-gold-tint');
+  });
 });
