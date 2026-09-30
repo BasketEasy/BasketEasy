@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -210,7 +211,7 @@ export class ScoresheetsService {
    * PROCESSING. BullMQ ignores `add` for a job id that still exists, so the
    * leftover job is removed first — otherwise the status would read QUEUED
    * with nothing new queued. A job a worker still holds can't be removed;
-   * that one is left to BullMQ's stalled-job recovery.
+   * that one refuses the retry (409) until it finishes or BullMQ's stalled-job recovery frees it.
    */
   async enqueueOcr(
     eventScoresheetId: string,
@@ -220,7 +221,12 @@ export class ScoresheetsService {
       const existing = await this.ocrQueue.getJob(eventScoresheetId);
       if (existing) {
         await existing.remove().catch((err: unknown) => {
+          // A job a worker still holds can't be removed, and BullMQ ignores an
+          // `add` for its id: carrying on would record a retry that never runs.
           this.logger.warn(`Could not replace OCR job ${eventScoresheetId}: ${String(err)}`);
+          throw new ConflictException(
+            'Une lecture est encore active pour cette feuille : réessayez dans quelques minutes',
+          );
         });
       }
     }

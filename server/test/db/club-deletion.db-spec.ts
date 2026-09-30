@@ -74,4 +74,59 @@ describe('club deletion against Postgres', () => {
     expect(row.metadata).toMatchObject({ action: 'CLUB_DELETED', clubId: club.id });
     expect(storage.deleteObject).toHaveBeenCalledWith('sheets/a.jpg');
   });
+
+  it('refuses (409) a club that owns a team another club partners on, and changes nothing', async () => {
+    const staff = await createUser('dpo@kluvo.net');
+    const club = await createClub('BC Nantes');
+    const partner = await createClub('ES Rezé');
+    const shared = await createTeam(club.id, [partner.id]);
+
+    await expect(
+      service.deleteClub(
+        { id: staff.id, email: staff.email, role: 'DATA_OFFICER' },
+        club.id,
+        'Club dissous, ticket #43',
+        request,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+
+    expect(await prisma.club.findUnique({ where: { id: club.id } })).not.toBeNull();
+    expect(await prisma.team.findUnique({ where: { id: shared.id } })).not.toBeNull();
+    expect(await prisma.auditLog.count({ where: { type: 'ADMIN_SUPPORT_ACTION' } })).toBe(0);
+  });
+
+  it('keeps the parental consents of a deleted club, with its name and a running clock', async () => {
+    const staff = await createUser('dpo@kluvo.net');
+    const club = await createClub('BC Nantes');
+    const player = await prisma.player.create({
+      data: {
+        clubId: club.id,
+        firstName: 'Léo',
+        lastName: 'Martin',
+        birthDate: new Date('2015-05-01'),
+      },
+    });
+    const consent = await prisma.parentalConsent.create({
+      data: {
+        playerId: player.id,
+        clubId: club.id,
+        playerFirstName: 'Léo',
+        playerLastName: 'Martin',
+        playerBirthDate: new Date('2015-05-01'),
+        attestedByName: 'Nicolas Bernard',
+        source: 'STAFF_ATTESTATION',
+      },
+    });
+
+    await service.deleteClub(
+      { id: staff.id, email: staff.email, role: 'DATA_OFFICER' },
+      club.id,
+      'Club dissous, ticket #44',
+      request,
+    );
+
+    const kept = await prisma.parentalConsent.findUniqueOrThrow({ where: { id: consent.id } });
+    expect(kept).toMatchObject({ clubId: null, playerId: null, clubName: 'BC Nantes' });
+    expect(kept.retentionExpiresAt).not.toBeNull();
+  });
 });
