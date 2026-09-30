@@ -79,7 +79,7 @@ describe('EventEditModal', () => {
       await screen.findByRole('heading', { name: /modifier l.événement/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/date et heure/i)).toHaveValue('2026-01-05T18:00');
-    expect(screen.getByLabelText(/^lieu$/i)).toHaveValue('Gymnase A');
+    expect(screen.getByLabelText(/^adresse$/i)).toHaveValue('Gymnase A');
     expect(screen.queryByText('Appliquer à')).not.toBeInTheDocument();
   });
 
@@ -98,8 +98,8 @@ describe('EventEditModal', () => {
     await user.click(screen.getByRole('button', { name: /^modifier$/i }));
     await user.clear(screen.getByLabelText(/date et heure/i));
     await user.type(screen.getByLabelText(/date et heure/i), '2026-02-10T19:30');
-    await user.clear(screen.getByLabelText(/^lieu$/i));
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase B');
+    await user.clear(screen.getByLabelText(/^adresse$/i));
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase B');
     await user.click(screen.getByRole('button', { name: /enregistrer/i }));
 
     await waitFor(() => expect(capturedBody).toBeDefined());
@@ -266,6 +266,72 @@ describe('EventEditModal', () => {
 
       expect(await screen.findByText('14 jours avant au maximum')).toBeInTheDocument();
       expect(bodies).toHaveLength(0);
+    });
+  });
+
+  describe('venue', () => {
+    const importedMatch: TeamEvent = {
+      ...trainingEvent,
+      id: 'event-9',
+      type: 'MATCH',
+      opponentName: 'Rezé',
+      venue: 'AWAY',
+      location: 'Lieu non communiqué',
+      isImported: true,
+    };
+
+    it('leaves the gym name optional', async () => {
+      let capturedBody: unknown;
+      server.use(
+        http.patch('/api/clubs/club-1/teams/team-1/events/event-1', async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json([trainingEvent]);
+        }),
+      );
+      const user = userEvent.setup();
+      renderModal(trainingEvent);
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      await waitFor(() => expect(capturedBody).toBeDefined());
+      expect(capturedBody).toMatchObject({ location: 'Gymnase A', locationName: null });
+    });
+
+    it('refuses a gym name without an address', async () => {
+      const user = userEvent.setup();
+      renderModal(trainingEvent);
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      await user.type(screen.getByLabelText(/nom de la salle/i), 'Salle Coubertin');
+      await user.clear(screen.getByLabelText(/^adresse$/i));
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      expect(await screen.findByText('Adresse requise')).toBeInTheDocument();
+    });
+
+    it('never shows the placeholder, and sends it back unchanged on a notes-only edit', async () => {
+      let capturedBody: unknown;
+      server.use(
+        http.patch('/api/clubs/club-1/teams/team-1/events/event-9', async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json([importedMatch]);
+        }),
+      );
+      const user = userEvent.setup();
+      renderModal(importedMatch);
+
+      await user.click(screen.getByRole('button', { name: /^modifier$/i }));
+      expect(screen.getByLabelText(/^adresse$/i)).toHaveValue('');
+      await user.type(screen.getByLabelText(/notes/i), 'Maillots blancs');
+      await user.click(screen.getByRole('button', { name: /enregistrer/i }));
+
+      await waitFor(() => expect(capturedBody).toBeDefined());
+      expect(capturedBody).toMatchObject({
+        location: 'Lieu non communiqué',
+        locationName: null,
+        notes: 'Maillots blancs',
+      });
     });
   });
 });

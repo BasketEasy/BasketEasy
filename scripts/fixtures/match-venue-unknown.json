@@ -62,7 +62,7 @@
     "teamId": "team-1",
     "type": "MATCH",
     "startsAt": "2026-10-10T18:30:00.000Z",
-    "location": "Salle des Sports de la Trocardière, Rezé",
+    "location": "Lieu non communiqué",
     "locationName": null,
     "notes": null,
     "opponentName": "Rezé Basket",
@@ -72,7 +72,7 @@
     "myRsvpStatus": "GOING",
     "myRsvpRespondedBy": null,
     "myRsvpRespondedAt": null,
-    "isImported": false,
+    "isImported": true,
     "timeConfirmed": true,
     "myConvocation": true,
     "rsvpSummary": {

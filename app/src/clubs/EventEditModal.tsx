@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,11 +16,23 @@ import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Textarea } from '@basketeasy/ui/textarea';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { EventType, EventUpdateScope, EventVenue, TeamEvent } from '@basketeasy/types/events';
+import {
+  isUnknownEventLocation,
+  type EventType,
+  type EventUpdateScope,
+  type EventVenue,
+  type TeamEvent,
+} from '@basketeasy/types/events';
 import { useEventUpdate } from './useEventUpdate';
 import { useEventTimeUpdate } from './useEventTimeUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { toDatetimeLocalValue } from './eventDateFormat';
+import {
+  eventVenueFields,
+  refineEventVenue,
+  toEventVenue,
+  venueFormValues,
+} from './eventVenueSchema';
 import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
 import { Text } from '@basketeasy/ui/text';
 import { EventWhatsAppReminderFields } from '../whatsapp-reminders/EventWhatsAppReminderFields';
@@ -31,37 +43,41 @@ import {
   toReminderRequestFields,
 } from '../whatsapp-reminders/eventReminderForm';
 
-const eventEditSchema = z
-  .object({
-    type: z.enum(['TRAINING', 'MATCH']),
-    scope: z.enum(['THIS', 'THIS_AND_FUTURE', 'ALL']),
-    startsAt: z.string(),
-    time: z.string(),
-    location: z.string().min(1, 'Lieu requis'),
-    notes: z.string().optional(),
-    opponentName: z.string().optional(),
-    venue: z.enum(['HOME', 'AWAY']).optional(),
-    ...reminderFormShape,
-  })
-  .superRefine(refineReminderOffset)
-  .refine((d) => d.scope !== 'THIS' || d.startsAt.length > 0, {
-    message: 'Date requise',
-    path: ['startsAt'],
-  })
-  .refine((d) => d.scope === 'THIS' || /^([01]\d|2[0-3]):([0-5]\d)$/.test(d.time), {
-    message: 'Heure invalide',
-    path: ['time'],
-  })
-  .refine((d) => d.type !== 'MATCH' || !!d.opponentName?.trim(), {
-    message: "Nom de l'adversaire requis pour un match",
-    path: ['opponentName'],
-  })
-  .refine((d) => d.type !== 'MATCH' || !!d.venue, {
-    message: 'Domicile/extérieur requis pour un match',
-    path: ['venue'],
-  });
+// `addressOptional` for an event still on « Lieu non communiqué »: an edit
+// that leaves the address empty sends the placeholder back unchanged.
+const buildEventEditSchema = (addressOptional: boolean) =>
+  z
+    .object({
+      type: z.enum(['TRAINING', 'MATCH']),
+      scope: z.enum(['THIS', 'THIS_AND_FUTURE', 'ALL']),
+      startsAt: z.string(),
+      time: z.string(),
+      ...eventVenueFields,
+      notes: z.string().optional(),
+      opponentName: z.string().optional(),
+      venue: z.enum(['HOME', 'AWAY']).optional(),
+      ...reminderFormShape,
+    })
+    .superRefine(refineReminderOffset)
+    .superRefine((d, ctx) => refineEventVenue(d, ctx, { addressOptional }))
+    .refine((d) => d.scope !== 'THIS' || d.startsAt.length > 0, {
+      message: 'Date requise',
+      path: ['startsAt'],
+    })
+    .refine((d) => d.scope === 'THIS' || /^([01]\d|2[0-3]):([0-5]\d)$/.test(d.time), {
+      message: 'Heure invalide',
+      path: ['time'],
+    })
+    .refine((d) => d.type !== 'MATCH' || !!d.opponentName?.trim(), {
+      message: "Nom de l'adversaire requis pour un match",
+      path: ['opponentName'],
+    })
+    .refine((d) => d.type !== 'MATCH' || !!d.venue, {
+      message: 'Domicile/extérieur requis pour un match',
+      path: ['venue'],
+    });
 
-type EventEditFormValues = z.infer<typeof eventEditSchema>;
+type EventEditFormValues = z.infer<ReturnType<typeof buildEventEditSchema>>;
 
 function buildDefaultValues(event: TeamEvent): EventEditFormValues {
   const datetimeLocal = toDatetimeLocalValue(event.startsAt);
@@ -70,7 +86,7 @@ function buildDefaultValues(event: TeamEvent): EventEditFormValues {
     scope: 'THIS',
     startsAt: datetimeLocal,
     time: datetimeLocal.slice(11),
-    location: event.location,
+    ...venueFormValues(event),
     notes: event.notes ?? '',
     opponentName: event.opponentName ?? '',
     venue: event.venue ?? undefined,
@@ -92,6 +108,8 @@ export function EventEditModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const { mutateAsync: updateEvent, isPending: isUpdating } = useEventUpdate(clubId, teamId);
+  const isUnknownVenue = isUnknownEventLocation(event.location);
+  const eventEditSchema = useMemo(() => buildEventEditSchema(isUnknownVenue), [isUnknownVenue]);
   const { mutateAsync: updateEventTime, isPending: isUpdatingTime } = useEventTimeUpdate(
     clubId,
     teamId,
@@ -128,7 +146,7 @@ export function EventEditModal({
         eventId: event.id,
         dto: {
           type: values.type,
-          location: values.location,
+          ...toEventVenue(values, event.location),
           notes: values.notes || undefined,
           opponentName: values.type === 'MATCH' ? values.opponentName : undefined,
           venue: values.type === 'MATCH' ? values.venue : undefined,
@@ -272,8 +290,16 @@ export function EventEditModal({
           )}
 
           <FormField
-            label="Lieu"
+            label="Nom de la salle (optionnel)"
+            id={`event-${event.id}-edit-location-name`}
+            error={errors.locationName?.message}
+            {...register('locationName')}
+          />
+
+          <FormField
+            label="Adresse"
             id={`event-${event.id}-edit-location`}
+            placeholder={isUnknownVenue ? 'Lieu non communiqué' : undefined}
             error={errors.location?.message}
             {...register('location')}
           />

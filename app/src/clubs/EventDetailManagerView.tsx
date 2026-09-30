@@ -87,7 +87,13 @@ export function EventDetailManagerView({
 
   return (
     <>
-      <EventDetailHero event={event} teamName={teamName} />
+      <EventDetailHero
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        teamName={teamName}
+        canManage
+      />
 
       <EventPilotBand
         clubId={clubId}

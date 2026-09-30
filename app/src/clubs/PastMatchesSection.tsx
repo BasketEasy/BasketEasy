@@ -12,6 +12,7 @@ import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import { formatEventDate } from './eventDateFormat';
 import { formatCount } from './teamStatsFormat';
 import { isVoteWindowOpen } from './voteWindow';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 const OUTCOME_BADGE_TONE: Record<EventMatchResult['outcome'], 'success' | 'danger' | 'neutral'> = {
   WIN: 'success',
@@ -52,7 +53,7 @@ function PastMatchRow({ match }: { match: MyAgendaEvent }) {
             {match.opponentName ? ` · vs ${match.opponentName}` : ''}
           </Text>
           <Text as="span" variant="meta" size="xs">
-            {match.teamName} · {match.location}
+            {match.teamName} · {eventVenueLabel(match)}
           </Text>
           {match.myMatchStats && (
             <Text as="span" variant="meta" size="xs">

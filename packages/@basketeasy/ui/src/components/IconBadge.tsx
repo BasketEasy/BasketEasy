@@ -9,6 +9,7 @@ const iconBadgeVariants = cva(
       tone: {
         structure: 'bg-blue-green-tint text-blue-green',
         danger: 'bg-error-tint text-error',
+        accent: 'bg-gold-tint text-gold-text',
       },
     },
     defaultVariants: { tone: 'structure' },

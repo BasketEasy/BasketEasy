@@ -15,6 +15,7 @@ import { TravelModeChoice } from '../meeting-points/EventTravelModeControl';
 import { GuestAttendance } from './GuestAttendance';
 import { getGuestErrorMessage } from './guestErrorMessages';
 import { useGuestRsvpClear, useGuestRsvpSet } from './useGuestRsvp';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 /**
  * One event on the guest page, from the point of view of the chosen player:
@@ -88,7 +89,7 @@ export function GuestEventCard({
           </Text>
           <Text as="span" variant="meta" size="sm">
             {isMatch && `${formatDayHeading(event.startsAt)} · `}
-            {event.location}
+            {eventVenueLabel(event)}
           </Text>
         </div>
       </div>
@@ -119,7 +120,7 @@ export function GuestEventCard({
           eventId={event.id}
           plan={plan}
           meetingPoint={plan.meetingPoint}
-          location={event.location}
+          venueLabel={eventVenueLabel(event)}
           value={mine?.travelMode ?? 'MEETING_POINT'}
           onChange={selectTravel}
         />
@@ -129,6 +130,7 @@ export function GuestEventCard({
         <MatchTimelineSteps
           plan={plan}
           location={event.location}
+          locationName={event.locationName}
           startsAt={event.startsAt}
           opponentName={event.opponentName}
           canManage={false}

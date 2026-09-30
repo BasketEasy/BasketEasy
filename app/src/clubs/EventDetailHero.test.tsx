@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import type { TeamEvent } from '@basketeasy/types/events';
+import { renderWithProviders } from '../testUtils';
 import { EventDetailHero } from './EventDetailHero';
+
+function renderHero(event: TeamEvent, { canManage = false, teamName = 'Seniors Filles 1' } = {}) {
+  return renderWithProviders(
+    <EventDetailHero
+      clubId="club-1"
+      teamId="team-1"
+      event={event}
+      teamName={teamName}
+      canManage={canManage}
+    />,
+  );
+}
 
 function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
   return {
@@ -46,7 +59,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
 
 describe('EventDetailHero', () => {
   it('names the fixture, the venue side and the day for a MATCH', () => {
-    render(<EventDetailHero event={baseEvent()} teamName="Seniors Filles 1" />);
+    renderHero(baseEvent());
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Seniors Filles 1 vs ESB Rezé' }),
@@ -57,12 +70,7 @@ describe('EventDetailHero', () => {
   });
 
   it('drops the opponent and venue chrome for a TRAINING', () => {
-    render(
-      <EventDetailHero
-        event={baseEvent({ type: 'TRAINING', opponentName: null, venue: null })}
-        teamName="Seniors Filles 1"
-      />,
-    );
+    renderHero(baseEvent({ type: 'TRAINING', opponentName: null, venue: null }));
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Seniors Filles 1 — Entraînement' }),
@@ -71,10 +79,59 @@ describe('EventDetailHero', () => {
   });
 
   it('never renders an unconfirmed kickoff as if it were a real time', () => {
-    render(<EventDetailHero event={baseEvent({ timeConfirmed: false })} teamName="Seniors F1" />);
+    renderHero(baseEvent({ timeConfirmed: false }), { teamName: 'Seniors F1' });
 
     expect(screen.queryByText('20:30')).not.toBeInTheDocument();
     expect(screen.getByText('à confirmer')).toBeInTheDocument();
     expect(screen.getByText('Heure à confirmer')).toBeInTheDocument();
+  });
+
+  describe('venue', () => {
+    it('reads as the gym name over its address, with directions', () => {
+      renderHero(
+        baseEvent({ location: '12 rue du Vigneau, Rezé', locationName: 'Gymnase du Vigneau' }),
+      );
+
+      expect(screen.getByText('Gymnase du Vigneau')).toBeInTheDocument();
+      expect(screen.getByText('12 rue du Vigneau, Rezé')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /itinéraire/i })).toHaveAttribute(
+        'href',
+        expect.stringContaining(encodeURIComponent('12 rue du Vigneau, Rezé')),
+      );
+    });
+
+    it('falls back to the address when no name was given', () => {
+      renderHero(baseEvent());
+      expect(screen.getByText('Gymnase du Vigneau')).toBeInTheDocument();
+    });
+
+    it('offers a manager « Modifier le lieu » on a known venue', () => {
+      renderHero(baseEvent(), { canManage: true });
+      expect(screen.getByRole('button', { name: 'Modifier le lieu' })).toBeInTheDocument();
+    });
+
+    it('offers a manager « Ajouter le lieu » when the venue is unknown, with no directions', () => {
+      renderHero(baseEvent({ location: 'Lieu non communiqué' }), { canManage: true });
+
+      expect(screen.getByText('Lieu non communiqué')).toBeInTheDocument();
+      expect(screen.getByText('Les joueurs ne savent pas encore où aller.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Ajouter le lieu' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /itinéraire/i })).not.toBeInTheDocument();
+    });
+
+    it('shows a player the venue without an edit button', () => {
+      renderHero(baseEvent({ location: 'Lieu non communiqué' }));
+
+      expect(screen.getByText('Lieu non communiqué')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /lieu/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /itinéraire/i })).not.toBeInTheDocument();
+    });
+
+    it('keeps editing a training in the edit modal, not here', () => {
+      renderHero(baseEvent({ type: 'TRAINING', opponentName: null, venue: null }), {
+        canManage: true,
+      });
+      expect(screen.queryByRole('button', { name: /lieu/i })).not.toBeInTheDocument();
+    });
   });
 });
