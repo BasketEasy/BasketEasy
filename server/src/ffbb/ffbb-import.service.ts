@@ -8,6 +8,7 @@ import {
 import type { FfbbImportResult } from '@basketeasy/types/ffbb';
 import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
+import { parisWallClockToDate } from '../common/paris-time';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
@@ -149,10 +150,10 @@ export class FfbbImportService {
     const location = match.location
       ? clampLocation(match.location)
       : (existing?.location ?? UNKNOWN_EVENT_LOCATION);
-    // FFBB's date_rencontre has no offset; parse it as UTC explicitly
-    // rather than relying on the server process's local timezone to
-    // interpret an offset-less ISO string.
-    const startsAt = new Date(`${match.startsAt}Z`);
+    // FFBB's date_rencontre has no offset and is a Paris wall-clock time.
+    // Resolve it against Europe/Paris explicitly, never UTC and never the
+    // server process's local timezone.
+    const startsAt = parisWallClockToDate(match.startsAt);
 
     const venue = match.isHome ? 'HOME' : 'AWAY';
 

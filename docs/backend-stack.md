@@ -56,11 +56,12 @@ BullMQ wins because Redis is already in the stack, it's the standard choice for 
 
 ## Cross-cutting
 
-| Concern        | Choice                                                           | Alternatives considered | Why                                                                                                                  |
-| -------------- | ---------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Config/secrets | `@nestjs/config` + `.env` (dev), Scaleway secrets manager (prod) | Doppler, Vault          | native Nest module is enough at this scale                                                                           |
-| Health checks  | `@nestjs/terminus`                                               | custom endpoint         | standard Nest module, checks DB/Redis connectivity out of the box — this is what backs `GET /api/health` in `server` |
-| Logging        | Pino (via `nestjs-pino`)                                         | Winston, console.log    | structured JSON logs, faster than Winston                                                                            |
+| Concern        | Choice                                                                      | Alternatives considered                            | Why                                                                                                                          |
+| -------------- | --------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Config/secrets | `@nestjs/config` + `.env` (dev), Scaleway secrets manager (prod)            | Doppler, Vault                                     | native Nest module is enough at this scale                                                                                   |
+| Health checks  | `@nestjs/terminus`                                                          | custom endpoint                                    | standard Nest module, checks DB/Redis connectivity out of the box — this is what backs `GET /api/health` in `server`         |
+| Logging        | Pino (via `nestjs-pino`)                                                    | Winston, console.log                               | structured JSON logs, faster than Winston                                                                                    |
+| Time zones     | dayjs + `utc`/`timezone` plugins, only in `server/src/common/paris-time.ts` | Luxon, date-fns-tz, hand-rolled `Intl` offset math | tiny, IANA zones via the runtime's `Intl`, so DST is handled without shipping tz data; one importer keeps a swap to one file |
 
 ## Testing & quality
 

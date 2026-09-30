@@ -97,7 +97,7 @@ describe('FfbbImportService', () => {
       data: {
         teamId: 'team-1',
         type: 'MATCH',
-        startsAt: new Date('2026-09-20T18:30:00Z'),
+        startsAt: new Date('2026-09-20T16:30:00Z'),
         location: 'Lieu non communiqué',
         opponentName: 'Nantes Sully Basket',
         externalId: 'match-1',
@@ -130,8 +130,8 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(stored('event-moved', '2026-09-20T18:30:00Z'))
-      .mockResolvedValueOnce(stored('event-same', '2026-09-20T18:30:00Z'));
+      .mockResolvedValueOnce(stored('event-moved', '2026-09-20T16:30:00Z'))
+      .mockResolvedValueOnce(stored('event-same', '2026-09-20T16:30:00Z'));
 
     await service.importSchedule('club-1', 'team-1');
 
@@ -209,7 +209,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -240,7 +240,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -290,7 +290,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -302,7 +302,7 @@ describe('FfbbImportService', () => {
     expect(prisma.event.update).toHaveBeenCalledWith({
       where: { id: 'event-1' },
       data: {
-        startsAt: new Date('2026-09-21T19:00:00Z'),
+        startsAt: new Date('2026-09-21T17:00:00Z'),
         location: 'Lieu non communiqué',
         opponentName: 'Nantes Sully Basket',
         timeConfirmed: true,
@@ -335,7 +335,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -363,7 +363,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -455,7 +455,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
