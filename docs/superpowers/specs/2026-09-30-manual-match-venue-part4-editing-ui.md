@@ -54,6 +54,10 @@ tone="structure"` note « Les {n} joueurs convoqués ou présents seront préven
   `Button variant="outline" size="sm"` pencil, `aria-label="Modifier le lieu"` on mobile, labelled
   « Modifier le lieu » from `sm` up, « Itinéraire » under it. Players see the row without the button.
   Shown for every MATCH, imported or not; a TRAINING keeps editing through `EventEditModal`.
+- **Primitives this adds** (Part 2 leaves them out): `IconBadge tone="accent"` (`bg-gold-tint
+text-gold-text`) and Button `size="icon-sm"` (`h-9 w-9`) for the pencil, instead of the plan table's
+  `size="sm"` + `w-9 px-0` override (a padding override at the call site breaks the closed prop API).
+  Mobile/desktop label switch at `md`, like the rest of the revamp.
 - **`EventEditModal`**: « Nom de la salle » above « Lieu » (relabelled « Adresse »), `nameRequired:
 false`. `EventCreateForm` gets the same pair.
 - **Timeline**: arrival step shows the label, « Salle à confirmer » when unknown, no button.
