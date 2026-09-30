@@ -70,6 +70,7 @@ export function EventDetailManagerView({
   teamName,
   isRostered,
   showVote,
+  focusShare = false,
 }: {
   clubId: string;
   teamId: string;
@@ -77,6 +78,8 @@ export function EventDetailManagerView({
   teamName: string;
   isRostered: boolean;
   showVote: boolean;
+  /** Opened from a « à partager » notification: bring the share card into focus. */
+  focusShare?: boolean;
 }) {
   const isMatch = event.type === 'MATCH';
   const isUpcoming = new Date(event.startsAt) > new Date();
@@ -107,9 +110,16 @@ export function EventDetailManagerView({
       </section>
 
       {isUpcoming && (
-        <section className="flex flex-col gap-3.5">
+        <section id={EVENT_SECTION_IDS.partage} className="flex scroll-mt-20 flex-col gap-3.5">
           <SectionHeading as="h2">Partage WhatsApp</SectionHeading>
-          <WhatsAppShareCard clubId={clubId} teamId={teamId} eventId={event.id} />
+          <WhatsAppShareCard
+            clubId={clubId}
+            teamId={teamId}
+            eventId={event.id}
+            initialShare={event.whatsAppShare}
+            reminderEnabled={event.whatsAppSettings?.effective.enabled ?? null}
+            focusOnLoad={focusShare}
+          />
         </section>
       )}
 

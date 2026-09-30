@@ -9,11 +9,22 @@ describe('WhatsAppReminderService', () => {
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     team: { findUniqueOrThrow: jest.Mock; update: jest.Mock };
-    event: { findFirst: jest.Mock };
-    eventShare: { create: jest.Mock; findMany: jest.Mock; findUniqueOrThrow: jest.Mock };
+    user: { count: jest.Mock };
+    event: { findFirst: jest.Mock; findMany: jest.Mock };
+    eventShare: {
+      create: jest.Mock;
+      findMany: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
+      updateMany: jest.Mock;
+    };
   };
-  let guestLinks: { get: jest.Mock };
+  let guestLinks: { get: jest.Mock; enable: jest.Mock };
   let meetingPoints: { resolvePlans: jest.Mock };
+  let scheduler: {
+    resolveManagers: jest.Mock;
+    syncEvents: jest.Mock;
+    onShared: jest.Mock;
+  };
   let service: WhatsAppReminderService;
 
   const event = (startsAt = FUTURE) => ({
@@ -33,37 +44,83 @@ describe('WhatsAppReminderService', () => {
         findUniqueOrThrow: jest.fn().mockResolvedValue({ name: 'U15', waReminderTemplate: null }),
         update: jest.fn().mockResolvedValue({}),
       },
-      event: { findFirst: jest.fn().mockResolvedValue(event()) },
-      eventShare: { create: jest.fn(), findMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+      user: { count: jest.fn().mockResolvedValue(1) },
+      event: {
+        findFirst: jest.fn().mockResolvedValue(event()),
+        findMany: jest.fn().mockResolvedValue([{ id: 'e1' }, { id: 'e2' }]),
+      },
+      eventShare: {
+        create: jest.fn(),
+        findMany: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
     };
-    guestLinks = { get: jest.fn().mockResolvedValue({ url: 'https://k.test/r/abc' }) };
+    guestLinks = {
+      get: jest.fn().mockResolvedValue({ url: 'https://k.test/r/abc' }),
+      enable: jest.fn().mockResolvedValue({ url: 'https://k.test/r/abc' }),
+    };
     meetingPoints = { resolvePlans: jest.fn().mockResolvedValue(new Map([['e1', null]])) };
+    scheduler = {
+      resolveManagers: jest.fn().mockResolvedValue([{ userId: 'm1', clubId: 'c' }]),
+      syncEvents: jest.fn().mockResolvedValue(undefined),
+      onShared: jest.fn().mockResolvedValue(undefined),
+    };
     service = new WhatsAppReminderService(
       prisma as never,
       guestLinks as never,
       meetingPoints as never,
+      scheduler as never,
     );
   });
 
   describe('team settings', () => {
+    const team = (over: Record<string, unknown> = {}) => ({
+      name: 'U15',
+      waReminderTemplate: null,
+      waReminderEnabled: false,
+      waDefaultOffsetMinutes: 4320,
+      ...over,
+    });
+
+    beforeEach(() => prisma.team.findUniqueOrThrow.mockResolvedValue(team()));
+
     it('refuses a team that is not the route club’s', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue(null);
       await expect(service.getTeamSettings('c', 't1')).rejects.toThrow(NotFoundException);
     });
 
+    it('reads the template, the toggle, the default offset and whether anyone would hear it', async () => {
+      await expect(service.getTeamSettings('c', 't1')).resolves.toEqual({
+        reminderTemplate: null,
+        reminderEnabled: false,
+        defaultOffsetMinutes: 4320,
+        hasReachableManager: true,
+      });
+    });
+
+    it('rule 6: warns when no manager has a delivery channel', async () => {
+      prisma.user.count.mockResolvedValue(0);
+      expect((await service.getTeamSettings('c', 't1')).hasReachableManager).toBe(false);
+    });
+
+    it('rule 6: warns when the team has no manager at all, without a query', async () => {
+      scheduler.resolveManagers.mockResolvedValue([]);
+      expect((await service.getTeamSettings('c', 't1')).hasReachableManager).toBe(false);
+      expect(prisma.user.count).not.toHaveBeenCalled();
+    });
+
     it('refuses a template without the link, carrying the code', async () => {
-      const promise = service.updateTeamSettings('c', 't1', { reminderTemplate: 'salut' });
+      const promise = service.updateTeamSettings('c', 't1', { reminderTemplate: 'salut' }, 'u');
       await expect(promise).rejects.toThrow(BadRequestException);
       await expect(promise).rejects.toMatchObject({ response: { code: 'MISSING_LINK' } });
       expect(prisma.team.update).not.toHaveBeenCalled();
     });
 
     it.each([[''], ['   '], [null], [DEFAULT_REMINDER_TEMPLATE]])(
-      'stores %j as null (the default)',
+      'stores template %j as null (the default)',
       async (value) => {
-        await expect(
-          service.updateTeamSettings('c', 't1', { reminderTemplate: value }),
-        ).resolves.toEqual({ reminderTemplate: null });
+        await service.updateTeamSettings('c', 't1', { reminderTemplate: value }, 'u');
         expect(prisma.team.update).toHaveBeenCalledWith({
           where: { id: 't1' },
           data: { waReminderTemplate: null },
@@ -72,9 +129,48 @@ describe('WhatsAppReminderService', () => {
     );
 
     it('stores a custom valid template', async () => {
-      await expect(
-        service.updateTeamSettings('c', 't1', { reminderTemplate: 'Yo {link}' }),
-      ).resolves.toEqual({ reminderTemplate: 'Yo {link}' });
+      await service.updateTeamSettings('c', 't1', { reminderTemplate: 'Yo {link}' }, 'u');
+      expect(prisma.team.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { waReminderTemplate: 'Yo {link}' },
+      });
+    });
+
+    it('a template-only save does not touch the schedule', async () => {
+      await service.updateTeamSettings('c', 't1', { reminderTemplate: 'Yo {link}' }, 'u');
+      expect(scheduler.syncEvents).not.toHaveBeenCalled();
+      expect(guestLinks.enable).not.toHaveBeenCalled();
+    });
+
+    it('rule 7: switching the reminder on switches the guest link on, and says so', async () => {
+      guestLinks.get.mockResolvedValue(null);
+      const result = await service.updateTeamSettings('c', 't1', { reminderEnabled: true }, 'u');
+      expect(guestLinks.enable).toHaveBeenCalledWith('c', 't1', 'u');
+      expect(result.guestLinkEnabled).toBe(true);
+      expect(prisma.team.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { waReminderEnabled: true },
+      });
+    });
+
+    it('does not claim to have enabled a link that was already on', async () => {
+      const result = await service.updateTeamSettings('c', 't1', { reminderEnabled: true }, 'u');
+      expect(result.guestLinkEnabled).toBe(false);
+    });
+
+    it('switching the reminder off leaves the guest link alone', async () => {
+      await service.updateTeamSettings('c', 't1', { reminderEnabled: false }, 'u');
+      expect(guestLinks.enable).not.toHaveBeenCalled();
+    });
+
+    it('re-syncs every upcoming event of the team in one batch after a schedule change', async () => {
+      await service.updateTeamSettings('c', 't1', { defaultOffsetMinutes: 1440 }, 'u');
+      expect(prisma.event.findMany).toHaveBeenCalledWith({
+        where: { teamId: 't1', startsAt: { gt: expect.any(Date) } },
+        select: { id: true },
+      });
+      expect(scheduler.syncEvents).toHaveBeenCalledTimes(1);
+      expect(scheduler.syncEvents).toHaveBeenCalledWith(['e1', 'e2']);
     });
   });
 
@@ -108,6 +204,7 @@ describe('WhatsAppReminderService', () => {
     const sentRow = {
       type: 'REMINDER',
       state: 'SENT',
+      dueAt: null,
       sentAt: new Date('2026-10-01T10:00:00Z'),
       platform: 'WA_ME',
       sentBy: { id: 'first', firstName: 'Sophie', lastName: 'Martin' },

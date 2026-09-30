@@ -110,6 +110,7 @@ enum NotificationType {
   EVENT_MEETING_FIXED
   EVENT_MEETING_CHANGED
   GUEST_INVITE_REQUESTED
+  WHATSAPP_SHARE_REQUESTED
 }
 
 // One in-app notification addressed to one user.
@@ -293,24 +294,28 @@ enum TeamMemberRole {
 }
 
 model Team {
-  id                   String         @id @default(uuid())
-  name                 String
-  category             TeamCategory
-  gender               Gender
-  createdAt            DateTime       @default(now())
-  clubTeams            ClubTeam[]
-  teamPlayers          TeamPlayer[]
-  events               Event[]
-  teamAdmins           TeamAdmin[]
-  ffbbLinks            TeamFfbbLink[]
-  guestLink            TeamGuestLink?
+  id                     String         @id @default(uuid())
+  name                   String
+  category               TeamCategory
+  gender                 Gender
+  createdAt              DateTime       @default(now())
+  clubTeams              ClubTeam[]
+  teamPlayers            TeamPlayer[]
+  events                 Event[]
+  teamAdmins             TeamAdmin[]
+  ffbbLinks              TeamFfbbLink[]
+  guestLink              TeamGuestLink?
   // null = DEFAULT_REMINDER_TEMPLATE (@basketeasy/types/whatsapp-reminder).
-  waReminderTemplate   String?
+  waReminderTemplate     String?
+  // Reminder scheduling: on/off and how long before an event the managers are
+  // asked to share it. Events inherit both unless they override (Event.wa*).
+  waReminderEnabled      Boolean        @default(false)
+  waDefaultOffsetMinutes Int            @default(4320)
   // Team-level overrides of the owner club's meeting point and arrival
   // buffer; null inherits (a CTC team inherits from its owner club only).
-  meetingPointName     String?
-  meetingPointAddress  String?
-  arrivalBufferMinutes Int?
+  meetingPointName       String?
+  meetingPointAddress    String?
+  arrivalBufferMinutes   Int?
 }
 
 // One club's entry of one team into one FFBB competition for one season
@@ -457,6 +462,9 @@ model Event {
   playerStats         MatchPlayerStat[]
   meeting             EventMeeting?
   shares              EventShare[]
+  // null inherits the team's reminder setting / offset.
+  waReminderOverride  Boolean?
+  waOffsetMinutes     Int?
 
   @@unique([teamId, externalId])
   @@index([teamId])
@@ -1051,7 +1059,11 @@ enum EventShareType {
 }
 
 enum EventShareState {
+  SCHEDULED
+  PENDING
   SENT
+  EXPIRED
+  VOID
 }
 
 enum EventSharePlatform {
@@ -1061,19 +1073,23 @@ enum EventSharePlatform {
 }
 
 model EventShare {
-  id             String              @id @default(uuid())
-  eventId        String
-  type           EventShareType
-  state          EventShareState
-  sentByUserId   String?
-  sentAt         DateTime?
-  platform       EventSharePlatform?
+  id              String              @id @default(uuid())
+  eventId         String
+  type            EventShareType
+  state           EventShareState
+  sentByUserId    String?
+  sentAt          DateTime?
+  platform        EventSharePlatform?
   // contentKey() of the sent message's variables (link excluded).
-  sentContentKey String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  event          Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  sentBy         User?               @relation("EventShareSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  sentContentKey  String?
+  firstNotifiedAt DateTime?
+  nudgedAt        DateTime?
+  // The send time the current SCHEDULED job was queued for.
+  dueAt           DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  event           Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sentBy          User?               @relation("EventShareSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, type])
 }

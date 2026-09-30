@@ -11,6 +11,7 @@ export const EVENT_SECTION_IDS = {
   presences: 'presences',
   logistique: 'logistique',
   vote: 'vote',
+  partage: 'partage',
   apresLaRencontre: 'apres-la-rencontre',
 } as const;
 
@@ -31,6 +32,7 @@ export const EVENT_SECTION_IDS = {
 export const EVENT_TAB_ANCHORS: Record<string, string> = {
   effectif: EVENT_SECTION_IDS.presences,
   vote: EVENT_SECTION_IDS.vote,
+  partage: EVENT_SECTION_IDS.partage,
   scoresheet: EVENT_SECTION_IDS.apresLaRencontre,
 };
 

@@ -10,6 +10,9 @@ export const RETENTION_SWEEP_QUEUE = 'retention-sweep';
 // Driving-time recomputes for match meeting points, one job per event —
 // see MeetingPointsService.enqueueRecompute.
 export const MEETING_TRAVEL_QUEUE = 'meeting-travel';
+// One delayed job per WhatsApp reminder share (send, nudge, expire) — see
+// WhatsAppReminderScheduler.
+export const WHATSAPP_REMINDER_QUEUE = 'whatsapp-reminder';
 
 const logger = new Logger('Redis');
 
@@ -51,6 +54,7 @@ const logger = new Logger('Redis');
     BullModule.registerQueue({ name: SCORESHEET_OCR_QUEUE }),
     BullModule.registerQueue({ name: RETENTION_SWEEP_QUEUE }),
     BullModule.registerQueue({ name: MEETING_TRAVEL_QUEUE }),
+    BullModule.registerQueue({ name: WHATSAPP_REMINDER_QUEUE }),
   ],
   exports: [BullModule],
 })

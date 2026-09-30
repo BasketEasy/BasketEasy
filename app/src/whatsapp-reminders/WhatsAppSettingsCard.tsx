@@ -1,7 +1,12 @@
 import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
+import { Checkbox } from '@basketeasy/ui/checkbox';
+import { FormField } from '@basketeasy/ui/form-field';
+import { Label } from '@basketeasy/ui/label';
+import { SelectField } from '@basketeasy/ui/select-field';
 import { Card } from '@basketeasy/ui/card';
 import { FieldError } from '@basketeasy/ui/field-error';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -20,6 +25,12 @@ import {
 } from '@basketeasy/types/whatsapp-reminder';
 import { ApiError } from '../api/client';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
+import {
+  OFFSET_UNIT_OPTIONS,
+  minutesToParts,
+  partsToMinutes,
+  type OffsetUnit,
+} from './reminderOffset';
 import { templateSchema, type TemplateFormValues } from './templateSchema';
 import { useTeamWhatsAppSettings, useUpdateTeamWhatsAppSettings } from './useTeamWhatsAppSettings';
 
@@ -67,7 +78,12 @@ export function WhatsAppSettingsCard({ clubId, teamId }: { clubId: string; teamI
       <TemplateForm
         clubId={clubId}
         teamId={teamId}
-        savedTemplate={data.reminderTemplate ?? DEFAULT_REMINDER_TEMPLATE}
+        saved={{
+          template: data.reminderTemplate ?? DEFAULT_REMINDER_TEMPLATE,
+          enabled: data.reminderEnabled,
+          offsetMinutes: data.defaultOffsetMinutes,
+        }}
+        hasReachableManager={data.hasReachableManager}
       />
     );
   }
@@ -83,11 +99,13 @@ export function WhatsAppSettingsCard({ clubId, teamId }: { clubId: string; teamI
 function TemplateForm({
   clubId,
   teamId,
-  savedTemplate,
+  saved,
+  hasReachableManager,
 }: {
   clubId: string;
   teamId: string;
-  savedTemplate: string;
+  saved: { template: string; enabled: boolean; offsetMinutes: number };
+  hasReachableManager: boolean;
 }) {
   const editorRef = useRef<TemplateEditorHandle>(null);
   const [preview, setPreview] = useState<PreviewKind>('MATCH');
@@ -102,23 +120,45 @@ function TemplateForm({
     formState: { errors },
   } = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
-    defaultValues: { reminderTemplate: savedTemplate },
+    defaultValues: toFormValues(saved),
   });
 
   // A refetch after a save re-seeds the form with what the server now holds.
-  useEffect(() => reset({ reminderTemplate: savedTemplate }), [reset, savedTemplate]);
+  useEffect(
+    () =>
+      reset(
+        toFormValues({
+          template: saved.template,
+          enabled: saved.enabled,
+          offsetMinutes: saved.offsetMinutes,
+        }),
+      ),
+    [reset, saved.template, saved.enabled, saved.offsetMinutes],
+  );
 
   const template = watch('reminderTemplate');
+  const reminderEnabled = watch('reminderEnabled');
   const rendered = renderTemplate(
     template.trim() === '' ? DEFAULT_REMINDER_TEMPLATE : template,
     WHATSAPP_TEMPLATE_EXAMPLES[preview],
   );
 
-  const onSubmit = ({ reminderTemplate }: TemplateFormValues) =>
+  const onSubmit = (values: TemplateFormValues) =>
     save(
-      { reminderTemplate: reminderTemplate.trim() === '' ? null : reminderTemplate },
       {
-        onSuccess: () => toast({ variant: 'success', title: 'Message enregistré' }),
+        reminderTemplate: values.reminderTemplate.trim() === '' ? null : values.reminderTemplate,
+        reminderEnabled: values.reminderEnabled,
+        defaultOffsetMinutes: partsToMinutes(values.offsetValue, values.offsetUnit) ?? undefined,
+      },
+      {
+        onSuccess: ({ guestLinkEnabled }) =>
+          toast({
+            variant: 'success',
+            title: 'Réglages enregistrés',
+            ...(guestLinkEnabled
+              ? { description: 'Le lien de réponse sans compte a été activé pour l’équipe.' }
+              : {}),
+          }),
         onError: (err) => {
           const message = err instanceof ApiError ? err.message : getClubErrorMessage(err);
           if (err instanceof ApiError && err.status === 400) {
@@ -139,6 +179,71 @@ function TemplateForm({
         }}
         className="flex flex-col gap-3"
       >
+        {!hasReachableManager && (
+          <Alert>
+            <AlertDescription>
+              Aucun gestionnaire de l’équipe ne reçoit les notifications par e-mail ou sur son
+              téléphone : les rappels resteront dans la cloche de l’application.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Controller
+              control={control}
+              name="reminderEnabled"
+              render={({ field }) => (
+                <Checkbox
+                  id="wa-reminder-enabled"
+                  checked={field.value}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                />
+              )}
+            />
+            <Label htmlFor="wa-reminder-enabled">Rappel automatique</Label>
+          </div>
+          <Text variant="meta" size="xs">
+            Les gestionnaires reçoivent une notification pour partager le message dans le groupe
+            WhatsApp de l’équipe. Le lien de réponse est activé au besoin.
+          </Text>
+          {reminderEnabled && (
+            <div className="flex flex-wrap items-start gap-2">
+              <Controller
+                control={control}
+                name="offsetValue"
+                render={({ field }) => (
+                  <FormField
+                    label="Me rappeler"
+                    id="wa-reminder-offset"
+                    inputMode="decimal"
+                    error={errors.offsetValue?.message}
+                    containerClassName="min-w-0 flex-1"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                )}
+              />
+              <Controller
+                control={control}
+                name="offsetUnit"
+                render={({ field }) => (
+                  <SelectField
+                    label="Unité de durée"
+                    hideLabel
+                    id="wa-reminder-offset-unit"
+                    options={OFFSET_UNIT_OPTIONS}
+                    value={field.value}
+                    onValueChange={(value) => field.onChange(value as OffsetUnit)}
+                  />
+                )}
+              />
+            </div>
+          )}
+        </div>
+
         <Text as="span" id="wa-template-label" variant="label" size="sm">
           Message de rappel
         </Text>
@@ -227,4 +332,18 @@ function TemplateForm({
       </div>
     </Card>
   );
+}
+
+function toFormValues(saved: {
+  template: string;
+  enabled: boolean;
+  offsetMinutes: number;
+}): TemplateFormValues {
+  const { value, unit } = minutesToParts(saved.offsetMinutes);
+  return {
+    reminderTemplate: saved.template,
+    reminderEnabled: saved.enabled,
+    offsetValue: value,
+    offsetUnit: unit,
+  };
 }

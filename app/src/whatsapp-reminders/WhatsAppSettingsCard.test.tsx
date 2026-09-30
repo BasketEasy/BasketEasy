@@ -9,8 +9,16 @@ import { WhatsAppSettingsCard } from './WhatsAppSettingsCard';
 
 const SETTINGS = '/api/clubs/club-1/teams/team-1/whatsapp-settings';
 
-function serve(reminderTemplate: string | null) {
-  server.use(http.get(SETTINGS, () => HttpResponse.json({ reminderTemplate })));
+const settings = (over: Record<string, unknown> = {}) => ({
+  reminderTemplate: null,
+  reminderEnabled: false,
+  defaultOffsetMinutes: 4320,
+  hasReachableManager: true,
+  ...over,
+});
+
+function serve(reminderTemplate: string | null, over: Record<string, unknown> = {}) {
+  server.use(http.get(SETTINGS, () => HttpResponse.json(settings({ reminderTemplate, ...over }))));
 }
 
 function renderCard() {
@@ -62,7 +70,7 @@ describe('WhatsAppSettingsCard', () => {
     server.use(
       http.patch(SETTINGS, () => {
         saved = true;
-        return HttpResponse.json({ reminderTemplate: null });
+        return HttpResponse.json({ ...settings(), guestLinkEnabled: false });
       }),
     );
     const user = userEvent.setup();
@@ -94,7 +102,10 @@ describe('WhatsAppSettingsCard', () => {
     server.use(
       http.patch(SETTINGS, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ reminderTemplate: 'Salut {link}{team_name}' });
+        return HttpResponse.json({
+          ...settings({ reminderTemplate: 'Salut {link}{team_name}' }),
+          guestLinkEnabled: false,
+        });
       }),
     );
     const user = userEvent.setup();
@@ -104,8 +115,14 @@ describe('WhatsAppSettingsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Équipe' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
-    await waitFor(() => expect(body).toEqual({ reminderTemplate: 'Salut {link}{team_name}' }));
-    expect(await screen.findByText('Message enregistré')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(body).toEqual({
+        reminderTemplate: 'Salut {link}{team_name}',
+        reminderEnabled: false,
+        defaultOffsetMinutes: 4320,
+      }),
+    );
+    expect(await screen.findByText('Réglages enregistrés')).toBeInTheDocument();
   });
 
   it('restores the default text and saves it as such', async () => {
@@ -114,7 +131,7 @@ describe('WhatsAppSettingsCard', () => {
     server.use(
       http.patch(SETTINGS, async ({ request }) => {
         body = await request.json();
-        return HttpResponse.json({ reminderTemplate: null });
+        return HttpResponse.json({ ...settings(), guestLinkEnabled: false });
       }),
     );
     const user = userEvent.setup();
@@ -147,5 +164,85 @@ describe('WhatsAppSettingsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Le message est trop long');
+  });
+
+  it('warns when no manager would hear the reminder', async () => {
+    serve(null, { hasReachableManager: false });
+    renderCard();
+
+    expect(await screen.findByText(/Aucun gestionnaire de l’équipe ne reçoit/)).toBeInTheDocument();
+  });
+
+  it('shows no warning when someone is reachable', async () => {
+    serve(null);
+    renderCard();
+    await editor();
+
+    expect(screen.queryByText(/Aucun gestionnaire de l’équipe ne reçoit/)).not.toBeInTheDocument();
+  });
+
+  it('shows the offset only once the reminder is on, in whole days when it is', async () => {
+    serve(null, { reminderEnabled: false });
+    const user = userEvent.setup();
+    renderCard();
+    await editor();
+
+    expect(screen.queryByLabelText('Me rappeler')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Rappel automatique' }));
+
+    expect(screen.getByLabelText('Me rappeler')).toHaveValue('3');
+    expect(screen.getByRole('combobox', { name: 'Unité de durée' })).toHaveTextContent('jours');
+  });
+
+  it('saves the toggle and the offset as minutes, and says when the guest link was switched on', async () => {
+    serve(null, { reminderEnabled: false });
+    let body: unknown;
+    server.use(
+      http.patch(SETTINGS, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          ...settings({ reminderEnabled: true, defaultOffsetMinutes: 2880 }),
+          guestLinkEnabled: true,
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+    await editor();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Rappel automatique' }));
+    const offset = screen.getByLabelText('Me rappeler');
+    await user.clear(offset);
+    await user.type(offset, '2');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() =>
+      expect(body).toMatchObject({ reminderEnabled: true, defaultOffsetMinutes: 2880 }),
+    );
+    expect(await screen.findByText('Réglages enregistrés')).toBeInTheDocument();
+    expect(screen.getByText(/lien de réponse sans compte a été activé/)).toBeInTheDocument();
+  });
+
+  it('refuses an offset beyond the guest page’s 14 days', async () => {
+    serve(null, { reminderEnabled: true });
+    let saved = false;
+    server.use(
+      http.patch(SETTINGS, () => {
+        saved = true;
+        return HttpResponse.json({ ...settings(), guestLinkEnabled: false });
+      }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+    await editor();
+
+    const offset = screen.getByLabelText('Me rappeler');
+    await user.clear(offset);
+    await user.type(offset, '20');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    expect(await screen.findByText('14 jours avant au maximum')).toBeInTheDocument();
+    expect(saved).toBe(false);
   });
 });

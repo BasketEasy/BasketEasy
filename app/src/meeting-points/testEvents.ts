@@ -51,6 +51,8 @@ export function matchEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     result: null,
     myMatchStats: null,
     meetingPlan: computedPlan,
+    whatsAppShare: null,
+    whatsAppSettings: null,
     myTravelMode: 'MEETING_POINT',
     ...overrides,
   };

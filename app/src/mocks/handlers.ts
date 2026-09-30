@@ -93,7 +93,12 @@ export const handlers = [
   // the guest link off. WhatsAppSettingsCard (TeamDetailPage) and
   // WhatsAppShareCard (the manager's event page) query these.
   http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-settings', () =>
-    HttpResponse.json({ reminderTemplate: null }),
+    HttpResponse.json({
+      reminderTemplate: null,
+      reminderEnabled: false,
+      defaultOffsetMinutes: 4320,
+      hasReachableManager: true,
+    }),
   ),
   http.get('/api/clubs/:clubId/teams/:teamId/events/:eventId/whatsapp-share', () =>
     HttpResponse.json({

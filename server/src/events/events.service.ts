@@ -33,6 +33,7 @@ import type {
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import type { EventShareStatus, EventWhatsAppSettings } from '@basketeasy/types/whatsapp-reminder';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
@@ -51,6 +52,8 @@ import { subjectLabel } from '../common/notification-subject';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
+import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 import { ListEventsDto } from './dto/list-events.dto';
 import { cancellationNotification, convocationNotification } from './event-notification-copy';
 
@@ -90,6 +93,8 @@ type EventRow = {
   externalId: string | null;
   timeConfirmed: boolean;
   createdAt: Date;
+  waReminderOverride: boolean | null;
+  waOffsetMinutes: number | null;
 };
 
 // Who gave an answer, and when — read off the same EventRsvp row as its status.
@@ -116,6 +121,7 @@ export class EventsService {
     private readonly scoresheets: ScoresheetsService,
     private readonly notifications: NotificationsService,
     private readonly meetingPoints: MeetingPointsService,
+    private readonly whatsAppReminders: WhatsAppReminderService,
   ) {}
 
   async listEvents(
@@ -153,7 +159,7 @@ export class EventsService {
     ]);
 
     return {
-      items: await this.buildTeamEventsForUser(teamId, userId, events, query.forPlayerId),
+      items: await this.buildTeamEventsForUser(clubId, teamId, userId, events, query.forPlayerId),
       total,
       page,
       pageSize,
@@ -172,7 +178,13 @@ export class EventsService {
     forPlayerId?: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [event], forPlayerId);
+    const [teamEvent] = await this.buildTeamEventsForUser(
+      clubId,
+      teamId,
+      userId,
+      [event],
+      forPlayerId,
+    );
     return teamEvent;
   }
 
@@ -187,6 +199,8 @@ export class EventsService {
       opponentName?: string;
       venue?: EventVenue;
       recurrence?: EventRecurrenceRequest;
+      waReminderOverride?: boolean | null;
+      waOffsetMinutes?: number | null;
     },
     userId: string,
   ): Promise<TeamEvent[]> {
@@ -218,13 +232,23 @@ export class EventsService {
             opponentName,
             venue,
             recurrenceId,
+            waReminderOverride: data.waReminderOverride ?? null,
+            waOffsetMinutes: data.waOffsetMinutes ?? null,
           },
         }),
       ),
     );
+    // One reconcile for the whole series, after the commit.
+    await this.syncWhatsAppReminders(
+      clubId,
+      teamId,
+      userId,
+      events.map((e) => e.id),
+      data.waReminderOverride === true,
+    );
     // A fresh event has no logistics assignee and no confirmed scoresheet,
     // so those resolvers short-circuit without a query.
-    return this.buildTeamEventsForUser(teamId, userId, events);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, events);
   }
 
   // A recurring create is materialized as one independent Event row per
@@ -267,6 +291,8 @@ export class EventsService {
       opponentName?: string;
       venue?: EventVenue;
       scope?: EventUpdateScope;
+      waReminderOverride?: boolean | null;
+      waOffsetMinutes?: number | null;
     },
     userId: string,
   ): Promise<TeamEvent[]> {
@@ -298,6 +324,10 @@ export class EventsService {
       ...(data.location !== undefined ? { location: data.location } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
+      ...(data.waReminderOverride !== undefined
+        ? { waReminderOverride: data.waReminderOverride }
+        : {}),
+      ...(data.waOffsetMinutes !== undefined ? { waOffsetMinutes: data.waOffsetMinutes } : {}),
       // Switching to TRAINING always clears the opponent, even if one was
       // also passed in the same request — there's nothing sensible to keep
       // it for once the event isn't a match. Skipped when it's already
@@ -347,7 +377,23 @@ export class EventsService {
     } else if (data.startsAt !== undefined && !becomesTraining) {
       await this.meetingPoints.announceMeetingChanges(ids);
     }
-    return this.buildTeamEventsForUser(teamId, userId, updated);
+    await this.syncWhatsAppReminders(clubId, teamId, userId, ids, data.waReminderOverride === true);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
+  }
+
+  // The reminder is best-effort like every other notification: the sync logs
+  // and swallows its own failures, so a dead Redis is never a 500 on the event
+  // write. Rule 7: an event override to « on » needs a link to carry, so it
+  // switches the team's guest link on first (idempotent, audited as any enable).
+  private async syncWhatsAppReminders(
+    clubId: string,
+    teamId: string,
+    userId: string,
+    eventIds: string[],
+    needsGuestLink: boolean,
+  ): Promise<void> {
+    if (needsGuestLink) await this.whatsAppReminders.ensureGuestLink(clubId, teamId, userId);
+    await this.whatsAppReminders.syncEvents(eventIds);
   }
 
   // Retries a Serializable transaction on Postgres's serialization failure
@@ -521,7 +567,8 @@ export class EventsService {
     ]);
     const updated = results.slice(0, rows.length) as EventRow[];
     await this.meetingPoints.announceMeetingChanges(ids);
-    return this.buildTeamEventsForUser(teamId, userId, updated);
+    await this.whatsAppReminders.syncEvents(ids);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
   }
 
   // Self-service only: the caller can only ever set/clear the status of a
@@ -943,7 +990,7 @@ export class EventsService {
           ? { jerseysTeamPlayerId: teamPlayerId }
           : { ballsTeamPlayerId: teamPlayerId },
     });
-    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [updated]);
+    const [teamEvent] = await this.buildTeamEventsForUser(clubId, teamId, userId, [updated]);
     return teamEvent;
   }
 
@@ -1509,15 +1556,24 @@ export class EventsService {
     teamId: string,
     events: EventRow[],
     caller: CallerEventState,
+    // Set for a caller who may see the WhatsApp reminder (a team manager, not
+    // acting for a child); null resolves both WhatsApp fields to null.
+    whatsApp: { userId: string } | null = null,
   ): Promise<TeamEvent[]> {
     const eventIds = events.map((e) => e.id);
-    const [logisticsAssignees, rsvpSummaries, { resultsByEventId, myStatsByEventId }, plans] =
-      await Promise.all([
-        this.resolveLogisticsAssignees(events),
-        this.resolveEventRosterSummaries(teamId, eventIds),
-        this.resolveMatchResults(events, caller.myTeamPlayerId),
-        this.meetingPoints.resolvePlans(teamId, events),
-      ]);
+    const [
+      logisticsAssignees,
+      rsvpSummaries,
+      { resultsByEventId, myStatsByEventId },
+      plans,
+      whatsAppView,
+    ] = await Promise.all([
+      this.resolveLogisticsAssignees(events),
+      this.resolveEventRosterSummaries(teamId, eventIds),
+      this.resolveMatchResults(events, caller.myTeamPlayerId),
+      this.meetingPoints.resolvePlans(teamId, events),
+      this.resolveWhatsAppView(teamId, events, whatsApp?.userId ?? null),
+    ]);
     return events.map((event) =>
       this.toTeamEvent({
         event,
@@ -1530,23 +1586,66 @@ export class EventsService {
         result: resultsByEventId.get(event.id) ?? null,
         myMatchStats: myStatsByEventId.get(event.id) ?? null,
         meetingPlan: plans.get(event.id) ?? null,
+        whatsAppShare: whatsAppView?.shares.get(event.id) ?? null,
+        whatsAppSettings: whatsAppView ? whatsAppView.settings(event) : null,
       }),
     );
   }
 
   private async buildTeamEventsForUser(
+    clubId: string,
     teamId: string,
     userId: string,
     events: EventRow[],
     forPlayerId?: string,
   ): Promise<TeamEvent[]> {
-    const caller = await this.resolveMyEventState(
-      teamId,
-      userId,
-      events.map((e) => e.id),
-      forPlayerId,
-    );
-    return this.buildTeamEvents(teamId, events, caller);
+    const [caller, isManager] = await Promise.all([
+      this.resolveMyEventState(
+        teamId,
+        userId,
+        events.map((e) => e.id),
+        forPlayerId,
+      ),
+      // A guardian acting for a child reads the child's page, never the manager's.
+      forPlayerId ? false : this.teamManagerGuard.isTeamManager(clubId, teamId, userId),
+    ]);
+    return this.buildTeamEvents(teamId, events, caller, isManager ? { userId } : null);
+  }
+
+  // The manager-only WhatsApp fields for a batch: one shares read and one team
+  // read, however many events. Null for anyone who does not manage the team.
+  private async resolveWhatsAppView(teamId: string, events: EventRow[], userId: string | null) {
+    if (userId === null || events.length === 0) return null;
+    const [shares, team] = await Promise.all([
+      this.prisma.eventShare.findMany({
+        where: { eventId: { in: events.map((e) => e.id) }, type: 'REMINDER' },
+        include: { sentBy: RSVP_RESPONDENT_SELECT },
+      }),
+      this.prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { waReminderEnabled: true, waDefaultOffsetMinutes: true },
+      }),
+    ]);
+    return {
+      shares: new Map(
+        shares.map((row) => [
+          row.eventId,
+          {
+            type: row.type,
+            state: row.state,
+            dueAt: row.dueAt?.toISOString() ?? null,
+            sentAt: row.sentAt?.toISOString() ?? null,
+            sentBy: toRsvpRespondent(row.sentBy, userId),
+            platform: row.platform,
+          },
+        ]),
+      ),
+      settings: (event: EventRow) => ({
+        override: event.waReminderOverride,
+        offsetMinutes: event.waOffsetMinutes,
+        effective: resolveSettings(event, team),
+      }),
+    };
   }
 
   private toTeamEvent({
@@ -1560,6 +1659,8 @@ export class EventsService {
     result,
     myMatchStats,
     meetingPlan,
+    whatsAppShare,
+    whatsAppSettings,
   }: {
     event: EventRow;
     myRsvpStatus: EventRsvpStatus | null;
@@ -1572,6 +1673,8 @@ export class EventsService {
     result: EventMatchResult | null;
     myMatchStats: EventMatchPlayerStats | null;
     meetingPlan: EventMeetingPlan | null;
+    whatsAppShare: EventShareStatus | null;
+    whatsAppSettings: EventWhatsAppSettings | null;
   }): TeamEvent {
     return {
       id: event.id,
@@ -1594,6 +1697,8 @@ export class EventsService {
       result,
       myMatchStats,
       meetingPlan,
+      whatsAppShare,
+      whatsAppSettings,
       myTravelMode:
         event.type === EventType.MATCH && myRsvpStatus === EventRsvpStatus.GOING
           ? (travelMode ?? EventTravelMode.MEETING_POINT)

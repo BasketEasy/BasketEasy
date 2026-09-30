@@ -23,6 +23,13 @@ import { getClubErrorMessage } from './clubErrorMessages';
 import { toDatetimeLocalValue } from './eventDateFormat';
 import { EVENT_TYPE_OPTIONS, EVENT_UPDATE_SCOPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
 import { Text } from '@basketeasy/ui/text';
+import { EventWhatsAppReminderFields } from '../whatsapp-reminders/EventWhatsAppReminderFields';
+import {
+  refineReminderOffset,
+  reminderDefaultsFor,
+  reminderFormShape,
+  toReminderRequestFields,
+} from '../whatsapp-reminders/eventReminderForm';
 
 const eventEditSchema = z
   .object({
@@ -34,7 +41,9 @@ const eventEditSchema = z
     notes: z.string().optional(),
     opponentName: z.string().optional(),
     venue: z.enum(['HOME', 'AWAY']).optional(),
+    ...reminderFormShape,
   })
+  .superRefine(refineReminderOffset)
   .refine((d) => d.scope !== 'THIS' || d.startsAt.length > 0, {
     message: 'Date requise',
     path: ['startsAt'],
@@ -65,6 +74,7 @@ function buildDefaultValues(event: TeamEvent): EventEditFormValues {
     notes: event.notes ?? '',
     opponentName: event.opponentName ?? '',
     venue: event.venue ?? undefined,
+    ...reminderDefaultsFor(event),
   };
 }
 
@@ -93,13 +103,14 @@ export function EventEditModal({
     reset,
     watch,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
   } = useForm<EventEditFormValues>({
     resolver: zodResolver(eventEditSchema),
     defaultValues: buildDefaultValues(event),
   });
   const type = watch('type');
   const scope = watch('scope');
+  const waReminder = watch('waReminder');
   const isRecurring = event.recurrenceId !== null;
 
   // Controlled dialog + form: re-sync the form's defaults every time this
@@ -123,6 +134,12 @@ export function EventEditModal({
           venue: values.type === 'MATCH' ? values.venue : undefined,
           scope: values.scope,
           ...(values.scope === 'THIS' ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
+          // Sent only when touched: an event read without its manager fields
+          // (after a plain RSVP, say) must not have its override cleared by a
+          // save that never looked at it.
+          ...(dirtyFields.waReminder || dirtyFields.waOffsetValue || dirtyFields.waOffsetUnit
+            ? toReminderRequestFields(values)
+            : {}),
         },
       });
 
@@ -265,6 +282,15 @@ export function EventEditModal({
             <Label htmlFor={`event-${event.id}-edit-notes`}>Notes (optionnel)</Label>
             <Textarea id={`event-${event.id}-edit-notes`} {...register('notes')} />
           </div>
+
+          <EventWhatsAppReminderFields
+            clubId={clubId}
+            teamId={teamId}
+            control={control}
+            idPrefix={`event-${event.id}-edit`}
+            watchedChoice={waReminder}
+            offsetError={errors.waOffsetValue?.message}
+          />
 
           <Button type="submit" loading={isSubmitting || isUpdating || isUpdatingTime}>
             Enregistrer

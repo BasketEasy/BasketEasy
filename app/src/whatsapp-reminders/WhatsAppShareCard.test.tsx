@@ -18,6 +18,7 @@ const notSent: EventWhatsAppShare = {
     {
       type: 'REMINDER',
       state: 'NOT_SENT',
+      dueAt: null,
       sentAt: null,
       sentBy: null,
       platform: null,
@@ -32,6 +33,7 @@ const sent: EventWhatsAppShare = {
     {
       type: 'REMINDER',
       state: 'SENT',
+      dueAt: null,
       sentAt: new Date(2026, 9, 4, 18, 12).toISOString(),
       sentBy: { firstName: 'Sophie', lastInitial: 'M', isMe: false },
       platform: 'WA_ME',
@@ -49,10 +51,10 @@ function serve(body: EventWhatsAppShare) {
   server.use(http.get(SHARE, () => HttpResponse.json(body)));
 }
 
-function renderCard() {
+function renderCard(props: Partial<React.ComponentProps<typeof WhatsAppShareCard>> = {}) {
   return renderWithProviders(
     <>
-      <WhatsAppShareCard clubId="club-1" teamId="team-1" eventId="event-1" />
+      <WhatsAppShareCard clubId="club-1" teamId="team-1" eventId="event-1" {...props} />
       <Toaster />
     </>,
   );
@@ -205,5 +207,72 @@ describe('WhatsAppShareCard', () => {
     await user.click(await screen.findByRole('button', { name: "Oui, c'est envoyé" }));
 
     await waitFor(() => expect(body).toEqual({ platform: 'COPY' }));
+  });
+
+  describe('reminder states', () => {
+    const inState = (state: string, over: Record<string, unknown> = {}): EventWhatsAppShare => ({
+      guestLinkActive: true,
+      shares: [{ ...notSent.shares[0], state: state as never, ...over }],
+    });
+
+    it('SCHEDULED says when the reminder is due, and still lets the manager share now', async () => {
+      serve(inState('SCHEDULED', { dueAt: new Date(2026, 9, 1, 18, 0).toISOString() }));
+      renderCard();
+
+      expect(await screen.findByText(/Rappel prévu le 01\/10 à 18:00/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Partager sur WhatsApp' })).toBeInTheDocument();
+    });
+
+    it('PENDING is flagged « À partager » in the brand tone', async () => {
+      serve(inState('PENDING'));
+      renderCard();
+
+      expect(await screen.findByText('À partager')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Partager sur WhatsApp' })).toBeInTheDocument();
+    });
+
+    it('EXPIRED says nobody shared, and the button is still there', async () => {
+      serve(inState('EXPIRED'));
+      renderCard();
+
+      expect(await screen.findByText('Non partagé')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Partager sur WhatsApp' })).toBeInTheDocument();
+    });
+
+    it('says the reminder is off for the event while still allowing a manual share', async () => {
+      serve(inState('VOID'));
+      renderCard({ reminderEnabled: false });
+
+      expect(await screen.findByText(/Rappel désactivé pour cet événement/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Partager sur WhatsApp' })).toBeInTheDocument();
+    });
+
+    it('paints the event’s own share state while the message is still loading', async () => {
+      server.use(
+        http.get(SHARE, async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return HttpResponse.json(inState('PENDING'));
+        }),
+      );
+      renderCard({
+        initialShare: { ...inState('PENDING').shares[0], message: undefined } as never,
+      });
+
+      expect(screen.getByText('À partager')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Partager sur WhatsApp' }),
+      ).not.toBeInTheDocument();
+      expect(
+        await screen.findByRole('button', { name: 'Partager sur WhatsApp' }),
+      ).toBeInTheDocument();
+    });
+
+    it('focuses the share button once loaded when opened from a notification', async () => {
+      serve(inState('PENDING'));
+      renderCard({ focusOnLoad: true });
+
+      const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
+      await waitFor(() => expect(button).toHaveFocus());
+    });
   });
 });

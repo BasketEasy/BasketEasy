@@ -2,6 +2,7 @@ import type { PaginationParams, SortOrder } from './pagination';
 import type { TeamMemberRole } from './teams';
 import type { ActingAsParams } from './guardians';
 import type { EventMeetingPlan, EventTravelMode } from './meeting-points';
+import type { EventShareStatus, EventWhatsAppSettings } from './whatsapp-reminder';
 
 export type EventType = 'TRAINING' | 'MATCH';
 
@@ -132,6 +133,10 @@ export interface TeamEvent {
   myMatchStats: EventMatchPlayerStats | null;
   /** Where and when the group meets before a MATCH; null for TRAINING. */
   meetingPlan: EventMeetingPlan | null;
+  /** The WhatsApp reminder's share row (null before one exists); null for anyone who does not manage the team. */
+  whatsAppShare: EventShareStatus | null;
+  /** The event's reminder override and what it resolves to; null for anyone who does not manage the team. */
+  whatsAppSettings: EventWhatsAppSettings | null;
   /**
    * How the caller gets to this MATCH — null unless they answered GOING. A
    * GOING player who never chose reads MEETING_POINT: not choosing counts as
@@ -174,6 +179,10 @@ export interface CreateEventRequest {
   venue?: EventVenue;
   /** When set, creates one event per week from startsAt through until, inclusive. */
   recurrence?: EventRecurrenceRequest;
+  /** null or absent inherits the team's WhatsApp reminder setting. */
+  waReminderOverride?: boolean | null;
+  /** null or absent inherits the team's offset; WA_OFFSET_MINUTES_MIN..MAX. */
+  waOffsetMinutes?: number | null;
 }
 
 export interface UpdateEventRequest {
@@ -186,6 +195,10 @@ export interface UpdateEventRequest {
   venue?: EventVenue;
   /** Defaults to 'THIS'. startsAt may only be changed with scope 'THIS'. */
   scope?: EventUpdateScope;
+  /** null clears the override (inherit the team); absent leaves it. */
+  waReminderOverride?: boolean | null;
+  /** null clears the override (inherit the team); absent leaves it. */
+  waOffsetMinutes?: number | null;
 }
 
 /**
