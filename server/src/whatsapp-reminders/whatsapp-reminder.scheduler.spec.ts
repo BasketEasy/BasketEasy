@@ -426,6 +426,9 @@ describe('WhatsAppReminderScheduler', () => {
     });
 
     it('expire moves an unshared share to EXPIRED and withdraws, never touching SENT', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'PENDING' }, { startsAt: new Date(NOW.getTime() - HOUR) }),
+      );
       await scheduler.expire('s1');
       expect(prisma.eventShare.updateMany).toHaveBeenCalledWith({
         where: { id: 's1', state: { in: ['SCHEDULED', 'PENDING'] } },
@@ -434,7 +437,19 @@ describe('WhatsAppReminderScheduler', () => {
       expect(prisma.notification.updateMany).toHaveBeenCalled();
     });
 
+    it('expire does nothing when the event was moved past the job it was queued for', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'PENDING' }, { startsAt: new Date(NOW.getTime() + DAY) }),
+      );
+      await scheduler.expire('s1');
+      expect(prisma.eventShare.updateMany).not.toHaveBeenCalled();
+      expect(prisma.notification.updateMany).not.toHaveBeenCalled();
+    });
+
     it('expire withdraws nothing when the share had already been sent', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(
+        loaded({ state: 'SENT' }, { startsAt: new Date(NOW.getTime() - HOUR) }),
+      );
       prisma.eventShare.updateMany.mockResolvedValue({ count: 0 });
       await scheduler.expire('s1');
       expect(prisma.notification.updateMany).not.toHaveBeenCalled();
