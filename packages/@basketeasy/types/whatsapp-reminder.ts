@@ -47,6 +47,16 @@ export const DEFAULT_REMINDER_TEMPLATE = [
   'Dis-nous si tu viens 👉 {link}',
 ].join('\n');
 
+export const DEFAULT_UPDATE_TEMPLATE = [
+  '⚠️ Changement : {event_name}, {event_date} !',
+  'Nouveau RDV {meeting_time} – {meeting_place}.',
+  'On commence à {event_time} ({location}).',
+  'Redis-nous si tu viens 👉 {link}',
+].join('\n');
+
+export const DEFAULT_CANCELLATION_TEMPLATE =
+  "❌ {event_name} du {event_date} : c'est annulé. On te tient au courant !";
+
 /** Sample values for the settings preview, one set per event type. */
 export const WHATSAPP_TEMPLATE_EXAMPLES: Record<'MATCH' | 'TRAINING', WhatsAppTemplateVars> = {
   MATCH: {
@@ -111,7 +121,14 @@ const DROPPABLE: readonly WhatsAppTemplateVariable[] = [
   'meeting_place',
 ];
 
-export function validateTemplate(template: string): WhatsAppTemplateValidation {
+/**
+ * A cancellation is the one template where `{link}` is optional: there is
+ * nothing left to answer, so the link rules don't apply to it.
+ */
+export function validateTemplate(
+  template: string,
+  type: EventShareType = 'REMINDER',
+): WhatsAppTemplateValidation {
   if (template.length > WHATSAPP_TEMPLATE_MAX_LENGTH) return { ok: false, code: 'TOO_LONG' };
   const lines = template.split('\n');
   for (const line of lines) {
@@ -119,6 +136,7 @@ export function validateTemplate(template: string): WhatsAppTemplateValidation {
       if (!isVariable(key)) return { ok: false, code: 'UNKNOWN_VARIABLE', variable: key };
     }
   }
+  if (type === 'CANCELLATION') return { ok: true };
   if (!lines.some((line) => tokensOf(line).includes('link'))) {
     return { ok: false, code: 'MISSING_LINK' };
   }
@@ -159,7 +177,13 @@ export function contentKey(vars: WhatsAppTemplateVars): string {
   return hash.toString(16).padStart(8, '0');
 }
 
-export type EventShareType = 'REMINDER';
+export type EventShareType = 'REMINDER' | 'UPDATE' | 'CANCELLATION';
+
+export const DEFAULT_TEMPLATES: Record<EventShareType, string> = {
+  REMINDER: DEFAULT_REMINDER_TEMPLATE,
+  UPDATE: DEFAULT_UPDATE_TEMPLATE,
+  CANCELLATION: DEFAULT_CANCELLATION_TEMPLATE,
+};
 export type EventShareState = 'SCHEDULED' | 'PENDING' | 'SENT' | 'EXPIRED' | 'VOID';
 export type EventSharePlatform = 'SHARE_SHEET' | 'WA_ME' | 'COPY';
 
@@ -173,10 +197,30 @@ export interface EventShareStatus {
   platform: EventSharePlatform | null;
 }
 
+/** One line of an UPDATE's « what moved »: the value the group last read, and the current one. */
+export interface EventShareChange {
+  label: string;
+  from: string;
+  to: string;
+}
+
 export interface EventWhatsAppShare {
   guestLinkActive: boolean;
-  /** `message` is null when the guest link is off: there is nothing valid to send. */
-  shares: Array<EventShareStatus & { message: string | null }>;
+  /**
+   * REMINDER always, UPDATE once one has been raised. `message` is null when the
+   * guest link is off: there is nothing valid to send. `changes` is filled for a
+   * pending UPDATE whose previous message is known.
+   */
+  shares: Array<EventShareStatus & { message: string | null; changes: EventShareChange[] }>;
+}
+
+/** A cancellation still worth sharing: the event is gone, so it lives on the team page. */
+export interface TeamPendingCancellation {
+  shareId: string;
+  eventName: string;
+  eventDate: string;
+  message: string;
+  status: EventShareStatus;
 }
 
 /** 3 days before the event, unless a team or an event says otherwise. */
@@ -186,8 +230,10 @@ export const WA_OFFSET_MINUTES_MIN = 60;
 export const WA_OFFSET_MINUTES_MAX = GUEST_WINDOW_DAYS * 1440;
 
 export interface TeamWhatsAppSettings {
-  /** Null means the default template. */
+  /** Null means the default template, for each of the three. */
   reminderTemplate: string | null;
+  updateTemplate: string | null;
+  cancellationTemplate: string | null;
   reminderEnabled: boolean;
   defaultOffsetMinutes: number;
   /** False when no manager has e-mail notifications on or a push subscription: nobody would hear the reminder. */
@@ -196,6 +242,8 @@ export interface TeamWhatsAppSettings {
 
 export interface UpdateTeamWhatsAppSettingsRequest {
   reminderTemplate?: string | null;
+  updateTemplate?: string | null;
+  cancellationTemplate?: string | null;
   reminderEnabled?: boolean;
   defaultOffsetMinutes?: number;
 }

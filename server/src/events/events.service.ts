@@ -378,6 +378,9 @@ export class EventsService {
       await this.meetingPoints.announceMeetingChanges(ids);
     }
     await this.syncWhatsAppReminders(clubId, teamId, userId, ids, data.waReminderOverride === true);
+    // Sync first, then prompts: an event whose reminder is still scheduled has
+    // nothing to correct, and this only raises for what the group already read.
+    await this.whatsAppReminders.onEventsChanged(ids);
     return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
   }
 
@@ -453,24 +456,35 @@ export class EventsService {
     // setEventConvocations's own read+write. runSerializableTransaction
     // retries the (expected, occasional) loser of that race instead of
     // surfacing a serialization failure as a 500.
-    const convokedTeamPlayerIds = await this.runSerializableTransaction(async (tx) => {
-      const convocations = await tx.eventConvocation.findMany({
-        where: { eventId: { in: ids }, teamPlayer: { teamId } },
-        select: { teamPlayerId: true },
-      });
+    const { convokedTeamPlayerIds, cancellations } = await this.runSerializableTransaction(
+      async (tx) => {
+        const convocations = await tx.eventConvocation.findMany({
+          where: { eventId: { in: ids }, teamPlayer: { teamId } },
+          select: { teamPlayerId: true },
+        });
 
-      await tx.event.deleteMany({ where: { id: { in: ids } } });
+        // WhatsApp: cancelling deletes the event, so a CANCELLATION share for
+        // each event the group was told about is written here, with a snapshot,
+        // before its rows go — and no reminder or update is left orphaned.
+        const cancellations = await this.whatsAppReminders.prepareCancellations(tx, teamId, ids);
 
-      // Everyone convoked to any of the events being cancelled, deduplicated
-      // by roster slot. Deliberately the convoked list rather than the whole
-      // roster: a cancellation is only news to someone who was expecting to
-      // play, and notifying an entire roster about a training two of them
-      // were called up for is noise that trains people to ignore the bell.
-      // Slots, not users: the audience (the player and their guardians) is
-      // resolved after the delete, which removes events, never roster slots.
-      return [...new Set(convocations.map((row) => row.teamPlayerId))];
-    });
+        await tx.event.deleteMany({ where: { id: { in: ids } } });
 
+        // Everyone convoked to any of the events being cancelled, deduplicated
+        // by roster slot. Deliberately the convoked list rather than the whole
+        // roster: a cancellation is only news to someone who was expecting to
+        // play, and notifying an entire roster about a training two of them
+        // were called up for is noise that trains people to ignore the bell.
+        // Slots, not users: the audience (the player and their guardians) is
+        // resolved after the delete, which removes events, never roster slots.
+        return {
+          convokedTeamPlayerIds: [...new Set(convocations.map((row) => row.teamPlayerId))],
+          cancellations,
+        };
+      },
+    );
+
+    await this.whatsAppReminders.afterCancellations(teamId, cancellations);
     await this.notifyCancellation(clubId, teamId, event, ids.length, convokedTeamPlayerIds);
   }
 
@@ -568,6 +582,7 @@ export class EventsService {
     const updated = results.slice(0, rows.length) as EventRow[];
     await this.meetingPoints.announceMeetingChanges(ids);
     await this.whatsAppReminders.syncEvents(ids);
+    await this.whatsAppReminders.onEventsChanged(ids);
     return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
   }
 

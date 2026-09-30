@@ -110,9 +110,9 @@
     },
     "myTravelMode": "MEETING_POINT",
     "whatsAppShare": {
-      "type": "REMINDER",
+      "type": "UPDATE",
       "state": "PENDING",
-      "dueAt": "2026-10-07T18:30:00.000Z",
+      "dueAt": null,
       "sentAt": null,
       "sentBy": null,
       "platform": null
@@ -296,19 +296,47 @@
     "reminderTemplate": null,
     "reminderEnabled": true,
     "defaultOffsetMinutes": 4320,
-    "hasReachableManager": false
+    "hasReachableManager": false,
+    "updateTemplate": null,
+    "cancellationTemplate": null
   },
   "GET /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share": {
     "guestLinkActive": true,
     "shares": [
       {
-        "type": "REMINDER",
+        "type": "UPDATE",
         "state": "PENDING",
+        "dueAt": null,
         "sentAt": null,
         "sentBy": null,
         "platform": null,
+        "message": "⚠️ Changement : Match contre Rezé Basket, sam. 10 oct. !\nNouveau RDV 19:45 – Parking salle Coubertin.\nOn commence à 21:00 (Salle des Sports de la Trocardière, Rezé).\nRedis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa",
+        "changes": [
+          {
+            "label": "Heure de début",
+            "from": "20:30",
+            "to": "21:00"
+          },
+          {
+            "label": "Heure de RDV",
+            "from": "19:15",
+            "to": "19:45"
+          }
+        ]
+      },
+      {
+        "type": "REMINDER",
+        "state": "SENT",
+        "sentAt": "2026-09-29T18:12:00.000Z",
+        "sentBy": {
+          "firstName": "Sophie",
+          "lastInitial": "M",
+          "isMe": false
+        },
+        "platform": "WA_ME",
         "message": "🏀 Match contre Rezé Basket, sam. 10 oct. !\nRDV 19:15 – Parking salle Coubertin.\nOn commence à 20:30 (Salle des Sports de la Trocardière, Rezé).\nDis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa",
-        "dueAt": "2026-10-07T18:30:00.000Z"
+        "dueAt": "2026-10-07T18:30:00.000Z",
+        "changes": []
       }
     ]
   },
@@ -322,5 +350,32 @@
       "isMe": true
     },
     "platform": "WA_ME"
-  }
+  },
+  "POST GET /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share/UPDATE/confirm": {
+    "type": "UPDATE",
+    "state": "SENT",
+    "sentAt": "2026-09-30T09:00:00.000Z",
+    "sentBy": {
+      "firstName": "Camille",
+      "lastInitial": "M",
+      "isMe": true
+    },
+    "platform": "WA_ME"
+  },
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-shares/pending-cancellations": [
+    {
+      "shareId": "share-c1",
+      "eventName": "Entraînement",
+      "eventDate": "mer. 1 oct.",
+      "message": "❌ Entraînement du mer. 1 oct. : c'est annulé. On te tient au courant !",
+      "status": {
+        "type": "CANCELLATION",
+        "state": "PENDING",
+        "dueAt": null,
+        "sentAt": null,
+        "sentBy": null,
+        "platform": null
+      }
+    }
+  ]
 }

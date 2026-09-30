@@ -26,7 +26,7 @@ describe('FfbbImportService', () => {
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
   let meetingPoints: { announceMeetingChanges: jest.Mock };
-  let whatsAppReminders: { syncEvents: jest.Mock };
+  let whatsAppReminders: { syncEvents: jest.Mock; onEventsChanged: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -41,7 +41,10 @@ describe('FfbbImportService', () => {
     };
     ffbbProvider = { getMatchesForEngagement: jest.fn(), parseEngagementRef: jest.fn() };
     meetingPoints = { announceMeetingChanges: jest.fn().mockResolvedValue(undefined) };
-    whatsAppReminders = { syncEvents: jest.fn().mockResolvedValue(undefined) };
+    whatsAppReminders = {
+      syncEvents: jest.fn().mockResolvedValue(undefined),
+      onEventsChanged: jest.fn().mockResolvedValue(undefined),
+    };
     service = new FfbbImportService(
       prisma as never,
       ffbbProvider as unknown as FfbbProvider,
@@ -128,6 +131,8 @@ describe('FfbbImportService', () => {
 
     expect(whatsAppReminders.syncEvents).toHaveBeenCalledTimes(1);
     expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-new', 'event-moved']);
+    // Only a match FFBB changed can have made a shared message stale, not a new one.
+    expect(whatsAppReminders.onEventsChanged).toHaveBeenCalledWith(['event-moved']);
   });
 
   it('asks the provider to resolve venues and writes the address to the event', async () => {

@@ -95,6 +95,8 @@ export const handlers = [
   http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-settings', () =>
     HttpResponse.json({
       reminderTemplate: null,
+      updateTemplate: null,
+      cancellationTemplate: null,
       reminderEnabled: false,
       defaultOffsetMinutes: 4320,
       hasReachableManager: true,
@@ -114,6 +116,11 @@ export const handlers = [
         },
       ],
     }),
+  ),
+
+  // Default: nothing to cancel. TeamPendingCancellations (TeamDetailPage, managers).
+  http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-shares/pending-cancellations', () =>
+    HttpResponse.json([]),
   ),
 
   // Default: no meeting point anywhere, the default 45-minute buffer.

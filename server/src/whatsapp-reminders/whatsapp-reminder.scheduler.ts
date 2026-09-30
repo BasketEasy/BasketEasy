@@ -2,10 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { EventShareState, EventShareType, NotificationType } from '@prisma/client';
+import type { WhatsAppTemplateVars } from '@basketeasy/types/whatsapp-reminder';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WHATSAPP_REMINDER_QUEUE } from '../queue/queue.module';
-import { shareRequestedNotification } from './whatsapp-notification-copy';
+import {
+  changeRequestedNotification,
+  describeShareSubject,
+  shareRequestedNotification,
+} from './whatsapp-notification-copy';
 
 export const SEND_JOB = 'send';
 export const NUDGE_JOB = 'nudge';
@@ -35,10 +40,22 @@ type SyncEvent = {
 type SyncTeam = { waReminderEnabled: boolean; waDefaultOffsetMinutes: number };
 type SyncShare = {
   id: string;
-  eventId: string;
+  eventId: string | null;
   state: EventShareState;
   dueAt: Date | null;
 };
+
+// « Match contre X, sam. 4 oct. », from the live event or, once it is deleted,
+// from the snapshot a CANCELLATION kept.
+function promptSubject(share: {
+  eventSnapshot: unknown;
+  event: { type: 'TRAINING' | 'MATCH'; startsAt: Date; opponentName: string | null } | null;
+  expiresAt: Date | null;
+}): string {
+  if (share.event) return describeShareSubject(share.event);
+  const snapshot = (share.eventSnapshot ?? {}) as Partial<WhatsAppTemplateVars>;
+  return `${snapshot.event_name ?? 'Événement'}, ${snapshot.event_date ?? ''}`.replace(/, $/, '');
+}
 
 /** `enabled = event.override ?? team.enabled`, `offset = event.offset ?? team.offset`. */
 export function resolveSettings(
@@ -180,6 +197,7 @@ export class WhatsAppReminderScheduler {
       where: { eventId_type: { eventId: event.id, type: EventShareType.REMINDER } },
       create: {
         eventId: event.id,
+        teamId: event.teamId,
         type: EventShareType.REMINDER,
         state: EventShareState.SCHEDULED,
         dueAt,
@@ -235,7 +253,8 @@ export class WhatsAppReminderScheduler {
     const share = await this.loadShareForJob(shareId);
     if (!share || share.state !== EventShareState.SCHEDULED) return;
     const { event } = share;
-    if (event.startsAt <= new Date()) return;
+    // Only a REMINDER is ever SCHEDULED, and it always has its event.
+    if (!event || event.startsAt <= new Date()) return;
     if (!resolveSettings(event, event.team).enabled) return;
     await this.notifyNow(shareId, event);
   }
@@ -244,7 +263,9 @@ export class WhatsAppReminderScheduler {
   async nudge(shareId: string): Promise<void> {
     const share = await this.loadShareForJob(shareId);
     if (!share || share.state !== EventShareState.PENDING || share.nudgedAt) return;
-    if (share.event.startsAt <= new Date()) return;
+    // A CANCELLATION has no event any more: its own expiry is the deleted event's kick-off.
+    const endsAt = share.event?.startsAt ?? share.expiresAt;
+    if (!endsAt || endsAt <= new Date()) return;
     const { count } = await this.prisma.eventShare.updateMany({
       where: { id: shareId, state: EventShareState.PENDING, nudgedAt: null },
       data: { nudgedAt: new Date() },
@@ -282,6 +303,7 @@ export class WhatsAppReminderScheduler {
         id: true,
         state: true,
         nudgedAt: true,
+        expiresAt: true,
         event: {
           select: {
             id: true,
@@ -311,35 +333,113 @@ export class WhatsAppReminderScheduler {
     });
   }
 
+  // A share's own notification: the first ask, or the nudge an hour later.
   private async notifyManagers(shareId: string, isNudge: boolean): Promise<void> {
     const share = await this.prisma.eventShare.findUnique({
       where: { id: shareId },
       select: {
+        id: true,
+        type: true,
+        teamId: true,
+        eventId: true,
+        expiresAt: true,
+        eventSnapshot: true,
         event: {
-          select: {
-            id: true,
-            teamId: true,
-            type: true,
-            startsAt: true,
-            opponentName: true,
-          },
+          select: { id: true, teamId: true, type: true, startsAt: true, opponentName: true },
         },
       },
     });
     if (!share) return;
-    const { event } = share;
-    const recipients = await this.resolveManagers(event.teamId);
+    if (share.type === EventShareType.REMINDER) {
+      if (!share.event) return;
+      const recipients = await this.resolveManagers(share.teamId);
+      if (recipients.length === 0) return;
+      const copy = shareRequestedNotification(share.event, isNudge);
+      const { id: eventId } = share.event;
+      await this.notifications.notify(
+        recipients.map(({ userId, clubId }) => ({
+          userId,
+          type: NotificationType.WHATSAPP_SHARE_REQUESTED,
+          title: copy.title,
+          body: copy.body,
+          deepLink: `/clubs/${clubId}/teams/${share.teamId}/events/${eventId}?partage=${shareId}`,
+        })),
+      );
+      return;
+    }
+    await this.notifyChangePrompts(
+      share.teamId,
+      share.type,
+      [
+        {
+          shareId,
+          eventId: share.eventId,
+          startsAt: share.event?.startsAt ?? share.expiresAt ?? new Date(),
+          subject: promptSubject(share),
+        },
+      ],
+      isNudge,
+    );
+  }
+
+  /**
+   * One notification per manager for a whole call, however many prompts it
+   * raised (a series edit or delete can cover up to 104 occurrences): it names
+   * one, or counts several and links to the earliest. The acting manager is
+   * included on purpose: the bell is also the to-do list.
+   *
+   * An UPDATE links to its event; a CANCELLATION to the team page, since the
+   * event page would 404.
+   */
+  async notifyChangePrompts(
+    teamId: string,
+    kind: 'UPDATE' | 'CANCELLATION',
+    prompts: Array<{ shareId: string; eventId: string | null; startsAt: Date; subject: string }>,
+    isNudge = false,
+  ): Promise<void> {
+    if (prompts.length === 0) return;
+    const recipients = await this.resolveManagers(teamId);
     if (recipients.length === 0) return;
-    const copy = shareRequestedNotification(event, isNudge);
+    const earliest = [...prompts].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
+    const copy = changeRequestedNotification(
+      kind,
+      prompts.map((p) => p.subject),
+      isNudge,
+    );
     await this.notifications.notify(
       recipients.map(({ userId, clubId }) => ({
         userId,
         type: NotificationType.WHATSAPP_SHARE_REQUESTED,
         title: copy.title,
         body: copy.body,
-        deepLink: `/clubs/${clubId}/teams/${event.teamId}/events/${event.id}?partage=${shareId}`,
+        deepLink:
+          kind === 'UPDATE' && earliest.eventId
+            ? `/clubs/${clubId}/teams/${teamId}/events/${earliest.eventId}?partage=${earliest.shareId}`
+            : `/clubs/${clubId}/teams/${teamId}?partage=${earliest.shareId}`,
       })),
     );
+  }
+
+  /** The nudge an hour later and the expiry at kick-off, for a prompt that starts PENDING. */
+  async queueFollowUps(shareId: string, endsAt: Date): Promise<void> {
+    try {
+      await this.queueNudge(shareId, endsAt);
+      await this.ensureExpire(shareId, endsAt);
+    } catch (error) {
+      this.logSyncFailure(shareId, error);
+    }
+  }
+
+  /** Drops the jobs of shares that are going away, and clears their bells. */
+  async discard(shareIds: string[]): Promise<void> {
+    for (const shareId of shareIds) {
+      try {
+        await this.removeJobs(shareId, [SEND_JOB, NUDGE_JOB, EXPIRE_JOB]);
+        await this.withdraw(shareId);
+      } catch (error) {
+        this.logSyncFailure(shareId, error);
+      }
+    }
   }
 
   /**

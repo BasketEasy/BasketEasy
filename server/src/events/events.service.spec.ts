@@ -39,7 +39,13 @@ describe('EventsService', () => {
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
   let notifications: { notify: jest.Mock };
-  let whatsAppReminders: { syncEvents: jest.Mock; ensureGuestLink: jest.Mock };
+  let whatsAppReminders: {
+    syncEvents: jest.Mock;
+    ensureGuestLink: jest.Mock;
+    onEventsChanged: jest.Mock;
+    prepareCancellations: jest.Mock;
+    afterCancellations: jest.Mock;
+  };
   let meetingPoints: {
     resolvePlans: jest.Mock;
     announceMeetingChanges: jest.Mock;
@@ -176,6 +182,9 @@ describe('EventsService', () => {
     whatsAppReminders = {
       syncEvents: jest.fn().mockResolvedValue(undefined),
       ensureGuestLink: jest.fn().mockResolvedValue(undefined),
+      onEventsChanged: jest.fn().mockResolvedValue(undefined),
+      prepareCancellations: jest.fn().mockResolvedValue({ created: [], discardedShareIds: [] }),
+      afterCancellations: jest.fn().mockResolvedValue(undefined),
     };
     // Default: no event resolves a meeting plan, so every TeamEvent carries
     // meetingPlan: null unless a test says otherwise.
@@ -3729,6 +3738,69 @@ describe('EventsService', () => {
         data: { waReminderOverride: null, waOffsetMinutes: 90 },
       });
       expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('updateEvent asks for update prompts after syncing, for every id in scope', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.update.mockResolvedValue(row({ location: 'Gymnase B' }));
+      const order: string[] = [];
+      whatsAppReminders.syncEvents.mockImplementation(() => {
+        order.push('sync');
+        return Promise.resolve();
+      });
+      whatsAppReminders.onEventsChanged.mockImplementation(() => {
+        order.push('prompts');
+        return Promise.resolve();
+      });
+
+      await service.updateEvent('club-1', 'team-1', 'event-1', { location: 'Gymnase B' }, 'user-1');
+
+      expect(order).toEqual(['sync', 'prompts']);
+      expect(whatsAppReminders.onEventsChanged).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('createEvent never asks for update prompts: a new event was never shared', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockResolvedValue(row());
+      await service.createEvent(
+        'club-1',
+        'team-1',
+        { type: 'TRAINING', startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' },
+        'user-1',
+      );
+      expect(whatsAppReminders.onEventsChanged).not.toHaveBeenCalled();
+    });
+
+    it('deleteEvent prepares cancellations inside the transaction, before the rows go, and follows up after', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.eventConvocation.findMany.mockResolvedValue([]);
+      prisma.event.deleteMany.mockResolvedValue({ count: 1 });
+      const prepared = { created: [], discardedShareIds: ['r1'] };
+      const order: string[] = [];
+      whatsAppReminders.prepareCancellations.mockImplementation(() => {
+        order.push('prepare');
+        return Promise.resolve(prepared);
+      });
+      prisma.event.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      whatsAppReminders.afterCancellations.mockImplementation(() => {
+        order.push('after');
+        return Promise.resolve();
+      });
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      expect(order).toEqual(['prepare', 'delete', 'after']);
+      expect(whatsAppReminders.prepareCancellations).toHaveBeenCalledWith(
+        expect.anything(),
+        'team-1',
+        ['event-1'],
+      );
+      expect(whatsAppReminders.afterCancellations).toHaveBeenCalledWith('team-1', prepared);
     });
 
     it('updateEvent leaves the WhatsApp columns alone when the request has none', async () => {

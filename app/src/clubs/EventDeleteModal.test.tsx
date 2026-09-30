@@ -60,6 +60,39 @@ function renderModal(event: TeamEvent) {
 }
 
 describe('EventDeleteModal', () => {
+  const shared = (state: 'SENT' | 'PENDING' | null): TeamEvent => ({
+    ...trainingEvent,
+    whatsAppShare: state
+      ? { type: 'REMINDER', state, dueAt: null, sentAt: null, sentBy: null, platform: null }
+      : null,
+  });
+
+  it('warns, in one line and no extra step, when the WhatsApp group was told about the event', async () => {
+    const user = userEvent.setup();
+    renderModal(shared('SENT'));
+
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+
+    expect(
+      await screen.findByText(/Le groupe WhatsApp a été prévenu de cet événement/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/partager l'annulation juste après/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmer la suppression/i })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['a share that was never sent', 'PENDING' as const],
+    ['no share at all', null],
+  ])('says nothing about WhatsApp for %s', async (_label, state) => {
+    const user = userEvent.setup();
+    renderModal(shared(state));
+
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    await screen.findByRole('heading', { name: /supprimer l.événement/i });
+
+    expect(screen.queryByText(/groupe WhatsApp/)).not.toBeInTheDocument();
+  });
+
   it('confirms deletion of a non-recurring event with no scope selector', async () => {
     let requestedUrl: string | undefined;
     server.use(

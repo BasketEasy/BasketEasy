@@ -23,6 +23,7 @@ const notSent: EventWhatsAppShare = {
       sentBy: null,
       platform: null,
       message: MESSAGE,
+      changes: [],
     },
   ],
 };
@@ -38,6 +39,7 @@ const sent: EventWhatsAppShare = {
       sentBy: { firstName: 'Sophie', lastInitial: 'M', isMe: false },
       platform: 'WA_ME',
       message: MESSAGE,
+      changes: [],
     },
   ],
 };
@@ -273,6 +275,87 @@ describe('WhatsAppShareCard', () => {
 
       const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
       await waitFor(() => expect(button).toHaveFocus());
+    });
+  });
+
+  describe('an update raised after the group was told', () => {
+    const UPDATE_MESSAGE = '⚠️ Changement : Match contre ES Vertou, dim. 4 oct. !';
+    const withUpdate = (
+      state: string,
+      changes = [{ label: 'Heure de début', from: '15:30', to: '16:00' }],
+    ) =>
+      ({
+        guestLinkActive: true,
+        shares: [
+          {
+            ...notSent.shares[0],
+            type: 'UPDATE',
+            state,
+            message: UPDATE_MESSAGE,
+            changes,
+          },
+          sent.shares[0],
+        ],
+      }) as EventWhatsAppShare;
+
+    it('shows the update above the reminder, and says what moved with the old value struck through', async () => {
+      serve(withUpdate('PENDING'));
+      renderCard();
+
+      expect(await screen.findByText('Changement à partager')).toBeInTheDocument();
+      const list = screen.getByRole('list', { name: 'Ce qui a changé' });
+      expect(list).toHaveTextContent('Heure de début : 15:30 → 16:00');
+      expect(list.querySelector('.line-through')).toHaveTextContent('15:30');
+      // The reminder stays as history, below.
+      const sections = document.querySelectorAll('section');
+      expect(sections).toHaveLength(2);
+      expect(sections[0]).toHaveTextContent('Changement à partager');
+      expect(sections[1]).toHaveTextContent('Envoyé le 04/10 à 18:12');
+    });
+
+    it('confirms the update on its own route, leaving the reminder alone', async () => {
+      serve(withUpdate('PENDING'));
+      const posted: string[] = [];
+      server.use(
+        http.post(`${SHARE}/UPDATE/confirm`, () => {
+          posted.push('UPDATE');
+          return HttpResponse.json(sent.shares[0]);
+        }),
+        http.post(`${SHARE}/REMINDER/confirm`, () => {
+          posted.push('REMINDER');
+          return HttpResponse.json(sent.shares[0]);
+        }),
+      );
+      vi.spyOn(window, 'open').mockReturnValue(null);
+      const user = userEvent.setup();
+      renderCard();
+
+      await user.click(await screen.findByRole('button', { name: 'Partager sur WhatsApp' }));
+      await user.click(screen.getByRole('button', { name: "Oui, c'est envoyé" }));
+
+      await waitFor(() => expect(posted).toEqual(['UPDATE']));
+    });
+
+    it('lists a sent update as history, without the changes', async () => {
+      serve(withUpdate('SENT', []));
+      renderCard();
+      expect(await screen.findByText('Changement envoyé')).toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Ce qui a changé' })).not.toBeInTheDocument();
+    });
+
+    it('hides a voided or expired update', async () => {
+      serve(withUpdate('VOID'));
+      renderCard();
+      await screen.findByText('Envoyé');
+      expect(document.querySelectorAll('section')).toHaveLength(1);
+    });
+
+    it('focuses the update’s button first when opened from a notification', async () => {
+      serve(withUpdate('PENDING'));
+      renderCard({ focusOnLoad: true });
+      const [first] = await screen.findAllByRole('button', { name: /Partager/ });
+      await waitFor(() => expect(first).toHaveFocus());
+      expect(document.querySelectorAll('section')[0]).toContainElement(first);
     });
   });
 });

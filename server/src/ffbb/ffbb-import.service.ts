@@ -86,9 +86,16 @@ export class FfbbImportService {
     // Every created or changed match: this import is a second write path for
     // Event rows, so it reconciles the WhatsApp reminders itself.
     const touchedEventIds: string[] = [];
+    const changedEventIds: string[] = [];
     for (const matches of matchesByLink) {
       for (const match of matches) {
-        const outcome = await this.upsertMatch(teamId, match, rescheduledEventIds, touchedEventIds);
+        const outcome = await this.upsertMatch(
+          teamId,
+          match,
+          rescheduledEventIds,
+          touchedEventIds,
+          changedEventIds,
+        );
         if (outcome === 'created') created += 1;
         else if (outcome === 'updated') updated += 1;
         else unchanged += 1;
@@ -107,6 +114,8 @@ export class FfbbImportService {
     }
 
     await this.whatsAppReminders.syncEvents(touchedEventIds);
+    // Only matches FFBB changed can have made a shared message stale.
+    await this.whatsAppReminders.onEventsChanged(changedEventIds);
 
     return { created, updated, unchanged };
   }
@@ -116,6 +125,7 @@ export class FfbbImportService {
     match: FfbbMatch,
     rescheduledEventIds: string[],
     touchedEventIds: string[],
+    changedEventIds: string[],
   ): Promise<UpsertOutcome> {
     const existing = await this.prisma.event.findUnique({
       where: { teamId_externalId: { teamId, externalId: match.id } },
@@ -183,6 +193,7 @@ export class FfbbImportService {
     });
     if (rescheduled) rescheduledEventIds.push(existing.id);
     touchedEventIds.push(existing.id);
+    changedEventIds.push(existing.id);
     return 'updated';
   }
 

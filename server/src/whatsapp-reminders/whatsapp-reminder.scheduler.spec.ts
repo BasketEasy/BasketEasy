@@ -110,6 +110,12 @@ describe('WhatsAppReminderScheduler', () => {
     prisma.eventShare.upsert.mockResolvedValue({ id: 's1' });
     // What notifyManagers reads back.
     prisma.eventShare.findUnique.mockResolvedValue({
+      id: 's1',
+      type: 'REMINDER',
+      teamId: 't1',
+      eventId: 'e1',
+      expiresAt: null,
+      eventSnapshot: null,
       event: { id: 'e1', teamId: 't1', type: 'MATCH', startsAt, opponentName: 'ES Vertou' },
     });
     prisma.team.findUnique.mockResolvedValue({
@@ -432,6 +438,119 @@ describe('WhatsAppReminderScheduler', () => {
       prisma.eventShare.updateMany.mockResolvedValue({ count: 0 });
       await scheduler.expire('s1');
       expect(prisma.notification.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('change prompts', () => {
+    const managers = () => {
+      prisma.team.findUnique.mockResolvedValue({ clubTeams: [{ clubId: 'c1' }], teamAdmins: [] });
+      prisma.clubMembership.findMany.mockResolvedValue([
+        { userId: 'admin-1', clubId: 'c1', role: 'ADMIN' },
+        { userId: 'admin-2', clubId: 'c1', role: 'ADMIN' },
+      ]);
+    };
+    const soon = new Date(NOW.getTime() + 2 * DAY);
+    const later = new Date(NOW.getTime() + 9 * DAY);
+
+    it('names the one subject of an UPDATE and links to its event', async () => {
+      managers();
+      await scheduler.notifyChangePrompts('t1', 'UPDATE', [
+        {
+          shareId: 'u1',
+          eventId: 'e1',
+          startsAt: soon,
+          subject: 'Match contre ES Vertou, dim. 4 oct.',
+        },
+      ]);
+      const sent = notifications.notify.mock.calls[0][0];
+      expect(sent).toHaveLength(2);
+      expect(sent[0]).toMatchObject({
+        type: 'WHATSAPP_SHARE_REQUESTED',
+        title: 'Changement à partager : Match contre ES Vertou, dim. 4 oct.',
+        deepLink: '/clubs/c1/teams/t1/events/e1?partage=u1',
+      });
+    });
+
+    it('sends one notification per manager for a whole series, counting and linking to the earliest', async () => {
+      managers();
+      await scheduler.notifyChangePrompts('t1', 'UPDATE', [
+        { shareId: 'u2', eventId: 'e2', startsAt: later, subject: 'B' },
+        { shareId: 'u1', eventId: 'e1', startsAt: soon, subject: 'A' },
+      ]);
+      expect(notifications.notify).toHaveBeenCalledTimes(1);
+      const sent = notifications.notify.mock.calls[0][0];
+      expect(sent).toHaveLength(2);
+      expect(sent[0].title).toBe('2 changements à partager');
+      expect(sent[0].deepLink).toBe('/clubs/c1/teams/t1/events/e1?partage=u1');
+    });
+
+    it('links a CANCELLATION to the team page, the event page being gone', async () => {
+      managers();
+      await scheduler.notifyChangePrompts('t1', 'CANCELLATION', [
+        { shareId: 'c1', eventId: null, startsAt: soon, subject: 'Entraînement, dim. 4 oct.' },
+      ]);
+      expect(notifications.notify.mock.calls[0][0][0]).toMatchObject({
+        title: 'Annulation à partager : Entraînement, dim. 4 oct.',
+        deepLink: '/clubs/c1/teams/t1?partage=c1',
+      });
+    });
+
+    it('notifies nobody for an empty batch or a team with no manager', async () => {
+      await scheduler.notifyChangePrompts('t1', 'UPDATE', []);
+      prisma.team.findUnique.mockResolvedValue({ clubTeams: [], teamAdmins: [] });
+      await scheduler.notifyChangePrompts('t1', 'UPDATE', [
+        { shareId: 'u1', eventId: 'e1', startsAt: soon, subject: 'A' },
+      ]);
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('queues the nudge and expiry of a prompt', async () => {
+      await scheduler.queueFollowUps('u1', soon);
+      expect(jobAdds()).toEqual(['nudge', 'expire']);
+    });
+
+    it('swallows a queue failure when queueing follow-ups', async () => {
+      queue.add.mockRejectedValue(new Error('redis down'));
+      await expect(scheduler.queueFollowUps('u1', soon)).resolves.toBeUndefined();
+    });
+
+    it('discard drops the jobs and clears the bell of every share it is given', async () => {
+      await scheduler.discard(['a', 'b']);
+      expect(queue.remove).toHaveBeenCalledTimes(6);
+      expect(prisma.notification.updateMany).toHaveBeenCalledTimes(2);
+    });
+
+    it('the nudge of a CANCELLATION reads its own expiry, its event being gone', async () => {
+      managers();
+      prisma.eventShare.findUnique.mockResolvedValue({
+        id: 'c1',
+        type: 'CANCELLATION',
+        state: 'PENDING',
+        teamId: 't1',
+        eventId: null,
+        nudgedAt: null,
+        expiresAt: soon,
+        eventSnapshot: { event_name: 'Entraînement', event_date: 'dim. 4 oct.' },
+        event: null,
+      });
+      await scheduler.nudge('c1');
+      expect(notifications.notify.mock.calls[0][0][0]).toMatchObject({
+        title: 'Toujours pas partagé : Annulation à partager : Entraînement, dim. 4 oct.',
+        deepLink: '/clubs/c1/teams/t1?partage=c1',
+      });
+    });
+
+    it('a CANCELLATION nudge is dropped once the deleted event would have started', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue({
+        id: 'c1',
+        type: 'CANCELLATION',
+        state: 'PENDING',
+        nudgedAt: null,
+        expiresAt: new Date(NOW.getTime() - HOUR),
+        event: null,
+      });
+      await scheduler.nudge('c1');
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 

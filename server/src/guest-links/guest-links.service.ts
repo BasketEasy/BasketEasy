@@ -23,6 +23,12 @@ export class GuestLinksService {
     return link ? this.toInfo(link.token) : null;
   }
 
+  /** The live link's URL for a team the caller already verified, or null while it is off. */
+  async urlForTeam(teamId: string): Promise<string | null> {
+    const link = await this.prisma.teamGuestLink.findUnique({ where: { teamId } });
+    return link ? this.toInfo(link.token).url : null;
+  }
+
   // Idempotent: a second « activer » returns the live link untouched and
   // writes no audit row, since nothing was granted.
   async enable(clubId: string, teamId: string, userId: string): Promise<{ url: string }> {

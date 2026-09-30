@@ -1,5 +1,7 @@
 import {
+  DEFAULT_CANCELLATION_TEMPLATE,
   DEFAULT_REMINDER_TEMPLATE,
+  DEFAULT_UPDATE_TEMPLATE,
   WHATSAPP_TEMPLATE_EXAMPLES,
   WHATSAPP_TEMPLATE_MAX_LENGTH,
   contentKey,
@@ -100,5 +102,52 @@ describe('contentKey', () => {
   it('changes when a message variable changes', () => {
     const vars = WHATSAPP_TEMPLATE_EXAMPLES.MATCH;
     expect(contentKey({ ...vars, event_time: '16:00' })).not.toBe(contentKey(vars));
+  });
+});
+
+describe('update and cancellation templates', () => {
+  it('the default update reads like the reminder, with the RDV line dropped for a training', () => {
+    const lines = renderTemplate(
+      DEFAULT_UPDATE_TEMPLATE,
+      WHATSAPP_TEMPLATE_EXAMPLES.TRAINING,
+    ).split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain('Changement');
+    expect(validateTemplate(DEFAULT_UPDATE_TEMPLATE, 'UPDATE')).toEqual({ ok: true });
+  });
+
+  it('renders the default cancellation as one line, with no link', () => {
+    expect(
+      renderTemplate(DEFAULT_CANCELLATION_TEMPLATE, {
+        ...WHATSAPP_TEMPLATE_EXAMPLES.MATCH,
+        link: null,
+      }),
+    ).toBe("❌ Match contre ES Vertou du sam. 4 oct. : c'est annulé. On te tient au courant !");
+    expect(validateTemplate(DEFAULT_CANCELLATION_TEMPLATE, 'CANCELLATION')).toEqual({ ok: true });
+  });
+
+  it('a cancellation does not need the link, nor keep it off a droppable line', () => {
+    expect(validateTemplate('Annulé', 'CANCELLATION')).toEqual({ ok: true });
+    expect(validateTemplate('{opponent} {link}', 'CANCELLATION')).toEqual({ ok: true });
+  });
+
+  it('a cancellation still refuses an unknown variable and an over-long text', () => {
+    expect(validateTemplate('Annulé {nope}', 'CANCELLATION')).toEqual({
+      ok: false,
+      code: 'UNKNOWN_VARIABLE',
+      variable: 'nope',
+    });
+    expect(validateTemplate('a'.repeat(1001), 'CANCELLATION')).toEqual({
+      ok: false,
+      code: 'TOO_LONG',
+    });
+  });
+
+  it('an update keeps the reminder’s link rules', () => {
+    expect(validateTemplate('Changement', 'UPDATE')).toEqual({ ok: false, code: 'MISSING_LINK' });
+    expect(validateTemplate('{meeting_time} {link}', 'UPDATE')).toEqual({
+      ok: false,
+      code: 'LINK_ON_DROPPABLE_LINE',
+    });
   });
 });
