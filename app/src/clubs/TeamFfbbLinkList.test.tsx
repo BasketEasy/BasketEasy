@@ -20,9 +20,12 @@ describe('TeamFfbbLinkList', () => {
   it('shows nothing for a non-manager when there are no links', async () => {
     server.use(http.get('/api/clubs/club-1/teams/team-1/ffbb-links', () => HttpResponse.json([])));
 
-    const { container } = renderList(false);
+    renderList(false);
 
-    await waitFor(() => expect(container).not.toHaveTextContent('Compétitions FFBB liées'));
+    // Neither the empty line nor the add row a manager gets.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/aucune compétition ffbb liée/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('shows an empty-state line and the add row for a manager', async () => {
@@ -51,7 +54,8 @@ describe('TeamFfbbLinkList', () => {
 
     expect(await screen.findByText('Seniors M D3')).toBeInTheDocument();
     expect(screen.getByText('Compétition liée')).toBeInTheDocument();
-    expect(screen.getByText('Compétitions FFBB liées (2)')).toBeInTheDocument();
+    // No heading of its own: the team page's accordion trigger is the heading.
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /importer le calendrier ffbb/i }),
     ).toBeInTheDocument();

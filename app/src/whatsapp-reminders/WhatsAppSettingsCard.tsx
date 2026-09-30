@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
@@ -10,7 +10,6 @@ import { SelectField } from '@basketeasy/ui/select-field';
 import { Card } from '@basketeasy/ui/card';
 import { FieldError } from '@basketeasy/ui/field-error';
 import { QueryError } from '@basketeasy/ui/query-error';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SegmentedControl } from '@basketeasy/ui/segmented-control';
 import { Skeleton } from '@basketeasy/ui/skeleton';
 import type { TemplateEditorHandle } from '@basketeasy/ui/template-editor';
@@ -86,32 +85,25 @@ const KIND_COPY: Record<EventShareType, { label: string; hint: string }> = {
  * and cancellation), edited with variables as labelled chips (never `{…}`
  * codes) and previewed for a match and a training, so the rule « a line whose
  * information is empty is dropped » is visible before anyone shares anything.
+ *
+ * No heading and no card of its own: it is the content of the team page's
+ * « Message WhatsApp » accordion item.
  */
 export function WhatsAppSettingsCard({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, isLoading, refetch } = useTeamWhatsAppSettings(clubId, teamId);
-  const heading = <SectionHeading as="h2">Message WhatsApp</SectionHeading>;
-
-  let body: ReactNode;
   if (isError) {
-    body = (
+    return (
       <QueryError
         title="Message indisponible"
         description="Le modèle de message n’a pas pu être chargé."
         onRetry={() => refetch()}
       />
     );
-  } else if (isLoading || data === undefined) {
-    body = <Skeleton className="h-40 w-full" />;
-  } else {
-    body = <TemplateForm clubId={clubId} teamId={teamId} saved={data} />;
   }
-
-  return (
-    <section className="flex flex-col gap-3">
-      {heading}
-      {body}
-    </section>
-  );
+  if (isLoading || data === undefined) {
+    return <Skeleton className="h-40 w-full" />;
+  }
+  return <TemplateForm clubId={clubId} teamId={teamId} saved={data} />;
 }
 
 function TemplateForm({
@@ -210,7 +202,7 @@ function TemplateForm({
   };
 
   return (
-    <Card variant="panel" className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <form
         noValidate
         onSubmit={(e) => {
@@ -373,7 +365,7 @@ function TemplateForm({
           </Text>
         </Card>
       </div>
-    </Card>
+    </div>
   );
 }
 

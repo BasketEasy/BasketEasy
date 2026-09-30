@@ -1,10 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { Card } from '@basketeasy/ui/card';
 import { ConfirmDialog } from '@basketeasy/ui/confirm-dialog';
 import { Input } from '@basketeasy/ui/input';
 import { QueryError } from '@basketeasy/ui/query-error';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Skeleton } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
@@ -26,6 +24,10 @@ const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 
  * who never made an account. The card always says what the link exposes:
  * whoever holds it can answer for anyone, which the coach reviews through the
  * « via lien » mark and the history on the event roster.
+ *
+ * No heading and no card of its own: it is the content of the team page's
+ * « Lien invité » accordion item, whose trigger is the heading and whose
+ * flush card is the surface.
  */
 export function TeamGuestLinkSettings({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, isLoading, refetch } = useTeamGuestLink(clubId, teamId);
@@ -61,21 +63,18 @@ export function TeamGuestLinkSettings({ clubId, teamId }: { clubId: string; team
   let body: ReactNode;
   if (isError) {
     return (
-      <section className="flex flex-col gap-3">
-        <SectionHeading as="h2">Lien de réponse sans compte</SectionHeading>
-        <QueryError
-          title="Lien indisponible"
-          description="Le lien de réponse de l’équipe n’a pas pu être chargé."
-          onRetry={() => refetch()}
-        />
-      </section>
+      <QueryError
+        title="Lien indisponible"
+        description="Le lien de réponse de l’équipe n’a pas pu être chargé."
+        onRetry={() => refetch()}
+      />
     );
   }
   if (isLoading || data === undefined) {
     body = <Skeleton className="h-24 w-full" />;
   } else if (data === null) {
     body = (
-      <Card variant="panel" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <Text variant="meta" size="sm">
           Un lien à poster une fois dans le groupe WhatsApp : les joueurs sans compte y choisissent
           leur nom et répondent aux événements des 14 prochains jours.
@@ -95,12 +94,12 @@ export function TeamGuestLinkSettings({ clubId, teamId }: { clubId: string; team
         >
           Activer le lien
         </Button>
-      </Card>
+      </div>
     );
   } else {
     const { url } = data;
     body = (
-      <Card variant="panel" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           <Input
             readOnly
@@ -155,14 +154,9 @@ export function TeamGuestLinkSettings({ clubId, teamId }: { clubId: string; team
             }
           />
         </div>
-      </Card>
+      </div>
     );
   }
 
-  return (
-    <section className="flex flex-col gap-3">
-      <SectionHeading as="h2">Lien de réponse sans compte</SectionHeading>
-      {body}
-    </section>
-  );
+  return body;
 }

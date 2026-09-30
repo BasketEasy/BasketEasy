@@ -48,6 +48,14 @@ describe('TeamGuestLinkSettings', () => {
     expect(screen.queryByLabelText('Lien de réponse')).not.toBeInTheDocument();
   });
 
+  it('renders no heading of its own (the accordion trigger is the heading)', async () => {
+    serveLink(null);
+    renderCard();
+
+    await screen.findByRole('button', { name: 'Activer le lien' });
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
   it('enables the link and shows its URL', async () => {
     serveLink(null);
     let posted = false;

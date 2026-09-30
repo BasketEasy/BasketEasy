@@ -1,9 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
-import { Badge } from '@basketeasy/ui/badge';
-import { Card } from '@basketeasy/ui/card';
+import { FactTile } from '@basketeasy/ui/fact-tile';
+import { WarningIcon } from '@basketeasy/ui/icons/warning';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
-import { Text } from '@basketeasy/ui/text';
 import { WhatsAppShareAction, type ConfirmShare } from './WhatsAppShareAction';
 import { useConfirmCancellation, useTeamPendingCancellations } from './useTeamPendingCancellations';
 
@@ -16,6 +15,9 @@ import { useConfirmCancellation, useTeamPendingCancellations } from './useTeamPe
  * nothing (a jump above the tabs would be worse than a card arriving late),
  * and an empty result is the normal case and renders nothing too; that is not
  * an error falling through, which gets its own compact `QueryError`.
+ *
+ * Each cancellation is a `FactTile`: accent while it still has to be shared
+ * (a thing only this manager can fix), neutral once it was.
  */
 export function TeamPendingCancellations({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, refetch } = useTeamPendingCancellations(clubId, teamId);
@@ -45,38 +47,33 @@ export function TeamPendingCancellations({ clubId, teamId }: { clubId: string; t
       {data.map((cancellation) => {
         const confirmThis: ConfirmShare = (platform, callbacks) =>
           confirm({ shareId: cancellation.shareId, platform }, callbacks);
+        const isSent = cancellation.status.state === 'SENT';
         return (
-          <Card
-            key={cancellation.shareId}
-            id={`partage-${cancellation.shareId}`}
-            variant="inset"
-            className="flex flex-col gap-3"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="soft"
-                tone={cancellation.status.state === 'SENT' ? 'structure' : 'brand'}
-              >
-                {cancellation.status.state === 'SENT'
+          // The id is the `?partage=` anchor, on a wrapper since a tile takes none.
+          <div key={cancellation.shareId} id={`partage-${cancellation.shareId}`}>
+            <FactTile
+              tone={isSent ? 'neutral' : 'accent'}
+              icon={<WarningIcon aria-hidden="true" className="h-5 w-5" />}
+              label={`${cancellation.eventName}, ${cancellation.eventDate}`}
+              detail={
+                isSent
                   ? 'Annulation envoyée'
-                  : 'Annulation à partager'}
-              </Badge>
-              <Text variant="label" size="sm">
-                {cancellation.eventName}, {cancellation.eventDate}
-              </Text>
-            </div>
-            <Text variant="meta" size="sm">
-              L’événement a été supprimé alors que le groupe WhatsApp en avait été prévenu.
-            </Text>
-            <WhatsAppShareAction
-              message={cancellation.message}
-              isSent={cancellation.status.state === 'SENT'}
-              confirm={confirmThis}
-              // Only the card being confirmed shows a spinner, not every card.
-              isConfirming={isPending && confirming?.shareId === cancellation.shareId}
-              focusOnMount={focusedShareId === cancellation.shareId}
+                  : 'Supprimé alors que le groupe WhatsApp en avait été prévenu.'
+              }
+              actions={
+                <div className="min-w-0 flex-1">
+                  <WhatsAppShareAction
+                    message={cancellation.message}
+                    isSent={isSent}
+                    confirm={confirmThis}
+                    // Only the tile being confirmed shows a spinner, not every tile.
+                    isConfirming={isPending && confirming?.shareId === cancellation.shareId}
+                    focusOnMount={focusedShareId === cancellation.shareId}
+                  />
+                </div>
+              }
             />
-          </Card>
+          </div>
         );
       })}
     </section>

@@ -52,6 +52,14 @@ describe('WhatsAppSettingsCard', () => {
     expect(box).not.toHaveTextContent('{');
   });
 
+  it('renders no heading of its own (the accordion trigger is the heading)', async () => {
+    serve(null);
+    renderCard();
+
+    await editor();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
   it('previews a match with the RDV line and a training without it', async () => {
     serve(null);
     const user = userEvent.setup();
