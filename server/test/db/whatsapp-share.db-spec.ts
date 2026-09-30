@@ -49,7 +49,7 @@ describe('WhatsApp share against Postgres', () => {
     ).rejects.toMatchObject({ code: 'P2002' });
   });
 
-  it('cascades with the event, and keeps the row when the sender is erased', async () => {
+  it('keeps the row when the sender is erased, and detaches it (not deletes it) when the event goes', async () => {
     const { team, event } = await setup();
     const user = await createUser();
     await prisma.eventShare.create({
@@ -65,8 +65,12 @@ describe('WhatsApp share against Postgres', () => {
     expect(
       await prisma.eventShare.findFirstOrThrow({ where: { eventId: event.id } }),
     ).toMatchObject({ sentByUserId: null });
+    // SetNull, not Cascade: a CANCELLATION must outlive its event, so
+    // deleteEvent removes the REMINDER/UPDATE rows itself (prepareCancellations).
     await prisma.event.delete({ where: { id: event.id } });
-    expect(await prisma.eventShare.count()).toBe(0);
+    expect(await prisma.eventShare.findFirstOrThrow({ where: { teamId: team.id } })).toMatchObject({
+      eventId: null,
+    });
   });
 
   it('leaves one sender when two admins confirm at once', async () => {
