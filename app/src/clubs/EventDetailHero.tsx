@@ -38,8 +38,8 @@ export function EventDetailHero({
   const isMatch = event.type === 'MATCH';
   const hasBadges = (isMatch && event.venue) || event.isImported || !event.timeConfirmed;
   return (
-    <Card className="flex flex-col gap-3.5 p-4 md:flex-row md:items-center md:gap-6 md:p-6">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <Card className="flex flex-col gap-3.5 p-4 md:grid md:grid-cols-2 md:items-center md:gap-6 md:p-6">
+      <div className="flex min-w-0 flex-col gap-2">
         {hasBadges && (
           <div className="flex flex-wrap items-center gap-2">
             {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
@@ -64,7 +64,7 @@ export function EventDetailHero({
           {event.timeConfirmed ? formatEventTime(event.startsAt) : 'heure à confirmer'}
         </Text>
       </div>
-      <div className="md:w-80 md:shrink-0">
+      <div>
         <EventHeroLocation clubId={clubId} teamId={teamId} event={event} canManage={canManage} />
       </div>
     </Card>
