@@ -58,6 +58,7 @@ import { subjectLabel } from '../common/notification-subject';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { voteClosesAt, voteOpensAt } from '../common/vote-window';
 import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 import { ListEventsDto } from './dto/list-events.dto';
@@ -71,12 +72,6 @@ const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
 // distant `until` date can't be used to write an unbounded number of rows.
 const MAX_RECURRING_OCCURRENCES = 104;
-// Best/worst player voting window, both ends measured from Event.startsAt
-// and enforced server-side in castVote: opens an hour after kickoff (nobody
-// has anything meaningful to vote on the moment the whistle blows) and
-// closes five days later.
-const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
-const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
 // Allowlisted scoresheet formats and their storageKey file extension — kept
 // as one map so the content-type check and the extension picked for the
 // object key can never disagree. A scoresheet capture may be a PDF export
@@ -1165,7 +1160,7 @@ export class EventsService {
   }
 
   // Anonymous peer voting — see the match interface spec's Voting visibility
-  // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS after kickoff
+  // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS (common/vote-window.ts) after kickoff
   // (players are still on court right at the whistle) and closes
   // VOTE_CLOSE_DELAY_MS after kickoff, both enforced here, not just
   // client-displayed. Only a roster member both marked GOING on this event's
@@ -1186,12 +1181,10 @@ export class EventsService {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
     const now = new Date();
-    const voteOpensAt = new Date(event.startsAt.getTime() + VOTE_OPEN_DELAY_MS);
-    const voteClosesAt = new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
-    if (now < voteOpensAt) {
+    if (now < voteOpensAt(event.startsAt)) {
       throw new BadRequestException('Le vote ouvre 1h après le début du match');
     }
-    if (now > voteClosesAt) {
+    if (now > voteClosesAt(event.startsAt)) {
       throw new BadRequestException('Le vote est fermé pour ce match');
     }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
@@ -1244,7 +1237,7 @@ export class EventsService {
     if (event.type !== EventType.MATCH) {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
-    const voteHasEnded = new Date() > new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
+    const voteHasEnded = new Date() > voteClosesAt(event.startsAt);
     const [myTeamPlayer, votes, rosterSize] = await Promise.all([
       this.findMyTeamPlayer(teamId, userId),
       this.prisma.eventVote.findMany({

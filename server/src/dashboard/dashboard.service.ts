@@ -8,13 +8,21 @@ import type {
   EventType,
   EventVenue,
 } from '@basketeasy/types/events';
-import type { ActionItem, MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
+import type { EventMeetingPlan, EventTravelMode } from '@basketeasy/types/meeting-points';
+import type {
+  ActionItem,
+  MyAgendaEvent,
+  MyAgendaVote,
+  MyDashboardSummary,
+} from '@basketeasy/types/my-dashboard';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeEventRsvpSummaries } from '../common/event-rsvp-summary';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { deriveMatchResult } from '../common/match-result';
 import { assertCanActForPlayer } from '../common/acting-as';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
+import { voteClosesAt, voteOpensAt } from '../common/vote-window';
+import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_AGENDA_WINDOW_DAYS = 7;
@@ -40,6 +48,19 @@ type DashboardScope = {
   memberClubIds: Set<string>;
   adminGrants: { teamId: string }[];
   rosterEntries: { id: string; teamId: string }[];
+  /**
+   * The dashboard is read for a child (a guardian persona), not by the
+   * player themself: votes stay the player's own (guardian design decision 9),
+   * so such a reader never gets a vote to cast.
+   */
+  isGuardianPersona: boolean;
+};
+
+type VoteRow = {
+  eventId: string;
+  category: 'BEST' | 'WORST';
+  voterTeamPlayerId: string;
+  votedTeamPlayerId: string;
 };
 
 type ActionItemEventTeam = { name: string; clubTeams: { club: { id: string; name: string } }[] };
@@ -54,7 +75,10 @@ type ActionItemEvent = {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly meetingPoints: MeetingPointsService,
+  ) {}
 
   // Direct Prisma queries rather than reaching into TeamsService/EventsService
   // internals — CLAUDE.md's Events section notes the codebase's established
@@ -68,9 +92,10 @@ export class DashboardService {
   ): Promise<MyDashboardSummary> {
     const range = this.resolveRange(from, to);
 
-    const { adminClubIds, memberClubIds, adminGrants, rosterEntries } = forPlayerId
-      ? await this.resolvePersonaScope(userId, forPlayerId)
-      : await this.resolveOwnScope(userId);
+    const { adminClubIds, memberClubIds, adminGrants, rosterEntries, isGuardianPersona } =
+      forPlayerId
+        ? await this.resolvePersonaScope(userId, forPlayerId)
+        : await this.resolveOwnScope(userId);
     const teamIds = Array.from(
       new Set([...adminGrants.map((g) => g.teamId), ...rosterEntries.map((r) => r.teamId)]),
     );
@@ -116,12 +141,23 @@ export class DashboardService {
     const rsvpsByEventId = new Map(rsvps.map((r) => [r.eventId, r]));
     const convokedEventIds = new Set(convocations.map((c) => c.eventId));
 
-    const [rsvpSummaries, logisticsAssignees, { resultsByEventId, myStatsByEventId }] =
+    const [rsvpSummaries, logisticsAssignees, { resultsByEventId, myStatsByEventId }, plans] =
       await Promise.all([
         this.resolveEventRosterSummaries(teamIds, events),
         this.resolveLogisticsAssignees(events),
         this.resolveMatchResults(events, teamPlayerIds),
+        // The same helper EventsService uses, so the RDV time can't differ
+        // between the home and the match page.
+        this.meetingPoints.resolvePlansAcrossTeams(events),
       ]);
+    const votesByEventId = await this.resolveVotes({
+      events,
+      rosterEntries,
+      rsvpsByEventId,
+      convokedEventIds,
+      rsvpSummaries,
+      isGuardianPersona,
+    });
 
     const actionItems = await this.resolveActionItems(
       adminGrants.map((g) => g.teamId),
@@ -144,6 +180,8 @@ export class DashboardService {
           logisticsAssignees,
           resultsByEventId.get(event.id) ?? null,
           myStatsByEventId.get(event.id) ?? null,
+          votesByEventId.get(event.id) ?? null,
+          plans.get(event.id) ?? null,
         ),
       ),
       actionItems,
@@ -170,6 +208,7 @@ export class DashboardService {
       memberClubIds: new Set(allMemberships.map((m) => m.clubId)),
       adminGrants,
       rosterEntries,
+      isGuardianPersona: false,
     };
   }
 
@@ -183,13 +222,18 @@ export class DashboardService {
     await assertCanActForPlayer(this.prisma, userId, playerId);
     const player = await this.prisma.player.findUniqueOrThrow({
       where: { id: playerId },
-      select: { clubId: true, teamPlayers: { select: { id: true, teamId: true } } },
+      select: {
+        clubId: true,
+        userId: true,
+        teamPlayers: { select: { id: true, teamId: true } },
+      },
     });
     return {
       adminClubIds: [],
       memberClubIds: new Set([player.clubId]),
       adminGrants: [],
       rosterEntries: player.teamPlayers,
+      isGuardianPersona: player.userId !== userId,
     };
   }
 
@@ -491,6 +535,119 @@ export class DashboardService {
     return { resultsByEventId, myStatsByEventId };
   }
 
+  // The peer vote on every played match in the batch, bounded: one
+  // eventVote.findMany for all of them, plus one teamPlayer.findMany for the
+  // winners' names, and only when some MVP is public. The eligible roster
+  // size comes from rsvpSummaries (already one groupBy for the batch), the
+  // persona's RSVP and convocation from the rows getDashboard already holds.
+  //
+  // A WORST row is read for its voter only — votesCast counts distinct voters
+  // across both categories, matching EventVoteResults — and its nominee is
+  // never looked at: « joueur en difficulté » stays on the match page. The
+  // voter id is only compared with the persona's own roster slot, never
+  // returned, so voting stays anonymous.
+  private async resolveVotes({
+    events,
+    rosterEntries,
+    rsvpsByEventId,
+    convokedEventIds,
+    rsvpSummaries,
+    isGuardianPersona,
+  }: {
+    events: { id: string; teamId: string; type: EventType; startsAt: Date }[];
+    rosterEntries: { id: string; teamId: string }[];
+    rsvpsByEventId: Map<string, { status: EventRsvpStatus }>;
+    convokedEventIds: Set<string>;
+    rsvpSummaries: Map<string, EventRsvpSummary>;
+    isGuardianPersona: boolean;
+  }): Promise<Map<string, MyAgendaVote>> {
+    const now = new Date();
+    const played = events.filter((e) => e.type === 'MATCH' && e.startsAt <= now);
+    if (played.length === 0) {
+      return new Map();
+    }
+    const votes: VoteRow[] = await this.prisma.eventVote.findMany({
+      where: { eventId: { in: played.map((e) => e.id) } },
+      select: { eventId: true, category: true, voterTeamPlayerId: true, votedTeamPlayerId: true },
+    });
+    const teamPlayerIdByTeamId = new Map(rosterEntries.map((r) => [r.teamId, r.id]));
+    const myTeamPlayerIds = new Set(rosterEntries.map((r) => r.id));
+
+    const drafts = played.map((event) => {
+      const eventVotes = votes.filter((v) => v.eventId === event.id);
+      const best = eventVotes.filter((v) => v.category === 'BEST');
+      const myTeamPlayerId = teamPlayerIdByTeamId.get(event.teamId) ?? null;
+      const hasVoted =
+        myTeamPlayerId !== null && best.some((v) => v.voterTeamPlayerId === myTeamPlayerId);
+      const closesAt = voteClosesAt(event.startsAt);
+      const isOpen = now >= voteOpensAt(event.startsAt) && now <= closesAt;
+      const canVote =
+        isOpen &&
+        !isGuardianPersona &&
+        myTeamPlayerId !== null &&
+        rsvpsByEventId.get(event.id)?.status === 'GOING' &&
+        convokedEventIds.has(event.id);
+      const isPublic = hasVoted || now > closesAt;
+      return {
+        event,
+        hasVoted,
+        canVote,
+        closesAt,
+        votesCast: new Set(eventVotes.map((v) => v.voterTeamPlayerId)).size,
+        winnerIds: isPublic ? topVoted(best) : null,
+      };
+    });
+
+    const winnerIds = Array.from(new Set(drafts.flatMap((d) => d.winnerIds ?? [])));
+    const winners =
+      winnerIds.length > 0
+        ? await this.prisma.teamPlayer.findMany({
+            where: { id: { in: winnerIds } },
+            select: { id: true, player: { select: { firstName: true, lastName: true } } },
+          })
+        : [];
+    const nameById = new Map(winners.map((w) => [w.id, w.player]));
+
+    return new Map(
+      drafts.map((draft) => [
+        draft.event.id,
+        {
+          canVote: draft.canVote,
+          hasVoted: draft.hasVoted,
+          closesAt: draft.closesAt.toISOString(),
+          votesCast: draft.votesCast,
+          totalVoters: rsvpSummaries.get(draft.event.id)?.rosterSize ?? 0,
+          mvp:
+            draft.winnerIds === null
+              ? null
+              : draft.winnerIds
+                  .flatMap((id) => {
+                    const player = nameById.get(id);
+                    return player
+                      ? [
+                          {
+                            firstName: player.firstName,
+                            lastName: player.lastName,
+                            isMe: myTeamPlayerIds.has(id),
+                          },
+                        ]
+                      : [];
+                  })
+                  .sort(
+                    (a, b) =>
+                      a.lastName.localeCompare(b.lastName, 'fr') ||
+                      a.firstName.localeCompare(b.firstName, 'fr'),
+                  )
+                  .map(({ firstName, lastName, isMe }) => ({
+                    firstName,
+                    lastInitial: lastName.charAt(0).toUpperCase(),
+                    isMe,
+                  })),
+        },
+      ]),
+    );
+  }
+
   // Same fallback reasoning as EventsService's twin: every id passed to
   // resolveEventRosterSummaries gets an entry (its own eventIds.length === 0
   // short-circuit aside), so this only spares call sites a non-null
@@ -574,6 +731,7 @@ export class DashboardService {
     memberClubIds: Set<string>,
     myRsvp: {
       status: EventRsvpStatus;
+      travelMode: EventTravelMode;
       respondedAt: Date;
       respondedBy: { id: string; firstName: string | null; lastName: string | null } | null;
     } | null,
@@ -583,6 +741,8 @@ export class DashboardService {
     logisticsAssignees: Map<string, EventLogisticsAssignee>,
     result: EventMatchResult | null,
     myMatchStats: EventMatchPlayerStats | null,
+    vote: MyAgendaVote | null,
+    meetingPlan: EventMeetingPlan | null,
   ): MyAgendaEvent {
     // Prefer the club the caller actually belongs to (see
     // TeamsService.toMyTeamSummary for the same navigation-safety reasoning),
@@ -623,6 +783,28 @@ export class DashboardService {
       },
       result,
       myMatchStats,
+      vote,
+      meetingPlan,
+      // Same rule as TeamEvent.myTravelMode: only a GOING answer to a MATCH
+      // has a way of getting there.
+      myTravelMode:
+        event.type === 'MATCH' && myRsvp?.status === 'GOING'
+          ? (myRsvp.travelMode ?? 'MEETING_POINT')
+          : null,
     };
   }
+}
+
+/** The BEST nominees with the most votes — several on a tie, none when nobody voted. */
+function topVoted(best: VoteRow[]): string[] {
+  const counts = new Map<string, number>();
+  for (const vote of best) {
+    counts.set(vote.votedTeamPlayerId, (counts.get(vote.votedTeamPlayerId) ?? 0) + 1);
+  }
+  const max = Math.max(0, ...counts.values());
+  return max === 0
+    ? []
+    : Array.from(counts)
+        .filter(([, n]) => n === max)
+        .map(([id]) => id);
 }

@@ -295,6 +295,37 @@ export class MeetingPointsService {
   }
 
   /**
+   * `resolvePlans` for a batch spanning several teams (the dashboard agenda):
+   * still two queries, whatever the number of teams — every team's and owner
+   * club's settings in one, the matches' EventMeeting rows in the other.
+   */
+  async resolvePlansAcrossTeams(
+    events: MeetingEventRow[],
+  ): Promise<Map<string, EventMeetingPlan | null>> {
+    const plans = new Map<string, EventMeetingPlan | null>(events.map((e) => [e.id, null]));
+    const matches = events.filter((e) => e.type === EventType.MATCH);
+    if (matches.length === 0) return plans;
+
+    const [contexts, states] = await Promise.all([
+      this.loadTeamContexts(Array.from(new Set(matches.map((e) => e.teamId)))),
+      this.prisma.eventMeeting.findMany({
+        where: { eventId: { in: matches.map((e) => e.id) } },
+      }),
+    ]);
+    const stateByEventId = new Map(states.map((s) => [s.eventId, s]));
+    const staleIds: string[] = [];
+    for (const event of matches) {
+      const context = contexts.get(event.teamId);
+      if (!context) continue;
+      const state = stateByEventId.get(event.id) ?? null;
+      plans.set(event.id, resolveMeetingPlan(event, state, context.team, context.club));
+      if (isTravelStale(event, state, context.team, context.club)) staleIds.push(event.id);
+    }
+    this.enqueueStale(staleIds);
+    return plans;
+  }
+
+  /**
    * A team manager's per-match adjustments. Each field is applied only when
    * present. Answers with the resulting plan; the client refetches the
    * event for everything else.

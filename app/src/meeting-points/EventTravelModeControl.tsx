@@ -5,7 +5,7 @@ import { Divider } from '@basketeasy/ui/divider';
 import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { TeamEvent } from '@basketeasy/types/events';
+import type { EventType } from '@basketeasy/types/events';
 import type {
   EventMeetingPlan,
   EventTravelMode,
@@ -130,6 +130,21 @@ export function TravelModeChoice({
 }
 
 /**
+ * What the control reads off an event: the narrow shape a `TeamEvent` and a
+ * home agenda event (`MyAgendaEvent`, mapped `eventId` → `id`) both satisfy,
+ * so the event page's decision band and the home's hero render this one
+ * component instead of two wirings of `TravelModeChoice`.
+ */
+export interface TravelModeEvent {
+  id: string;
+  type: EventType;
+  location: string;
+  locationName: string | null;
+  meetingPlan: EventMeetingPlan | null;
+  myTravelMode: EventTravelMode | null;
+}
+
+/**
  * « Comment venez-vous ? » — for a player who answered « Présent » to a match
  * with a meeting point. Inline radio cards rather than a dialog: a
  * single-field, low-risk, high-frequency answer, like the RSVP control above
@@ -148,7 +163,7 @@ export function EventTravelModeControl({
 }: {
   clubId: string;
   teamId: string;
-  event: TeamEvent;
+  event: TravelModeEvent;
   /** A rule above the question — for the decision band, where it follows the RSVP answer. */
   divided?: boolean;
 }) {

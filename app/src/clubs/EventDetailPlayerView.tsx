@@ -7,6 +7,7 @@ import { EventDecisionBand } from './EventDecisionBand';
 import { EventDetailHero } from './EventDetailHero';
 import { EventLogisticsCard } from './EventLogisticsCard';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
+import { MatchStatsTable } from './MatchStatsTable';
 import { MatchVoteTab } from './MatchVoteTab';
 import { useEventRoster } from './useEventRoster';
 import { EVENT_SECTION_IDS, EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
@@ -128,6 +129,12 @@ export function EventDetailPlayerView({
           className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
         >
           <SectionHeading as="h2">Après la rencontre</SectionHeading>
+          <MatchStatsTable
+            clubId={clubId}
+            teamId={teamId}
+            eventId={event.id}
+            hasStarted={new Date(event.startsAt) <= new Date()}
+          />
           <MatchScoresheetTab
             clubId={clubId}
             teamId={teamId}

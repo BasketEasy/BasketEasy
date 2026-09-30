@@ -576,3 +576,46 @@ describe('EventDetailPage — manager accordion', () => {
     expect(button).toHaveAccessibleName(/présents sur \d+/);
   });
 });
+
+describe('EventDetailPage — Stats du match', () => {
+  const playedMatch = { ...matchEvent, startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString() };
+  const statsUrl = '/api/clubs/club-1/teams/team-1/stats/matches/event-1';
+
+  it('fetches the match lines only once « Après la rencontre » is opened', async () => {
+    let requests = 0;
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage({ event: playedMatch });
+    server.use(
+      http.get(statsUrl, () => {
+        requests += 1;
+        return HttpResponse.json({
+          hasStats: true,
+          lines: [
+            {
+              teamPlayerId: 'tp-1',
+              firstName: 'Léa',
+              lastName: 'Moreau',
+              jerseyNumber: 7,
+              points: 14,
+              fouls: 2,
+              freeThrowPoints: 2,
+              twoPointPoints: 6,
+              threePointPoints: 6,
+              isMe: false,
+            },
+          ],
+        });
+      }),
+    );
+    renderWithProviders(<App />, { route });
+    const user = userEvent.setup();
+
+    const heading = await screen.findByRole('heading', { name: /après la rencontre/i });
+    expect(requests).toBe(0);
+
+    await user.click(within(heading).getByRole('button'));
+
+    expect(await screen.findByText('Léa M.')).toBeInTheDocument();
+    expect(requests).toBe(1);
+  });
+});

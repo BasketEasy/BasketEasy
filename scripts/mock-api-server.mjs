@@ -27,7 +27,8 @@
 //     "GET /api/clubs/club-1/teams": { "items": [{ "id": "team-1", "name": "Seniors M" }], "total": 1, "page": 1, "pageSize": 25 }
 //   }
 // A fixture entry's value may also be { "status": 404, "body": { ... } } to
-// mock an error response.
+// mock an error response. A "GET /api/me/dashboard" fixture's upcomingEvents
+// are filtered to the request's from/to, as the real API does.
 
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -127,6 +128,11 @@ const routeDefs = [
       myVote: { best: null, worst: null },
     }),
   ],
+  [
+    'GET',
+    '/api/clubs/:clubId/teams/:teamId/stats/matches/:eventId',
+    () => ({ hasStats: false, lines: [] }),
+  ],
   ['GET', '/api/me/teams', () => []],
   ['GET', '/api/me/dashboard', () => ({ totalPlayers: 0, upcomingEvents: [] })],
   // Polled on every protected page by the header bell, so it needs a default
@@ -206,6 +212,24 @@ function send(res, status, body) {
   res.end(json);
 }
 
+// The player home asks /me/dashboard for two windows (the next 14 days and
+// the last 30); like the real API, a dashboard fixture's upcomingEvents are
+// filtered to the request's from/to, so one fixture can hold both.
+function windowDashboard(body, query) {
+  const from = query.get('from');
+  const to = query.get('to');
+  if (!body || !Array.isArray(body.upcomingEvents) || (!from && !to)) return body;
+  const start = from ? new Date(from).getTime() : -Infinity;
+  const end = to ? new Date(to).getTime() : Infinity;
+  return {
+    ...body,
+    upcomingEvents: body.upcomingEvents.filter((event) => {
+      const at = new Date(event.startsAt).getTime();
+      return at >= start && at <= end;
+    }),
+  };
+}
+
 function main() {
   const { port, fixtures: fixturesPath } = parseArgs(process.argv.slice(2));
   const fixtures = loadFixtures(fixturesPath);
@@ -218,7 +242,12 @@ function main() {
       const entry = fixtures[key];
       const hasEnvelope =
         entry && typeof entry === 'object' && 'status' in entry && 'body' in entry;
-      return send(res, hasEnvelope ? entry.status : 200, hasEnvelope ? entry.body : entry);
+      const body = hasEnvelope ? entry.body : entry;
+      return send(
+        res,
+        hasEnvelope ? entry.status : 200,
+        key === 'GET /api/me/dashboard' ? windowDashboard(body, url.searchParams) : body,
+      );
     }
 
     for (const route of routeDefs) {

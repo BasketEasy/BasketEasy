@@ -13,6 +13,7 @@ import { EventPilotBand } from './EventPilotBand';
 import { EventRosterList } from './EventRosterList';
 import { EventRsvpControl } from './EventRsvpControl';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
+import { MatchStatsTable } from './MatchStatsTable';
 import { MatchVoteTab } from './MatchVoteTab';
 import { hasVoteWindowClosed, isVoteWindowOpen } from './voteWindow';
 import { EVENT_SECTION_IDS, EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
@@ -249,13 +250,21 @@ export function EventDetailManagerView({
             }
             className={scroll}
           >
-            <MatchScoresheetTab
-              clubId={clubId}
-              teamId={teamId}
-              event={event}
-              isRostered={isRostered}
-              canManage
-            />
+            <div className="flex flex-col gap-3.5">
+              <MatchStatsTable
+                clubId={clubId}
+                teamId={teamId}
+                eventId={event.id}
+                hasStarted={new Date(event.startsAt) <= new Date()}
+              />
+              <MatchScoresheetTab
+                clubId={clubId}
+                teamId={teamId}
+                event={event}
+                isRostered={isRostered}
+                canManage
+              />
+            </div>
           </SectionAccordionItem>
         )}
       </SectionAccordion>

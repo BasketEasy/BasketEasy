@@ -352,6 +352,38 @@ describe('MeetingPointsService', () => {
     });
   });
 
+  describe('resolvePlansAcrossTeams', () => {
+    it('resolves a batch spanning several teams in two queries', async () => {
+      prisma.team.findMany.mockResolvedValue([teamRow, { ...teamRow, id: 'team-2' }]);
+      prisma.eventMeeting.findMany.mockResolvedValue([
+        meeting({ eventId: 'event-2', travelMinutes: 23, travelRouteKey: clubRoute }),
+      ]);
+
+      const plans = await service.resolvePlansAcrossTeams([
+        match(),
+        match({ id: 'event-2', teamId: 'team-2' }),
+        match({ id: 'event-3', type: 'TRAINING' }),
+      ]);
+
+      expect(prisma.team.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['team-1', 'team-2'] } } }),
+      );
+      expect(prisma.team.findUnique).not.toHaveBeenCalled();
+      expect(prisma.eventMeeting.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1', 'event-2'] } },
+      });
+      expect(plans.get('event-2')?.meetsAt).toBe('2026-01-10T18:15:00.000Z');
+      expect(plans.get('event-3')).toBeNull();
+    });
+
+    it('skips every query for a batch of trainings', async () => {
+      const plans = await service.resolvePlansAcrossTeams([match({ type: 'TRAINING' })]);
+      expect(plans.get('event-1')).toBeNull();
+      expect(prisma.team.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe('setEventMeeting', () => {
     beforeEach(() => {
       prisma.event.findUnique.mockResolvedValue(stored());
