@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TeamCategory, Gender, TeamMemberRole } from '@prisma/client';
@@ -40,6 +41,8 @@ const FFBB_LINK_UNREACHABLE_MESSAGE =
 
 @Injectable()
 export class TeamsService {
+  private readonly logger = new Logger(TeamsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
@@ -90,7 +93,12 @@ export class TeamsService {
     try {
       const { competitionLabel } = await this.ffbbProvider.getMatchesForEngagement(ref);
       return { ref, competitionLabel };
-    } catch {
+    } catch (err) {
+      // The client only sees the generic message; the cause (WAF block, timeout,
+      // changed page payload) is what tells them apart.
+      this.logger.warn(
+        `FFBB link check failed for "${ref}": ${err instanceof Error ? err.message : String(err)}`,
+      );
       throw new BadRequestException({
         message: FFBB_LINK_UNREACHABLE_MESSAGE,
         code: 'FFBB_LINK_UNREACHABLE',
