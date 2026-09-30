@@ -86,7 +86,11 @@ export interface FfbbPouleStandings {
 
 /** Thrown by FfbbProvider implementations on any fetch/parse failure — never let a partial or garbage result propagate. */
 export class FfbbPageFormatError extends Error {
-  constructor(message: string) {
+  /** `status` is FFBB's HTTP status when the page answered with a non-2xx one. */
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
     super(message);
     this.name = 'FfbbPageFormatError';
   }
