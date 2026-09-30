@@ -202,7 +202,7 @@ describe('EventDetailPage — player view', () => {
     renderWithProviders(<App />, { route });
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i }),
+      await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i }),
     ).toBeInTheDocument();
 
     // The convocation is a sentence, not a bare badge.
@@ -248,7 +248,7 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('button', { name: /^modifier$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /convocation|convoquer le groupe/i })).toBeNull();
@@ -261,7 +261,7 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
     // …but « Qui vient ? » is still visible to the same audience as the event.
     expect(await screen.findByRole('heading', { name: /qui vient/i })).toBeInTheDocument();
@@ -284,7 +284,7 @@ describe('EventDetailPage — player view', () => {
     renderWithProviders(<App />, { route: trainingRoute });
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /u15 filles — entraînement/i }),
+      await screen.findByRole('heading', { level: 1, name: /^entraînement$/i }),
     ).toBeInTheDocument();
     expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /après la rencontre/i })).not.toBeInTheDocument();
@@ -298,7 +298,7 @@ describe('EventDetailPage — manager view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
 
     // Pilot band: the counts that used to sit behind the Effectif tab.
     expect(await screen.findByText('2 convoqué·es')).toBeInTheDocument();
@@ -341,7 +341,7 @@ describe('EventDetailPage — manager view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
   });
 
@@ -365,7 +365,7 @@ describe('EventDetailPage — manager view', () => {
     mockEventPage();
     const { unmount } = renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('heading', { name: /vote du match/i })).not.toBeInTheDocument();
     unmount();
 
@@ -455,7 +455,7 @@ describe('EventDetailPage — ?tab= deep links', () => {
 
     renderWithProviders(<App />, { route: `${route}?tab=nope` });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(scrollSpy).not.toHaveBeenCalled();
   });
 });

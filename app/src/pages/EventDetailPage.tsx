@@ -6,6 +6,7 @@ import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { EventBackLink, EventPageBar } from '../clubs/EventPageBar';
 import { EventDetailManagerView } from '../clubs/EventDetailManagerView';
 import { EventDetailPlayerView } from '../clubs/EventDetailPlayerView';
 import { hasVoteWindowClosed } from '../clubs/voteWindow';
@@ -132,40 +133,41 @@ export function EventDetailPage() {
   const canVoteNow = event.myConvocation && event.myRsvpStatus === 'GOING';
   const showVote = event.type === 'MATCH' && (canVoteNow || hasVoteWindowClosed(event.startsAt));
 
+  const backTo = `/clubs/${clubId}/teams/${teamId}?tab=events`;
   return (
-    <PageContainer size="lg">
+    <>
       {/* The origin recorded on the way in (e.g. from the dashboard agenda,
           which now links straight to the event) is handed on to the team
           page, so TeamDetailPage's origin-aware back link still resolves to
           where the journey actually started instead of falling back to
-          /my-teams. */}
-      <Button asChild variant="ghost" className="self-start">
-        <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`} state={navState}>
-          ← {team.name}
-        </Link>
-      </Button>
+          /my-teams. The bar is full-bleed under the header on a phone, so it
+          sits outside the container; the desktop link is inside it. */}
+      <EventPageBar to={backTo} state={navState} teamName={team.name} />
+      <PageContainer size="lg" top="bar">
+        <EventBackLink to={backTo} state={navState} teamName={team.name} />
 
-      {canManage ? (
-        <EventDetailManagerView
-          clubId={clubId!}
-          teamId={teamId!}
-          event={event}
-          teamName={team.name}
-          isRostered={isRostered}
-          showVote={showVote}
-          focusShare={cameFromShareNotification}
-        />
-      ) : (
-        <EventDetailPlayerView
-          clubId={clubId!}
-          teamId={teamId!}
-          event={event}
-          teamName={team.name}
-          isRostered={isRostered}
-          showVote={showVote}
-          childName={childName}
-        />
-      )}
-    </PageContainer>
+        {canManage ? (
+          <EventDetailManagerView
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            teamName={team.name}
+            isRostered={isRostered}
+            showVote={showVote}
+            focusShare={cameFromShareNotification}
+          />
+        ) : (
+          <EventDetailPlayerView
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            teamName={team.name}
+            isRostered={isRostered}
+            showVote={showVote}
+            childName={childName}
+          />
+        )}
+      </PageContainer>
+    </>
   );
 }

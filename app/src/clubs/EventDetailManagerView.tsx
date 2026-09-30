@@ -12,7 +12,7 @@ import { EventRosterList } from './EventRosterList';
 import { EventRsvpControl } from './EventRsvpControl';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchVoteTab } from './MatchVoteTab';
-import { EVENT_SECTION_IDS } from './useEventSectionAnchor';
+import { EVENT_SECTION_IDS, EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
 import { WhatsAppShareCard } from '../whatsapp-reminders/WhatsAppShareCard';
 
@@ -104,7 +104,10 @@ export function EventDetailManagerView({
 
       {isRostered && <CoachOwnRsvpCard clubId={clubId} teamId={teamId} event={event} />}
 
-      <section id={EVENT_SECTION_IDS.logistique} className="flex scroll-mt-20 flex-col gap-3.5">
+      <section
+        id={EVENT_SECTION_IDS.logistique}
+        className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+      >
         <SectionHeading as="h2">Logistique</SectionHeading>
         <EventLogisticsCard
           clubId={clubId}
@@ -116,7 +119,10 @@ export function EventDetailManagerView({
       </section>
 
       {isUpcoming && (
-        <section id={EVENT_SECTION_IDS.partage} className="flex scroll-mt-20 flex-col gap-3.5">
+        <section
+          id={EVENT_SECTION_IDS.partage}
+          className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+        >
           <SectionHeading as="h2">Partage WhatsApp</SectionHeading>
           <WhatsAppShareCard
             clubId={clubId}
@@ -140,7 +146,10 @@ export function EventDetailManagerView({
         </section>
       )}
 
-      <section id={EVENT_SECTION_IDS.presences} className="flex scroll-mt-20 flex-col gap-3.5">
+      <section
+        id={EVENT_SECTION_IDS.presences}
+        className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+      >
         <SectionHeading as="h2">
           {isMatch ? 'Effectif de la rencontre' : 'Effectif de la séance'}
         </SectionHeading>
@@ -153,7 +162,10 @@ export function EventDetailManagerView({
       </section>
 
       {showVote && (
-        <section id={EVENT_SECTION_IDS.vote} className="flex scroll-mt-20 flex-col gap-3.5">
+        <section
+          id={EVENT_SECTION_IDS.vote}
+          className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+        >
           <SectionHeading as="h2">Vote du match</SectionHeading>
           <MatchVoteTab clubId={clubId} teamId={teamId} event={event} />
         </section>
@@ -162,7 +174,7 @@ export function EventDetailManagerView({
       {isMatch && (
         <section
           id={EVENT_SECTION_IDS.apresLaRencontre}
-          className="flex scroll-mt-20 flex-col gap-3.5"
+          className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
         >
           <SectionHeading as="h2">Après la rencontre</SectionHeading>
           <MatchScoresheetTab

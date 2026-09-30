@@ -9,7 +9,7 @@ import { EventLogisticsCard } from './EventLogisticsCard';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchVoteTab } from './MatchVoteTab';
 import { useEventRoster } from './useEventRoster';
-import { EVENT_SECTION_IDS } from './useEventSectionAnchor';
+import { EVENT_SECTION_IDS, EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /**
  * The event page as a player reads it: one scroll, no tabs.
@@ -79,7 +79,10 @@ export function EventDetailPlayerView({
         />
       )}
 
-      <section id={EVENT_SECTION_IDS.logistique} className="flex scroll-mt-20 flex-col gap-3.5">
+      <section
+        id={EVENT_SECTION_IDS.logistique}
+        className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+      >
         <SectionHeading as="h2">S’y rendre</SectionHeading>
         <EventLogisticsCard
           clubId={clubId}
@@ -110,7 +113,10 @@ export function EventDetailPlayerView({
       )}
 
       {showVote && !isActingForChild && (
-        <section id={EVENT_SECTION_IDS.vote} className="flex scroll-mt-20 flex-col gap-3.5">
+        <section
+          id={EVENT_SECTION_IDS.vote}
+          className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+        >
           <SectionHeading as="h2">Vote du match</SectionHeading>
           <MatchVoteTab clubId={clubId} teamId={teamId} event={event} />
         </section>
@@ -119,7 +125,7 @@ export function EventDetailPlayerView({
       {isMatch && (
         <section
           id={EVENT_SECTION_IDS.apresLaRencontre}
-          className="flex scroll-mt-20 flex-col gap-3.5"
+          className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
         >
           <SectionHeading as="h2">Après la rencontre</SectionHeading>
           <MatchScoresheetTab

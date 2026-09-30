@@ -58,7 +58,7 @@ const dayFullFormatter = new Intl.DateTimeFormat('fr-FR', {
   year: 'numeric',
 });
 
-/** Formats an ISO date string as a full, spelled-out day, e.g. "Samedi 5 septembre 2026" — the event detail hero's date line, where the time-of-day is already carried by the TimeBlock beside it. */
+/** Formats an ISO date string as a full, spelled-out day, e.g. "Samedi 5 septembre 2026" — the event detail hero's date line, which appends the time itself. */
 export function formatEventDayFull(isoDate: string): string {
   const label = dayFullFormatter.format(new Date(isoDate));
   return label.charAt(0).toUpperCase() + label.slice(1);
