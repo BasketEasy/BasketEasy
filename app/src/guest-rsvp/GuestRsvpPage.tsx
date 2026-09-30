@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
@@ -17,6 +17,25 @@ import { useGuestPage } from './useGuestPage';
 import { useNoIndex } from './useNoIndex';
 
 /**
+ * `?src=wa` marks a visit that came through the shared WhatsApp message. Read
+ * once on mount into component state (attribution is per visit, so not
+ * localStorage) and stripped from the URL, so a copied address doesn't carry it.
+ */
+function useWhatsAppAttribution(): 'WHATSAPP' | undefined {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [via] = useState<'WHATSAPP' | undefined>(() =>
+    searchParams.get('src') === 'wa' ? 'WHATSAPP' : undefined,
+  );
+  useEffect(() => {
+    if (!searchParams.has('src')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('src');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  return via;
+}
+
+/**
  * `/r/:token` — a team's shared « réponse sans compte » link. Top level,
  * outside both route guards: a logged-in visitor sees this page too.
  */
@@ -26,6 +45,7 @@ export function GuestRsvpPage() {
   const { data, isLoading, isError, error, refetch } = useGuestPage(token);
   const { teamPlayerId: storedId, choose, reset } = useGuestIdentity(token);
   const [hasAnswered, setHasAnswered] = useState(false);
+  const via = useWhatsAppAttribution();
 
   // A remembered player who has since left the roster is treated as unset.
   const me = data?.roster.find((member) => member.teamPlayerId === storedId) ?? null;
@@ -78,6 +98,7 @@ export function GuestRsvpPage() {
                         event={event}
                         roster={data.roster}
                         teamPlayerId={me.teamPlayerId}
+                        via={via}
                         onAnswered={() => setHasAnswered(true)}
                       />
                     ))}

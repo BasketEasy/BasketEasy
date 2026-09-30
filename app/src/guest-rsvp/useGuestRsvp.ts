@@ -36,9 +36,17 @@ export function useGuestRsvpSet(token: string) {
 export function useGuestRsvpClear(token: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ eventId, teamPlayerId }: { eventId: string; teamPlayerId: string }) =>
+    mutationFn: ({
+      eventId,
+      teamPlayerId,
+      via,
+    }: {
+      eventId: string;
+      teamPlayerId: string;
+      via?: GuestRsvpRequest['via'];
+    }) =>
       apiClient.delete<GuestEvent>(
-        `/public/guest/${token}/events/${eventId}/rsvp?teamPlayerId=${encodeURIComponent(teamPlayerId)}`,
+        `/public/guest/${token}/events/${eventId}/rsvp?teamPlayerId=${encodeURIComponent(teamPlayerId)}${via ? `&via=${via}` : ''}`,
       ),
     onSuccess: (event) => storeEvent(queryClient, token, event),
     onError: (err) => refetchIfClosed(queryClient, token, err),

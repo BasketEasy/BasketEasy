@@ -14,5 +14,6 @@ import { TeamGuestLinkController } from './team-guest-link.controller';
   imports: [AuthModule, AuditModule, NotificationsModule, MeetingPointsModule],
   controllers: [TeamGuestLinkController, GuestRsvpController],
   providers: [GuestLinksService, GuestRsvpService, GuestRateLimiter, GuestLinkGuard],
+  exports: [GuestLinksService],
 })
 export class GuestLinksModule {}

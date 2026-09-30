@@ -25,6 +25,18 @@ const TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', {
   timeZone: TIMEZONE,
 });
 
+const SHORT_DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  timeZone: TIMEZONE,
+});
+
+/** e.g. "sam. 4 oct." */
+export function formatShortDate(date: Date): string {
+  return SHORT_DATE_FORMAT.format(date);
+}
+
 /** e.g. "20:30" */
 export function formatTime(date: Date): string {
   return TIME_FORMAT.format(date);
@@ -41,4 +53,12 @@ export function describeEvent(event: { type: EventType; opponentName: string | n
     return event.opponentName ? `le match contre ${event.opponentName}` : 'le match';
   }
   return 'l’entraînement';
+}
+
+/** e.g. "Match contre ASVEL" or "Entraînement" — a title, where describeEvent is a phrase. */
+export function titleEvent(event: { type: EventType; opponentName: string | null }): string {
+  if (event.type === 'MATCH') {
+    return event.opponentName ? `Match contre ${event.opponentName}` : 'Match';
+  }
+  return 'Entraînement';
 }

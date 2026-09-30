@@ -19,7 +19,9 @@ export function rsvpChangeLine(change: EventRsvpChangeEntry): string {
     change.status === 'GOING' && change.travelMode === 'DIRECT' ? ' (direct à la salle)' : '';
   const who =
     change.source === 'GUEST_LINK'
-      ? 'via lien'
+      ? change.via === 'WHATSAPP'
+        ? 'via lien (WhatsApp)'
+        : 'via lien'
       : change.respondedBy
         ? respondentName(change.respondedBy)
         : "via l'appli";

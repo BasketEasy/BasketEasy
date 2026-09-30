@@ -14,6 +14,7 @@ import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchVoteTab } from './MatchVoteTab';
 import { EVENT_SECTION_IDS } from './useEventSectionAnchor';
 import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
+import { WhatsAppShareCard } from '../whatsapp-reminders/WhatsAppShareCard';
 
 /**
  * The double role of `player-journey.md` §1.3, finally visible.
@@ -78,6 +79,7 @@ export function EventDetailManagerView({
   showVote: boolean;
 }) {
   const isMatch = event.type === 'MATCH';
+  const isUpcoming = new Date(event.startsAt) > new Date();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   return (
@@ -103,6 +105,13 @@ export function EventDetailManagerView({
           isRostered={isRostered}
         />
       </section>
+
+      {isUpcoming && (
+        <section className="flex flex-col gap-3.5">
+          <SectionHeading as="h2">Partage WhatsApp</SectionHeading>
+          <WhatsAppShareCard clubId={clubId} teamId={teamId} eventId={event.id} />
+        </section>
+      )}
 
       {event.notes && (
         <section className="flex flex-col gap-3.5">

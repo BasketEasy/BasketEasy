@@ -89,6 +89,28 @@ export const handlers = [
   // (TeamDetailPage) queries it for every manager render.
   http.get('/api/clubs/:clubId/teams/:teamId/guest-link', () => HttpResponse.json(null)),
 
+  // Default: the default reminder template, and a reminder not yet shared with
+  // the guest link off. WhatsAppSettingsCard (TeamDetailPage) and
+  // WhatsAppShareCard (the manager's event page) query these.
+  http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-settings', () =>
+    HttpResponse.json({ reminderTemplate: null }),
+  ),
+  http.get('/api/clubs/:clubId/teams/:teamId/events/:eventId/whatsapp-share', () =>
+    HttpResponse.json({
+      guestLinkActive: false,
+      shares: [
+        {
+          type: 'REMINDER',
+          state: 'NOT_SENT',
+          sentAt: null,
+          sentBy: null,
+          platform: null,
+          message: null,
+        },
+      ],
+    }),
+  ),
+
   // Default: no meeting point anywhere, the default 45-minute buffer.
   // ClubMeetingPointSettings (MembersPage) and TeamMeetingPointSettings
   // (TeamDetailPage) query these for every admin/manager render.

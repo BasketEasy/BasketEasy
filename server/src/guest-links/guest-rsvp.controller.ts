@@ -68,7 +68,7 @@ export class GuestRsvpController {
     @Query() query: GuestPlayerQueryDto,
   ): Promise<GuestEvent> {
     const { teamId, token } = req.guestLink;
-    return this.guest.clearRsvp(teamId, token, req.ip, eventId, query.teamPlayerId);
+    return this.guest.clearRsvp(teamId, token, req.ip, eventId, query.teamPlayerId, query.via);
   }
 
   @Post('invite-request')

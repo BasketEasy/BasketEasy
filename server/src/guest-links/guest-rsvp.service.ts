@@ -7,6 +7,7 @@ import {
 import {
   EventRsvpSource,
   EventRsvpStatus,
+  EventRsvpVia,
   EventTravelMode,
   EventType,
   NotificationType,
@@ -111,6 +112,7 @@ export class GuestRsvpService {
           status: dto.status,
           travelMode: dto.status === EventRsvpStatus.GOING ? written.travelMode : null,
           source: EventRsvpSource.GUEST_LINK,
+          via: dto.via ?? null,
           respondedByUserId: null,
         },
       });
@@ -124,6 +126,7 @@ export class GuestRsvpService {
     ip: string | undefined,
     eventId: string,
     teamPlayerId: string,
+    via?: EventRsvpVia,
   ): Promise<GuestEvent> {
     this.limiter.consume(token, ip);
     await this.findAnswerableEvent(teamId, eventId);
@@ -138,6 +141,7 @@ export class GuestRsvpService {
             status: null,
             travelMode: null,
             source: EventRsvpSource.GUEST_LINK,
+            via: via ?? null,
             respondedByUserId: null,
           },
         });

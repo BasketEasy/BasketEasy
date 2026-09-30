@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsUUID } from 'class-validator';
-import { EventRsvpStatus, EventTravelMode } from '@prisma/client';
+import { EventRsvpStatus, EventRsvpVia, EventTravelMode } from '@prisma/client';
 import type { GuestInviteRequest, GuestRsvpRequest } from '@basketeasy/types/guest-links';
 
 export class GuestRsvpDto implements GuestRsvpRequest {
@@ -12,11 +12,19 @@ export class GuestRsvpDto implements GuestRsvpRequest {
   @IsOptional()
   @IsEnum(EventTravelMode)
   travelMode?: EventTravelMode;
+
+  @IsOptional()
+  @IsEnum(EventRsvpVia)
+  via?: EventRsvpVia;
 }
 
 export class GuestPlayerQueryDto {
   @IsUUID()
   teamPlayerId!: string;
+
+  @IsOptional()
+  @IsEnum(EventRsvpVia)
+  via?: EventRsvpVia;
 }
 
 export class GuestInviteRequestDto implements GuestInviteRequest {

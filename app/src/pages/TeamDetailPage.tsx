@@ -39,6 +39,7 @@ import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { Text } from '@basketeasy/ui/text';
 import { TeamMeetingPointSettings } from '../meeting-points/TeamMeetingPointSettings';
 import { TeamGuestLinkSettings } from '../guest-rsvp/TeamGuestLinkSettings';
+import { WhatsAppSettingsCard } from '../whatsapp-reminders/WhatsAppSettingsCard';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -418,6 +419,7 @@ export function TeamDetailPage() {
       {canManageTeam && <TeamMeetingPointSettings clubId={clubId!} teamId={teamId!} />}
 
       {canManageTeam && <TeamGuestLinkSettings clubId={clubId!} teamId={teamId!} />}
+      {canManageTeam && <WhatsAppSettingsCard clubId={clubId!} teamId={teamId!} />}
 
       <Tabs
         value={activeTab}
