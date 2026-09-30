@@ -69,13 +69,19 @@ New `NotificationType.EVENT_VENUE_CHANGED`.
 
 ### (a) Inline on the match
 
-- `MatchTimelineSteps` arrival step, `canManage` only:
-  - venue unknown → a `Button variant="outline" size="sm"` « Ajouter le lieu » in place of the itinerary link;
-  - venue known → a quiet « Modifier le lieu » `TextLink`-style button.
-- Both open a new `EventVenueDialog` (`@basketeasy/ui/dialog`, react-hook-form + zod, name + address fields, shared pair rule). It is a focused two-field edit of one record, per CLAUDE.md's modal rule. Server refusal → `setError('root')` + `Alert`; success → `toast()`.
-- Display: when `locationName` is set, the arrival step reads « {locationName} » on the label line and the address on the meta line. Same in `EventVenueRow` (training card) and the `EventRow` Lieu column.
-- If the match is imported, the dialog shows one `Text variant="meta"` line: « Un prochain import FFBB remplacera ce lieu si la FFBB en publie un. » (decision 3 made visible).
-- When the old venue was known, the confirm button reads « Enregistrer et prévenir les joueurs ». Otherwise « Enregistrer ».
+Design canvas: https://claude.ai/artifact/VHmwSUJyvYhmHQmTuPi7yo
+
+The venue is edited **where it is read**: the location row in the match page's header card, not the page foot and not the timeline.
+
+- Header card, `canManage` only:
+  - venue unknown → a gold-tint block (alert icon, « Lieu non communiqué », one line saying the players don't know where to go) with a full-width primary « Ajouter le lieu »;
+  - venue known → a `surface-2` row (pin, name, address) with an icon-only outline « Modifier le lieu » button (pencil, `aria-label`), « Itinéraire » under it.
+- Players see the same row without the button (unknown → no itinerary, as today).
+- The timeline's arrival step only mirrors the venue (« Salle à confirmer » when unknown); it gets no button.
+- Both buttons open a new `EventVenueDialog` (`@basketeasy/ui/dialog`, `variant="sheet"` on mobile, react-hook-form + zod, name + address fields, shared pair rule). A focused two-field edit of one record, per CLAUDE.md's modal rule. Server refusal → `setError('root')` + `Alert`; success → `toast()`.
+- Display: when `locationName` is set, it is the label line and the address the meta line. Same in `EventVenueRow` (training card) and the `EventRow` Lieu column.
+- If the match is imported, the dialog shows one meta line: « Si la FFBB publie un lieu, le prochain import le remplacera. » (decision 3 made visible).
+- When the old venue was known, the dialog shows a structure-tint note « Les N joueurs convoqués ou présents seront prévenus du changement de salle. » and the confirm button reads « Enregistrer et prévenir ». Otherwise « Enregistrer ».
 
 ### (b) `EventEditModal`
 
