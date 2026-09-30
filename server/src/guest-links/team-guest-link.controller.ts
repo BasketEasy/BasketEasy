@@ -1,6 +1,7 @@
 import {
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -8,6 +9,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { IMPERSONATION_READ_ONLY_CODE } from '@basketeasy/types/platform-admin-impersonation';
 import type { EventRsvpChangeEntry, TeamGuestLinkInfo } from '@basketeasy/types/guest-links';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -23,7 +25,16 @@ export class TeamGuestLinkController {
   get(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
+    @CurrentUser() user: RequestUser,
   ): Promise<TeamGuestLinkInfo> {
+    // The URL is a write credential (anyone holding it can answer for every
+    // teammate), so a read-only impersonation must not be handed it.
+    if (user.impersonation) {
+      throw new ForbiddenException({
+        code: IMPERSONATION_READ_ONLY_CODE,
+        message: "Le lien d'invité n'est pas accessible en lecture seule",
+      });
+    }
     return this.guestLinks.get(clubId, teamId);
   }
 
