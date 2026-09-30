@@ -223,6 +223,18 @@
       "types": "./src/components/SectionAccordion.tsx",
       "default": "./src/components/SectionAccordion.tsx"
     },
+    "./page-header": {
+      "types": "./src/components/PageHeader.tsx",
+      "default": "./src/components/PageHeader.tsx"
+    },
+    "./page-hero": {
+      "types": "./src/components/PageHero.tsx",
+      "default": "./src/components/PageHero.tsx"
+    },
+    "./fact-tile": {
+      "types": "./src/components/FactTile.tsx",
+      "default": "./src/components/FactTile.tsx"
+    },
     "./section-heading": {
       "types": "./src/components/SectionHeading.tsx",
       "default": "./src/components/SectionHeading.tsx"

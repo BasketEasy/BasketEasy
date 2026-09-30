@@ -18,7 +18,7 @@ export const EVENT_SECTION_IDS = {
 
 /**
  * Scroll margin of every anchored block. On a phone the sticky `MobileTopBar`
- * (56px) and `EventPageBar` (48px) cover 104px, more than `scroll-mt-20`.
+ * (56px) and `PageBar` (48px) cover 104px, more than `scroll-mt-20`.
  * Held here so the blocks can't drift.
  */
 export const EVENT_SECTION_SCROLL_MARGIN = 'scroll-mt-28 md:scroll-mt-20';

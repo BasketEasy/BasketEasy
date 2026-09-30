@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../testUtils';
-import { EventBackLink, EventPageBar } from './EventPageBar';
+import { PageBackLink, PageBar } from './PageBar';
 
-describe('EventPageBar', () => {
-  it('names the team in the back link and points at the team page', () => {
+describe('PageBar', () => {
+  it('names the parent in the back link and points at it', () => {
     renderWithProviders(
-      <EventPageBar to="/clubs/c/teams/t?tab=events" state={null} teamName="U15 Filles" />,
+      <PageBar to="/clubs/c/teams/t?tab=events" state={null} title="U15 Filles" />,
     );
     expect(screen.getByRole('link', { name: 'Retour à U15 Filles' })).toHaveAttribute(
       'href',
@@ -14,9 +14,9 @@ describe('EventPageBar', () => {
     );
   });
 
-  it('gives the desktop link the team name as its label', () => {
+  it('gives the desktop link the parent name as its label', () => {
     renderWithProviders(
-      <EventBackLink to="/clubs/c/teams/t?tab=events" state={null} teamName="U15 Filles" />,
+      <PageBackLink to="/clubs/c/teams/t?tab=events" state={null} title="U15 Filles" />,
     );
     expect(screen.getByRole('link', { name: 'U15 Filles' })).toBeInTheDocument();
   });

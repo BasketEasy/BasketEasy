@@ -28,6 +28,12 @@ const buttonVariants = cva(
         default: 'h-11 px-4 text-sm md:h-10',
         lg: 'h-12 px-6 text-base',
         icon: 'h-11 w-11',
+        /**
+         * A secondary header action: a square icon button below `md`, the icon
+         * plus its label from `md`. The caller renders the icon, a
+         * `span.hidden.md:inline` label and an `aria-label`.
+         */
+        'icon-responsive': 'h-9 w-9 shrink-0 px-0 text-sm md:w-auto md:px-3',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
