@@ -37,7 +37,7 @@ Full list with priority tiers and explicit scope cuts: [`docs/feature-set.md`](.
 ```
 server        NestJS backend. Global prefix /api. Health check at GET /api/health (Terminus) and GET /api/health/ping. npm package @basketeasy/server.
 app           React + Vite frontend. Calls the API via same-origin /api/* (Vite proxy in dev, nginx proxy in the Docker image). npm package @basketeasy/app.
-packages/@basketeasy/types  Shared TS types/DTOs, exposed via package.json subpath exports (e.g. `@basketeasy/types/health`), not a barrel index.ts — add a new file + a matching "exports" entry per domain area as modules land, mirrored by backend class-validator DTOs. npm package @basketeasy/types.
+packages/@basketeasy/types  Shared TS types/DTOs, exposed via package.json subpath exports (e.g. `@basketeasy/types/health`), not a barrel index.ts — add a new file + a matching "exports" entry per domain area as modules land, mirrored by backend class-validator DTOs. Each entry has three conditions: `types`/`import` → the `.ts` source (Vite and the type-checker read it directly) and `require` → the compiled CJS in `dist/` (Node and Jest, which cannot load raw `.ts` with extensionless relative imports). `dist/` is built by `tsc` (`pnpm --filter @basketeasy/types build`); the server's `build`/`start`/`test*` scripts run it first via `pre*` hooks. npm package @basketeasy/types.
 docs/         Architecture, stack decisions, brand, feature set, market research — read before making structural changes.
 ```
 
