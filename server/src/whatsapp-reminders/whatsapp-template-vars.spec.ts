@@ -8,6 +8,7 @@ const match: ShareEvent = {
   startsAt: new Date('2026-10-04T13:30:00Z'),
   timeConfirmed: true,
   location: 'Gymnase de la Durantière',
+  locationName: null,
   opponentName: 'ES Vertou',
 };
 
@@ -28,6 +29,11 @@ function plan(overrides: Partial<EventMeetingPlan> = {}): EventMeetingPlan {
 }
 
 describe('buildTemplateVars', () => {
+  it('reads {location} as the gym name when a manager gave one', () => {
+    const named = { ...match, location: '1 rue de la Durantière', locationName: 'La Durantière' };
+    expect(buildTemplateVars(named, 'U15 F1', plan(), null).location).toBe('La Durantière');
+  });
+
   it('formats a match with a known RDV in Europe/Paris', () => {
     expect(buildTemplateVars(match, 'U15 F1', plan(), 'https://k.test/r/abc')).toEqual({
       event_name: 'Match contre ES Vertou',

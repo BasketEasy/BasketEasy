@@ -23,6 +23,7 @@ const openMatchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
   location: 'Gymnase Pierre de Coubertin',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',

@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 import { EventType, EventVenue } from '@prisma/client';
+import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 
 const RESPONDED_AT = new Date('2026-01-01T12:00:00.000Z');
 // The account answering in the write tests — the caller, as themself.
@@ -740,6 +741,24 @@ describe('EventsService', () => {
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
 
+    it('refuses the unknown-venue placeholder as a typed location', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+
+      await expect(
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'TRAINING',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: UNKNOWN_EVENT_LOCATION,
+          },
+          'user-1',
+        ),
+      ).rejects.toThrow('Le lieu doit être une adresse');
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
     it('throws BadRequestException for a MATCH with no opponentName', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
@@ -790,6 +809,7 @@ describe('EventsService', () => {
           type: 'TRAINING',
           startsAt: new Date('2026-01-05T18:00:00.000Z'),
           location: 'Gymnase A',
+          locationName: null,
           notes: null,
           opponentName: null,
           venue: null,
@@ -1002,6 +1022,8 @@ describe('EventsService', () => {
         teamId: 'team-1',
         type: 'TRAINING',
         startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        locationName: null,
         opponentName: null,
         venue: null,
         recurrenceId: null,
@@ -1031,10 +1053,175 @@ describe('EventsService', () => {
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
-        data: { location: 'Gymnase B' },
+        data: { location: 'Gymnase B', locationName: null },
       });
       expect(result).toHaveLength(1);
       expect(result[0].location).toBe('Gymnase B');
+    });
+
+    describe('venue', () => {
+      const importedMatch = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: UNKNOWN_EVENT_LOCATION,
+        locationName: null,
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        externalId: 'ffbb-1',
+        createdAt: new Date('2026-01-01'),
+      };
+
+      function givenEvent(row: Record<string, unknown>) {
+        prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+        prisma.event.findUnique.mockResolvedValue(row);
+        prisma.event.update.mockImplementation(({ data }: { data: object }) =>
+          Promise.resolve({ ...row, ...data }),
+        );
+      }
+
+      it('stores the gym name with its address', async () => {
+        givenEvent(importedMatch);
+
+        const [result] = await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '12 rue des Sports, Rezé', locationName: 'Gymnase de la Trocardière' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: {
+            location: '12 rue des Sports, Rezé',
+            locationName: 'Gymnase de la Trocardière',
+          },
+        });
+        expect(result.locationName).toBe('Gymnase de la Trocardière');
+      });
+
+      it('clears the old name when only the address changes', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent('club-1', 'team-1', 'event-1', { location: '2 rue B' }, 'user-1');
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { location: '2 rue B', locationName: null },
+        });
+      });
+
+      it('keeps the name when the same address is re-sent', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '1 rue A', notes: 'Maillots blancs' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { location: '1 rue A', notes: 'Maillots blancs' },
+        });
+      });
+
+      it('accepts the placeholder re-sent unchanged on an unrelated edit', async () => {
+        givenEvent(importedMatch);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: UNKNOWN_EVENT_LOCATION, notes: 'Maillots blancs' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalled();
+      });
+
+      it('refuses changing a known address to the placeholder', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A' });
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { location: ` ${UNKNOWN_EVENT_LOCATION} ` },
+            'user-1',
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses a gym name without an address', async () => {
+        givenEvent(importedMatch);
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { locationName: 'Gymnase de la Trocardière' },
+            'user-1',
+          ),
+        ).rejects.toThrow("Renseignez l'adresse de la salle");
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      });
+
+      it('queues a travel recompute when a match changes address', async () => {
+        givenEvent(importedMatch);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '12 rue des Sports, Rezé' },
+          'user-1',
+        );
+
+        expect(meetingPoints.enqueueRecompute).toHaveBeenCalledWith(['event-1']);
+      });
+
+      it('does not queue a recompute for a name-only change', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { locationName: 'Salle Alpha' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { locationName: 'Salle Alpha' },
+        });
+        expect(meetingPoints.enqueueRecompute).not.toHaveBeenCalled();
+      });
+
+      it('does not queue a recompute when a training changes address', async () => {
+        givenEvent({
+          ...importedMatch,
+          type: 'TRAINING',
+          location: '1 rue A',
+          opponentName: null,
+          venue: null,
+          externalId: null,
+        });
+
+        await service.updateEvent('club-1', 'team-1', 'event-1', { location: '2 rue B' }, 'user-1');
+
+        expect(meetingPoints.enqueueRecompute).not.toHaveBeenCalled();
+      });
     });
 
     it('clears the meeting-time override when the kick-off moves', async () => {

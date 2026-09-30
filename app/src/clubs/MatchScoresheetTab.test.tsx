@@ -18,6 +18,7 @@ const matchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: '2026-01-01T18:00:00.000Z',
   location: 'Gymnase Pierre de Coubertin',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',

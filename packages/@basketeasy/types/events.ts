@@ -20,6 +20,31 @@ export function isUnknownEventLocation(location: string): boolean {
   return location.trim() === UNKNOWN_EVENT_LOCATION;
 }
 
+/** Cap on `Event.location` and `Event.locationName`: the DTOs, the FFBB import and the forms. */
+export const EVENT_LOCATION_MAX_LENGTH = 120;
+
+/**
+ * What a venue reads as: the gym's name when a manager gave one, else the
+ * address. The one place that rule lives. Geocoding and directions keep
+ * reading `location`, never this.
+ */
+export function eventVenueLabel(event: { location: string; locationName: string | null }): string {
+  return event.locationName ?? event.location;
+}
+
+function normaliseEventLocation(location: string): string {
+  return location.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
+}
+
+/**
+ * Whether two addresses name the same place for « did the venue change »:
+ * whitespace and case don't count. Shared by the server's « Changement de
+ * salle » notification and the form that warns about it, so they agree.
+ */
+export function isSameEventLocation(a: string, b: string): boolean {
+  return normaliseEventLocation(a) === normaliseEventLocation(b);
+}
+
 /** A rostered team member's self-reported attendance status for one event. */
 export type EventRsvpStatus = 'GOING' | 'NOT_GOING' | 'MAYBE';
 
@@ -97,7 +122,10 @@ export interface TeamEvent {
   teamId: string;
   type: EventType;
   startsAt: string;
+  /** The address (what is geocoded and linked to), or UNKNOWN_EVENT_LOCATION. */
   location: string;
+  /** The gym's name, paired with `location`; null when none was given. Display through `eventVenueLabel`. */
+  locationName: string | null;
   notes: string | null;
   /** Opponent's name for a MATCH event; null for TRAINING. */
   opponentName: string | null;
@@ -183,6 +211,8 @@ export interface CreateEventRequest {
   type: EventType;
   startsAt: string;
   location: string;
+  /** The gym's name; needs a real address in `location`. Empty or null means none. */
+  locationName?: string | null;
   notes?: string;
   /** Required when type is MATCH. */
   opponentName?: string;
@@ -199,7 +229,14 @@ export interface CreateEventRequest {
 export interface UpdateEventRequest {
   type?: EventType;
   startsAt?: string;
+  /** Never changed to UNKNOWN_EVENT_LOCATION by hand; re-sending it unchanged is fine. */
   location?: string;
+  /**
+   * The gym's name; null or empty clears it. Absent keeps it, unless
+   * `location` changes: the old name described the old address, so it is
+   * cleared.
+   */
+  locationName?: string | null;
   notes?: string;
   opponentName?: string;
   /** Required when the resulting type is MATCH; validated server-side, see EventsService. */

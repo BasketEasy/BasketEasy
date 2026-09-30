@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { EventType, EventVenue } from '@prisma/client';
 import type { EventUpdateScope, UpdateEventRequest } from '@basketeasy/types/events';
+import { EVENT_LOCATION_MAX_LENGTH } from '@basketeasy/types/events';
 import { WA_OFFSET_MINUTES_MAX, WA_OFFSET_MINUTES_MIN } from '@basketeasy/types/whatsapp-reminder';
 
 const EVENT_UPDATE_SCOPES: EventUpdateScope[] = ['THIS', 'THIS_AND_FUTURE', 'ALL'];
@@ -31,8 +32,18 @@ export class UpdateEventDto implements UpdateEventRequest {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MinLength(1)
-  @MaxLength(120)
+  @MaxLength(EVENT_LOCATION_MAX_LENGTH)
   location?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
+  })
+  @IsString()
+  @MaxLength(EVENT_LOCATION_MAX_LENGTH)
+  locationName?: string | null;
 
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

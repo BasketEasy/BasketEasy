@@ -13,6 +13,7 @@ const baseMatch: MyAgendaEvent = {
   type: 'MATCH',
   startsAt: '2026-08-25T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',

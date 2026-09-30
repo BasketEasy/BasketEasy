@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { FfbbImportResult } from '@basketeasy/types/ffbb';
-import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
+import { EVENT_LOCATION_MAX_LENGTH, UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { parisWallClockToDate } from '../common/paris-time';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
@@ -19,12 +19,10 @@ type UpsertOutcome = 'created' | 'updated' | 'unchanged';
 // class-validator @MaxLength(120) on Create/UpdateEventDto — so an
 // over-long scraped address would import fine and then make the event
 // uneditable, since EventEditModal re-sends `location` on every save.
-const MAX_LOCATION_LENGTH = 120;
-
 function clampLocation(location: string): string {
-  return location.length <= MAX_LOCATION_LENGTH
+  return location.length <= EVENT_LOCATION_MAX_LENGTH
     ? location
-    : `${location.slice(0, MAX_LOCATION_LENGTH - 1).trimEnd()}…`;
+    : `${location.slice(0, EVENT_LOCATION_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
 /**
@@ -198,6 +196,11 @@ export class FfbbImportService {
       data: {
         startsAt,
         location,
+        // Every import is a write: an FFBB venue replaces a manager's, and
+        // the gym name they typed described the old address, so it goes too.
+        // `isUnchanged` compares `location` only: a name on an unchanged
+        // address is not an FFBB change.
+        locationName: location !== existing.location ? null : undefined,
         opponentName: match.opponentLabel,
         timeConfirmed: match.timeConfirmed,
         venue,
