@@ -425,7 +425,14 @@ model Event {
   teamId              String
   type                EventType          @default(TRAINING)
   startsAt            DateTime
+  // The address: what is geocoded, what travelRouteKey hashes and what
+  // « Itinéraire » links to. UNKNOWN_EVENT_LOCATION while FFBB hasn't
+  // published a venue.
   location            String
+  // The gym's label paired with `location` (« Gymnase de la Trocardière »),
+  // typed by a manager. Cleared whenever `location` changes without a new
+  // one, by an edit or the FFBB import.
+  locationName        String?
   notes               String?
   opponentName        String?
   // Home/away for a MATCH event; required (non-null) whenever type is

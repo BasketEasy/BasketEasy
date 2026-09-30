@@ -23,6 +23,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: new Date(Date.now() + 3 * DAY_MS).toISOString(),
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',

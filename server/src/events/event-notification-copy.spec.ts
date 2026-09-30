@@ -11,6 +11,7 @@ describe('event notification copy', () => {
         type: 'MATCH',
         startsAt: WINTER_EVENING,
         location: 'Gymnase Léo Lagrange',
+        locationName: null,
         opponentName: 'ASVEL',
       });
 
@@ -21,6 +22,19 @@ describe('event notification copy', () => {
       expect(copy.body).not.toContain('RDV');
     });
 
+    it('names the gym when a manager gave one, not the address', () => {
+      const copy = convocationNotification('U15 M', {
+        type: 'MATCH',
+        startsAt: WINTER_EVENING,
+        location: '12 rue des Sports, Rezé',
+        locationName: 'Gymnase de la Trocardière',
+        opponentName: 'ASVEL',
+      });
+
+      expect(copy.body).toContain('à Gymnase de la Trocardière.');
+      expect(copy.body).not.toContain('12 rue des Sports');
+    });
+
     it('adds the meeting point and its Paris time once one is known', () => {
       const copy = convocationNotification(
         'U15 M',
@@ -28,6 +42,7 @@ describe('event notification copy', () => {
           type: 'MATCH',
           startsAt: WINTER_EVENING,
           location: 'Gymnase Léo Lagrange',
+          locationName: null,
           opponentName: 'ASVEL',
         },
         { meetsAt: new Date('2026-01-10T18:15:00.000Z'), placeName: 'Parking salle Coubertin' },
@@ -68,6 +83,7 @@ describe('event notification copy', () => {
       type: 'MATCH' as const,
       startsAt: WINTER_EVENING,
       location: 'Gymnase Léo Lagrange',
+      locationName: null,
       opponentName: 'ASVEL',
     };
 

@@ -392,6 +392,7 @@ export class WhatsAppReminderService implements OnModuleInit {
         timeConfirmed: true,
         venue: true,
         location: true,
+        locationName: true,
         opponentName: true,
       },
     });
@@ -534,6 +535,7 @@ export class WhatsAppReminderService implements OnModuleInit {
           timeConfirmed: true,
           venue: true,
           location: true,
+          locationName: true,
           opponentName: true,
         },
       });
@@ -598,6 +600,7 @@ export class WhatsAppReminderService implements OnModuleInit {
         timeConfirmed: true,
         venue: true,
         location: true,
+        locationName: true,
         opponentName: true,
       },
     });

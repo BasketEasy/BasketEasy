@@ -26,6 +26,7 @@ export function matchEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: kickOff.toISOString(),
     location: 'Salle des Sports, Rezé',
+    locationName: null,
     notes: null,
     opponentName: 'Rezé BC',
     venue: 'AWAY',

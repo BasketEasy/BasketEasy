@@ -253,6 +253,72 @@ describe('FfbbImportService', () => {
     expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
   });
 
+  describe('a venue a manager typed', () => {
+    const manualVenue = {
+      id: 'event-1',
+      startsAt: new Date('2026-09-20T16:30:00Z'),
+      location: '12 rue des Sports, Rezé',
+      locationName: 'Gymnase de la Trocardière',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    };
+
+    beforeEach(() => {
+      prisma.teamFfbbLink.findMany.mockResolvedValue([
+        {
+          id: 'link-1',
+          teamId: 'team-1',
+          ffbbEngagementRef: 'ref-1',
+          ffbbEngagementLabel: 'Championnat',
+        },
+      ]);
+      prisma.event.findUnique.mockResolvedValue(manualVenue);
+    });
+
+    it('is replaced by a different FFBB venue, and its name cleared', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: 'Gymnase du Loquidy, Nantes' })],
+      });
+
+      await service.importSchedule('club-1', 'team-1');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: expect.objectContaining({
+          location: 'Gymnase du Loquidy, Nantes',
+          locationName: null,
+        }),
+      });
+    });
+
+    it('is kept, name included, when FFBB has no venue', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: null })],
+      });
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      expect(prisma.event.update).not.toHaveBeenCalled();
+      expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    });
+
+    it('keeps its name when FFBB returns the same address and something else changed', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: '12 rue des Sports, Rezé', startsAt: '2026-09-21T19:00:00' })],
+      });
+
+      await service.importSchedule('club-1', 'team-1');
+
+      const { data } = prisma.event.update.mock.calls[0][0];
+      expect(data.location).toBe('12 rue des Sports, Rezé');
+      expect(data.locationName).toBeUndefined();
+    });
+  });
+
   it('clamps an over-long address to what the event DTO will accept back', async () => {
     prisma.teamFfbbLink.findMany.mockResolvedValue([
       {

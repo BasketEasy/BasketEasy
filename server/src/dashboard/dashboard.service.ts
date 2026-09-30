@@ -560,6 +560,7 @@ export class DashboardService {
       type: EventType;
       startsAt: Date;
       location: string;
+      locationName: string | null;
       notes: string | null;
       opponentName: string | null;
       venue: EventVenue | null;
@@ -598,6 +599,7 @@ export class DashboardService {
       type: event.type,
       startsAt: event.startsAt.toISOString(),
       location: event.location,
+      locationName: event.locationName,
       notes: event.notes,
       opponentName: event.opponentName,
       venue: event.venue,

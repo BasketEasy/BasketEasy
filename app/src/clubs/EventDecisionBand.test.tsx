@@ -12,6 +12,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: '2026-09-05T18:30:00.000Z',
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',

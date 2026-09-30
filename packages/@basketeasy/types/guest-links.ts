@@ -40,6 +40,8 @@ export interface GuestEvent {
   /** False for an FFBB-imported match whose kick-off hour isn't known yet. */
   timeConfirmed: boolean;
   location: string;
+  /** The gym's name; display through `eventVenueLabel`. */
+  locationName: string | null;
   opponentName: string | null;
   venue: EventVenue | null;
   notes: string | null;

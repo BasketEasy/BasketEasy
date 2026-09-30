@@ -11,6 +11,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     // Local wall-clock, so the rendered day never depends on the runner's TZ.
     startsAt: new Date(2026, 8, 5, 20, 30).toISOString(),
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',

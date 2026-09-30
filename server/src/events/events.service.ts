@@ -31,6 +31,7 @@ import type {
   EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import type { EventShareStatus, EventWhatsAppSettings } from '@basketeasy/types/whatsapp-reminder';
@@ -84,6 +85,7 @@ type EventRow = {
   type: EventType;
   startsAt: Date;
   location: string;
+  locationName: string | null;
   notes: string | null;
   opponentName: string | null;
   venue: EventVenue | null;
@@ -195,6 +197,7 @@ export class EventsService {
       type: EventType;
       startsAt: string;
       location: string;
+      locationName?: string | null;
       notes?: string;
       opponentName?: string;
       venue?: EventVenue;
@@ -211,6 +214,11 @@ export class EventsService {
     if (data.type === EventType.MATCH && !data.venue) {
       throw new BadRequestException('Le domicile/extérieur est requis pour un match');
     }
+    // The placeholder is the FFBB import's word, never a manager's.
+    if (isUnknownEventLocation(data.location)) {
+      throw new BadRequestException('Le lieu doit être une adresse');
+    }
+    const locationName = data.locationName ?? null;
 
     const occurrences = this.buildOccurrences(data.startsAt, data.recurrence);
     // One recurrenceId is shared by every row in this batch — only when the
@@ -228,6 +236,7 @@ export class EventsService {
             type: data.type,
             startsAt,
             location: data.location,
+            locationName,
             notes: data.notes ?? null,
             opponentName,
             venue,
@@ -287,6 +296,7 @@ export class EventsService {
       type?: EventType;
       startsAt?: string;
       location?: string;
+      locationName?: string | null;
       notes?: string;
       opponentName?: string;
       venue?: EventVenue;
@@ -317,11 +327,39 @@ export class EventsService {
       throw new BadRequestException('Le domicile/extérieur est requis pour un match');
     }
 
+    // The placeholder is the FFBB import's word, never a manager's: refused
+    // when it would replace something else, but EventEditModal re-sends
+    // `location` on every save, so an unchanged placeholder passes.
+    const resultingLocation = data.location ?? event.location;
+    const locationChanged = data.location !== undefined && data.location !== event.location;
+    if (
+      data.location !== undefined &&
+      isUnknownEventLocation(data.location) &&
+      !isUnknownEventLocation(event.location)
+    ) {
+      throw new BadRequestException('Le lieu doit être une adresse');
+    }
+    // A name describes an address: a new address sent without one clears the
+    // old name rather than pinning it to the wrong place.
+    const resultingLocationName =
+      data.locationName !== undefined
+        ? data.locationName
+        : locationChanged
+          ? null
+          : event.locationName;
+    // A name without an address can't be geocoded, and the timeline would lie.
+    if (resultingLocationName && isUnknownEventLocation(resultingLocation)) {
+      throw new BadRequestException("Renseignez l'adresse de la salle");
+    }
+
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
     const updateData: Prisma.EventUpdateInput = {
       ...(data.startsAt !== undefined ? { startsAt: new Date(data.startsAt) } : {}),
       ...(data.location !== undefined ? { location: data.location } : {}),
+      ...(data.locationName !== undefined || locationChanged
+        ? { locationName: resultingLocationName }
+        : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
       ...(data.waReminderOverride !== undefined
@@ -372,7 +410,10 @@ export class EventsService {
     // known (« RDV fixé »). A new kick-off on an existing match moves an
     // already-known meeting time with it, which announces straight away.
     const becomesMatch = resultingType === EventType.MATCH && event.type === EventType.TRAINING;
-    if (becomesMatch) {
+    // A new address on a match makes the stored route stale: queue the
+    // recompute now rather than waiting for someone to read the match, so
+    // the RDV announcement doesn't wait on a reader either.
+    if (becomesMatch || (locationChanged && resultingType === EventType.MATCH)) {
       await this.meetingPoints.enqueueRecompute(ids);
     } else if (data.startsAt !== undefined && !becomesTraining) {
       await this.meetingPoints.announceMeetingChanges(ids);
@@ -1697,6 +1738,7 @@ export class EventsService {
       type: event.type,
       startsAt: event.startsAt.toISOString(),
       location: event.location,
+      locationName: event.locationName,
       notes: event.notes,
       opponentName: event.opponentName,
       venue: event.venue,

@@ -14,6 +14,7 @@ const closedMatchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() - 6 * DAY_MS).toISOString(),
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',

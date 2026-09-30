@@ -20,6 +20,8 @@ export interface MyAgendaEvent {
   type: EventType;
   startsAt: string;
   location: string;
+  /** The gym's name; display through `eventVenueLabel`. */
+  locationName: string | null;
   notes: string | null;
   /** Opponent's name for a MATCH event; null for TRAINING. */
   opponentName: string | null;

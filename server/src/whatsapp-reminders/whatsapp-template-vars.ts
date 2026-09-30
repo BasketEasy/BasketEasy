@@ -1,3 +1,4 @@
+import { eventVenueLabel } from '@basketeasy/types/events';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import {
   EVENT_TIME_TO_CONFIRM,
@@ -14,6 +15,7 @@ export interface ShareEvent {
   startsAt: Date;
   timeConfirmed: boolean;
   location: string;
+  locationName: string | null;
   opponentName: string | null;
 }
 
@@ -42,7 +44,7 @@ export function buildTemplateVars(
         : MEETING_TIME_TO_CONFIRM
       : null,
     event_time: event.timeConfirmed ? formatTime(event.startsAt) : EVENT_TIME_TO_CONFIRM,
-    location: event.location,
+    location: eventVenueLabel(event),
     team_name: teamName,
     link: guestUrl === null ? null : `${guestUrl}?src=wa`,
   };
