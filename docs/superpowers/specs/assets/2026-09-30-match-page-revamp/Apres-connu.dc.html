@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Après : lieu connu</title>
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Big+Shoulders+Display:wght@700;800&amp;display=swap"
+        />
+        <style>
+          /* tokens: tailwind-preset.cjs */
+          body {
+            margin: 0;
+            font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
+            font-size: 16px;
+            line-height: 24px;
+            color: #23201c;
+            background: #efe4d4;
+          }
+          h1,
+          h2,
+          h3 {
+            line-height: 0.94;
+            margin: 0;
+          }
+          button {
+            font-family: inherit;
+            cursor: pointer;
+          }
+          a {
+            color: inherit;
+            text-decoration: none;
+          }
+          .tabular {
+            font-variant-numeric: tabular-nums;
+          }
+          .i16 {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+          }
+          .i19 {
+            width: 19px;
+            height: 19px;
+            flex-shrink: 0;
+          }
+          .i20 {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+          }
+          /* Text variant x size x tone */
+          .t-label {
+            font-weight: 600;
+          }
+          .t-sm {
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .t-xs {
+            font-size: 12px;
+            line-height: 16px;
+          }
+          .t-md {
+            font-size: 16px;
+            line-height: 24px;
+          }
+          .tone-secondary {
+            color: #5b564f;
+          }
+          .tone-structure {
+            color: #1e5f74;
+          }
+          .tone-brand {
+            color: #aa4f22;
+          }
+          .tone-accent {
+            color: #8c5f16;
+          }
+          .t-eyebrow {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 12px;
+            line-height: 16px;
+            color: #5b564f;
+          }
+          .t-display-2xl {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 24px;
+            line-height: 32px;
+          }
+          /* Heading */
+          .heading {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #23201c;
+            overflow-wrap: break-word;
+          }
+          .heading-4xl {
+            font-size: 36px;
+          }
+          .heading-5xl {
+            font-size: 48px;
+          }
+          /* SectionHeading */
+          .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+          .section-heading h2 {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 18px;
+            line-height: 0.94;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: #1e5f74;
+          }
+          .section-heading span {
+            height: 2px;
+            flex-grow: 1;
+            border-radius: 2px;
+            background: rgba(30, 95, 116, 0.2);
+          }
+          /* Card variant / tone */
+          .card {
+            border: 1px solid #e7decf;
+            border-radius: 14px;
+          }
+          .card-raised {
+            background: #fffcf7;
+            box-shadow:
+              0 2px 6px rgba(59, 42, 24, 0.08),
+              0 1px 2px rgba(59, 42, 24, 0.05);
+          }
+          .card-flush {
+            overflow: hidden;
+            background: #fffcf7;
+            box-shadow:
+              0 2px 6px rgba(59, 42, 24, 0.08),
+              0 1px 2px rgba(59, 42, 24, 0.05);
+          }
+          .card-inset {
+            background: #faf5ef;
+            padding: 12px;
+            box-shadow: 0 1px 2px rgba(59, 42, 24, 0.07);
+          }
+          .card-tone-accent {
+            border-color: rgba(192, 138, 46, 0.35);
+            background: #fbf1dc;
+          }
+          .card-tone-structure {
+            border-color: rgba(30, 95, 116, 0.2);
+            background: #eaf1f3;
+          }
+          /* Button variant x size */
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            line-height: 20px;
+            border: 1px solid transparent;
+            box-sizing: border-box;
+          }
+          .btn-default-size {
+            height: 44px;
+            padding: 0 16px;
+          }
+          .btn-sm {
+            height: 36px;
+            padding: 0 12px;
+          }
+          .btn-icon {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+          }
+          .btn-default {
+            background: #aa4f22;
+            color: #faf5ef;
+            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+          }
+          .btn-outline {
+            border-color: #d6c8b2;
+            background: #faf5ef;
+            color: #23201c;
+          }
+          .btn-ghost {
+            background: transparent;
+            color: #23201c;
+          }
+          /* Badge variant x tone (size sm) */
+          .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 16px;
+            padding: 2px 10px;
+            font-weight: 600;
+            border: 1px solid transparent;
+          }
+          .badge-soft-structure {
+            border-color: rgba(30, 95, 116, 0.25);
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .badge-soft-accent {
+            border-color: rgba(192, 138, 46, 0.35);
+            background: #fbf1dc;
+            color: #8c5f16;
+          }
+          .badge-soft-muted {
+            border-color: #e7decf;
+            background: #faf5ef;
+            color: #5b564f;
+          }
+          .badge-outline-neutral {
+            border-color: #e7decf;
+            color: #23201c;
+          }
+          /* IconBadge */
+          .icon-badge {
+            display: inline-flex;
+            height: 40px;
+            width: 40px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .icon-badge-accent {
+            background: #fbf1dc;
+            color: #8c5f16;
+          }
+          /* Divider vertical rule structure */
+          .rail {
+            width: 2px;
+            flex: 1;
+            background: rgba(30, 95, 116, 0.25);
+            margin: 4px 0;
+          }
+          .hairline {
+            height: 1px;
+            background: #e7decf;
+          }
+          /* Label + Input */
+          .label {
+            font-size: 14px;
+            line-height: 20px;
+            font-weight: 500;
+            color: #23201c;
+          }
+          .input {
+            display: flex;
+            height: 44px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 10px;
+            border: 1px solid #d6c8b2;
+            background: #faf5ef;
+            padding: 8px 12px;
+            font: inherit;
+            font-size: 16px;
+            color: #23201c;
+          }
+          /* Dialog */
+          .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(35, 32, 28, 0.5);
+          }
+          .sheet {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            box-sizing: border-box;
+            background: #fffcf7;
+            border-top: 1px solid #e7decf;
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            box-shadow:
+              0 10px 28px rgba(59, 42, 24, 0.11),
+              0 2px 6px rgba(59, 42, 24, 0.06);
+          }
+          .sheet-handle {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            margin-left: -20px;
+            width: 40px;
+            height: 4px;
+            border-radius: 999px;
+            background: #d6c8b2;
+          }
+          .dialog-close {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            display: flex;
+            height: 44px;
+            width: 44px;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: rgba(35, 32, 28, 0.6);
+            background: transparent;
+            border: 0;
+          }
+          .dialog-title {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 30px;
+            line-height: 36px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #23201c;
+            margin: 0;
+          }
+          .dialog-desc {
+            font-size: 14px;
+            line-height: 20px;
+            color: #5b564f;
+            margin: 0;
+          }
+          /* Toast success */
+          .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border-radius: 14px;
+            border: 1px solid #2f7d5c;
+            background: #eaefe8;
+            color: #245f48;
+            padding: 16px;
+            box-shadow:
+              0 10px 28px rgba(59, 42, 24, 0.11),
+              0 2px 6px rgba(59, 42, 24, 0.06);
+          }
+          /* AppHeader MobileTopBar + TabBar */
+          .app-top {
+            display: flex;
+            height: 56px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 0 8px 0 16px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .wordmark {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 24px;
+            line-height: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #aa4f22;
+          }
+          .tabbar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            border-top: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .tab {
+            display: flex;
+            min-height: 44px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 4px;
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 700;
+            color: #5b564f;
+          }
+          .tab-active {
+            background: #fbede4;
+            color: #aa4f22;
+            box-shadow: inset 0 2px 0 #d4622a;
+          }
+          /* EventPageBar (new) */
+          .page-bar {
+            display: flex;
+            height: 48px;
+            align-items: center;
+            gap: 4px;
+            padding: 0 16px 0 4px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+        </style>
+      </helmet>
+      <div
+        style="
+          width: 390px;
+          height: 1000px;
+          box-sizing: border-box;
+          background: #efe4d4;
+          position: relative;
+          overflow: hidden;
+        "
+      >
+        <header class="app-top">
+          <span class="wordmark">Kluvo</span
+          ><button class="btn btn-ghost btn-icon" aria-label="Notifications">
+            <svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"></path>
+              <path d="M10 20a2 2 0 0 0 4 0"></path>
+            </svg>
+          </button>
+        </header>
+        <div class="page-bar">
+          <a href="#" class="btn btn-ghost btn-icon" aria-label="Retour à Seniors M1"
+            ><svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M15 5l-7 7 7 7"></path></svg></a
+          ><span class="t-label t-md">Seniors M1</span>
+        </div>
+        <main style="display: flex; flex-direction: column; gap: 24px; padding: 16px 16px 88px">
+          <div
+            class="card card-raised"
+            style="display: flex; flex-direction: column; gap: 14px; padding: 16px"
+          >
+            <div style="display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 8px">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+                <span class="badge badge-soft-structure">Extérieur</span
+                ><span class="badge badge-outline-neutral">Importé</span>
+              </div>
+              <span class="t-eyebrow">Seniors M1</span>
+              <h1 class="heading heading-4xl">vs St-Herblain BC</h1>
+              <span class="t-sm tone-secondary tabular">Samedi 4 octobre 2026 · 20:30</span>
+            </div>
+            <div class="card card-inset" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span class="icon-badge"
+                  ><svg
+                    class="i19"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path>
+                    <circle cx="12" cy="10" r="2.5"></circle></svg
+                ></span>
+                <div style="display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 1px">
+                  <span class="t-label t-sm">Gymnase de la Trocardière</span
+                  ><span class="t-xs tone-secondary">Rue de la Trocardière, 44400 Rezé</span>
+                </div>
+                <button
+                  class="btn btn-outline btn-icon"
+                  aria-label="Modifier le lieu"
+                  style="height: 36px; width: 36px"
+                >
+                  <svg
+                    class="i16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 20h4L19 9l-4-4L4 16z"></path>
+                    <path d="M13.5 6.5l4 4"></path>
+                  </svg>
+                </button>
+              </div>
+              <a href="#" class="btn btn-outline btn-sm"
+                ><svg
+                  class="i16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="6" cy="19" r="2"></circle>
+                  <circle cx="18" cy="5" r="2"></circle>
+                  <path d="M8 19h8a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h8"></path></svg
+                >Itinéraire</a
+              >
+            </div>
+          </div>
+          <section style="display: flex; flex-direction: column; gap: 14px">
+            <div class="section-heading">
+              <h2>Logistique</h2>
+              <span aria-hidden="true"></span>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 16px; padding: 16px"
+            >
+              <ol
+                style="
+                  display: flex;
+                  flex-direction: column;
+                  margin: 0;
+                  padding: 0;
+                  list-style: none;
+                "
+              >
+                <li style="display: flex; gap: 12px">
+                  <span
+                    class="t-display-2xl tabular tone-structure"
+                    style="width: 56px; flex-shrink: 0"
+                    >18:45</span
+                  >
+                  <div
+                    style="
+                      display: flex;
+                      width: 12px;
+                      flex-shrink: 0;
+                      flex-direction: column;
+                      align-items: center;
+                    "
+                  >
+                    <span
+                      class="tone-structure"
+                      aria-hidden="true"
+                      style="
+                        display: block;
+                        margin-top: 10px;
+                        height: 12px;
+                        width: 12px;
+                        border-radius: 999px;
+                        background: currentColor;
+                      "
+                    ></span
+                    ><span class="rail"></span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      min-width: 0;
+                      flex: 1;
+                      flex-direction: column;
+                      gap: 4px;
+                      padding-bottom: 16px;
+                      padding-top: 4px;
+                    "
+                  >
+                    <span class="t-label t-sm">RDV · Parking salle Coubertin</span>
+                    <span class="t-xs tone-secondary">Rue Pierre de Coubertin, 44000 Nantes</span>
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+                      <span class="badge badge-soft-structure">RDV de l’équipe</span
+                      ><span class="t-xs tone-secondary">Trajet estimé 35 min en voiture</span>
+                    </div>
+                  </div>
+                </li>
+                <li style="display: flex; gap: 12px">
+                  <span
+                    class="t-display-2xl tabular tone-structure"
+                    style="width: 56px; flex-shrink: 0"
+                    >19:45</span
+                  >
+                  <div
+                    style="
+                      display: flex;
+                      width: 12px;
+                      flex-shrink: 0;
+                      flex-direction: column;
+                      align-items: center;
+                    "
+                  >
+                    <span
+                      class="tone-structure"
+                      aria-hidden="true"
+                      style="
+                        display: block;
+                        margin-top: 10px;
+                        height: 12px;
+                        width: 12px;
+                        border-radius: 999px;
+                        background: currentColor;
+                      "
+                    ></span
+                    ><span class="rail"></span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      min-width: 0;
+                      flex: 1;
+                      flex-direction: column;
+                      gap: 4px;
+                      padding-bottom: 16px;
+                      padding-top: 4px;
+                    "
+                  >
+                    <span class="t-label t-sm">Arrivée · Gymnase de la Trocardière</span>
+                    <span class="t-xs tone-secondary">45 min avant le coup d’envoi</span>
+                  </div>
+                </li>
+                <li style="display: flex; gap: 12px">
+                  <span class="t-display-2xl tabular tone-brand" style="width: 56px; flex-shrink: 0"
+                    >20:30</span
+                  >
+                  <div
+                    style="
+                      display: flex;
+                      width: 12px;
+                      flex-shrink: 0;
+                      flex-direction: column;
+                      align-items: center;
+                    "
+                  >
+                    <span
+                      class="tone-brand"
+                      aria-hidden="true"
+                      style="
+                        display: block;
+                        margin-top: 10px;
+                        height: 12px;
+                        width: 12px;
+                        border-radius: 999px;
+                        background: currentColor;
+                      "
+                    ></span>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      min-width: 0;
+                      flex: 1;
+                      flex-direction: column;
+                      gap: 4px;
+                      padding-top: 4px;
+                    "
+                  >
+                    <span class="t-label t-sm">Coup d’envoi</span>
+                    <span class="t-xs tone-secondary">vs St-Herblain BC</span>
+                  </div>
+                </li>
+              </ol>
+              <button class="btn btn-outline btn-sm" style="align-self: flex-start">
+                Ajuster le RDV
+              </button>
+            </div>
+          </section>
+        </main>
+        <nav class="tabbar" aria-label="Navigation principale">
+          <a href="#" class="tab"
+            ><svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 11l8-7 8 7v9H4z"></path></svg
+            >Accueil</a
+          >
+          <a href="#" class="tab tab-active"
+            ><svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="9" cy="8" r="3"></circle>
+              <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path>
+              <path d="M16 5a3 3 0 0 1 0 6"></path>
+              <path d="M21 20c0-2.6-1.7-4.8-4-5.6"></path></svg
+            >Équipes</a
+          >
+          <a href="#" class="tab"
+            ><svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 21V4h10v17"></path>
+              <path d="M15 9h4v12"></path>
+              <path d="M8 8h4M8 12h4M8 16h4"></path></svg
+            >Club</a
+          >
+          <a href="#" class="tab"
+            ><svg
+              class="i20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="8" r="4"></circle>
+              <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"></path></svg
+            >Profil</a
+          >
+        </nav>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1000}}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>
