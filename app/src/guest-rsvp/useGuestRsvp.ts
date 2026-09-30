@@ -27,7 +27,10 @@ export function useGuestRsvpSet(token: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ eventId, ...body }: GuestRsvpRequest & { eventId: string }) =>
-      apiClient.put<GuestEvent>(`/public/guest/${token}/events/${eventId}/rsvp`, body),
+      apiClient.put<GuestEvent>(
+        `/public/guest/${encodeURIComponent(token)}/events/${eventId}/rsvp`,
+        body,
+      ),
     onSuccess: (event) => storeEvent(queryClient, token, event),
     onError: (err) => refetchIfClosed(queryClient, token, err),
   });
@@ -46,7 +49,7 @@ export function useGuestRsvpClear(token: string) {
       via?: GuestRsvpRequest['via'];
     }) =>
       apiClient.delete<GuestEvent>(
-        `/public/guest/${token}/events/${eventId}/rsvp?teamPlayerId=${encodeURIComponent(teamPlayerId)}${via ? `&via=${via}` : ''}`,
+        `/public/guest/${encodeURIComponent(token)}/events/${eventId}/rsvp?teamPlayerId=${encodeURIComponent(teamPlayerId)}${via ? `&via=${via}` : ''}`,
       ),
     onSuccess: (event) => storeEvent(queryClient, token, event),
     onError: (err) => refetchIfClosed(queryClient, token, err),

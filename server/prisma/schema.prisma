@@ -640,10 +640,13 @@ model EventScoresheet {
   eventId                String                @unique
   status                 EventScoresheetStatus @default(UPLOADED)
   storageKey             String
-  uploadedByTeamPlayerId String
+  // Attribution, not ownership: the sheet belongs to the event's team, so it
+  // outlives its uploader (a player deleted, or their whole club when it
+  // uploaded on a partner's team).
+  uploadedByTeamPlayerId String?
   uploadedAt             DateTime              @default(now())
   event                  Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  uploadedBy             TeamPlayer            @relation(fields: [uploadedByTeamPlayerId], references: [id], onDelete: Cascade)
+  uploadedBy             TeamPlayer?           @relation(fields: [uploadedByTeamPlayerId], references: [id], onDelete: SetNull)
   extraction             ScoresheetExtraction?
 }
 

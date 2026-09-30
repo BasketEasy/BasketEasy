@@ -5,6 +5,7 @@ import {
   EXPIRE_JOB,
   NUDGE_JOB,
   SEND_JOB,
+  SWEEP_JOB,
   WhatsAppReminderScheduler,
   type ShareJobData,
 } from './whatsapp-reminder.scheduler';
@@ -22,6 +23,8 @@ export class WhatsAppReminderProcessor extends WorkerHost {
         return this.scheduler.send(job.data.shareId);
       case NUDGE_JOB:
         return this.scheduler.nudge(job.data.shareId);
+      case SWEEP_JOB:
+        return this.scheduler.sweep();
       case EXPIRE_JOB:
         return this.scheduler.expire(job.data.shareId);
     }

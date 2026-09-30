@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { __resetToastsForTests } from '@basketeasy/ui/toast-store';
+import { __resetRefreshForTests } from './api/client';
 import { server } from './mocks/server';
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -12,6 +13,8 @@ afterAll(() => server.close());
 // test is still queued when the next test's <Toaster /> mounts, so two
 // tests asserting on the same role in one file can collide.
 afterEach(() => __resetToastsForTests());
+// Same for the shared in-flight token refresh (see api/client.ts).
+afterEach(() => __resetRefreshForTests());
 
 // jsdom doesn't implement these, but Radix's Select uses them for
 // pointer-based interaction — without stubs, opening a Select in tests

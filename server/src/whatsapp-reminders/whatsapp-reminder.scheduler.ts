@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { EventShareState, EventShareType, NotificationType } from '@prisma/client';
@@ -15,6 +15,23 @@ import {
 export const SEND_JOB = 'send';
 export const NUDGE_JOB = 'nudge';
 export const EXPIRE_JOB = 'expire';
+export const SWEEP_JOB = 'sweep';
+export const SWEEP_SCHEDULER_ID = 'wa-sweep';
+
+/** How often the sweep looks for shares whose job was lost. */
+export const SWEEP_EVERY_MS = 10 * 60 * 1000;
+/** A send this far overdue means its job is gone, not merely late. */
+const SWEEP_GRACE_MS = 2 * 60 * 1000;
+const SWEEP_BATCH = 200;
+
+// A DB or Redis blip in a handler must not drop the reminder: the handlers are
+// idempotent (conditional writes), so a retry is safe.
+const JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 5_000 },
+  removeOnComplete: true,
+  removeOnFail: true,
+};
 
 export const NUDGE_DELAY_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -77,7 +94,7 @@ export function resolveSettings(
  * `EventShare` is the truth.
  */
 @Injectable()
-export class WhatsAppReminderScheduler {
+export class WhatsAppReminderScheduler implements OnModuleInit {
   private readonly logger = new Logger(WhatsAppReminderScheduler.name);
 
   constructor(
@@ -85,6 +102,64 @@ export class WhatsAppReminderScheduler {
     private readonly notifications: NotificationsService,
     @InjectQueue(WHATSAPP_REMINDER_QUEUE) private readonly queue: Queue<ShareJobData>,
   ) {}
+
+  /**
+   * Registers the repeatable sweep. A scheduling failure is logged and
+   * swallowed, same policy as the retention sweep: an unreachable Redis must
+   * not stop the API serving every other route.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.queue.upsertJobScheduler(
+        SWEEP_SCHEDULER_ID,
+        { every: SWEEP_EVERY_MS },
+        { name: SWEEP_JOB, data: { shareId: '' }, opts: { removeOnComplete: true } },
+      );
+    } catch (error) {
+      this.logSyncFailure('sweep scheduling', error);
+    }
+  }
+
+  /**
+   * Acts on `EventShare`, the truth, when a delayed job was lost (Redis
+   * failure while queueing, a job dropped after a handler error): sends that
+   * are overdue and shares that outlived their event. Both handlers re-read
+   * and write conditionally, so a sweep racing a live job is harmless.
+   */
+  async sweep(): Promise<void> {
+    const now = new Date();
+    const overdue = await this.prisma.eventShare.findMany({
+      where: {
+        state: EventShareState.SCHEDULED,
+        dueAt: { lte: new Date(now.getTime() - SWEEP_GRACE_MS) },
+        event: { startsAt: { gt: now } },
+      },
+      select: { id: true },
+      take: SWEEP_BATCH,
+    });
+    const stale = await this.prisma.eventShare.findMany({
+      where: {
+        state: { in: [EventShareState.SCHEDULED, EventShareState.PENDING] },
+        OR: [{ event: { startsAt: { lte: now } } }, { eventId: null, expiresAt: { lte: now } }],
+      },
+      select: { id: true },
+      take: SWEEP_BATCH,
+    });
+    for (const { id } of overdue) {
+      try {
+        await this.send(id);
+      } catch (error) {
+        this.logSyncFailure(id, error);
+      }
+    }
+    for (const { id } of stale) {
+      try {
+        await this.expire(id);
+      } catch (error) {
+        this.logSyncFailure(id, error);
+      }
+    }
+  }
 
   /**
    * Best-effort by contract: a Redis failure is logged, never thrown, so it can
@@ -276,6 +351,13 @@ export class WhatsAppReminderScheduler {
 
   /** `expire` job: the event started without a share. */
   async expire(shareId: string): Promise<void> {
+    // The job carries the kick-off it was queued for; the event may have moved
+    // since. Only the current kick-off decides (a CANCELLATION has no event:
+    // its own expiry is the deleted event's kick-off).
+    const share = await this.loadShareForJob(shareId);
+    if (!share) return;
+    const endsAt = share.event?.startsAt ?? share.expiresAt;
+    if (endsAt && endsAt > new Date()) return;
     const { count } = await this.prisma.eventShare.updateMany({
       where: {
         id: shareId,
@@ -494,8 +576,7 @@ export class WhatsAppReminderScheduler {
       {
         jobId: jobId(shareId, SEND_JOB),
         delay: Math.max(0, dueAt.getTime() - Date.now()),
-        removeOnComplete: true,
-        removeOnFail: true,
+        ...JOB_OPTIONS,
       },
     );
   }
@@ -510,15 +591,14 @@ export class WhatsAppReminderScheduler {
       {
         jobId: jobId(shareId, NUDGE_JOB),
         delay: NUDGE_DELAY_MS,
-        removeOnComplete: true,
-        removeOnFail: true,
+        ...JOB_OPTIONS,
       },
     );
   }
 
   // The expire job carries the kick-off it was queued for, so a moved event is
   // noticed by comparing rather than by re-adding on every sync.
-  private async ensureExpire(shareId: string, startsAt: Date): Promise<void> {
+  async ensureExpire(shareId: string, startsAt: Date): Promise<void> {
     const existing = await this.queue.getJob(jobId(shareId, EXPIRE_JOB));
     if (existing?.data.startsAt === startsAt.toISOString()) return;
     if (existing) await this.queue.remove(jobId(shareId, EXPIRE_JOB));
@@ -528,8 +608,7 @@ export class WhatsAppReminderScheduler {
       {
         jobId: jobId(shareId, EXPIRE_JOB),
         delay: Math.max(0, startsAt.getTime() - Date.now()),
-        removeOnComplete: true,
-        removeOnFail: true,
+        ...JOB_OPTIONS,
       },
     );
   }

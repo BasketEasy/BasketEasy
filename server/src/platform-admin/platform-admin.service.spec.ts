@@ -856,12 +856,14 @@ describe('PlatformAdminService', () => {
       OR: [
         { userId: 'user-9' },
         { metadata: { path: ['subjectUserId'], equals: 'user-9' } },
+        { metadata: { path: ['guardianUserId'], equals: 'user-9' } },
         { metadata: { path: ['disclosedUserIds'], array_contains: ['user-9'] } },
       ],
     };
     const playerClause = {
       OR: [
         { metadata: { path: ['subjectPlayerId'], equals: 'player-3' } },
+        { metadata: { path: ['playerId'], equals: 'player-3' } },
         { metadata: { path: ['disclosedPlayerIds'], array_contains: ['player-3'] } },
       ],
     };

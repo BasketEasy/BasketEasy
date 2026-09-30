@@ -9,6 +9,10 @@ import type { User } from '@basketeasy/types/auth';
 export interface AccountContextValue {
   user: User | null;
   isLoading: boolean;
+  /** The session could not be restored (as opposed to there being none). */
+  isError: boolean;
+  /** Re-runs the session restore after `isError`. */
+  retry: () => void;
 }
 
 export const AccountContext = createContext<AccountContextValue | null>(null);
