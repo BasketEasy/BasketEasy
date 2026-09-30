@@ -88,7 +88,73 @@ describe('GuestRsvpService', () => {
       await service.getPage('team-1');
 
       const { startsAt } = prisma.event.findMany.mock.calls[0][0].where;
-      expect(startsAt.lte.getTime() - startsAt.gt.getTime()).toBe(14 * DAY);
+      expect(startsAt.lte.getTime() - Date.now()).toBeCloseTo(14 * DAY, -4);
+    });
+
+    describe('an FFBB match whose kick-off time is unconfirmed', () => {
+      // Stored at 00:00 UTC of its date; on the day itself that is already past.
+      const unconfirmed = () => ({
+        ...soon(),
+        startsAt: new Date('2026-06-13T00:00:00Z'),
+        timeConfirmed: false,
+      });
+
+      beforeEach(() => {
+        jest.useFakeTimers({ now: new Date('2026-06-13T10:00:00Z') });
+        prisma.team.findUniqueOrThrow.mockResolvedValue({ name: 'U15', clubTeams: [] });
+        prisma.teamPlayer.findMany.mockResolvedValue([]);
+      });
+      afterEach(() => jest.useRealTimers());
+
+      it('stays on the guest page until the end of its Paris day', async () => {
+        prisma.event.findMany.mockResolvedValue([unconfirmed()]);
+
+        const page = await service.getPage('team-1');
+
+        expect(page.events).toHaveLength(1);
+      });
+
+      it('drops off the page once its Paris day is over', async () => {
+        jest.setSystemTime(new Date('2026-06-13T22:30:00Z'));
+        prisma.event.findMany.mockResolvedValue([unconfirmed()]);
+
+        const page = await service.getPage('team-1');
+
+        expect(page.events).toHaveLength(0);
+      });
+
+      it('accepts an answer during its own day', async () => {
+        prisma.event.findFirst.mockResolvedValue(unconfirmed());
+        prisma.event.findMany.mockResolvedValue([unconfirmed()]);
+        prisma.teamPlayer.count.mockResolvedValue(1);
+        prisma.$transaction.mockImplementation(async (fn) =>
+          fn({
+            eventRsvp: { upsert: jest.fn().mockResolvedValue({ travelMode: 'MEETING_POINT' }) },
+            eventRsvpChange: { create: jest.fn() },
+          }),
+        );
+
+        await expect(
+          service.setRsvp('team-1', 'tok', undefined, 'event-1', {
+            teamPlayerId: 'tp-1',
+            status: 'GOING',
+          }),
+        ).resolves.toBeDefined();
+      });
+
+      it('is closed (409) for a confirmed match that already started', async () => {
+        prisma.event.findFirst.mockResolvedValue({
+          ...unconfirmed(),
+          timeConfirmed: true,
+        });
+
+        await expect(
+          service.setRsvp('team-1', 'tok', undefined, 'event-1', {
+            teamPlayerId: 'tp-1',
+            status: 'GOING',
+          }),
+        ).rejects.toThrow(ConflictException);
+      });
     });
 
     it('builds one attendance entry per roster member, with travel only for a GOING match', async () => {

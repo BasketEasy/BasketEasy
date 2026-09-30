@@ -21,6 +21,7 @@ import {
   type GuestRsvpRequest,
   type GuestTeamPage,
 } from '@basketeasy/types/guest-links';
+import { endOfParisDay } from '../common/paris-time';
 import { PrismaService } from '../prisma/prisma.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -247,15 +248,26 @@ export class GuestRsvpService {
     return { gt: now, lte: new Date(now.getTime() + GUEST_WINDOW_DAYS * DAY_MS) };
   }
 
+  // Answers close at kick-off. An FFBB match whose time isn't confirmed is
+  // stored at 00:00 UTC of its date, which is not a kick-off: it stays
+  // answerable until the end of that day in Paris instead.
+  private closesAt(event: { startsAt: Date; timeConfirmed: boolean }): Date {
+    return event.timeConfirmed ? event.startsAt : endOfParisDay(event.startsAt);
+  }
+
+  private isAnswerable(event: { startsAt: Date; timeConfirmed: boolean }, now: Date): boolean {
+    const { lte } = this.window(now);
+    return this.closesAt(event) > now && event.startsAt <= lte;
+  }
+
   // 404 for an event that isn't the team's; 409 for one outside the window.
   private async findAnswerableEvent(teamId: string, eventId: string) {
     const event = await this.prisma.event.findFirst({
       where: { id: eventId, teamId },
-      select: { id: true, type: true, startsAt: true },
+      select: { id: true, type: true, startsAt: true, timeConfirmed: true },
     });
     if (!event) throw new NotFoundException();
-    const { gt, lte } = this.window();
-    if (event.startsAt <= gt || event.startsAt > lte) {
+    if (!this.isAnswerable(event, new Date())) {
       throw new ConflictException({
         message: 'Les réponses à cet événement sont closes',
         code: GUEST_RSVP_CLOSED_CODE,
@@ -282,8 +294,16 @@ export class GuestRsvpService {
   // Events in the window plus the roster's answers, convocations and plans:
   // five queries however many events there are.
   private async loadEvents(teamId: string, onlyEventId?: string): Promise<GuestEvent[]> {
-    const events = await this.prisma.event.findMany({
-      where: { teamId, startsAt: this.window(), ...(onlyEventId ? { id: onlyEventId } : {}) },
+    const now = new Date();
+    const { lte } = this.window(now);
+    // Lower bound a day back: an unconfirmed-time match stored at 00:00 UTC is
+    // already "in the past" for most of its own day but still answerable.
+    const candidates = await this.prisma.event.findMany({
+      where: {
+        teamId,
+        startsAt: { gt: new Date(now.getTime() - 25 * 60 * 60 * 1000), lte },
+        ...(onlyEventId ? { id: onlyEventId } : {}),
+      },
       orderBy: { startsAt: 'asc' },
       select: {
         id: true,
@@ -297,6 +317,7 @@ export class GuestRsvpService {
         notes: true,
       },
     });
+    const events = candidates.filter((e) => this.isAnswerable(e, now));
     if (events.length === 0) return [];
     const eventIds = events.map((e) => e.id);
     const [roster, rsvps, convocations, plans] = await Promise.all([
