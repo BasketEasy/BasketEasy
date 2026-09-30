@@ -4,7 +4,7 @@ import type {
   ScoresheetExtraction,
 } from '@basketeasy/types/scoresheet-extraction';
 import { apiClient } from '../api/client';
-import { eventScoresheetExtractionQueryKey } from './queryKeys';
+import { eventScoresheetExtractionQueryKey, teamStatsQueryKeyPrefix } from './queryKeys';
 
 /**
  * Confirms the extracted box score as ground truth, optionally overwriting
@@ -12,7 +12,8 @@ import { eventScoresheetExtractionQueryKey } from './queryKeys';
  * each of our own jersey numbers — the mapping the season stats are folded
  * from. On success, the confirmed ScoresheetExtraction is written straight
  * into the extraction query's cache so the review UI flips to CONFIRMED
- * without a second round trip.
+ * without a second round trip. The team's stats (the season table and this
+ * match's lines) are folded from the same confirm, so they are refetched.
  *
  * The whole request is typed rather than assembled inline, so a field added
  * to the contract can't quietly go unsent.
@@ -30,6 +31,7 @@ export function useConfirmEventScoresheetExtraction(
       apiClient.patch<ScoresheetExtraction>(`${basePath}/confirm`, request),
     onSuccess: (data) => {
       queryClient.setQueryData(eventScoresheetExtractionQueryKey(clubId, teamId, eventId), data);
+      queryClient.invalidateQueries({ queryKey: teamStatsQueryKeyPrefix(clubId, teamId) });
     },
   });
 }

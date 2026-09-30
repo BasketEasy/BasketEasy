@@ -37,6 +37,16 @@ const baseMatch: MyAgendaEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  vote: {
+    canVote: true,
+    hasVoted: false,
+    closesAt: '2026-08-30T18:00:00.000Z',
+    votesCast: 3,
+    totalVoters: 12,
+    mvp: null,
+  },
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 function noop() {}
@@ -165,27 +175,7 @@ describe('PastMatchesSection', () => {
     expect(screen.getByText(/— fautes/)).toBeInTheDocument();
   });
 
-  it('shows a "Voter" link while the vote window is open', () => {
-    // Match started 2026-08-25T18:00, "now" is 2026-08-27T12:00 — inside the
-    // 1h-to-5-day window (see voteWindow.ts).
-    renderWithProviders(
-      <PastMatchesSection
-        matches={[baseMatch]}
-        isLoading={false}
-        isError={false}
-        onRetry={noop}
-        isRefetching={false}
-      />,
-    );
-
-    expect(screen.getByRole('link', { name: /voter/i })).toHaveAttribute(
-      'href',
-      '/clubs/club-1/teams/team-1/events/event-1?tab=vote',
-    );
-  });
-
-  it('hides the "Voter" link once the vote window has closed', () => {
-    const match: MyAgendaEvent = { ...baseMatch, startsAt: '2026-08-01T18:00:00.000Z' };
+  function renderMatch(match: MyAgendaEvent) {
     renderWithProviders(
       <PastMatchesSection
         matches={[match]}
@@ -195,8 +185,59 @@ describe('PastMatchesSection', () => {
         isRefetching={false}
       />,
     );
+  }
+
+  it('shows « Voter » when the server says this reader can vote and has not', () => {
+    renderMatch(baseMatch);
+
+    expect(screen.getByRole('link', { name: /voter/i })).toHaveAttribute(
+      'href',
+      '/clubs/club-1/teams/team-1/events/event-1?tab=vote',
+    );
+  });
+
+  it('hides « Voter » from a reader who cannot vote (not convoked, not GOING, a parent)', () => {
+    renderMatch({ ...baseMatch, vote: { ...baseMatch.vote!, canVote: false } });
 
     expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+  });
+
+  it('shows « A voté » instead of « Voter » once the reader voted, while the window is open', () => {
+    renderMatch({
+      ...baseMatch,
+      vote: {
+        ...baseMatch.vote!,
+        hasVoted: true,
+        mvp: [{ firstName: 'Karim', lastInitial: 'D', isMe: false }],
+      },
+    });
+
+    expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+    expect(screen.getByText('A voté')).toBeInTheDocument();
+    expect(screen.getByText('MVP : Karim D.')).toBeInTheDocument();
+  });
+
+  it('keeps the MVP hidden while it is not public to the reader', () => {
+    renderMatch(baseMatch);
+
+    expect(screen.queryByText(/MVP/)).not.toBeInTheDocument();
+  });
+
+  it('shows the MVP and no vote control once the window has closed', () => {
+    renderMatch({
+      ...baseMatch,
+      startsAt: '2026-08-01T18:00:00.000Z',
+      vote: {
+        ...baseMatch.vote!,
+        canVote: false,
+        closesAt: '2026-08-06T18:00:00.000Z',
+        mvp: [{ firstName: 'Léa', lastInitial: 'M', isMe: true }],
+      },
+    });
+
+    expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('A voté')).not.toBeInTheDocument();
+    expect(screen.getByText('MVP : Vous !')).toBeInTheDocument();
   });
 
   it('shows an error state with a working retry', () => {

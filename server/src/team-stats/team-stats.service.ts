@@ -1,8 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventVoteCategory, TeamMemberRole } from '@prisma/client';
-import type { TeamSeasonPlayerStats, TeamSeasonStats } from '@basketeasy/types/team-stats';
+import type {
+  MatchStatLine,
+  MatchStats,
+  TeamSeasonPlayerStats,
+  TeamSeasonStats,
+} from '@basketeasy/types/team-stats';
 import { PrismaService } from '../prisma/prisma.service';
-import { assertCanActForPlayer } from '../common/acting-as';
+import { assertCanActForPlayer, resolveActingTeamPlayer } from '../common/acting-as';
 
 // A French basketball season runs September to August, so a calendar year is
 // the wrong window: it would cut a season in half at Christmas. seasonYear is
@@ -160,6 +165,54 @@ export class TeamStatsService {
     };
   }
 
+  /**
+   * One match's lines from its confirmed scoresheet — the typed projection
+   * `MatchPlayerStat` holds, written at confirm time. Two queries after the
+   * route checks: the persona's roster slot (for `isMe`) and the rows.
+   * Nulls stay null: an unread total is unknown, never 0.
+   */
+  async getMatchStats(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    forPlayerId?: string,
+  ): Promise<MatchStats> {
+    await this.assertTeamInClub(clubId, teamId);
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, teamId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+    const [me, rows] = await Promise.all([
+      resolveActingTeamPlayer(this.prisma, { userId, teamId, forPlayerId }),
+      this.prisma.matchPlayerStat.findMany({
+        where: { eventId },
+        select: {
+          teamPlayerId: true,
+          jerseyNumber: true,
+          points: true,
+          fouls: true,
+          freeThrowPoints: true,
+          twoPointPoints: true,
+          threePointPoints: true,
+          teamPlayer: { select: { player: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+    ]);
+    const lines: MatchStatLine[] = rows
+      .map(({ teamPlayer, ...row }) => ({
+        ...row,
+        firstName: teamPlayer.player.firstName,
+        lastName: teamPlayer.player.lastName,
+        isMe: me !== null && row.teamPlayerId === me.id,
+      }))
+      .sort(byPointsThenName);
+    return { hasStats: lines.length > 0, lines };
+  }
+
   // Seasons the selector can offer: those the team actually has confirmed
   // stats for. Derived from the matches' own dates rather than from a stored
   // season column, so it follows the data without a backfill.
@@ -229,6 +282,17 @@ function byScoringThenName(a: TeamSeasonPlayerStats, b: TeamSeasonPlayerStats): 
     if (a.pointsPerGame === null) return 1;
     if (b.pointsPerGame === null) return -1;
     return b.pointsPerGame - a.pointsPerGame;
+  }
+  return a.lastName.localeCompare(b.lastName, 'fr');
+}
+
+// The match's top scorer first; an unread total sorts last rather than as a
+// zero, and ties fall back to the surname so the order is stable.
+function byPointsThenName(a: MatchStatLine, b: MatchStatLine): number {
+  if (a.points !== b.points) {
+    if (a.points === null) return 1;
+    if (b.points === null) return -1;
+    return b.points - a.points;
   }
   return a.lastName.localeCompare(b.lastName, 'fr');
 }

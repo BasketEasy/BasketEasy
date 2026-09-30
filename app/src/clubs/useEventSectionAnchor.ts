@@ -38,6 +38,8 @@ export const EVENT_SECTION_SCROLL_MARGIN = 'scroll-mt-28 md:scroll-mt-20';
  * question the tab actually answered was who is coming tonight.
  */
 export const EVENT_TAB_ANCHORS: Record<string, string> = {
+  // Not an old tab: the home's « Changer » on a travel choice lands here.
+  decision: EVENT_SECTION_IDS.decision,
   effectif: EVENT_SECTION_IDS.presences,
   vote: EVENT_SECTION_IDS.vote,
   partage: EVENT_SECTION_IDS.partage,

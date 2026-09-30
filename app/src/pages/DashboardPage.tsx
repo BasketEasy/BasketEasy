@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
-import { Text } from '@basketeasy/ui/text';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { useAccount } from '../auth/useAccount';
 import { ManagerHome } from '../clubs/ManagerHome';
 import { PlayerHome } from '../clubs/PlayerHome';
@@ -56,28 +55,18 @@ export function DashboardPage() {
 
   return (
     <PageContainer size="lg">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Heading as="h1" className="m-0">
-            {greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
-          </Heading>
-          {/* The account e-mail line is manager-only now: a player's home
-              screen is about the week, not about the account
-              (`player-journey.md` §3.3). */}
-          {persona ? (
-            <Text variant="meta" size="md" className="mt-1">
-              {`Vous suivez ${persona.firstName} ${persona.lastName}`}
-            </Text>
-          ) : (
-            hasManageRights &&
-            user && (
-              <Text variant="meta" size="md" className="mt-1 break-all">
-                {user.email}
-              </Text>
-            )
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
+        meta={
+          // The account e-mail line is manager-only: a player's home screen
+          // is about the week, not about the account (`player-journey.md` §3.3).
+          persona ? (
+            `Vous suivez ${persona.firstName} ${persona.lastName}`
+          ) : hasManageRights && user ? (
+            <span className="break-all">{user.email}</span>
+          ) : undefined
+        }
+      />
 
       {hasManageRights ? (
         <ManagerHome

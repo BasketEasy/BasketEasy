@@ -11,7 +11,7 @@ import type { EventMatchResult } from '@basketeasy/types/events';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import { formatEventDate } from './eventDateFormat';
 import { formatCount } from './teamStatsFormat';
-import { isVoteWindowOpen } from './voteWindow';
+import { formatMvpNames } from './myAgendaVote';
 import { eventVenueLabel } from '@basketeasy/types/events';
 
 const OUTCOME_BADGE_TONE: Record<EventMatchResult['outcome'], 'success' | 'danger' | 'neutral'> = {
@@ -34,15 +34,19 @@ const OUTCOME_LABEL: Record<EventMatchResult['outcome'], string> = {
  * unconfirmed score (CLAUDE.md, Scoresheets module), so there is no
  * "provisional" score rendered here either.
  *
- * The vote CTA reuses `isVoteWindowOpen` (`./voteWindow`) — the same hard
- * window `EventsService.castVote` enforces server-side and `EventVoteBadge`
- * already surfaces on the team agenda — rather than re-deriving it. It links
- * into the event page's existing vote section (`?tab=vote`, resolved by
- * `useEventSectionAnchor`) rather than building a new vote surface here.
+ * The vote state comes from the server (`MyAgendaEvent.vote`): « Voter »
+ * only when this reader can vote and hasn't, « A voté » once they have while
+ * the window is still open, and the MVP as a meta line once it is public to
+ * them. The link goes into the event page's existing vote section
+ * (`?tab=vote`, resolved by `useEventSectionAnchor`). The « joueur en
+ * difficulté » outcome never appears here.
  */
 function PastMatchRow({ match }: { match: MyAgendaEvent }) {
   const eventHref = `/clubs/${match.clubId}/teams/${match.teamId}/events/${match.eventId}`;
   const navState = { origin: { from: 'dashboard' } };
+  const vote = match.vote;
+  const mvp = vote?.mvp && vote.mvp.length > 0 ? formatMvpNames(vote.mvp) : null;
+  const isVoteOpen = !!vote && new Date(vote.closesAt) > new Date();
 
   return (
     <Card variant="inset" className="flex flex-col gap-2.5">
@@ -59,6 +63,11 @@ function PastMatchRow({ match }: { match: MyAgendaEvent }) {
             <Text as="span" variant="meta" size="xs">
               {formatCount(match.myMatchStats.points)} pts · {formatCount(match.myMatchStats.fouls)}{' '}
               fautes
+            </Text>
+          )}
+          {mvp && (
+            <Text as="span" variant="meta" size="xs">
+              MVP : {mvp}
             </Text>
           )}
         </div>
@@ -79,12 +88,17 @@ function PastMatchRow({ match }: { match: MyAgendaEvent }) {
             Voir →
           </Link>
         </TextLink>
-        {isVoteWindowOpen(match.startsAt) && (
+        {vote?.canVote && !vote.hasVoted && (
           <TextLink asChild tone="brand">
             <Link to={`${eventHref}?tab=vote`} state={navState}>
               Voter →
             </Link>
           </TextLink>
+        )}
+        {vote?.hasVoted && isVoteOpen && (
+          <Badge variant="soft" tone="muted">
+            A voté
+          </Badge>
         )}
       </div>
     </Card>
@@ -113,6 +127,8 @@ export function PastMatchesSection({
   onRetry,
   isRefetching,
   emptyState,
+  title = 'Après le match',
+  footer,
 }: {
   matches: MyAgendaEvent[];
   isLoading: boolean;
@@ -120,11 +136,15 @@ export function PastMatchesSection({
   onRetry: () => void;
   isRefetching: boolean;
   emptyState?: ReactNode;
+  /** The section's court-line label; the player home calls it « Derniers résultats ». */
+  title?: string;
+  /** Rendered under the list, e.g. a link to the full `/results` page. */
+  footer?: ReactNode;
 }) {
   if (isError) {
     return (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">Après le match</SectionHeading>
+        <SectionHeading as="h2">{title}</SectionHeading>
         <QueryError onRetry={onRetry} isRetrying={isRefetching} />
       </section>
     );
@@ -132,7 +152,7 @@ export function PastMatchesSection({
   if (isLoading) {
     return (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">Après le match</SectionHeading>
+        <SectionHeading as="h2">{title}</SectionHeading>
         <SkeletonList rows={1} variant="card" />
       </section>
     );
@@ -140,19 +160,20 @@ export function PastMatchesSection({
   if (matches.length === 0) {
     return emptyState ? (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">Après le match</SectionHeading>
+        <SectionHeading as="h2">{title}</SectionHeading>
         {emptyState}
       </section>
     ) : null;
   }
   return (
     <section className="flex flex-col gap-3.5">
-      <SectionHeading as="h2">Après le match</SectionHeading>
+      <SectionHeading as="h2">{title}</SectionHeading>
       <div className="flex flex-col gap-2">
         {matches.map((match) => (
           <PastMatchRow key={match.eventId} match={match} />
         ))}
       </div>
+      {footer}
     </section>
   );
 }
