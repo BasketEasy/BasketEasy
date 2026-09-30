@@ -143,6 +143,7 @@ export function EventDetailManagerView({
         event={event}
         canManage
         isRostered={isRostered}
+        stacked={isDesktop}
       />
     </section>
   );
@@ -172,7 +173,7 @@ export function EventDetailManagerView({
           {logistics}
           <section id={EVENT_SECTION_IDS.presences} className={`flex flex-col gap-3.5 ${scroll}`}>
             <SectionHeading as="h2">{presencesHeading}</SectionHeading>
-            {roster}
+            <Card className="p-4">{roster}</Card>
           </section>
         </div>
       ) : (

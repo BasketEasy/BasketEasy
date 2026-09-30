@@ -175,12 +175,15 @@ export function EventLogisticsCard({
   event,
   canManage,
   isRostered,
+  stacked = false,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   canManage: boolean;
   isRostered: boolean;
+  /** Timeline above the kit even on a wide screen, for a half-width column. */
+  stacked?: boolean;
 }) {
   const { data: roster } = useEventConvocations(clubId, teamId, event.id, true);
 
@@ -220,7 +223,7 @@ export function EventLogisticsCard({
   // MATCH, so the second test only narrows the type.
   if (event.type === 'MATCH' && event.meetingPlan) {
     return (
-      <div className="grid items-start gap-3.5 lg:grid-cols-2">
+      <div className={`grid items-start gap-3.5 ${stacked ? '' : 'lg:grid-cols-2'}`}>
         <EventMatchTimeline
           clubId={clubId}
           teamId={teamId}
