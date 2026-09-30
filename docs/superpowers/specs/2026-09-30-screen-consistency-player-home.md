@@ -25,7 +25,11 @@ the match, vote and read the result after):
 2. **The vote's outcome is invisible.** Who was MVP is only on the match page, in the vote section.
 3. **No season.** « combien j'ai marqué cette saison ? » needs the team page's « Mes stats » tab,
    three taps away.
-4. **No match stats.** A confirmed scoresheet produces a `MatchPlayerStat` row per player, but no
+4. **No way to say how you're getting there.** After « Présent » on a match, the player chooses
+   « avec le groupe » (the RDV) or « direct à la salle » (`EventRsvp.travelMode`), but only in the
+   match page's decision band. The home doesn't even show the RDV: `MyAgendaEvent` carries neither
+   `meetingPlan` nor `myTravelMode` (CLAUDE.md: « no RDV on the dashboard agenda yet »).
+5. **No match stats.** A confirmed scoresheet produces a `MatchPlayerStat` row per player, but no
    screen shows one match's lines. The player sees their own `pts · fautes` on the home, nothing on
    the match page.
 
@@ -54,6 +58,8 @@ section « À faire » (count)                       only when non-empty
   FactTile accent per owed vote                    « Votez pour le MVP · vs Carquefou » detail « Ferme le 2 oct. » → « Voter » (?tab=vote)
   MyAgendaEventCard per unanswered event           (today's « À répondre », convocations first)
 section « Prochain rendez-vous »                   hero card (dashboard plan §2.3 shape), excluded from the agenda below
+  RSVP (three buttons)
+  MATCH + GOING + meeting point → « Comment venez-vous ? » TravelModeChoice (Avec le groupe · RDV 18:45 Parking Coubertin | Direct à la salle · 19:45)   §6b
 section « Dernier match »                          most recent past MATCH in the 30-day window, only if any
   Card: eyebrow « {team} · {date} », title « vs {opponent} », score {us}–{them} display + outcome badge
         FactTile « Ma ligne » : « 14 pts · 2 fautes »  (myMatchStats; « Stats pas encore saisies » when null)
@@ -110,6 +116,26 @@ export interface MyAgendaVote {
   canVote per RSVP/convocation/guardian case, hasVoted, mvp null before public / public after close /
   public after own BEST vote, ties, `[]` with no votes, no WORST leakage.
 
+## 4b. Part 5 (API): the RDV on `MyAgendaEvent`
+
+`MyAgendaEvent` gains the two fields `TeamEvent` already has, with the same meaning:
+`meetingPlan: EventMeetingPlan | null` (null for a TRAINING) and `myTravelMode: EventTravelMode |
+null` (null unless the persona answered GOING to a MATCH).
+
+- `DashboardService` calls the meeting-points module's `resolveMeetingPlan` for the batch's matches
+  (two queries per batch, the same helper `EventsService` uses, so the RDV time can't differ between
+  the home and the match page). Dashboard depends on meeting-points the way Events does; meeting-points
+  never imports dashboard.
+- `myTravelMode` is read off the persona's `EventRsvp` rows the service already loads (add `travelMode`
+  to that select). No new query.
+- A stale route triggers the same lazy recompute a `TeamEvent` read does (system upkeep, allowed on a
+  GET). « Lieu non communiqué » and « horaire à confirmer » behave exactly as on the match page.
+- Types first (`@basketeasy/types/my-dashboard`), then the service, then the client. Unit specs: plan
+  on a MATCH, null on a TRAINING, home match with no default RDV, `myTravelMode` per RSVP state,
+  guardian persona reads the child's choice.
+- When it lands, drop « no RDV on the dashboard agenda yet » from CLAUDE.md's « What's deliberately not
+  here yet ».
+
 ## 5. Part 2 (API): one match's stats
 
 New route on the Team stats module (it owns `MatchPlayerStat` reads):
@@ -158,6 +184,35 @@ export interface MatchStats {
   for a guardian persona; MVP hidden while `mvp === null`; « Vous ! » when `isMe`; « Ma saison »
   zero state; no `WORST` text anywhere on the page (assert on « difficulté »).
 
+## 6b. Part 6 (UI): answer « comment venez-vous ? » from the home
+
+Yes, the player answers where the question is shown. Rule added to `docs/ui-guidelines.md` §6: a
+decision the reader owes is answerable where the home surfaces it, never only on the detail page.
+
+- **Hero (« Prochain rendez-vous »)**, MATCH only, when `meetingPlan.meetingPoint` is set:
+  - before an answer: the RDV line under the venue tile (« RDV {meetsAt} · {place} » or « RDV ·
+    horaire à confirmer »), so the reader knows what « avec le groupe » means before tapping Présent;
+  - after « Présent »: « Comment venez-vous ? » and the two radio cards, **the same
+    `TravelModeChoice`** the decision band and the guest page use (« Avec le groupe » with the RDV time
+    and place, « Direct à la salle » with the arrival time). Optimistic, snaps back on failure, toast
+    on failure only (the selection itself is the success feedback, as in the decision band);
+  - « Absent » / « Peut-être »: the choice disappears (the server resets `travelMode` when the answer
+    leaves GOING).
+  - No meeting point (a home match with no RDV, or none configured): no choice, the tile shows the
+    arrival time only.
+- **List cards** (« À faire », « Les 14 prochains jours »), MATCH + GOING + meeting point: one meta line
+  « RDV 18:45 · avec le groupe » / « Direct à la salle · arrivée 19:45 » and a `TextLink` « Changer » to
+  the event page's decision band (add `decision` to `EVENT_TAB_ANCHORS`, `?tab=decision`). Two radio
+  cards on every list card would drown the agenda; the hero is the one place with room for them.
+- **Refactor, not a copy:** `EventTravelModeControl` takes the narrow shape both types satisfy
+  (`{ id, type, location, locationName, meetingPlan, myTravelMode }`) instead of `TeamEvent`, so the
+  hero renders the same component, not a second wiring of `TravelModeChoice`. `useEventTravelModeSet`
+  already invalidates the dashboard key. Guardian personas: allowed (travel mode is one of the writes
+  `@AllowGuardians` covers), sent with `?forPlayerId=` like the RSVP.
+- Tests: hero shows the RDV line before answering; choice appears after Présent, disappears after
+  Absent; no choice without a meeting point or on a TRAINING; list card line + « Changer » link to
+  `?tab=decision`; a parent persona can choose for the child; failure snaps back with a toast.
+
 ## 7. Part 4 (UI): « Stats du match » on the match page
 
 In « Après la rencontre » (both views; for the player it is the accordion item from the
@@ -178,12 +233,14 @@ In « Après la rencontre » (both views; for the player it is the accordion ite
 
 ## 8. Order and sizing
 
-| Part              | Depends on        | Size |
-| ----------------- | ----------------- | ---- |
-| 1 Vote state API  | –                 | M    |
-| 2 Match stats API | –                 | S    |
-| 3 Home UI         | 1, dashboard plan | M    |
-| 4 Match stats UI  | 2                 | S    |
+| Part                  | Depends on        | Size |
+| --------------------- | ----------------- | ---- |
+| 1 Vote state API      | –                 | M    |
+| 2 Match stats API     | –                 | S    |
+| 3 Home UI             | 1, dashboard plan | M    |
+| 4 Match stats UI      | 2                 | S    |
+| 5 RDV on the home API | –                 | S    |
+| 6 Travel choice UI    | 5, 3              | S    |
 
 Screenshots per part at 390 and 1280: player before the match (vote owed on the previous one),
 after voting (window open), after close (MVP public), a parent persona, a season with no analysed

@@ -126,6 +126,10 @@ event, the next event of a team, a club's FFBB code, a child's consent.
   or padding at the call site.
 - **Destructive action:** `outline` button at the foot of the page or section, confirmed in a
   `Dialog` (`EventDeleteModal`, `TeamDeleteModal`).
+- **A decision the reader owes is answerable where it is surfaced.** If the home shows « Présent ? »
+  or « Comment venez-vous ? », the answer happens there, with the same control the detail page uses
+  (one component, a narrow prop shape both data types satisfy). Where there is no room (a list card),
+  show the current answer in one meta line with a « Changer » link to the detail page's anchor.
 - **RSVP** is always three separate buttons (Présent / Absent / Peut-être), filled by the answer.
 - **Choice between cards** is `RadioCardGroup`. **Several values in one control** is
   `SegmentedControl`.

@@ -63,7 +63,7 @@
       "x": 0,
       "y": 4180,
       "w": 390,
-      "h": 2080,
+      "h": 2300,
       "title": "Ma semaine · joueur"
     },
     "Match-apres.dc.html": {
@@ -103,56 +103,56 @@
     },
     "Import.dc.html": {
       "x": 0,
-      "y": 6680,
+      "y": 6900,
       "w": 390,
       "h": 1050,
       "title": "Importer les licenciés"
     },
     "Creer-club.dc.html": {
       "x": 470,
-      "y": 6680,
+      "y": 6900,
       "w": 390,
       "h": 844,
       "title": "Créer un club"
     },
     "Connexion.dc.html": {
       "x": 940,
-      "y": 6680,
+      "y": 6900,
       "w": 390,
       "h": 844,
       "title": "Auth · connexion"
     },
     "Erreur.dc.html": {
       "x": 1410,
-      "y": 6680,
+      "y": 6900,
       "w": 390,
       "h": 844,
       "title": "404 · 403"
     },
     "Legal.dc.html": {
       "x": 1880,
-      "y": 6680,
+      "y": 6900,
       "w": 390,
       "h": 900,
       "title": "Pages légales"
     },
     "Desktop-accueil.dc.html": {
       "x": 0,
-      "y": 8150,
+      "y": 8370,
       "w": 1280,
       "h": 950,
       "title": "Desktop · accueil"
     },
     "Desktop-equipe.dc.html": {
       "x": 1360,
-      "y": 8150,
+      "y": 8370,
       "w": 1280,
       "h": 1000,
       "title": "Desktop · équipe"
     },
     "Desktop-backoffice.dc.html": {
       "x": 2720,
-      "y": 8150,
+      "y": 8370,
       "w": 1280,
       "h": 900,
       "title": "Desktop · back-office"
@@ -241,7 +241,7 @@
       "w": 860,
       "maxH": 150,
       "fill": "green",
-      "text": "Joueur : À faire (vote dû + réponses), prochain RDV en héros, dernier match (score, ma ligne, MVP), ma saison. Jamais « joueur en difficulté » ici."
+      "text": "Joueur : À faire (vote dû + réponses), prochain RDV en héros avec « Comment venez-vous ? », dernier match (score, ma ligne, MVP), ma saison. Jamais « joueur en difficulté » ici."
     },
     "n6": {
       "x": 1410,
@@ -261,14 +261,14 @@
     },
     "t3": {
       "x": 0,
-      "y": 6380,
+      "y": 6600,
       "text": "Parcours et pages publiques · mobile 390",
       "kind": "title1",
       "maxW": 3200
     },
     "n7": {
       "x": 0,
-      "y": 6490,
+      "y": 6710,
       "w": 860,
       "maxH": 150,
       "fill": "orange",
@@ -276,7 +276,7 @@
     },
     "n8": {
       "x": 940,
-      "y": 6490,
+      "y": 6710,
       "w": 1330,
       "maxH": 150,
       "fill": "gray",
@@ -284,14 +284,14 @@
     },
     "t4": {
       "x": 0,
-      "y": 7850,
+      "y": 8070,
       "text": "Desktop 1280",
       "kind": "title1",
       "maxW": 4200
     },
     "n9": {
       "x": 0,
-      "y": 7960,
+      "y": 8180,
       "w": 1280,
       "maxH": 150,
       "fill": "purple",
@@ -299,7 +299,7 @@
     },
     "n10": {
       "x": 2720,
-      "y": 7960,
+      "y": 8180,
       "w": 1280,
       "maxH": 150,
       "fill": "gray",
