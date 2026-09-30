@@ -276,6 +276,13 @@ export class WhatsAppReminderScheduler {
 
   /** `expire` job: the event started without a share. */
   async expire(shareId: string): Promise<void> {
+    // The job carries the kick-off it was queued for; the event may have moved
+    // since. Only the current kick-off decides (a CANCELLATION has no event:
+    // its own expiry is the deleted event's kick-off).
+    const share = await this.loadShareForJob(shareId);
+    if (!share) return;
+    const endsAt = share.event?.startsAt ?? share.expiresAt;
+    if (endsAt && endsAt > new Date()) return;
     const { count } = await this.prisma.eventShare.updateMany({
       where: {
         id: shareId,
@@ -518,7 +525,7 @@ export class WhatsAppReminderScheduler {
 
   // The expire job carries the kick-off it was queued for, so a moved event is
   // noticed by comparing rather than by re-adding on every sync.
-  private async ensureExpire(shareId: string, startsAt: Date): Promise<void> {
+  async ensureExpire(shareId: string, startsAt: Date): Promise<void> {
     const existing = await this.queue.getJob(jobId(shareId, EXPIRE_JOB));
     if (existing?.data.startsAt === startsAt.toISOString()) return;
     if (existing) await this.queue.remove(jobId(shareId, EXPIRE_JOB));
