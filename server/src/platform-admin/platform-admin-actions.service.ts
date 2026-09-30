@@ -544,17 +544,12 @@ export class PlatformAdminActionsService {
           });
         }
         const ownedTeamIds = owned.map((link) => link.teamId);
-        // Both the owned teams' sheets and any sheet one of this club's players
-        // uploaded on a partner's team: EventScoresheet cascades with its
-        // uploader's roster slot, so those rows go too.
+        // Only the owned teams' sheets go. One of this club's players may have
+        // uploaded on a partner's team, but the sheet belongs to that team:
+        // its uploader link is merely nulled (SetNull), the file stays.
         const [sheets, playerCount] = await Promise.all([
           tx.eventScoresheet.findMany({
-            where: {
-              OR: [
-                { event: { teamId: { in: ownedTeamIds } } },
-                { uploadedBy: { player: { clubId } } },
-              ],
-            },
+            where: { event: { teamId: { in: ownedTeamIds } } },
             select: { storageKey: true },
           }),
           tx.player.count({ where: { clubId } }),

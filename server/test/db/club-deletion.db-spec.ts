@@ -52,12 +52,34 @@ describe('club deletion against Postgres', () => {
       data: { eventId: event.id, storageKey: 'sheets/a.jpg', uploadedByTeamPlayerId: slot.id },
     });
 
+    // A sheet this club's player uploaded on the partner's team: it is the
+    // partner's match record and must survive, minus the uploader link.
+    const partnerSlot = await prisma.teamPlayer.findFirstOrThrow({
+      where: { teamId: partnersTeam.id, playerId: player.id },
+    });
+    const partnerEvent = await prisma.event.create({
+      data: { teamId: partnersTeam.id, type: 'MATCH', startsAt: new Date(), location: 'Salle B' },
+    });
+    await prisma.eventScoresheet.create({
+      data: {
+        eventId: partnerEvent.id,
+        storageKey: 'sheets/partner.jpg',
+        uploadedByTeamPlayerId: partnerSlot.id,
+      },
+    });
+
     await service.deleteClub(
       { id: staff.id, email: staff.email, role: 'DATA_OFFICER' },
       club.id,
       'Club dissous, ticket #42',
       request,
     );
+
+    const kept = await prisma.eventScoresheet.findUniqueOrThrow({
+      where: { eventId: partnerEvent.id },
+    });
+    expect(kept.uploadedByTeamPlayerId).toBeNull();
+    expect(storage.deleteObject).not.toHaveBeenCalledWith('sheets/partner.jpg');
 
     expect(await prisma.club.findUnique({ where: { id: club.id } })).toBeNull();
     expect(await prisma.team.findUnique({ where: { id: owned.id } })).toBeNull();
