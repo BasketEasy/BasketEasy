@@ -101,6 +101,12 @@ export interface GetMatchesOptions {
    * "paste a URL" form wait seconds for data it discards.
    */
   resolveVenues?: boolean;
+  /**
+   * Matches whose venue is already known locally. Still re-read when the
+   * budget allows (FFBB can move a match), but only after every match with
+   * no venue yet, so a re-sync spends its page loads where they're missing.
+   */
+  knownVenueMatchIds?: ReadonlySet<string>;
 }
 
 export interface FfbbProvider {

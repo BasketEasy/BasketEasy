@@ -518,6 +518,7 @@ export class PlatformAdminStatsService {
           type: true,
           startsAt: true,
           location: true,
+          venue: true,
           meeting: {
             select: {
               meetingPointName: true,

@@ -5,6 +5,7 @@ import { Text, type TextProps } from '@basketeasy/ui/text';
 import { Divider } from '@basketeasy/ui/divider';
 import type { EventMeetingPlan, MeetingPointSource } from '@basketeasy/types/meeting-points';
 import { formatEventTime } from '../clubs/eventDateFormat';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 import { eventItineraryHref } from '../clubs/eventItinerary';
 
 const SOURCE_LABEL: Record<MeetingPointSource, string> = {
@@ -127,7 +128,9 @@ export function MatchTimelineSteps({
         <Text variant="meta" size="xs">
           {location} · {plan.arrivalBufferMinutes} min avant le coup d’envoi
         </Text>
-        {!canManage && <ItineraryLink address={location} label="Itinéraire vers la salle" />}
+        {!canManage && !isUnknownEventLocation(location) && (
+          <ItineraryLink address={location} label="Itinéraire vers la salle" />
+        )}
       </TimelineStep>
       <TimelineStep time={formatEventTime(startsAt)} tone="brand" last>
         <Text variant="label" size="sm">

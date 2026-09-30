@@ -1070,5 +1070,51 @@ describe('FfbbPageScrapeProvider', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(61);
       expect(result.matches.filter((m) => m.location !== null)).toHaveLength(60);
     });
+
+    it('spends the fetch cap on matches with no known venue first, soonest first', async () => {
+      // 65 matches, the first 60 in fixture order already have a venue locally.
+      const matches = Array.from({ length: 65 }, (_, i) =>
+        rawMatch(`m-${i}`, {
+          date_rencontre: `2026-${String(10 + Math.floor(i / 28)).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}T14:00:00`,
+        }),
+      );
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Salle Mangin' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+        knownVenueMatchIds: new Set(Array.from({ length: 60 }, (_, i) => `m-${i}`)),
+      });
+
+      const resolved = new Set(result.matches.filter((m) => m.location).map((m) => m.id));
+      for (const id of ['m-60', 'm-61', 'm-62', 'm-63', 'm-64'])
+        expect(resolved.has(id)).toBe(true);
+      // The five cut are the latest of the already-known ones.
+      for (const id of ['m-55', 'm-56', 'm-57', 'm-58', 'm-59'])
+        expect(resolved.has(id)).toBe(false);
+    });
+
+    it('reads a commune given as its own record', async () => {
+      const listHtml = pushChunkHtml({
+        data: [
+          rawMatch('m-1', {
+            salle: {
+              libelle: 'Gymnase de la Chesnaie',
+              adresse: '12 rue des Sports',
+              commune: { codePostal: '44115', libelle: 'Basse-Goulaine' },
+            },
+          }),
+        ],
+      });
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({}));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Gymnase de la Chesnaie, 12 rue des Sports, 44115 Basse-Goulaine',
+      );
+    });
   });
 });
