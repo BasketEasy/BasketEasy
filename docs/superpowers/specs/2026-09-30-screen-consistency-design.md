@@ -15,6 +15,9 @@ before it (`CardTitle` inside cards, five settings cards stacked above a tab lis
 ghost back button, a page title that is sometimes an `h1`, sometimes a `SectionHeading`, sometimes a
 `CardTitle`). This record states the grammar once and splits the work into one plan per screen.
 
+The standing rules distilled from this record live in [`docs/ui-guidelines.md`](../../ui-guidelines.md);
+new designs start there.
+
 It evolves Parquet ([`2026-08-25-frontend-parquet-revamp-design.md`](./2026-08-25-frontend-parquet-revamp-design.md)),
 it does not replace it: no token value changes, and every rule in `CLAUDE.md` « Design direction »
 still holds.
@@ -89,26 +92,27 @@ wrong. A value with no token goes into `tailwind-preset.cjs` first.
 
 ## 4. Plans, one per screen
 
-| #   | Screen (route)                                                        | Page type          | Plan                                                                 | Depends on | Size |
-| --- | --------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------- | ---------- | ---- |
-| 0   | Shared primitives                                                     | –                  | [part0](./2026-09-30-screen-consistency-part0-shared-primitives.md)  | –          | M    |
-| 1   | Accueil (`/dashboard`)                                                | tab root           | [dashboard](./2026-09-30-screen-consistency-dashboard.md)            | 0          | M    |
-| 2   | Équipe (`/clubs/:clubId/teams/:teamId`)                               | entity, depth 2    | [team](./2026-09-30-screen-consistency-team-detail.md)               | 0          | L    |
-| 3   | Club (`/clubs/:clubId/members`)                                       | entity, tab root   | [club](./2026-09-30-screen-consistency-club-members.md)              | 0          | M    |
-| 4   | Mes équipes (`/my-teams`)                                             | tab root           | [my-teams](./2026-09-30-screen-consistency-my-teams.md)              | 0          | S    |
-| 5   | Résultats (`/results`)                                                | tab root           | [results](./2026-09-30-screen-consistency-results.md)                | 0          | S    |
-| 6   | Notifications (`/notifications`)                                      | tab root           | [notifications](./2026-09-30-screen-consistency-notifications.md)    | 0          | S    |
-| 7   | Mon compte (`/account`)                                               | tab root           | [account](./2026-09-30-screen-consistency-account.md)                | 0          | M    |
-| 8   | Profil enfant (`/children/:playerId`)                                 | entity, depth 2    | [child](./2026-09-30-screen-consistency-child-profile.md)            | 0          | S    |
-| 9   | Import des licenciés (`/clubs/:clubId/import-players`)                | task flow, depth 2 | [import](./2026-09-30-screen-consistency-player-import.md)           | 0          | S    |
-| 10  | Créer un club (`/clubs/new`)                                          | task flow, depth 2 | [club-create](./2026-09-30-screen-consistency-club-create.md)        | 0          | S    |
-| 11  | Match, vue joueur (`/clubs/:clubId/teams/:teamId/events/:eventId`)    | entity, depth 2    | [event-player](./2026-09-30-screen-consistency-event-player-view.md) | –          | M    |
-| 12  | Réponse invité (`/r/:token`)                                          | standalone         | [guest](./2026-09-30-screen-consistency-guest-rsvp.md)               | 0          | S    |
-| 13  | Auth: login, register, forgot, reset, verify-email, both invite pages | standalone         | [auth](./2026-09-30-screen-consistency-auth.md)                      | –          | M    |
-| 14  | Erreurs: 404, 403, error boundary                                     | standalone         | [errors](./2026-09-30-screen-consistency-errors.md)                  | –          | S    |
-| 15  | Pages légales (4 routes, one `LegalPageLayout`)                       | standalone         | [legal](./2026-09-30-screen-consistency-legal.md)                    | –          | S    |
-| 16  | Landing (`/`)                                                         | marketing          | [landing](./2026-09-30-screen-consistency-landing.md)                | –          | S    |
-| 17  | Back-office (`/admin/*`, 15 routes, one `AdminPageHeader`)            | own chrome         | [back-office](./2026-09-30-screen-consistency-backoffice.md)         | 0          | M    |
+| #   | Screen (route)                                                         | Page type          | Plan                                                                 | Depends on | Size |
+| --- | ---------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------- | ---------- | ---- |
+| 0   | Shared primitives                                                      | –                  | [part0](./2026-09-30-screen-consistency-part0-shared-primitives.md)  | –          | M    |
+| 1   | Accueil (`/dashboard`)                                                 | tab root           | [dashboard](./2026-09-30-screen-consistency-dashboard.md)            | 0          | M    |
+| 1b  | Accueil joueur: vote, dernier match, saison, stats du match (API + UI) | tab root           | [player-home](./2026-09-30-screen-consistency-player-home.md)        | 0, 1       | L    |
+| 2   | Équipe (`/clubs/:clubId/teams/:teamId`)                                | entity, depth 2    | [team](./2026-09-30-screen-consistency-team-detail.md)               | 0          | L    |
+| 3   | Club (`/clubs/:clubId/members`)                                        | entity, tab root   | [club](./2026-09-30-screen-consistency-club-members.md)              | 0          | M    |
+| 4   | Mes équipes (`/my-teams`)                                              | tab root           | [my-teams](./2026-09-30-screen-consistency-my-teams.md)              | 0          | S    |
+| 5   | Résultats (`/results`)                                                 | tab root           | [results](./2026-09-30-screen-consistency-results.md)                | 0          | S    |
+| 6   | Notifications (`/notifications`)                                       | tab root           | [notifications](./2026-09-30-screen-consistency-notifications.md)    | 0          | S    |
+| 7   | Mon compte (`/account`)                                                | tab root           | [account](./2026-09-30-screen-consistency-account.md)                | 0          | M    |
+| 8   | Profil enfant (`/children/:playerId`)                                  | entity, depth 2    | [child](./2026-09-30-screen-consistency-child-profile.md)            | 0          | S    |
+| 9   | Import des licenciés (`/clubs/:clubId/import-players`)                 | task flow, depth 2 | [import](./2026-09-30-screen-consistency-player-import.md)           | 0          | S    |
+| 10  | Créer un club (`/clubs/new`)                                           | task flow, depth 2 | [club-create](./2026-09-30-screen-consistency-club-create.md)        | 0          | S    |
+| 11  | Match, vue joueur (`/clubs/:clubId/teams/:teamId/events/:eventId`)     | entity, depth 2    | [event-player](./2026-09-30-screen-consistency-event-player-view.md) | –          | M    |
+| 12  | Réponse invité (`/r/:token`)                                           | standalone         | [guest](./2026-09-30-screen-consistency-guest-rsvp.md)               | 0          | S    |
+| 13  | Auth: login, register, forgot, reset, verify-email, both invite pages  | standalone         | [auth](./2026-09-30-screen-consistency-auth.md)                      | –          | M    |
+| 14  | Erreurs: 404, 403, error boundary                                      | standalone         | [errors](./2026-09-30-screen-consistency-errors.md)                  | –          | S    |
+| 15  | Pages légales (4 routes, one `LegalPageLayout`)                        | standalone         | [legal](./2026-09-30-screen-consistency-legal.md)                    | –          | S    |
+| 16  | Landing (`/`)                                                          | marketing          | [landing](./2026-09-30-screen-consistency-landing.md)                | –          | S    |
+| 17  | Back-office (`/admin/*`, 15 routes, one `AdminPageHeader`)             | own chrome         | [back-office](./2026-09-30-screen-consistency-backoffice.md)         | 0          | M    |
 
 Rows 13, 15 and 17 each cover several routes because those routes render through one shared layout
 component (`AuthCard` after the change, `LegalPageLayout`, `AdminPageHeader`); a plan per route

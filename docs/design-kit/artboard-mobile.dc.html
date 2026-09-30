@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <title>Importer les licenciés</title>
+    <title>Artboard mobile 390</title>
     <script src="./support.js"></script>
   </head>
   <body>
@@ -641,7 +641,7 @@
       <div
         style="
           width: 390px;
-          height: 1050px;
+          height: 844px;
           box-sizing: border-box;
           background: #efe4d4;
           position: relative;
@@ -668,109 +668,31 @@
             </svg>
           </button>
         </header>
-        <div class="page-bar">
-          <a href="#" class="btn btn-ghost btn-icon" aria-label="Retour à Effectif · ASC Rezé"
-            ><svg
-              class="i20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M15 5l-7 7 7 7"></path></svg></a
-          ><span
-            class="t-label t-md"
-            style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-            >Effectif · ASC Rezé</span
-          >
-        </div>
-        <main style="display: flex; flex-direction: column; gap: 24px; padding: 16px 16px 88px">
-          <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
-            <span class="t-eyebrow">ASC Rezé Basket</span>
-            <h1 class="heading heading-4xl">Importer les licenciés</h1>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span class="step-dot" style="background: #1e5f74; color: #faf5ef">1</span
-              ><span class="t-xs tone-structure">Fichier</span>
-            </div>
-            <span
-              style="flex: 1; height: 2px; background: rgba(30, 95, 116, 0.25); margin-top: -18px"
-            ></span>
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span class="step-dot" style="background: #1e5f74; color: #faf5ef">2</span
-              ><span class="t-xs tone-structure">Colonnes</span>
-            </div>
-            <span
-              style="flex: 1; height: 2px; background: rgba(30, 95, 116, 0.25); margin-top: -18px"
-            ></span>
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span
-                class="step-dot"
-                style="background: #faf5ef; color: #5b564f; border: 1px solid #d6c8b2"
-                >3</span
-              ><span class="t-xs tone-secondary">Aperçu</span>
-            </div>
-          </div>
+        <!-- Page de profondeur 2 : ajouter page_bar sous app-top et padding-top 16px. -->
+        <main style="display: flex; flex-direction: column; gap: 24px; padding: 40px 16px 88px">
           <div
-            class="card card-raised"
-            style="display: flex; flex-direction: column; gap: 14px; padding: 16px"
+            style="display: flex; align-items: flex-end; gap: 12px; min-width: 0; flex-wrap: wrap"
           >
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1">
+              <h1 class="heading heading-4xl">Titre de la page</h1>
+              <span class="t-sm tone-secondary">Une ligne de méta</span>
+            </div>
+          </div>
+          <section style="display: flex; flex-direction: column; gap: 14px">
             <div class="section-heading">
-              <h2>Associer les colonnes</h2>
+              <h2>Section</h2>
               <span aria-hidden="true"></span>
             </div>
-            <span class="t-sm tone-secondary"
-              >Indiquez quelle colonne du fichier correspond à chaque champ.</span
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 12px; padding: 16px"
             >
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Nom</label><input class="input" value="Colonne B · « NOM »" />
+              <span class="t-md">Contenu</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Prénom</label
-              ><input class="input" value="Colonne C · « PRENOM »" />
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Date de naissance</label
-              ><input class="input" value="Colonne F · « DATE NAISS »" />
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
-              <button class="btn btn-outline btn-default-size">Retour</button
-              ><button class="btn btn-default btn-default-size" style="flex: 1">
-                Voir l’aperçu
-              </button>
-            </div>
-          </div>
+          </section>
         </main>
         <nav class="tabbar" aria-label="Navigation principale">
-          <a href="#" class="tab"
+          <a href="#" class="tab tab-active"
             ><svg
               class="i20"
               viewBox="0 0 24 24"
@@ -799,7 +721,7 @@
               <path d="M16 5a3 3 0 0 1 0 6"></path>
               <path d="M21 20c0-2.6-1.7-4.8-4-5.6"></path></svg
             >Équipes</a
-          ><a href="#" class="tab tab-active"
+          ><a href="#" class="tab"
             ><svg
               class="i20"
               viewBox="0 0 24 24"
@@ -832,7 +754,7 @@
         </nav>
       </div>
     </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1050}}'>
+    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
       class Component extends DCLogic {
         renderVals() { return {}; }
       }

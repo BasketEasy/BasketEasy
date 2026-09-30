@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <title>Importer les licenciés</title>
+    <title>Match · après la rencontre</title>
     <script src="./support.js"></script>
   </head>
   <body>
@@ -641,7 +641,7 @@
       <div
         style="
           width: 390px;
-          height: 1050px;
+          height: 1250px;
           box-sizing: border-box;
           background: #efe4d4;
           position: relative;
@@ -669,7 +669,7 @@
           </button>
         </header>
         <div class="page-bar">
-          <a href="#" class="btn btn-ghost btn-icon" aria-label="Retour à Effectif · ASC Rezé"
+          <a href="#" class="btn btn-ghost btn-icon" aria-label="Retour à Seniors M1"
             ><svg
               class="i20"
               viewBox="0 0 24 24"
@@ -684,88 +684,177 @@
           ><span
             class="t-label t-md"
             style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
-            >Effectif · ASC Rezé</span
+            >Seniors M1</span
           >
         </div>
         <main style="display: flex; flex-direction: column; gap: 24px; padding: 16px 16px 88px">
-          <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
-            <span class="t-eyebrow">ASC Rezé Basket</span>
-            <h1 class="heading heading-4xl">Importer les licenciés</h1>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span class="step-dot" style="background: #1e5f74; color: #faf5ef">1</span
-              ><span class="t-xs tone-structure">Fichier</span>
-            </div>
-            <span
-              style="flex: 1; height: 2px; background: rgba(30, 95, 116, 0.25); margin-top: -18px"
-            ></span>
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span class="step-dot" style="background: #1e5f74; color: #faf5ef">2</span
-              ><span class="t-xs tone-structure">Colonnes</span>
-            </div>
-            <span
-              style="flex: 1; height: 2px; background: rgba(30, 95, 116, 0.25); margin-top: -18px"
-            ></span>
-            <div
-              style="
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                min-width: 0;
-                align-items: center;
-              "
-            >
-              <span
-                class="step-dot"
-                style="background: #faf5ef; color: #5b564f; border: 1px solid #d6c8b2"
-                >3</span
-              ><span class="t-xs tone-secondary">Aperçu</span>
-            </div>
-          </div>
           <div
             class="card card-raised"
             style="display: flex; flex-direction: column; gap: 14px; padding: 16px"
           >
-            <div class="section-heading">
-              <h2>Associer les colonnes</h2>
-              <span aria-hidden="true"></span>
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1">
+              <div
+                style="display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap"
+              >
+                <span class="badge badge-soft-structure">Domicile</span
+                ><span class="badge badge-soft-structure">Victoire</span>
+              </div>
+              <span class="t-eyebrow">Seniors M1</span>
+              <h1 class="heading heading-4xl">vs Carquefou</h1>
+              <span class="t-sm tone-secondary tabular">Samedi 27 septembre · 20:30</span>
             </div>
-            <span class="t-sm tone-secondary"
-              >Indiquez quelle colonne du fichier correspond à chaque champ.</span
-            >
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Nom</label><input class="input" value="Colonne B · « NOM »" />
+            <div class="card card-inset" style="display: flex; flex-direction: column; gap: 10px">
+              <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                <span class="icon-badge"
+                  ><svg
+                    class="i19"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 4h8v5a4 4 0 0 1-8 0z"></path>
+                    <path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"></path>
+                    <path d="M12 13v4M8 20h8"></path></svg
+                ></span>
+                <div style="display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1">
+                  <span class="t-label t-sm">MVP : Karim D.</span
+                  ><span class="t-xs tone-secondary">9 votes sur 11 · vote clos</span>
+                </div>
+              </div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Prénom</label
-              ><input class="input" value="Colonne C · « PRENOM »" />
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+            <div class="card card-flush" style="display: flex; flex-direction: column">
+              <h2 style="margin: 0">
+                <button class="acc" aria-expanded="false">
+                  <span class="acc-title">Qui vient ?</span
+                  ><span
+                    class="t-sm tone-secondary"
+                    style="
+                      min-width: 0;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    "
+                    >11 / 12</span
+                  ><span class="tone-secondary"
+                    ><svg
+                      class="i20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M6 9l6 6 6-6"></path></svg
+                  ></span>
+                </button>
+              </h2>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
-              <label class="label">Date de naissance</label
-              ><input class="input" value="Colonne F · « DATE NAISS »" />
+            <div class="card card-flush" style="display: flex; flex-direction: column">
+              <h2 style="margin: 0">
+                <button class="acc" aria-expanded="false">
+                  <span class="acc-title">Vote du match</span
+                  ><span
+                    class="t-sm tone-secondary"
+                    style="
+                      min-width: 0;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    "
+                    >Résultats</span
+                  ><span class="tone-secondary"
+                    ><svg
+                      class="i20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M6 9l6 6 6-6"></path></svg
+                  ></span>
+                </button>
+              </h2>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
-              <button class="btn btn-outline btn-default-size">Retour</button
-              ><button class="btn btn-default btn-default-size" style="flex: 1">
-                Voir l’aperçu
-              </button>
+            <div class="card card-flush" style="display: flex; flex-direction: column">
+              <h2 style="margin: 0">
+                <button class="acc" aria-expanded="true">
+                  <span class="acc-title">Après la rencontre</span
+                  ><span class="t-sm tone-secondary tabular" style="white-space: nowrap">72–65</span
+                  ><span class="tone-secondary"
+                    ><svg
+                      class="i20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M6 15l6-6 6 6"></path></svg
+                  ></span>
+                </button>
+              </h2>
+              <div class="acc-body">
+                <span class="t-eyebrow">Stats du match</span>
+                <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                  <span class="t-xs tone-secondary" style="flex: 1">Joueur</span
+                  ><span class="t-xs tone-secondary" style="width: 40px; text-align: right"
+                    >PTS</span
+                  ><span class="t-xs tone-secondary" style="width: 56px; text-align: right"
+                    >Fautes</span
+                  >
+                </div>
+                <div style="display: flex; flex-direction: column">
+                  <div class="row">
+                    <span class="avatar">KD</span><span class="t-sm" style="flex: 1">Karim D.</span
+                    ><span class="t-display-2xl tabular" style="width: 40px; text-align: right"
+                      >21</span
+                    ><span class="t-xs tone-secondary" style="width: 56px; text-align: right"
+                      >3</span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="avatar">LM</span><span class="t-sm" style="flex: 1">Léo M.</span
+                    ><span class="badge badge-soft-brand">Vous</span
+                    ><span class="t-display-2xl tabular" style="width: 40px; text-align: right"
+                      >14</span
+                    ><span class="t-xs tone-secondary" style="width: 56px; text-align: right"
+                      >2</span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="avatar">TB</span><span class="t-sm" style="flex: 1">Tom B.</span
+                    ><span class="t-display-2xl tabular" style="width: 40px; text-align: right"
+                      >12</span
+                    ><span class="t-xs tone-secondary" style="width: 56px; text-align: right"
+                      >4</span
+                    >
+                  </div>
+                  <div class="row">
+                    <span class="avatar">NR</span><span class="t-sm" style="flex: 1">Noah R.</span
+                    ><span class="t-display-2xl tabular" style="width: 40px; text-align: right"
+                      >—</span
+                    ><span class="t-xs tone-secondary" style="width: 56px; text-align: right"
+                      >1</span
+                    >
+                  </div>
+                </div>
+                <button class="btn btn-outline btn-sm" style="align-self: flex-start">
+                  Voir la feuille de match
+                </button>
+              </div>
             </div>
           </div>
         </main>
@@ -782,8 +871,8 @@
               aria-hidden="true"
             >
               <path d="M4 11l8-7 8 7v9H4z"></path></svg
-            >Accueil</a
-          ><a href="#" class="tab"
+            >Ma semaine</a
+          ><a href="#" class="tab tab-active"
             ><svg
               class="i20"
               viewBox="0 0 24 24"
@@ -798,8 +887,8 @@
               <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path>
               <path d="M16 5a3 3 0 0 1 0 6"></path>
               <path d="M21 20c0-2.6-1.7-4.8-4-5.6"></path></svg
-            >Équipes</a
-          ><a href="#" class="tab tab-active"
+            >Mon équipe</a
+          ><a href="#" class="tab"
             ><svg
               class="i20"
               viewBox="0 0 24 24"
@@ -810,10 +899,10 @@
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="M5 21V4h10v17"></path>
-              <path d="M15 9h4v12"></path>
-              <path d="M8 8h4M8 12h4M8 16h4"></path></svg
-            >Club</a
+              <path d="M8 4h8v5a4 4 0 0 1-8 0z"></path>
+              <path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"></path>
+              <path d="M12 13v4M8 20h8"></path></svg
+            >Résultats</a
           ><a href="#" class="tab"
             ><svg
               class="i20"
@@ -832,7 +921,7 @@
         </nav>
       </div>
     </x-dc>
-    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1050}}'>
+    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1250}}'>
       class Component extends DCLogic {
         renderVals() { return {}; }
       }

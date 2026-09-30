@@ -51,6 +51,9 @@ Same breakpoint branch as the manager view (`useIsDesktopViewport()`), same item
   player's question), not the manager's « Présences »; only the item id is shared.
 - A parent acting for a child: unchanged conditions (no vote item), same folds.
 
+« Après la rencontre » also gains « Stats du match » (`MatchStatsTable`), specced in
+[player-home §7](./2026-09-30-screen-consistency-player-home.md).
+
 ## 3. Tests
 
 `EventDetailPlayerView` (new test file or `EventDetailPage.test.tsx`), mirroring the manager view's

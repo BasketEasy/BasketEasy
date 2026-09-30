@@ -63,8 +63,15 @@
       "x": 0,
       "y": 4180,
       "w": 390,
-      "h": 1000,
+      "h": 2080,
       "title": "Ma semaine · joueur"
+    },
+    "Match-apres.dc.html": {
+      "x": 2350,
+      "y": 4180,
+      "w": 390,
+      "h": 1250,
+      "title": "Match · après la rencontre"
     },
     "Equipe-joueur.dc.html": {
       "x": 470,
@@ -96,56 +103,56 @@
     },
     "Import.dc.html": {
       "x": 0,
-      "y": 6180,
+      "y": 6680,
       "w": 390,
       "h": 1050,
       "title": "Importer les licenciés"
     },
     "Creer-club.dc.html": {
       "x": 470,
-      "y": 6180,
+      "y": 6680,
       "w": 390,
       "h": 844,
       "title": "Créer un club"
     },
     "Connexion.dc.html": {
       "x": 940,
-      "y": 6180,
+      "y": 6680,
       "w": 390,
       "h": 844,
       "title": "Auth · connexion"
     },
     "Erreur.dc.html": {
       "x": 1410,
-      "y": 6180,
+      "y": 6680,
       "w": 390,
       "h": 844,
       "title": "404 · 403"
     },
     "Legal.dc.html": {
       "x": 1880,
-      "y": 6180,
+      "y": 6680,
       "w": 390,
       "h": 900,
       "title": "Pages légales"
     },
     "Desktop-accueil.dc.html": {
       "x": 0,
-      "y": 7650,
+      "y": 8150,
       "w": 1280,
       "h": 950,
       "title": "Desktop · accueil"
     },
     "Desktop-equipe.dc.html": {
       "x": 1360,
-      "y": 7650,
+      "y": 8150,
       "w": 1280,
       "h": 1000,
       "title": "Desktop · équipe"
     },
     "Desktop-backoffice.dc.html": {
       "x": 2720,
-      "y": 7650,
+      "y": 8150,
       "w": 1280,
       "h": 900,
       "title": "Desktop · back-office"
@@ -160,6 +167,7 @@
     "Compte.dc.html",
     "Notifications.dc.html",
     "Accueil-joueur.dc.html",
+    "Match-apres.dc.html",
     "Equipe-joueur.dc.html",
     "Resultats.dc.html",
     "Enfant.dc.html",
@@ -233,7 +241,7 @@
       "w": 860,
       "maxH": 150,
       "fill": "green",
-      "text": "Joueur : le prochain rendez-vous prend la forme du héros match (badges, eyebrow, titre, tuile lieu, trois boutons RSVP)."
+      "text": "Joueur : À faire (vote dû + réponses), prochain RDV en héros, dernier match (score, ma ligne, MVP), ma saison. Jamais « joueur en difficulté » ici."
     },
     "n6": {
       "x": 1410,
@@ -243,16 +251,24 @@
       "fill": "blue",
       "text": "Enfant : barre de page vers Mon compte, héros de la personne, consentement en tuile. Invité : même héros, sans chrome."
     },
+    "n11": {
+      "x": 2350,
+      "y": 3990,
+      "w": 390,
+      "maxH": 150,
+      "fill": "purple",
+      "text": "Après la rencontre : Stats du match (lignes MatchPlayerStat, ma ligne marquée), MVP en tuile du héros."
+    },
     "t3": {
       "x": 0,
-      "y": 5880,
+      "y": 6380,
       "text": "Parcours et pages publiques · mobile 390",
       "kind": "title1",
       "maxW": 3200
     },
     "n7": {
       "x": 0,
-      "y": 5990,
+      "y": 6490,
       "w": 860,
       "maxH": 150,
       "fill": "orange",
@@ -260,7 +276,7 @@
     },
     "n8": {
       "x": 940,
-      "y": 5990,
+      "y": 6490,
       "w": 1330,
       "maxH": 150,
       "fill": "gray",
@@ -268,14 +284,14 @@
     },
     "t4": {
       "x": 0,
-      "y": 7350,
+      "y": 7850,
       "text": "Desktop 1280",
       "kind": "title1",
       "maxW": 4200
     },
     "n9": {
       "x": 0,
-      "y": 7460,
+      "y": 7960,
       "w": 1280,
       "maxH": 150,
       "fill": "purple",
@@ -283,7 +299,7 @@
     },
     "n10": {
       "x": 2720,
-      "y": 7460,
+      "y": 7960,
       "w": 1280,
       "maxH": 150,
       "fill": "gray",

@@ -58,6 +58,10 @@ tone="muted"`, chevron. The local `TeamCard` function goes with it (dead-code ru
 
 ### 2.3 Player (`PlayerHome`)
 
+**Superseded** by [`…-player-home.md`](./2026-09-30-screen-consistency-player-home.md) (vote state, last
+match, season, match stats). This plan's player scope is only the hero shape below; everything else
+on the player home follows that spec.
+
 - « Prochain rendez-vous »: `MyAgendaEventCard size="hero"` takes the hero grammar: badges row
   (Convoqué `soft accent` when `myConvocation`, `EventVenueBadge`), eyebrow team name, the title
   (« vs {opponent} » / « Entraînement ») at `Heading size="hero"` rendered as `h2` (the page's `h1`
