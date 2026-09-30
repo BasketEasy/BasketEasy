@@ -17,6 +17,7 @@ import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 import { EventConvocationModal } from './EventConvocationModal';
 import { EventConvocationBreakdown } from './EventConvocationBreakdown';
 import { TextLink } from '@basketeasy/ui/text-link';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 export function EventRow({
   clubId,
@@ -63,7 +64,7 @@ export function EventRow({
           )}
         </div>
       </TableCell>
-      <TableCell>{event.location}</TableCell>
+      <TableCell>{eventVenueLabel(event)}</TableCell>
       <TableCell>
         {event.type === 'MATCH' ? (
           <TextLink asChild size="md">

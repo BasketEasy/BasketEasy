@@ -8,6 +8,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDayFull } from './eventDateFormat';
 import { teamAvatarInitials } from './eventDetailLabels';
 import { EventVenueBadge } from './EventVenueBadge';
+import { EventHeroLocation } from './EventHeroLocation';
 
 /**
  * The event page's hero, identical for both roles: when, what, against whom.
@@ -22,35 +23,57 @@ import { EventVenueBadge } from './EventVenueBadge';
  * The `<h1>` is here rather than above the card: on a 390px screen a separate
  * page title above the hero was one more row between the player and the
  * answer they opened the page to give.
+ *
+ * The venue closes the hero for both types (`EventHeroLocation`), which is
+ * also where a manager fills in or corrects a match's venue.
  */
-export function EventDetailHero({ event, teamName }: { event: TeamEvent; teamName: string }) {
+export function EventDetailHero({
+  clubId,
+  teamId,
+  event,
+  teamName,
+  canManage,
+}: {
+  clubId: string;
+  teamId: string;
+  event: TeamEvent;
+  teamName: string;
+  canManage: boolean;
+}) {
   const isMatch = event.type === 'MATCH';
   return (
-    <Card className="flex gap-3.5 p-3.5 sm:p-4">
-      <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed={event.timeConfirmed} />
-      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-        {(isMatch || !event.timeConfirmed) && (
-          <div className="flex flex-wrap items-center gap-2">
-            {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
-            {!event.timeConfirmed && (
-              <Badge variant="outline" tone="neutral">
-                Heure à confirmer
-              </Badge>
-            )}
+    <Card className="flex flex-col gap-3.5 p-3.5 sm:p-4">
+      <div className="flex gap-3.5">
+        <TimeBlock
+          type={event.type}
+          startsAt={event.startsAt}
+          timeConfirmed={event.timeConfirmed}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+          {(isMatch || !event.timeConfirmed) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
+              {!event.timeConfirmed && (
+                <Badge variant="outline" tone="neutral">
+                  Heure à confirmer
+                </Badge>
+              )}
+            </div>
+          )}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Avatar size="sm" className="shrink-0">
+              <AvatarFallback>{teamAvatarInitials(teamName)}</AvatarFallback>
+            </Avatar>
+            <Heading as="h1" size="xl" className="m-0 min-w-0">
+              {isMatch ? `${teamName} vs ${event.opponentName}` : `${teamName} — Entraînement`}
+            </Heading>
           </div>
-        )}
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar size="sm" className="shrink-0">
-            <AvatarFallback>{teamAvatarInitials(teamName)}</AvatarFallback>
-          </Avatar>
-          <Heading as="h1" size="xl" className="m-0 min-w-0">
-            {isMatch ? `${teamName} vs ${event.opponentName}` : `${teamName} — Entraînement`}
-          </Heading>
+          <Text as="span" variant="meta" size="xs">
+            {formatEventDayFull(event.startsAt)}
+          </Text>
         </div>
-        <Text as="span" variant="meta" size="xs">
-          {formatEventDayFull(event.startsAt)}
-        </Text>
       </div>
+      <EventHeroLocation clubId={clubId} teamId={teamId} event={event} canManage={canManage} />
     </Card>
   );
 }

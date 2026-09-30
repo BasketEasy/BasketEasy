@@ -51,3 +51,23 @@ export function MapPinIcon({ size = 18, tone, className }: { size?: number } & I
     </svg>
   );
 }
+
+/** « Modifier le lieu »: a pencil. */
+export function PencilIcon({ size = 16, tone, className }: { size?: number } & IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(iconVariants({ tone }), className)}
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}

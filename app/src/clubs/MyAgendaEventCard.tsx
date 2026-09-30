@@ -10,6 +10,7 @@ import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import { formatEventDate } from './eventDateFormat';
 import { eventTypeLabel } from './eventLabels';
 import { EventRsvpControl } from './EventRsvpControl';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 /**
  * One event on the cross-team home agenda. The manager's « Cette semaine »
@@ -96,7 +97,7 @@ export function MyAgendaEventCard({
                 : event.teamName}
             </Text>
             <Text as="span" variant="meta" size="sm">
-              {formatEventDate(event.startsAt)} · {event.location}
+              {formatEventDate(event.startsAt)} · {eventVenueLabel(event)}
             </Text>
           </Link>
         </div>
@@ -143,7 +144,7 @@ export function MyAgendaEventCard({
             {isCalledUp && <Badge>Convoqué</Badge>}
           </span>
           <Text as="span" variant="meta">
-            {formatEventDate(event.startsAt)} · {event.location}
+            {formatEventDate(event.startsAt)} · {eventVenueLabel(event)}
             {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
           </Text>
         </Link>

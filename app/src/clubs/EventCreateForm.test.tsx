@@ -14,7 +14,7 @@ describe('EventCreateForm', () => {
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     expect(await screen.findByText(/date requise/i)).toBeInTheDocument();
-    expect(screen.getByText(/lieu requis/i)).toBeInTheDocument();
+    expect(screen.getByText(/adresse requise/i)).toBeInTheDocument();
   });
 
   it('submits the event, clears the fields, and calls onSuccess', async () => {
@@ -44,7 +44,7 @@ describe('EventCreateForm', () => {
     renderWithProviders(<EventCreateForm clubId="club-1" teamId="team-1" onSuccess={onSuccess} />);
 
     await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase A');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     await waitFor(() => expect(createCalled).toBe(true));
@@ -62,7 +62,7 @@ describe('EventCreateForm', () => {
     renderWithProviders(<EventCreateForm clubId="club-1" teamId="team-1" />);
 
     await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase A');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/erreur est survenue/i);
@@ -90,7 +90,7 @@ describe('EventCreateForm', () => {
     renderWithProviders(<EventCreateForm clubId="club-1" teamId="team-1" />);
 
     await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase A');
     await user.click(screen.getByLabelText(/se répète chaque semaine/i));
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
@@ -135,7 +135,7 @@ describe('EventCreateForm', () => {
     await user.click(screen.getByRole('combobox', { name: /^type$/i }));
     await user.click(await screen.findByRole('option', { name: /^match$/i }));
     await user.type(screen.getByLabelText(/date et heure/i), '2026-01-05T18:00');
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase A');
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase A');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     expect(await screen.findByText(/nom de l'adversaire requis/i)).toBeInTheDocument();

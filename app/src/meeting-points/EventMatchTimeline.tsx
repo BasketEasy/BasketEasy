@@ -49,9 +49,11 @@ export function EventMatchTimeline({
         <MatchTimelineSteps
           plan={plan}
           location={event.location}
+          locationName={event.locationName}
           startsAt={event.startsAt}
           opponentName={event.opponentName}
           canManage={canManage}
+          showVenueItinerary={false}
         />
         {canManage && (
           <EventMeetingDialog

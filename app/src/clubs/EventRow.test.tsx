@@ -120,6 +120,11 @@ describe('EventRow', () => {
     expect(screen.queryByRole('button', { name: /modifier/i })).not.toBeInTheDocument();
   });
 
+  it('shows the gym name in the Lieu column when one was given', () => {
+    renderRow({ ...matchEvent, locationName: 'Salle Coubertin' }, false);
+    expect(screen.getByText('Salle Coubertin')).toBeInTheDocument();
+  });
+
   it('shows the opponent for a match event', () => {
     renderRow(matchEvent, false);
 

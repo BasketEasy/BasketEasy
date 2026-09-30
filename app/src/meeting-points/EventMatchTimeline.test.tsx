@@ -23,24 +23,36 @@ describe('EventMatchTimeline', () => {
     const steps = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(steps.map((step) => step.textContent)).toEqual([
       expect.stringContaining('19:15RDV · Parking salle Coubertin'),
-      expect.stringContaining('19:45Arrivée à la salle'),
+      expect.stringContaining('19:45Arrivée · Salle des Sports, Rezé'),
       expect.stringContaining('20:30Coup d’envoi'),
     ]);
     expect(screen.getByText('Trajet estimé 23 min en voiture')).toBeInTheDocument();
-    expect(
-      screen.getByText('Salle des Sports, Rezé · 45 min avant le coup d’envoi'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('45 min avant le coup d’envoi')).toBeInTheDocument();
     expect(screen.getByText('vs Rezé BC')).toBeInTheDocument();
   });
 
-  it('gives a player directions to both places', () => {
+  it('names the gym when a manager gave one', () => {
+    renderTimeline(matchEvent({ locationName: 'Salle Coubertin' }));
+    expect(screen.getByText('Arrivée · Salle Coubertin')).toBeInTheDocument();
+  });
+
+  it('says « Salle à confirmer » while the venue is unknown, with no button', () => {
+    renderTimeline(matchEvent({ location: 'Lieu non communiqué' }), true);
+
+    expect(screen.getByText('Arrivée · Salle à confirmer')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /lieu/i })).not.toBeInTheDocument();
+  });
+
+  it('gives a player directions to the RDV, leaving the gym’s to the hero', () => {
     renderTimeline();
 
     expect(screen.getByRole('link', { name: 'Itinéraire vers le RDV' })).toHaveAttribute(
       'href',
       expect.stringContaining('12%20rue%20Coubertin'),
     );
-    expect(screen.getByRole('link', { name: 'Itinéraire vers la salle' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Itinéraire vers la salle' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ajuster le RDV' })).not.toBeInTheDocument();
   });
 

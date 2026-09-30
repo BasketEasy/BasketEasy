@@ -14,6 +14,7 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { MatchWinnersRow } from './MatchWinnersRow';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 /**
  * Two content columns to the right of the time block — left: venue/status
@@ -108,7 +109,7 @@ function AgendaEventCard({
               row. */}
           <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
             <Text as="span" variant="meta" className="min-w-0 max-w-full truncate">
-              {event.location}
+              {eventVenueLabel(event)}
               {isMatch ? ` · vs ${event.opponentName}` : ''}
             </Text>
             <TextLink asChild className="shrink-0">

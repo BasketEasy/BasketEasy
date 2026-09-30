@@ -620,7 +620,7 @@ describe('TeamDetailPage', () => {
 
     await user.click(screen.getByRole('button', { name: /créer un événement/i }));
     await user.type(screen.getByLabelText(/date et heure/i), futureDateTimeLocal(2));
-    await user.type(screen.getByLabelText(/^lieu$/i), 'Gymnase B');
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase B');
     await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
 
     await waitFor(() => expect(createCalled).toBe(true));

@@ -5,7 +5,7 @@ import { Text, type TextProps } from '@basketeasy/ui/text';
 import { Divider } from '@basketeasy/ui/divider';
 import type { EventMeetingPlan, MeetingPointSource } from '@basketeasy/types/meeting-points';
 import { formatEventTime } from '../clubs/eventDateFormat';
-import { isUnknownEventLocation } from '@basketeasy/types/events';
+import { eventVenueLabel, isUnknownEventLocation } from '@basketeasy/types/events';
 import { eventItineraryHref } from '../clubs/eventItinerary';
 
 const SOURCE_LABEL: Record<MeetingPointSource, string> = {
@@ -80,22 +80,29 @@ function ItineraryLink({ address, label }: { address: string; label: string }) {
  * the guest page render the same steps from the same plan.
  *
  * A manager reads where the meeting point comes from; anyone else gets
- * directions under each place.
+ * directions under each place. The arrival step only mirrors the venue: it is
+ * edited in the event page's hero, which also carries its directions there
+ * (`showVenueItinerary` false); the guest page has no hero, so keeps them.
  */
 export function MatchTimelineSteps({
   plan,
   location,
+  locationName,
   startsAt,
   opponentName,
   canManage,
+  showVenueItinerary = true,
 }: {
   plan: EventMeetingPlan;
   location: string;
+  locationName: string | null;
   startsAt: string;
   opponentName: string | null;
   canManage: boolean;
+  showVenueItinerary?: boolean;
 }) {
   const meetingPoint = plan.meetingPoint;
+  const isUnknown = isUnknownEventLocation(location);
   return (
     <ol className="flex flex-col">
       {meetingPoint && (
@@ -123,12 +130,12 @@ export function MatchTimelineSteps({
       )}
       <TimelineStep time={formatEventTime(plan.arrivalAt)} tone="structure">
         <Text variant="label" size="sm">
-          Arrivée à la salle
+          Arrivée · {isUnknown ? 'Salle à confirmer' : eventVenueLabel({ location, locationName })}
         </Text>
         <Text variant="meta" size="xs">
-          {location} · {plan.arrivalBufferMinutes} min avant le coup d’envoi
+          {plan.arrivalBufferMinutes} min avant le coup d’envoi
         </Text>
-        {!canManage && !isUnknownEventLocation(location) && (
+        {showVenueItinerary && !canManage && !isUnknown && (
           <ItineraryLink address={location} label="Itinéraire vers la salle" />
         )}
       </TimelineStep>

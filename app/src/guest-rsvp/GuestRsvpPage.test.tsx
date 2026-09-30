@@ -128,6 +128,20 @@ describe('GuestRsvpPage', () => {
     expect(screen.queryByRole('radiogroup', { name: /Qui êtes-vous/ })).not.toBeInTheDocument();
   });
 
+  it('names the gym when a manager gave one, and keeps the timeline’s directions', async () => {
+    window.localStorage.setItem('kluvo.guest.tok', 'tp-leo');
+    serve(page([match({ locationName: 'Salle Coubertin' })]));
+    renderPage();
+
+    expect(await screen.findByText('Samedi 10 octobre · Salle Coubertin')).toBeInTheDocument();
+    expect(screen.getByText('Arrivée · Salle Coubertin')).toBeInTheDocument();
+    // No hero on the guest page: the arrival step keeps the gym's directions.
+    expect(screen.getByRole('link', { name: 'Itinéraire vers la salle' })).toHaveAttribute(
+      'href',
+      expect.stringContaining(encodeURIComponent('Salle des Sports, Rezé')),
+    );
+  });
+
   it('ignores a remembered player who is no longer on the roster', async () => {
     window.localStorage.setItem('kluvo.guest.tok', 'tp-gone');
     serve(page([training()]));

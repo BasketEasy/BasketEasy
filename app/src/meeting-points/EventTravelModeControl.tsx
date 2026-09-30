@@ -14,6 +14,7 @@ import type {
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { formatEventTime } from '../clubs/eventDateFormat';
 import { useEventTravelModeSet } from './useEventTravelModeSet';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 /** One card's contents: what it is, where, and — big, on the right — when. */
 function ChoiceCard({
@@ -65,7 +66,7 @@ export function TravelModeChoice({
   eventId,
   plan,
   meetingPoint,
-  location,
+  venueLabel,
   value,
   onChange,
   divided = true,
@@ -73,7 +74,8 @@ export function TravelModeChoice({
   eventId: string;
   plan: EventMeetingPlan;
   meetingPoint: MeetingPoint;
-  location: string;
+  /** The gym as it reads, `eventVenueLabel`. */
+  venueLabel: string;
   value: EventTravelMode;
   onChange: (travelMode: EventTravelMode) => void;
   /** A rule above the question — for the decision band, where it follows the RSVP answer. */
@@ -110,7 +112,7 @@ export function TravelModeChoice({
             render: ({ selected }) => (
               <ChoiceCard
                 title="Directement à la salle"
-                detail={location}
+                detail={venueLabel}
                 time={formatEventTime(plan.arrivalAt)}
                 selected={selected}
               />
@@ -182,7 +184,7 @@ export function EventTravelModeControl({
       eventId={event.id}
       plan={plan}
       meetingPoint={plan.meetingPoint}
-      location={event.location}
+      venueLabel={eventVenueLabel(event)}
       value={pending ?? event.myTravelMode}
       onChange={select}
       divided={divided}

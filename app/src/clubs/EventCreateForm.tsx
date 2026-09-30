@@ -13,6 +13,7 @@ import type { EventType, EventVenue } from '@basketeasy/types/events';
 import { useEventCreate } from './useEventCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { EVENT_TYPE_OPTIONS, EVENT_VENUE_OPTIONS } from './eventLabels';
+import { eventVenueFields, refineEventVenue, toEventVenue } from './eventVenueSchema';
 import { EventWhatsAppReminderFields } from '../whatsapp-reminders/EventWhatsAppReminderFields';
 import {
   WHATSAPP_REMINDER_DEFAULTS,
@@ -25,7 +26,7 @@ const eventSchema = z
   .object({
     type: z.enum(['TRAINING', 'MATCH']),
     startsAt: z.string().min(1, 'Date requise'),
-    location: z.string().min(1, 'Lieu requis'),
+    ...eventVenueFields,
     notes: z.string().optional(),
     opponentName: z.string().optional(),
     venue: z.enum(['HOME', 'AWAY']).optional(),
@@ -34,6 +35,7 @@ const eventSchema = z
     ...reminderFormShape,
   })
   .superRefine(refineReminderOffset)
+  .superRefine((data, ctx) => refineEventVenue(data, ctx))
   .refine((data) => !data.isRecurring || !!data.recurrenceUntil, {
     message: 'Date de fin requise pour un événement récurrent',
     path: ['recurrenceUntil'],
@@ -72,6 +74,7 @@ export function EventCreateForm({
     defaultValues: {
       type: 'TRAINING',
       startsAt: '',
+      locationName: '',
       location: '',
       notes: '',
       opponentName: '',
@@ -90,7 +93,7 @@ export function EventCreateForm({
       {
         type: values.type,
         startsAt: new Date(values.startsAt).toISOString(),
-        location: values.location,
+        ...toEventVenue(values),
         notes: values.notes || undefined,
         opponentName: values.type === 'MATCH' ? values.opponentName : undefined,
         venue: values.type === 'MATCH' ? values.venue : undefined,
@@ -174,7 +177,14 @@ export function EventCreateForm({
       />
 
       <FormField
-        label="Lieu"
+        label="Nom de la salle (optionnel)"
+        id="event-location-name"
+        error={errors.locationName?.message}
+        {...register('locationName')}
+      />
+
+      <FormField
+        label="Adresse"
         id="event-location"
         error={errors.location?.message}
         {...register('location')}

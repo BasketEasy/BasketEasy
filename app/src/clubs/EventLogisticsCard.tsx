@@ -4,7 +4,6 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
-import { RouteIcon } from '@basketeasy/ui/icons/route';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { EventLogisticsField, TeamEvent } from '@basketeasy/types/events';
@@ -12,9 +11,6 @@ import { getClubErrorMessage } from './clubErrorMessages';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
 import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLogisticsLabels';
 import { getInitials } from './getInitials';
-import { MapPinIcon } from './eventDetailIcons';
-import { eventItineraryHref } from './eventItinerary';
-import { isUnknownEventLocation } from '@basketeasy/types/events';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { IconBadge } from '@basketeasy/ui/icon-badge';
@@ -144,55 +140,15 @@ function LogisticsFieldRow({
 }
 
 /**
- * The venue row that opens the card: where it is, and one tap to get there.
- *
- * `location` is free text, so this is one line and a search link — no
- * geocoding, no distance, no embedded map (`player-journey.md` §6.9 rules all
- * three out). « Comment j'y vais ? » is a player's third question and, until
- * this row existed, the address was a plain `InfoTile` of text with nothing
- * to tap.
- */
-function EventVenueRow({ event }: { event: TeamEvent }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <IconBadge>
-        <MapPinIcon size={19} />
-      </IconBadge>
-      <div className="flex min-w-0 flex-col gap-px">
-        <Text as="span" variant="label" size="sm" className="break-words">
-          {event.location}
-        </Text>
-        <Text as="span" variant="meta" size="xs">
-          {event.type === 'MATCH' ? 'Lieu de la rencontre' : 'Lieu de la séance'}
-        </Text>
-      </div>
-      {!isUnknownEventLocation(event.location) && (
-        <div className="ml-auto">
-          <Button asChild variant="outline" size="sm">
-            <a
-              href={eventItineraryHref(event.location)}
-              target="_blank"
-              rel="noreferrer"
-              className="gap-1.5"
-            >
-              <RouteIcon className="h-4 w-4 shrink-0" />
-              Itinéraire
-            </a>
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
  * Where the event is, and who brings what. Two layouts, chosen by the event
  * type:
  *
- * - a TRAINING is one card, three rows: the venue, then the kit;
+ * - a TRAINING is one card, the kit's two rows;
  * - a MATCH reads as its day — `EventMatchTimeline` (meeting point, arrival,
- *   tip-off) beside a « Matériel » card with the kit. The timeline's arrival
- *   step carries the gym and its directions, so there is no venue row.
+ *   tip-off) beside a « Matériel » card with the kit.
+ *
+ * The venue and its directions live in the hero (`EventHeroLocation`) for
+ * both types, so this card has no venue row.
  *
  * It backs two blocks that ask the same question from opposite ends: the
  * player's « S'y rendre » (how do I get there, and is it me carrying the
@@ -284,10 +240,5 @@ export function EventLogisticsCard({
     );
   }
 
-  return (
-    <Card variant="flush">
-      <EventVenueRow event={event} />
-      {kitRows}
-    </Card>
-  );
+  return <Card variant="flush">{kitRows}</Card>;
 }
