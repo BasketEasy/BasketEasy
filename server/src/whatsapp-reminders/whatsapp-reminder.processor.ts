@@ -21,7 +21,7 @@ export class WhatsAppReminderProcessor extends WorkerHost {
       case SEND_JOB:
         return this.scheduler.send(job.data.shareId);
       case NUDGE_JOB:
-        return this.scheduler.nudge(job.data.shareId);
+        return this.scheduler.nudge(job.data.shareId, job.data.shareIds);
       case EXPIRE_JOB:
         return this.scheduler.expire(job.data.shareId);
     }
