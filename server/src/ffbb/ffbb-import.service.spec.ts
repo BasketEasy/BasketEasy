@@ -21,7 +21,12 @@ describe('FfbbImportService', () => {
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     teamFfbbLink: { findMany: jest.Mock };
-    event: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    event: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+    };
     eventMeeting: { updateMany: jest.Mock };
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
@@ -33,6 +38,7 @@ describe('FfbbImportService', () => {
       clubTeam: { findUnique: jest.fn() },
       teamFfbbLink: { findMany: jest.fn() },
       event: {
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'event-new' }),
         update: jest.fn(),
@@ -135,6 +141,29 @@ describe('FfbbImportService', () => {
     expect(whatsAppReminders.onEventsChanged).toHaveBeenCalledWith(['event-moved']);
   });
 
+  it('tells the provider which matches already have a venue, so it reads the others first', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      { id: 'link-1', teamId: 'team-1', ffbbEngagementRef: 'ref-1', ffbbEngagementLabel: null },
+    ]);
+    prisma.event.findMany.mockResolvedValue([{ externalId: 'm-known' }]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({ competitionLabel: null, matches: [] });
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.findMany).toHaveBeenCalledWith({
+      where: {
+        teamId: 'team-1',
+        externalId: { not: null },
+        location: { not: 'Lieu non communiqué' },
+      },
+      select: { externalId: true },
+    });
+    expect(ffbbProvider.getMatchesForEngagement).toHaveBeenCalledWith('ref-1', {
+      resolveVenues: true,
+      knownVenueMatchIds: new Set(['m-known']),
+    });
+  });
+
   it('asks the provider to resolve venues and writes the address to the event', async () => {
     prisma.teamFfbbLink.findMany.mockResolvedValue([
       {
@@ -156,6 +185,7 @@ describe('FfbbImportService', () => {
 
     expect(ffbbProvider.getMatchesForEngagement).toHaveBeenCalledWith('ref-1', {
       resolveVenues: true,
+      knownVenueMatchIds: new Set(),
     });
     expect(prisma.event.create).toHaveBeenCalledWith({
       data: expect.objectContaining({

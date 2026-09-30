@@ -83,6 +83,7 @@ describe('MeetingPointsService', () => {
       type: 'MATCH',
       startsAt: new Date('2026-01-10T19:30:00.000Z'),
       location: 'Salle Coubertin, Rezé',
+      venue: 'AWAY',
       ...overrides,
     };
   }

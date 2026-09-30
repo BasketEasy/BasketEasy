@@ -9,6 +9,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { EventRsvpStatus, EventTravelMode, EventType, type EventMeeting } from '@prisma/client';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 import type {
   ClubMeetingSettings,
   EventMeetingPlan,
@@ -34,8 +35,8 @@ import {
   meetingAnnouncementKey,
   normaliseAddress,
   resolveDefaultMeetingPoint,
+  resolveEventMeetingPoint,
   resolveMeetingPlan,
-  resolveMeetingPoint,
   travelRouteKey,
   type MeetingPlanClub,
   type MeetingPlanEvent,
@@ -314,7 +315,7 @@ export class MeetingPointsService {
             meetingPointName: state?.meetingPointName ?? null,
             meetingPointAddress: state?.meetingPointAddress ?? null,
           };
-    const resolved = resolveMeetingPoint(nextPlaceColumns, team, club);
+    const resolved = resolveEventMeetingPoint(event, nextPlaceColumns, team, club);
     const currentKey = resolved
       ? travelRouteKey(resolved.meetingPoint.address, event.location)
       : null;
@@ -379,11 +380,21 @@ export class MeetingPointsService {
   ): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
-      select: { type: true, startsAt: true, location: true, teamId: true, meeting: true },
+      select: {
+        type: true,
+        startsAt: true,
+        location: true,
+        venue: true,
+        teamId: true,
+        meeting: true,
+      },
     });
     if (!event || event.type !== EventType.MATCH) return;
+    // No venue published yet: nothing to route to. The next import that
+    // finds one changes the route key, and the read path re-queues it.
+    if (isUnknownEventLocation(event.location)) return;
     const { team, club } = await this.loadTeamContext(event.teamId);
-    const resolved = resolveMeetingPoint(event.meeting, team, club);
+    const resolved = resolveEventMeetingPoint(event, event.meeting, team, club);
     if (!resolved) return;
 
     const key = travelRouteKey(resolved.meetingPoint.address, event.location);
@@ -538,6 +549,7 @@ export class MeetingPointsService {
         type: true,
         startsAt: true,
         location: true,
+        venue: true,
         opponentName: true,
         meeting: true,
       },
@@ -712,7 +724,14 @@ export class MeetingPointsService {
     await this.assertTeamInClub(clubId, teamId);
     const row = await this.prisma.event.findUnique({
       where: { id: eventId },
-      select: { teamId: true, type: true, startsAt: true, location: true, meeting: true },
+      select: {
+        teamId: true,
+        type: true,
+        startsAt: true,
+        location: true,
+        venue: true,
+        meeting: true,
+      },
     });
     if (!row || row.teamId !== teamId) throw new NotFoundException('Event not found');
     if (row.type !== EventType.MATCH) throw this.notAMatchError();

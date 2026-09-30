@@ -14,6 +14,7 @@ import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLo
 import { getInitials } from './getInitials';
 import { MapPinIcon } from './eventDetailIcons';
 import { eventItineraryHref } from './eventItinerary';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
 import { IconBadge } from '@basketeasy/ui/icon-badge';
@@ -165,19 +166,21 @@ function EventVenueRow({ event }: { event: TeamEvent }) {
           {event.type === 'MATCH' ? 'Lieu de la rencontre' : 'Lieu de la séance'}
         </Text>
       </div>
-      <div className="ml-auto">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={eventItineraryHref(event.location)}
-            target="_blank"
-            rel="noreferrer"
-            className="gap-1.5"
-          >
-            <RouteIcon className="h-4 w-4 shrink-0" />
-            Itinéraire
-          </a>
-        </Button>
-      </div>
+      {!isUnknownEventLocation(event.location) && (
+        <div className="ml-auto">
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={eventItineraryHref(event.location)}
+              target="_blank"
+              rel="noreferrer"
+              className="gap-1.5"
+            >
+              <RouteIcon className="h-4 w-4 shrink-0" />
+              Itinéraire
+            </a>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,8 +12,8 @@ import {
 
 type MatchFixture = MeetingPlanEvent & MeetingPlanState;
 
-function split({ type, startsAt, location, ...state }: MatchFixture) {
-  return [{ type, startsAt, location }, state] as const;
+function split({ type, startsAt, location, venue, ...state }: MatchFixture) {
+  return [{ type, startsAt, location, venue }, state] as const;
 }
 
 function resolveMeetingPlan(
@@ -47,6 +47,7 @@ function match(overrides: Partial<MatchFixture> = {}): MatchFixture {
     // 20:30 Europe/Paris in winter
     startsAt: new Date('2026-01-10T19:30:00.000Z'),
     location: 'Salle Coubertin, Rezé',
+    venue: 'AWAY',
     meetingPointName: null,
     meetingPointAddress: null,
     travelMinutes: null,
@@ -141,7 +142,12 @@ describe('resolveMeetingPlan', () => {
 
   it('reads a match with no stored meeting row as « à confirmer »', () => {
     const plan = resolveMeetingPlanFor(
-      { type: 'MATCH', startsAt: new Date('2026-01-10T19:30:00.000Z'), location: 'x' },
+      {
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'x',
+        venue: 'AWAY',
+      },
       null,
       team,
       club,
@@ -218,5 +224,50 @@ describe('isTravelStale', () => {
   it('is never stale without a meeting point, or for a training', () => {
     expect(isTravelStale(match(), team, null)).toBe(false);
     expect(isTravelStale(match({ type: 'TRAINING' }), team, club)).toBe(false);
+  });
+});
+
+describe('home matches', () => {
+  it('skips the team and club defaults: the team goes straight to its own gym', () => {
+    const plan = resolveMeetingPlan(match({ venue: 'HOME' }), team, club);
+    expect(plan).toMatchObject({
+      meetingPoint: null,
+      meetingPointSource: null,
+      defaultMeetingPoint: null,
+      meetsAt: null,
+    });
+    expect(plan?.arrivalAt).toBe('2026-01-10T18:45:00.000Z');
+    expect(isTravelStale(match({ venue: 'HOME' }), team, club)).toBe(false);
+  });
+
+  it('still honours a meeting point set on the match itself', () => {
+    const plan = resolveMeetingPlan(
+      match({ venue: 'HOME', meetingPointName: 'Parking', meetingPointAddress: '2 rue X' }),
+      team,
+      club,
+    );
+    expect(plan?.meetingPointSource).toBe('EVENT');
+  });
+});
+
+describe('unknown venue (« Lieu non communiqué »)', () => {
+  const location = 'Lieu non communiqué';
+  const route = travelRouteKey('1 rue du Club, Nantes', location);
+
+  it('ignores a travel time computed to the placeholder and never queues one', () => {
+    const fixture = match({ location, travelMinutes: 240, travelRouteKey: route });
+    const plan = resolveMeetingPlan(fixture, team, club);
+    expect(plan).toMatchObject({ travelMinutes: null, meetsAt: null, meetingPointSource: 'CLUB' });
+    expect(isTravelStale(match({ location }), team, club)).toBe(false);
+  });
+
+  it("keeps a manager's typed travel time", () => {
+    const fixture = match({
+      location,
+      travelMinutes: 20,
+      travelMinutesManual: true,
+      travelRouteKey: route,
+    });
+    expect(resolveMeetingPlan(fixture, team, club)?.travelMinutes).toBe(20);
   });
 });
