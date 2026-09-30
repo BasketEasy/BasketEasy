@@ -3,7 +3,7 @@
 // Part 1 spec beside it. Shared so the settings preview and the server render
 // a message identically.
 import type { EventRsvpRespondent } from './events';
-import { GUEST_WINDOW_DAYS } from '@basketeasy/types/guest-links';
+import { GUEST_WINDOW_DAYS } from './guest-links';
 
 export const WHATSAPP_TEMPLATE_VARIABLES = [
   'event_name',
