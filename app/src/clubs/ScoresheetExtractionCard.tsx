@@ -663,7 +663,7 @@ export function ScoresheetExtractionCard({
   };
 
   return (
-    <Card variant="panel" className="flex max-w-sm flex-col gap-4 md:max-w-lg">
+    <Card variant="panel" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Text variant="label" size="sm">
           {matchupLabel(event)}

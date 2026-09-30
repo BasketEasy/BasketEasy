@@ -107,35 +107,37 @@ export function MyAgendaEventCard({
     return (
       <Card
         tone={isCalledUp ? 'brand' : 'neutral'}
-        className="flex w-full flex-col gap-3.5 p-4 md:grid md:grid-cols-2 md:items-start md:gap-6 md:p-6"
+        className="flex w-full flex-col gap-3.5 p-4 md:gap-5 md:p-6"
       >
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={isMatch ? 'brand' : 'structure'}>{eventTypeLabel(event.type)}</Badge>
-            {isCalledUp && (
-              <Badge variant="soft" tone="accent">
-                Convoqué
-              </Badge>
-            )}
-            {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
+        {/* Who and where side by side from md; the answer spans the card
+            under both, so neither column is left half empty. */}
+        <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:items-center md:gap-6">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={isMatch ? 'brand' : 'structure'}>{eventTypeLabel(event.type)}</Badge>
+              {isCalledUp && (
+                <Badge variant="soft" tone="accent">
+                  Convoqué
+                </Badge>
+              )}
+              {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
+            </div>
+            <Text variant="eyebrow">{event.teamName}</Text>
+            {/* h2, not h1: the page's h1 is the greeting. */}
+            <Heading as="h2" size="hero" className="m-0">
+              <Link
+                to={eventHref}
+                state={DASHBOARD_ORIGIN}
+                className={cn('rounded-sm hover:underline', focusRing)}
+              >
+                {isMatch && event.opponentName ? `vs ${event.opponentName}` : 'Entraînement'}
+              </Link>
+            </Heading>
+            <Text variant="meta" className="tabular">
+              {formatEventDayFull(event.startsAt)} ·{' '}
+              {event.timeConfirmed ? formatEventTime(event.startsAt) : 'heure à confirmer'}
+            </Text>
           </div>
-          <Text variant="eyebrow">{event.teamName}</Text>
-          {/* h2, not h1: the page's h1 is the greeting. */}
-          <Heading as="h2" size="hero" className="m-0">
-            <Link
-              to={eventHref}
-              state={DASHBOARD_ORIGIN}
-              className={cn('rounded-sm hover:underline', focusRing)}
-            >
-              {isMatch && event.opponentName ? `vs ${event.opponentName}` : 'Entraînement'}
-            </Link>
-          </Heading>
-          <Text variant="meta" className="tabular">
-            {formatEventDayFull(event.startsAt)} ·{' '}
-            {event.timeConfirmed ? formatEventTime(event.startsAt) : 'heure à confirmer'}
-          </Text>
-        </div>
-        <div className="flex min-w-0 flex-col gap-3">
           <FactTile
             icon={<MapPinIcon size={19} />}
             label={
@@ -145,22 +147,23 @@ export function MyAgendaEventCard({
             }
             detail={heroVenueDetail(event)}
           />
-          {isRostered && (
-            <EventRsvpControl
-              clubId={event.clubId}
-              teamId={event.teamId}
-              event={rsvpEvent}
-              fullWidth
-            />
-          )}
-          {isRostered && event.myTravelMode !== null && (
-            <EventTravelModeControl
-              clubId={event.clubId}
-              teamId={event.teamId}
-              event={{ ...event, id: event.eventId }}
-            />
-          )}
         </div>
+        {isRostered && (
+          <EventRsvpControl
+            clubId={event.clubId}
+            teamId={event.teamId}
+            event={rsvpEvent}
+            fullWidth
+          />
+        )}
+        {isRostered && event.myTravelMode !== null && (
+          <EventTravelModeControl
+            clubId={event.clubId}
+            teamId={event.teamId}
+            event={{ ...event, id: event.eventId }}
+            layout="split"
+          />
+        )}
       </Card>
     );
   }
