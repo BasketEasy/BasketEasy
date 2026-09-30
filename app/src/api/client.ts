@@ -38,7 +38,7 @@ let platformToken: string | null = null;
 let impersonationToken: string | null = null;
 const sessionExpiryListeners = new Set<() => void>();
 const impersonationExpiryListeners = new Set<() => void>();
-let refreshPromise: Promise<boolean> | null = null;
+let refreshPromise: Promise<void> | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -143,22 +143,46 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function attemptRefresh(): Promise<boolean> {
+// One refresh in flight at a time: the refresh token is single-use, so two
+// concurrent callers presenting the same cookie would trip family revocation.
+// Resolves once the new access token is stored; rejects with the underlying
+// error, and drops the stale token, when the refresh fails.
+function sharedRefresh(): Promise<void> {
   if (!refreshPromise) {
     refreshPromise = rawRequest<RefreshResponse>('/auth/refresh', { method: 'POST' })
       .then((response) => {
         setAccessToken(response.accessToken);
-        return true;
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setAccessToken(null);
-        return false;
+        throw err;
       })
       .finally(() => {
         refreshPromise = null;
       });
   }
   return refreshPromise;
+}
+
+function attemptRefresh(): Promise<boolean> {
+  return sharedRefresh().then(
+    () => true,
+    () => false,
+  );
+}
+
+/** Test hook: a refresh left in flight by an unmounted test must not be joined by the next. */
+export function __resetRefreshForTests(): void {
+  refreshPromise = null;
+}
+
+/**
+ * Session restore on page load: the same refresh a 401 would trigger, sharing
+ * its in-flight promise. Unlike `attemptRefresh` it keeps the failure, so the
+ * caller can tell "no session" (a refusal) from "could not reach the API".
+ */
+export function refreshAccessToken(): Promise<void> {
+  return sharedRefresh();
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

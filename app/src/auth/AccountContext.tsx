@@ -12,7 +12,7 @@ import { sessionQueryKey, useSession } from './session';
 // it only owns "who's the current account, and do we know yet".
 export function AccountProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { data: user, isLoading } = useSession();
+  const { data: user, isLoading, isError, refetch } = useSession();
 
   useEffect(() => {
     // Any other API call's 401-after-refresh-failure (handled centrally in
@@ -23,7 +23,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     });
   }, [queryClient]);
 
-  const value = useMemo(() => ({ user: user ?? null, isLoading }), [user, isLoading]);
+  const value = useMemo(
+    () => ({ user: user ?? null, isLoading, isError, retry: () => void refetch() }),
+    [user, isLoading, isError, refetch],
+  );
 
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }

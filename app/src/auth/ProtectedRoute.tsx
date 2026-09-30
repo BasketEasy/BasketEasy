@@ -1,4 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { useAccount } from './useAccount';
 import { ActiveClubProvider } from './ActiveClubContext';
 import { AppHeader } from '../components/AppHeader';
@@ -10,7 +12,7 @@ import { PersonaSheet } from '../guardians/PersonaSheet';
 import { ImpersonationBanner } from '../impersonation/ImpersonationBanner';
 
 export function ProtectedRoute() {
-  const { user, isLoading } = useAccount();
+  const { user, isLoading, isError, retry } = useAccount();
 
   // Returning null here used to paint a blank white screen on every hard
   // load of a protected route — the header's shape is known before the
@@ -18,6 +20,23 @@ export function ProtectedRoute() {
   // resolves.
   if (isLoading) {
     return <AppHeader isResolving />;
+  }
+
+  // The restore gave up on a network or server failure: that is not "signed
+  // out", so say so and offer a retry instead of bouncing to /login.
+  if (isError) {
+    return (
+      <>
+        <AppHeader isResolving />
+        <PageContainer>
+          <QueryError
+            title="Connexion impossible"
+            description="Nous n’avons pas pu vérifier votre session. Vérifiez votre connexion, puis réessayez."
+            onRetry={retry}
+          />
+        </PageContainer>
+      </>
+    );
   }
 
   if (!user) {
