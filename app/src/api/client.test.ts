@@ -149,6 +149,14 @@ describe('apiClient', () => {
     await expect(apiClient.delete('/clubs/club-1/players/p1')).resolves.toBeUndefined();
   });
 
+  it('get resolves null on a 200 with an empty body', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/guest-link', () => new HttpResponse(null, { status: 200 })),
+    );
+
+    await expect(apiClient.get('/clubs/club-1/guest-link')).resolves.toBeNull();
+  });
+
   it('patch sends a JSON body and returns the parsed response', async () => {
     server.use(
       http.patch('/api/clubs/club-1/players/p1', async ({ request }) => {
