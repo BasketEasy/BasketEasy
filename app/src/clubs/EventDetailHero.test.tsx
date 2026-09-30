@@ -61,29 +61,31 @@ describe('EventDetailHero', () => {
   it('names the fixture, the venue side and the day for a MATCH', () => {
     renderHero(baseEvent());
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Seniors Filles 1 vs ESB Rezé' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'vs ESB Rezé' })).toBeInTheDocument();
+    expect(screen.getByText('Seniors Filles 1')).toBeInTheDocument();
     expect(screen.getByText('Domicile')).toBeInTheDocument();
-    expect(screen.getByText('Samedi 5 septembre 2026')).toBeInTheDocument();
-    expect(screen.getByText('20:30')).toBeInTheDocument();
+    expect(screen.getByText('Samedi 5 septembre 2026 · 20:30')).toBeInTheDocument();
+    expect(screen.queryByText('Importé')).not.toBeInTheDocument();
   });
 
   it('drops the opponent and venue chrome for a TRAINING', () => {
     renderHero(baseEvent({ type: 'TRAINING', opponentName: null, venue: null }));
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Seniors Filles 1 — Entraînement' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Entraînement' })).toBeInTheDocument();
     expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
   });
 
   it('never renders an unconfirmed kickoff as if it were a real time', () => {
     renderHero(baseEvent({ timeConfirmed: false }), { teamName: 'Seniors F1' });
 
-    expect(screen.queryByText('20:30')).not.toBeInTheDocument();
-    expect(screen.getByText('à confirmer')).toBeInTheDocument();
+    expect(screen.queryByText(/20:30|00:00/)).not.toBeInTheDocument();
+    expect(screen.getByText(/· heure à confirmer$/)).toBeInTheDocument();
     expect(screen.getByText('Heure à confirmer')).toBeInTheDocument();
+  });
+
+  it('flags an imported event', () => {
+    renderHero(baseEvent({ isImported: true }));
+    expect(screen.getByText('Importé')).toBeInTheDocument();
   });
 
   describe('venue', () => {

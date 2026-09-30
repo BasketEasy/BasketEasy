@@ -78,39 +78,41 @@ export function EventHeroLocation({
                 : 'Lieu de la séance'}
           </Text>
         </div>
-        {canEdit && (
-          <EventVenueDialog
-            clubId={clubId}
-            teamId={teamId}
-            event={event}
-            open={isVenueOpen}
-            onOpenChange={setIsVenueOpen}
-            trigger={
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label="Modifier le lieu"
-                className="w-9 shrink-0 gap-1.5 px-0 sm:w-auto sm:px-3"
-              >
-                <PencilIcon />
-                <span className="hidden sm:inline">Modifier le lieu</span>
-              </Button>
-            }
-          />
-        )}
       </div>
       {!isUnknown && (
-        <Button asChild variant="outline" size="sm" className="self-start">
-          <a
-            href={eventItineraryHref(event.location)}
-            target="_blank"
-            rel="noreferrer"
-            className="gap-1.5"
-          >
-            <RouteIcon className="h-4 w-4 shrink-0" />
-            Itinéraire
-          </a>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm" className="flex-1">
+            <a
+              href={eventItineraryHref(event.location)}
+              target="_blank"
+              rel="noreferrer"
+              className="gap-1.5"
+            >
+              <RouteIcon className="h-4 w-4 shrink-0" />
+              Itinéraire
+            </a>
+          </Button>
+          {canEdit && (
+            <EventVenueDialog
+              clubId={clubId}
+              teamId={teamId}
+              event={event}
+              open={isVenueOpen}
+              onOpenChange={setIsVenueOpen}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Modifier le lieu"
+                  className="w-9 shrink-0 gap-1.5 px-0 md:w-auto md:px-3"
+                >
+                  <PencilIcon />
+                  <span className="hidden md:inline">Modifier le lieu</span>
+                </Button>
+              }
+            />
+          )}
+        </div>
       )}
     </Card>
   );

@@ -24,6 +24,8 @@ const headingVariants = cva('break-words font-heading uppercase', {
       inverse: 'text-cream',
     },
     size: {
+      /** The event page's h1: one step smaller on a phone. */
+      hero: 'text-4xl md:text-5xl',
       '6xl': 'text-6xl',
       '5xl': 'text-5xl',
       '4xl': 'text-4xl',

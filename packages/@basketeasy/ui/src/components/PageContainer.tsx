@@ -21,6 +21,13 @@ const pageContainerVariants = cva(
         md: 'max-w-md',
         lg: 'max-w-6xl',
       },
+      // A page that opens under a sticky page bar (`EventPageBar`): content
+      // starts 16px below it on a phone. The sm: repeat is needed, sm:py-16
+      // would otherwise win between 640 and 767.
+      top: {
+        default: '',
+        bar: 'pt-4 sm:pt-4 md:pt-16',
+      },
       centered: {
         // dvh, not vh: on mobile Safari 100vh includes the area hidden behind
         // the collapsible address bar, so a centered page can end up taller
@@ -30,7 +37,7 @@ const pageContainerVariants = cva(
         false: '',
       },
     },
-    defaultVariants: { size: 'lg', centered: false },
+    defaultVariants: { size: 'lg', top: 'default', centered: false },
   },
 );
 
@@ -38,11 +45,11 @@ export interface PageContainerProps
   extends HTMLAttributes<HTMLElement>, VariantProps<typeof pageContainerVariants> {}
 
 export const PageContainer = forwardRef<HTMLElement, PageContainerProps>(
-  ({ className, size, centered, ...props }, ref) => (
+  ({ className, size, top, centered, ...props }, ref) => (
     <main
       ref={ref}
       id="contenu"
-      className={cn(pageContainerVariants({ size, centered }), className)}
+      className={cn(pageContainerVariants({ size, top, centered }), className)}
       {...props}
     />
   ),

@@ -19,6 +19,7 @@ import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
 import { formatEventTime } from './eventDateFormat';
 import { useMeSuffix } from '../guardians/useActingAs';
+import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -235,7 +236,7 @@ export function EventAttendanceSection({
   };
 
   return (
-    <section id={id} className="flex scroll-mt-20 flex-col gap-3.5">
+    <section id={id} className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}>
       <SectionHeading as="h2">Qui vient&nbsp;?</SectionHeading>
       {body()}
     </section>

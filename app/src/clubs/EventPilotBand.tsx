@@ -18,6 +18,7 @@ import { ConvocationIcon } from './eventDetailIcons';
 import { EventConvocationModal } from './EventConvocationModal';
 import { eventCountdownLabel } from './eventDateFormat';
 import { useEventRoster, type EventRosterCounts } from './useEventRoster';
+import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /**
  * Nothing sends a reminder yet: no mailer and no scheduled job exist in
@@ -155,7 +156,11 @@ export function EventPilotBand({
   };
 
   return (
-    <Card id={id} variant="panel" className="flex scroll-mt-20 flex-col gap-2.5">
+    <Card
+      id={id}
+      variant="panel"
+      className={`flex flex-col gap-2.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+    >
       {summary()}
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <EventConvocationModal

@@ -23,8 +23,10 @@ function travelDetail(plan: EventMeetingPlan): string {
 }
 
 /**
- * One step of the match day: the hour on the left in the time-block face,
- * joined to the next step by a court-line rule, and what happens on the right.
+ * One step of the match day, in three columns: the hour in the time-block
+ * face, a dot on a court-line rule that joins it to the next step, and what
+ * happens. The dot is `bg-current` under the step's tone, so no colour is
+ * named here.
  */
 function TimelineStep({
   time,
@@ -39,23 +41,36 @@ function TimelineStep({
 }) {
   return (
     <li className="flex gap-3">
-      <div className="flex w-14 shrink-0 flex-col items-center">
+      <Text
+        as="span"
+        variant="display"
+        size="2xl"
+        tone={time ? tone : 'secondary'}
+        className="tabular w-14 shrink-0"
+      >
+        {time ?? '--:--'}
+      </Text>
+      <div className="flex w-3 shrink-0 flex-col items-center">
         <Text
           as="span"
-          variant="display"
-          size="2xl"
-          tone={time ? tone : 'secondary'}
-          className="tabular"
-        >
-          {time ?? '--:--'}
-        </Text>
+          tone={tone}
+          aria-hidden="true"
+          className="mt-2.5 block h-3 w-3 rounded-full bg-current"
+        />
         {!last && (
-          <Divider orientation="vertical" tone="structure" weight="rule" className="my-1 flex-1" />
+          <Divider
+            orientation="vertical"
+            tone="structure"
+            weight="rule"
+            className="my-1 flex-1 self-center"
+          />
         )}
       </div>
       <div
         className={
-          last ? 'flex min-w-0 flex-1 flex-col gap-1' : 'flex min-w-0 flex-1 flex-col gap-1 pb-4'
+          last
+            ? 'flex min-w-0 flex-1 flex-col gap-1 pt-1'
+            : 'flex min-w-0 flex-1 flex-col gap-1 pb-4 pt-1'
         }
       >
         {children}

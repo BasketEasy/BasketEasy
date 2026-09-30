@@ -59,7 +59,6 @@ describe('EventMatchTimeline', () => {
   it('shows a manager where the RDV comes from, and the adjust action', () => {
     renderTimeline(matchEvent(), true);
 
-    expect(screen.getByText('Déroulé du match')).toBeInTheDocument();
     expect(screen.getByText('RDV du club')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ajuster le RDV' })).toBeInTheDocument();
   });
