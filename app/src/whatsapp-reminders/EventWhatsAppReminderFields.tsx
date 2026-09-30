@@ -58,40 +58,40 @@ export function EventWhatsAppReminderFields<T extends WhatsAppReminderFormValues
         )}
       />
       {watchedChoice !== 'OFF' && (
-        <div className="flex flex-wrap items-start gap-2">
-          <Controller
-            control={fields}
-            name="waOffsetValue"
-            render={({ field }) => (
-              <FormField
-                label="Me rappeler"
-                id={`${idPrefix}-wa-offset`}
-                inputMode="decimal"
-                placeholder={teamOffset ? `${teamOffset} (par défaut)` : 'par défaut'}
-                error={offsetError}
-                containerClassName="min-w-0 flex-1"
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-                ref={field.ref}
-              />
-            )}
-          />
-          <Controller
-            control={fields}
-            name="waOffsetUnit"
-            render={({ field }) => (
-              <SelectField
-                label="Unité de durée"
-                hideLabel
-                id={`${idPrefix}-wa-offset-unit`}
-                options={OFFSET_UNIT_OPTIONS}
-                value={field.value}
-                onValueChange={(value) => field.onChange(value as OffsetUnit)}
-              />
-            )}
-          />
-        </div>
+        <Controller
+          control={fields}
+          name="waOffsetValue"
+          render={({ field }) => (
+            <FormField
+              label="Me rappeler"
+              id={`${idPrefix}-wa-offset`}
+              inputMode="decimal"
+              placeholder={teamOffset ? `${teamOffset} (par défaut)` : 'par défaut'}
+              error={offsetError}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              ref={field.ref}
+              suffix={
+                <Controller
+                  control={fields}
+                  name="waOffsetUnit"
+                  render={({ field: unit }) => (
+                    <SelectField
+                      label="Unité de durée"
+                      hideLabel
+                      id={`${idPrefix}-wa-offset-unit`}
+                      containerClassName="shrink-0"
+                      options={OFFSET_UNIT_OPTIONS}
+                      value={unit.value}
+                      onValueChange={(value) => unit.onChange(value as OffsetUnit)}
+                    />
+                  )}
+                />
+              }
+            />
+          )}
+        />
       )}
       <Text variant="meta" size="xs">
         Les gestionnaires de l’équipe reçoivent une notification pour partager le message dans le

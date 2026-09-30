@@ -255,39 +255,39 @@ function TemplateForm({
               WhatsApp de l’équipe. Le lien de réponse est activé au besoin.
             </Text>
             {reminderEnabled && (
-              <div className="flex flex-wrap items-start gap-2">
-                <Controller
-                  control={control}
-                  name="offsetValue"
-                  render={({ field: offset }) => (
-                    <FormField
-                      label="Me rappeler"
-                      id="wa-reminder-offset"
-                      inputMode="decimal"
-                      error={errors.offsetValue?.message}
-                      containerClassName="min-w-0 flex-1"
-                      value={offset.value}
-                      onChange={offset.onChange}
-                      onBlur={offset.onBlur}
-                      ref={offset.ref}
-                    />
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="offsetUnit"
-                  render={({ field: unit }) => (
-                    <SelectField
-                      label="Unité de durée"
-                      hideLabel
-                      id="wa-reminder-offset-unit"
-                      options={OFFSET_UNIT_OPTIONS}
-                      value={unit.value}
-                      onValueChange={(value) => unit.onChange(value as OffsetUnit)}
-                    />
-                  )}
-                />
-              </div>
+              <Controller
+                control={control}
+                name="offsetValue"
+                render={({ field: offset }) => (
+                  <FormField
+                    label="Me rappeler"
+                    id="wa-reminder-offset"
+                    inputMode="decimal"
+                    error={errors.offsetValue?.message}
+                    value={offset.value}
+                    onChange={offset.onChange}
+                    onBlur={offset.onBlur}
+                    ref={offset.ref}
+                    suffix={
+                      <Controller
+                        control={control}
+                        name="offsetUnit"
+                        render={({ field: unit }) => (
+                          <SelectField
+                            label="Unité de durée"
+                            hideLabel
+                            id="wa-reminder-offset-unit"
+                            containerClassName="shrink-0"
+                            options={OFFSET_UNIT_OPTIONS}
+                            value={unit.value}
+                            onValueChange={(value) => unit.onChange(value as OffsetUnit)}
+                          />
+                        )}
+                      />
+                    }
+                  />
+                )}
+              />
             )}
           </div>
         )}
