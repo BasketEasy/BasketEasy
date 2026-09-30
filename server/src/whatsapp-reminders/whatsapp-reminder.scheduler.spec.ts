@@ -545,6 +545,9 @@ describe('WhatsAppReminderScheduler', () => {
 
     it('discard drops the jobs and clears the bell of every share it is given', async () => {
       prisma.eventShare.findMany.mockResolvedValue([]);
+      prisma.notification.findMany
+        .mockResolvedValueOnce([{ id: 'n-a', deepLink: '/x?partage=a' }])
+        .mockResolvedValueOnce([{ id: 'n-b', deepLink: '/x?partage=b' }]);
       await scheduler.discard(['a', 'b']);
       expect(queue.remove).toHaveBeenCalledTimes(6);
       expect(prisma.notification.updateMany).toHaveBeenCalledTimes(2);
