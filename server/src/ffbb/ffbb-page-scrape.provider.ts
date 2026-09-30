@@ -59,6 +59,11 @@ const FETCH_TIMEOUT_MS = 10_000;
 // timeout shows the admin a 504 for work that actually succeeded. Once the
 // budget is spent, the remaining matches simply keep location null.
 const VENUE_RESOLUTION_BUDGET_MS = 15_000;
+// One at a time was not enough: the CDN let the first detail page through
+// and refused the next one straight after (2026-09-30 logs), a per-address
+// rate limit. Spacing the loads trades pages per import for not being cut
+// off; matches left over are read first by the next import.
+const VENUE_FETCH_INTERVAL_MS = 1_500;
 /** A CDN refusal, not a missing page: every later request in the same import would be refused too. */
 const BLOCKED_STATUSES = new Set([403, 429]);
 const USER_AGENT =
@@ -849,6 +854,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     let unread = 0;
     let failed = 0;
     let blocked: string | null = null;
+    let fetched = 0;
     await this.runWithConcurrency(queued, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
       // Once the CDN refuses one detail page it refuses the rest: more
       // requests only dig the block deeper, so the import stops asking.
@@ -861,6 +867,14 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         noPath += 1;
         return;
       }
+      if (fetched > 0) {
+        if (Date.now() + VENUE_FETCH_INTERVAL_MS >= deadline) {
+          outOfBudget += 1;
+          return;
+        }
+        await this.pause(VENUE_FETCH_INTERVAL_MS);
+      }
+      fetched += 1;
       const outcome = await this.fetchVenue(path, engagementRef);
       if (outcome.kind === 'venue') {
         match.location = outcome.location;
@@ -1314,6 +1328,11 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       .replace(/\s+/g, ' ')
       .trim();
     return GENERIC_VENUE_WORDS.has(normalized);
+  }
+
+  /** Its own method so the spec can skip the wait. */
+  private pause(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async runWithConcurrency<T>(

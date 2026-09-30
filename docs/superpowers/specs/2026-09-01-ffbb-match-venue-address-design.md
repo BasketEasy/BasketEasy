@@ -271,6 +271,12 @@ characters.
    CDN's `server`/`cf-mitigated` headers. If the 403s persist, those
    headers say whether it is a bot challenge no header set will pass.
 
+   The block cleared on its own a few hours later, and the next imports
+   showed the actual rule: the first detail page loads, the one right after
+   it is refused (BunnyCDN). So detail pages are now spaced
+   `VENUE_FETCH_INTERVAL_MS` (1.5 s) apart, about 7 per import inside the
+   15 s budget; the matches still without a venue are read first next time.
+
 2. **Whether the venue is published as far ahead as the fixture list.** The
    parent spec's one detail-page check (~3 weeks out) found no venue, which
    may mean "not yet set" rather than "not on this page." If venues only
