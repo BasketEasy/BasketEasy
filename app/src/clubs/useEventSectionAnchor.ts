@@ -10,6 +10,7 @@ export const EVENT_SECTION_IDS = {
   decision: 'decision',
   presences: 'presences',
   logistique: 'logistique',
+  notes: 'notes',
   vote: 'vote',
   partage: 'partage',
   apresLaRencontre: 'apres-la-rencontre',

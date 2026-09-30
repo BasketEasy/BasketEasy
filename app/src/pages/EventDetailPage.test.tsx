@@ -309,7 +309,7 @@ describe('EventDetailPage — manager view', () => {
     expect(screen.getByRole('button', { name: 'Modifier la convocation' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /relancer les 1 sans réponse/i })).toBeDisabled();
     expect(screen.getByRole('heading', { name: /logistique/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /effectif de la rencontre/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /présences/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /après la rencontre/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
@@ -488,7 +488,10 @@ describe('EventDetailPage — WhatsApp share, manager view', () => {
 
     renderWithProviders(<App />, { route });
 
-    expect(await screen.findByRole('heading', { name: 'Partage WhatsApp' })).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { name: 'Partage WhatsApp' });
+    // A closed accordion item mounts nothing, so the card appears once opened.
+    expect(screen.queryByRole('button', { name: 'Partager sur WhatsApp' })).not.toBeInTheDocument();
+    await userEvent.click(within(heading).getByRole('button'));
     expect(
       await screen.findByRole('button', { name: 'Partager sur WhatsApp' }),
     ).toBeInTheDocument();
@@ -521,7 +524,55 @@ describe('EventDetailPage — WhatsApp share, manager view', () => {
 
     renderWithProviders(<App />, { route });
 
+    const heading = await screen.findByRole('heading', { name: 'Partage WhatsApp' });
+    await userEvent.click(within(heading).getByRole('button'));
     const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
     expect(button).not.toHaveFocus();
+  });
+});
+
+describe('EventDetailPage — manager accordion', () => {
+  const shareUrl = '/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share';
+  const originalWidth = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = originalWidth;
+  });
+  const setup = (width: number, path = route) => {
+    window.innerWidth = width;
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(http.get(shareUrl, () => HttpResponse.json({ guestLinkActive: true, shares: [] })));
+    renderWithProviders(<App />, { route: path });
+  };
+  const trigger = async (name: RegExp) =>
+    within(await screen.findByRole('heading', { name })).getByRole('button');
+
+  it('opens Présences by default on a phone and leaves the rest closed', async () => {
+    setup(390);
+    expect(await trigger(/présences/i)).toHaveAttribute('aria-expanded', 'true');
+    expect(await trigger(/partage whatsapp/i)).toHaveAttribute('aria-expanded', 'false');
+    expect(await trigger(/après la rencontre/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows Logistique and Présences as plain sections on desktop, with no Présences trigger', async () => {
+    setup(1280);
+    expect(await screen.findByRole('heading', { name: 'Logistique' })).toBeInTheDocument();
+    const presences = await screen.findByRole('heading', { name: 'Présences' });
+    expect(within(presences).queryByRole('button')).not.toBeInTheDocument();
+    expect(await trigger(/partage whatsapp/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it.each([
+    ['?tab=scoresheet', /après la rencontre/i],
+    ['?partage=share-1', /partage whatsapp/i],
+  ])('opens the item %s names', async (query, name) => {
+    setup(390, `${route}${query}`);
+    expect(await trigger(name)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('puts the answered count in the Présences trigger', async () => {
+    setup(390);
+    const button = await trigger(/présences/i);
+    expect(button).toHaveAccessibleName(/présents sur \d+/);
   });
 });
