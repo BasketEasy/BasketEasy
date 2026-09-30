@@ -9,7 +9,7 @@ describe('GuestRsvpService', () => {
   let prisma: Record<string, Record<string, jest.Mock>> & { $transaction: jest.Mock };
   let meetingPoints: { resolvePlans: jest.Mock };
   let notifications: { notify: jest.Mock };
-  let limiter: { consume: jest.Mock };
+  let limiter: { consumeIp: jest.Mock; chargeToken: jest.Mock; chargeInviteRequest: jest.Mock };
   let service: GuestRsvpService;
 
   const soon = () => ({
@@ -46,7 +46,11 @@ describe('GuestRsvpService', () => {
     } as never;
     meetingPoints = { resolvePlans: jest.fn().mockResolvedValue(new Map()) };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
-    limiter = { consume: jest.fn() };
+    limiter = {
+      consumeIp: jest.fn(),
+      chargeToken: jest.fn(),
+      chargeInviteRequest: jest.fn(),
+    };
     service = new GuestRsvpService(
       prisma as never,
       meetingPoints as never,
@@ -156,7 +160,7 @@ describe('GuestRsvpService', () => {
     });
 
     it('is rate limited before anything is read', async () => {
-      limiter.consume.mockImplementation(() => {
+      limiter.consumeIp.mockImplementation(() => {
         throw new Error('429');
       });
 
@@ -167,6 +171,20 @@ describe('GuestRsvpService', () => {
         }),
       ).rejects.toThrow('429');
       expect(prisma.event.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('does not spend the shared token budget on a request that fails validation', async () => {
+      prisma.event.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.setRsvp('team-1', 'tok', '1.1.1.1', 'event-x', {
+          teamPlayerId: 'tp-1',
+          status: 'GOING',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(limiter.consumeIp).toHaveBeenCalledWith('tok', '1.1.1.1');
+      expect(limiter.chargeToken).not.toHaveBeenCalled();
     });
 
     it('is a 404 for an event of another team', async () => {
