@@ -66,7 +66,7 @@ export class GuestRsvpService {
     eventId: string,
     dto: GuestRsvpRequest,
   ): Promise<GuestEvent> {
-    this.limiter.consume(token, ip);
+    this.limiter.consumeIp(token, ip);
     const event = await this.findAnswerableEvent(teamId, eventId);
     await this.assertOnRoster(teamId, dto.teamPlayerId);
 
@@ -78,6 +78,7 @@ export class GuestRsvpService {
       }
     }
 
+    this.limiter.chargeToken(token);
     const respondedAt = new Date();
     await this.prisma.$transaction(async (tx) => {
       const written = await tx.eventRsvp.upsert({
@@ -128,9 +129,10 @@ export class GuestRsvpService {
     teamPlayerId: string,
     via?: EventRsvpVia,
   ): Promise<GuestEvent> {
-    this.limiter.consume(token, ip);
+    this.limiter.consumeIp(token, ip);
     await this.findAnswerableEvent(teamId, eventId);
     await this.assertOnRoster(teamId, teamPlayerId);
+    this.limiter.chargeToken(token);
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.eventRsvp.deleteMany({ where: { eventId, teamPlayerId } });
       if (count > 0) {
@@ -158,7 +160,7 @@ export class GuestRsvpService {
     ip: string | undefined,
     teamPlayerId: string,
   ): Promise<void> {
-    this.limiter.consume(token, ip);
+    this.limiter.consumeIp(token, ip);
     const teamPlayer = await this.prisma.teamPlayer.findFirst({
       where: { id: teamPlayerId, teamId },
       select: {
@@ -175,6 +177,7 @@ export class GuestRsvpService {
       },
     });
     if (!teamPlayer) return;
+    this.limiter.chargeInviteRequest(token);
     const { player } = teamPlayer;
     if (player.userId) return;
     if (player.invite && !player.invite.acceptedAt && player.invite.expiresAt > new Date()) return;
