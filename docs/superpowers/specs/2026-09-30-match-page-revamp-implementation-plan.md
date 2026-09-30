@@ -6,6 +6,8 @@ Design canvas: https://claude.ai/artifact/VHmwSUJyvYhmHQmTuPi7yo. Its source is 
 
 Five parts, each its own PR, in this order. Parts 1–2 are independent of the venue backend; Part 3 depends on Part 4's API.
 
+Part specs: [Part 1](./2026-09-30-match-page-revamp-part1-responsive-modals.md), [Part 2](./2026-09-30-match-page-revamp-part2-header-timeline.md), Part 3 = venue [Part 4](./2026-09-30-manual-match-venue-part4-editing-ui.md) + UI half of venue [Part 3](./2026-09-30-manual-match-venue-part3-import-summary.md), Part 4 = venue [Part 1](./2026-09-30-manual-match-venue-part1-backend.md), [Part 2](./2026-09-30-manual-match-venue-part2-notification.md) + backend half of venue Part 3, [Part 5](./2026-09-30-match-page-revamp-part5-collapsible-sections.md). Where a part spec corrects this plan, the part spec wins. The main correction across all of them: « mobile / desktop » switches at `md` (768 px, `DESKTOP_BREAKPOINT_PX`, where `MobileTopBar` and `AppBottomNav` switch), not `sm`; read every `sm:` below as `md:`.
+
 ## Mockups: source of truth for pixel-perfect
 
 The mockups are built from the real tokens and component classes, not an approximation: every value in them comes from `tailwind-preset.cjs` or a component's `cva` classes. Implement each element with the component and props in the table, and the result matches the mockup. Where a mockup value has no row here, it is layout (flex, gap, padding on the Tailwind 4px scale: `gap: 14px` = `gap-3.5`) and stays caller-side.
@@ -20,14 +22,14 @@ The mockups are built from the real tokens and component classes, not an approxi
 | `.btn.btn-default.btn-default-size`             | `Button` (default variant and size)                                                                             |
 | `.btn.btn-outline.btn-sm`                       | `Button variant="outline" size="sm"`                                                                            |
 | `.btn.btn-ghost.btn-icon`                       | `Button variant="ghost" size="icon"` + `aria-label`                                                             |
-| `.btn-outline.btn-icon` at 36px                 | `Button variant="outline" size="sm"` with `aria-label`, square (`w-9 px-0`)                                     |
+| `.btn-outline.btn-icon` at 36px                 | `Button variant="outline" size="icon-sm"` + `aria-label` (**new size** `h-9 w-9`, Part 3)                       |
 | `.badge.badge-soft-structure`                   | `Badge variant="soft" tone="structure"` (`EventVenueBadge` for Domicile/Extérieur)                              |
 | `.badge.badge-soft-accent`                      | `Badge variant="soft" tone="accent"`                                                                            |
 | `.badge.badge-soft-muted`                       | `Badge variant="soft" tone="muted"`                                                                             |
 | `.badge.badge-outline-neutral`                  | `Badge variant="outline" tone="neutral"`                                                                        |
 | `.icon-badge` / `.icon-badge-accent`            | `IconBadge` / `IconBadge tone="accent"` (**new tone**: `bg-gold-tint text-gold-text`)                           |
 | `.section-heading`                              | `SectionHeading as="h2"`                                                                                        |
-| `.heading.heading-4xl` / `-5xl`                 | `Heading as="h1" size="4xl"` (mobile), `sm:text-5xl` from `sm` up                                               |
+| `.heading.heading-4xl` / `-5xl`                 | `Heading as="h1" size="hero"` (**new size** `text-4xl md:text-5xl`, Part 2)                                     |
 | `.t-eyebrow`                                    | `Text variant="eyebrow"`                                                                                        |
 | `.t-label.t-sm`                                 | `Text variant="label" size="sm"`                                                                                |
 | `.t-sm.tone-secondary`                          | `Text variant="meta"`                                                                                           |
@@ -45,7 +47,7 @@ The mockups are built from the real tokens and component classes, not an approxi
 Rules for the implementer:
 
 - Measure against the mockup at 390 px and 1280 px, same content. A difference is a bug in the implementation, unless the table above says the mockup is wrong.
-- If the mockup needs a value that isn't a token yet, add the token (`tailwind-preset.cjs`) or the variant (component `cva`), never an arbitrary value at the call site. Two known additions: `IconBadge tone="accent"` and `Dialog`'s default responsive placement with handle.
+- If the mockup needs a value that isn't a token yet, add the token (`tailwind-preset.cjs`) or the variant (component `cva`), never an arbitrary value at the call site. Known additions: `Dialog`'s default responsive placement with handle (Part 1); `Heading size="hero"`, `PageContainer top="bar"`, `icons/chevron-left` (Part 2); `IconBadge tone="accent"`, Button `size="icon-sm"` (Part 3); `icons/chevron-down` (Part 5).
 - Screenshots of the implementation go in the PR next to the matching artboard.
 
 ## Part 1: responsive modals (sheet on mobile, dialog on desktop)
@@ -91,7 +93,7 @@ The manager's match page stacks seven sections; most visits need two. Sections b
 - Use Radix Accordion (`@radix-ui/react-accordion`, headless, same family as Dialog) wrapped once in `packages/@basketeasy/ui/src/components/SectionAccordion.tsx` (`@basketeasy/ui/section-accordion`), the only importer. Trigger = the `SectionHeading` look + a one-line summary + chevron. Record the choice in `docs/frontend-stack.md`.
 - Always open, not collapsible: header, Logistique. Collapsible with a summary: Présences (« 8 / 12 »), Partage WhatsApp (« 1 message à partager »), Notes du coach, Vote du match, Après la rencontre.
 - Default open: Présences on mobile. Desktop shows Logistique and Présences side by side (2-col grid), the rest collapsed below.
-- `type="multiple"`. Open state kept in the URL hash already used for section anchors (`EVENT_SECTION_IDS`): a deep link or notification to `#presences` opens that section and scrolls to it. No localStorage.
+- `type="multiple"`. Open state is component state seeded from the incoming `?tab=` / `?partage=` anchor (there is no URL hash; see the Part 5 spec): a deep link or notification opens that section and scrolls to it. No localStorage.
 - Summaries come from data the page already loads; don't add a query just to fill a summary line. A section whose summary would need one shows no summary.
 - Player view (`EventDetailPlayerView`): same treatment after the manager view proves out; out of scope here.
 - Tests: accordion opens from a hash, keyboard (Enter/Space, arrows via Radix), each section's error → loading → empty → data branch still reachable when opened. Screenshots mobile + desktop.
