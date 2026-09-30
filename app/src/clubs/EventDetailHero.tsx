@@ -1,7 +1,5 @@
 import { Badge } from '@basketeasy/ui/badge';
-import { Card } from '@basketeasy/ui/card';
-import { Heading } from '@basketeasy/ui/heading';
-import { Text } from '@basketeasy/ui/text';
+import { PageHero } from '@basketeasy/ui/page-hero';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDayFull, formatEventTime } from './eventDateFormat';
 import { EventVenueBadge } from './EventVenueBadge';
@@ -20,7 +18,8 @@ import { EventHeroLocation } from './EventHeroLocation';
  * on the list cards; here the hour is part of the date line.
  *
  * The venue closes the hero for both types (`EventHeroLocation`), which is
- * also where a manager fills in or corrects a match's venue.
+ * also where a manager fills in or corrects a match's venue. The card's shape
+ * is `PageHero`, shared with every other entity page.
  */
 export function EventDetailHero({
   clubId,
@@ -38,10 +37,10 @@ export function EventDetailHero({
   const isMatch = event.type === 'MATCH';
   const hasBadges = (isMatch && event.venue) || event.isImported || !event.timeConfirmed;
   return (
-    <Card className="flex flex-col gap-3.5 p-4 md:grid md:grid-cols-2 md:items-center md:gap-6 md:p-6">
-      <div className="flex min-w-0 flex-col gap-2">
-        {hasBadges && (
-          <div className="flex flex-wrap items-center gap-2">
+    <PageHero
+      badges={
+        hasBadges && (
+          <>
             {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
             {event.isImported && (
               <Badge variant="outline" tone="neutral">
@@ -53,20 +52,20 @@ export function EventDetailHero({
                 Heure à confirmer
               </Badge>
             )}
-          </div>
-        )}
-        <Text variant="eyebrow">{teamName}</Text>
-        <Heading as="h1" size="hero" className="m-0">
-          {isMatch ? `vs ${event.opponentName}` : 'Entraînement'}
-        </Heading>
-        <Text variant="meta" className="tabular">
+          </>
+        )
+      }
+      eyebrow={teamName}
+      title={isMatch ? `vs ${event.opponentName}` : 'Entraînement'}
+      meta={
+        <>
           {formatEventDayFull(event.startsAt)} ·{' '}
           {event.timeConfirmed ? formatEventTime(event.startsAt) : 'heure à confirmer'}
-        </Text>
-      </div>
-      <div>
+        </>
+      }
+      aside={
         <EventHeroLocation clubId={clubId} teamId={teamId} event={event} canManage={canManage} />
-      </div>
-    </Card>
+      }
+    />
   );
 }

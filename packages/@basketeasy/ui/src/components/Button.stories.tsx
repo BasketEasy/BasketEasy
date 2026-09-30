@@ -29,6 +29,19 @@ export const Disabled: Story = { args: { children: 'Indisponible', disabled: tru
 export const Icon: Story = {
   args: { children: '☰', size: 'icon', variant: 'ghost', 'aria-label': 'Menu' },
 };
+export const IconResponsive: Story = {
+  args: {
+    variant: 'outline',
+    size: 'icon-responsive',
+    'aria-label': 'Modifier',
+    children: (
+      <>
+        <span aria-hidden="true">✎</span>
+        <span className="hidden md:inline">Modifier</span>
+      </>
+    ),
+  },
+};
 export const Loading: Story = { args: { children: 'Enregistrement…', loading: true } };
 export const AllVariants: Story = {
   render: () => (

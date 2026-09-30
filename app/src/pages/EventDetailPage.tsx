@@ -6,7 +6,7 @@ import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
-import { EventBackLink, EventPageBar } from '../clubs/EventPageBar';
+import { PageBackLink, PageBar } from '../components/PageBar';
 import { EventDetailManagerView } from '../clubs/EventDetailManagerView';
 import { EventDetailPlayerView } from '../clubs/EventDetailPlayerView';
 import { hasVoteWindowClosed } from '../clubs/voteWindow';
@@ -144,9 +144,9 @@ export function EventDetailPage() {
           where the journey actually started instead of falling back to
           /my-teams. The bar is full-bleed under the header on a phone, so it
           sits outside the container; the desktop link is inside it. */}
-      <EventPageBar to={backTo} state={navState} teamName={team.name} />
+      <PageBar to={backTo} state={navState} title={team.name} />
       <PageContainer size="lg" top="bar">
-        <EventBackLink to={backTo} state={navState} teamName={team.name} />
+        <PageBackLink to={backTo} state={navState} title={team.name} />
 
         {canManage ? (
           <EventDetailManagerView
