@@ -348,6 +348,7 @@ export interface ConfirmEventScoresheetRequest {
 /** The file itself is never exposed here — only capture status, not display, is in scope. */
 export interface EventScoresheet {
   status: EventScoresheetStatus;
-  uploadedByTeamPlayerId: string;
+  /** Null once the uploader's roster slot is gone (player or club deleted). */
+  uploadedByTeamPlayerId: string | null;
   uploadedAt: string;
 }

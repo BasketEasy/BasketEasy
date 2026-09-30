@@ -1282,7 +1282,7 @@ export class EventsService {
   // this slice, only captured, so the frontend never needs a way to address it.
   private toEventScoresheet(scoresheet: {
     status: string;
-    uploadedByTeamPlayerId: string;
+    uploadedByTeamPlayerId: string | null;
     uploadedAt: Date;
   }): EventScoresheet {
     return {
