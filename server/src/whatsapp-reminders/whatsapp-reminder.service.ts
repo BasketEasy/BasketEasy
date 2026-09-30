@@ -443,9 +443,7 @@ export class WhatsAppReminderService implements OnModuleInit {
       }
 
       await this.scheduler.notifyChangePrompts(teamId, 'UPDATE', raised);
-      for (const prompt of raised) {
-        await this.scheduler.queueFollowUps(prompt.shareId, prompt.startsAt);
-      }
+      await this.scheduler.queueFollowUps(raised);
     }
   }
 
@@ -572,9 +570,7 @@ export class WhatsAppReminderService implements OnModuleInit {
   async afterCancellations(teamId: string, prepared: PreparedCancellations): Promise<void> {
     try {
       await this.scheduler.discard(prepared.discardedShareIds);
-      for (const share of prepared.created) {
-        await this.scheduler.queueFollowUps(share.shareId, share.startsAt);
-      }
+      await this.scheduler.queueFollowUps(prepared.created);
       await this.scheduler.notifyChangePrompts(
         teamId,
         'CANCELLATION',

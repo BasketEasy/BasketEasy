@@ -51,7 +51,7 @@ describe('WhatsAppReminderScheduler', () => {
       create: jest.Mock;
       updateMany: jest.Mock;
     };
-    notification: { updateMany: jest.Mock };
+    notification: { findMany: jest.Mock; updateMany: jest.Mock };
     clubMembership: { findMany: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
@@ -74,7 +74,10 @@ describe('WhatsAppReminderScheduler', () => {
         create: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
-      notification: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      notification: {
+        findMany: jest.fn().mockResolvedValue([{ id: 'n1', deepLink: '/x?partage=s1' }]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
     };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
@@ -328,10 +331,13 @@ describe('WhatsAppReminderScheduler', () => {
       await scheduler.syncEvents(['e1']);
 
       expect(stateWrites()).toEqual(['VOID']);
-      expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+      expect(prisma.notification.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ deepLink: { endsWith: 'partage=s1' }, readAt: null }),
+          where: expect.objectContaining({ deepLink: { contains: 's1' }, readAt: null }),
         }),
+      );
+      expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['n1'] } } }),
       );
     });
 
@@ -533,7 +539,7 @@ describe('WhatsAppReminderScheduler', () => {
       const sent = notifications.notify.mock.calls[0][0];
       expect(sent).toHaveLength(2);
       expect(sent[0].title).toBe('2 changements à partager');
-      expect(sent[0].deepLink).toBe('/clubs/c1/teams/t1/events/e1?partage=u1');
+      expect(sent[0].deepLink).toBe('/clubs/c1/teams/t1/events/e1?partage=u1&partages=u2,u1');
     });
 
     it('links a CANCELLATION to the team page, the event page being gone', async () => {
@@ -557,16 +563,22 @@ describe('WhatsAppReminderScheduler', () => {
     });
 
     it('queues the nudge and expiry of a prompt', async () => {
-      await scheduler.queueFollowUps('u1', soon);
+      await scheduler.queueFollowUps([{ shareId: 'u1', startsAt: soon }]);
       expect(jobAdds()).toEqual(['nudge', 'expire']);
     });
 
     it('swallows a queue failure when queueing follow-ups', async () => {
       queue.add.mockRejectedValue(new Error('redis down'));
-      await expect(scheduler.queueFollowUps('u1', soon)).resolves.toBeUndefined();
+      await expect(
+        scheduler.queueFollowUps([{ shareId: 'u1', startsAt: soon }]),
+      ).resolves.toBeUndefined();
     });
 
     it('discard drops the jobs and clears the bell of every share it is given', async () => {
+      prisma.eventShare.findMany.mockResolvedValue([]);
+      prisma.notification.findMany
+        .mockResolvedValueOnce([{ id: 'n-a', deepLink: '/x?partage=a' }])
+        .mockResolvedValueOnce([{ id: 'n-b', deepLink: '/x?partage=b' }]);
       await scheduler.discard(['a', 'b']);
       expect(queue.remove).toHaveBeenCalledTimes(6);
       expect(prisma.notification.updateMany).toHaveBeenCalledTimes(2);
@@ -602,6 +614,92 @@ describe('WhatsAppReminderScheduler', () => {
         event: null,
       });
       await scheduler.nudge('c1');
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('grouped change notifications', () => {
+    const soon = new Date(NOW.getTime() + DAY);
+    const later = new Date(NOW.getTime() + 2 * DAY);
+    const prompts = [
+      { shareId: 'u2', startsAt: later },
+      { shareId: 'u1', startsAt: soon },
+      { shareId: 'u3', startsAt: later },
+    ];
+
+    it('links every share id of a grouped notification, the earliest as `partage`', async () => {
+      prisma.team.findUnique.mockResolvedValue({ clubTeams: [{ clubId: 'c1' }], teamAdmins: [] });
+      prisma.clubMembership.findMany.mockResolvedValue([
+        { userId: 'admin-1', clubId: 'c1', role: 'ADMIN' },
+      ]);
+      await scheduler.notifyChangePrompts(
+        't1',
+        'UPDATE',
+        prompts.map((p) => ({ ...p, eventId: `e-${p.shareId}`, subject: 'X' })),
+      );
+      expect(notifications.notify.mock.calls[0][0][0].deepLink).toBe(
+        '/clubs/c1/teams/t1/events/e-u1?partage=u1&partages=u2,u1,u3',
+      );
+    });
+
+    it('sharing a non-earliest prompt keeps the bell while another is still PENDING', async () => {
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', deepLink: '/x?partage=u1&partages=u1,u2,u3' },
+      ]);
+      prisma.eventShare.findMany.mockResolvedValue([{ id: 'u1' }]);
+      await scheduler.withdraw('u2');
+      expect(prisma.notification.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('clears the bell once the last pending prompt of the group is shared, whichever it is', async () => {
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', deepLink: '/x?partage=u1&partages=u1,u2,u3' },
+      ]);
+      prisma.eventShare.findMany.mockResolvedValue([]);
+      await scheduler.withdraw('u3');
+      expect(prisma.notification.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['n1'] } } }),
+      );
+    });
+
+    it('queues ONE nudge for the whole call and an expiry per prompt', async () => {
+      await scheduler.queueFollowUps(prompts);
+      const nudges = queue.add.mock.calls.filter(([name]) => name === 'nudge');
+      expect(nudges).toHaveLength(1);
+      expect(nudges[0][1]).toEqual({ shareId: 'u1', shareIds: ['u2', 'u1', 'u3'] });
+      expect(queue.add.mock.calls.filter(([name]) => name === 'expire')).toHaveLength(3);
+    });
+
+    it('the grouped nudge notifies once, for the prompts still PENDING', async () => {
+      prisma.team.findUnique.mockResolvedValue({ clubTeams: [{ clubId: 'c1' }], teamAdmins: [] });
+      prisma.clubMembership.findMany.mockResolvedValue([
+        { userId: 'admin-1', clubId: 'c1', role: 'ADMIN' },
+        { userId: 'admin-2', clubId: 'c1', role: 'ADMIN' },
+      ]);
+      const share = (id: string, startsAt: Date) => ({
+        id,
+        type: 'UPDATE',
+        teamId: 't1',
+        eventId: `e-${id}`,
+        expiresAt: null,
+        eventSnapshot: null,
+        event: { type: 'MATCH', startsAt, opponentName: 'ES Vertou' },
+      });
+      // u3 was shared meanwhile, so the query no longer returns it.
+      prisma.eventShare.findMany.mockResolvedValue([share('u1', soon), share('u2', later)]);
+
+      await scheduler.nudge('u1', ['u1', 'u2', 'u3']);
+
+      expect(notifications.notify).toHaveBeenCalledTimes(1);
+      const sent = notifications.notify.mock.calls[0][0];
+      expect(sent).toHaveLength(2);
+      expect(sent[0].title).toBe('Toujours pas partagé : 2 changements à partager');
+      expect(sent[0].deepLink).toContain('partages=u1,u2');
+    });
+
+    it('the grouped nudge does nothing when every prompt was already shared', async () => {
+      prisma.eventShare.findMany.mockResolvedValue([]);
+      await scheduler.nudge('u1', ['u1', 'u2']);
       expect(notifications.notify).not.toHaveBeenCalled();
     });
   });

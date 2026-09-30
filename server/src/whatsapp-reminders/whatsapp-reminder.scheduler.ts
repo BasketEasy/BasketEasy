@@ -38,6 +38,8 @@ const MINUTE_MS = 60 * 1000;
 
 export interface ShareJobData {
   shareId: string;
+  /** Only on a grouped `nudge`: every prompt one call raised, `shareId` being the earliest. */
+  shareIds?: string[];
   /** Only on `expire`: the kick-off the job was queued for, compared by `syncEvents`. */
   startsAt?: string;
 }
@@ -72,6 +74,16 @@ function promptSubject(share: {
   if (share.event) return describeShareSubject(share.event);
   const snapshot = (share.eventSnapshot ?? {}) as Partial<WhatsAppTemplateVars>;
   return `${snapshot.event_name ?? 'Événement'}, ${snapshot.event_date ?? ''}`.replace(/, $/, '');
+}
+
+// The share ids a notification's deep link names: `partages` for a grouped one,
+// else the single `partage`.
+function shareIdsOf(deepLink: string): string[] {
+  const params = new URL(deepLink, 'http://kluvo.invalid').searchParams;
+  const grouped = params.get('partages');
+  if (grouped) return grouped.split(',').filter(Boolean);
+  const single = params.get('partage');
+  return single ? [single] : [];
 }
 
 /** `enabled = event.override ?? team.enabled`, `offset = event.offset ?? team.offset`. */
@@ -353,7 +365,8 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
   }
 
   /** `nudge` job: once, only while nobody has shared. */
-  async nudge(shareId: string): Promise<void> {
+  async nudge(shareId: string, shareIds?: string[]): Promise<void> {
+    if (shareIds && shareIds.length > 1) return this.nudgeGroup(shareIds);
     const share = await this.loadShareForJob(shareId);
     if (!share || share.state !== EventShareState.PENDING || share.nudgedAt) return;
     // A CANCELLATION has no event any more: its own expiry is the deleted event's kick-off.
@@ -365,6 +378,48 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     });
     if (count === 0) return;
     await this.notifyManagers(shareId, true);
+  }
+
+  // One nudge for a whole call's prompts, for those still PENDING and unnudged.
+  private async nudgeGroup(shareIds: string[]): Promise<void> {
+    const now = new Date();
+    const shares = await this.prisma.eventShare.findMany({
+      where: { id: { in: shareIds }, state: EventShareState.PENDING, nudgedAt: null },
+      select: {
+        id: true,
+        type: true,
+        teamId: true,
+        eventId: true,
+        expiresAt: true,
+        eventSnapshot: true,
+        event: { select: { type: true, startsAt: true, opponentName: true } },
+      },
+    });
+    const live = shares.filter((share) => {
+      const endsAt = share.event?.startsAt ?? share.expiresAt;
+      return endsAt && endsAt > now && share.type !== EventShareType.REMINDER;
+    });
+    if (live.length === 0) return;
+    const { count } = await this.prisma.eventShare.updateMany({
+      where: {
+        id: { in: live.map((share) => share.id) },
+        state: EventShareState.PENDING,
+        nudgedAt: null,
+      },
+      data: { nudgedAt: now },
+    });
+    if (count === 0) return;
+    await this.notifyChangePrompts(
+      live[0].teamId,
+      live[0].type as 'UPDATE' | 'CANCELLATION',
+      live.map((share) => ({
+        shareId: share.id,
+        eventId: share.eventId,
+        startsAt: share.event?.startsAt ?? share.expiresAt ?? now,
+        subject: promptSubject(share),
+      })),
+      true,
+    );
   }
 
   /** `expire` job: the event started without a share. */
@@ -420,15 +475,41 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     });
   }
 
-  // Notification.readAt on every manager's unread row for this share: `deepLink`
-  // ends with `partage=<shareId>`, which is what names one share among several.
+  // Notification.readAt on every manager's unread row that names this share.
+  // A grouped notification (a series edit or delete) links the earliest prompt
+  // in `partage` and lists all of them in `partages`, so sharing any one of them
+  // finds it, and it is only cleared once none of its prompts is still PENDING.
   async withdraw(shareId: string): Promise<void> {
-    await this.prisma.notification.updateMany({
+    const rows = await this.prisma.notification.findMany({
       where: {
         type: NotificationType.WHATSAPP_SHARE_REQUESTED,
         readAt: null,
-        deepLink: { endsWith: `partage=${shareId}` },
+        deepLink: { contains: shareId },
       },
+      select: { id: true, deepLink: true },
+    });
+    if (rows.length === 0) return;
+    // `contains` is a substring match: keep only rows that name this exact id.
+    const groups = rows
+      .map((row) => ({ id: row.id, shareIds: shareIdsOf(row.deepLink ?? '') }))
+      .filter((group) => group.shareIds.includes(shareId));
+    const others = [...new Set(groups.flatMap((g) => g.shareIds))].filter((id) => id !== shareId);
+    const pending = new Set<string>(
+      others.length === 0
+        ? []
+        : (
+            await this.prisma.eventShare.findMany({
+              where: { id: { in: others }, state: EventShareState.PENDING },
+              select: { id: true },
+            })
+          ).map((share) => share.id),
+    );
+    const clear = groups
+      .filter((g) => !g.shareIds.some((id) => id !== shareId && pending.has(id)))
+      .map((g) => g.id);
+    if (clear.length === 0) return;
+    await this.prisma.notification.updateMany({
+      where: { id: { in: clear } },
       data: { readAt: new Date() },
     });
   }
@@ -501,6 +582,10 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     const recipients = await this.resolveManagers(teamId);
     if (recipients.length === 0) return;
     const earliest = [...prompts].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
+    const partage =
+      prompts.length > 1
+        ? `partage=${earliest.shareId}&partages=${prompts.map((p) => p.shareId).join(',')}`
+        : `partage=${earliest.shareId}`;
     const copy = changeRequestedNotification(
       kind,
       prompts.map((p) => p.subject),
@@ -514,19 +599,35 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
         body: copy.body,
         deepLink:
           kind === 'UPDATE' && earliest.eventId
-            ? `/clubs/${clubId}/teams/${teamId}/events/${earliest.eventId}?partage=${earliest.shareId}`
-            : `/clubs/${clubId}/teams/${teamId}?partage=${earliest.shareId}`,
+            ? `/clubs/${clubId}/teams/${teamId}/events/${earliest.eventId}?${partage}`
+            : `/clubs/${clubId}/teams/${teamId}?${partage}`,
       })),
     );
   }
 
-  /** The nudge an hour later and the expiry at kick-off, for a prompt that starts PENDING. */
-  async queueFollowUps(shareId: string, endsAt: Date): Promise<void> {
+  /**
+   * For the prompts one call raised: each one's expiry at its own kick-off, and
+   * ONE nudge an hour later carrying all of them, so a series change nudges
+   * once like it notified once.
+   */
+  async queueFollowUps(prompts: Array<{ shareId: string; startsAt: Date }>): Promise<void> {
+    if (prompts.length === 0) return;
+    const earliest = [...prompts].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())[0];
     try {
-      await this.queueNudge(shareId, endsAt);
-      await this.ensureExpire(shareId, endsAt);
+      await this.queueNudge(
+        earliest.shareId,
+        earliest.startsAt,
+        prompts.map((p) => p.shareId),
+      );
     } catch (error) {
-      this.logSyncFailure(shareId, error);
+      this.logSyncFailure(earliest.shareId, error);
+    }
+    for (const prompt of prompts) {
+      try {
+        await this.ensureExpire(prompt.shareId, prompt.startsAt);
+      } catch (error) {
+        this.logSyncFailure(prompt.shareId, error);
+      }
     }
   }
 
@@ -599,13 +700,13 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     );
   }
 
-  private async queueNudge(shareId: string, startsAt: Date): Promise<void> {
+  private async queueNudge(shareId: string, startsAt: Date, shareIds?: string[]): Promise<void> {
     // No nudge when it would land in the last hour before kick-off.
     if (Date.now() + NUDGE_DELAY_MS >= startsAt.getTime()) return;
     await this.queue.remove(jobId(shareId, NUDGE_JOB));
     await this.queue.add(
       NUDGE_JOB,
-      { shareId },
+      shareIds && shareIds.length > 1 ? { shareId, shareIds } : { shareId },
       {
         jobId: jobId(shareId, NUDGE_JOB),
         delay: NUDGE_DELAY_MS,

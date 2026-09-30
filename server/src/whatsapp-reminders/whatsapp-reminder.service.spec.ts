@@ -463,7 +463,7 @@ describe('WhatsAppReminderService', () => {
       ]);
       expect(
         (scheduler as unknown as { queueFollowUps: jest.Mock }).queueFollowUps,
-      ).toHaveBeenCalledWith('u1', FUTURE);
+      ).toHaveBeenCalledWith([expect.objectContaining({ shareId: 'u1', startsAt: FUTURE })]);
     });
 
     it('resets an already shared UPDATE to PENDING, keeping what the group last read', async () => {
@@ -637,7 +637,11 @@ describe('WhatsAppReminderService', () => {
         discardedShareIds: ['r1'],
       });
       expect(s.discard).toHaveBeenCalledWith(['r1']);
-      expect(s.queueFollowUps).toHaveBeenCalledTimes(2);
+      expect(s.queueFollowUps).toHaveBeenCalledTimes(1);
+      expect(s.queueFollowUps).toHaveBeenCalledWith([
+        expect.objectContaining({ shareId: 'c1' }),
+        expect.objectContaining({ shareId: 'c2' }),
+      ]);
       expect(s.notifyChangePrompts).toHaveBeenCalledTimes(1);
       expect(s.notifyChangePrompts).toHaveBeenCalledWith('t1', 'CANCELLATION', [
         expect.objectContaining({ shareId: 'c1', eventId: null }),
