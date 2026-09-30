@@ -267,6 +267,55 @@ function Engagement({ stats }: { stats: AdminStats }) {
   );
 }
 
+function Sharing({ stats }: { stats: AdminStats }) {
+  const { guestLinks, whatsapp } = stats.sharing;
+  const teams = stats.growth.teams.total;
+  const ofTeams = (n: number) => (teams > 0 ? `${formatRatio(n / teams)} des équipes` : undefined);
+
+  return (
+    <AdminSection title="Partage d’équipe">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label="Lien de réponse actif"
+          value={count(guestLinks.teamsEnabled)}
+          hint={ofTeams(guestLinks.teamsEnabled)}
+        />
+        <StatTile
+          label="Réponses via le lien"
+          value={percent(guestLinks.answersViaLinkShare)}
+          hint={`${formatCount(guestLinks.answersViaLink)} réponses`}
+        />
+        <StatTile
+          label="Rappels WhatsApp actifs"
+          value={count(whatsapp.teamsEnabled)}
+          hint={ofTeams(whatsapp.teamsEnabled)}
+        />
+        <StatTile
+          label="Partages envoyés"
+          value={count(whatsapp.sent)}
+          hint="Confirmés sur la période"
+        />
+        <StatTile
+          label="En attente d’envoi"
+          value={count(whatsapp.pending)}
+          hint="Gestionnaire prévenu, pas encore envoyé"
+        />
+        <StatTile label="Programmés" value={count(whatsapp.scheduled)} />
+        <StatTile
+          label="Expirés sans envoi"
+          value={count(whatsapp.expired)}
+          hint="Sur la période"
+        />
+        <StatTile
+          label="Envois en retard"
+          value={count(whatsapp.overdue)}
+          hint="15 min ou plus, tâche probablement perdue"
+        />
+      </div>
+    </AdminSection>
+  );
+}
+
 function Health({ stats, links }: { stats: AdminStats; links: ReturnType<typeof statLinks> }) {
   const { health } = stats;
   const run = health.lastRetentionRun;
@@ -407,6 +456,7 @@ export function AdminStatsPanel({ clubId, prefix = '' }: { clubId?: string; pref
           <div className="flex flex-col gap-8">
             <Growth stats={data} links={links} />
             <Engagement stats={data} />
+            <Sharing stats={data} />
             <Health stats={data} links={links} />
           </div>
         )}
