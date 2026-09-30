@@ -28,6 +28,8 @@ const RANGE_DAYS: Record<Exclude<AdminStatsRange, 'season' | 'all'>, number> = {
 const UNVERIFIED_GRACE_DAYS = 7;
 const STATS_CACHE_TTL_MS = 60_000;
 const MEETING_LOOKAHEAD_DAYS = 7;
+/** The WhatsApp sweep runs every 10 minutes: a send later than this lost its job. */
+const WHATSAPP_OVERDUE_MS = 15 * 60 * 1000;
 
 const SCORESHEET_STATUSES: EventScoresheetStatus[] = [
   'UPLOADED',
@@ -121,6 +123,7 @@ export class PlatformAdminStatsService {
     // default connection pool and stall every other request behind it.
     const growth = await this.growth(scope, from, to, now);
     const engagement = await this.engagement(scope, from, to, now);
+    const sharing = await this.sharing(scope, from, to, now);
     const health = await this.health(scope, from, to, now);
 
     return {
@@ -130,7 +133,57 @@ export class PlatformAdminStatsService {
       clubId: clubId ?? null,
       growth,
       engagement,
+      sharing,
       health,
+    };
+  }
+
+  private async sharing(
+    scope: Scope,
+    from: Date,
+    to: Date,
+    now: Date,
+  ): Promise<AdminStats['sharing']> {
+    const eventInRange = { ...scope.event, startsAt: { gte: from, lt: to } };
+    const inRange = { gte: from, lt: to };
+    const shares = { team: scope.team };
+
+    const [
+      guestTeams,
+      answers,
+      answersViaLink,
+      whatsappTeams,
+      sent,
+      pending,
+      scheduled,
+      expired,
+      overdue,
+    ] = await Promise.all([
+      this.prisma.team.count({ where: { ...scope.team, guestLink: { isNot: null } } }),
+      this.prisma.eventRsvp.count({ where: { event: eventInRange } }),
+      this.prisma.eventRsvp.count({ where: { source: 'GUEST_LINK', event: eventInRange } }),
+      this.prisma.team.count({ where: { ...scope.team, waReminderEnabled: true } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'SENT', sentAt: inRange } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'PENDING' } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'SCHEDULED' } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'EXPIRED', updatedAt: inRange } }),
+      this.prisma.eventShare.count({
+        where: {
+          ...shares,
+          state: 'SCHEDULED',
+          dueAt: { lte: new Date(now.getTime() - WHATSAPP_OVERDUE_MS) },
+          event: { startsAt: { gt: now } },
+        },
+      }),
+    ]);
+
+    return {
+      guestLinks: {
+        teamsEnabled: guestTeams,
+        answersViaLink,
+        answersViaLinkShare: ratio(answersViaLink, answers),
+      },
+      whatsapp: { teamsEnabled: whatsappTeams, sent, pending, scheduled, expired, overdue },
     };
   }
 

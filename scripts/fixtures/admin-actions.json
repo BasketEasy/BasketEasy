@@ -1563,6 +1563,17 @@
       "ffbbLinkedClubs": 131,
       "ffbbLinkedTeams": 640
     },
+    "sharing": {
+      "guestLinks": { "teamsEnabled": 212, "answersViaLink": 1840, "answersViaLinkShare": 0.23 },
+      "whatsapp": {
+        "teamsEnabled": 158,
+        "sent": 934,
+        "pending": 41,
+        "scheduled": 320,
+        "expired": 27,
+        "overdue": 2
+      }
+    },
     "health": {
       "scoresheetsByStatus": {
         "UPLOADED": 2,

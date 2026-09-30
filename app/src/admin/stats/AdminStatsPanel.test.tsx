@@ -57,6 +57,10 @@ function stats(overrides: Partial<AdminStats['health']> = {}): AdminStats {
       ffbbLinkedClubs: 0,
       ffbbLinkedTeams: 0,
     },
+    sharing: {
+      guestLinks: { teamsEnabled: 0, answersViaLink: 0, answersViaLinkShare: null },
+      whatsapp: { teamsEnabled: 0, sent: 0, pending: 0, scheduled: 0, expired: 0, overdue: 0 },
+    },
     health: {
       scoresheetsByStatus: {
         UPLOADED: 0,
@@ -138,6 +142,25 @@ describe('AdminStatsPanel', () => {
       await screen.findByRole('link', { name: 'Mineurs sans autorisation : 23, voir le détail' }),
     ).toHaveAttribute('href', '/admin/clubs/club-1?tab=players&p.missingConsent=true');
     expect(requests[0].get('clubId')).toBe('club-1');
+  });
+
+  it('shows the team-sharing figures, « — » for a link with no answers', async () => {
+    const base = stats();
+    serve({
+      ...base,
+      sharing: {
+        guestLinks: { teamsEnabled: 12, answersViaLink: 0, answersViaLinkShare: null },
+        whatsapp: { teamsEnabled: 7, sent: 31, pending: 4, scheduled: 9, expired: 2, overdue: 1 },
+      },
+    });
+
+    renderWithProviders(<AdminStatsPanel />, { route: '/admin' });
+
+    const sharing = (await screen.findByText('Partage d’équipe')).closest('section')!;
+    const tile = (label: string) => within(sharing).getByText(label).parentElement!.parentElement!;
+    expect(within(tile('Réponses via le lien')).getByText('—')).toBeInTheDocument();
+    expect(within(tile('Partages envoyés')).getByText('31')).toBeInTheDocument();
+    expect(within(tile('Envois en retard')).getByText('1')).toBeInTheDocument();
   });
 
   it('carries every chart as a table for assistive tech', async () => {

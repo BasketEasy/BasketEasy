@@ -87,6 +87,30 @@ export interface AdminStats {
     ffbbLinkedClubs: number;
     ffbbLinkedTeams: number;
   };
+  /** Team-shared channels: the guest RSVP link and the WhatsApp reminder. */
+  sharing: {
+    guestLinks: {
+      /** Teams whose link is currently on (a snapshot: disabling deletes the row). */
+      teamsEnabled: number;
+      /** Answers in the range given through a link, and their share of all answers. */
+      answersViaLink: number;
+      answersViaLinkShare: AdminRatio;
+    };
+    whatsapp: {
+      /** Teams with scheduled reminders on (a snapshot). */
+      teamsEnabled: number;
+      /** Shares confirmed sent within the range. */
+      sent: number;
+      /** Prompted to a manager, not yet confirmed (a snapshot). */
+      pending: number;
+      /** Queued for a later send (a snapshot). */
+      scheduled: number;
+      /** Never confirmed and past their event or expiry, within the range. */
+      expired: number;
+      /** Scheduled sends overdue by 15 minutes or more: their job is likely lost. */
+      overdue: number;
+    };
+  };
   health: {
     scoresheetsByStatus: Record<EventScoresheetStatus, number>;
     ocrFailureRate: AdminRatio;
