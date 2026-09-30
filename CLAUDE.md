@@ -86,6 +86,8 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
 
 ## Design direction — Parquet
 
+**Designing or building a screen? Start from [`docs/ui-guidelines.md`](./docs/ui-guidelines.md)**: page types, hero/fact tile, sections and folding, lists, controls, copy and privacy rules, the canvas kit (`docs/design-kit/`) and the review checklist. It is the standing reference; update it in the same PR when a new pattern lands.
+
 The app has one committed visual direction, **Parquet**: the club gym as material — warm layered neutrals, court-line rules, real elevation. It evolves `docs/brand.md` rather than replacing it; no brand colour value changed when it landed. Design decisions record and rationale: [`docs/superpowers/specs/2026-08-25-frontend-parquet-revamp-design.md`](./docs/superpowers/specs/2026-08-25-frontend-parquet-revamp-design.md).
 
 **Every token lives in one file** — `packages/@basketeasy/ui/tailwind-preset.cjs`. That file is the only place a literal colour, shadow or letter-spacing value may appear in either package. If a value you need isn't there, **add it there and give it a name**; do not reach for an arbitrary Tailwind value (`bg-[#…]`, `shadow-[inset_…]`, `tracking-[0.13em]`, `h-[76px]`). Six of those slipped in during the revamp and every one was caught and tokenised — `nav-active`, `segment-active`, `wide-caps`, `section` all exist because of it.

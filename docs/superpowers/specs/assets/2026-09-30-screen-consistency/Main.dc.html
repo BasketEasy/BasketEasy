@@ -1,0 +1,1271 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Grammaire commune</title>
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Big+Shoulders+Display:wght@700;800&amp;display=swap"
+        />
+        <style>
+          /* tokens: tailwind-preset.cjs */
+          body {
+            margin: 0;
+            font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
+            font-size: 16px;
+            line-height: 24px;
+            color: #23201c;
+            background: #efe4d4;
+          }
+          h1,
+          h2,
+          h3 {
+            line-height: 0.94;
+            margin: 0;
+          }
+          button {
+            font-family: inherit;
+            cursor: pointer;
+          }
+          a {
+            color: inherit;
+            text-decoration: none;
+          }
+          .tabular {
+            font-variant-numeric: tabular-nums;
+          }
+          .i16 {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+          }
+          .i19 {
+            width: 19px;
+            height: 19px;
+            flex-shrink: 0;
+          }
+          .i20 {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+          }
+          /* Text variant x size x tone */
+          .t-label {
+            font-weight: 600;
+          }
+          .t-sm {
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .t-xs {
+            font-size: 12px;
+            line-height: 16px;
+          }
+          .t-md {
+            font-size: 16px;
+            line-height: 24px;
+          }
+          .tone-secondary {
+            color: #5b564f;
+          }
+          .tone-structure {
+            color: #1e5f74;
+          }
+          .tone-brand {
+            color: #aa4f22;
+          }
+          .tone-accent {
+            color: #8c5f16;
+          }
+          .t-eyebrow {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 12px;
+            line-height: 16px;
+            color: #5b564f;
+          }
+          .t-display-2xl {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 24px;
+            line-height: 32px;
+          }
+          /* Heading */
+          .heading {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #23201c;
+            overflow-wrap: break-word;
+          }
+          .heading-4xl {
+            font-size: 36px;
+          }
+          .heading-5xl {
+            font-size: 48px;
+          }
+          /* SectionHeading */
+          .section-heading {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+          .section-heading h2 {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 18px;
+            line-height: 0.94;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: #1e5f74;
+          }
+          .section-heading span {
+            height: 2px;
+            flex-grow: 1;
+            border-radius: 2px;
+            background: rgba(30, 95, 116, 0.2);
+          }
+          /* Card variant / tone */
+          .card {
+            border: 1px solid #e7decf;
+            border-radius: 14px;
+          }
+          .card-raised {
+            background: #fffcf7;
+            box-shadow:
+              0 2px 6px rgba(59, 42, 24, 0.08),
+              0 1px 2px rgba(59, 42, 24, 0.05);
+          }
+          .card-flush {
+            overflow: hidden;
+            background: #fffcf7;
+            box-shadow:
+              0 2px 6px rgba(59, 42, 24, 0.08),
+              0 1px 2px rgba(59, 42, 24, 0.05);
+          }
+          .card-inset {
+            background: #faf5ef;
+            padding: 12px;
+            box-shadow: 0 1px 2px rgba(59, 42, 24, 0.07);
+          }
+          .card-tone-accent {
+            border-color: rgba(192, 138, 46, 0.35);
+            background: #fbf1dc;
+          }
+          .card-tone-structure {
+            border-color: rgba(30, 95, 116, 0.2);
+            background: #eaf1f3;
+          }
+          /* Button variant x size */
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            line-height: 20px;
+            border: 1px solid transparent;
+            box-sizing: border-box;
+          }
+          .btn-default-size {
+            height: 44px;
+            padding: 0 16px;
+          }
+          .btn-sm {
+            height: 36px;
+            padding: 0 12px;
+          }
+          .btn-icon {
+            height: 44px;
+            width: 44px;
+            padding: 0;
+          }
+          .btn-default {
+            background: #aa4f22;
+            color: #faf5ef;
+            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+          }
+          .btn-outline {
+            border-color: #d6c8b2;
+            background: #faf5ef;
+            color: #23201c;
+          }
+          .btn-ghost {
+            background: transparent;
+            color: #23201c;
+          }
+          /* Badge variant x tone (size sm) */
+          .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 16px;
+            padding: 2px 10px;
+            font-weight: 600;
+            border: 1px solid transparent;
+          }
+          .badge-soft-structure {
+            border-color: rgba(30, 95, 116, 0.25);
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .badge-soft-accent {
+            border-color: rgba(192, 138, 46, 0.35);
+            background: #fbf1dc;
+            color: #8c5f16;
+          }
+          .badge-soft-muted {
+            border-color: #e7decf;
+            background: #faf5ef;
+            color: #5b564f;
+          }
+          .badge-outline-neutral {
+            border-color: #e7decf;
+            color: #23201c;
+          }
+          /* IconBadge */
+          .icon-badge {
+            display: inline-flex;
+            height: 40px;
+            width: 40px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .icon-badge-accent {
+            background: #fbf1dc;
+            color: #8c5f16;
+          }
+          /* Divider vertical rule structure */
+          .rail {
+            width: 2px;
+            flex: 1;
+            background: rgba(30, 95, 116, 0.25);
+            margin: 4px 0;
+          }
+          .hairline {
+            height: 1px;
+            background: #e7decf;
+          }
+          /* Label + Input */
+          .label {
+            font-size: 14px;
+            line-height: 20px;
+            font-weight: 500;
+            color: #23201c;
+          }
+          .input {
+            display: flex;
+            height: 44px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 10px;
+            border: 1px solid #d6c8b2;
+            background: #faf5ef;
+            padding: 8px 12px;
+            font: inherit;
+            font-size: 16px;
+            color: #23201c;
+          }
+          /* Dialog */
+          .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(35, 32, 28, 0.5);
+          }
+          .sheet {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            box-sizing: border-box;
+            background: #fffcf7;
+            border-top: 1px solid #e7decf;
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            box-shadow:
+              0 10px 28px rgba(59, 42, 24, 0.11),
+              0 2px 6px rgba(59, 42, 24, 0.06);
+          }
+          .sheet-handle {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            margin-left: -20px;
+            width: 40px;
+            height: 4px;
+            border-radius: 999px;
+            background: #d6c8b2;
+          }
+          .dialog-close {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            display: flex;
+            height: 44px;
+            width: 44px;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: rgba(35, 32, 28, 0.6);
+            background: transparent;
+            border: 0;
+          }
+          .dialog-title {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 30px;
+            line-height: 36px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #23201c;
+            margin: 0;
+          }
+          .dialog-desc {
+            font-size: 14px;
+            line-height: 20px;
+            color: #5b564f;
+            margin: 0;
+          }
+          /* Toast success */
+          .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border-radius: 14px;
+            border: 1px solid #2f7d5c;
+            background: #eaefe8;
+            color: #245f48;
+            padding: 16px;
+            box-shadow:
+              0 10px 28px rgba(59, 42, 24, 0.11),
+              0 2px 6px rgba(59, 42, 24, 0.06);
+          }
+          /* AppHeader MobileTopBar + TabBar */
+          .app-top {
+            display: flex;
+            height: 56px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 0 8px 0 16px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .wordmark {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 24px;
+            line-height: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #aa4f22;
+          }
+          .tabbar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            border-top: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .tab {
+            display: flex;
+            min-height: 44px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 8px 4px;
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 700;
+            color: #5b564f;
+          }
+          .tab-active {
+            background: #fbede4;
+            color: #aa4f22;
+            box-shadow: inset 0 2px 0 #d4622a;
+          }
+          /* EventPageBar (new) */
+          .page-bar {
+            display: flex;
+            height: 48px;
+            align-items: center;
+            gap: 4px;
+            padding: 0 16px 0 4px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+
+          .acc {
+            display: flex;
+            width: 100%;
+            min-height: 56px;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            background: transparent;
+            border: 0;
+            text-align: left;
+            box-sizing: border-box;
+          }
+          .acc-title {
+            flex: 1;
+            white-space: nowrap;
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 18px;
+            line-height: 0.94;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: #1e5f74;
+          }
+          .acc-body {
+            padding: 0 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .tabs {
+            display: inline-flex;
+            align-self: flex-start;
+            max-width: 100%;
+            gap: 2px;
+            border-radius: 10px;
+            padding: 4px;
+            background: rgba(231, 222, 207, 0.4);
+            overflow: hidden;
+          }
+          .tabt {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 36px;
+            padding: 0 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            line-height: 20px;
+            font-weight: 500;
+            white-space: nowrap;
+            color: #23201c;
+            background: transparent;
+            border: 0;
+          }
+          .tabt-active {
+            background: #fffcf7;
+            color: #aa4f22;
+            box-shadow: 0 1px 2px rgba(59, 42, 24, 0.07);
+          }
+          .count {
+            display: inline-flex;
+            min-width: 20px;
+            height: 20px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            padding: 0 6px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #eaf1f3;
+            color: #1e5f74;
+            box-sizing: border-box;
+          }
+          .timeblock {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            padding: 8px 0;
+            box-sizing: border-box;
+          }
+          .tb-match {
+            background: #1e5f74;
+            color: #faf5ef;
+          }
+          .tb-training {
+            background: #faf5ef;
+            border: 1px solid #e7decf;
+            color: #1e5f74;
+          }
+          .tb-time {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 22px;
+            line-height: 24px;
+          }
+          .tb-day {
+            font-size: 11px;
+            line-height: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+          .avatar {
+            display: flex;
+            height: 32px;
+            width: 32px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #eaf1f3;
+            color: #1e5f74;
+            font-size: 12px;
+            font-weight: 700;
+          }
+          .section-heading .count {
+            height: 20px;
+            flex-grow: 0;
+            border-radius: 999px;
+            background: #eaf1f3;
+          }
+          .badge-soft-brand {
+            border-color: rgba(212, 98, 42, 0.4);
+            background: #fbede4;
+            color: #aa4f22;
+          }
+          .row {
+            display: flex;
+            min-height: 48px;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid #e7decf;
+          }
+          .row:first-child {
+            border-top: 0;
+          }
+          .stat-value {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 30px;
+            line-height: 32px;
+            color: #23201c;
+          }
+          .desk-top {
+            display: flex;
+            height: 64px;
+            align-items: center;
+            gap: 24px;
+            padding: 0 24px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .nav-active {
+            background: #fbede4 !important;
+            box-shadow: inset 0 -2px 0 #d4622a;
+          }
+          .checkbox {
+            display: inline-flex;
+            height: 20px;
+            width: 20px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid #d6c8b2;
+            background: #faf5ef;
+            color: #faf5ef;
+          }
+          .checkbox-on {
+            background: #1e5f74;
+            border-color: #1e5f74;
+          }
+          .radio-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 48px;
+            padding: 0 12px;
+            border-radius: 10px;
+            border: 1px solid #d6c8b2;
+            background: #faf5ef;
+          }
+          .radio-card-on {
+            border-color: #1e5f74;
+            background: #eaf1f3;
+            box-shadow: inset 0 0 0 1px #1e5f74;
+          }
+          .dot {
+            display: block;
+            height: 12px;
+            width: 12px;
+            border-radius: 999px;
+            background: currentColor;
+          }
+          .step-dot {
+            display: flex;
+            height: 28px;
+            width: 28px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+          }
+          .btn-destructive {
+            background: #b23a2e;
+            color: #faf5ef;
+            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+          }
+          .note-rule {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 14px;
+            line-height: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #aa4f22;
+          }
+        </style>
+      </helmet>
+      <div
+        style="
+          width: 1280px;
+          height: 1640px;
+          box-sizing: border-box;
+          background: #efe4d4;
+          padding: 48px;
+          font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
+          color: #23201c;
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+        "
+      >
+        <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+          <span class="t-eyebrow">Parquet · grammaire d’écran</span>
+          <h1 class="heading heading-5xl">Ce que la page match a fixé, pour tous les écrans</h1>
+          <span class="t-md tone-secondary"
+            >Chaque classe = un composant @basketeasy/ui et ses props (table de correspondance du
+            plan match). Rien de nouveau hors des jetons de tailwind-preset.cjs.</span
+          >
+        </div>
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 24px;
+            align-items: start;
+          "
+        >
+          <div style="display: flex; flex-direction: column; gap: 24px; min-width: 0">
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 1</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">Trois types de page</h2>
+              <span class="t-sm tone-secondary"
+                >Racine d’onglet : en-tête de page (h1 + méta + action), pas de retour. Page de
+                détail (profondeur ≥ 2) : barre de page sur mobile, lien retour sur desktop, puis
+                une carte héros. Page publique : wordmark + carte centrée.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+                  <span class="t-eyebrow">Racine d’onglet</span>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: flex-end;
+                      gap: 12px;
+                      min-width: 0;
+                      flex-wrap: wrap;
+                    "
+                  >
+                    <div
+                      style="display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1"
+                    >
+                      <h1 class="heading heading-4xl">Mes équipes</h1>
+                      <span class="t-sm tone-secondary">4 équipes</span>
+                    </div>
+                    <button class="btn btn-default btn-sm">
+                      <svg
+                        class="i16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 5v14M5 12h14"></path></svg
+                      >Créer
+                    </button>
+                  </div>
+                  <span class="t-eyebrow">Détail</span>
+                  <div style="margin: 0 -24px">
+                    <div class="page-bar">
+                      <a href="#" class="btn btn-ghost btn-icon" aria-label="Retour à Mes équipes"
+                        ><svg
+                          class="i20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M15 5l-7 7 7 7"></path></svg></a
+                      ><span
+                        class="t-label t-md"
+                        style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                        >Mes équipes</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 4</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">
+                Sections : la ligne de terrain
+              </h2>
+              <span class="t-sm tone-secondary"
+                >Un bloc de page = SectionHeading au-dessus, contenu en dessous. Plus de CardTitle
+                en tête de carte pour une section de page.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <section style="display: flex; flex-direction: column; gap: 14px">
+                  <div class="section-heading">
+                    <h2>Cette semaine</h2>
+                    <span aria-hidden="true"></span>
+                  </div>
+                  <div
+                    class="card card-raised"
+                    style="display: flex; gap: 12px; padding: 12px; align-items: stretch"
+                  >
+                    <div class="timeblock tb-match">
+                      <span class="tb-day">Sam</span><span class="tb-time tabular">20:30</span>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        min-width: 0;
+                        flex: 1;
+                        justify-content: center;
+                      "
+                    >
+                      <span class="t-label t-md">vs St-Herblain BC</span
+                      ><span class="t-xs tone-secondary"
+                        >Seniors M1 · Gymnase de la Trocardière</span
+                      >
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 6px;
+                          min-width: 0;
+                          flex-wrap: wrap;
+                        "
+                      >
+                        <span class="badge badge-soft-structure">8 / 12</span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 7</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">
+                Modales : feuille puis carte
+              </h2>
+              <span class="t-sm tone-secondary"
+                >Dialog par défaut : feuille du bas avec poignée sous md, carte centrée à partir de
+                md (Part 1, déjà livré). Aucune page ne choisit la variante à la main.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div
+                  style="
+                    position: relative;
+                    height: 150px;
+                    border-radius: 14px;
+                    overflow: hidden;
+                    background: #efe4d4;
+                  "
+                >
+                  <div class="overlay"></div>
+                  <div class="sheet" style="padding: 20px 20px 16px">
+                    <span class="sheet-handle"></span>
+                    <h2 class="dialog-title" style="font-size: 24px; line-height: 28px">
+                      Créer une équipe
+                    </h2>
+                    <p class="dialog-desc">Catégorie, genre, club.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 24px; min-width: 0">
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 2</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">La carte héros</h2>
+              <span class="t-sm tone-secondary"
+                >Card raised : badges → eyebrow (parent) → h1 hero → méta tabulaire. À droite sur
+                desktop, en dessous sur mobile : une tuile fait (Card inset + IconBadge + libellé +
+                détail + action).</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div
+                  class="card card-raised"
+                  style="display: flex; flex-direction: column; gap: 14px; padding: 16px"
+                >
+                  <div
+                    style="display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1"
+                  >
+                    <div
+                      style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        min-width: 0;
+                        flex-wrap: wrap;
+                      "
+                    >
+                      <span class="badge badge-soft-structure">Entente CTC</span>
+                    </div>
+                    <span class="t-eyebrow">ASC Rezé Basket</span>
+                    <h1 class="heading heading-4xl">Seniors M1</h1>
+                    <span class="t-sm tone-secondary tabular">Seniors · Masculin · 12 joueurs</span>
+                  </div>
+                  <div
+                    class="card card-inset"
+                    style="display: flex; flex-direction: column; gap: 10px"
+                  >
+                    <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                      <span class="icon-badge"
+                        ><svg
+                          class="i19"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <rect x="4" y="5" width="16" height="15" rx="2"></rect>
+                          <path d="M4 10h16M9 3v4M15 3v4"></path></svg
+                      ></span>
+                      <div
+                        style="
+                          display: flex;
+                          flex-direction: column;
+                          gap: 1px;
+                          min-width: 0;
+                          flex: 1;
+                        "
+                      >
+                        <span class="t-label t-sm">Sam. 4 oct. · 20:30</span
+                        ><span class="t-xs tone-secondary">Prochain : vs St-Herblain BC</span>
+                      </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                      <a href="#" class="btn btn-outline btn-sm" style="flex: 1">Ouvrir le match</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 5</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">Secondaire = repliable</h2>
+              <span class="t-sm tone-secondary"
+                >Ce qu’on ouvre rarement devient un SectionAccordion : titre + résumé d’une ligne
+                tiré des données déjà chargées, sinon pas de résumé. Le bloc principal reste ouvert.
+                Desktop : la paire principale côte à côte.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+                  <div class="card card-flush" style="display: flex; flex-direction: column">
+                    <h2 style="margin: 0">
+                      <button class="acc" aria-expanded="false">
+                        <span class="acc-title">Point de rendez-vous</span
+                        ><span
+                          class="t-sm tone-secondary"
+                          style="
+                            min-width: 0;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                          "
+                          >Parking Coubertin · 45 min</span
+                        ><span class="tone-secondary"
+                          ><svg
+                            class="i20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M6 9l6 6 6-6"></path></svg
+                        ></span>
+                      </button>
+                    </h2>
+                  </div>
+                  <div class="card card-flush" style="display: flex; flex-direction: column">
+                    <h2 style="margin: 0">
+                      <button class="acc" aria-expanded="false">
+                        <span class="acc-title">Lien invité</span
+                        ><span
+                          class="t-sm tone-secondary"
+                          style="
+                            min-width: 0;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                          "
+                          >Actif</span
+                        ><span class="tone-secondary"
+                          ><svg
+                            class="i20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M6 9l6 6 6-6"></path></svg
+                        ></span>
+                      </button>
+                    </h2>
+                  </div>
+                  <div class="card card-flush" style="display: flex; flex-direction: column">
+                    <h2 style="margin: 0">
+                      <button class="acc" aria-expanded="false">
+                        <span class="acc-title">Rappels WhatsApp</span
+                        ><span class="tone-secondary"
+                          ><svg
+                            class="i20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M6 9l6 6 6-6"></path></svg
+                        ></span>
+                      </button>
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 24px; min-width: 0">
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 3</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">
+                Info manquante = tuile accent
+              </h2>
+              <span class="t-sm tone-secondary"
+                >Quand un fait manque et que le lecteur peut le compléter : Card inset tone accent,
+                IconBadge accent, une phrase, un bouton plein. Pour les autres lecteurs : le fait
+                neutre, sans bouton.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div
+                  class="card card-inset card-tone-accent"
+                  style="display: flex; flex-direction: column; gap: 10px"
+                >
+                  <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                    <span class="icon-badge icon-badge-accent"
+                      ><svg
+                        class="i19"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 3l9 16H3z"></path>
+                        <path d="M12 10v4M12 17h.01"></path></svg
+                    ></span>
+                    <div
+                      style="display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1"
+                    >
+                      <span class="t-label t-sm">Lieu non communiqué</span
+                      ><span class="t-xs tone-secondary"
+                        >Les joueurs ne savent pas encore où aller.</span
+                      >
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                    <button class="btn btn-default btn-default-size" style="flex: 1">
+                      Ajouter le lieu
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 6</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">
+                Icône sur mobile, libellé sur desktop
+              </h2>
+              <span class="t-sm tone-secondary"
+                >Une action secondaire dans un en-tête est un bouton icône 36 px sous md
+                (aria-label), libellé à partir de md. L’action principale garde toujours son
+                libellé.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+                  <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                    <button
+                      class="btn btn-outline btn-icon"
+                      aria-label="Modifier l’équipe"
+                      style="height: 36px; width: 36px"
+                    >
+                      <svg
+                        class="i16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M4 20h4L19 9l-4-4L4 16z"></path>
+                        <path d="M13.5 6.5l4 4"></path>
+                      </svg></button
+                    ><span class="t-xs tone-secondary">sous md</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+                    <button class="btn btn-outline btn-sm">
+                      <svg
+                        class="i16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M4 20h4L19 9l-4-4L4 16z"></path>
+                        <path d="M13.5 6.5l4 4"></path></svg
+                      >Modifier l’équipe</button
+                    ><span class="t-xs tone-secondary">à partir de md</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="card card-raised"
+              style="display: flex; flex-direction: column; gap: 10px; padding: 24px"
+            >
+              <div style="display: flex; align-items: center; gap: 8px; min-width: 0">
+                <span class="note-rule">Règle 8</span>
+              </div>
+              <h2 class="heading" style="font-size: 30px; margin: 0">Listes : trois formes</h2>
+              <span class="t-sm tone-secondary"
+                >Événement = carte + TimeBlock (plein pour un match, bordé pour un entraînement).
+                Personne = ligne Avatar + nom + badge. Lien = ligne titre/méta + chevron, dans une
+                Card flush.</span
+              >
+              <div
+                style="
+                  border-top: 1px solid #e7decf;
+                  padding-top: 16px;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 12px;
+                "
+              >
+                <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+                  <div
+                    class="card card-raised"
+                    style="display: flex; gap: 12px; padding: 12px; align-items: stretch"
+                  >
+                    <div class="timeblock tb-training">
+                      <span class="tb-day">Mar</span><span class="tb-time tabular">19:00</span>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        min-width: 0;
+                        flex: 1;
+                        justify-content: center;
+                      "
+                    >
+                      <span class="t-label t-md">Entraînement</span
+                      ><span class="t-xs tone-secondary">Salle Coubertin</span>
+                    </div>
+                  </div>
+                  <div
+                    class="card card-raised"
+                    style="display: flex; flex-direction: column; gap: 0px; padding: 12px"
+                  >
+                    <div style="display: flex; flex-direction: column">
+                      <div class="row">
+                        <span class="avatar">LM</span
+                        ><span class="t-sm" style="flex: 1">Léo M.</span
+                        ><span class="badge badge-soft-structure">Présent</span>
+                      </div>
+                      <a href="#" class="row" style="padding: 4px 0"
+                        ><div
+                          style="
+                            display: flex;
+                            flex-direction: column;
+                            gap: 2px;
+                            min-width: 0;
+                            flex: 1;
+                          "
+                        >
+                          <span class="t-label t-sm">Seniors M1</span
+                          ><span class="t-xs tone-secondary">ASC Rezé · Entraîneur</span>
+                        </div>
+                        <span class="tone-secondary"
+                          ><svg
+                            class="i16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M9 5l7 7-7 7"></path></svg></span
+                      ></a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1640}}'>
+      class Component extends DCLogic {
+        renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>
