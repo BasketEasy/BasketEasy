@@ -6,6 +6,7 @@ import type {
   EventWhatsAppShare,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
+import { teamEventsQueryKeyPrefix } from '../clubs/queryKeys';
 
 const shareQueryKey = (clubId: string, teamId: string, eventId: string) =>
   ['clubs', clubId, 'teams', teamId, 'events', eventId, 'whatsapp-share'] as const;
@@ -28,8 +29,13 @@ export function useConfirmEventShare(clubId: string, teamId: string, eventId: st
       ...body
     }: ConfirmEventShareRequest & { type: Exclude<EventShareType, 'CANCELLATION'> }) =>
       apiClient.post<EventShareStatus>(`${path(clubId, teamId, eventId)}/${type}/confirm`, body),
+    // The event lists carry the « À partager » badge (`event.whatsAppShare`), so
+    // sharing has to refresh them too, not only this card's own query.
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: shareQueryKey(clubId, teamId, eventId) }),
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: shareQueryKey(clubId, teamId, eventId) }),
+        queryClient.invalidateQueries({ queryKey: teamEventsQueryKeyPrefix(clubId, teamId) }),
+      ]),
   });
 }
 

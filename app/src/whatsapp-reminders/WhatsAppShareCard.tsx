@@ -140,11 +140,11 @@ export function WhatsAppShareCard({
   focusOnLoad?: boolean;
 }) {
   const { data, isError, isLoading, refetch } = useEventWhatsAppShare(clubId, teamId, eventId);
-  const { mutate: confirm, isPending: isConfirming } = useConfirmEventShare(
-    clubId,
-    teamId,
-    eventId,
-  );
+  const {
+    mutate: confirm,
+    isPending,
+    variables: confirming,
+  } = useConfirmEventShare(clubId, teamId, eventId);
   const { mutate: enableLink, isPending: isEnabling } = useTeamGuestLinkEnable(clubId, teamId);
   const refetchShare = useInvalidateEventWhatsAppShare(clubId, teamId, eventId);
 
@@ -217,7 +217,7 @@ export function WhatsAppShareCard({
             message={share.message ?? ''}
             isSent={share.state === 'SENT'}
             confirm={confirmType(share.type as 'REMINDER' | 'UPDATE')}
-            isConfirming={isConfirming}
+            isConfirming={isPending && confirming?.type === share.type}
             focusOnMount={focusOnLoad && index === 0}
           />
         </section>

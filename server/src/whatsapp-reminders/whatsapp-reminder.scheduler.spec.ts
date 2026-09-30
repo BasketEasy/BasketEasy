@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { resolveSettings, WhatsAppReminderScheduler } from './whatsapp-reminder.scheduler';
 
 const HOUR = 60 * 60 * 1000;
@@ -47,7 +48,7 @@ describe('WhatsAppReminderScheduler', () => {
     eventShare: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
-      upsert: jest.Mock;
+      create: jest.Mock;
       updateMany: jest.Mock;
     };
     notification: { updateMany: jest.Mock };
@@ -65,7 +66,7 @@ describe('WhatsAppReminderScheduler', () => {
       eventShare: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
-        upsert: jest.fn(),
+        create: jest.fn(),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       notification: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
@@ -107,7 +108,7 @@ describe('WhatsAppReminderScheduler', () => {
       { id: 't1', waReminderEnabled: true, waDefaultOffsetMinutes: 4320, ...opts.team },
     ]);
     prisma.eventShare.findMany.mockResolvedValue(opts.share ? [opts.share] : []);
-    prisma.eventShare.upsert.mockResolvedValue({ id: 's1' });
+    prisma.eventShare.create.mockResolvedValue({ id: 's1' });
     // What notifyManagers reads back.
     prisma.eventShare.findUnique.mockResolvedValue({
       id: 's1',
@@ -145,7 +146,7 @@ describe('WhatsAppReminderScheduler', () => {
     ])('%s + reminder off does nothing', async (_l, share) => {
       arrange({ startsInMs: 10 * DAY, share, team: { waReminderEnabled: false } });
       await scheduler.syncEvents(['e1']);
-      expect(prisma.eventShare.upsert).not.toHaveBeenCalled();
+      expect(prisma.eventShare.create).not.toHaveBeenCalled();
       expect(queue.add).not.toHaveBeenCalled();
     });
 
@@ -158,15 +159,21 @@ describe('WhatsAppReminderScheduler', () => {
         const startsAt = arrange({ startsInMs: 10 * DAY, share });
         await scheduler.syncEvents(['e1']);
 
-        expect(prisma.eventShare.upsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            create: expect.objectContaining({
-              state: 'SCHEDULED',
-              dueAt: new Date(startsAt.getTime() - 3 * DAY),
-            }),
-            update: expect.objectContaining({ state: 'SCHEDULED' }),
-          }),
-        );
+        const scheduled = expect.objectContaining({
+          state: 'SCHEDULED',
+          dueAt: new Date(startsAt.getTime() - 3 * DAY),
+        });
+        if (share) {
+          // Only a row that is still VOID may be revived.
+          expect(prisma.eventShare.updateMany).toHaveBeenCalledWith({
+            where: { id: 's1', state: 'VOID' },
+            data: scheduled,
+          });
+        } else {
+          expect(prisma.eventShare.create).toHaveBeenCalledWith(
+            expect.objectContaining({ data: scheduled }),
+          );
+        }
         const send = queue.add.mock.calls.find(([n]) => n === 'send')!;
         expect(send[1]).toEqual({ shareId: 's1' });
         expect(send[2]).toMatchObject({ jobId: 'wa-s1-send', delay: 7 * DAY });
@@ -202,10 +209,34 @@ describe('WhatsAppReminderScheduler', () => {
       expect(jobAdds()).not.toContain('nudge');
     });
 
+    it('does not revive a share a concurrent confirm already made SENT', async () => {
+      arrange({ startsInMs: 10 * DAY, share: row('VOID') });
+      prisma.eventShare.updateMany.mockResolvedValue({ count: 0 });
+
+      await scheduler.syncEvents(['e1']);
+
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('leaves the scheduling to a concurrent sync that created the row first', async () => {
+      arrange({ startsInMs: 10 * DAY, share: null });
+      prisma.eventShare.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await scheduler.syncEvents(['e1']);
+
+      expect(queue.add).not.toHaveBeenCalled();
+    });
+
     it('a past event is never scheduled', async () => {
       arrange({ startsInMs: -HOUR, share: null });
       await scheduler.syncEvents(['e1']);
-      expect(prisma.eventShare.upsert).not.toHaveBeenCalled();
+      expect(prisma.eventShare.create).not.toHaveBeenCalled();
       expect(queue.add).not.toHaveBeenCalled();
     });
   });
@@ -222,7 +253,7 @@ describe('WhatsAppReminderScheduler', () => {
 
       expect(queue.add).not.toHaveBeenCalled();
       expect(prisma.eventShare.updateMany).not.toHaveBeenCalled();
-      expect(prisma.eventShare.upsert).not.toHaveBeenCalled();
+      expect(prisma.eventShare.create).not.toHaveBeenCalled();
     });
 
     it('a changed dueAt removes and re-adds send, and updates dueAt', async () => {

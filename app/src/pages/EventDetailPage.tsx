@@ -50,9 +50,18 @@ export function EventDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // `?partage=<shareId>` comes from a « à partager » notification. Captured
   // once, then dropped from the URL so a copied address doesn't carry it.
-  const [cameFromShareNotification] = useState(() => searchParams.has('partage'));
+  const [cameFromShareNotification, setCameFromShareNotification] = useState(() =>
+    searchParams.has('partage'),
+  );
+  // Another event in the same mounted page is a new arrival: forget the last
+  // one. Declared before the effect below, so on an event that does carry
+  // `partage` the later `true` wins.
+  useEffect(() => {
+    setCameFromShareNotification(false);
+  }, [eventId]);
   useEffect(() => {
     if (!searchParams.has('partage')) return;
+    setCameFromShareNotification(true);
     const next = new URLSearchParams(searchParams);
     next.delete('partage');
     setSearchParams(next, { replace: true });
