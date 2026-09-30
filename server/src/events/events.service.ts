@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -31,7 +32,11 @@ import type {
   EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
-import { isUnknownEventLocation } from '@basketeasy/types/events';
+import {
+  eventVenueLabel,
+  isSameEventLocation,
+  isUnknownEventLocation,
+} from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import type { EventShareStatus, EventWhatsAppSettings } from '@basketeasy/types/whatsapp-reminder';
@@ -56,7 +61,11 @@ import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 import { ListEventsDto } from './dto/list-events.dto';
-import { cancellationNotification, convocationNotification } from './event-notification-copy';
+import {
+  cancellationNotification,
+  convocationNotification,
+  venueChangedNotification,
+} from './event-notification-copy';
 
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
@@ -116,6 +125,8 @@ type CallerEventState = {
 
 @Injectable()
 export class EventsService {
+  private readonly logger = new Logger(EventsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
@@ -399,6 +410,23 @@ export class EventsService {
             }),
           ]
         : [];
+    // « Changement de salle » compares against the address each row had
+    // before the write, so it is read now: the anchor already is, a series'
+    // other occurrences need one read.
+    const previousLocations =
+      data.location === undefined
+        ? null
+        : scope === 'THIS'
+          ? new Map([[event.id, event.location]])
+          : new Map(
+              (
+                await this.prisma.event.findMany({
+                  where: { id: { in: ids } },
+                  select: { id: true, location: true },
+                })
+              ).map((row) => [row.id, row.location]),
+            );
+
     const results = await this.prisma.$transaction([
       ...ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
       ...meetingCleanup,
@@ -417,6 +445,9 @@ export class EventsService {
       await this.meetingPoints.enqueueRecompute(ids);
     } else if (data.startsAt !== undefined && !becomesTraining) {
       await this.meetingPoints.announceMeetingChanges(ids);
+    }
+    if (previousLocations) {
+      await this.notifyVenueChange(clubId, teamId, updated, previousLocations);
     }
     await this.syncWhatsAppReminders(clubId, teamId, userId, ids, data.waReminderOverride === true);
     // Sync first, then prompts: an event whose reminder is still scheduled has
@@ -565,6 +596,89 @@ export class EventsService {
         };
       }),
     );
+  }
+
+  // Only a known venue moving to another is news: filling in « Lieu non
+  // communiqué » tells nobody anything they were relying on, a name-only or
+  // case-only edit sends nobody anywhere new, and a TRAINING's gym is known
+  // to the team. Readers are the players expected there (convoked or
+  // GOING) and their guardians, one message each for the whole edit.
+  // Best-effort: the edit has already been written.
+  private async notifyVenueChange(
+    clubId: string,
+    teamId: string,
+    updated: EventRow[],
+    previousLocations: Map<string, string>,
+  ): Promise<void> {
+    const now = new Date();
+    const moved = updated.filter((row) => {
+      const previous = previousLocations.get(row.id);
+      return (
+        previous !== undefined &&
+        row.type === EventType.MATCH &&
+        row.startsAt > now &&
+        !isUnknownEventLocation(previous) &&
+        !isSameEventLocation(previous, row.location)
+      );
+    });
+    if (moved.length === 0) return;
+
+    try {
+      const eventIds = moved.map((row) => row.id);
+      const [convocations, going, team] = await Promise.all([
+        this.prisma.eventConvocation.findMany({
+          where: { eventId: { in: eventIds }, teamPlayer: { teamId } },
+          select: { teamPlayerId: true },
+        }),
+        this.prisma.eventRsvp.findMany({
+          where: {
+            eventId: { in: eventIds },
+            status: EventRsvpStatus.GOING,
+            teamPlayer: { teamId },
+          },
+          select: { teamPlayerId: true },
+        }),
+        this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+      ]);
+      const teamPlayerIds = [
+        ...new Set([...convocations, ...going].map((row) => row.teamPlayerId)),
+      ];
+      if (teamPlayerIds.length === 0) return;
+      const recipients = groupByRecipient(await resolvePlayerAudience(this.prisma, teamPlayerIds));
+      if (recipients.length === 0) return;
+
+      const teamName = team?.name ?? 'votre équipe';
+      const first = moved.reduce((a, b) => (b.startsAt < a.startsAt ? b : a));
+      const newLabel = eventVenueLabel(first);
+      const single = moved.length === 1;
+      await this.notifications.notify(
+        recipients.map((recipient) => {
+          const copy = venueChangedNotification(teamName, first, newLabel, moved.length, recipient);
+          return {
+            userId: recipient.userId,
+            type: 'EVENT_VENUE_CHANGED' as const,
+            title: copy.title,
+            body: copy.body,
+            subjectFirstName: subjectLabel(recipient),
+            // One match links to it; a series to the team's calendar.
+            deepLink: single
+              ? recipientDeepLink(
+                  recipient,
+                  `/clubs/${clubId}/teams/${teamId}/events/${first.id}`,
+                  (childClubId) => `/clubs/${childClubId}/teams/${teamId}/events/${first.id}`,
+                )
+              : recipientDeepLink(
+                  recipient,
+                  `/clubs/${clubId}/teams/${teamId}`,
+                  (childClubId) => `/clubs/${childClubId}/teams/${teamId}`,
+                ),
+          };
+        }),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Venue change notification failed: ${message}`);
+    }
   }
 
   // EventScoresheet's onDelete: Cascade removes the DB row automatically

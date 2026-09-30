@@ -127,6 +127,10 @@
       "types": "./src/components/icons/UsersIcon.tsx",
       "default": "./src/components/icons/UsersIcon.tsx"
     },
+    "./icons/warning": {
+      "types": "./src/components/icons/WarningIcon.tsx",
+      "default": "./src/components/icons/WarningIcon.tsx"
+    },
     "./icons/trophy": {
       "types": "./src/components/icons/TrophyIcon.tsx",
       "default": "./src/components/icons/TrophyIcon.tsx"

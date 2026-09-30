@@ -7,6 +7,8 @@ const alertVariants = cva('relative w-full rounded-lg border p-4', {
     variant: {
       default: 'border-border bg-cream text-charcoal',
       destructive: 'border-error bg-error/10 text-error',
+      /** Something the reader should act on that isn't an error (matches left without a venue). */
+      warning: 'border-gold bg-gold-tint text-charcoal',
       /**
        * A full-bleed banner for a standing state that must never read as
        * product chrome (read-only impersonation): solid fill, edge to edge.
