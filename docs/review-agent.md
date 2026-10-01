@@ -6,7 +6,7 @@ Autonomous PR review and merge. Workflow `.github/workflows/pr-review-agent.yml`
 Runs on `opened`, `ready_for_review`, `synchronize`, `reopened` (same-repo, non-draft).
 Security, product, accessibility, coherence and scalability subagents review in parallel; the
 lead agent verifies findings, posts inline comments (🔴 blocking, 🟡 nit, 🟣 pre-existing), and
-writes a verdict. A final step with no LLM approves and enables squash auto-merge, or
+writes a verdict. A final step with no LLM approves and squash-merges once CI is green, or
 labels `needs-human` and pings the owner.
 
 The LLM never holds merge rights. Infra and agent-config paths (`.github`, `.claude`,
@@ -17,14 +17,17 @@ boundary is weakened or redefined.
 
 ## One-time setup (repo admin)
 
+Works on a free private repo: no branch protection, rulesets or auto-merge needed.
+
 1. Secret `ANTHROPIC_API_KEY`.
-2. Secret `REVIEW_AGENT_TOKEN`: fine-grained PAT or GitHub App token with `contents` and
-   `pull_requests` write. Needed so a merge triggers `deploy.yml`.
+2. Secret `REVIEW_AGENT_TOKEN`: fine-grained PAT with `contents` and `pull_requests` write.
+   Needed so a merge triggers `deploy.yml`.
 3. Settings, Actions: allow Actions to create and approve pull requests.
-4. Settings, General: allow auto-merge, squash only, delete branch on merge.
-5. Branch protection on `main`: require CI jobs (`format`, `lint`, `test`, `test-db`, `build`),
-   dismiss stale approvals, require 1 approval, no bypass. Auto-merge then waits for green CI.
-6. Variable `REVIEW_AGENT_OWNER`: GitHub login to ping on escalation.
+4. Variable `REVIEW_AGENT_OWNER`: GitHub login to ping on escalation.
+
+Without branch protection the workflow is the only gate: it merges after the other workflows'
+checks pass on the same head (30 min cap), and anyone with write access can still merge by
+hand. The run costs Actions minutes while it waits for CI (2,000/month on the free plan).
 
 ## Controls
 

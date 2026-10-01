@@ -4,7 +4,7 @@
 #   review  -> Claude with five lens subagents (.claude/agents/review-*.md), reads the diff,
 #              posts inline comments, writes verdict.json. Cannot merge or approve.
 #   decide  -> no LLM. Validates the verdict against the gate and the current head SHA, then
-#              approves + enables squash auto-merge (waits for required CI), or escalates.
+#              approves and squash-merges once the other workflows' checks are green on the same head, or escalates.
 #
 # Policy: .github/review-agent/POLICY.md. Setup and kill switches: docs/review-agent.md.
 name: PR review agent
@@ -146,10 +146,12 @@ jobs:
     needs: [gate, review]
     if: always() && needs.gate.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
       contents: read
       pull-requests: write
       issues: write
+      checks: read
     env:
       PR: ${{ github.event.pull_request.number }}
       REPO: ${{ github.repository }}
@@ -170,8 +172,7 @@ jobs:
         run: |
           set -euo pipefail
           escalate() {
-            gh pr merge "$PR" --repo "$REPO" --disable-auto 2>/dev/null || true
-            gh pr edit "$PR" --repo "$REPO" --add-label needs-human >/dev/null
+                        gh pr edit "$PR" --repo "$REPO" --add-label needs-human >/dev/null
             gh pr comment "$PR" --repo "$REPO" --body "Owner decision needed ${OWNER:+@$OWNER}: $1"
             exit 0
           }
@@ -191,8 +192,7 @@ jobs:
 
           case "$verdict" in
             REQUEST_CHANGES)
-              gh pr merge "$PR" --repo "$REPO" --disable-auto 2>/dev/null || true
-              gh pr review "$PR" --repo "$REPO" --request-changes --body "$summary"
+                            gh pr review "$PR" --repo "$REPO" --request-changes --body "$summary"
               exit 0 ;;
             ESCALATE)
               escalate "${reasons:-$summary}" ;;
@@ -205,13 +205,32 @@ jobs:
             escalate "$GATE_REASONS"
           fi
 
+          # Free private repos have no branch protection, so no --auto: wait for the
+          # other workflows' checks on this exact head ourselves, then merge.
+          deadline=$(( $(date +%s) + 1800 ))
+          while :; do
+            [ "$(gh pr view "$PR" --repo "$REPO" --json headRefOid -q .headRefOid)" = "$head" ] || { echo "superseded"; exit 0; }
+            checks=$(gh pr checks "$PR" --repo "$REPO" --json name,workflow,bucket \
+              -q '[.[] | select(.workflow != "PR review agent")]')
+            total=$(jq length <<<"$checks")
+            failed=$(jq '[.[] | select(.bucket=="fail" or .bucket=="cancel")] | length' <<<"$checks")
+            pending=$(jq '[.[] | select(.bucket=="pending")] | length' <<<"$checks")
+            if [ "$failed" -gt 0 ]; then
+              gh pr review "$PR" --repo "$REPO" --comment --body "Review clean, not merged: CI failing. The author fixes it, the next push is re-reviewed."
+              exit 0
+            fi
+            [ "$total" -gt 0 ] && [ "$pending" -eq 0 ] && break
+            [ "$(date +%s)" -lt "$deadline" ] || escalate "CI did not finish in 30 minutes."
+            sleep 30
+          done
+
           gh pr edit "$PR" --repo "$REPO" --remove-label needs-human >/dev/null 2>&1 || true
           gh pr review "$PR" --repo "$REPO" --approve --body "$summary"
 
           # Merge with a PAT/App token so the push to main triggers deploy.yml;
-          # a GITHUB_TOKEN merge would not. Auto-merge waits for required checks.
+          # a GITHUB_TOKEN merge would not.
           if [ -z "${MERGE_TOKEN:-}" ]; then
             echo "::warning::REVIEW_AGENT_TOKEN unset, merging with GITHUB_TOKEN: deploy workflows will not fire."
             MERGE_TOKEN="$GH_TOKEN"
           fi
-          GH_TOKEN="$MERGE_TOKEN" gh pr merge "$PR" --repo "$REPO" --squash --auto --delete-branch
+          GH_TOKEN="$MERGE_TOKEN" gh pr merge "$PR" --repo "$REPO" --squash --delete-branch
