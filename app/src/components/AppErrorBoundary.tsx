@@ -1,8 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { Heading } from '@basketeasy/ui/heading';
-import { PageContainer } from '@basketeasy/ui/page-container';
-import { Text } from '@basketeasy/ui/text';
+import { ErrorScreen } from './ErrorScreen';
 
 /**
  * Class component because React has no hook equivalent of
@@ -24,15 +22,16 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, { hasEr
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <PageContainer size="md" centered>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <Heading as="h1">Une erreur est survenue</Heading>
-          <Text variant="meta">
-            Quelque chose s’est mal passé de notre côté. Rechargez la page pour reprendre.
-          </Text>
-          <Button onClick={() => window.location.reload()}>Recharger la page</Button>
-        </div>
-      </PageContainer>
+      <ErrorScreen
+        eyebrow="Erreur"
+        title="Une erreur est survenue"
+        description="Quelque chose s’est mal passé de notre côté. Rechargez la page pour reprendre."
+        action={
+          <Button className="w-full" onClick={() => window.location.reload()}>
+            Recharger la page
+          </Button>
+        }
+      />
     );
   }
 }

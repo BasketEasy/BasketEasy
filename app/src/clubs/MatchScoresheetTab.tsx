@@ -443,7 +443,7 @@ export function MatchScoresheetTab({
   return (
     <Card variant="panel" className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
-        <IconBadge className="h-14 w-14">
+        <IconBadge size="lg">
           <UploadIcon size="2xl" />
         </IconBadge>
         <Text as="span" variant="label" size="sm">

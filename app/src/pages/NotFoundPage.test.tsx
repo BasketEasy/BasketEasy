@@ -25,6 +25,11 @@ describe('unknown routes', () => {
     renderWithProviders(<App />, { route: '/clubs/does-not-exist/nope' });
 
     expect(await screen.findByRole('heading', { name: /Page introuvable/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Retour au tableau de bord' })).toHaveAttribute(
+      'href',
+      '/dashboard',
+    );
     expect(screen.getByText('Kluvo')).toBeInTheDocument();
   });
 
