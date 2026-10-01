@@ -14,6 +14,10 @@ export const MEETING_TRAVEL_QUEUE = 'meeting-travel';
 // WhatsAppReminderScheduler.
 export const WHATSAPP_REMINDER_QUEUE = 'whatsapp-reminder';
 
+// Freezes the jersey wash suggestion of matches that have kicked off — a
+// repeatable job registered by EventsModule, see JerseyDutyService.freezeDue.
+export const JERSEY_DUTY_FREEZE_QUEUE = 'jersey-duty-freeze';
+
 const logger = new Logger('Redis');
 
 // First queue infra in the repo. Unlike JWT_ACCESS_SECRET, REDIS_URL isn't
@@ -55,6 +59,7 @@ const logger = new Logger('Redis');
     BullModule.registerQueue({ name: RETENTION_SWEEP_QUEUE }),
     BullModule.registerQueue({ name: MEETING_TRAVEL_QUEUE }),
     BullModule.registerQueue({ name: WHATSAPP_REMINDER_QUEUE }),
+    BullModule.registerQueue({ name: JERSEY_DUTY_FREEZE_QUEUE }),
   ],
   exports: [BullModule],
 })

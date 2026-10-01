@@ -15,6 +15,7 @@ const teamPlayer = {
   lastName: 'Dupont',
   clubId: 'club-1',
   role: 'PLAYER' as const,
+  jerseyDutyExempt: false,
   createdAt: 'x',
 };
 

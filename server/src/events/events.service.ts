@@ -39,6 +39,10 @@ import {
 } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import {
+  JERSEY_DUTY_ERROR_CODES,
+  type EventJerseyDutySummary,
+} from '@basketeasy/types/jersey-duty';
 import type { EventShareStatus, EventWhatsAppSettings } from '@basketeasy/types/whatsapp-reminder';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
@@ -62,6 +66,7 @@ import { addParisWeeks, withParisTimeOfDay } from '../common/paris-time';
 import { voteClosesAt, voteOpensAt } from '../common/vote-window';
 import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
+import { JerseyDutyService } from './jersey-duty.service';
 import { ListEventsDto } from './dto/list-events.dto';
 import {
   cancellationNotification,
@@ -130,6 +135,7 @@ export class EventsService {
     private readonly notifications: NotificationsService,
     private readonly meetingPoints: MeetingPointsService,
     private readonly whatsAppReminders: WhatsAppReminderService,
+    private readonly jerseyDuty: JerseyDutyService,
   ) {}
 
   async listEvents(
@@ -398,7 +404,13 @@ export class EventsService {
     // and keeping it across a reschedule would send the group to the wrong
     // hour. Same transaction as the event write, so neither lands alone.
     const meetingCleanup = becomesTraining
-      ? [this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } })]
+      ? [
+          this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } }),
+          // The jersey wash is a MATCH concept too: its duty and declines go
+          // with the switch (a TRAINING → MATCH needs nothing).
+          this.prisma.eventJerseyDuty.deleteMany({ where: { eventId: { in: ids } } }),
+          this.prisma.eventJerseyDecline.deleteMany({ where: { eventId: { in: ids } } }),
+        ]
       : data.startsAt !== undefined
         ? [
             this.prisma.eventMeeting.updateMany({
@@ -1121,7 +1133,9 @@ export class EventsService {
   // types — a TRAINING event uses the same slots for scrimmage bibs
   // ("Chasubles") instead of match jerseys ("Maillots"), see
   // eventLogisticsFieldLabel on the frontend; the ball slot is identical
-  // copy for both. No event.type gate here on purpose.
+  // copy for both. No event.type gate here on purpose — except the jersey slot
+  // of a MATCH of a team with the wash rotation on, which is the duty routes'
+  // (JerseyDutyController) and answers USE_JERSEY_DUTY here.
   async setEventLogistics(
     clubId: string,
     teamId: string,
@@ -1131,6 +1145,18 @@ export class EventsService {
     teamPlayerId: string | null,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (field === 'JERSEYS' && event.type === EventType.MATCH) {
+      const team = await this.prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { jerseyRotationEnabled: true },
+      });
+      if (team.jerseyRotationEnabled) {
+        throw new BadRequestException({
+          message: "Le lavage des maillots d'un match se gère depuis le roulement de lavage",
+          code: JERSEY_DUTY_ERROR_CODES.USE_JERSEY_DUTY,
+        });
+      }
+    }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
     const currentValue = field === 'JERSEYS' ? event.jerseysTeamPlayerId : event.ballsTeamPlayerId;
 
@@ -1731,12 +1757,14 @@ export class EventsService {
       { resultsByEventId, myStatsByEventId },
       plans,
       whatsAppView,
+      jerseyDuties,
     ] = await Promise.all([
       this.resolveLogisticsAssignees(events),
       this.resolveEventRosterSummaries(teamId, eventIds),
       this.resolveMatchResults(events, caller.myTeamPlayerId),
       this.meetingPoints.resolvePlans(teamId, events),
       this.resolveWhatsAppView(teamId, events, whatsApp?.userId ?? null),
+      this.jerseyDuty.resolveSummaries(teamId, events, caller.myTeamPlayerId),
     ]);
     return events.map((event) =>
       this.toTeamEvent({
@@ -1750,6 +1778,7 @@ export class EventsService {
         result: resultsByEventId.get(event.id) ?? null,
         myMatchStats: myStatsByEventId.get(event.id) ?? null,
         meetingPlan: plans.get(event.id) ?? null,
+        jerseyDuty: jerseyDuties.get(event.id) ?? null,
         whatsAppShare: whatsAppView?.shares.get(event.id) ?? null,
         whatsAppSettings: whatsAppView ? whatsAppView.settings(event) : null,
       }),
@@ -1823,6 +1852,7 @@ export class EventsService {
     result,
     myMatchStats,
     meetingPlan,
+    jerseyDuty,
     whatsAppShare,
     whatsAppSettings,
   }: {
@@ -1837,6 +1867,7 @@ export class EventsService {
     result: EventMatchResult | null;
     myMatchStats: EventMatchPlayerStats | null;
     meetingPlan: EventMeetingPlan | null;
+    jerseyDuty: EventJerseyDutySummary | null;
     whatsAppShare: EventShareStatus | null;
     whatsAppSettings: EventWhatsAppSettings | null;
   }): TeamEvent {
@@ -1862,19 +1893,22 @@ export class EventsService {
       result,
       myMatchStats,
       meetingPlan,
+      jerseyDuty,
       whatsAppShare,
       whatsAppSettings,
       myTravelMode:
         event.type === EventType.MATCH && myRsvpStatus === EventRsvpStatus.GOING
           ? (travelMode ?? EventTravelMode.MEETING_POINT)
           : null,
-      // Populated for both event types — the jersey slot is just labeled
-      // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
-      // frontend, see eventLogisticsFieldLabel.
+      // Populated for both event types, except the jersey slot of a MATCH of a
+      // team with the wash rotation on: that duty is `jerseyDuty`, and a value
+      // set while the rotation was off must not show beside it. The slot is
+      // labeled « Chasubles » for a TRAINING on the frontend.
       logistics: {
-        jerseys: event.jerseysTeamPlayerId
-          ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
-          : null,
+        jerseys:
+          event.jerseysTeamPlayerId && jerseyDuty === null
+            ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
+            : null,
         balls: event.ballsTeamPlayerId
           ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
           : null,

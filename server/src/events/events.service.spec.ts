@@ -8,6 +8,7 @@ import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
+import { JerseyDutyService } from './jersey-duty.service';
 import { EventType, EventVenue } from '@prisma/client';
 import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 
@@ -47,6 +48,7 @@ describe('EventsService', () => {
     prepareCancellations: jest.Mock;
     afterCancellations: jest.Mock;
   };
+  let jerseyDuty: { resolveSummaries: jest.Mock };
   let meetingPoints: {
     resolvePlans: jest.Mock;
     announceMeetingChanges: jest.Mock;
@@ -87,6 +89,8 @@ describe('EventsService', () => {
     eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
     matchPlayerStat: { findMany: jest.Mock };
     eventMeeting: { updateMany: jest.Mock; deleteMany: jest.Mock };
+    eventJerseyDuty: { deleteMany: jest.Mock };
+    eventJerseyDecline: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -148,6 +152,8 @@ describe('EventsService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      eventJerseyDuty: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      eventJerseyDecline: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
       // Supports both $transaction call shapes used by EventsService: the
       // array form (a batch of prepared queries) and the interactive
       // callback form (setEventConvocations, which needs to read then write
@@ -195,6 +201,9 @@ describe('EventsService', () => {
       enqueueRecompute: jest.fn().mockResolvedValue(undefined),
     };
 
+    // Default: no event carries a jersey duty (rotation off or a TRAINING).
+    jerseyDuty = { resolveSummaries: jest.fn().mockResolvedValue(new Map()) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EventsService,
@@ -205,6 +214,7 @@ describe('EventsService', () => {
         { provide: NotificationsService, useValue: notifications },
         { provide: MeetingPointsService, useValue: meetingPoints },
         { provide: WhatsAppReminderService, useValue: whatsAppReminders },
+        { provide: JerseyDutyService, useValue: jerseyDuty },
       ],
     }).compile();
 
@@ -279,6 +289,7 @@ describe('EventsService', () => {
             result: null,
             myMatchStats: null,
             meetingPlan: null,
+            jerseyDuty: null,
             whatsAppShare: null,
             whatsAppSettings: null,
             myTravelMode: null,
@@ -1706,6 +1717,13 @@ describe('EventsService', () => {
       });
       // The meeting point is a MATCH concept, dropped with the opponent.
       expect(prisma.eventMeeting.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+      });
+      // So is the jersey wash: its duty and declines go with the switch.
+      expect(prisma.eventJerseyDuty.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+      });
+      expect(prisma.eventJerseyDecline.deleteMany).toHaveBeenCalledWith({
         where: { eventId: { in: ['event-1'] } },
       });
     });
@@ -3274,6 +3292,59 @@ describe('EventsService', () => {
         data: { jerseysTeamPlayerId: 'tp-1' },
       });
       expect(result.type).toBe('TRAINING');
+    });
+
+    it('answers USE_JERSEY_DUTY for the jersey slot of a MATCH on a team with the rotation on', async () => {
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: true });
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-1'),
+      ).rejects.toMatchObject({ response: { code: 'USE_JERSEY_DUTY' } });
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the balls slot of a MATCH alone on a team with the rotation on', async () => {
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: true });
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'BALLS', 'tp-1');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { ballsTeamPlayerId: 'tp-1' },
+      });
+    });
+
+    it('nulls logistics.jerseys beside a jerseyDuty, whatever the old column held', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, jerseysTeamPlayerId: 'tp-9' });
+      prisma.event.update.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...matchEvent, jerseysTeamPlayerId: 'tp-9', ...data }),
+      );
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: false });
+      jerseyDuty.resolveSummaries.mockResolvedValue(
+        new Map([
+          ['event-1', { holder: null, status: 'UNASSIGNED', broughtBy: null, isMine: false }],
+        ]),
+      );
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'BALLS',
+        'tp-1',
+      );
+
+      expect(result.jerseyDuty).toEqual({
+        holder: null,
+        status: 'UNASSIGNED',
+        broughtBy: null,
+        isMine: false,
+      });
+      expect(result.logistics.jerseys).toBeNull();
     });
 
     it('allows a rostered non-manager to self-assign', async () => {

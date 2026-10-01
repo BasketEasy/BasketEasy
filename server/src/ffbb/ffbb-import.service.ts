@@ -224,6 +224,9 @@ export class FfbbImportService {
     }
 
     const rescheduled = existing.startsAt.getTime() !== startsAt.getTime();
+    // The jersey wash duty (EventJerseyDuty) is deliberately untouched here: a
+    // moved kickoff simply moves the lock and the « counts as a turn » moment
+    // with it, and the freeze job only ever reads the current `startsAt`.
     await this.prisma.event.update({
       where: { id: existing.id },
       data: {

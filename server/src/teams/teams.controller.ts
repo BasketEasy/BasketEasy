@@ -147,13 +147,13 @@ export class TeamsController {
 
   @Patch(':teamId/players/:playerId')
   @UseGuards(TeamManagerGuard)
-  updateTeamPlayerRole(
+  updateTeamPlayer(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('playerId') playerId: string,
     @Body() dto: UpdateTeamPlayerDto,
   ): Promise<TeamPlayer> {
-    return this.teamsService.updateTeamPlayerRole(clubId, teamId, playerId, dto.role);
+    return this.teamsService.updateTeamPlayer(clubId, teamId, playerId, dto);
   }
 
   @Delete(':teamId/players/:playerId')

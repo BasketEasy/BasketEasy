@@ -53,6 +53,9 @@ model User {
   rsvpChangesMade               EventRsvpChange[]        @relation("EventRsvpChangeRespondedBy")
   guestLinksCreated             TeamGuestLink[]          @relation("TeamGuestLinkCreatedBy")
   eventSharesSent               EventShare[]             @relation("EventShareSentBy")
+  jerseyDutiesAccepted          EventJerseyDuty[]        @relation("JerseyDutyAcceptedBy")
+  jerseyDutiesDone              EventJerseyDuty[]        @relation("JerseyDutyDoneBy")
+  jerseyDutiesVoided            EventJerseyDuty[]        @relation("JerseyDutyVoidedBy")
   platformAdmin                 PlatformAdmin?
   impersonationsActed           ImpersonationSession[]   @relation("ImpersonationActor")
   impersonationsSubjected       ImpersonationSession[]   @relation("ImpersonationSubject")
@@ -314,6 +317,9 @@ model Team {
   // Reminder scheduling: on/off and how long before an event the managers are
   // asked to share it. Events inherit both unless they override (Event.wa*).
   waReminderEnabled      Boolean        @default(false)
+  // Jersey wash rotation (docs/decisions/events.md). Off: a MATCH keeps the
+  // plain Event.jerseysTeamPlayerId slot and the freeze job skips the team.
+  jerseyRotationEnabled  Boolean        @default(true)
   waDefaultOffsetMinutes Int            @default(4320)
   // Team-level overrides of the owner club's meeting point and arrival
   // buffer; null inherits (a CTC team inherits from its owner club only).
@@ -367,22 +373,27 @@ model ClubTeam {
 // Cascades on both sides: deleting the team or the player should not be
 // blocked by leftover roster rows.
 model TeamPlayer {
-  id                    String             @id @default(uuid())
+  id                    String               @id @default(uuid())
   teamId                String
   playerId              String
-  role                  TeamMemberRole     @default(PLAYER)
-  createdAt             DateTime           @default(now())
-  team                  Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player                Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  role                  TeamMemberRole       @default(PLAYER)
+  createdAt             DateTime             @default(now())
+  team                  Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player                Player               @relation(fields: [playerId], references: [id], onDelete: Cascade)
   rsvps                 EventRsvp[]
   rsvpChanges           EventRsvpChange[]
   convocations          EventConvocation[]
-  jerseysAssignedEvents Event[]            @relation("EventJerseysAssignee")
-  ballsAssignedEvents   Event[]            @relation("EventBallsAssignee")
-  votesCast             EventVote[]        @relation("EventVoteVoter")
-  votesReceived         EventVote[]        @relation("EventVoteVotedFor")
+  jerseysAssignedEvents Event[]              @relation("EventJerseysAssignee")
+  ballsAssignedEvents   Event[]              @relation("EventBallsAssignee")
+  votesCast             EventVote[]          @relation("EventVoteVoter")
+  votesReceived         EventVote[]          @relation("EventVoteVotedFor")
   uploadedScoresheets   EventScoresheet[]
   matchStats            MatchPlayerStat[]
+  // Never suggested for the jersey wash; a manager can still assign them.
+  jerseyDutyExempt      Boolean              @default(false)
+  jerseyDuties          EventJerseyDuty[]    @relation("JerseyDutyHolder")
+  jerseySwapRequests    EventJerseyDuty[]    @relation("JerseyDutySwapTarget")
+  jerseyDeclines        EventJerseyDecline[]
 
   @@unique([teamId, playerId])
   @@index([playerId])
@@ -422,9 +433,9 @@ enum EventVenue {
 // occurrence created together in one recurring POST so they can be
 // edited/deleted as a group; null for a plain single event.
 model Event {
-  id                  String             @id @default(uuid())
+  id                  String               @id @default(uuid())
   teamId              String
-  type                EventType          @default(TRAINING)
+  type                EventType            @default(TRAINING)
   startsAt            DateTime
   // The address: what is geocoded, what travelRouteKey hashes and what
   // « Itinéraire » links to. UNKNOWN_EVENT_LOCATION while FFBB hasn't
@@ -450,8 +461,8 @@ model Event {
   // the assignment, not delete the event.
   jerseysTeamPlayerId String?
   ballsTeamPlayerId   String?
-  jerseysAssignee     TeamPlayer?        @relation("EventJerseysAssignee", fields: [jerseysTeamPlayerId], references: [id], onDelete: SetNull)
-  ballsAssignee       TeamPlayer?        @relation("EventBallsAssignee", fields: [ballsTeamPlayerId], references: [id], onDelete: SetNull)
+  jerseysAssignee     TeamPlayer?          @relation("EventJerseysAssignee", fields: [jerseysTeamPlayerId], references: [id], onDelete: SetNull)
+  ballsAssignee       TeamPlayer?          @relation("EventBallsAssignee", fields: [ballsTeamPlayerId], references: [id], onDelete: SetNull)
   recurrenceId        String?
   // The FFBB match id for an imported event, null for a manually-created one.
   // Postgres treats each NULL as distinct, so plain events never collide on
@@ -462,9 +473,9 @@ model Event {
   // False when FFBB's fetched kickoff time was its 00:00:00 "not yet
   // confirmed" placeholder. Defaults true so every manually-created event is
   // unaffected; only the FFBB import path ever sets it false.
-  timeConfirmed       Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  timeConfirmed       Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  team                Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
   rsvps               EventRsvp[]
   rsvpChanges         EventRsvpChange[]
   convocations        EventConvocation[]
@@ -472,6 +483,8 @@ model Event {
   scoresheet          EventScoresheet?
   playerStats         MatchPlayerStat[]
   meeting             EventMeeting?
+  jerseyDuty          EventJerseyDuty?
+  jerseyDeclines      EventJerseyDecline[]
   shares              EventShare[]
   // null inherits the team's reminder setting / offset.
   waReminderOverride  Boolean?
@@ -966,6 +979,56 @@ model EventMeeting {
   meetingAnnouncedKey String?
   updatedAt           DateTime  @updatedAt
   event               Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+enum JerseyDutySource {
+  SUGGESTION
+  SELF
+  MANAGER
+  SWAP
+  BACKFILL
+}
+
+// Who washes the team's jersey set after a MATCH and brings it to the next
+// one. 1-1 with a MATCH, same reasoning as EventMeeting. No row before
+// kickoff means « nobody yet »: suggestions are computed on read, never
+// stored; only an acceptance, a manager write, a swap or the kickoff freeze
+// writes a row. The *ByUserId columns are the caller, never the persona.
+model EventJerseyDuty {
+  eventId            String           @id
+  teamPlayerId       String?
+  source             JerseyDutySource
+  acceptedAt         DateTime?
+  acceptedByUserId   String?
+  doneAt             DateTime?
+  doneByUserId       String?
+  voidedAt           DateTime?
+  voidedByUserId     String?
+  swapToTeamPlayerId String?
+  swapRequestedAt    DateTime?
+  updatedAt          DateTime         @updatedAt
+  event              Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer         TeamPlayer?      @relation("JerseyDutyHolder", fields: [teamPlayerId], references: [id], onDelete: SetNull)
+  swapTo             TeamPlayer?      @relation("JerseyDutySwapTarget", fields: [swapToTeamPlayerId], references: [id], onDelete: SetNull)
+  acceptedBy         User?            @relation("JerseyDutyAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  doneBy             User?            @relation("JerseyDutyDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  voidedBy           User?            @relation("JerseyDutyVoidedBy", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([teamPlayerId])
+  @@index([swapToTeamPlayerId])
+}
+
+// A player who said « je ne peux pas » for one match, so the suggestion skips
+// them for that match only. Doesn't affect fairness.
+model EventJerseyDecline {
+  eventId      String
+  teamPlayerId String
+  declinedAt   DateTime   @default(now())
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer   TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, teamPlayerId])
+  @@index([teamPlayerId])
 }
 
 // ---------------------------------------------------------------------------

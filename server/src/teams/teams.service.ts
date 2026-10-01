@@ -202,7 +202,12 @@ export class TeamsService {
   async updateTeam(
     clubId: string,
     teamId: string,
-    data: { name?: string; category?: TeamCategory; gender?: Gender },
+    data: {
+      name?: string;
+      category?: TeamCategory;
+      gender?: Gender;
+      jerseyRotationEnabled?: boolean;
+    },
   ): Promise<Team> {
     await this.assertTeamInClub(clubId, teamId);
     const team = await this.prisma.team.update({ where: { id: teamId }, data });
@@ -378,12 +383,15 @@ export class TeamsService {
     }
   }
 
-  async updateTeamPlayerRole(
+  async updateTeamPlayer(
     clubId: string,
     teamId: string,
     playerId: string,
-    role: TeamMemberRole,
+    data: { role?: TeamMemberRole; jerseyDutyExempt?: boolean },
   ): Promise<TeamPlayer> {
+    if (data.role === undefined && data.jerseyDutyExempt === undefined) {
+      throw new BadRequestException('Indiquez au moins un champ à modifier');
+    }
     await this.assertTeamInClub(clubId, teamId);
 
     const teamPlayer = await this.prisma.teamPlayer.findUnique({
@@ -395,7 +403,10 @@ export class TeamsService {
 
     const updated = await this.prisma.teamPlayer.update({
       where: { id: teamPlayer.id },
-      data: { role },
+      data: {
+        ...(data.role !== undefined ? { role: data.role } : {}),
+        ...(data.jerseyDutyExempt !== undefined ? { jerseyDutyExempt: data.jerseyDutyExempt } : {}),
+      },
       include: { player: true },
     });
     return this.toTeamPlayer(updated);
@@ -411,7 +422,20 @@ export class TeamsService {
       throw new NotFoundException('Player not found on this team');
     }
 
-    await this.prisma.teamPlayer.delete({ where: { id: teamPlayer.id } });
+    // A jersey wash turn on a match that hasn't started goes with the player
+    // (the next match's suggestion moves on rather than keeping an empty row
+    // the kickoff freeze would skip). Started ones are left to the FK's SetNull:
+    // « Aucun », and the turn stops counting.
+    await this.prisma.$transaction([
+      this.prisma.eventJerseyDuty.deleteMany({
+        where: { teamPlayerId: teamPlayer.id, event: { startsAt: { gt: new Date() } } },
+      }),
+      this.prisma.eventJerseyDuty.updateMany({
+        where: { swapToTeamPlayerId: teamPlayer.id },
+        data: { swapToTeamPlayerId: null, swapRequestedAt: null },
+      }),
+      this.prisma.teamPlayer.delete({ where: { id: teamPlayer.id } }),
+    ]);
   }
 
   async listTeamAdmins(clubId: string, teamId: string): Promise<TeamAdmin[]> {
@@ -603,6 +627,7 @@ export class TeamsService {
     name: string;
     category: TeamCategory;
     gender: Gender;
+    jerseyRotationEnabled: boolean;
     createdAt: Date;
   }): Team {
     return {
@@ -610,6 +635,7 @@ export class TeamsService {
       name: team.name,
       category: team.category,
       gender: team.gender,
+      jerseyRotationEnabled: team.jerseyRotationEnabled,
       createdAt: team.createdAt.toISOString(),
     };
   }
@@ -633,6 +659,7 @@ export class TeamsService {
     teamId: string;
     playerId: string;
     role: TeamMemberRole;
+    jerseyDutyExempt: boolean;
     createdAt: Date;
     player: { firstName: string; lastName: string; clubId: string };
   }): TeamPlayer {
@@ -644,6 +671,7 @@ export class TeamsService {
       lastName: teamPlayer.player.lastName,
       clubId: teamPlayer.player.clubId,
       role: teamPlayer.role,
+      jerseyDutyExempt: teamPlayer.jerseyDutyExempt,
       createdAt: teamPlayer.createdAt.toISOString(),
     };
   }

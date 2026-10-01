@@ -2,6 +2,7 @@ import type { PaginationParams, SortOrder } from './pagination';
 import type { TeamMemberRole } from './teams';
 import type { ActingAsParams } from './guardians';
 import type { EventMeetingPlan, EventTravelMode } from './meeting-points';
+import type { EventJerseyDutySummary } from './jersey-duty';
 import type { EventShareStatus, EventWhatsAppSettings } from './whatsapp-reminder';
 
 export type EventType = 'TRAINING' | 'MATCH';
@@ -153,9 +154,11 @@ export interface TeamEvent {
   timeConfirmed: boolean;
   /**
    * Jersey/ball equipment assignment — populated for both event types.
-   * `jerseys` holds the match-jersey assignee for a MATCH event or the
-   * scrimmage-bib ("Chasubles") assignee for a TRAINING event; `balls` is
-   * the same slot/copy for both. Either field is null when unassigned.
+   * `jerseys` holds the scrimmage-bib ("Chasubles") assignee for a TRAINING
+   * event, and the plain match-jersey assignee for a MATCH of a team with the
+   * jersey wash rotation off; it is null on a MATCH of a team with the
+   * rotation on (see `jerseyDuty`). `balls` is the same slot for both types.
+   * Either field is null when unassigned.
    */
   logistics: {
     jerseys: EventLogisticsAssignee | null;
@@ -170,6 +173,8 @@ export interface TeamEvent {
   result: EventMatchResult | null;
   /** The caller's own line for this match; null under the same conditions as `result`, or when the caller isn't the player mapped on the sheet. */
   myMatchStats: EventMatchPlayerStats | null;
+  /** The jersey wash duty of a MATCH of a team with the rotation on; null otherwise. */
+  jerseyDuty: EventJerseyDutySummary | null;
   /** Where and when the group meets before a MATCH; null for TRAINING. */
   meetingPlan: EventMeetingPlan | null;
   /** The WhatsApp reminder's share row (null before one exists); null for anyone who does not manage the team. */

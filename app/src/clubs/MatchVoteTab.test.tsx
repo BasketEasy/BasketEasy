@@ -52,6 +52,7 @@ const openMatchEvent: TeamEvent = {
   whatsAppShare: null,
   whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const futureMatchEvent: TeamEvent = {

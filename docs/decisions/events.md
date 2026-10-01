@@ -62,6 +62,48 @@ Rules live in `CLAUDE.md` (« Events module », « Notifications module »). Thi
   file input: desktop browsers have no camera capture and mobile ones are unreliable, so there is
   no device branch.
 
+## Jersey wash rotation
+
+After a match someone takes the team's jersey set home, washes it and brings it back to the
+**next** match. The rotation replaces the plain « qui apporte » slot on a MATCH. Chasubles
+(TRAINING) and balls keep today's behaviour. One `EventJerseyDuty` row per MATCH, 1-1 like
+`EventMeeting`; `EventJerseyDecline` remembers who said « je ne peux pas » for one match.
+
+| #   | Decision                                                                                                                                                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The duty is the wash **after** the match. « Maillots apportés par X » on match N is derived: X holds the previous MATCH's non-voided duty. Nothing about « apporte » is stored for a MATCH any more.             |
+| 2   | Order (the suggestion): fewest turns this season, then longest since the last turn (never washed first), then last name, first name, then `TeamPlayer.id` so the order is total. No jersey number is stored.     |
+| 3   | Pool: convoked **and** `GOING`, not exempted (`TeamPlayer.jerseyDutyExempt`), no decline for this match. An empty pool gives « Aucune suggestion », never a fallback on the roster.                              |
+| 4   | A counted turn: whoever holds the duty at kickoff, accepted or not, on a started MATCH of the team, inside the 1 September → 31 August season, not voided. Declines before kickoff never count.                  |
+| 5   | Only the team's **next** MATCH gets a suggestion; a later match without a holder reads « Suggestion après le match du … », otherwise two upcoming matches would propose the same person.                         |
+| 6   | Suggestions are **computed on read, never stored**. Only an acceptance, a manager write, a swap or the kickoff freeze writes a row; a `GET` writes nothing.                                                      |
+| 7   | **No holder before kickoff means no row.** A decline, or a manager clearing before kickoff, deletes the row (the pending swap goes with it). After kickoff a clear keeps the row with `teamPlayerId: null`.      |
+| 8   | The freeze job (`jersey-duty-freeze`, every 10 min) selects « no row », so a match a manager cleared after kickoff is never re-assigned. `createMany({ skipDuplicates })` lets a concurrent manager write win.   |
+| 9   | Between kickoff and the next freeze tick the just-played match has no row, so the next suggestion is computed without that turn. Accepted: a second code path is not worth ten minutes.                          |
+| 10  | A swap is proposed to a **player**; proposing implies taking the duty (the proposer stays responsible until the target accepts). One pending swap at a time; the first answer wins (conditional `updateMany`).   |
+| 11  | A team manager can assign any roster member at any time (pool and exemption not required), clear, mark « Fait », void a turn. Every player-side write is `409 JERSEY_DUTY_LOCKED` once the match has started.    |
+| 12  | `Team.jerseyRotationEnabled` (default on). Off: a MATCH keeps `Event.jerseysTeamPlayerId` exactly as before, `jerseyDuty` is null, every duty route answers `409 JERSEY_ROTATION_DISABLED`, the freeze skips it. |
+| 13  | Fairness is per player, per team, per season: no sibling merge, no cross-team rule. A playing parent is a separate unit with their own count.                                                                    |
+| 14  | A guardian acts for the child (`?forPlayerId=`, `resolveActingTeamPlayer`). `acceptedByUserId` is the caller, never the persona, and shows as first name + last initial (« Accepté par Sophie M. »).             |
+
+Corrections to the design, found in the code:
+
+- The exemption rides the existing roster route, `PATCH .../players/:playerId`, keyed by
+  `Player.id`, not a `TeamPlayer.id`. `role` and `jerseyDutyExempt` are both optional there, at
+  least one required (400).
+- `jerseyRotationEnabled` rides `PATCH .../teams/:teamId` (`UpdateTeamRequest`).
+- `seasonYearFor`/`seasonWindow` moved to `server/src/common/season.ts`: Events must not import a
+  sibling module's service file.
+- `MyAgendaEvent` does **not** gain `jerseyDuty`: it has no reader on the dashboard. `TeamEvent`
+  does, and forces `logistics.jerseys` to null on a MATCH of a rotation-on team so a value set
+  while the rotation was off never shows beside the duty. `PATCH .../logistics` with `JERSEYS` on
+  such a match answers `400 USE_JERSEY_DUTY`.
+- The RGPD export reads the person's duty rows (`JERSEY_WASH`, with status and who accepted, never
+  by name). `doneBy`/`voidedBy` are a manager's acts on someone else's turn and are left out
+  (art. 15(4)), named in the bundle's `notice`.
+- A removed roster entry takes its turns on matches not yet started with it, so the next
+  suggestion moves on; played ones are left to `SetNull` (« Aucun », the turn stops counting).
+
 ## Agenda
 
 - The agenda shows « À venir » from today 00:00 ascending and « Passés » before it, newest first.

@@ -15,7 +15,7 @@ import {
   INACTIVE_SOON_LEAD_MONTHS,
   subMonths,
 } from '../retention/retention.constants';
-import { seasonWindow, seasonYearFor } from '../team-stats/team-stats.service';
+import { seasonWindow, seasonYearFor } from '../common/season';
 import { isTravelStale } from '../meeting-points/meeting-plan';
 import { minorBirthDateBound } from './platform-admin-browse.service';
 

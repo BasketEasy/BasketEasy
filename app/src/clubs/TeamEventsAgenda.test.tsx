@@ -39,6 +39,7 @@ const trainingEvent: TeamEvent = {
   whatsAppShare: null,
   whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const matchEventSameDay: TeamEvent = {

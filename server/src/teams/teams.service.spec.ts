@@ -39,6 +39,7 @@ describe('TeamsService', () => {
       deleteMany: jest.Mock;
       count: jest.Mock;
     };
+    eventJerseyDuty: { deleteMany: jest.Mock; updateMany: jest.Mock };
     user: { findUnique: jest.Mock };
     clubMembership: { findFirst: jest.Mock; findMany: jest.Mock };
     teamAdmin: {
@@ -86,6 +87,7 @@ describe('TeamsService', () => {
         deleteMany: jest.fn(),
         count: jest.fn(),
       },
+      eventJerseyDuty: { deleteMany: jest.fn(), updateMany: jest.fn() },
       user: { findUnique: jest.fn() },
       clubMembership: { findFirst: jest.fn(), findMany: jest.fn() },
       teamAdmin: {
@@ -809,6 +811,22 @@ describe('TeamsService', () => {
 
       expect(prisma.teamPlayer.delete).toHaveBeenCalledWith({ where: { id: 'tp-1' } });
     });
+
+    it('drops the jersey wash turns of matches that have not started, in the same transaction', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findUnique.mockResolvedValue({ id: 'tp-1' });
+
+      await service.removeTeamPlayer('club-1', 'team-1', 'player-1');
+
+      expect(prisma.eventJerseyDuty.deleteMany).toHaveBeenCalledWith({
+        where: { teamPlayerId: 'tp-1', event: { startsAt: { gt: expect.any(Date) } } },
+      });
+      expect(prisma.eventJerseyDuty.updateMany).toHaveBeenCalledWith({
+        where: { swapToTeamPlayerId: 'tp-1' },
+        data: { swapToTeamPlayerId: null, swapRequestedAt: null },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('addTeamPlayer role', () => {
@@ -868,15 +886,47 @@ describe('TeamsService', () => {
     });
   });
 
-  describe('updateTeamPlayerRole', () => {
+  describe('updateTeamPlayer', () => {
     it('throws NotFoundException when the player is not on the team', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.teamPlayer.findUnique.mockResolvedValue(null);
 
-      await expect(service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH')).rejects.toThrow(
-        NotFoundException,
+      await expect(
+        service.updateTeamPlayer('club-1', 'team-1', 'p1', { role: 'COACH' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an empty body, writing nothing', async () => {
+      await expect(service.updateTeamPlayer('club-1', 'team-1', 'p1', {})).rejects.toThrow(
+        BadRequestException,
       );
       expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
+    });
+
+    it('sets the jersey wash exemption alone, leaving the role untouched', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findUnique.mockResolvedValue({ id: 'tp1' });
+      prisma.teamPlayer.update.mockResolvedValue({
+        id: 'tp1',
+        teamId: 'team-1',
+        playerId: 'p1',
+        role: 'PLAYER',
+        jerseyDutyExempt: true,
+        createdAt: new Date('2026-01-01'),
+        player: { firstName: 'A', lastName: 'B', clubId: 'club-1' },
+      });
+
+      const result = await service.updateTeamPlayer('club-1', 'team-1', 'p1', {
+        jerseyDutyExempt: true,
+      });
+
+      expect(prisma.teamPlayer.update).toHaveBeenCalledWith({
+        where: { id: 'tp1' },
+        data: { jerseyDutyExempt: true },
+        include: { player: true },
+      });
+      expect(result.jerseyDutyExempt).toBe(true);
     });
 
     it('updates the role', async () => {
@@ -895,7 +945,7 @@ describe('TeamsService', () => {
         player: { firstName: 'A', lastName: 'B', clubId: 'club-1' },
       });
 
-      const result = await service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH');
+      const result = await service.updateTeamPlayer('club-1', 'team-1', 'p1', { role: 'COACH' });
 
       expect(prisma.teamPlayer.update).toHaveBeenCalledWith({
         where: { id: 'tp1' },

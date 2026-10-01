@@ -8,7 +8,7 @@ reasoning you need before changing a domain's behaviour.
 | File                                                         | Covers                                                                                   |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | [`accounts-and-access.md`](./accounts-and-access.md)         | auth tokens, account security, club/team roles, `TeamAdmin`, e-mail verification gate    |
-| [`events.md`](./events.md)                                   | types, recurrence scopes, RSVP, convocations, logistics, MVP vote, agenda, manual venue  |
+| [`events.md`](./events.md)                                   | types, recurrence, RSVP, convocations, logistics, jersey wash rotation, MVP vote, venue  |
 | [`ffbb.md`](./ffbb.md)                                       | what competitions.ffbb.com really serves, calendar import, venue scraping, poule results |
 | [`scoresheets-and-stats.md`](./scoresheets-and-stats.md)     | e-Marque reading rules, R2 storage (and its manual setup), season and match stats        |
 | [`meeting-points.md`](./meeting-points.md)                   | RDV formula, route staleness, OpenRouteService, travel choice, RDV notifications         |
