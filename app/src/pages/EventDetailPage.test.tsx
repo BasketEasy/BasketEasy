@@ -273,8 +273,11 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    expect(await screen.findByRole('heading', { name: /notes du coach/i })).toBeInTheDocument();
-    expect(screen.getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { name: /notes du coach/i });
+    // Folded: the first line is the summary, the body mounts once opened.
+    expect(within(heading).getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    await userEvent.click(within(heading).getByRole('button'));
+    expect(heading.closest('[data-state="open"]')).not.toBeNull();
   });
 
   it('renders a TRAINING with no opponent, venue or scoresheet block', async () => {
@@ -574,6 +577,105 @@ describe('EventDetailPage — manager accordion', () => {
     setup(390);
     const button = await trigger(/présences/i);
     expect(button).toHaveAccessibleName(/présents sur \d+/);
+  });
+});
+
+describe('EventDetailPage — player accordion', () => {
+  const originalWidth = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = originalWidth;
+  });
+  const setup = (
+    width: number,
+    { event = matchEvent, path = route }: { event?: TeamEvent; path?: string } = {},
+  ) => {
+    window.innerWidth = width;
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockEventPage({ event, rostered: true });
+    renderWithProviders(<App />, { route: path });
+  };
+  const trigger = async (name: RegExp) =>
+    within(await screen.findByRole('heading', { name })).getByRole('button');
+  const withNotes = { ...matchEvent, notes: 'Échauffement à 19h50.\nApportez le maillot blanc.' };
+  const voteEvent = {
+    ...matchEvent,
+    startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
+    myConvocation: true,
+    myRsvpStatus: 'GOING' as const,
+  };
+
+  it('opens « Qui vient ? » by default on a phone and folds the rest', async () => {
+    setup(390, { event: withNotes });
+    expect(await trigger(/qui vient/i)).toHaveAttribute('aria-expanded', 'true');
+    expect(await trigger(/notes du coach/i)).toHaveAttribute('aria-expanded', 'false');
+    expect(await trigger(/après la rencontre/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('puts the answered count in the « Qui vient ? » trigger', async () => {
+    setup(390);
+    expect(await trigger(/qui vient/i)).toHaveAccessibleName(/1 présents sur 2/);
+  });
+
+  it('shows the first line of the notes as the summary', async () => {
+    setup(390, { event: withNotes });
+    const heading = await screen.findByRole('heading', { name: /notes du coach/i });
+    expect(within(heading).getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    expect(within(heading).queryByText(/maillot blanc/)).not.toBeInTheDocument();
+  });
+
+  it('shows Logistique and « Qui vient ? » side by side on desktop, with no « Qui vient ? » trigger', async () => {
+    setup(1280, { event: withNotes });
+    expect(await screen.findByRole('heading', { name: /s’y rendre/i })).toBeInTheDocument();
+    const presences = await screen.findByRole('heading', { name: /qui vient/i });
+    expect(within(presences).queryByRole('button')).not.toBeInTheDocument();
+    expect(await trigger(/notes du coach/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the vote item when the window is open and the reader can vote', async () => {
+    setup(390, { event: voteEvent });
+    const button = await trigger(/vote du match/i);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(within(button).getByText('Vote ouvert')).toBeInTheDocument();
+  });
+
+  it('folds the vote once the window has closed', async () => {
+    setup(390, {
+      event: { ...voteEvent, startsAt: new Date(Date.now() - 10 * DAY_MS).toISOString() },
+    });
+    const button = await trigger(/vote du match/i);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(within(button).getByText('Résultats')).toBeInTheDocument();
+  });
+
+  it('summarises the result in « Après la rencontre » and shows none without one', async () => {
+    setup(390, { event: { ...matchEvent, result: { ourScore: 71, theirScore: 64 } } as TeamEvent });
+    expect(within(await trigger(/après la rencontre/i)).getByText('71 – 64')).toBeInTheDocument();
+  });
+
+  it('shows no result summary on a match without a result', async () => {
+    setup(390);
+    expect(within(await trigger(/après la rencontre/i)).queryByText(/–/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['?tab=scoresheet', /après la rencontre/i],
+    ['?tab=vote', /vote du match/i],
+  ])('opens the item %s names', async (query, name) => {
+    setup(390, { event: voteEvent, path: `${route}${query}` });
+    expect(await trigger(name)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('reaches the error branch inside an opened « Après la rencontre »', async () => {
+    window.innerWidth = 390;
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockEventPage({ rostered: true });
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
+        HttpResponse.json({ message: 'error' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(<App />, { route: `${route}?tab=scoresheet` });
+    expect(await screen.findAllByRole('button', { name: /réessayer/i })).not.toHaveLength(0);
   });
 });
 
