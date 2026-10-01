@@ -29,12 +29,22 @@ Hard path gate is in the workflow. The agent also escalates on judgement for:
 2. Adding a gated route to `EmailVerifiedGuard`, adding `@AllowGuardians()` to a route,
    widening what `AuditLog` records, any new personal-data field or new recipient of
    personal data, any minor-facing change. (`privacy-review` skill.)
-3. Auth, sessions, tokens, guards, retention, audit, platform-admin, impersonation.
-4. Destructive or irreversible migration, backfill, or data deletion.
+3. A change that weakens or redefines a security boundary in auth, sessions, tokens, guards,
+   retention, audit, platform-admin, impersonation, guardians or guest links: looser authz,
+   longer token or retention lifetimes, narrower audit scope, wider guardian or guest access,
+   removed rate limits, changed consent rules. Additive, tightening or neutral changes in
+   these modules (bug fix, new field, new tested route following the module's decision doc)
+   are judged like any other code, with a stricter bar: tests required, privacy-review and
+   backend-slice fully applied, any doubt means ESCALATE.
+4. Destructive or irreversible migration, backfill, or data deletion. Additive migrations
+   are fine.
 5. New runtime dependency, stack change, new external provider or secret.
 6. CI/CD, deploy, workflow, Dockerfile, or review-agent changes (never self-approve).
 7. A trade-off two reasonable maintainers would disagree on and no doc decides.
 8. Anything the agent cannot verify from the diff and repo. Uncertain means escalate.
+
+Diff size never escalates by itself: large PRs are normal here (plans, specs, designs).
+Review them fully, docs and design files included.
 
 ## Always allowed to auto-merge when the lenses pass
 

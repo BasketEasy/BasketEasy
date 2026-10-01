@@ -9,8 +9,11 @@ lead agent verifies findings, posts inline comments (🔴 blocking, 🟡 nit, �
 writes a verdict. A final step with no LLM approves and enables squash auto-merge, or
 labels `needs-human` and pings the owner.
 
-The LLM never holds merge rights. Owner-only paths, dependency changes, diffs over 800 lines
-and labels are a hard gate in the workflow; the agent can only add caution.
+The LLM never holds merge rights. Infra and agent-config paths (`.github`, `.claude`,
+`CLAUDE.md`, Dockerfiles, env), non-dependabot dependency changes, major bumps and labels are
+a hard gate in the workflow; the agent can only add caution. Sensitive product modules and
+diff size are judged by the agent under `POLICY.md`: it escalates only when a security
+boundary is weakened or redefined.
 
 ## One-time setup (repo admin)
 

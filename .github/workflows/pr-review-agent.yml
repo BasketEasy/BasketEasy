@@ -1,6 +1,6 @@
 # Autonomous PR review. The LLM judges; deterministic steps decide what it may do.
 #
-#   gate    -> path/size/author rules, no LLM. Can only ever make the agent MORE cautious.
+#   gate    -> infra/config path, dependency and label rules, no LLM. Can only ever make the agent MORE cautious.
 #   review  -> Claude with five lens subagents (.claude/agents/review-*.md), reads the diff,
 #              posts inline comments, writes verdict.json. Cannot merge or approve.
 #   decide  -> no LLM. Validates the verdict against the gate and the current head SHA, then
@@ -46,10 +46,10 @@ jobs:
             const reasons = [];
 
             // Hard owner-only paths: the agent may review these, never merge them.
+            // Sensitive product modules (auth, retention, audit, platform-admin,
+            // guardians, guest-links, prisma) and diff size are judged by the agent
+            // under POLICY.md, not gated here.
             const OWNER_ONLY = [
-              [/^server\/src\/auth\//, 'authentication / sessions'],
-              [/^server\/src\/(retention|audit|platform-admin|guardians|guest-links)\//, 'retention, audit, back-office, guardians, guest links'],
-              [/^server\/prisma\//, 'database schema / migrations'],
               [/^\.github\//, 'CI/CD, workflows, review agent'],
               [/^\.claude\//, 'agent configuration'],
               [/^CLAUDE\.md$/, 'project instructions'],
@@ -70,10 +70,6 @@ jobs:
               const m = pr.title.match(/\bfrom\s+(\d+)\.[\d.]+\s+to\s+(\d+)\./i);
               if (m[1] !== m[2]) reasons.push('major dependency bump');
             }
-
-            const size = files.reduce((n, f) => n + f.additions + f.deletions, 0);
-            if (size > 800) reasons.push(`large diff (${size} changed lines)`);
-            if (files.length >= 100) reasons.push('100+ files changed');
 
             const labels = pr.labels.map((l) => l.name);
             if (labels.includes('needs-human')) reasons.push('label needs-human');
