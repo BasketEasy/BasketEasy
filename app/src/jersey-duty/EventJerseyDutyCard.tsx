@@ -140,25 +140,39 @@ export function EventJerseyDutyCard({
 }
 
 function DutyState({ isMine, ...block }: BlockProps & { isMine: boolean }) {
-  const { detail } = block;
+  const { detail, childName } = block;
   const { rights, holder, suggestion, locked } = detail;
 
   if (rights.canRespondToSwap && holder) return <SwapReceivedBlock {...block} />;
-  if (rights.canManage) return <ManagerBlock {...block} />;
 
-  // « The persona holds it »: the server exposes it through the rights while
-  // the match hasn't started, and through the event's summary after.
-  const holderIsMine = holder !== null && (rights.canDecline || rights.canCancelSwap || isMine);
-  if (holder && holderIsMine) {
-    if (rights.canCancelSwap) return <PendingSwapBlock {...block} />;
-    if (rights.canAccept) return <MyTurnBlock {...block} />;
-    return <HolderBlock {...block} isMine />;
+  const ownTurn = ownTurnBlock(block, isMine);
+  // Acting for a child never shows manager controls, whatever the rights say.
+  if (rights.canManage && childName === null) {
+    // A manager who is also in the turn gets their own turn first, and the
+    // coach tools in their own labelled section below it.
+    if (!ownTurn) return <ManagerBlock {...block} />;
+    return (
+      <>
+        {ownTurn}
+        <Divider />
+        <section className="flex flex-col gap-3.5" aria-label="Espace coach">
+          <div className="flex flex-col">
+            <Text variant="eyebrow" tone="structure">
+              Espace coach
+            </Text>
+            <Text variant="meta" size="xs">
+              Visible par les responsables
+            </Text>
+          </div>
+          <ManagerBlock {...block} hideRow />
+        </section>
+      </>
+    );
   }
+  if (ownTurn) return ownTurn;
+
   if (holder) return <HolderBlock {...block} isMine={false} />;
-
-  if (suggestion?.kind === 'SUGGESTED') {
-    return rights.canDecline ? <MyTurnBlock {...block} /> : <SuggestedByOthersBlock {...block} />;
-  }
+  if (suggestion?.kind === 'SUGGESTED') return <SuggestedByOthersBlock {...block} />;
   if (suggestion?.kind === 'EMPTY_POOL') return <EmptyPoolBlock detail={detail} />;
   if (suggestion?.kind === 'AFTER_PREVIOUS') return <AfterPreviousBlock detail={detail} />;
   return (
@@ -170,6 +184,25 @@ function DutyState({ isMine, ...block }: BlockProps & { isMine: boolean }) {
       </DutyNotice>
     </Card>
   );
+}
+
+/**
+ * The block for the reader's own turn (holder, pending swap or suggestion), or
+ * null when the turn is someone else's. « The persona holds it » is exposed by
+ * the server through the rights while the match hasn't started, and through
+ * the event's summary after.
+ */
+function ownTurnBlock(block: BlockProps, isMine: boolean) {
+  const { rights, holder, suggestion } = block.detail;
+  if (holder && (rights.canDecline || rights.canCancelSwap || isMine)) {
+    if (rights.canCancelSwap) return <PendingSwapBlock {...block} />;
+    if (rights.canAccept) return <MyTurnBlock {...block} />;
+    return <HolderBlock {...block} isMine />;
+  }
+  if (!holder && suggestion?.kind === 'SUGGESTED' && rights.canDecline) {
+    return <MyTurnBlock {...block} />;
+  }
+  return null;
 }
 
 /** The suggested player (or the holder who hasn't confirmed): « C'est votre tour ». */
@@ -419,7 +452,16 @@ function AfterPreviousBlock({ detail }: { detail: JerseyDutyDetail }) {
  * reversible status controls (done, change, void), inline since each is one
  * click to undo.
  */
-function ManagerBlock({ clubId, teamId, eventId, detail }: BlockProps) {
+function ManagerBlock({
+  clubId,
+  teamId,
+  eventId,
+  detail,
+  hideRow = false,
+}: BlockProps & {
+  /** The reader's own turn is drawn above, so its person row isn't repeated. */
+  hideRow?: boolean;
+}) {
   const [isChanging, setChanging] = useState(false);
   const setDone = useJerseyDutySetDone(clubId, teamId, eventId);
   const setVoided = useJerseyDutySetVoided(clubId, teamId, eventId);
@@ -438,7 +480,7 @@ function ManagerBlock({ clubId, teamId, eventId, detail }: BlockProps) {
 
   const person = holder ?? (suggestion?.kind === 'SUGGESTED' ? suggestion.candidate : null);
   const state = holderStatus(status, locked, nextDay);
-  const row = person && (
+  const row = person && !hideRow && (
     <DutyPersonRow
       firstName={person.firstName}
       lastName={person.lastName}

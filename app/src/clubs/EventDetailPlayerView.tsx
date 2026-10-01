@@ -83,7 +83,6 @@ export function EventDetailPlayerView({
   const logistics = (
     <section id={EVENT_SECTION_IDS.logistique} className={`flex flex-col gap-3.5 ${scroll}`}>
       <SectionHeading as="h2">S’y rendre</SectionHeading>
-      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
       <EventLogisticsCard
         clubId={clubId}
         teamId={teamId}
@@ -92,6 +91,7 @@ export function EventDetailPlayerView({
         isRostered={canActAsPlayer}
         stacked={isDesktop}
       />
+      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
     </section>
   );
   const attendance = (

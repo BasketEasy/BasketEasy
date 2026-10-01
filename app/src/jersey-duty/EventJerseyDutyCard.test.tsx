@@ -311,6 +311,52 @@ describe('EventJerseyDutyCard', () => {
     await waitFor(() => expect(done).toBe(true));
   });
 
+  it('gives a manager who is also in the turn their own block first, then « Espace coach »', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json([]),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/rsvps', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+        HttpResponse.json({ rows: [] }),
+      ),
+    );
+    mockDuty(
+      dutyDetail({
+        suggestion,
+        rights: {
+          canAccept: true,
+          canDecline: true,
+          canSwap: true,
+          canManage: true,
+        } as JerseyDutyDetail['rights'],
+      }),
+    );
+    renderCard();
+    const turn = await screen.findByText('C’est votre tour');
+    const coach = screen.getByText('Espace coach');
+    expect(turn.compareDocumentPosition(coach) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'C’est noté' })).toBeInTheDocument();
+    expect(await screen.findByText('Assigner quelqu’un d’autre')).toBeInTheDocument();
+  });
+
+  it('keeps only the manager block for a manager who is not in the turn', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/convocations', () =>
+        HttpResponse.json([]),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/rsvps', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+        HttpResponse.json({ rows: [] }),
+      ),
+    );
+    mockDuty(dutyDetail({ suggestion, rights: { canManage: true } as JerseyDutyDetail['rights'] }));
+    renderCard();
+    expect(await screen.findByText('Assigner quelqu’un d’autre')).toBeInTheDocument();
+    expect(screen.queryByText('Espace coach')).not.toBeInTheDocument();
+    expect(screen.queryByText('C’est votre tour')).not.toBeInTheDocument();
+  });
+
   it('hides « Maillots apportés par » when nobody brought them', async () => {
     mockDuty(dutyDetail({ broughtBy: null, suggestion: { kind: 'EMPTY_POOL' } }));
     renderCard();
