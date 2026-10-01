@@ -1,4 +1,9 @@
-import { endOfParisDay, parisWallClockToDate } from './paris-time';
+import {
+  addParisWeeks,
+  endOfParisDay,
+  parisWallClockToDate,
+  withParisTimeOfDay,
+} from './paris-time';
 
 describe('endOfParisDay', () => {
   it('ends a summer day at 22:00Z (UTC+2)', () => {
@@ -58,6 +63,39 @@ describe('parisWallClockToDate', () => {
   it('picks the right offset just after the spring change', () => {
     expect(parisWallClockToDate('2027-03-28T03:30:00').toISOString()).toBe(
       '2027-03-28T01:30:00.000Z',
+    );
+  });
+});
+
+describe('addParisWeeks', () => {
+  it('keeps 19:00 Paris across the autumn change', () => {
+    // 21 Oct 2026 19:00 (UTC+2) → 28 Oct 2026 19:00 (UTC+1).
+    expect(addParisWeeks(new Date('2026-10-21T17:00:00Z'), 1).toISOString()).toBe(
+      '2026-10-28T18:00:00.000Z',
+    );
+  });
+
+  it('keeps 19:00 Paris across the spring change', () => {
+    expect(addParisWeeks(new Date('2027-03-24T18:00:00Z'), 1).toISOString()).toBe(
+      '2027-03-31T17:00:00.000Z',
+    );
+  });
+});
+
+describe('withParisTimeOfDay', () => {
+  it("resolves the time against each date's own offset", () => {
+    expect(withParisTimeOfDay(new Date('2026-10-21T17:00:00Z'), 20, 15).toISOString()).toBe(
+      '2026-10-21T18:15:00.000Z',
+    );
+    expect(withParisTimeOfDay(new Date('2026-10-28T18:00:00Z'), 20, 15).toISOString()).toBe(
+      '2026-10-28T19:15:00.000Z',
+    );
+  });
+
+  it('keeps the Paris day of a late-evening instant', () => {
+    // 22:30Z on 13 June is 00:30 on the 14th in Paris.
+    expect(withParisTimeOfDay(new Date('2026-06-13T22:30:00Z'), 9, 0).toISOString()).toBe(
+      '2026-06-14T07:00:00.000Z',
     );
   });
 });

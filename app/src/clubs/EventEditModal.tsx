@@ -162,21 +162,8 @@ export function EventEditModal({
       });
 
       if (values.scope !== 'THIS') {
-        const anchor = new Date(event.startsAt);
-        const [hh, mm] = values.time.split(':').map(Number);
-        const local = new Date(
-          anchor.getFullYear(),
-          anchor.getMonth(),
-          anchor.getDate(),
-          hh,
-          mm,
-          0,
-          0,
-        );
-        await updateEventTime({
-          eventId: event.id,
-          dto: { scope: values.scope, hour: local.getUTCHours(), minute: local.getUTCMinutes() },
-        });
+        const [hour, minute] = values.time.split(':').map(Number);
+        await updateEventTime({ eventId: event.id, dto: { scope: values.scope, hour, minute } });
       }
 
       toast({ variant: 'success', title: 'Événement modifié' });
