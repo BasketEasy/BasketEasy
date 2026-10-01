@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 
 /**
  * The event page's block ids. Three of them are the destination of an old
@@ -76,4 +76,43 @@ export function useEventSectionAnchor(tab: string | null): void {
     }, 100);
     return () => window.clearInterval(timer);
   }, [tab]);
+}
+
+/**
+ * The open items of an event page's `SectionAccordion`, shared by the manager
+ * and player views.
+ *
+ * Seeded with « Présences » on a phone (on desktop it is a plain section, not
+ * an item), the item an incoming deep link names, and whatever `extra` the
+ * view owes the reader. Re-seeded when `eventId` changes (a new event in the
+ * same mounted page starts from its own defaults), and a later `openSection`
+ * is added, never closed again. Never written back to the URL.
+ */
+export function useEventOpenSections({
+  eventId,
+  isDesktop,
+  openSection,
+  extra = [],
+}: {
+  eventId: string;
+  isDesktop: boolean;
+  openSection: string | null;
+  extra?: string[];
+}): [string[], Dispatch<SetStateAction<string[]>>] {
+  const initialOpen = () => [
+    ...(isDesktop ? [] : [EVENT_SECTION_IDS.presences]),
+    ...extra,
+    ...(openSection ? [openSection] : []),
+  ];
+  const [open, setOpen] = useState<string[]>(initialOpen);
+  useEffect(() => {
+    setOpen(initialOpen());
+    // Only a new event re-seeds; the other inputs are folded in below or by the user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+  useEffect(() => {
+    if (openSection)
+      setOpen((current) => (current.includes(openSection) ? current : [...current, openSection]));
+  }, [openSection]);
+  return [open, setOpen];
 }

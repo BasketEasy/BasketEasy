@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@basketeasy/ui/card';
 import { SectionAccordion, SectionAccordionItem } from '@basketeasy/ui/section-accordion';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
@@ -15,8 +15,12 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchStatsTable } from './MatchStatsTable';
 import { MatchVoteTab } from './MatchVoteTab';
-import { hasVoteWindowClosed, isVoteWindowOpen } from './voteWindow';
-import { EVENT_SECTION_IDS, EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
+import { notesSummary, resultSummary, voteSummary } from './eventSectionSummaries';
+import {
+  EVENT_SECTION_IDS,
+  EVENT_SECTION_SCROLL_MARGIN,
+  useEventOpenSections,
+} from './useEventSectionAnchor';
 import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
 import { WhatsAppShareCard } from '../whatsapp-reminders/WhatsAppShareCard';
 
@@ -55,17 +59,6 @@ const SHARE_SUMMARY: Record<string, string> = {
   SCHEDULED: 'Programmé',
   SENT: 'Envoyé',
 };
-
-/** Each summary comes from the `TeamEvent` the page already holds: a closed item runs no query of its own. */
-function voteSummary(startsAt: string): string | undefined {
-  if (hasVoteWindowClosed(startsAt)) return 'Résultats';
-  if (isVoteWindowOpen(startsAt)) return 'Vote ouvert';
-  return 'Ouvre après le match';
-}
-
-function notesSummary(notes: string): string {
-  return notes.split('\n')[0]!;
-}
 
 /**
  * The event page as the person running the team reads it: the same data as
@@ -109,21 +102,11 @@ export function EventDetailManagerView({
   const isUpcoming = new Date(event.startsAt) > new Date();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const isDesktop = useIsDesktopViewport();
-  // Seeded from the anchor, never written back to the URL (`?tab=` is read-only).
-  const initialOpen = () => [
-    ...(isDesktop ? [] : [EVENT_SECTION_IDS.presences]),
-    ...(openSection ? [openSection] : []),
-  ];
-  const [open, setOpen] = useState<string[]>(initialOpen);
-  useEffect(() => {
-    setOpen(initialOpen());
-    // A new event in the same mounted page starts from its own defaults.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id]);
-  useEffect(() => {
-    if (openSection)
-      setOpen((current) => (current.includes(openSection) ? current : [...current, openSection]));
-  }, [openSection]);
+  const [open, setOpen] = useEventOpenSections({
+    eventId: event.id,
+    isDesktop,
+    openSection,
+  });
   const scroll = EVENT_SECTION_SCROLL_MARGIN;
 
   const presencesHeading = 'Présences';
@@ -241,13 +224,7 @@ export function EventDetailManagerView({
             value={EVENT_SECTION_IDS.apresLaRencontre}
             id={EVENT_SECTION_IDS.apresLaRencontre}
             title="Après la rencontre"
-            summary={
-              event.result ? (
-                <span className="tabular">
-                  {event.result.ourScore} – {event.result.theirScore}
-                </span>
-              ) : undefined
-            }
+            summary={resultSummary(event.result)}
             className={scroll}
           >
             <div className="flex flex-col gap-3.5">

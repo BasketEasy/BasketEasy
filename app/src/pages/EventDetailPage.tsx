@@ -168,6 +168,7 @@ export function EventDetailPage() {
             isRostered={isRostered}
             showVote={showVote}
             childName={childName}
+            openSection={openSection}
           />
         )}
       </PageContainer>

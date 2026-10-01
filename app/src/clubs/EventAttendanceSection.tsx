@@ -146,6 +146,7 @@ export function EventAttendanceSection({
   eventId,
   meetingPlan = null,
   id,
+  headingless = false,
 }: {
   clubId: string;
   teamId: string;
@@ -153,6 +154,8 @@ export function EventAttendanceSection({
   /** A match with a meeting point: who comes to the RDV and who goes direct. */
   meetingPlan?: EventMeetingPlan | null;
   id?: string;
+  /** The caller's accordion item already titles the block (mobile): render the body only. */
+  headingless?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const { rows, counts, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
@@ -235,6 +238,9 @@ export function EventAttendanceSection({
     );
   };
 
+  if (headingless) {
+    return <div id={id}>{body()}</div>;
+  }
   return (
     <section id={id} className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}>
       <SectionHeading as="h2">Qui vient&nbsp;?</SectionHeading>
