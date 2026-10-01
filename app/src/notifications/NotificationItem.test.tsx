@@ -57,4 +57,22 @@ describe('NotificationItem', () => {
     );
     expect(compact.container.querySelector('svg')).toBeNull();
   });
+
+  it('gives the jersey duty types their own icon', () => {
+    const iconOf = (type: AppNotification['type']) => {
+      const view = renderWithProviders(
+        <NotificationItem notification={{ ...notification, type }} onRead={() => undefined} />,
+      );
+      const markup = view.container.querySelector('svg')?.innerHTML;
+      view.unmount();
+      return markup;
+    };
+
+    const assigned = iconOf('JERSEY_DUTY_ASSIGNED');
+    const swap = iconOf('JERSEY_SWAP_REQUESTED');
+    expect(assigned).toBeTruthy();
+    expect(swap).toBeTruthy();
+    expect(assigned).not.toBe(swap);
+    expect(assigned).not.toBe(iconOf('EVENT_CONVOCATION'));
+  });
 });

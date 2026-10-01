@@ -45,3 +45,15 @@ export function forWhomPrefix(subject: NotificationSubject): string {
 
 /** The reader alone — today's copy, for callers that notify no one else. */
 export const SELF_SUBJECT: NotificationSubject = { self: true, children: [] };
+
+/**
+ * « Vous lavez », « Léo lave »: who washes the jerseys, from the reader's side.
+ * One duty has one holder, so a reader is never told about themself and a
+ * child at once; the plural is only a safe fallback.
+ */
+export function jerseyDutyHolderSentence(subject: NotificationSubject): string {
+  const names = subject.children.map((c) => c.firstName);
+  if (names.length === 0) return 'Vous lavez';
+  if (subject.self) return `${joinNames([...names, 'vous'])} lavez`;
+  return names.length === 1 ? `${names[0]} lave` : `${joinNames(names)} lavent`;
+}

@@ -7,6 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { NotificationsService } from '../notifications/notifications.service';
 import { JerseyDutyService } from './jersey-duty.service';
 
 const NOW = new Date('2026-10-01T12:00:00.000Z');
@@ -32,13 +33,16 @@ interface RosterSpec {
 const rosterRow = (r: RosterSpec) => ({
   id: r.id,
   playerId: `p-${r.id}`,
+  team: { gender: 'WOMEN' },
   jerseyDutyExempt: r.exempt ?? false,
   player: {
     firstName: r.first,
     lastName: r.last,
-    gender: r.gender ?? 'WOMEN',
+    id: `p-${r.id}`,
+    clubId: 'club-1',
+    gender: r.gender === undefined ? 'WOMEN' : r.gender,
     userId: r.userId === undefined ? `u-${r.id}` : r.userId,
-    guardians: Array.from({ length: r.guardians ?? 0 }, () => ({ userId: 'g' })),
+    guardians: Array.from({ length: r.guardians ?? 0 }, (_, i) => ({ userId: `g-${r.id}-${i}` })),
   },
   convocations: r.convoked === false ? [] : [{ eventId: 'event-1' }],
   rsvps: r.going === false ? [] : [{ status: 'GOING' }],
@@ -72,8 +76,10 @@ const turnRows = [
 describe('JerseyDutyService', () => {
   let service: JerseyDutyService;
   let teamManagerGuard: { isTeamManager: jest.Mock };
+  let notifications: { notify: jest.Mock };
   let prisma: {
-    clubTeam: { findUnique: jest.Mock };
+    clubTeam: { findUnique: jest.Mock; findMany: jest.Mock };
+    clubMembership: { findMany: jest.Mock };
     team: { findUniqueOrThrow: jest.Mock; findUnique: jest.Mock };
     event: { findUnique: jest.Mock; findFirst: jest.Mock; findMany: jest.Mock };
     eventJerseyDuty: {
@@ -86,13 +92,19 @@ describe('JerseyDutyService', () => {
       createMany: jest.Mock;
     };
     eventJerseyDecline: { upsert: jest.Mock };
-    teamPlayer: { findMany: jest.Mock; findFirst: jest.Mock };
+    teamPlayer: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock };
     player: { findFirst: jest.Mock };
     $transaction: jest.Mock;
     $queryRaw: jest.Mock;
   };
 
-  let match: { id: string; teamId: string; type: string; startsAt: Date };
+  let match: {
+    id: string;
+    teamId: string;
+    type: string;
+    startsAt: Date;
+    opponentName: string | null;
+  };
   let duty: Record<string, unknown> | null;
   let roster: RosterSpec[];
   let personaTeamPlayerId: string | null;
@@ -116,7 +128,13 @@ describe('JerseyDutyService', () => {
 
   beforeEach(async () => {
     jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(NOW);
-    match = { id: 'event-1', teamId: 'team-1', type: 'MATCH', startsAt: NEXT_MATCH };
+    match = {
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'MATCH',
+      startsAt: NEXT_MATCH,
+      opponentName: 'BC Rezé',
+    };
     duty = null;
     roster = DEFAULT_ROSTER;
     personaTeamPlayerId = 'tp-a';
@@ -125,7 +143,10 @@ describe('JerseyDutyService', () => {
     followingMatch = { startsAt: LATER_MATCH };
 
     prisma = {
-      clubTeam: { findUnique: jest.fn().mockResolvedValue({ isOwner: true }) },
+      clubTeam: {
+        findUnique: jest.fn().mockResolvedValue({ isOwner: true }),
+        findMany: jest.fn().mockResolvedValue([{ clubId: 'club-1', isOwner: true }]),
+      },
       team: {
         findUniqueOrThrow: jest.fn().mockResolvedValue({
           gender: 'WOMEN',
@@ -155,7 +176,14 @@ describe('JerseyDutyService', () => {
       },
       eventJerseyDecline: { upsert: jest.fn().mockResolvedValue({}) },
       teamPlayer: {
-        findMany: jest.fn().mockImplementation(() => Promise.resolve(roster.map(rosterRow))),
+        findMany: jest.fn().mockImplementation(({ where }: { where: any }) => {
+          const ids: string[] | undefined = where?.id?.in;
+          return Promise.resolve(roster.filter((r) => !ids || ids.includes(r.id)).map(rosterRow));
+        }),
+        findUnique: jest.fn().mockImplementation(({ where }: { where: any }) => {
+          const r = roster.find((x) => x.id === where.id);
+          return Promise.resolve(r ? rosterRow(r) : null);
+        }),
         findFirst: jest.fn().mockImplementation(({ where }: { where: any }) => {
           // resolveActingTeamPlayer (a persona) and the manager's roster check.
           if ('player' in where) {
@@ -165,17 +193,20 @@ describe('JerseyDutyService', () => {
         }),
       },
       player: { findFirst: jest.fn().mockResolvedValue({ id: 'p-child' }) },
+      clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
       // The interactive form runs against `prisma` itself, standing in for `tx`.
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
       $queryRaw: jest.fn().mockResolvedValue([]),
     };
     teamManagerGuard = { isTeamManager: jest.fn().mockResolvedValue(false) };
+    notifications = { notify: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         JerseyDutyService,
         { provide: PrismaService, useValue: prisma },
         { provide: TeamManagerGuard, useValue: teamManagerGuard },
+        { provide: NotificationsService, useValue: notifications },
       ],
     }).compile();
     service = module.get(JerseyDutyService);
@@ -1092,7 +1123,7 @@ describe('JerseyDutyService', () => {
         },
         orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
         take: 200,
-        select: { id: true, teamId: true, startsAt: true },
+        select: { id: true, teamId: true, startsAt: true, opponentName: true },
       });
     });
 
@@ -1123,6 +1154,169 @@ describe('JerseyDutyService', () => {
       prisma.eventJerseyDuty.createMany.mockResolvedValue({ count: 0 });
 
       expect(await service.freezeDue(NOW)).toEqual({ considered: 1, frozen: 0 });
+    });
+  });
+  describe('notifications', () => {
+    const args = { userId: USER, forPlayerId: undefined };
+    const sent = () => notifications.notify.mock.calls.flatMap(([inputs]) => inputs);
+    const swapPending = () =>
+      dutyRow({
+        teamPlayerId: 'tp-a',
+        acceptedAt: NOW,
+        swapToTeamPlayerId: 'tp-b',
+        swapRequestedAt: NOW,
+      });
+
+    it('tells a manager-assigned player, with the match and date', async () => {
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-c');
+
+      expect(sent()).toEqual([
+        {
+          userId: 'u-tp-c',
+          type: 'JERSEY_DUTY_ASSIGNED',
+          title: 'Lavage des maillots',
+          body: 'Vous lavez les maillots après le match contre BC Rezé dimanche 4 oct.',
+          subjectFirstName: null,
+          deepLink: '/clubs/club-1/teams/team-1/events/event-1',
+        },
+      ]);
+    });
+
+    it('tells a child’s guardians, tagged and linked through the child’s club', async () => {
+      roster = [{ id: 'tp-k', first: 'Léo', last: 'Roy', userId: null, guardians: 1 }, ...roster];
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-k');
+
+      expect(sent()).toEqual([
+        expect.objectContaining({
+          userId: 'g-tp-k-0',
+          body: 'Léo lave les maillots après le match contre BC Rezé dimanche 4 oct.',
+          subjectFirstName: 'Léo',
+          deepLink: '/clubs/club-1/teams/team-1/events/event-1?pour=p-tp-k',
+        }),
+      ]);
+    });
+
+    it('does not notify the caller about their own assignment', async () => {
+      roster = [{ id: 'tp-m', first: 'Mia', last: 'Roy', userId: USER }, ...roster];
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-m');
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing when the same holder is re-assigned', async () => {
+      duty = dutyRow({ teamPlayerId: 'tp-c' });
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-c');
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing when a holder is cleared', async () => {
+      duty = dutyRow({ teamPlayerId: 'tp-c' });
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, null);
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing for a player nobody can reach', async () => {
+      roster = [{ id: 'tp-n', first: 'Noa', last: 'Roy', userId: null }, ...roster];
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-n');
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('links a self reader through the club they belong to on a CTC team', async () => {
+      prisma.clubTeam.findMany.mockResolvedValue([
+        { clubId: 'club-1', isOwner: true },
+        { clubId: 'club-2', isOwner: false },
+      ]);
+      prisma.clubMembership.findMany.mockResolvedValue([{ userId: 'u-tp-c', clubId: 'club-2' }]);
+
+      await service.assign('club-1', 'team-1', 'event-1', USER, 'tp-c');
+
+      expect(sent()[0].deepLink).toBe('/clubs/club-2/teams/team-1/events/event-1');
+    });
+
+    it('tells the swap target who proposes, and not the proposer', async () => {
+      personaTeamPlayerId = 'tp-c';
+
+      await service.proposeSwap('club-1', 'team-1', 'event-1', args, 'tp-b');
+
+      expect(sent()).toEqual([
+        expect.objectContaining({
+          userId: 'u-tp-b',
+          type: 'JERSEY_SWAP_REQUESTED',
+          title: 'Échange proposé',
+          body: 'Cleo P. vous propose de laver les maillots à sa place après le match contre BC Rezé dimanche 4 oct.',
+        }),
+      ]);
+    });
+
+    it('tells the previous holder, not the new one, when a swap is accepted', async () => {
+      duty = swapPending();
+      personaTeamPlayerId = 'tp-b';
+
+      await service.acceptSwap('club-1', 'team-1', 'event-1', args);
+
+      expect(sent()).toEqual([
+        expect.objectContaining({
+          userId: 'u-tp-a',
+          type: 'JERSEY_DUTY_ASSIGNED',
+          title: 'Lavage des maillots',
+          body: 'Bea M. a accepté votre échange. Elle lave les maillots après le match contre BC Rezé.',
+        }),
+      ]);
+    });
+
+    it('sends nothing when the swap claim was lost', async () => {
+      duty = swapPending();
+      personaTeamPlayerId = 'tp-b';
+      prisma.eventJerseyDuty.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.acceptSwap('club-1', 'team-1', 'event-1', args);
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('notifies nobody on a refused or cancelled swap', async () => {
+      duty = swapPending();
+      personaTeamPlayerId = 'tp-b';
+      await service.refuseSwap('club-1', 'team-1', 'event-1', args);
+      personaTeamPlayerId = 'tp-a';
+      await service.cancelSwap('club-1', 'team-1', 'event-1', args);
+
+      expect(notifications.notify).not.toHaveBeenCalled();
+    });
+
+    it('never fails the write when notifying rejects', async () => {
+      notifications.notify.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        service.assign('club-1', 'team-1', 'event-1', USER, 'tp-c'),
+      ).resolves.toBeDefined();
+    });
+
+    it('notifies only the rows the freeze job actually created', async () => {
+      prisma.event.findMany.mockResolvedValue([
+        { id: 'event-1', teamId: 'team-1', startsAt: PAST_MATCH, opponentName: 'BC Rezé' },
+      ]);
+      await service.freezeDue(NOW);
+      expect(sent()).toEqual([
+        expect.objectContaining({
+          userId: 'u-tp-c',
+          body: 'Vous lavez les maillots après le match contre BC Rezé dimanche 20 sept.',
+        }),
+      ]);
+
+      notifications.notify.mockClear();
+      prisma.eventJerseyDuty.createMany.mockResolvedValue({ count: 0 });
+      await service.freezeDue(NOW);
+      expect(notifications.notify).not.toHaveBeenCalled();
     });
   });
 });

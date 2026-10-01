@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { EventType, JerseyDutySource, Prisma, type PrismaClient } from '@prisma/client';
@@ -18,10 +19,25 @@ import {
 } from '@basketeasy/types/jersey-duty';
 import type { Gender } from '@basketeasy/types/teams';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import {
+  groupByRecipient,
+  recipientDeepLink,
+  resolvePlayerAudience,
+  type RecipientSubjects,
+} from '../common/player-audience';
+import { subjectLabel } from '../common/notification-subject';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { resolveActingTeamPlayer } from '../common/acting-as';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { seasonWindow, seasonYearFor } from '../common/season';
+import {
+  displayName,
+  jerseyDutyAssignedNotification,
+  jerseySwapAcceptedNotification,
+  jerseySwapRequestedNotification,
+  type NamedPlayer,
+} from './jersey-duty-notification-copy';
 import {
   isConvokedGoing,
   isCountedTurn,
@@ -35,6 +51,15 @@ import {
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
+// A notification a write queues while it holds its transaction and sends once
+// the transaction has committed: nothing is told about a write that rolled back.
+type AfterCommit = () => Promise<void>;
+
+interface MatchContext {
+  event: MatchRow;
+  team: TeamFacts;
+}
+
 // A new holder starts a clean turn: nothing of the previous holder's « Fait »
 // or void carries over to them.
 const RESET_TURN_FLAGS = {
@@ -45,7 +70,13 @@ const RESET_TURN_FLAGS = {
 } as const;
 
 // What the rotation needs of a match: nothing else is read off the event.
-type MatchRow = { id: string; teamId: string; type: EventType; startsAt: Date };
+type MatchRow = {
+  id: string;
+  teamId: string;
+  type: EventType;
+  startsAt: Date;
+  opponentName: string | null;
+};
 
 // A roster slot as the rotation reads it for one match: the rules' view plus
 // what a screen needs to draw the person.
@@ -110,9 +141,12 @@ function refused(
  */
 @Injectable()
 export class JerseyDutyService {
+  private readonly logger = new Logger(JerseyDutyService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---------------------------------------------------------------- reads
@@ -333,29 +367,46 @@ export class JerseyDutyService {
     { userId, forPlayerId }: PersonaArgs,
     targetTeamPlayerId: string,
   ): Promise<JerseyDutyDetail> {
-    return this.playerWrite(clubId, teamId, eventId, { userId, forPlayerId }, async (tx, s, me) => {
-      const holdsOrIsSuggested =
-        s.holderId === me ||
-        (s.detail.suggestion?.kind === 'SUGGESTED' &&
-          s.detail.suggestion.candidate.teamPlayerId === me);
-      if (!holdsOrIsSuggested) {
-        throw new ForbiddenException("Vous ne pouvez pas proposer d'échange pour ce match");
-      }
-      if (s.duty?.swapToTeamPlayerId) {
-        throw new ConflictException('Un échange est déjà en attente');
-      }
-      if (targetTeamPlayerId === me || !s.pool.some((e) => e.teamPlayerId === targetTeamPlayerId)) {
-        throw new BadRequestException(
-          'Cette personne ne peut pas laver les maillots de ce match (absente, exemptée ou indisponible)',
-        );
-      }
-      const now = new Date();
-      await this.takeDuty(tx, s, me, userId, now);
-      await tx.eventJerseyDuty.update({
-        where: { eventId },
-        data: { swapToTeamPlayerId: targetTeamPlayerId, swapRequestedAt: now },
-      });
-    });
+    return this.playerWrite(
+      clubId,
+      teamId,
+      eventId,
+      { userId, forPlayerId },
+      async (tx, s, me, ctx) => {
+        const holdsOrIsSuggested =
+          s.holderId === me ||
+          (s.detail.suggestion?.kind === 'SUGGESTED' &&
+            s.detail.suggestion.candidate.teamPlayerId === me);
+        if (!holdsOrIsSuggested) {
+          throw new ForbiddenException("Vous ne pouvez pas proposer d'échange pour ce match");
+        }
+        if (s.duty?.swapToTeamPlayerId) {
+          throw new ConflictException('Un échange est déjà en attente');
+        }
+        if (
+          targetTeamPlayerId === me ||
+          !s.pool.some((e) => e.teamPlayerId === targetTeamPlayerId)
+        ) {
+          throw new BadRequestException(
+            'Cette personne ne peut pas laver les maillots de ce match (absente, exemptée ou indisponible)',
+          );
+        }
+        const now = new Date();
+        await this.takeDuty(tx, s, me, userId, now);
+        await tx.eventJerseyDuty.update({
+          where: { eventId },
+          data: { swapToTeamPlayerId: targetTeamPlayerId, swapRequestedAt: now },
+        });
+        return () =>
+          this.notifyDuty(ctx.event, {
+            audienceTeamPlayerId: targetTeamPlayerId,
+            callerUserId: userId,
+            type: 'JERSEY_SWAP_REQUESTED',
+            namedTeamPlayerId: me,
+            copy: (subject, named) => jerseySwapRequestedNotification(ctx.event, named, subject),
+          });
+      },
+    );
   }
 
   async cancelSwap(
@@ -384,30 +435,50 @@ export class JerseyDutyService {
     eventId: string,
     { userId, forPlayerId }: PersonaArgs,
   ): Promise<JerseyDutyDetail> {
-    return this.playerWrite(clubId, teamId, eventId, { userId, forPlayerId }, async (tx, s, me) => {
-      if (s.duty?.swapToTeamPlayerId !== me) {
-        throw new ForbiddenException('Cet échange ne vous est pas proposé');
-      }
-      if (!s.pool.some((e) => e.teamPlayerId === me)) {
-        throw new ConflictException(
-          'Vous ne pouvez plus laver les maillots de ce match (absence, exemption ou refus)',
-        );
-      }
-      // First writer wins: a second guardian answering the same proposal finds
-      // nothing to claim and reads the settled state, not an error.
-      await tx.eventJerseyDuty.updateMany({
-        where: { eventId, swapToTeamPlayerId: me },
-        data: {
-          teamPlayerId: me,
-          source: JerseyDutySource.SWAP,
-          acceptedAt: new Date(),
-          acceptedByUserId: userId,
-          swapToTeamPlayerId: null,
-          swapRequestedAt: null,
-          ...RESET_TURN_FLAGS,
-        },
-      });
-    });
+    return this.playerWrite(
+      clubId,
+      teamId,
+      eventId,
+      { userId, forPlayerId },
+      async (tx, s, me, ctx) => {
+        if (s.duty?.swapToTeamPlayerId !== me) {
+          throw new ForbiddenException('Cet échange ne vous est pas proposé');
+        }
+        if (!s.pool.some((e) => e.teamPlayerId === me)) {
+          throw new ConflictException(
+            'Vous ne pouvez plus laver les maillots de ce match (absence, exemption ou refus)',
+          );
+        }
+        // First writer wins: a second guardian answering the same proposal finds
+        // nothing to claim and reads the settled state, not an error.
+        const previousHolderId = s.duty.teamPlayerId;
+        const { count } = await tx.eventJerseyDuty.updateMany({
+          where: { eventId, swapToTeamPlayerId: me },
+          data: {
+            teamPlayerId: me,
+            source: JerseyDutySource.SWAP,
+            acceptedAt: new Date(),
+            acceptedByUserId: userId,
+            swapToTeamPlayerId: null,
+            swapRequestedAt: null,
+            ...RESET_TURN_FLAGS,
+          },
+        });
+        // The conditional update lost (another guardian answered first): the
+        // winner's own write already told the previous holder.
+        if (count === 0 || !previousHolderId) return;
+        // The new holder accepted it themself, so it is the previous holder's
+        // audience that learns the swap went through.
+        return () =>
+          this.notifyDuty(ctx.event, {
+            audienceTeamPlayerId: previousHolderId,
+            callerUserId: userId,
+            type: 'JERSEY_DUTY_ASSIGNED',
+            namedTeamPlayerId: me,
+            copy: (subject, named) => jerseySwapAcceptedNotification(ctx.event, named, subject),
+          });
+      },
+    );
   }
 
   async refuseSwap(
@@ -448,10 +519,12 @@ export class JerseyDutyService {
         throw new BadRequestException("Ce membre n'est pas inscrit sur l'effectif de cette équipe");
       }
     }
+    let assigned = false;
     await this.prisma.$transaction(async (tx) => {
       const current = await tx.eventJerseyDuty.findUnique({ where: { eventId } });
       if (teamPlayerId) {
         if (current?.teamPlayerId === teamPlayerId) return;
+        assigned = true;
         await tx.eventJerseyDuty.upsert({
           where: { eventId },
           create: { eventId, teamPlayerId, source: JerseyDutySource.MANAGER },
@@ -484,6 +557,17 @@ export class JerseyDutyService {
         });
       }
     });
+    // Clearing a holder notifies nobody (decision 12: on assignment only).
+    if (assigned && teamPlayerId) {
+      await this.bestEffort(() =>
+        this.notifyDuty(event, {
+          audienceTeamPlayerId: teamPlayerId,
+          callerUserId: userId,
+          type: 'JERSEY_DUTY_ASSIGNED',
+          copy: (subject) => jerseyDutyAssignedNotification(event, subject),
+        }),
+      );
+    }
     return this.getDetail(clubId, teamId, eventId, userId);
   }
 
@@ -533,7 +617,7 @@ export class JerseyDutyService {
       },
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
       take: FREEZE_BATCH_SIZE,
-      select: { id: true, teamId: true, startsAt: true },
+      select: { id: true, teamId: true, startsAt: true, opponentName: true },
     });
 
     let frozen = 0;
@@ -560,6 +644,17 @@ export class JerseyDutyService {
         skipDuplicates: true,
       });
       frozen += count;
+      // Only a row this run actually created: a concurrent write won otherwise.
+      if (count > 0) {
+        await this.bestEffort(() =>
+          this.notifyDuty(match, {
+            audienceTeamPlayerId: first.teamPlayerId,
+            callerUserId: null,
+            type: 'JERSEY_DUTY_ASSIGNED',
+            copy: (subject) => jerseyDutyAssignedNotification(match, subject),
+          }),
+        );
+      }
     }
     return { considered: matches.length, frozen };
   }
@@ -571,10 +666,16 @@ export class JerseyDutyService {
     teamId: string,
     eventId: string,
     { userId, forPlayerId }: PersonaArgs,
-    apply: (tx: Prisma.TransactionClient, state: DetailState, personaId: string) => Promise<void>,
+    apply: (
+      tx: Prisma.TransactionClient,
+      state: DetailState,
+      personaId: string,
+      ctx: MatchContext,
+    ) => Promise<AfterCommit | void>,
   ): Promise<JerseyDutyDetail> {
     const { event, team } = await this.loadMatch(clubId, teamId, eventId);
     const now = new Date();
+    let afterCommit = undefined as AfterCommit | undefined;
     await this.prisma.$transaction(async (tx) => {
       const persona = await resolveActingTeamPlayer(tx, { userId, teamId, forPlayerId });
       if (!persona) {
@@ -595,8 +696,9 @@ export class JerseyDutyService {
         isManager: false,
         now,
       });
-      await apply(tx, state, persona.id);
+      afterCommit = (await apply(tx, state, persona.id, { event, team })) || undefined;
     });
+    if (afterCommit) await this.bestEffort(afterCommit);
     return this.getDetail(clubId, teamId, eventId, userId, forPlayerId);
   }
 
@@ -656,6 +758,104 @@ export class JerseyDutyService {
     });
   }
 
+  // Notifying is a side effect of the write, never a precondition for it.
+  private async bestEffort(send: AfterCommit): Promise<void> {
+    try {
+      await send();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Jersey duty notification failed: ${message}`);
+    }
+  }
+
+  /**
+   * Tells one roster slot's audience (the player's own account and every
+   * guardian, one row per reader) about a duty change. The caller is dropped
+   * from the recipients: a guardian who assigns as a manager, or proposes a
+   * swap for their child, doesn't notify themself. A slot nobody can be told
+   * about (no account, no guardian) writes nothing.
+   */
+  private async notifyDuty(
+    match: { id: string; teamId: string; startsAt: Date; opponentName: string | null },
+    input: {
+      audienceTeamPlayerId: string;
+      callerUserId: string | null;
+      type: 'JERSEY_DUTY_ASSIGNED' | 'JERSEY_SWAP_REQUESTED';
+      /** The roster slot the sentence names (the proposer, the new holder), when it names one. */
+      namedTeamPlayerId?: string;
+      copy: (subject: RecipientSubjects, named: NamedPlayer) => { title: string; body: string };
+    },
+  ): Promise<void> {
+    const audience = await resolvePlayerAudience(this.prisma, [input.audienceTeamPlayerId]);
+    const recipients = groupByRecipient(audience).filter((r) => r.userId !== input.callerUserId);
+    if (recipients.length === 0) return;
+
+    let named: NamedPlayer | null = null;
+    if (input.namedTeamPlayerId) {
+      const row = await this.prisma.teamPlayer.findUnique({
+        where: { id: input.namedTeamPlayerId },
+        select: {
+          player: { select: { firstName: true, lastName: true, gender: true } },
+          team: { select: { gender: true } },
+        },
+      });
+      if (row) {
+        named = {
+          displayName: displayName(row.player),
+          gender: row.player.gender ?? row.team.gender,
+        };
+      }
+    }
+    // Every copy that names someone needs the name; without it say nothing.
+    if (input.namedTeamPlayerId && !named) return;
+
+    const clubByUser = await this.navigationClubs(
+      match.teamId,
+      recipients.filter((r) => r.self).map((r) => r.userId),
+    );
+    const path = (clubId: string) => `/clubs/${clubId}/teams/${match.teamId}/events/${match.id}`;
+    await this.notifications.notify(
+      recipients.map((recipient) => {
+        const copy = input.copy(recipient, named as NamedPlayer);
+        return {
+          userId: recipient.userId,
+          type: input.type,
+          title: copy.title,
+          body: copy.body,
+          subjectFirstName: subjectLabel(recipient),
+          deepLink: recipientDeepLink(
+            recipient,
+            path(clubByUser.get(recipient.userId) ?? ''),
+            path,
+          ),
+        };
+      }),
+    );
+  }
+
+  // For a reader concerned themself, the club they belong to among the team's
+  // linked clubs (the owner, then any, as a fallback), so a CTC match never
+  // links through a club that would 403 them. One query per link set and one
+  // for the memberships, however many readers.
+  private async navigationClubs(teamId: string, userIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (userIds.length === 0) return result;
+    const links = await this.prisma.clubTeam.findMany({
+      where: { teamId },
+      select: { clubId: true, isOwner: true },
+    });
+    if (links.length === 0) return result;
+    const fallback = (links.find((l) => l.isOwner) ?? links[0]).clubId;
+    const memberships = await this.prisma.clubMembership.findMany({
+      where: { userId: { in: userIds }, clubId: { in: links.map((l) => l.clubId) } },
+      select: { userId: true, clubId: true },
+    });
+    for (const userId of userIds) {
+      result.set(userId, memberships.find((m) => m.userId === userId)?.clubId ?? fallback);
+    }
+    return result;
+  }
+
   private async assertTeamInClub(clubId: string, teamId: string): Promise<void> {
     const clubTeam = await this.prisma.clubTeam.findUnique({
       where: { clubId_teamId: { clubId, teamId } },
@@ -676,7 +876,7 @@ export class JerseyDutyService {
     const [event, team] = await Promise.all([
       this.prisma.event.findUnique({
         where: { id: eventId },
-        select: { id: true, teamId: true, type: true, startsAt: true },
+        select: { id: true, teamId: true, type: true, startsAt: true, opponentName: true },
       }),
       this.prisma.team.findUniqueOrThrow({
         where: { id: teamId },

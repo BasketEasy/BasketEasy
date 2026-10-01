@@ -30,7 +30,8 @@ describe('jersey wash rotation against Postgres', () => {
     });
 
   const manager = { isTeamManager: async () => false } as unknown as TeamManagerGuard;
-  const dutyService = () => new JerseyDutyService(asService(prisma), manager);
+  const dutyService = () =>
+    new JerseyDutyService(asService(prisma), manager, { notify: async () => undefined } as never);
 
   // The statements after the migration's « Backfill » marker, run as written:
   // the spec exercises the SQL that ships, not a copy of it.

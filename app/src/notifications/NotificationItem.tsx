@@ -7,11 +7,13 @@ import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { ChartBarsIcon } from '@basketeasy/ui/icons/chart-bars';
 import { RouteIcon } from '@basketeasy/ui/icons/route';
+import { SwapIcon } from '@basketeasy/ui/icons/swap';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { WarningIcon } from '@basketeasy/ui/icons/warning';
 import { ListItem } from '@basketeasy/ui/list';
 import { Text } from '@basketeasy/ui/text';
 import type { AppNotification, NotificationType } from '@basketeasy/types/notifications';
+import { JerseyIcon } from '../clubs/eventLogisticsIcons';
 import { formatNotificationAge } from './notificationTime';
 
 // Which icon, and which badge tone, says what a notification is about. The
@@ -29,6 +31,8 @@ const TYPE_BADGE: Record<
   EVENT_VENUE_CHANGED: { Icon: BuildingIcon, tone: 'accent' },
   GUEST_INVITE_REQUESTED: { Icon: UsersIcon, tone: 'structure' },
   WHATSAPP_SHARE_REQUESTED: { Icon: UsersIcon, tone: 'structure' },
+  JERSEY_DUTY_ASSIGNED: { Icon: JerseyIcon, tone: 'structure' },
+  JERSEY_SWAP_REQUESTED: { Icon: SwapIcon, tone: 'structure' },
 };
 
 interface NotificationItemProps {
