@@ -1,0 +1,160 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-01T12:20:10Z"
+  },
+  "title": "Lavage des maillots",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Joueuse · suggérée"
+    },
+    "Accepte.dc.html": {
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Joueuse · acceptée"
+    },
+    "Coequipier.dc.html": {
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Coéquipière · lecture"
+    },
+    "Echange.dc.html": {
+      "x": 1410,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Feuille · échange"
+    },
+    "Echange-attente.dc.html": {
+      "x": 1880,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Échange · en attente"
+    },
+    "Echange-cible.dc.html": {
+      "x": 2350,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Échange · reçu"
+    },
+    "Parent.dc.html": {
+      "x": 0,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Parent · pour Léo"
+    },
+    "Parent-2.dc.html": {
+      "x": 470,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Autre parent · déjà accepté"
+    },
+    "Coach-avant.dc.html": {
+      "x": 940,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Coach · avant le match"
+    },
+    "Coach-apres.dc.html": {
+      "x": 1410,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Coach · après le match"
+    },
+    "Vide.dc.html": {
+      "x": 1880,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Aucune suggestion"
+    },
+    "Plus-tard.dc.html": {
+      "x": 2350,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "title": "Match suivant · pas encore"
+    },
+    "Equipe.dc.html": {
+      "x": 0,
+      "y": 1928,
+      "w": 390,
+      "h": 1000,
+      "title": "Équipe · rotation (joueuse)"
+    },
+    "Equipe-coach.dc.html": {
+      "x": 470,
+      "y": 1928,
+      "w": 390,
+      "h": 1060,
+      "title": "Équipe · rotation (coach)"
+    },
+    "Notifications.dc.html": {
+      "x": 940,
+      "y": 1928,
+      "w": 390,
+      "h": 844,
+      "title": "Notifications"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Accepte.dc.html",
+    "Coequipier.dc.html",
+    "Echange.dc.html",
+    "Echange-attente.dc.html",
+    "Echange-cible.dc.html",
+    "Parent.dc.html",
+    "Parent-2.dc.html",
+    "Coach-avant.dc.html",
+    "Coach-apres.dc.html",
+    "Vide.dc.html",
+    "Plus-tard.dc.html",
+    "Equipe.dc.html",
+    "Equipe-coach.dc.html",
+    "Notifications.dc.html"
+  ],
+  "notes": {
+    "r1": {
+      "x": 0,
+      "y": -260,
+      "text": "Joueuse : suggestion, acceptation, échange",
+      "kind": "title1",
+      "maxW": 2740
+    },
+    "r2": {
+      "x": 0,
+      "y": 704,
+      "text": "Parents, coach, cas vides",
+      "kind": "title1",
+      "maxW": 2740
+    },
+    "r3": {
+      "x": 0,
+      "y": 1668,
+      "text": "Équipe et notifications",
+      "kind": "title1",
+      "maxW": 1330
+    }
+  },
+  "designSystems": []
+}

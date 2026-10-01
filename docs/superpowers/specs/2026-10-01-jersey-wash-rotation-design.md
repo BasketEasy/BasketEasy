@@ -2,6 +2,8 @@
 
 **Status:** spec, not built. **Date:** 2026-10-01.
 
+Design: [Claude Design canvas](https://claude.ai/artifact/WfheFmiZ484WwFcmHRzvb7), validated. Source in [`assets/2026-10-01-jersey-wash-rotation/`](./assets/2026-10-01-jersey-wash-rotation/) (one `.dc.html` per artboard, open in a browser). Parts 3 and 4 build these screens **pixel for pixel**: same copy, spacing, hierarchy and states, every value through the existing primitives and `tailwind-preset.cjs` tokens (the canvas's CSS mirrors them; a value that has no token is a new token, never an arbitrary class). Each part's PR attaches screenshots side by side with the matching artboards.
+
 ## Problem
 
 After a match someone takes the team's jersey set home, washes it and brings it back to the next match. Clubs run this as a rotation, usually by jersey number, tracked on paper or in a WhatsApp group.
@@ -141,6 +143,20 @@ New `NotificationType`s, copy in `server/src/events/jersey-duty-notification-cop
 - `JERSEY_SWAP_REQUESTED` « Échange proposé » — « Emma M. vous propose de laver les maillots à sa place après le match contre X. » Needed for decision 11 to work at all; strictly an assignment proposal, so within « on assignment ».
 
 ## Frontend
+
+Artboard → part:
+
+| Artboard                                      | What                                     | Part |
+| --------------------------------------------- | ---------------------------------------- | ---- |
+| `Main` « Joueuse · suggérée »                 | Suggested player, three actions          | 3    |
+| `Accepte` « Joueuse · acceptée »              | Accepted state + success toast           | 3    |
+| `Coequipier` « Coéquipière · lecture »        | Read-only for the rest of the team       | 3    |
+| `Echange`, `Echange-attente`, `Echange-cible` | Swap sheet, pending swap, swap received  | 3    |
+| `Parent`, `Parent-2`                          | Guardian acting for Léo, second guardian | 3    |
+| `Coach-avant`, `Coach-apres`                  | Manager before / after kickoff           | 3    |
+| `Vide`, `Plus-tard`                           | No suggestion, later match               | 3    |
+| `Equipe`, `Equipe-coach`                      | Team page rotation, manager toggles      | 4    |
+| `Notifications`                               | The two notification types in the feed   | 2    |
 
 - **Match page** (`EventLogisticsCard`, MATCH branch): the « Maillots » row becomes « Lavage des maillots » with, top to bottom: « Apportés par Lucas D. » (derived), then the holder or the suggestion (« Suggestion : Emma M. · 2 lavages cette saison »), then the actions for the reader: « C'est noté », « Je ne peux pas », « Proposer un échange » (a `Dialog` listing the pool, react-hook-form), and for a manager a `SelectField` to assign plus « Fait » / « Annuler ce tour ». A pending swap shows on both sides. Outcomes as `toast()`.
 - **Team page**: « Lavage des maillots » section (`SectionHeading`), a `ResponsiveTable` per player: lavages cette saison, dernier lavage, « Exempté » `Badge`, next match's suggestion on top. Visible to the whole team; manager-only exemption toggle inline per row.
