@@ -19,7 +19,7 @@ boundary is weakened or redefined.
 
 Works on a free private repo: no branch protection, rulesets or auto-merge needed.
 
-1. Secret `ANTHROPIC_API_KEY`.
+1. Secret `CLAUDE_CODE_OAUTH_TOKEN`: run `claude setup-token` locally (uses your Claude subscription, no per-token billing).
 2. Secret `REVIEW_AGENT_TOKEN`: fine-grained PAT with `contents` and `pull_requests` write.
    Needed so a merge triggers `deploy.yml`.
 3. Settings, Actions: allow Actions to create and approve pull requests.
