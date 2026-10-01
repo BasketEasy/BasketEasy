@@ -15,10 +15,11 @@ Rules live in `CLAUDE.md` (« Events module », « Notifications module »). Thi
   A « from today » scope keyed on wall-clock time was rejected: the same click would mean different
   things depending on when the request is processed.
 - **Bulk date shifting is cut** (holidays, manually moved occurrences). The one cheap corner,
-  moving the time of day while each row keeps its date, is its own route. No per-club timezone
-  exists: the client resolves the wall-clock time against the anchor's date and sends one UTC
-  hour/minute, so occurrences across a DST change can land an hour off. Accepted until the app
-  stores a club timezone.
+  moving the time of day while each row keeps its date, is its own route.
+- **Series live in Europe/Paris wall-clock time.** There is no per-club timezone, so weeks are
+  stepped and the bulk time of day is resolved in Paris time per row (`server/src/common/paris-time.ts`).
+  Stepping 7 × 24 h in UTC, or applying one UTC hour to every row, put every occurrence after a
+  DST change an hour off (fixed in #329, with a data migration realigning stored series).
 - `createEvent` and `updateEvent` always return arrays, so a scoped update has one shape.
 - The delete-scope choice sits inside a confirm dialog: a scope picked inline next to « Supprimer »
   could be applied by a stray click on an irreversible action.

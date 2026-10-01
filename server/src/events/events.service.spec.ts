@@ -984,6 +984,42 @@ describe('EventsService', () => {
       expect(result.every((e) => e.recurrenceId === recurrenceIds[0])).toBe(true);
     });
 
+    it('keeps the Paris wall-clock time across a DST change', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockImplementation(({ data }: { data: { startsAt: Date } }) =>
+        Promise.resolve({
+          id: `event-${data.startsAt.toISOString()}`,
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: data.startsAt,
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: null,
+          recurrenceId: 'series-1',
+          createdAt: new Date('2026-01-01'),
+        }),
+      );
+
+      // 19:00 in Paris on both sides of 25 October 2026 (UTC+2 → UTC+1).
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-10-21T17:00:00.000Z',
+          location: 'Gymnase A',
+          recurrence: { frequency: 'WEEKLY', until: '2026-11-04T18:00:00.000Z' },
+        },
+        'user-1',
+      );
+
+      expect(result.map((e) => e.startsAt)).toEqual([
+        '2026-10-21T17:00:00.000Z',
+        '2026-10-28T18:00:00.000Z',
+        '2026-11-04T18:00:00.000Z',
+      ]);
+    });
+
     it('throws BadRequestException when the recurrence end date is before the start date', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
@@ -1882,7 +1918,7 @@ describe('EventsService', () => {
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    it('scope ALL applies the given UTC hour/minute to every row in the series, keeping each date unchanged', async () => {
+    it('scope ALL applies the given Paris hour/minute to every row in the series, keeping each date unchanged', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue({
         id: 'event-2',
@@ -1968,9 +2004,9 @@ describe('EventsService', () => {
       expect(prisma.event.update).toHaveBeenCalledTimes(3);
       expect(result).toHaveLength(3);
       expect(result.map((e) => e.startsAt)).toEqual([
-        '2026-01-05T19:30:00.000Z',
-        '2026-01-12T19:30:00.000Z',
-        '2026-01-19T19:30:00.000Z',
+        '2026-01-05T18:30:00.000Z',
+        '2026-01-12T18:30:00.000Z',
+        '2026-01-19T18:30:00.000Z',
       ]);
     });
 
@@ -2047,8 +2083,8 @@ describe('EventsService', () => {
       });
       expect(prisma.event.update).toHaveBeenCalledTimes(2);
       expect(result.map((e) => e.startsAt)).toEqual([
-        '2026-01-12T20:00:00.000Z',
-        '2026-01-19T20:00:00.000Z',
+        '2026-01-12T19:00:00.000Z',
+        '2026-01-19T19:00:00.000Z',
       ]);
     });
   });
