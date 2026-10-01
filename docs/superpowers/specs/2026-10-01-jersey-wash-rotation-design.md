@@ -168,7 +168,7 @@ Artboard → part:
 One spec per part, each one PR:
 
 1. Backend: schema + migration + backfill, `TeamEvent.jerseyDuty`, duty routes, suggestion, freeze job, rotation overview. Unit specs + a `test/db` case for the backfill and the `SetNull` on roster removal. Built; the corrections found in the code and the rules as shipped are in [`../../decisions/events.md`](../../decisions/events.md) (« Jersey wash rotation »).
-2. Notifications: the two types, audience fan-out, copy. Spec: [`2026-10-01-jersey-wash-rotation-2-notifications.md`](./2026-10-01-jersey-wash-rotation-2-notifications.md) (artboard `Notifications`).
+2. Notifications: the two types, audience fan-out, copy. Built; the rules as shipped are in [`../../decisions/notifications.md`](../../decisions/notifications.md) and `CLAUDE.md` (« Notifications module »).
 3. Match page card + swap dialog, agenda chip. Spec: [`2026-10-01-jersey-wash-rotation-3-match-page.md`](./2026-10-01-jersey-wash-rotation-3-match-page.md) (artboards `Main` … `Plus-tard`).
 4. Team page section + exemption toggle. Spec: [`2026-10-01-jersey-wash-rotation-4-team-page.md`](./2026-10-01-jersey-wash-rotation-4-team-page.md) (artboards `Equipe`, `Equipe-coach`).
 

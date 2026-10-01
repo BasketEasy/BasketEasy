@@ -28,6 +28,7 @@ frontend »). This is the reasoning, decided with the product owner.
   (`support: 'unsupported'`) rather than offering a control that would fail.
 - **Cancellation goes to the convoked**, not the whole roster: it is only news to someone expecting
   to be there.
+- **Jersey wash rotation has two types**, `JERSEY_DUTY_ASSIGNED` and `JERSEY_SWAP_REQUESTED`, sent on assignment only (decision 12): a swap refused or cancelled, a holder cleared and a turn voided notify nobody, and the proposer sees the outcome on the match page. On an accepted swap the **previous holder's** audience is told (the new holder accepted it themself), and the caller never notifies themself.
 - **Dates are Europe/Paris** in every copy: there is no per-club timezone, and UTC would print a
   20:30 match as 19:30 for every French reader.
 - **Copy for parents** names the child, merges subjects into one message per reader (« Léo et vous

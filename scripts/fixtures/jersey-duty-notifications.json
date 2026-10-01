@@ -1,0 +1,69 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "camille.martin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": false,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [
+      {
+        "id": "n-1",
+        "type": "JERSEY_DUTY_ASSIGNED",
+        "title": "Lavage des maillots",
+        "body": "Inès B. a accepté votre échange. Elle lave les maillots après le match contre BC Rezé.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-1",
+        "subjectFirstName": null,
+        "readAt": null,
+        "createdAt": "2026-10-01T10:30:00.000Z"
+      },
+      {
+        "id": "n-2",
+        "type": "JERSEY_SWAP_REQUESTED",
+        "title": "Échange proposé",
+        "body": "Emma M. vous propose de laver les maillots à sa place après le match contre BC Rezé samedi 4 oct.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-1",
+        "subjectFirstName": null,
+        "readAt": null,
+        "createdAt": "2026-10-01T09:00:00.000Z"
+      },
+      {
+        "id": "n-3",
+        "type": "JERSEY_DUTY_ASSIGNED",
+        "title": "Lavage des maillots",
+        "body": "Léo lave les maillots après le match contre ASPTT Nantes samedi 4 oct.",
+        "deepLink": "/clubs/club-1/teams/team-1/events/event-2?pour=player-1",
+        "subjectFirstName": "Léo",
+        "readAt": "2026-10-01T09:30:00.000Z",
+        "createdAt": "2026-09-30T18:00:00.000Z"
+      }
+    ],
+    "unreadCount": 2
+  }
+}

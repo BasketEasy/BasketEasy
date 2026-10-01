@@ -37,6 +37,18 @@ export function formatShortDate(date: Date): string {
   return SHORT_DATE_FORMAT.format(date);
 }
 
+const WEEKDAY_SHORT_DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'short',
+  timeZone: TIMEZONE,
+});
+
+/** e.g. "samedi 4 oct." */
+export function formatWeekdayShortDate(date: Date): string {
+  return WEEKDAY_SHORT_DATE_FORMAT.format(date);
+}
+
 /** e.g. "20:30" */
 export function formatTime(date: Date): string {
   return TIME_FORMAT.format(date);

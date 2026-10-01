@@ -115,6 +115,8 @@ enum NotificationType {
   EVENT_VENUE_CHANGED
   GUEST_INVITE_REQUESTED
   WHATSAPP_SHARE_REQUESTED
+  JERSEY_DUTY_ASSIGNED
+  JERSEY_SWAP_REQUESTED
 }
 
 // One in-app notification addressed to one user.

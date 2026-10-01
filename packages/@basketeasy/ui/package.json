@@ -287,6 +287,10 @@
       "types": "./src/components/icons/UserIcon.tsx",
       "default": "./src/components/icons/UserIcon.tsx"
     },
+    "./icons/swap": {
+      "types": "./src/components/icons/SwapIcon.tsx",
+      "default": "./src/components/icons/SwapIcon.tsx"
+    },
     "./icons/route": {
       "types": "./src/components/icons/RouteIcon.tsx",
       "default": "./src/components/icons/RouteIcon.tsx"

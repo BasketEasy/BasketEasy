@@ -15,7 +15,9 @@ export type NotificationType =
   | 'EVENT_MEETING_CHANGED'
   | 'EVENT_VENUE_CHANGED'
   | 'GUEST_INVITE_REQUESTED'
-  | 'WHATSAPP_SHARE_REQUESTED';
+  | 'WHATSAPP_SHARE_REQUESTED'
+  | 'JERSEY_DUTY_ASSIGNED'
+  | 'JERSEY_SWAP_REQUESTED';
 
 export interface AppNotification {
   id: string;
