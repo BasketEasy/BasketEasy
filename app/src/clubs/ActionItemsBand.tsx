@@ -4,7 +4,7 @@ import { ActionItemRow } from './ActionItemRow';
 
 /**
  * The manager's « À traiter » band — four bounded, already-computed things
- * that need attention (`docs/ux-audit/player-journey.md` §6.6). Two call
+ * that need attention (`docs/personas.md`). Two call
  * sites share it: `ManagerHome` (every managed team)
  * and `TeamEventsTab` (this team's own items only, pre-filtered by the
  * caller against `item.teamId`) — rather than each re-deriving the

@@ -15,7 +15,7 @@ import { getClubErrorMessage } from './clubErrorMessages';
  * The club hero's fact: its FFBB club code. Inline (not a Dialog), same
  * treatment as the team-link disclosure, since the code is a single optional,
  * unvalidated field with no destructive action to guard
- * (docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md).
+ * (docs/decisions/ffbb.md).
  *
  * A missing code is a neutral tile, never an accent one: the code drives
  * nothing (`ClubsService.setFfbbLink` stores it unvalidated), so it is not a

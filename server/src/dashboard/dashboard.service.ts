@@ -237,7 +237,7 @@ export class DashboardService {
     };
   }
 
-  // The manager's « À traiter » band (docs/ux-audit/player-journey.md §6.6).
+  // The manager's « À traiter » band (docs/personas.md).
   // Sibling to the three resolvers above, same early-return shape — but
   // gated on "does this caller manage anything" rather than teamIds.length,
   // since teamIds also includes teams the caller is merely rostered on and a

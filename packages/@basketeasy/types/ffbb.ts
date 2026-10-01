@@ -67,7 +67,7 @@ export interface PouleMatchday {
 
 /**
  * A team's whole poule, read live from FFBB — never persisted (see
- * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md). Empty
+ * docs/decisions/ffbb.md). Empty
  * `standings`/`matchdays` is not an error: it's the normal shape before a
  * poule's first journée has been played.
  */

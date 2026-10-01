@@ -7,7 +7,7 @@ import type { AdminPersonRef } from '@basketeasy/types/platform-admin-browse';
  * DATA_OFFICER rule is decided once, on the server: a SUPPORT caller never
  * receives a name or an e-mail local part it would then be trusted to hide.
  *
- * See docs/superpowers/specs/2026-09-28-backoffice-v2-part1-read-api.md §3.
+ * See docs/decisions/rgpd-and-backoffice.md.
  */
 
 interface NamedRow {

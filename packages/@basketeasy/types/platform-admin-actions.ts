@@ -1,7 +1,7 @@
 // Back-office support actions: named, reason-carrying writes staff make on a
 // club's behalf. Every one is audited as ADMIN_SUPPORT_ACTION with the action
 // in `metadata.action` and the reason in `metadata.reason`.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 
 import type { ClubRole } from './club-members';
 

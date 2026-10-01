@@ -122,8 +122,8 @@ function AppHeaderResolved() {
 
   // Non-navigating: opens/closes the switcher panel and lets an admin
   // change ActiveClubContext's active club. Navigation to a club's roster is
-  // the separate "Effectif" link, not this chip/panel — see
-  // docs/ux-audit/scoping-plan.md's item 3 for the resolved click model. On a
+  // the separate "Effectif" link, not this chip/panel (one non-navigating
+  // toggle, one link, settled in design review). On a
   // phone the equivalent switcher lives on `/account` instead (this header
   // doesn't render there at all).
   const switcher = adminClubs.length > 0 && (

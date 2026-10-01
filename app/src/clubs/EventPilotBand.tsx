@@ -21,10 +21,8 @@ import { useEventRoster, type EventRosterCounts } from './useEventRoster';
 import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /**
- * Nothing sends a reminder yet: no mailer and no scheduled job exist in
- * `server/src`, and the BullMQ "scheduled reminders" of
- * `docs/architecture.md` are unbuilt. That is `player-journey.md` §6.7 and
- * the implementation plan's phase 10+, deliberately *not* this phase.
+ * No reminder to non-responders exists yet (see « Open » in
+ * `docs/decisions/events.md`), so nothing here sends one.
  *
  * The button ships disabled rather than hidden because the gap it names is
  * the single most consequential one on this screen — a coach reading "2 sans

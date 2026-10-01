@@ -27,7 +27,7 @@ import { adminActionErrorMessage, reasonSchema, toastActionDone } from './adminA
 import { useAdminAction } from './useAdminAction';
 
 // The confirm step every support action goes through, per the validated
-// canvas linked from docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md:
+// canvas (https://claude.ai/artifact/KPyBhRHf8cQPgjEg26BGa2):
 // what will happen, the facts it acts on, a mandatory reason, confirm/cancel.
 // A centred dialog on desktop, a bottom sheet on a phone.
 

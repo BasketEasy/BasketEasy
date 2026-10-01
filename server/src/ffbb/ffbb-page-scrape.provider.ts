@@ -28,14 +28,14 @@ const TRAILING_ENGAGEMENT_ID_PATTERN = /\/equipes\/(\d+)\/?$/;
 // engagement ref (`.../clubs/<code>/equipes/<id>`), which is why detail
 // paths are always read off the fetched page rather than composed.
 // The match id is matched as an opaque token, not as digits: ids are FFBB's
-// to shape (see the parent spec's "never parse an FFBB identifier" rule).
+// to shape (docs/decisions/ffbb.md: never parse an FFBB identifier).
 const MATCH_DETAIL_PATH_PATTERN =
   /(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+\/match\/([A-Za-z0-9-]+))/g;
 
 // Strips a match detail path's own `/match/<id>` tail, leaving the
 // competition page's own path — the same prefix a poule standings page
 // resolves at, just with `?phase=<id>&poule=<id>` appended (see
-// docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md).
+// docs/decisions/ffbb.md).
 const COMPETITION_PATH_FROM_DETAIL_PATTERN = /^(.*)\/match\/[^/]+$/;
 
 // The poule standings/results page — confirmed against a real captured
@@ -72,7 +72,7 @@ const USER_AGENT =
 // Venue field names are unverified against a live detail page (this
 // design's sandbox has no egress to competitions.ffbb.com), so extraction
 // recognizes several plausible spellings instead of betting on one. See
-// docs/superpowers/specs/2026-09-01-ffbb-match-venue-address-design.md.
+// docs/decisions/ffbb.md.
 const VENUE_NAME_KEYS = [
   'nomSalle',
   'libelleSalle',
@@ -199,8 +199,7 @@ interface DetailPathIndex {
 }
 
 // Best-effort candidate keys for a competition/poule display label — no
-// field for this was confirmed during research (see the design spec's
-// research notes); if FFBB's payload doesn't carry any of these, the label
+// field for this was confirmed during research (see docs/decisions/ffbb.md); if FFBB's payload doesn't carry any of these, the label
 // stays null and the frontend falls back to neutral copy ("Compétition
 // liée").
 const COMPETITION_LABEL_CANDIDATE_KEYS = [
@@ -233,7 +232,7 @@ interface RawFfbbMatch {
   [key: string]: unknown;
 }
 
-/** A poule's standings row — see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md, confirmed via Fimeo/ffbb-api-ts's Classement type since every classements array captured so far is empty (pre-season). */
+/** A poule's standings row — see docs/decisions/ffbb.md, confirmed via Fimeo/ffbb-api-ts's Classement type since every classements array captured so far is empty (pre-season). */
 interface RawFfbbClassement {
   id?: unknown;
   idEngagement?: { id?: unknown; nom?: unknown } | null;
@@ -268,7 +267,7 @@ interface RawFfbbPoule {
  * pages (2026-09-01 match detail, 2026-09-03 poule standings, 2026-09-04
  * team engagement — sandbox egress to competitions.ffbb.com is blocked, so
  * captures were taken outside it and copied in as literal fixture text, not
- * re-derived from the design spec's guessed shape). Any shape it doesn't
+ * re-derived from a guessed shape). Any shape it doesn't
  * recognize throws FfbbPageFormatError rather than guessing — this is
  * deliberately the one file expected to need updates when FFBB's frontend
  * changes.
@@ -340,7 +339,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
   /**
    * `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>` — the
    * whole poule standings reference, built entirely from data this same
-   * fetch already pulled (see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md):
+   * fetch already pulled (see docs/decisions/ffbb.md):
    * a match detail link anywhere in the page gives the competition prefix,
    * any one raw match's own competitionId gives the phase id, and the page's
    * `dataEngagement` object gives the poule id (see its own comment — a raw

@@ -30,8 +30,7 @@ import { ListTeamPlayersDto } from './dto/list-team-players.dto';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
-// Exact copy from docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md's
-// "Copy reference (FR)" table — the single source both TeamCreateForm and
+// The single source both TeamCreateForm and
 // TeamFfbbLinkList's add-row render verbatim via ApiError.message, so the
 // two entry points can't drift into near-duplicate phrasing.
 const FFBB_LINK_BAD_SHAPE_MESSAGE =

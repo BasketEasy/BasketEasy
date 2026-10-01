@@ -12,8 +12,8 @@ import { PageBackLink } from '../../components/PageBar';
 
 // Page-level building blocks shared by every back-office screen: the header
 // with its breadcrumb, a labelled fact list, a titled section, and the list
-// footer. See the validated canvas linked from
-// docs/superpowers/specs/2026-09-28-backoffice-v2-part2-browse-ui.md.
+// footer. See the validated canvas:
+// https://claude.ai/artifact/BWG7d8qBDX7xRjKK5Xs5k7.
 
 /**
  * The page's title block, in the product's two shapes. With an `eyebrow` (the

@@ -16,13 +16,12 @@ import { useActingAs } from '../guardians/useActingAs';
  * views share (`GET /me/dashboard`, windowed differently per role — see
  * below), and its `error → loading` handoff to whichever view renders.
  * Everything else — tiles, agenda blocks, team cards, the post-match
- * surface — lives in `ManagerHome`/`PlayerHome`
- * (`docs/ux-audit/player-first-implementation-plan.md` §2 Phase 4).
+ * surface — lives in `ManagerHome`/`PlayerHome`.
  *
  * A plain rostered player sees an agenda-first "Ma semaine": the previous
  * screen served two counters and a team-card grid that duplicated
  * `MyTeamsPage` — a status readout, not a to-do list
- * (`docs/ux-audit/player-journey.md` §3.3). A manager's four stat tiles and
+ * (`docs/personas.md`). A manager's four stat tiles and
  * team cards stay exactly as they were: nothing about them was found broken,
  * so nothing about them changes here, other than which file they live in.
  *

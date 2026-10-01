@@ -1,6 +1,6 @@
 // The back-office statistics: growth, engagement and health, for the whole
 // platform or one club, over a selectable range bucketed by week.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part4-stats.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 //
 // Aggregates only: nothing here names or counts a single person.
 

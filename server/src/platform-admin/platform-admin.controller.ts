@@ -49,7 +49,7 @@ const RETENTION_RUN_HISTORY_LIMIT = 30;
  * product — it is the one place a compromised credential exposes every
  * club's roster at once rather than one club's own data — so the route list
  * stays at what the job actually needs and no more. See
- * docs/superpowers/specs/2026-09-06-backoffice-design.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Controller('admin')
 export class PlatformAdminController {

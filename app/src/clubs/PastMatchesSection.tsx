@@ -96,8 +96,7 @@ function PastMatchRow({ match }: { match: MyAgendaEvent }) {
  * « Après le match » — the post-match surface both homes render as a
  * preview and `/results` renders as the full list, all three reading the
  * same `pastMatchesWindowParams()`-windowed `useMyAgenda()` query and
- * passing it through here (`docs/ux-audit/player-first-implementation-plan.md`
- * §2 Phase 8). One component, three call sites — same "one component per
+ * passing it through here. One component, three call sites — same "one component per
  * record" rule `MyAgendaEventCard` already follows for the upcoming agenda.
  *
  * Query branches: `error → loading → empty → data`. `emptyState` is

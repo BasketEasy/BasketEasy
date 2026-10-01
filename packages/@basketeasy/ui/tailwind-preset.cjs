@@ -29,7 +29,7 @@ module.exports = {
         },
         // Best-player trophy/leaderboard accent (Vote tab) — distinct from
         // orange on purpose, so voting doesn't compete visually with the
-        // primary-action color. See docs/superpowers/specs/2026-08-27-match-interface-design.md.
+        // primary-action color. See docs/decisions/events.md.
         gold: { DEFAULT: '#C08A2E', text: '#8C5F16', tint: '#FBF1DC' },
         // Points-repartition ramp (PointsRepartitionBar). One hue — the
         // blue-green that already carries structure — stepped by lightness,

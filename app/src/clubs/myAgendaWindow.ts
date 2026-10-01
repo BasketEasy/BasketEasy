@@ -8,7 +8,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
  * — a match the *following* Saturday (10 days out, say) simply doesn't exist
  * on a Wednesday check-in, even though it's exactly the one with a
  * convocation to answer and travel to organise
- * (`docs/ux-audit/player-journey.md` §3.2). The server default stays put for
+ * (`docs/personas.md`). The server default stays put for
  * the manager view (unchanged in this phase); a player's « Ma semaine »
  * overrides it client-side with an explicit 14-day window instead.
  */

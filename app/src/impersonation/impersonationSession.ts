@@ -4,8 +4,8 @@ import { setImpersonationToken } from '../api/client';
 
 /**
  * The live read-only impersonation, if any: a DATA_OFFICER viewing the
- * product as another user. Design record:
- * docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+ * product as another user. Threat model:
+ * docs/decisions/rgpd-and-backoffice.md.
  *
  * Module state plus useSyncExternalStore, the same shape as the back-office's
  * platformSession: it is written from one dialog and one exit path, and read

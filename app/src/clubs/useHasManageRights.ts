@@ -7,7 +7,7 @@ export interface ManageRights {
   /**
    * True for anyone who administers at least one club or holds a `TeamAdmin`
    * grant on at least one team — the split the player-first revamp branches
-   * every role-aware screen on (`docs/ux-audit/player-journey.md` §4).
+   * every role-aware screen on (`docs/personas.md`).
    *
    * False while `isResolving` is still true: neither underlying query has
    * answered yet, so "no manage rights" is the *absence* of evidence, not

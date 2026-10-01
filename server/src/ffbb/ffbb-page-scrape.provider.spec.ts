@@ -254,7 +254,7 @@ describe('FfbbPageScrapeProvider', () => {
     // see PR description): rencontre rows in the page's own `data` array
     // never carry `idPoule` — only a sibling `dataEngagement.idPoule` object
     // does. `competitionId` (the phase id) IS still on the match row. See
-    // docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+    // docs/decisions/ffbb.md.
     it('derives it from a match detail link, a raw match competitionId, and dataEngagement.idPoule', async () => {
       const html = pushChunkHtml({
         data: [

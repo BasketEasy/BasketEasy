@@ -103,7 +103,7 @@ export type ActionItemKind =
   | 'MATCH_WITHOUT_CONFIRMED_SCORESHEET'
   | 'PLAYERS_WITHOUT_ACCOUNT';
 
-/** One row of the manager's « À traiter » band — `docs/ux-audit/player-journey.md` §6.6. */
+/** One row of the manager's « À traiter » band — `docs/personas.md`. */
 export interface ActionItem {
   kind: ActionItemKind;
   clubId: string;

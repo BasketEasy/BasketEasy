@@ -35,7 +35,7 @@ function importResultToast(result: FfbbImportResult) {
 
 /**
  * "Compétitions FFBB liées" — the team-detail section from
- * docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md: chips +
+ * docs/decisions/ffbb.md: chips +
  * an add row (sharing FfbbLinkField's copy with TeamCreateForm) + the
  * import button, all in one component since they're all driven by the same
  * link list. Renders nothing when there's nothing to see and nothing to do

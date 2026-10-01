@@ -11,8 +11,7 @@ import { useMyAgenda } from '../clubs/useMyAgenda';
  * `/results` — the bottom nav's third slot, real since phase 8. Reads the
  * same `pastMatchesWindowParams()`-windowed `GET /me/dashboard` and renders
  * the very `PastMatchesSection` both homes preview — this is the full-page
- * destination for that same list, not a second implementation of it
- * (`docs/ux-audit/player-first-implementation-plan.md` §2 Phase 8).
+ * destination for that same list, not a second implementation of it.
  *
  * Unlike the home previews, "no recent match" is worth an explicit empty
  * state here: this page's entire purpose is the list, so a blank page would

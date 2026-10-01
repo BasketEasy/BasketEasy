@@ -50,7 +50,7 @@ function actorOf(user: RequestUser, role: PlatformRole): PlatformActor {
  * decides from the caller's role. Every read that shows a DATA_OFFICER
  * people's names (a person list, a roster, an event, a search — any role's
  * search) writes ADMIN_PII_LISTED before answering. See
- * docs/superpowers/specs/2026-09-28-backoffice-v2-part1-read-api.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)

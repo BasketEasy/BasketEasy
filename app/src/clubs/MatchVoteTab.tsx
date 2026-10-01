@@ -318,7 +318,7 @@ function MatchVoteResultsCard({
 /**
  * Match detail page's Vote tab (`Vote.dc.html`) — a ballot (own vote, one
  * selection per category, WORST optional) alongside the results card, per
- * the match interface spec's Voting visibility section. No new roster
+ * the vote rules in `docs/decisions/events.md`. No new roster
  * endpoint: reuses useEventConvocations for the candidate list
  * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsCard.
  *

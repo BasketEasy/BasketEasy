@@ -380,7 +380,7 @@ describe('ScoresheetsService', () => {
     });
 
     // The mapping is what turns a read of a piece of paper into per-player
-    // season stats — see docs/superpowers/specs/2026-09-02-team-season-stats-design.md.
+    // season stats — see docs/decisions/scoresheets-and-stats.md.
     describe('roster mapping → MatchPlayerStat', () => {
       // Three plays for our #7 (a free throw, a two and a three), one for our
       // #9, and one for the opposing #7 — the last exists to prove a jersey

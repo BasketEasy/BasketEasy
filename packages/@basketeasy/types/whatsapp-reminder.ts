@@ -1,6 +1,5 @@
 // Sharing an event reminder to the team's WhatsApp group — see
-// docs/superpowers/specs/2026-09-29-whatsapp-reminder-design.md and the
-// Part 1 spec beside it. Shared so the settings preview and the server render
+// docs/decisions/guest-rsvp-and-whatsapp.md. Shared so the settings preview and the server render
 // a message identically.
 import type { EventRsvpRespondent } from './events';
 import { GUEST_WINDOW_DAYS } from './guest-links';

@@ -1159,8 +1159,8 @@ export class EventsService {
     return teamEvent;
   }
 
-  // Anonymous peer voting — see the match interface spec's Voting visibility
-  // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS (common/vote-window.ts) after kickoff
+  // Anonymous peer voting — see the vote rules in
+  // docs/decisions/events.md. Hard server-side window: opens VOTE_OPEN_DELAY_MS (common/vote-window.ts) after kickoff
   // (players are still on court right at the whistle) and closes
   // VOTE_CLOSE_DELAY_MS after kickoff, both enforced here, not just
   // client-displayed. Only a roster member both marked GOING on this event's
@@ -1509,7 +1509,7 @@ export class EventsService {
   // for a bounded set of events on one team, in at most three queries total
   // (one resolveActingTeamPlayer shared by both, plus one findMany per concern)
   // regardless of how many event ids are passed — never one query per event
-  // (see RSVP spec's Scope: no per-event aggregate embedded in TeamEvent).
+  // (docs/decisions/events.md: no per-event aggregate embedded in TeamEvent).
   private async resolveMyEventState(
     teamId: string,
     userId: string,

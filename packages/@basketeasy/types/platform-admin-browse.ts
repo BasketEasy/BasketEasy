@@ -1,7 +1,6 @@
 // Browsing the club graph from the platform back-office: clubs, teams,
 // users, players, events and scoresheets, each linked to the others.
-// Design record: docs/superpowers/specs/2026-09-28-backoffice-browse-stats-actions-design.md,
-// part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part1-read-api.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 //
 // Every person in these payloads is an `AdminPersonRef`, built once on the
 // server for the caller's platform role. A SUPPORT caller never receives a
