@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
+import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { PageHero } from '@basketeasy/ui/page-hero';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Button } from '@basketeasy/ui/button';
 import { Text } from '@basketeasy/ui/text';
 import { ApiError } from '../api/client';
+import { getInitials } from '../clubs/getInitials';
 import { GuestEventCard } from './GuestEventCard';
 import { GuestInviteNudge } from './GuestInviteNudge';
 import { GuestRosterPicker } from './GuestRosterPicker';
@@ -66,7 +69,7 @@ export function GuestRsvpPage() {
 
   return (
     <PageContainer size="md">
-      <div className="flex flex-col gap-5 py-6">
+      <div className="flex flex-col gap-5">
         <Text as="span" variant="display" size="2xl" tone="brand" className="uppercase">
           Kluvo
         </Text>
@@ -83,10 +86,11 @@ export function GuestRsvpPage() {
           <SkeletonList rows={3} variant="card" />
         ) : (
           <>
-            <div className="flex flex-col gap-0.5">
-              <Heading as="h1">{data.teamName}</Heading>
-              <Text variant="meta">{data.clubName}</Text>
-            </div>
+            <PageHero
+              eyebrow={data.clubName}
+              title={data.teamName}
+              meta="Répondez pour les 14 prochains jours"
+            />
             {!me ? (
               data.roster.length === 0 ? (
                 <EmptyState title="Aucun joueur dans cette équipe" />
@@ -95,12 +99,22 @@ export function GuestRsvpPage() {
               )
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Text variant="label">{guestMemberName(me)}</Text>
+                <Card variant="inset" className="flex items-center gap-3">
+                  <Avatar size="md">
+                    <AvatarFallback>
+                      {getInitials(me.firstName, me.lastInitial ?? '')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <Text variant="meta" size="sm">
+                      Vous répondez pour
+                    </Text>
+                    <Text variant="label">{guestMemberName(me)}</Text>
+                  </div>
                   <Button variant="ghost" size="sm" onClick={reset}>
                     Ce n&apos;est pas moi ?
                   </Button>
-                </div>
+                </Card>
                 {data.events.length === 0 ? (
                   <EmptyState title="Aucun événement dans les 14 prochains jours" />
                 ) : (
