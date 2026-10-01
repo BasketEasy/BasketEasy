@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Heading } from '@basketeasy/ui/heading';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { PastMatchesSection } from '../clubs/PastMatchesSection';
@@ -28,10 +28,9 @@ export function ResultsPage() {
 
   return (
     <PageContainer size="lg">
-      <Heading as="h1" className="m-0">
-        Résultats
-      </Heading>
+      <PageHeader title="Résultats" meta="30 derniers jours" />
       <PastMatchesSection
+        headingless
         matches={pastMatches}
         isLoading={isLoading}
         isError={isError}
