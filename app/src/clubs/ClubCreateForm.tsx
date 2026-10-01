@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
+import { Card, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
@@ -57,9 +57,6 @@ export function ClubCreateForm() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Créer un club</CardTitle>
-      </CardHeader>
       <CardContent>
         <form
           noValidate
@@ -107,8 +104,7 @@ export function ClubCreateForm() {
                   {...register('ffbbClubCode')}
                 />
                 <Text variant="meta" size="xs" className="mt-1.5">
-                  Le code affiché dans l&apos;URL du club sur competitions.ffbb.com. Non vérifié
-                  automatiquement — facultatif.
+                  Facultatif : le code de la page du club sur competitions.ffbb.com.
                 </Text>
               </div>
             )}
