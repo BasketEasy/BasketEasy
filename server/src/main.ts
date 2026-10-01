@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { resolveTrustProxy } from './common/trust-proxy';
@@ -43,8 +43,7 @@ async function bootstrap() {
 
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   await app.listen(port);
-  // eslint-disable-next-line no-console
-  console.log(`Kluvo API listening on port ${port}`);
+  Logger.log(`Kluvo API listening on port ${port}`, 'Bootstrap');
 }
 
 bootstrap();
