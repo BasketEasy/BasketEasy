@@ -23,7 +23,7 @@ export function PageHeader({
 }) {
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-w-0 flex-auto flex-col gap-1.5">
         <Heading ref={titleRef} as="h1" size="hero" className="m-0">
           {title}
         </Heading>

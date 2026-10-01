@@ -1,7 +1,8 @@
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
+import { Check } from '@basketeasy/ui/icons/check';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { NotificationList } from '../notifications/NotificationList';
 import { useNotifications } from '../notifications/useNotifications';
 import { useNotificationsReadAll } from '../notifications/useNotificationRead';
@@ -22,29 +23,25 @@ export function NotificationsPage() {
     // composition, so it stays at the call site.
     <PageContainer size="lg">
       <div className="flex w-full max-w-2xl flex-col gap-4">
-        {/* Stacked on a phone, side by side from sm up. Not flex-wrap: the
-            heading carries flex-1 so its court-line rule fills the row, which
-            means it shrinks instead of wrapping, and the button ends up
-            sitting on top of the wrapped title. */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {/* flex-1 so SectionHeading's court-line rule has room to fill —
-              without it the heading shrinks to its text and the rule, the
-              direction's structural motif, collapses to nothing. */}
-          <SectionHeading count={unreadCount || undefined} className="min-w-0 flex-1">
-            Notifications
-          </SectionHeading>
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="shrink-0 self-start sm:self-auto"
-              disabled={isPending}
-              onClick={() => markAllRead()}
-            >
-              Tout marquer comme lu
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          title="Notifications"
+          meta={
+            unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est lu'
+          }
+          actions={
+            unreadCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending}
+                onClick={() => markAllRead()}
+              >
+                <Check aria-hidden="true" size="md" />
+                Tout marquer comme lu
+              </Button>
+            )
+          }
+        />
         {/* The rows need a surface of their own: on the page they would
             otherwise sit straight on `ground` and read as floating text,
             where in the bell they have the dropdown's `surface` behind
