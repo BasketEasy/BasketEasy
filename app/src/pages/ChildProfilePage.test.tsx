@@ -48,8 +48,44 @@ describe('ChildProfilePage', () => {
     expect(await screen.findByRole('heading', { name: 'Léo Martin' })).toBeInTheDocument();
     expect(screen.getByLabelText('Prénom')).toHaveValue('Léo');
     expect(screen.getByText('U11 M')).toBeInTheDocument();
-    expect(screen.getByText('Suivi aussi par Marc Martin.')).toBeInTheDocument();
+    expect(screen.getByText('Marc Martin')).toBeInTheDocument();
     expect(screen.getByText(/autorisation parentale donnée le/i)).toBeInTheDocument();
+  });
+
+  it('is a depth-2 page: back links lead to the account, minor badge shows', async () => {
+    server.use(http.get('/api/me/children/child-1', () => HttpResponse.json(child)));
+    renderPage();
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Léo Martin' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Retour à Mon compte' })).toHaveAttribute(
+      'href',
+      '/account',
+    );
+    expect(screen.getByRole('link', { name: 'Mon compte' })).toHaveAttribute('href', '/account');
+    expect(screen.getByText('Mineur·e')).toBeInTheDocument();
+    expect(screen.getByText('Enfant suivi')).toBeInTheDocument();
+  });
+
+  it('links each team to the team page for the child', async () => {
+    server.use(http.get('/api/me/children/child-1', () => HttpResponse.json(child)));
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'U11 M' })).toHaveAttribute(
+      'href',
+      '/clubs/club-1/teams/team-1?pour=child-1',
+    );
+  });
+
+  it('shows a neutral tile when a minor has no consent on file', async () => {
+    server.use(
+      http.get('/api/me/children/child-1', () => HttpResponse.json({ ...child, consent: null })),
+    );
+    renderPage();
+
+    expect(await screen.findByText('Aucune autorisation enregistrée')).toBeInTheDocument();
+    expect(screen.getByText('Le club l’enregistre.')).toBeInTheDocument();
   });
 
   it('saves the four editable fields', async () => {
@@ -101,12 +137,19 @@ describe('ChildProfilePage', () => {
   it('shows an adult’s profile read-only', async () => {
     server.use(
       http.get('/api/me/children/child-1', () =>
-        HttpResponse.json({ ...child, birthDate: '1990-05-01T00:00:00.000Z', isMinor: false }),
+        HttpResponse.json({
+          ...child,
+          birthDate: '1990-05-01T00:00:00.000Z',
+          isMinor: false,
+          consent: null,
+        }),
       ),
     );
     renderPage();
 
     expect(await screen.findByText(/Léo est majeur·e/)).toBeInTheDocument();
+    expect(screen.queryByText('Mineur·e')).not.toBeInTheDocument();
+    expect(screen.queryByText(/autorisation/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enregistrer' })).not.toBeInTheDocument();
   });
 
@@ -140,5 +183,6 @@ describe('ChildProfilePage', () => {
     renderPage();
 
     expect(await screen.findByText('Enfant introuvable')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mon compte' })).toHaveAttribute('href', '/account');
   });
 });

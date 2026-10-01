@@ -16,7 +16,7 @@ import { Text } from '@basketeasy/ui/text';
  * handed on so the parent's own origin-aware back link still resolves to
  * where the journey started.
  */
-export function PageBar({ to, state, title }: { to: string; state: unknown; title: string }) {
+export function PageBar({ to, state, title }: { to: string; state?: unknown; title: string }) {
   return (
     <div className="sticky top-14 z-10 flex h-12 items-center gap-1 border-b border-border bg-surface pl-1 pr-4 md:hidden">
       <Button asChild variant="ghost" size="icon">
@@ -32,7 +32,7 @@ export function PageBar({ to, state, title }: { to: string; state: unknown; titl
 }
 
 /** The desktop twin of `PageBar`: an inline ghost link, hidden below `md`. */
-export function PageBackLink({ to, state, title }: { to: string; state: unknown; title: string }) {
+export function PageBackLink({ to, state, title }: { to: string; state?: unknown; title: string }) {
   return (
     <Button asChild variant="ghost" className="hidden self-start md:inline-flex">
       <Link to={to} state={state}>
