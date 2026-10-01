@@ -24,6 +24,9 @@ async function reachPreviewStep(user: ReturnType<typeof userEvent.setup>) {
   const input = await screen.findByLabelText('Choisir un fichier à importer');
   await user.upload(input, file);
 
+  await waitFor(() =>
+    expect(screen.getByRole('heading', { level: 2, name: 'Associer les colonnes' })).toHaveFocus(),
+  );
   const continueButton = await screen.findByRole('button', { name: 'Continuer' });
   await user.click(continueButton);
 }
@@ -48,9 +51,22 @@ describe('PlayerImportPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/import-players' });
 
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Importer les licenciés' }),
+    ).toBeVisible();
+    const backLinks = await screen.findAllByRole('link', { name: /Effectif/ });
+    for (const link of backLinks) {
+      expect(link).toHaveAttribute('href', '/clubs/club-1/members?tab=players');
+    }
+    const steps = screen.getByRole('list', { name: "Étapes de l'import" });
+    expect(steps).toHaveTextContent('Fichier (étape actuelle)');
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { level: 2, name: 'Choisir le fichier' })).toHaveFocus(),
+    );
+
     await reachPreviewStep(user);
 
-    await screen.findByText('Vérifier et confirmer');
+    await screen.findByText('Vérifier l’import');
     expect(screen.getByText('Théo')).toBeInTheDocument();
     expect(screen.getByText('Dupont')).toBeInTheDocument();
     expect(screen.getByText('Créer')).toBeInTheDocument();
@@ -83,9 +99,9 @@ describe('PlayerImportPage', () => {
     await reachPreviewStep(user);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/chargement impossible/i);
-    expect(screen.queryByText('Vérifier et confirmer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Vérifier l’import')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Retour' }));
-    await screen.findByText('Faire correspondre les colonnes');
+    await screen.findByText('Associer les colonnes');
   });
 });
