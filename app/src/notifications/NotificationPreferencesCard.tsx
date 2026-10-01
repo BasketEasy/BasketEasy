@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { Checkbox } from '@basketeasy/ui/checkbox';
 import { CountBadge } from '@basketeasy/ui/count-badge';
 import { Text } from '@basketeasy/ui/text';
@@ -12,7 +11,8 @@ import { useNotifications } from './useNotifications';
 import { usePushSubscription } from './usePushSubscription';
 
 /**
- * Delivery preferences, plus the mobile entry point to /notifications — on a
+ * The body of the account page's « Notifications » fold (the accordion item
+ * is the card and owns the title). Delivery preferences, plus the mobile entry point to /notifications — on a
  * phone the bottom bar is structurally fixed at four slots, so this page is
  * where everything the desktop header holds lives instead (the same
  * reasoning as the club switcher and logout already on it).
@@ -44,62 +44,57 @@ export function NotificationPreferencesCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Notifications</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            <Link to="/notifications">Voir mes notifications</Link>
-          </Button>
-          <CountBadge count={unreadCount} size="md" />
-          {unreadCount > 0 && <span className="sr-only">{unreadCount} non lues</span>}
-        </div>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <Button asChild variant="outline">
+          <Link to="/notifications">Voir mes notifications</Link>
+        </Button>
+        <CountBadge count={unreadCount} size="md" />
+        {unreadCount > 0 && <span className="sr-only">{unreadCount} non lues</span>}
+      </div>
 
-        <label className="flex items-start gap-3">
-          <Checkbox
-            className="mt-0.5"
-            checked={user?.emailNotificationsEnabled ?? true}
-            disabled={isPending}
-            onCheckedChange={(checked) => setEmailEnabled(checked === true)}
-          />
-          <span className="flex flex-col gap-0.5">
-            <Text as="span" variant="label" size="sm">
-              Recevoir les notifications par e-mail
-            </Text>
-            <Text variant="meta">
-              Les notifications restent visibles dans l’application même si vous les désactivez ici.
-            </Text>
-          </span>
-        </label>
+      <label className="flex items-start gap-3">
+        <Checkbox
+          className="mt-0.5"
+          checked={user?.emailNotificationsEnabled ?? true}
+          disabled={isPending}
+          onCheckedChange={(checked) => setEmailEnabled(checked === true)}
+        />
+        <span className="flex flex-col gap-0.5">
+          <Text as="span" variant="label" size="sm">
+            Recevoir les notifications par e-mail
+          </Text>
+          <Text variant="meta">
+            Les notifications restent visibles dans l’application même si vous les désactivez ici.
+          </Text>
+        </span>
+      </label>
 
-        {push.support === 'available' && (
-          <div className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                loading={push.isBusy}
-                // 'denied' can only be undone in browser settings — offering
-                // a button that re-prompts would do nothing at all, since the
-                // browser suppresses a second prompt after a refusal.
-                disabled={push.permission === 'denied'}
-                onClick={() => void (push.isSubscribed ? push.unsubscribe() : push.subscribe())}
-              >
-                {push.isSubscribed
-                  ? 'Désactiver les notifications sur cet appareil'
-                  : 'Activer les notifications sur cet appareil'}
-              </Button>
-            </div>
-            <Text variant="meta">
-              {push.permission === 'denied'
-                ? 'Les notifications sont bloquées pour ce site dans les réglages de votre navigateur.'
-                : 'Les notifications push sont propres à ce navigateur : activez-les sur chaque appareil que vous utilisez.'}
-            </Text>
+      {push.support === 'available' && (
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={push.isBusy}
+              // 'denied' can only be undone in browser settings — offering
+              // a button that re-prompts would do nothing at all, since the
+              // browser suppresses a second prompt after a refusal.
+              disabled={push.permission === 'denied'}
+              onClick={() => void (push.isSubscribed ? push.unsubscribe() : push.subscribe())}
+            >
+              {push.isSubscribed
+                ? 'Désactiver les notifications sur cet appareil'
+                : 'Activer les notifications sur cet appareil'}
+            </Button>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <Text variant="meta">
+            {push.permission === 'denied'
+              ? 'Les notifications sont bloquées pour ce site dans les réglages de votre navigateur.'
+              : 'Les notifications push sont propres à ce navigateur : activez-les sur chaque appareil que vous utilisez.'}
+          </Text>
+        </div>
+      )}
+    </div>
   );
 }

@@ -25,12 +25,39 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
 }
 
 describe('AccountPage', () => {
-  it('renders the account profile form inside a card', async () => {
+  it('opens on one h1 with the e-mail, and shows the profile form without interaction', async () => {
     mockSession();
     renderWithProviders(<AccountPage />);
 
-    expect(screen.getByRole('heading', { name: /mon compte/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: /mon compte/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Profil' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText(/prénom/i)).toHaveValue('Alix'));
+    expect(await screen.findByText('a@b.com')).toBeInTheDocument();
+  });
+
+  it('folds notifications by default with its e-mail summary, and unfolds it', async () => {
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<AccountPage />);
+
+    const trigger = await screen.findByRole('button', { name: /notifications/i });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(await screen.findByText('E-mail activé')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /voir mes notifications/i })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    expect(screen.getByRole('link', { name: /voir mes notifications/i })).toBeInTheDocument();
+  });
+
+  it('offers only the notifications item to a plain player', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    renderWithProviders(<AccountPage />);
+
+    await screen.findByRole('button', { name: /notifications/i });
+    expect(screen.queryByRole('button', { name: /club actif/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mes enfants/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /accès parents/i })).not.toBeInTheDocument();
   });
 
   it('shows a club switcher for an admin, defaulting to the first club', async () => {
@@ -49,6 +76,10 @@ describe('AccountPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<AccountPage />);
 
+    const fold = await screen.findByRole('button', { name: /club actif/i });
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+    await waitFor(() => expect(fold).toHaveTextContent('COC Basket'));
+    await user.click(fold);
     const cocRadio = await screen.findByRole('radio', { name: /coc basket/i });
     const esRadio = screen.getByRole('radio', { name: /es nantes/i });
     await waitFor(() => expect(cocRadio).toHaveAttribute('aria-checked', 'true'));
@@ -142,8 +173,12 @@ describe('AccountPage', () => {
           }),
         ),
       );
+      const user = userEvent.setup();
       renderWithProviders(<AccountPage />);
 
+      const fold = await screen.findByRole('button', { name: /mes enfants/i });
+      expect(fold).toHaveTextContent('Léo');
+      await user.click(fold);
       const link = await screen.findByRole('link', { name: 'Léo Martin' });
       expect(link).toHaveAttribute('href', '/children/child-1');
       expect(screen.getByText('U11 M · ASBC Rezé')).toBeInTheDocument();
@@ -171,6 +206,7 @@ describe('AccountPage', () => {
       const user = userEvent.setup();
       renderWithProviders(<AccountPage />);
 
+      await user.click(await screen.findByRole('button', { name: /accès parents/i }));
       expect(await screen.findByText('Sophie Martin')).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Retirer' }));
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Retirer' }));
@@ -192,8 +228,10 @@ describe('AccountPage', () => {
           }),
         ),
       );
+      const user = userEvent.setup();
       renderWithProviders(<AccountPage />);
 
+      await user.click(await screen.findByRole('button', { name: /accès parents/i }));
       expect(await screen.findByText('Sophie Martin')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Retirer' })).not.toBeInTheDocument();
     });
@@ -203,8 +241,8 @@ describe('AccountPage', () => {
       renderWithProviders(<AccountPage />);
 
       await waitFor(() => expect(screen.getByLabelText(/prénom/i)).toHaveValue('Alix'));
-      expect(screen.queryByText('Mes enfants')).not.toBeInTheDocument();
-      expect(screen.queryByText('Accès parents')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /mes enfants/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /accès parents/i })).not.toBeInTheDocument();
     });
   });
 });
