@@ -1,0 +1,76 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/teams": [
+    {
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "gender": "MEN",
+      "teamId": "team-1",
+      "teamName": "Seniors M",
+      "category": "SENIOR",
+      "isTeamAdmin": true,
+      "rosterRole": null
+    },
+    {
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "gender": "MEN",
+      "teamId": "team-2",
+      "teamName": "U15 Garçons",
+      "category": "U15",
+      "isTeamAdmin": true,
+      "rosterRole": "COACH"
+    },
+    {
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "gender": "WOMEN",
+      "teamId": "team-3",
+      "teamName": "U13 Filles",
+      "category": "U13",
+      "isTeamAdmin": false,
+      "rosterRole": "COACH"
+    },
+    {
+      "clubId": "club-2",
+      "clubName": "COC Basket",
+      "gender": "MEN",
+      "teamId": "team-4",
+      "teamName": "U18 Garçons",
+      "category": "U18",
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ]
+}
