@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Card } from './Card';
+import { ListItem } from './List';
 import { TableCell, TableRow } from './Table';
 import { ResponsiveTable, useTableLayout } from './ResponsiveTable';
 import { DESKTOP_BREAKPOINT_PX } from '../lib/useIsDesktopViewport';
@@ -35,6 +36,20 @@ describe('ResponsiveTable', () => {
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Nom' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Camille' })).toBeInTheDocument();
+  });
+
+  it('renders the mobile layout as a list of ListItems with `list`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    function LinkRow({ name }: { name: string }) {
+      return <ListItem>{name}</ListItem>;
+    }
+    render(
+      <ResponsiveTable columns={['Nom']} list>
+        <LinkRow name="Camille" />
+      </ResponsiveTable>,
+    );
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('renders a card stack with no table semantics below the breakpoint', () => {

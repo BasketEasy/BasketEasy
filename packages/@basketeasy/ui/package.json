@@ -171,6 +171,10 @@
       "types": "./src/components/icons/ChevronLeftIcon.tsx",
       "default": "./src/components/icons/ChevronLeftIcon.tsx"
     },
+    "./icons/plus": {
+      "types": "./src/components/icons/PlusIcon.tsx",
+      "default": "./src/components/icons/PlusIcon.tsx"
+    },
     "./icons/chevron-right": {
       "types": "./src/components/icons/ChevronRightIcon.tsx",
       "default": "./src/components/icons/ChevronRightIcon.tsx"
