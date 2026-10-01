@@ -133,7 +133,7 @@ jobs:
                If the gate says escalate=true you may still review, but your verdict is advisory.
             7. Write verdict.json (repo root) as exactly this JSON, nothing else:
                {"headSha":"${{ github.event.pull_request.head.sha }}","verdict":"APPROVE|COMMENT|REQUEST_CHANGES|ESCALATE",
-                "summary":"<=300 chars, plain, no markdown","blocking":<int 🔴 count>,"escalationReasons":["..."]}
+                "summary":"ONE complete sentence, max 130 chars, plain, no markdown","blocking":<int 🔴 count>,"escalationReasons":["..."]}
             Do not approve, merge, label or comment any other way. The workflow does that.
 
       - uses: actions/upload-artifact@v4
@@ -225,6 +225,9 @@ jobs:
           # other checks are already green; otherwise pr-review-agent-merge.yml does it
           # when they finish. Nothing waits, so no minutes burn on CI.
           gh pr edit "$PR" --repo "$REPO" --remove-label needs-human >/dev/null 2>&1 || true
+          # Status descriptions cap at 140 chars and become the approval text: cut cleanly.
+          desc=$summary
+          [ "${#desc}" -le 140 ] || desc="${desc:0:136}..."
           gh api "repos/$REPO/statuses/$head" -f state=success -f context=review-agent/verdict \
-            -f description="$(printf '%s' "$summary" | head -c 140)" >/dev/null
+            -f description="$desc" >/dev/null
           GH_TOKEN="$GH_TOKEN" SHA="$head" bash .github/review-agent/merge.sh
