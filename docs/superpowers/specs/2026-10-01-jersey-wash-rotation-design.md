@@ -26,6 +26,7 @@ Kluvo has a single per-event slot today (`Event.jerseysTeamPlayerId`, « Maillot
 | 12  | Notifications                 | **On assignment only** (manager assignment, kickoff freeze of an un-accepted suggestion, accepted swap). No « rapportez les maillots » reminder, no « not returned » alert in v1.                                                                                     |
 | 13  | Overview                      | Whole team sees it: a « Lavage des maillots » section on the team page.                                                                                                                                                                                               |
 | 14  | Fairness window               | Per team, per season (1 September → 31 August, `seasonYearFor` from `team-stats`). A child on two teams has two independent counts.                                                                                                                                   |
+| 15  | Per-team switch               | `Team.jerseyRotationEnabled`, **on by default**: few clubs wash their teams' jerseys centrally. A manager turns it off for a team whose club does; the match then keeps today's plain « Qui apporte » slot and the freeze job skips it.                               |
 
 ## Family
 
@@ -47,7 +48,7 @@ The duty belongs to a **player** (one roster entry), never to a household. Guard
 - **One duty per match, one holder.** Never two players on the same match.
 - **Suggestion only for the team's next MATCH.** A later match shows « Suggestion après le match du <date> ». Without this, two upcoming matches compute independently and propose the same person twice.
 - **Suggestions are computed on read, never stored.** Only an acceptance, a manager assignment, a swap or the kickoff freeze writes a row. A `GET` writes nothing (CLAUDE.md: a `GET` never writes user-owned state).
-- **Kickoff freeze.** A repeatable BullMQ job (`jersey-duty-freeze`, every 10 min, same registration shape as `retention-sweep`) finds matches whose `startsAt` has passed within the last 7 days, with no duty row and a non-empty pool, and writes the suggestion as the assignment (`source: SUGGESTION`), then notifies. A match with an empty pool stays unassigned: a manager can assign afterwards.
+- **Kickoff freeze.** A repeatable BullMQ job (`jersey-duty-freeze`, every 10 min, same registration shape as `retention-sweep`) finds matches of teams with the rotation on whose `startsAt` has passed within the last 7 days, with no duty row and a non-empty pool, and writes the suggestion as the assignment (`source: SUGGESTION`), then notifies. A match with an empty pool stays unassigned: a manager can assign afterwards.
 - **Decline memory.** A decline is remembered per match (`EventJerseyDecline`) so the suggestion skips that player for that match. It doesn't affect fairness. A manager can still assign a decliner.
 - **Volunteering.** Any player in the pool can still take the duty themself before kickoff (today's self-assign), replacing an un-accepted suggestion, never an accepted holder (that's a swap).
 - **Manager powers, any time:** assign any roster member (pool or not, exempted or not), clear, mark « Fait » / undo, void / unvoid. After kickoff this is the only way to change the holder.
@@ -96,11 +97,16 @@ model TeamPlayer {
   // …
   jerseyDutyExempt Boolean @default(false)
 }
+
+model Team {
+  // …
+  jerseyRotationEnabled Boolean @default(true)
+}
 ```
 
 1–1 row rather than columns on `Event`, same reasoning as `EventMeeting`: most of its fields are null most of the time and only MATCH events have one.
 
-**Migration.** For every MATCH with `jerseysTeamPlayerId` set, the team's previous MATCH gets a duty row for that player (`source: BACKFILL`, no `acceptedAt`) when it has none: « brought to N » and « washed after N−1 » are the same fact. A team's first match has no previous one and its value is dropped. Then `jerseysTeamPlayerId` is nulled on every MATCH; the column stays for TRAINING chasubles.
+**Migration.** For every MATCH with `jerseysTeamPlayerId` set, the team's previous MATCH gets a duty row for that player (`source: BACKFILL`, no `acceptedAt`) when it has none: « brought to N » and « washed after N−1 » are the same fact. A team's first match has no previous one and its value is dropped. Accepted: it is exactly the rotation as clubs run it (after a game someone takes the bag, washes it, brings it back to the next game). Then `jerseysTeamPlayerId` is nulled on every MATCH; the column stays for TRAINING chasubles.
 
 ## API
 
@@ -118,6 +124,7 @@ All under `clubs/:clubId/teams/:teamId`. Player-side routes take `?forPlayerId=`
 | `POST`/`DELETE events/:eventId/jersey-duty/done`           | `TeamManagerGuard`                                    | Mark / unmark « Fait »                                                                      |
 | `POST`/`DELETE events/:eventId/jersey-duty/void`           | `TeamManagerGuard`                                    | Void / unvoid the turn                                                                      |
 | `GET jersey-rotation?season=`                              | team audience (guardians included)                    | `JerseyRotationOverview`                                                                    |
+| `PATCH` team settings `{jerseyRotationEnabled}`            | `TeamManagerGuard`                                    | Existing team edit route, new field                                                         |
 | `PATCH players/:teamPlayerId` `{jerseyDutyExempt}`         | `TeamManagerGuard`                                    | Existing roster-entry route, new field                                                      |
 
 All player-side writes refuse after kickoff (`409 JERSEY_DUTY_LOCKED`) and on a TRAINING (`400`). `PATCH events/:eventId/logistics` with `field: 'JERSEYS'` on a MATCH answers `400 USE_JERSEY_DUTY`.
@@ -153,6 +160,4 @@ Rotation by jersey number, « rapportez les maillots » reminders, « set not re
 
 ## Open questions
 
-1. **Per-team opt-in?** Recommendation: a team setting, off by default, so the kickoff freeze never notifies a team whose club washes the jerseys itself. When off, the match keeps a plain « Qui apporte » slot.
-2. **Backfill** (see Migration): acceptable, or simply drop past MATCH values?
-3. **Swap after kickoff** is manager-only in this spec. Should the holder still be able to hand over between matches (the bag is already at their place)?
+1. **Handing over between matches.** After match N the holder has the bag at home. If they then can't make match N+1, can they pass the duty (and the bag) to a teammate themselves, or must a manager reassign? This spec says manager only, since player swaps close at N's kickoff.
