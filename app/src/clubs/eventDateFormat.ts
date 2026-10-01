@@ -99,3 +99,10 @@ export function eventCountdownLabel(isoDate: string, now: Date = new Date()): st
   }
   return `J-${days}`;
 }
+
+const dayMonthFormatter = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
+
+/** Formats an ISO date string as a day and month, e.g. "4 oct." — a match named by its date in running copy. */
+export function formatEventDayMonth(isoDate: string): string {
+  return dayMonthFormatter.format(new Date(isoDate));
+}

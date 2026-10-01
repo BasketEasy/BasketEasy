@@ -6,6 +6,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { EventAttendanceSection } from './EventAttendanceSection';
 import { EventDecisionBand } from './EventDecisionBand';
 import { EventDetailHero } from './EventDetailHero';
+import { EventJerseyDutyCard } from '../jersey-duty/EventJerseyDutyCard';
 import { EventLogisticsCard } from './EventLogisticsCard';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
 import { MatchStatsTable } from './MatchStatsTable';
@@ -90,6 +91,7 @@ export function EventDetailPlayerView({
         isRostered={canActAsPlayer}
         stacked={isDesktop}
       />
+      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
     </section>
   );
   const attendance = (

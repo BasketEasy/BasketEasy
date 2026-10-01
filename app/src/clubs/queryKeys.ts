@@ -162,3 +162,25 @@ export const isClubMeetingDependentQuery =
     queryKey[1] === clubId &&
     queryKey[2] === 'teams' &&
     (queryKey[4] === 'events' || queryKey[4] === 'meeting-settings');
+/** One match's jersey wash duty, under the event's key so deleting or refreshing the event covers it. */
+export const jerseyDutyQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'events',
+    eventId,
+    'jersey-duty',
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
+/** Every rotation overview of a team, whichever season or persona. */
+export const jerseyRotationQueryKeyPrefix = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'jersey-rotation'] as const;
+export const jerseyRotationQueryKey = (clubId: string, teamId: string, forPlayerId?: string) =>
+  [...jerseyRotationQueryKeyPrefix(clubId, teamId), ...actingAsKeyPart(forPlayerId)] as const;

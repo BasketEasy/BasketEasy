@@ -82,7 +82,11 @@ function AgendaEventCard({
                   Heure à confirmer
                 </Badge>
               )}
-              <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+              <EventLogisticsMiniChips
+                eventType={event.type}
+                logistics={event.logistics}
+                jerseyDuty={event.jerseyDuty}
+              />
               <EventVoteBadge event={event} />
             </div>
             {event.rsvpSummary.rosterSize > 0 && (

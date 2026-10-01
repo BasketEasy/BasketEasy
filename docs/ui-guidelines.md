@@ -99,6 +99,15 @@ event, the next event of a team, a club's FFBB code, a child's consent.
   else stacks below.
 - Anchored blocks carry `EVENT_SECTION_SCROLL_MARGIN` (or the same `scroll-mt-28 md:scroll-mt-20`)
   so a deep link doesn't land under the sticky bars.
+- **A duty or task card** (`EventJerseyDutyCard`) is a fixed header (icon badge, title, one meta
+  line, the derived fact) over **one state block** chosen from the server's `rights`: an inset card
+  (`tone="brand"` when the reader owes an answer, `structure` for something waiting on them), or a
+  person row with a soft badge. The reader's own row wears the brand avatar; reversible manager
+  controls stay inline. The card sits **below** `EventLogisticsCard` in both views. A reader who is
+  a manager _and_ in the turn (holder or suggested) sees their own turn block first, then a
+  separated « Espace coach » section holding the manager controls; a manager not in the turn keeps
+  the manager block alone, and a received swap outranks both. Copy that agrees with a person lives in one pure helper
+  (`jerseyDutyCopy.ts`), never at a call site.
 - **Tabs** are for several independent, paginated, filterable data sets on one entity (team, club,
   back-office detail). They are `?tab=` `TabsTrigger`s with `replace: true` (CLAUDE.md's documented
   ARIA exception). A page that answers one question is one scroll, not tabs.

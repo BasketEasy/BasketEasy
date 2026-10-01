@@ -8,6 +8,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventDetailHero } from './EventDetailHero';
 import { EventEditModal } from './EventEditModal';
+import { EventJerseyDutyCard } from '../jersey-duty/EventJerseyDutyCard';
 import { EventLogisticsCard } from './EventLogisticsCard';
 import { EventPilotBand } from './EventPilotBand';
 import { EventRosterList } from './EventRosterList';
@@ -129,6 +130,7 @@ export function EventDetailManagerView({
         isRostered={isRostered}
         stacked={isDesktop}
       />
+      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
     </section>
   );
   const share = event.whatsAppShare ? SHARE_SUMMARY[event.whatsAppShare.state] : undefined;

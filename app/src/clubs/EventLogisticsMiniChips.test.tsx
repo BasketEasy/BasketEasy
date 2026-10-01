@@ -32,4 +32,39 @@ describe('EventLogisticsMiniChips', () => {
     expect(screen.getByText(/Chasubles : Léa M\. ✓/)).toBeInTheDocument();
     expect(screen.getByText(/Ballons : non assigné/)).toBeInTheDocument();
   });
+
+  const holder = { teamPlayerId: 'tp-1', firstName: 'Emma', lastName: 'Moreau' };
+  const noLogistics = { jerseys: null, balls: null };
+
+  it('reads « Vous lavez les maillots » when the reader holds the wash', () => {
+    render(
+      <EventLogisticsMiniChips
+        eventType="MATCH"
+        logistics={noLogistics}
+        jerseyDuty={{ holder, status: 'ACCEPTED', broughtBy: null, isMine: true }}
+      />,
+    );
+    expect(screen.getByText('Vous lavez les maillots')).toBeInTheDocument();
+  });
+
+  it('names the holder of the wash, or says it is unassigned', () => {
+    const { rerender } = render(
+      <EventLogisticsMiniChips
+        eventType="MATCH"
+        logistics={noLogistics}
+        jerseyDuty={{ holder, status: 'ASSIGNED', broughtBy: null, isMine: false }}
+      />,
+    );
+    expect(screen.getByText('Lavage : Emma M. ✓')).toBeInTheDocument();
+
+    rerender(
+      <EventLogisticsMiniChips
+        eventType="MATCH"
+        logistics={noLogistics}
+        jerseyDuty={{ holder: null, status: 'UNASSIGNED', broughtBy: null, isMine: false }}
+      />,
+    );
+    expect(screen.getByText('Lavage : non assigné')).toBeInTheDocument();
+    expect(screen.queryByText(/Maillots :/)).not.toBeInTheDocument();
+  });
 });

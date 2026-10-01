@@ -287,6 +287,10 @@
       "types": "./src/components/icons/UserIcon.tsx",
       "default": "./src/components/icons/UserIcon.tsx"
     },
+    "./icons/bag": {
+      "types": "./src/components/icons/BagIcon.tsx",
+      "default": "./src/components/icons/BagIcon.tsx"
+    },
     "./icons/swap": {
       "types": "./src/components/icons/SwapIcon.tsx",
       "default": "./src/components/icons/SwapIcon.tsx"
