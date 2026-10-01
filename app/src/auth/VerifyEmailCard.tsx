@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Loader } from '@basketeasy/ui/loader';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Text } from '@basketeasy/ui/text';
 import { useConfirmEmail } from './accountSecurityMutations';
 import { getAccountSecurityErrorMessage } from './errorMessages';
+import { AuthCard } from './AuthCard';
 
 type ConfirmState =
   { status: 'pending' } | { status: 'success' } | { status: 'error'; message: string };
@@ -50,46 +50,34 @@ export function VerifyEmailCard({ token }: { token: string }) {
 
   if (state.status === 'pending') {
     return (
-      <Card>
-        <CardContent className="py-8">
-          <Loader>Confirmation de votre adresse…</Loader>
-        </CardContent>
-      </Card>
+      <AuthCard title="Confirmation en cours">
+        <Loader>Confirmation de votre adresse…</Loader>
+      </AuthCard>
     );
   }
 
   if (state.status === 'error') {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Lien invalide</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Alert variant="destructive">
-            <AlertDescription>{state.message}</AlertDescription>
-          </Alert>
-          <Text variant="meta">
-            Connectez-vous puis demandez un nouvel e-mail de confirmation depuis « Mon profil ».
-          </Text>
-          <Button asChild variant="ghost">
-            <Link to="/login">Retour à la connexion</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <AuthCard title="Lien invalide">
+        <Alert variant="destructive">
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+        <Text variant="meta">
+          Connectez-vous puis demandez un nouvel e-mail de confirmation depuis « Mon profil ».
+        </Text>
+        <Button asChild variant="ghost">
+          <Link to="/login">Retour à la connexion</Link>
+        </Button>
+      </AuthCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Adresse confirmée</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Text>Merci ! Votre adresse e-mail est confirmée.</Text>
-        <Button asChild>
-          <Link to="/dashboard">Aller au tableau de bord</Link>
-        </Button>
-      </CardContent>
-    </Card>
+    <AuthCard title="Adresse confirmée">
+      <Text>Merci ! Votre adresse e-mail est confirmée.</Text>
+      <Button asChild>
+        <Link to="/dashboard">Aller au tableau de bord</Link>
+      </Button>
+    </AuthCard>
   );
 }

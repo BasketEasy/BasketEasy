@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Text } from '@basketeasy/ui/text';
 import { useRequestPasswordReset } from './accountSecurityMutations';
 import { getAccountSecurityErrorMessage } from './errorMessages';
+import { AuthCard } from './AuthCard';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Adresse email invalide'),
@@ -41,66 +41,56 @@ export function ForgotPasswordForm() {
   // did.
   if (sent) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Vérifiez votre boîte mail</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Text>
-            Si un compte Kluvo existe pour cette adresse, un e-mail vient d’y être envoyé avec un
-            lien pour choisir un nouveau mot de passe.
-          </Text>
-          <Text variant="meta">Le lien est valable une heure.</Text>
-          <Button asChild variant="ghost">
-            <Link to="/login">Retour à la connexion</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <AuthCard brandLink title="Vérifiez votre boîte mail">
+        <Text>
+          Si un compte Kluvo existe pour cette adresse, un e-mail vient d’y être envoyé avec un lien
+          pour choisir un nouveau mot de passe.
+        </Text>
+        <Text variant="meta">Le lien est valable une heure.</Text>
+        <Button asChild variant="ghost">
+          <Link to="/login">Retour à la connexion</Link>
+        </Button>
+      </AuthCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Mot de passe oublié</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          noValidate
-          onSubmit={(e) => {
-            void handleSubmit(onSubmit)(e);
-          }}
-          className="flex flex-col gap-4"
-        >
-          {errors.root?.message && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.root.message}</AlertDescription>
-            </Alert>
-          )}
+    <AuthCard brandLink title="Mot de passe oublié">
+      <form
+        noValidate
+        onSubmit={(e) => {
+          void handleSubmit(onSubmit)(e);
+        }}
+        className="flex flex-col gap-4"
+      >
+        {errors.root?.message && (
+          <Alert variant="destructive">
+            <AlertDescription>{errors.root.message}</AlertDescription>
+          </Alert>
+        )}
 
-          <Text variant="meta">
-            Indiquez l’adresse e-mail de votre compte : nous vous enverrons un lien pour choisir un
-            nouveau mot de passe.
-          </Text>
+        <Text variant="meta">
+          Indiquez l’adresse e-mail de votre compte : nous vous enverrons un lien pour choisir un
+          nouveau mot de passe.
+        </Text>
 
-          <FormField
-            label="Adresse e-mail"
-            id="forgot-password-email"
-            type="email"
-            autoComplete="email"
-            error={errors.email?.message}
-            {...register('email')}
-          />
+        <FormField
+          label="Adresse e-mail"
+          id="forgot-password-email"
+          type="email"
+          autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
+        />
 
-          <Button type="submit" loading={isSubmitting || isPending}>
-            Envoyer le lien
-          </Button>
+        <Button type="submit" loading={isSubmitting || isPending}>
+          Envoyer le lien
+        </Button>
 
-          <Button asChild type="button" variant="ghost">
-            <Link to="/login">Retour à la connexion</Link>
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <Button asChild type="button" variant="ghost">
+          <Link to="/login">Retour à la connexion</Link>
+        </Button>
+      </form>
+    </AuthCard>
   );
 }

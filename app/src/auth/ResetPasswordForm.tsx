@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardHeader, CardTitle, CardContent } from '@basketeasy/ui/card';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Text } from '@basketeasy/ui/text';
 import { useResetPassword } from './accountSecurityMutations';
 import { getAccountSecurityErrorMessage } from './errorMessages';
+import { AuthCard } from './AuthCard';
 
 const resetPasswordSchema = z
   .object({
@@ -51,64 +51,54 @@ export function ResetPasswordForm({ token }: { token: string }) {
   // is the reassurance someone recovering a compromised account came for.
   if (done) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Mot de passe modifié</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Text>
-            Votre mot de passe a été modifié. Toutes vos sessions ouvertes ont été déconnectées.
-          </Text>
-          <Button asChild>
-            <Link to="/login">Se connecter</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <AuthCard title="Mot de passe modifié">
+        <Text>
+          Votre mot de passe a été modifié. Toutes vos sessions ouvertes ont été déconnectées.
+        </Text>
+        <Button asChild>
+          <Link to="/login">Se connecter</Link>
+        </Button>
+      </AuthCard>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Choisir un nouveau mot de passe</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          noValidate
-          onSubmit={(e) => {
-            void handleSubmit(onSubmit)(e);
-          }}
-          className="flex flex-col gap-4"
-        >
-          {errors.root?.message && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.root.message}</AlertDescription>
-            </Alert>
-          )}
+    <AuthCard title="Choisir un nouveau mot de passe">
+      <form
+        noValidate
+        onSubmit={(e) => {
+          void handleSubmit(onSubmit)(e);
+        }}
+        className="flex flex-col gap-4"
+      >
+        {errors.root?.message && (
+          <Alert variant="destructive">
+            <AlertDescription>{errors.root.message}</AlertDescription>
+          </Alert>
+        )}
 
-          <FormField
-            label="Nouveau mot de passe"
-            id="reset-password"
-            type="password"
-            autoComplete="new-password"
-            error={errors.password?.message}
-            {...register('password')}
-          />
+        <FormField
+          label="Nouveau mot de passe"
+          id="reset-password"
+          type="password"
+          autoComplete="new-password"
+          error={errors.password?.message}
+          {...register('password')}
+        />
 
-          <FormField
-            label="Confirmer le mot de passe"
-            id="reset-password-confirm"
-            type="password"
-            autoComplete="new-password"
-            error={errors.confirmPassword?.message}
-            {...register('confirmPassword')}
-          />
+        <FormField
+          label="Confirmer le mot de passe"
+          id="reset-password-confirm"
+          type="password"
+          autoComplete="new-password"
+          error={errors.confirmPassword?.message}
+          {...register('confirmPassword')}
+        />
 
-          <Button type="submit" loading={isSubmitting || isPending}>
-            Enregistrer
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        <Button type="submit" loading={isSubmitting || isPending}>
+          Enregistrer
+        </Button>
+      </form>
+    </AuthCard>
   );
 }

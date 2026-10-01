@@ -36,4 +36,10 @@ describe('LoginPage', () => {
 
     expect(screen.getByText('Page de création de compte')).toBeInTheDocument();
   });
+
+  it('has one h1 and a wordmark linking home', () => {
+    renderLoginPage();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Kluvo' })).toHaveAttribute('href', '/');
+  });
 });

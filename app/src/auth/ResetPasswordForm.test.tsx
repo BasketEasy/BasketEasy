@@ -59,4 +59,12 @@ describe('ResetPasswordForm', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/lien est invalide ou a expiré/);
   });
+
+  it('has one h1 and a wordmark that does not leave the recovery', () => {
+    renderWithProviders(<ResetPasswordForm token="tok-1" />);
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByText('Kluvo')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Kluvo' })).not.toBeInTheDocument();
+  });
 });
