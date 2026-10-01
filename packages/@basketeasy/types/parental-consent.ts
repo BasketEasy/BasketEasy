@@ -1,7 +1,7 @@
 // Parental consent for a minor on a club roster.
 //
 // The "easiest possible" version, per
-// docs/superpowers/specs/2026-09-06-data-retention-policy-design.md: a club
+// docs/decisions/rgpd-and-backoffice.md: a club
 // staff member attests that the written authorisation was obtained, at the
 // moment the player is added. It is not an e-signature. A parent accepting a
 // guardian invite for a minor records their own consent through the same
@@ -16,7 +16,8 @@ export interface ParentalConsent {
   id: string;
   /** Null once the player it documented has been deleted — the record outlives them. */
   playerId: string | null;
-  clubId: string;
+  /** Null once the club itself has been deleted — the record outlives it too. */
+  clubId: string | null;
   /** Identity snapshot taken at consent time, kept even after playerId goes null. */
   playerFirstName: string;
   playerLastName: string;

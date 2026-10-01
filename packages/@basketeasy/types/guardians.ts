@@ -1,5 +1,5 @@
 // Parents (or other legal guardians) acting for a player — see
-// docs/superpowers/specs/2026-09-27-parent-guardian-design.md. A guardian is a
+// docs/decisions/guardians.md. A guardian is a
 // user linked to a player through an admin-issued invite; being one is a
 // derived state, never a club role.
 

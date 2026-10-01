@@ -32,6 +32,18 @@ describe('TeamMeetingPointSettings', () => {
     expect(screen.queryByText('propre à l’équipe')).not.toBeInTheDocument();
   });
 
+  it('renders no heading of its own (the accordion trigger is the heading)', async () => {
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
+        HttpResponse.json(inheriting),
+      ),
+    );
+    renderWithProviders(<TeamMeetingPointSettings clubId="club-1" teamId="team-1" />);
+
+    await screen.findByText('Parking club');
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+
   it('sends null for what stays inherited, and the team’s own value once chosen', async () => {
     let body: unknown;
     server.use(

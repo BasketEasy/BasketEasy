@@ -1,6 +1,6 @@
 // The back-office statistics: growth, engagement and health, for the whole
 // platform or one club, over a selectable range bucketed by week.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part4-stats.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 //
 // Aggregates only: nothing here names or counts a single person.
 
@@ -86,6 +86,30 @@ export interface AdminStats {
     pushEnabledUsers: number;
     ffbbLinkedClubs: number;
     ffbbLinkedTeams: number;
+  };
+  /** Team-shared channels: the guest RSVP link and the WhatsApp reminder. */
+  sharing: {
+    guestLinks: {
+      /** Teams whose link is currently on (a snapshot: disabling deletes the row). */
+      teamsEnabled: number;
+      /** Answers in the range given through a link, and their share of all answers. */
+      answersViaLink: number;
+      answersViaLinkShare: AdminRatio;
+    };
+    whatsapp: {
+      /** Teams with scheduled reminders on (a snapshot). */
+      teamsEnabled: number;
+      /** Shares confirmed sent within the range. */
+      sent: number;
+      /** Prompted to a manager, not yet confirmed (a snapshot). */
+      pending: number;
+      /** Queued for a later send (a snapshot). */
+      scheduled: number;
+      /** Never confirmed and past their event or expiry, within the range. */
+      expired: number;
+      /** Scheduled sends overdue by 15 minutes or more: their job is likely lost. */
+      overdue: number;
+    };
   };
   health: {
     scoresheetsByStatus: Record<EventScoresheetStatus, number>;

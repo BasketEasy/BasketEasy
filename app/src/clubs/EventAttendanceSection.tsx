@@ -19,6 +19,7 @@ import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
 import { formatEventTime } from './eventDateFormat';
 import { useMeSuffix } from '../guardians/useActingAs';
+import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /** How many people are listed before the « Voir les N » disclosure. */
 const PREVIEW_ROWS = 4;
@@ -145,6 +146,7 @@ export function EventAttendanceSection({
   eventId,
   meetingPlan = null,
   id,
+  headingless = false,
 }: {
   clubId: string;
   teamId: string;
@@ -152,6 +154,8 @@ export function EventAttendanceSection({
   /** A match with a meeting point: who comes to the RDV and who goes direct. */
   meetingPlan?: EventMeetingPlan | null;
   id?: string;
+  /** The caller's accordion item already titles the block (mobile): render the body only. */
+  headingless?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const { rows, counts, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
@@ -169,7 +173,7 @@ export function EventAttendanceSection({
     if (rows.length === 0) {
       return (
         <EmptyState
-          icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+          icon={<UsersIcon size="3xl" tone="secondary" />}
           title="Effectif vide"
           description="Personne n’est encore inscrit sur cette équipe."
         />
@@ -234,8 +238,11 @@ export function EventAttendanceSection({
     );
   };
 
+  if (headingless) {
+    return <div id={id}>{body()}</div>;
+  }
   return (
-    <section id={id} className="flex scroll-mt-20 flex-col gap-3.5">
+    <section id={id} className={`flex flex-col gap-3.5 ${EVENT_SECTION_SCROLL_MARGIN}`}>
       <SectionHeading as="h2">Qui vient&nbsp;?</SectionHeading>
       {body()}
     </section>

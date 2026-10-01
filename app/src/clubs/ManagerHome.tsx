@@ -2,14 +2,13 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
+import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Heading } from '@basketeasy/ui/heading';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { StatTile } from '@basketeasy/ui/stat-tile';
-import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -18,41 +17,45 @@ import type { MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAdminClubs } from './useAdminClubs';
 import { useMyTeamList } from './useMyTeamList';
-import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from './teamLabels';
+import { teamCategoryLabel, teamMemberRoleLabel } from './teamLabels';
 import { ActionItemsBand } from './ActionItemsBand';
 import { MyAgendaEventCard } from './MyAgendaEventCard';
 import { PastMatchesSection } from './PastMatchesSection';
 import { pastMatchesWindowParams } from './myAgendaWindow';
 import { useMyAgenda } from './useMyAgenda';
 
-function TeamCard({ team }: { team: MyTeamSummary }) {
+/** One team as a link row: name, « club · category », the reader's roles, a chevron. */
+function TeamLinkRow({ team }: { team: MyTeamSummary }) {
+  const hasRoles = Boolean(team.rosterRole) || team.isTeamAdmin;
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <Text as="span" variant="display" size="lg">
-            {team.teamName}
-          </Text>
-          <div className="flex flex-wrap items-center gap-2">
+    <ListItem
+      asChild
+      chevron
+      meta={`${team.clubName} · ${teamCategoryLabel(team.category)}`}
+      trailing={
+        hasRoles && (
+          <>
             {team.rosterRole && (
-              <Badge tone="structure">{teamMemberRoleLabel(team.rosterRole)}</Badge>
+              <Badge variant="soft" tone="muted">
+                {teamMemberRoleLabel(team.rosterRole)}
+              </Badge>
             )}
-            {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-          </div>
-        </div>
-        <Text variant="meta">
-          {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-        </Text>
-        <Button asChild variant="outline">
-          <Link
-            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
-            state={{ origin: { from: 'dashboard' } }}
-          >
-            Voir l&apos;équipe
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
+            {team.isTeamAdmin && (
+              <Badge variant="soft" tone="muted">
+                Administrateur
+              </Badge>
+            )}
+          </>
+        )
+      }
+    >
+      <Link
+        to={`/clubs/${team.clubId}/teams/${team.teamId}`}
+        state={{ origin: { from: 'dashboard' } }}
+      >
+        {team.teamName}
+      </Link>
+    </ListItem>
   );
 }
 
@@ -63,7 +66,7 @@ function TeamCard({ team }: { team: MyTeamSummary }) {
  * `DashboardPage`: the player-first revamp turns the player's landing
  * screen into a to-do list, but a manager's four numbers and her team
  * roster are not the thing this pass found broken
- * (`docs/ux-audit/player-journey.md` §4.1) — only the player's screen was.
+ * (`docs/personas.md`) — only the player's screen was.
  *
  * « Après le match » (phase 8) is new here — the pre-phase-8 manager home had
  * no post-match surface at all, even though a manager is exactly who needs
@@ -118,83 +121,91 @@ export function ManagerHome({
 
   return (
     <>
-      <ActionItemsBand items={dashboard?.actionItems ?? []} />
+      {/* One column on a phone (À traiter → tiles → semaine → équipes, through
+          `order`); from `md` a grid where the tiles span both columns, the week
+          sits left and À traiter + Mes équipes stack right. The right column's
+          wrapper is `contents` on a phone so its children take part in `order`. */}
+      <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start">
+        <div className="grid grid-cols-2 gap-4 order-2 md:order-none md:col-span-2 md:grid-cols-4">
+          <StatTile
+            icon={<TrophyIcon size="md" />}
+            label="Équipes gérées"
+            value={managedTeamCount}
+          />
+          <StatTile
+            icon={<CalendarIcon size="md" />}
+            label="Événements — 7 prochains jours"
+            value={upcomingEvents.length}
+          />
+          <StatTile
+            icon={<UsersIcon size="md" />}
+            label="Joueurs au total"
+            value={dashboard?.totalPlayers ?? 0}
+          />
+          <StatTile
+            icon={<BuildingIcon size="md" />}
+            label="Clubs administrés"
+            value={adminClubs.length}
+          />
+        </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile
-          icon={<TrophyIcon className="h-4 w-4" />}
-          label="Équipes gérées"
-          value={managedTeamCount}
-        />
-        <StatTile
-          icon={<CalendarIcon className="h-4 w-4" />}
-          label="Événements — 7 prochains jours"
-          value={upcomingEvents.length}
-        />
-        <StatTile
-          icon={<UsersIcon className="h-4 w-4" />}
-          label="Joueurs au total"
-          value={dashboard?.totalPlayers ?? 0}
-        />
-        <StatTile
-          icon={<BuildingIcon className="h-4 w-4" />}
-          label="Clubs administrés"
-          value={adminClubs.length}
-        />
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Cette semaine</CardTitle>
-          <TextLink asChild tone="brand">
-            <Link to="/my-teams">Voir le calendrier →</Link>
-          </TextLink>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
+        <section className="order-3 flex flex-col gap-3.5 md:order-none md:col-start-1 md:row-start-2">
+          <SectionHeading as="h2">Cette semaine</SectionHeading>
           {isDashboardError ? (
             <QueryError onRetry={() => refetchDashboard()} isRetrying={isDashboardRefetching} />
           ) : isDashboardLoading ? (
             <SkeletonList rows={3} />
           ) : upcomingEvents.length > 0 ? (
-            upcomingEvents.map((event) => (
-              <MyAgendaEventCard
-                key={event.eventId}
-                event={event}
-                isRostered={isRostered(event.teamId)}
-                showRsvpSummary
-              />
-            ))
+            <div className="flex flex-col gap-2">
+              {upcomingEvents.map((event) => (
+                <MyAgendaEventCard
+                  key={event.eventId}
+                  event={event}
+                  isRostered={isRostered(event.teamId)}
+                  showRsvpSummary
+                />
+              ))}
+            </div>
           ) : (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title="Rien de prévu cette semaine"
               description="Aucun événement dans les 7 prochains jours pour vos équipes."
             />
           )}
-        </CardContent>
-      </Card>
+          <Button asChild variant="ghost" size="sm" className="self-start">
+            <Link to="/my-teams">Voir le calendrier →</Link>
+          </Button>
+        </section>
 
-      <div>
-        <Heading as="h2" className="mb-3">
-          Mes équipes
-        </Heading>
-        {isTeamsError ? (
-          <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
-        ) : isTeamsLoading ? (
-          <SkeletonList rows={3} variant="card" />
-        ) : teams && teams.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {teams.map((team) => (
-              <TeamCard key={team.teamId} team={team} />
-            ))}
+        <div className="contents md:col-start-2 md:row-start-2 md:flex md:flex-col md:gap-6">
+          <div className="order-1 empty:hidden md:order-none">
+            <ActionItemsBand items={dashboard?.actionItems ?? []} />
           </div>
-        ) : (
-          <EmptyState
-            icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
-            title="Aucune équipe pour le moment"
-            description="Vous n'êtes membre d'aucune équipe pour le moment."
-          />
-        )}
+
+          <section className="order-4 flex flex-col gap-3.5 md:order-none">
+            <SectionHeading as="h2">Mes équipes</SectionHeading>
+            {isTeamsError ? (
+              <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
+            ) : isTeamsLoading ? (
+              <SkeletonList rows={3} variant="card" />
+            ) : teams && teams.length > 0 ? (
+              <Card variant="flush">
+                <List>
+                  {teams.map((team) => (
+                    <TeamLinkRow key={team.teamId} team={team} />
+                  ))}
+                </List>
+              </Card>
+            ) : (
+              <EmptyState
+                icon={<TrophyIcon size="3xl" tone="secondary" />}
+                title="Aucune équipe pour le moment"
+                description="Vous n'êtes membre d'aucune équipe pour le moment."
+              />
+            )}
+          </section>
+        </div>
       </div>
 
       <PastMatchesSection

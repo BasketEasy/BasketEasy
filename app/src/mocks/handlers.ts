@@ -85,6 +85,44 @@ export const handlers = [
   // (TeamFfbbLinkList); FFBB-focused tests override it with server.use(...).
   http.get('/api/clubs/:clubId/teams/:teamId/ffbb-links', () => HttpResponse.json([])),
 
+  // Default: the team's guest RSVP link is off. TeamGuestLinkSettings
+  // (TeamDetailPage) queries it for every manager render.
+  http.get('/api/clubs/:clubId/teams/:teamId/guest-link', () => HttpResponse.json(null)),
+
+  // Default: the default reminder template, and a reminder not yet shared with
+  // the guest link off. WhatsAppSettingsCard (TeamDetailPage) and
+  // WhatsAppShareCard (the manager's event page) query these.
+  http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-settings', () =>
+    HttpResponse.json({
+      reminderTemplate: null,
+      updateTemplate: null,
+      cancellationTemplate: null,
+      reminderEnabled: false,
+      defaultOffsetMinutes: 4320,
+      hasReachableManager: true,
+    }),
+  ),
+  http.get('/api/clubs/:clubId/teams/:teamId/events/:eventId/whatsapp-share', () =>
+    HttpResponse.json({
+      guestLinkActive: false,
+      shares: [
+        {
+          type: 'REMINDER',
+          state: 'NOT_SENT',
+          sentAt: null,
+          sentBy: null,
+          platform: null,
+          message: null,
+        },
+      ],
+    }),
+  ),
+
+  // Default: nothing to cancel. TeamPendingCancellations (TeamDetailPage, managers).
+  http.get('/api/clubs/:clubId/teams/:teamId/whatsapp-shares/pending-cancellations', () =>
+    HttpResponse.json([]),
+  ),
+
   // Default: no meeting point anywhere, the default 45-minute buffer.
   // ClubMeetingPointSettings (MembersPage) and TeamMeetingPointSettings
   // (TeamDetailPage) query these for every admin/manager render.
@@ -117,7 +155,14 @@ export const handlers = [
       totalVoters: 0,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     }),
+  ),
+
+  // Default: no confirmed scoresheet yet. MatchStatsTable fetches this for
+  // any played MATCH whose « Après la rencontre » is open.
+  http.get('/api/clubs/:clubId/teams/:teamId/stats/matches/:eventId', () =>
+    HttpResponse.json({ hasStats: false, lines: [] }),
   ),
 
   // Default: no personal teams. MyTeamsPage always queries this; tests

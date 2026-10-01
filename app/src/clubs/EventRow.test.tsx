@@ -14,6 +14,7 @@ const trainingEvent: TeamEvent = {
   type: 'TRAINING',
   startsAt: '2026-01-05T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: null,
   venue: null,
@@ -39,7 +40,10 @@ const trainingEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const matchEvent: TeamEvent = {
@@ -72,12 +76,54 @@ function renderRow(event: TeamEvent, canManage: boolean, isRostered = false) {
 }
 
 describe('EventRow', () => {
+  it('marks a pending WhatsApp share for a manager only', () => {
+    const pending: TeamEvent = {
+      ...trainingEvent,
+      whatsAppShare: {
+        type: 'REMINDER',
+        state: 'PENDING',
+        dueAt: null,
+        sentAt: null,
+        sentBy: null,
+        platform: null,
+      },
+    };
+    renderRow(pending, true);
+    expect(screen.getByText('À partager')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['a non-manager', true, false],
+    ['a manager with nothing pending', false, true],
+  ])('shows no share marker for %s', (_label, pendingShare, canManage) => {
+    const event: TeamEvent = {
+      ...trainingEvent,
+      whatsAppShare: pendingShare
+        ? {
+            type: 'REMINDER',
+            state: 'PENDING',
+            dueAt: null,
+            sentAt: null,
+            sentBy: null,
+            platform: null,
+          }
+        : null,
+    };
+    renderRow(event, canManage);
+    expect(screen.queryByText('À partager')).not.toBeInTheDocument();
+  });
+
   it('shows the type label and no opponent for a training event', () => {
     renderRow(trainingEvent, false);
 
     expect(screen.getByText('Entraînement')).toBeInTheDocument();
     expect(screen.getAllByText('—')).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /modifier/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the gym name in the Lieu column when one was given', () => {
+    renderRow({ ...matchEvent, locationName: 'Salle Coubertin' }, false);
+    expect(screen.getByText('Salle Coubertin')).toBeInTheDocument();
   });
 
   it('shows the opponent for a match event', () => {

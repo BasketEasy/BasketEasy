@@ -10,8 +10,10 @@ import {
   subMonths,
 } from './retention.constants';
 
-export type RetentionStepName =
-  'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
+/** How long an expired impersonation session row is kept before the sweep drops it. */
+const IMPERSONATION_SESSION_GRACE_MS = 24 * 60 * 60 * 1000;
+
+type RetentionStepName = 'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
 
 export interface RetentionStepResult {
   status: 'ok' | 'error';
@@ -47,7 +49,7 @@ const STEP_ORDER: RetentionStepName[] = [
 
 /**
  * Every retention rule that application code can enforce, run as one nightly
- * sweep (see docs/superpowers/specs/2026-09-06-data-retention-policy-design.md).
+ * sweep (see docs/decisions/rgpd-and-backoffice.md).
  *
  * Backup rotation, the sixth rule, is deliberately absent: it is set on the
  * Postgres backup tool and the R2 bucket lifecycle, not in business logic.
@@ -63,7 +65,7 @@ export class RetentionService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async run(dryRun = false): Promise<RetentionSweepSummary> {
+  async run(dryRun = false, triggeredByUserId?: string): Promise<RetentionSweepSummary> {
     const now = new Date();
     const settled = await Promise.allSettled([
       this.sweepInactiveAccounts(dryRun, now),
@@ -81,7 +83,12 @@ export class RetentionService {
     // is itself the evidence that the policy was evaluated, which RGPD
     // art. 5.2 (accountability) asks for just as much as the deletions are.
     await this.prisma.retentionRun.create({
-      data: { dryRun, ranAt: now, summary: summary as unknown as Prisma.InputJsonValue },
+      data: {
+        dryRun,
+        ranAt: now,
+        triggeredByUserId: triggeredByUserId ?? null,
+        summary: summary as unknown as Prisma.InputJsonValue,
+      },
     });
 
     this.logger.log(
@@ -245,7 +252,52 @@ export class RetentionService {
       return { status: 'ok', count: await this.prisma.auditLog.count({ where }) };
     }
     const { count } = await this.prisma.auditLog.deleteMany({ where });
+    // Impersonation sessions ride along: a session row is only the "is this
+    // token still good" state, dead a day after it expires, and the
+    // ADMIN_IMPERSONATION_* audit rows are the record that outlives it (under
+    // the 12-month rule just applied). Not counted in this step's figure,
+    // which stays "audit rows".
+    await this.dropExpiredImpersonationSessions(now);
     return { status: 'ok', count };
+  }
+
+  /**
+   * A session nobody ended (the tab was closed, or it simply ran out) gets its
+   * ADMIN_IMPERSONATION_ENDED row here, with `endReason: 'EXPIRED'` and the
+   * real expiry in metadata, so every STARTED row has an ENDED one. Written
+   * in the same transaction as the delete, so a row can't be dropped without
+   * its record.
+   */
+  private async dropExpiredImpersonationSessions(now: Date): Promise<void> {
+    const cutoff = new Date(now.getTime() - IMPERSONATION_SESSION_GRACE_MS);
+    await this.prisma.$transaction(async (tx) => {
+      const unended = await tx.impersonationSession.findMany({
+        where: { expiresAt: { lt: cutoff }, endedAt: null },
+        select: {
+          id: true,
+          actorUserId: true,
+          subjectUserId: true,
+          expiresAt: true,
+          actor: { select: { email: true } },
+        },
+      });
+      if (unended.length > 0) {
+        await tx.auditLog.createMany({
+          data: unended.map((session) => ({
+            type: 'ADMIN_IMPERSONATION_ENDED' as const,
+            userId: session.actorUserId,
+            actorEmail: session.actor.email,
+            metadata: {
+              sessionId: session.id,
+              subjectUserId: session.subjectUserId,
+              endReason: 'EXPIRED',
+              expiredAt: session.expiresAt.toISOString(),
+            },
+          })),
+        });
+      }
+      await tx.impersonationSession.deleteMany({ where: { expiresAt: { lt: cutoff } } });
+    });
   }
 
   /**

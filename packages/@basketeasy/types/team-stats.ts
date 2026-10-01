@@ -5,7 +5,7 @@ import type { TeamMemberRole } from './teams';
  * scoresheets. Averages are null rather than 0 when nothing contributed a
  * known value: a player whose only match had an illegible running-score
  * column has no measured average, and reporting that as 0 would read as
- * "scored nothing" (see the zero-vs-unknown rule in the design spec).
+ * "scored nothing" (docs/decisions/scoresheets-and-stats.md).
  */
 export interface TeamSeasonPlayerStats {
   teamPlayerId: string;
@@ -60,4 +60,29 @@ export interface TeamSeasonStats {
   /** Seasons that actually have data, for the selector. Newest first. */
   availableSeasons: number[];
   players: TeamSeasonPlayerStats[];
+}
+
+/** One player's line on one match, from its confirmed scoresheet. */
+export interface MatchStatLine {
+  teamPlayerId: string;
+  firstName: string;
+  lastName: string;
+  jerseyNumber: number | null;
+  /** Null when the sheet didn't say — rendered `—`, never 0. */
+  points: number | null;
+  fouls: number | null;
+  /** Point counts per basket value, never a shooting percentage. */
+  freeThrowPoints: number | null;
+  twoPointPoints: number | null;
+  threePointPoints: number | null;
+  /** True when this line is the persona's. */
+  isMe: boolean;
+}
+
+/** One match's lines, via GET clubs/:clubId/teams/:teamId/stats/matches/:eventId. */
+export interface MatchStats {
+  /** True once a confirmed sheet produced rows; false → the UI shows the scoresheet flow instead. */
+  hasStats: boolean;
+  /** Points desc, nulls last, then lastName. */
+  lines: MatchStatLine[];
 }

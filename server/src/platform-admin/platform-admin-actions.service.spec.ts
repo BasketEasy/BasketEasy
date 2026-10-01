@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
 import {
   BadRequestException,
   ConflictException,
@@ -10,6 +11,7 @@ import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountSecurityService } from '../auth/account-security.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
+import { StorageService } from '../storage/storage.service';
 
 // Concurrency (two staff demoting a two-admin club at once) relies on the
 // SELECT … FOR UPDATE in assertNotLastAdmin; it was exercised against a real
@@ -36,20 +38,27 @@ describe('PlatformAdminActionsService', () => {
       count: jest.Mock;
       delete: jest.Mock;
     };
-    player: { findUnique: jest.Mock; updateMany: jest.Mock };
-    team: { findUnique: jest.Mock };
+    player: { findUnique: jest.Mock; updateMany: jest.Mock; count: jest.Mock };
+    team: { findUnique: jest.Mock; deleteMany: jest.Mock };
     teamAdmin: { findUnique: jest.Mock; create: jest.Mock; deleteMany: jest.Mock };
-    clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock };
-    eventScoresheet: { findUnique: jest.Mock };
+    clubTeam: { findMany: jest.Mock; updateMany: jest.Mock; update: jest.Mock; count: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock };
+    club: { create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
     guardianInvite: { deleteMany: jest.Mock };
     playerGuardian: { deleteMany: jest.Mock };
     parentalConsent: { updateMany: jest.Mock; create: jest.Mock };
-    auditLog: { create: jest.Mock };
+    auditLog: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
-  let accountSecurity: { sendVerificationEmail: jest.Mock; requestPasswordReset: jest.Mock };
+  let accountSecurity: {
+    sendVerificationEmail: jest.Mock;
+    requestPasswordReset: jest.Mock;
+    isVerificationThrottled: jest.Mock;
+    isPasswordResetThrottled: jest.Mock;
+  };
   let scoresheets: { enqueueOcr: jest.Mock };
+  let storage: { deleteObject: jest.Mock };
 
   beforeEach(async () => {
     order = [];
@@ -63,11 +72,28 @@ describe('PlatformAdminActionsService', () => {
         count: jest.fn().mockResolvedValue(2),
         delete: jest.fn(),
       },
-      player: { findUnique: jest.fn(), updateMany: jest.fn() },
-      team: { findUnique: jest.fn().mockResolvedValue({ id: 'team-1' }) },
+      player: {
+        findUnique: jest.fn(),
+        updateMany: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      team: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'team-1' }),
+        deleteMany: jest.fn().mockImplementation(async () => order.push('delete-teams')),
+      },
       teamAdmin: { findUnique: jest.fn(), create: jest.fn(), deleteMany: jest.fn() },
-      clubTeam: { findMany: jest.fn(), updateMany: jest.fn(), update: jest.fn() },
-      eventScoresheet: { findUnique: jest.fn() },
+      clubTeam: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+        update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      eventScoresheet: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+      club: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        delete: jest.fn().mockImplementation(async () => order.push('delete-club')),
+      },
       guardianInvite: { deleteMany: jest.fn() },
       playerGuardian: { deleteMany: jest.fn() },
       parentalConsent: { updateMany: jest.fn(), create: jest.fn() },
@@ -76,6 +102,8 @@ describe('PlatformAdminActionsService', () => {
           order.push('audit');
           return { id: 'log-1' };
         }),
+        findUnique: jest.fn(),
+        update: jest.fn(),
       },
       $queryRaw: jest.fn(),
       $transaction: jest
@@ -85,8 +113,11 @@ describe('PlatformAdminActionsService', () => {
     accountSecurity = {
       sendVerificationEmail: jest.fn().mockImplementation(async () => order.push('email')),
       requestPasswordReset: jest.fn().mockImplementation(async () => order.push('email')),
+      isVerificationThrottled: jest.fn().mockResolvedValue(false),
+      isPasswordResetThrottled: jest.fn().mockResolvedValue(false),
     };
     scoresheets = { enqueueOcr: jest.fn().mockImplementation(async () => order.push('enqueue')) };
+    storage = { deleteObject: jest.fn().mockImplementation(async () => order.push('storage')) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -94,6 +125,7 @@ describe('PlatformAdminActionsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: AccountSecurityService, useValue: accountSecurity },
         { provide: ScoresheetsService, useValue: scoresheets },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
     service = module.get(PlatformAdminActionsService);
@@ -169,16 +201,139 @@ describe('PlatformAdminActionsService', () => {
 
       await service.sendPasswordReset(actor, 'user-9', 'Mot de passe oublié', request);
 
-      expect(accountSecurity.requestPasswordReset).toHaveBeenCalledWith(
-        'a@b.fr',
-        expect.anything(),
-      );
+      // Staff-origin: no request context, so the subject's own reset row
+      // never carries the staff member's IP.
+      expect(accountSecurity.requestPasswordReset).toHaveBeenCalledWith('a@b.fr', undefined, {
+        byStaff: true,
+      });
+    });
+
+    it('refuses a throttled e-mail before writing a row that would claim it was sent', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'a@b.fr',
+        emailVerifiedAt: null,
+      });
+      accountSecurity.isVerificationThrottled.mockResolvedValue(true);
+      accountSecurity.isPasswordResetThrottled.mockResolvedValue(true);
+
+      for (const run of [
+        () => service.resendVerification(actor, 'user-9', 'Relance demandée', request),
+        () => service.sendPasswordReset(actor, 'user-9', 'Mot de passe oublié', request),
+      ]) {
+        await expect(run()).rejects.toMatchObject({ status: 429 });
+      }
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(accountSecurity.sendVerificationEmail).not.toHaveBeenCalled();
+      expect(accountSecurity.requestPasswordReset).not.toHaveBeenCalled();
+    });
+
+    it('never lets staff act on their own account', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        email: 'support@kluvo.net',
+        emailVerifiedAt: null,
+      });
+      const self = 'admin-1';
+      const attempts = [
+        () => service.markEmailVerified(actor, self, 'Vérifié par téléphone', request),
+        () => service.resendVerification(actor, self, 'Relance demandée', request),
+        () => service.sendPasswordReset(actor, self, 'Mot de passe oublié', request),
+        () => service.changeClubRole(actor, 'club-1', self, 'ADMIN', 'Promotion demandée', request),
+        () => service.removeMembership(actor, 'club-1', self, 'Départ du club', request),
+        () => service.addTeamAdmin(actor, 'team-1', self, 'Coach remplaçant', request),
+        () => service.removeTeamAdmin(actor, 'team-1', self, 'Coach remplaçant', request),
+        () =>
+          service.createClub(
+            actor,
+            { name: 'BC Test', firstAdminUserId: self },
+            'Nouveau club créé',
+            request,
+          ),
+      ];
+      for (const attempt of attempts) {
+        await expect(attempt()).rejects.toBeInstanceOf(ForbiddenException);
+      }
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('refuses to revoke the acting admin’s own sessions', async () => {
       await expect(
         service.revokeSessions(actor, 'admin-1', 'Test sur soi-même', request),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('club creation', () => {
+    const data = {
+      name: 'Saint-Herblain BC',
+      ffbbClubCode: 'PDL0044051',
+      firstAdminUserId: 'user-9',
+    };
+
+    it('creates the club with its first ADMIN and one audit row, together', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'c@x.fr',
+        emailVerifiedAt: null,
+      });
+      prisma.club.create.mockResolvedValue({
+        id: 'club-9',
+        name: data.name,
+        ffbbClubCode: data.ffbbClubCode,
+      });
+
+      const result = await service.createClub(
+        actor,
+        data,
+        'Demande du comité 44, ticket #830',
+        request,
+      );
+
+      expect(prisma.club.create).toHaveBeenCalledWith({
+        data: {
+          name: data.name,
+          ffbbClubCode: data.ffbbClubCode,
+          memberships: { create: { userId: 'user-9', role: 'ADMIN' } },
+        },
+      });
+      expect(prisma.auditLog.create).toHaveBeenCalledTimes(1);
+      expect(prisma.auditLog.create.mock.calls[0][0].data.metadata).toMatchObject({
+        action: 'CLUB_CREATED',
+        clubId: 'club-9',
+        subjectUserId: 'user-9',
+      });
+      expect(result).toEqual({ action: 'CLUB_CREATED', auditLogId: 'log-1', clubId: 'club-9' });
+    });
+
+    it('refuses an unknown first admin and writes nothing', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.createClub(actor, data, 'raison assez longue', request)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.club.create).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('turns a duplicate FFBB code into a 409 and writes no audit row', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-9',
+        email: 'c@x.fr',
+        emailVerifiedAt: null,
+      });
+      prisma.club.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('unique', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(service.createClub(actor, data, 'raison assez longue', request)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
   });
 
@@ -309,6 +464,26 @@ describe('PlatformAdminActionsService', () => {
       });
       await service.retryOcr(actor, 'sheet-1', 'Club bloqué', request);
       expect(order).toEqual(['audit', 'enqueue']);
+      // A stuck sheet's leftover job is replaced, or BullMQ ignores the add.
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: true });
+    });
+
+    it('rolls the audit row back when the queue is unreachable', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        id: 'sheet-1',
+        eventId: 'event-1',
+        status: 'FAILED',
+        uploadedAt: new Date(),
+      });
+      scoresheets.enqueueOcr.mockRejectedValue(new Error('redis down'));
+
+      await expect(service.retryOcr(actor, 'sheet-1', 'Club bloqué', request)).rejects.toThrow(
+        'redis down',
+      );
+      // Enqueued inside the transaction callback, so the row's write fails
+      // with it rather than committing on its own.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: false });
     });
   });
 
@@ -376,6 +551,133 @@ describe('PlatformAdminActionsService', () => {
         attestedByUserId: 'admin-1',
         attestedByName: 'Camille Staff (Kluvo) — Nicolas Bernard, père, formulaire papier',
       });
+    });
+  });
+
+  describe('deleteClub', () => {
+    // Two reads: the club's owned links, then the partner links on those teams.
+    const arrange = (ownedIds: string[], partnered: string[] = []) => {
+      prisma.clubTeam.findMany
+        .mockResolvedValueOnce(ownedIds.map((teamId) => ({ teamId })))
+        .mockResolvedValueOnce(partnered.map((teamId) => ({ teamId })));
+    };
+
+    beforeEach(() => {
+      prisma.club.findUnique.mockResolvedValue({ name: 'BC Nantes', ffbbClubCode: 'PDL0044001' });
+      arrange(['team-1', 'team-2']);
+      prisma.clubTeam.count.mockResolvedValue(1);
+      prisma.player.count.mockResolvedValue(12);
+      prisma.parentalConsent.updateMany.mockResolvedValue({ count: 3 });
+      prisma.eventScoresheet.findMany.mockResolvedValue([
+        { storageKey: 'sheets/a.jpg' },
+        { storageKey: 'sheets/b.pdf' },
+      ]);
+    });
+
+    it('deletes the owned teams and the club with its audit row, then the files', async () => {
+      const result = await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(result).toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', isOwner: true },
+        select: { teamId: true },
+      });
+      // The owned Team rows are locked before partners are looked up, so a
+      // partner link added concurrently can't slip in after the check.
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.clubTeam.findMany.mock.invocationCallOrder[1],
+      );
+      expect(prisma.clubTeam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { teamId: { in: ['team-1', 'team-2'] }, clubId: { not: 'club-1' } },
+        }),
+      );
+      expect(prisma.team.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['team-1', 'team-2'] } },
+      });
+      expect(prisma.club.delete).toHaveBeenCalledWith({ where: { id: 'club-1' } });
+      expect(prisma.auditLog.create.mock.calls[0][0].data.metadata).toEqual({
+        action: 'CLUB_DELETED',
+        reason: 'Club fermé, ticket #42',
+        clubId: 'club-1',
+        before: {
+          name: 'BC Nantes',
+          ffbbClubCode: 'PDL0044001',
+          ownedTeamCount: 2,
+          partnerOnTeamCount: 1,
+          playerCount: 12,
+          parentalConsentsKept: 3,
+          scoresheetFileCount: 2,
+        },
+      });
+      expect(storage.deleteObject.mock.calls.map(([key]) => key)).toEqual([
+        'sheets/a.jpg',
+        'sheets/b.pdf',
+      ]);
+      expect(order).toEqual(['delete-teams', 'delete-club', 'audit', 'storage', 'storage']);
+      expect(prisma.auditLog.update).not.toHaveBeenCalled();
+    });
+
+    it('runs with a timeout sized for a large club, not Prisma’s 5s default', async () => {
+      await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(prisma.$transaction.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ timeout: expect.any(Number) }),
+      );
+      expect(prisma.$transaction.mock.calls[0][1].timeout).toBeGreaterThan(5_000);
+    });
+
+    it('refuses a club that owns a team shared with another club, and deletes nothing', async () => {
+      prisma.clubTeam.findMany.mockReset();
+      arrange(['team-1', 'team-ctc'], ['team-ctc']);
+
+      await expect(
+        service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.team.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.club.delete).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+    });
+
+    it('keeps the parental consents: snapshots the club name and starts their clock', async () => {
+      await service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request);
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1' },
+        data: { clubName: 'BC Nantes' },
+      });
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { clubId: 'club-1', retentionExpiresAt: null },
+        data: { retentionExpiresAt: expect.any(Date) },
+      });
+    });
+
+    it('still succeeds when storage cleanup fails, and records the keys it left behind', async () => {
+      storage.deleteObject.mockImplementation(async (key: string) => {
+        if (key === 'sheets/b.pdf') throw new Error('R2 down');
+      });
+      prisma.auditLog.findUnique.mockResolvedValue({ metadata: { action: 'CLUB_DELETED' } });
+
+      await expect(
+        service.deleteClub(actor, 'club-1', 'Club fermé, ticket #42', request),
+      ).resolves.toEqual({ action: 'CLUB_DELETED', auditLogId: 'log-1' });
+      expect(prisma.auditLog.update).toHaveBeenCalledWith({
+        where: { id: 'log-1' },
+        data: { metadata: { action: 'CLUB_DELETED', failedStorageKeys: ['sheets/b.pdf'] } },
+      });
+    });
+
+    it('refuses an unknown club, and deletes nothing', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.deleteClub(actor, 'club-x', 'Club fermé, ticket #42', request),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.team.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.club.delete).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(storage.deleteObject).not.toHaveBeenCalled();
     });
   });
 });

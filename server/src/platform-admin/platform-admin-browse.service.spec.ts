@@ -249,7 +249,12 @@ describe('PlatformAdminBrowseService', () => {
         expect.objectContaining({
           type: 'ADMIN_PII_VIEWED',
           userId: 'admin-1',
-          metadata: { subjectUserId: 'user-9', subjectEmail: 'jean.dupont@example.org' },
+          metadata: {
+            subjectUserId: 'user-9',
+            subjectEmail: 'jean.dupont@example.org',
+            // The players the profile names find this read too.
+            disclosedPlayerIds: ['player-1', 'player-3'],
+          },
           context: { ipAddress: '203.0.113.7', userAgent: 'jest' },
         }),
       );
@@ -358,7 +363,11 @@ describe('PlatformAdminBrowseService', () => {
       expect(audit.recordAndWait).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'ADMIN_PII_VIEWED',
-          metadata: { subjectPlayerId: 'player-3', subjectUserId: 'user-5' },
+          metadata: {
+            subjectPlayerId: 'player-3',
+            subjectUserId: 'user-5',
+            disclosedUserIds: ['user-6'],
+          },
         }),
       );
       expect(detail.licenseNumber).toBe('VT123456');
@@ -428,5 +437,64 @@ describe('PlatformAdminBrowseService', () => {
         '2008-09-28T10:00:00.000Z',
       );
     });
+  });
+
+  describe('recordListed', () => {
+    const page = {
+      items: [
+        { person: { kind: 'user', id: 'user-1' } },
+        { person: { kind: 'user', id: 'user-2' } },
+      ],
+    };
+
+    it('records a DATA_OFFICER page with its filters and every person on it', async () => {
+      await service.recordListed(dpo, buildRequest(), 'users', page, { q: 'dup', page: 2 });
+
+      expect(audit.recordAndWait).toHaveBeenCalledWith({
+        type: 'ADMIN_PII_LISTED',
+        userId: 'admin-1',
+        actorEmail: dpo.email,
+        metadata: {
+          view: 'users',
+          filters: { q: 'dup', page: 2 },
+          peopleCount: 2,
+          disclosedUserIds: ['user-1', 'user-2'],
+          disclosedPlayerIds: [],
+        },
+        context: { ipAddress: '203.0.113.7', userAgent: 'jest' },
+      });
+    });
+
+    it('skips a SUPPORT page, which shows initials only', async () => {
+      await service.recordListed(support, buildRequest(), 'users', page);
+      expect(audit.recordAndWait).not.toHaveBeenCalled();
+    });
+
+    it('records a SUPPORT search, where a hit confirms an address has an account', async () => {
+      await service.recordListed(
+        support,
+        buildRequest(),
+        'search',
+        page,
+        { q: 'a@b.fr' },
+        { always: true },
+      );
+      expect(audit.recordAndWait).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'ADMIN_PII_LISTED', userId: support.id }),
+      );
+    });
+  });
+
+  it('orders a SUPPORT member list by date, not by the names its initials hide', async () => {
+    prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+    prisma.clubMembership.count.mockResolvedValue(0);
+    prisma.clubMembership.findMany.mockResolvedValue([]);
+
+    await service.listClubMembers('SUPPORT', 'club-1', {});
+
+    expect(prisma.clubMembership.findMany.mock.calls[0][0].orderBy).toEqual([
+      { role: 'asc' },
+      { createdAt: 'asc' },
+    ]);
   });
 });

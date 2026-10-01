@@ -56,6 +56,17 @@ import {
 // Every back-office read. Lists keep the previous page on screen while the
 // next one loads, so paging and filtering don't flash the loading branch.
 
+/**
+ * Reads that write ADMIN_PII_LISTED server-side (a DATA_OFFICER's person
+ * lists, rosters, events, the audit log, any search): no refetch on focus or
+ * reconnect, for the same reason as `personRecordOptions` below. They still
+ * refetch after a mutation invalidates them, which is a read someone asked for.
+ */
+const auditedListOptions = {
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const;
+
 export function useRetentionRuns() {
   return useQuery({
     queryKey: retentionRunsQueryKey,
@@ -68,6 +79,7 @@ export function useAdminAuditLog(query: ListAuditLogParams) {
     queryKey: adminAuditLogQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AuditLogEntry>>('/admin/audit-log', query),
     placeholderData: keepPreviousData,
+    ...auditedListOptions,
   });
 }
 
@@ -92,6 +104,7 @@ export function useAdminClubMembers(clubId: string, query: AdminClubMembersQuery
     queryFn: () =>
       apiClient.get<PaginatedResult<AdminClubMember>>(`/admin/clubs/${clubId}/members`, query),
     placeholderData: keepPreviousData,
+    ...auditedListOptions,
   });
 }
 
@@ -107,6 +120,7 @@ export function useAdminTeam(teamId: string) {
   return useQuery({
     queryKey: adminTeamQueryKey(teamId),
     queryFn: () => apiClient.get<AdminTeamDetail>(`/admin/teams/${teamId}`),
+    ...auditedListOptions,
   });
 }
 
@@ -114,6 +128,7 @@ export function useAdminTeamRoster(teamId: string) {
   return useQuery({
     queryKey: adminTeamRosterQueryKey(teamId),
     queryFn: () => apiClient.get<AdminRosterEntry[]>(`/admin/teams/${teamId}/roster`),
+    ...auditedListOptions,
   });
 }
 
@@ -122,6 +137,7 @@ export function useAdminUsers(query: AdminUsersQuery) {
     queryKey: adminUsersQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AdminUserSummary>>('/admin/users', query),
     placeholderData: keepPreviousData,
+    ...auditedListOptions,
   });
 }
 
@@ -152,6 +168,7 @@ export function useAdminPlayers(query: AdminPlayersQuery) {
     queryKey: adminPlayersQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AdminPlayerSummary>>('/admin/players', query),
     placeholderData: keepPreviousData,
+    ...auditedListOptions,
   });
 }
 
@@ -176,6 +193,7 @@ export function useAdminEvent(eventId: string) {
   return useQuery({
     queryKey: adminEventQueryKey(eventId),
     queryFn: () => apiClient.get<AdminEventDetail>(`/admin/events/${eventId}`),
+    ...auditedListOptions,
   });
 }
 
@@ -200,6 +218,7 @@ export function useAdminSearch(q: string) {
     enabled: query.length >= ADMIN_SEARCH_MIN_LENGTH,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+    ...auditedListOptions,
   });
 }
 

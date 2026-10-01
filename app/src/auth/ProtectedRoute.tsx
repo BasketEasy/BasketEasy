@@ -1,4 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { PageContainer } from '@basketeasy/ui/page-container';
+import { QueryError } from '@basketeasy/ui/query-error';
 import { useAccount } from './useAccount';
 import { ActiveClubProvider } from './ActiveClubContext';
 import { AppHeader } from '../components/AppHeader';
@@ -7,9 +9,10 @@ import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { ActingAsProvider } from '../guardians/ActingAsContext';
 import { ActingAsBanner } from '../guardians/ActingAsBanner';
 import { PersonaSheet } from '../guardians/PersonaSheet';
+import { ImpersonationBanner } from '../impersonation/ImpersonationBanner';
 
 export function ProtectedRoute() {
-  const { user, isLoading } = useAccount();
+  const { user, isLoading, isError, retry } = useAccount();
 
   // Returning null here used to paint a blank white screen on every hard
   // load of a protected route — the header's shape is known before the
@@ -17,6 +20,23 @@ export function ProtectedRoute() {
   // resolves.
   if (isLoading) {
     return <AppHeader isResolving />;
+  }
+
+  // The restore gave up on a network or server failure: that is not "signed
+  // out", so say so and offer a retry instead of bouncing to /login.
+  if (isError) {
+    return (
+      <>
+        <AppHeader isResolving />
+        <PageContainer>
+          <QueryError
+            title="Connexion impossible"
+            description="Nous n’avons pas pu vérifier votre session. Vérifiez votre connexion, puis réessayez."
+            onRetry={retry}
+          />
+        </PageContainer>
+      </>
+    );
   }
 
   if (!user) {
@@ -46,6 +66,9 @@ export function ProtectedRoute() {
           page background below the bar. */}
         <div className="safe-area-top flex min-h-dvh flex-col">
           <AppHeader />
+          {/* First under the header, above every other banner: while it
+            shows, nothing on the page is the reader's own. */}
+          <ImpersonationBanner />
           {/* The one place that renders on every protected page at *both*
             breakpoints — inside AppHeader the banner would be invisible on a
             phone, inside AppBottomNav invisible on a desktop. It renders

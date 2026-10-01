@@ -11,7 +11,7 @@ import { TeamEventsAgenda } from './TeamEventsAgenda';
  * The player's Événements tab, labelled « Agenda » — the day-grouped view
  * only. Unlike `TeamEventsTab` (the manager's power view), there is no
  * Agenda/Liste toggle and no paginated table: a rostered player has no use
- * for either (`docs/ux-audit/player-journey.md` §3.9, §4.4), so instead of
+ * for either (`docs/personas.md`), so instead of
  * hiding controls inside the shared component this is its own, smaller one —
  * "one component per record" doesn't mean one component per screen, and
  * folding a manager-only toggle behind a boolean prop on `TeamEventsTab`
@@ -66,7 +66,7 @@ export function TeamAgendaTab({
             <SkeletonList rows={3} />
           ) : isEmpty ? (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title={agendaPeriod === 'past' ? 'Aucun événement passé' : 'Aucun événement'}
               description={
                 agendaPeriod === 'past'

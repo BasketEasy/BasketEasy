@@ -78,7 +78,7 @@ export function TeamAdminsTab({
             <SkeletonList rows={3} />
           ) : (teamAdmins?.length ?? 0) === 0 ? (
             <EmptyState
-              icon={<ShieldIcon tone="secondary" className="h-8 w-8" />}
+              icon={<ShieldIcon size="3xl" tone="secondary" />}
               title="Aucun administrateur d'équipe"
               description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
               action={

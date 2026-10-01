@@ -1,23 +1,39 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
+import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
+import { Card, CardContent } from '@basketeasy/ui/card';
 import { ConfirmDialog } from '@basketeasy/ui/confirm-dialog';
-import { Heading } from '@basketeasy/ui/heading';
+import { EmptyState } from '@basketeasy/ui/empty-state';
+import { FactTile } from '@basketeasy/ui/fact-tile';
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { Loader } from '@basketeasy/ui/loader';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { PageHero } from '@basketeasy/ui/page-hero';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { GuardianName, MyChildProfile } from '@basketeasy/types/guardians';
 import { ApiError } from '../api/client';
+import { PageBackLink, PageBar } from '../components/PageBar';
 import { ChildProfileForm } from '../guardians/ChildProfileForm';
 import { useMyChild, useStopFollowingChild } from '../guardians/useMyChild';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 
 function fullName(name: GuardianName): string {
   return [name.firstName, name.lastName].filter(Boolean).join(' ') || 'Parent sans nom';
+}
+
+function initials(name: GuardianName): string {
+  return (
+    [name.firstName, name.lastName]
+      .map((part) => part?.trim().charAt(0).toUpperCase())
+      .filter(Boolean)
+      .join('') || '?'
+  );
 }
 
 function consentLine(consent: NonNullable<MyChildProfile['consent']>): string {
@@ -39,23 +55,19 @@ export function ChildProfilePage() {
     const notFound = error instanceof ApiError && error.status === 404;
     return (
       <PageContainer size="md">
-        <Card>
-          <CardHeader>
-            <CardTitle>{notFound ? 'Enfant introuvable' : 'Profil indisponible'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {notFound ? (
-              <Text variant="meta">
-                Vous ne suivez pas (ou plus) ce joueur.{' '}
-                <TextLink asChild>
-                  <Link to="/account">Retour à mon compte</Link>
-                </TextLink>
-              </Text>
-            ) : (
-              <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />
-            )}
-          </CardContent>
-        </Card>
+        {notFound ? (
+          <EmptyState
+            title="Enfant introuvable"
+            description="Vous ne suivez pas (ou plus) ce joueur."
+            action={
+              <Button asChild variant="outline">
+                <Link to="/account">Mon compte</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />
+        )}
       </PageContainer>
     );
   }
@@ -79,53 +91,105 @@ export function ChildProfilePage() {
     });
   };
 
+  // An adult has no consent to show; a minor always gets a tile. A missing
+  // consent is neutral, not accent: a guardian cannot record it from here.
+  const consentTile = child.consent ? (
+    <FactTile
+      icon={<ShieldIcon aria-hidden="true" size="lg" />}
+      label="Autorisation parentale"
+      detail={consentLine(child.consent)}
+    />
+  ) : child.isMinor ? (
+    <FactTile
+      icon={<ShieldIcon aria-hidden="true" size="lg" />}
+      label="Aucune autorisation enregistrée"
+      detail="Le club l’enregistre."
+    />
+  ) : undefined;
+
   return (
-    <PageContainer size="md">
-      <Heading as="h1">
-        {child.firstName} {child.lastName}
-      </Heading>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Profil</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ChildProfileForm key={child.playerId} child={child} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Licence et équipes</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-1">
-          <Text variant="label">{child.clubName}</Text>
-          <Text variant="meta">
-            {child.teams.length > 0
-              ? child.teams.map((team) => team.teamName).join(' · ')
-              : 'Inscrit·e dans aucune équipe pour le moment.'}
-          </Text>
-          <Text variant="meta">Le numéro de licence et les équipes sont gérés par le club.</Text>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Parents</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <Text variant="meta">
-            {child.coGuardians.length > 0
-              ? `Suivi aussi par ${child.coGuardians.map(fullName).join(', ')}.`
-              : `Vous êtes le seul parent à suivre ${child.firstName}.`}
-          </Text>
-          {child.consent ? (
-            <Text variant="meta">{consentLine(child.consent)}</Text>
-          ) : (
+    <>
+      <PageBar to="/account" title="Mon compte" />
+      <PageContainer size="md" top="bar">
+        <PageBackLink to="/account" title="Mon compte" />
+        <PageHero
+          badges={
             child.isMinor && (
-              <Text variant="meta">Aucune autorisation parentale enregistrée pour le moment.</Text>
+              <Badge variant="soft" tone="muted">
+                Mineur·e
+              </Badge>
             )
-          )}
+          }
+          eyebrow="Enfant suivi"
+          title={`${child.firstName} ${child.lastName}`}
+          meta={child.clubName}
+          aside={consentTile}
+          stacked
+        />
+
+        <section className="flex flex-col gap-3.5">
+          <SectionHeading as="h2">Profil</SectionHeading>
+          <Card>
+            <CardContent>
+              {child.isMinor ? (
+                <ChildProfileForm key={child.playerId} child={child} />
+              ) : (
+                <Text variant="meta">
+                  {child.birthDate
+                    ? `${child.firstName} est majeur·e : son profil est géré par le club ou par ${child.firstName} depuis son propre compte.`
+                    : `La date de naissance de ${child.firstName} n’est pas renseignée : seul le club peut modifier son profil.`}
+                </Text>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="flex flex-col gap-3.5">
+          <SectionHeading as="h2">Équipes</SectionHeading>
+          <Card variant="flush">
+            {child.teams.length > 0 ? (
+              <List>
+                {child.teams.map((team) => (
+                  <ListItem key={team.teamId} asChild chevron>
+                    <Link to={`/clubs/${child.clubId}/teams/${team.teamId}?pour=${child.playerId}`}>
+                      {team.teamName}
+                    </Link>
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Text variant="meta" className="px-3.5 py-3">
+                Inscrit·e dans aucune équipe pour le moment.
+              </Text>
+            )}
+          </Card>
+          <Text variant="meta">La licence et les équipes sont gérées par le club.</Text>
+        </section>
+
+        <section className="flex flex-col gap-3.5">
+          <SectionHeading as="h2">Parents</SectionHeading>
+          <Card variant="flush">
+            {child.coGuardians.length > 0 ? (
+              <List>
+                {child.coGuardians.map((guardian, index) => (
+                  <ListItem
+                    key={index}
+                    leading={
+                      <Avatar size="md">
+                        <AvatarFallback>{initials(guardian)}</AvatarFallback>
+                      </Avatar>
+                    }
+                  >
+                    {fullName(guardian)}
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Text variant="meta" className="px-3.5 py-3">
+                Vous êtes le seul parent à suivre {child.firstName}.
+              </Text>
+            )}
+          </Card>
           <ConfirmDialog
             trigger={
               <Button variant="outline" className="self-start">
@@ -139,8 +203,8 @@ export function ChildProfilePage() {
             isPending={isStopping}
             error={stopError}
           />
-        </CardContent>
-      </Card>
-    </PageContainer>
+        </section>
+      </PageContainer>
+    </>
   );
 }

@@ -37,6 +37,24 @@ export class AccountSecurityService {
    * every caller is either a fire-and-forget side effect of registration or
    * a 204-always endpoint, and neither has anywhere to put an error.
    */
+  /** Whether a verification e-mail went out to this account in the last minute. */
+  async isVerificationThrottled(userId: string): Promise<boolean> {
+    const recent = await this.prisma.emailVerificationToken.findFirst({
+      where: { userId, createdAt: { gt: new Date(Date.now() - RESEND_THROTTLE_MS) } },
+      select: { id: true },
+    });
+    return recent !== null;
+  }
+
+  /** Whether a reset link went out to this account in the last minute. */
+  async isPasswordResetThrottled(userId: string): Promise<boolean> {
+    const recent = await this.prisma.passwordResetToken.findFirst({
+      where: { userId, createdAt: { gt: new Date(Date.now() - RESEND_THROTTLE_MS) } },
+      select: { id: true },
+    });
+    return recent !== null;
+  }
+
   async sendVerificationEmail(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -123,7 +141,11 @@ export class AccountSecurityService {
    * known and an unknown address is a user-enumeration oracle, and this one
    * is public and unauthenticated.
    */
-  async requestPasswordReset(email: string, context?: AuditRequestContext): Promise<void> {
+  async requestPasswordReset(
+    email: string,
+    context?: AuditRequestContext,
+    { byStaff = false }: { byStaff?: boolean } = {},
+  ): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: { id: true, email: true },
@@ -132,11 +154,16 @@ export class AccountSecurityService {
     // second case). This does not undo the anti-enumeration property above:
     // the audit log is never served to the requester, and the response stays
     // byte-identical either way.
+    // A back-office « envoyer un lien » is recorded without the staff
+    // member's IP: the row carries the subject's userId, and an RGPD export
+    // must not hand the subject a staff address as their own. The staff side
+    // is on the ADMIN_SUPPORT_ACTION row.
     this.audit.record({
       type: 'PASSWORD_RESET_REQUESTED',
       userId: user?.id ?? null,
       actorEmail: email,
-      context,
+      context: byStaff ? undefined : context,
+      ...(byStaff ? { metadata: { requestedByStaff: true } } : {}),
     });
     if (!user) {
       // The response is identical either way (204, no token, no e-mail), but

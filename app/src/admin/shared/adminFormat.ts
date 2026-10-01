@@ -128,4 +128,5 @@ export const SUPPORT_ACTION_LABELS: Record<AdminSupportActionKind, string> = {
   REMOVE_GUARDIAN: 'Lien parent retiré',
   RECORD_PARENTAL_CONSENT: 'Autorisation enregistrée',
   CLUB_CREATED: 'Club créé',
+  CLUB_DELETED: 'Club supprimé',
 };

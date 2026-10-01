@@ -14,6 +14,7 @@ const closedMatchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() - 6 * DAY_MS).toISOString(),
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
@@ -39,7 +40,10 @@ const closedMatchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const openMatchEvent: TeamEvent = {
@@ -80,6 +84,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -101,6 +106,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 4,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -121,6 +127,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -142,6 +149,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -166,6 +174,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 5,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(

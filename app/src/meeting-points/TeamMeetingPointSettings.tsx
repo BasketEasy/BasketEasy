@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import {
   MeetingPointSettingsCard,
   type MeetingPointSettingsSummary,
@@ -12,7 +11,9 @@ import { useMeetingSettingsEditor } from './useMeetingSettingsEditor';
 /**
  * A team manager's view of the meeting point: what applies to this team's
  * matches (its own override, or the owner club's default, marked « (club) »),
- * and the dialog to override either value for every match of the team.
+ * and the dialog to override either value for every match of the team. No
+ * heading of its own: it is the content of the team page's « RDV » accordion
+ * item.
  */
 export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; teamId: string }) {
   const { data, isError, isLoading, refetch } = useTeamMeetingSettings(clubId, teamId);
@@ -31,8 +32,7 @@ export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; t
   );
 
   return (
-    <section className="flex flex-col gap-3">
-      <SectionHeading as="h2">Rendez-vous d’avant-match</SectionHeading>
+    <>
       <MeetingPointSettingsCard
         scope="team"
         isError={isError}
@@ -51,6 +51,6 @@ export function TeamMeetingPointSettings({ clubId, teamId }: { clubId: string; t
           onSubmit={editor.submit}
         />
       )}
-    </section>
+    </>
   );
 }

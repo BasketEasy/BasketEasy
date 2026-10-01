@@ -10,6 +10,7 @@ import { useAdminUser } from './useAdminQueries';
 import { AdminEraseDialog } from './AdminEraseDialog';
 import { AdminUserExportDialog } from './AdminUserExportDialog';
 import { AdminUserActions } from './actions/AdminUserActions';
+import { AdminImpersonateCard } from './AdminImpersonateDialog';
 import { usePlatformSession } from './platformSession';
 import {
   AdminFacts,
@@ -45,6 +46,7 @@ function UserDetail({ user, onErased }: { user: AdminUserDetail; onErased: () =>
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={user.person.displayName}
+        eyebrow="Utilisateur"
         parent={{ to: adminPaths.users, label: 'Utilisateurs' }}
         badges={
           <>
@@ -194,6 +196,10 @@ function UserDetail({ user, onErased }: { user: AdminUserDetail; onErased: () =>
             />
 
             <AdminUserActions user={user} />
+
+            {email && user.platformRole === null && (
+              <AdminImpersonateCard userId={user.person.id} displayName={user.person.displayName} />
+            )}
 
             {/* Export above erasure deliberately, not for visual balance:
                 erasure detaches the roster entries rather than deleting

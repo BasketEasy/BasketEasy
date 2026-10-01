@@ -11,15 +11,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            server:
+              - 'server/**'
+              - 'packages/@basketeasy/types/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.github/workflows/docker-build.yml'
+            app:
+              - 'app/**'
+              - 'packages/@basketeasy/types/**'
+              - 'packages/@basketeasy/ui/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.github/workflows/docker-build.yml'
+      - id: matrix
+        env:
+          PUSH: ${{ github.event_name == 'push' }}
+          SERVER: ${{ steps.filter.outputs.server }}
+          APP: ${{ steps.filter.outputs.app }}
+        run: |
+          items=()
+          if [ "$PUSH" = true ] || [ "$SERVER" = true ]; then items+=('{"name":"server","dockerfile":"server/Dockerfile"}'); fi
+          if [ "$PUSH" = true ] || [ "$APP" = true ]; then items+=('{"name":"app","dockerfile":"app/Dockerfile"}'); fi
+          echo "matrix={\"include\":[$(IFS=,; echo "${items[*]}")]}" >> "$GITHUB_OUTPUT"
+
   build-images:
+    needs: changes
+    if: needs.changes.outputs.matrix != '{"include":[]}'
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        include:
-          - name: server
-            dockerfile: server/Dockerfile
-          - name: app
-            dockerfile: app/Dockerfile
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -30,5 +66,5 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: false
           tags: basketeasy/${{ matrix.name }}:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

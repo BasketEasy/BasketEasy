@@ -63,6 +63,7 @@
     "type": "MATCH",
     "startsAt": "2026-10-10T18:30:00.000Z",
     "location": "Salle des Sports de la Trocardière, Rezé",
+    "locationName": null,
     "notes": null,
     "opponentName": "Rezé Basket",
     "venue": "AWAY",

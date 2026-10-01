@@ -35,16 +35,20 @@ function Answers({ event }: { event: AdminEventSummary }) {
   const { going, notGoing, maybe } = event.rsvpCounts;
   return (
     <Text as="span" variant="meta" size="sm" className="tabular">
-      {going} présent·es · {notGoing} absent·es · {maybe} peut-être
+      <span className="whitespace-nowrap">{going} présent·es</span> ·{' '}
+      <span className="whitespace-nowrap">{notGoing} absent·es</span> ·{' '}
+      <span className="whitespace-nowrap">{maybe} peut-être</span>
     </Text>
   );
 }
 
-function ScoresheetBadge({ event }: { event: AdminEventSummary }) {
+/** The table column is already headed « Feuille », so only the card repeats the word. */
+function ScoresheetBadge({ event, labelled }: { event: AdminEventSummary; labelled?: boolean }) {
   if (!event.scoresheetStatus) return null;
   return (
     <Badge variant="soft" tone={SCORESHEET_STATUS_TONES[event.scoresheetStatus]}>
-      Feuille : {SCORESHEET_STATUS_LABELS[event.scoresheetStatus]}
+      {labelled && 'Feuille : '}
+      {SCORESHEET_STATUS_LABELS[event.scoresheetStatus]}
     </Badge>
   );
 }
@@ -62,7 +66,7 @@ function EventRow({ event, showTeam }: { event: AdminEventSummary; showTeam: boo
         {title}
         {showTeam && <AdminTeamLink team={event.team} />}
         <Answers event={event} />
-        <ScoresheetBadge event={event} />
+        <ScoresheetBadge event={event} labelled />
       </Card>
     );
   }

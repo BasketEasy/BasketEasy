@@ -2,6 +2,7 @@ import { Button } from '@basketeasy/ui/button';
 import type { AdminUserDetail } from '@basketeasy/types/platform-admin-browse';
 import { AdminActionDialog, type AdminActionFact } from './AdminActionDialog';
 import { AdminActionRow, AdminActionsCard } from './AdminActionsCard';
+import { usePlatformSession } from '../platformSession';
 
 /** Account fixes: verification, password reset, sessions. */
 export function AdminUserActions({ user }: { user: AdminUserDetail }) {
@@ -11,6 +12,8 @@ export function AdminUserActions({ user }: { user: AdminUserDetail }) {
     value: user.person.email ?? `${user.person.displayName} (…@${user.person.emailDomain ?? ''})`,
   };
   const sessions = user.activeSessionCount;
+  const { session } = usePlatformSession();
+  const isDataOfficer = session?.role === 'DATA_OFFICER';
 
   return (
     <AdminActionsCard>
@@ -30,20 +33,23 @@ export function AdminUserActions({ user }: { user: AdminUserDetail }) {
               />
             }
           />
-          <AdminActionRow
-            title="Marquer l’adresse vérifiée"
-            detail="Vérifiée par un autre moyen"
-            action={
-              <AdminActionDialog
-                trigger={<Button variant="outline">Marquer</Button>}
-                title="Marquer l’adresse vérifiée"
-                description="À utiliser seulement quand la personne a prouvé autrement qu’elle contrôle cette adresse. Débloque la création de club et l’ajout de membres."
-                facts={[account]}
-                confirmLabel="Marquer vérifiée"
-                path={`users/${id}/mark-verified`}
-              />
-            }
-          />
+          {/* DATA_OFFICER-only on the server: it lifts EmailVerifiedGuard. */}
+          {isDataOfficer && (
+            <AdminActionRow
+              title="Marquer l’adresse vérifiée"
+              detail="Vérifiée par un autre moyen"
+              action={
+                <AdminActionDialog
+                  trigger={<Button variant="outline">Marquer</Button>}
+                  title="Marquer l’adresse vérifiée"
+                  description="À utiliser seulement quand la personne a prouvé autrement qu’elle contrôle cette adresse. Débloque la création de club et l’ajout de membres."
+                  facts={[account]}
+                  confirmLabel="Marquer vérifiée"
+                  path={`users/${id}/mark-verified`}
+                />
+              }
+            />
+          )}
         </>
       )}
       <AdminActionRow

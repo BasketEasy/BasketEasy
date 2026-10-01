@@ -47,8 +47,9 @@ export class ClubPlayerGuardiansController {
     @Param('clubId') clubId: string,
     @Param('playerId') playerId: string,
     @Param('inviteId') inviteId: string,
+    @CurrentUser() user: RequestUser,
   ): Promise<void> {
-    return this.guardians.cancelInvite(clubId, playerId, inviteId);
+    return this.guardians.cancelInvite(clubId, playerId, inviteId, user.id);
   }
 
   @Delete(':userId')
@@ -57,7 +58,8 @@ export class ClubPlayerGuardiansController {
     @Param('clubId') clubId: string,
     @Param('playerId') playerId: string,
     @Param('userId') userId: string,
+    @CurrentUser() user: RequestUser,
   ): Promise<void> {
-    return this.guardians.removeGuardian(clubId, playerId, userId);
+    return this.guardians.removeGuardian(clubId, playerId, userId, user.id);
   }
 }

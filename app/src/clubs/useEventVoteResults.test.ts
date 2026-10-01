@@ -24,6 +24,7 @@ describe('useEventVoteResults', () => {
           totalVoters: 3,
           votesCast: 1,
           myVote: { best: 'tp-2', worst: null },
+          myVoteHidden: false,
         }),
       ),
     );

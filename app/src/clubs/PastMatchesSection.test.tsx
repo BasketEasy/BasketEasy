@@ -13,6 +13,7 @@ const baseMatch: MyAgendaEvent = {
   type: 'MATCH',
   startsAt: '2026-08-25T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
@@ -36,6 +37,16 @@ const baseMatch: MyAgendaEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  vote: {
+    canVote: true,
+    hasVoted: false,
+    closesAt: '2026-08-30T18:00:00.000Z',
+    votesCast: 3,
+    totalVoters: 12,
+    mvp: null,
+  },
+  meetingPlan: null,
+  myTravelMode: null,
 };
 
 function noop() {}
@@ -108,7 +119,7 @@ describe('PastMatchesSection', () => {
   it('renders no score or outcome badge for a match with no confirmed scoresheet yet, but still links to it', () => {
     renderWithProviders(
       <PastMatchesSection
-        matches={[baseMatch]}
+        matches={[{ ...baseMatch, vote: null }]}
         isLoading={false}
         isError={false}
         onRetry={noop}
@@ -118,7 +129,7 @@ describe('PastMatchesSection', () => {
 
     expect(screen.queryByText('Victoire')).not.toBeInTheDocument();
     expect(screen.queryByText('Défaite')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /voir/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /vs ES Rezé/ })).toHaveAttribute(
       'href',
       '/clubs/club-1/teams/team-1/events/event-1',
     );
@@ -164,27 +175,23 @@ describe('PastMatchesSection', () => {
     expect(screen.getByText(/— fautes/)).toBeInTheDocument();
   });
 
-  it('shows a "Voter" link while the vote window is open', () => {
-    // Match started 2026-08-25T18:00, "now" is 2026-08-27T12:00 — inside the
-    // 1h-to-5-day window (see voteWindow.ts).
+  function renderWith(props: {
+    matches: MyAgendaEvent[];
+    isError?: boolean;
+    headingless?: boolean;
+  }) {
     renderWithProviders(
       <PastMatchesSection
-        matches={[baseMatch]}
         isLoading={false}
         isError={false}
         onRetry={noop}
         isRefetching={false}
+        {...props}
       />,
     );
+  }
 
-    expect(screen.getByRole('link', { name: /voter/i })).toHaveAttribute(
-      'href',
-      '/clubs/club-1/teams/team-1/events/event-1?tab=vote',
-    );
-  });
-
-  it('hides the "Voter" link once the vote window has closed', () => {
-    const match: MyAgendaEvent = { ...baseMatch, startsAt: '2026-08-01T18:00:00.000Z' };
+  function renderMatch(match: MyAgendaEvent) {
     renderWithProviders(
       <PastMatchesSection
         matches={[match]}
@@ -194,8 +201,85 @@ describe('PastMatchesSection', () => {
         isRefetching={false}
       />,
     );
+  }
+
+  it('is one link row: title with score, « équipe · date » meta, badge, in a single list', () => {
+    renderMatch({
+      ...baseMatch,
+      vote: null,
+      result: { ourScore: 62, theirScore: 58, outcome: 'WIN' },
+    });
+
+    expect(screen.getAllByRole('list')).toHaveLength(1);
+    const link = screen.getByRole('link');
+    expect(link).toHaveTextContent(/vs ES Rezé · 62–58/);
+    expect(link).toHaveTextContent(/U15 Filles · /);
+    expect(link).toHaveTextContent('Victoire');
+  });
+
+  it('hides the heading when headingless', () => {
+    renderWith({ matches: [baseMatch], headingless: true });
+    expect(screen.queryByText('Après le match')).not.toBeInTheDocument();
+    expect(screen.getByRole('link')).toBeInTheDocument();
+  });
+
+  it('hides the heading when headingless on error too', () => {
+    renderWith({ matches: [], isError: true, headingless: true });
+    expect(screen.queryByText('Après le match')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+  });
+
+  it('shows « Voter » when the server says this reader can vote and has not', () => {
+    renderMatch(baseMatch);
+
+    expect(screen.getByRole('link', { name: /voter/i })).toHaveAttribute(
+      'href',
+      '/clubs/club-1/teams/team-1/events/event-1?tab=vote',
+    );
+  });
+
+  it('hides « Voter » from a reader who cannot vote (not convoked, not GOING, a parent)', () => {
+    renderMatch({ ...baseMatch, vote: { ...baseMatch.vote!, canVote: false } });
 
     expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+  });
+
+  it('shows « A voté » instead of « Voter » once the reader voted, while the window is open', () => {
+    renderMatch({
+      ...baseMatch,
+      vote: {
+        ...baseMatch.vote!,
+        hasVoted: true,
+        mvp: [{ firstName: 'Karim', lastInitial: 'D', isMe: false }],
+      },
+    });
+
+    expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+    expect(screen.getByText('A voté')).toBeInTheDocument();
+    expect(screen.getByText('MVP : Karim D.')).toBeInTheDocument();
+  });
+
+  it('keeps the MVP hidden while it is not public to the reader', () => {
+    renderMatch(baseMatch);
+
+    expect(screen.queryByText(/MVP/)).not.toBeInTheDocument();
+  });
+
+  it('shows the MVP and no vote control once the window has closed', () => {
+    renderMatch({
+      ...baseMatch,
+      startsAt: '2026-08-01T18:00:00.000Z',
+      vote: {
+        ...baseMatch.vote!,
+        canVote: false,
+        closesAt: '2026-08-06T18:00:00.000Z',
+        mvp: [{ firstName: 'Léa', lastInitial: 'M', isMe: true }],
+      },
+    });
+
+    expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('A voté')).not.toBeInTheDocument();
+    expect(screen.getByText('MVP : Vous !')).toBeInTheDocument();
   });
 
   it('shows an error state with a working retry', () => {

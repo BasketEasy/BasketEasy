@@ -1,7 +1,7 @@
 // Back-office support actions: named, reason-carrying writes staff make on a
 // club's behalf. Every one is audited as ADMIN_SUPPORT_ACTION with the action
 // in `metadata.action` and the reason in `metadata.reason`.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 
 import type { ClubRole } from './club-members';
 
@@ -19,7 +19,8 @@ export type AdminSupportActionKind =
   | 'CANCEL_GUARDIAN_INVITE'
   | 'REMOVE_GUARDIAN'
   | 'RECORD_PARENTAL_CONSENT'
-  | 'CLUB_CREATED';
+  | 'CLUB_CREATED'
+  | 'CLUB_DELETED';
 
 export const ADMIN_SUPPORT_ACTION_KINDS: readonly AdminSupportActionKind[] = [
   'RESEND_VERIFICATION',
@@ -36,6 +37,7 @@ export const ADMIN_SUPPORT_ACTION_KINDS: readonly AdminSupportActionKind[] = [
   'REMOVE_GUARDIAN',
   'RECORD_PARENTAL_CONSENT',
   'CLUB_CREATED',
+  'CLUB_DELETED',
 ];
 
 export const ADMIN_REASON_MIN_LENGTH = 10;
@@ -76,3 +78,14 @@ export interface AdminActionResult {
  * retried. Before it, a retry would race the read already running.
  */
 export const ADMIN_OCR_STUCK_AFTER_MS = 60 * 60 * 1000;
+
+/** Creates a club and makes an existing account its first ADMIN, in one audited step. */
+export interface AdminCreateClubRequest extends AdminReasonRequest {
+  name: string;
+  ffbbClubCode?: string;
+  firstAdminUserId: string;
+}
+
+export interface AdminCreateClubResult extends AdminActionResult {
+  clubId: string;
+}

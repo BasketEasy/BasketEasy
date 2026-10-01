@@ -22,7 +22,7 @@ describe('useBackLink', () => {
     });
     expect(result.current).toEqual({
       to: '/clubs/c1/members?tab=teams',
-      label: '← Effectif du club',
+      label: 'Effectif du club',
     });
   });
 
@@ -35,13 +35,13 @@ describe('useBackLink', () => {
         },
       ]),
     });
-    expect(result.current).toEqual({ to: '/dashboard', label: '← Tableau de bord' });
+    expect(result.current).toEqual({ to: '/dashboard', label: 'Tableau de bord' });
   });
 
   it('falls back to Mes équipes on a direct link or refresh', () => {
     const { result } = renderHook(() => useBackLink(), {
       wrapper: wrapperWithEntries(['/clubs/c1/teams/t1']),
     });
-    expect(result.current).toEqual({ to: '/my-teams', label: '← Mes équipes' });
+    expect(result.current).toEqual({ to: '/my-teams', label: 'Mes équipes' });
   });
 });

@@ -40,12 +40,22 @@ const TYPE_LABELS: Record<AuditEventType, string> = {
   REFRESH_TOKEN_REUSE_DETECTED: 'Réutilisation de session détectée',
   EMAIL_VERIFIED: 'Adresse vérifiée',
   GUARDIAN_INVITE_ACCEPTED: 'Invitation parent acceptée',
+  GUARDIAN_INVITE_CREATED: 'Invitation parent créée',
+  GUARDIAN_INVITE_CANCELLED: 'Invitation parent annulée',
+  GUARDIAN_LINK_REMOVED: 'Lien parent retiré',
+  GUEST_LINK_ENABLED: 'Lien de réponse activé',
+  GUEST_LINK_REGENERATED: 'Lien de réponse régénéré',
+  GUEST_LINK_DISABLED: 'Lien de réponse désactivé',
   ADMIN_LOGIN_SUCCESS: 'Accès back-office',
   ADMIN_LOGIN_FAILURE: 'Accès back-office refusé',
   ADMIN_PII_VIEWED: 'Fiche consultée',
+  ADMIN_PII_LISTED: 'Liste consultée',
   ADMIN_USER_ERASED: 'Compte effacé',
   ADMIN_EXPORT_GENERATED: 'Export RGPD généré',
   ADMIN_SUPPORT_ACTION: 'Action support',
+  ADMIN_IMPERSONATION_STARTED: 'Consultation en tant que',
+  ADMIN_IMPERSONATION_ENDED: 'Fin de consultation',
+  ADMIN_GRANT_CHANGED: 'Accès back-office modifié',
 };
 
 function metadataString(entry: AuditLogEntry, key: string): string | null {

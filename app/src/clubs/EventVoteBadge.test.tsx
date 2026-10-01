@@ -9,6 +9,7 @@ const baseEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: '2026-08-25T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'AWAY',
@@ -34,7 +35,10 @@ const baseEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 describe('EventVoteBadge', () => {

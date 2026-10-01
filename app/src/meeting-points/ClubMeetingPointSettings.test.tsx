@@ -33,6 +33,8 @@ describe('ClubMeetingPointSettings', () => {
     expect(screen.getByText('Arrivée à la salle 60 min avant le match')).toBeInTheDocument();
     expect(screen.getByText(/S’applique à toutes les équipes du club/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
+    // No heading of its own: the club page's accordion trigger is the heading.
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 
   it('offers « Définir » when no meeting point exists', async () => {

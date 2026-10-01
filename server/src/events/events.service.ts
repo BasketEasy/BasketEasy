@@ -3,9 +3,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EventRsvpSource,
   EventRsvpStatus,
   EventTravelMode,
   EventType,
@@ -30,8 +32,18 @@ import type {
   EventVoteResults,
   TeamEvent,
 } from '@basketeasy/types/events';
+import {
+  eventVenueLabel,
+  isSameEventLocation,
+  isUnknownEventLocation,
+} from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import {
+  JERSEY_DUTY_ERROR_CODES,
+  type EventJerseyDutySummary,
+} from '@basketeasy/types/jersey-duty';
+import type { EventShareStatus, EventWhatsAppSettings } from '@basketeasy/types/whatsapp-reminder';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { StorageService } from '../storage/storage.service';
@@ -50,19 +62,21 @@ import { subjectLabel } from '../common/notification-subject';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { addParisWeeks, withParisTimeOfDay } from '../common/paris-time';
+import { voteClosesAt, voteOpensAt } from '../common/vote-window';
+import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
+import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
+import { JerseyDutyService } from './jersey-duty.service';
 import { ListEventsDto } from './dto/list-events.dto';
-import { cancellationNotification, convocationNotification } from './event-notification-copy';
+import {
+  cancellationNotification,
+  convocationNotification,
+  venueChangedNotification,
+} from './event-notification-copy';
 
-const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
 // distant `until` date can't be used to write an unbounded number of rows.
 const MAX_RECURRING_OCCURRENCES = 104;
-// Best/worst player voting window, both ends measured from Event.startsAt
-// and enforced server-side in castVote: opens an hour after kickoff (nobody
-// has anything meaningful to vote on the moment the whistle blows) and
-// closes five days later.
-const VOTE_OPEN_DELAY_MS = 60 * 60 * 1000;
-const VOTE_CLOSE_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
 // Allowlisted scoresheet formats and their storageKey file extension — kept
 // as one map so the content-type check and the extension picked for the
 // object key can never disagree. A scoresheet capture may be a PDF export
@@ -80,6 +94,7 @@ type EventRow = {
   type: EventType;
   startsAt: Date;
   location: string;
+  locationName: string | null;
   notes: string | null;
   opponentName: string | null;
   venue: EventVenue | null;
@@ -89,6 +104,8 @@ type EventRow = {
   externalId: string | null;
   timeConfirmed: boolean;
   createdAt: Date;
+  waReminderOverride: boolean | null;
+  waOffsetMinutes: number | null;
 };
 
 // Who gave an answer, and when — read off the same EventRsvp row as its status.
@@ -108,6 +125,8 @@ type CallerEventState = {
 
 @Injectable()
 export class EventsService {
+  private readonly logger = new Logger(EventsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly teamManagerGuard: TeamManagerGuard,
@@ -115,6 +134,8 @@ export class EventsService {
     private readonly scoresheets: ScoresheetsService,
     private readonly notifications: NotificationsService,
     private readonly meetingPoints: MeetingPointsService,
+    private readonly whatsAppReminders: WhatsAppReminderService,
+    private readonly jerseyDuty: JerseyDutyService,
   ) {}
 
   async listEvents(
@@ -152,7 +173,7 @@ export class EventsService {
     ]);
 
     return {
-      items: await this.buildTeamEventsForUser(teamId, userId, events, query.forPlayerId),
+      items: await this.buildTeamEventsForUser(clubId, teamId, userId, events, query.forPlayerId),
       total,
       page,
       pageSize,
@@ -171,7 +192,13 @@ export class EventsService {
     forPlayerId?: string,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
-    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [event], forPlayerId);
+    const [teamEvent] = await this.buildTeamEventsForUser(
+      clubId,
+      teamId,
+      userId,
+      [event],
+      forPlayerId,
+    );
     return teamEvent;
   }
 
@@ -182,10 +209,13 @@ export class EventsService {
       type: EventType;
       startsAt: string;
       location: string;
+      locationName?: string | null;
       notes?: string;
       opponentName?: string;
       venue?: EventVenue;
       recurrence?: EventRecurrenceRequest;
+      waReminderOverride?: boolean | null;
+      waOffsetMinutes?: number | null;
     },
     userId: string,
   ): Promise<TeamEvent[]> {
@@ -196,6 +226,11 @@ export class EventsService {
     if (data.type === EventType.MATCH && !data.venue) {
       throw new BadRequestException('Le domicile/extérieur est requis pour un match');
     }
+    // The placeholder is the FFBB import's word, never a manager's.
+    if (isUnknownEventLocation(data.location)) {
+      throw new BadRequestException('Le lieu doit être une adresse');
+    }
+    const locationName = data.locationName ?? null;
 
     const occurrences = this.buildOccurrences(data.startsAt, data.recurrence);
     // One recurrenceId is shared by every row in this batch — only when the
@@ -213,17 +248,28 @@ export class EventsService {
             type: data.type,
             startsAt,
             location: data.location,
+            locationName,
             notes: data.notes ?? null,
             opponentName,
             venue,
             recurrenceId,
+            waReminderOverride: data.waReminderOverride ?? null,
+            waOffsetMinutes: data.waOffsetMinutes ?? null,
           },
         }),
       ),
     );
+    // One reconcile for the whole series, after the commit.
+    await this.syncWhatsAppReminders(
+      clubId,
+      teamId,
+      userId,
+      events.map((e) => e.id),
+      data.waReminderOverride === true,
+    );
     // A fresh event has no logistics assignee and no confirmed scoresheet,
     // so those resolvers short-circuit without a query.
-    return this.buildTeamEventsForUser(teamId, userId, events);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, events);
   }
 
   // A recurring create is materialized as one independent Event row per
@@ -243,11 +289,13 @@ export class EventsService {
       );
     }
 
+    // Stepped in Paris weeks, not 7 × 24 h: a series crossing a DST change
+    // keeps its wall-clock time instead of drifting by an hour.
     const occurrences: Date[] = [];
     for (
       let current = start;
       current <= until && occurrences.length < MAX_RECURRING_OCCURRENCES;
-      current = new Date(current.getTime() + WEEK_IN_MS)
+      current = addParisWeeks(start, occurrences.length)
     ) {
       occurrences.push(current);
     }
@@ -262,10 +310,13 @@ export class EventsService {
       type?: EventType;
       startsAt?: string;
       location?: string;
+      locationName?: string | null;
       notes?: string;
       opponentName?: string;
       venue?: EventVenue;
       scope?: EventUpdateScope;
+      waReminderOverride?: boolean | null;
+      waOffsetMinutes?: number | null;
     },
     userId: string,
   ): Promise<TeamEvent[]> {
@@ -290,13 +341,45 @@ export class EventsService {
       throw new BadRequestException('Le domicile/extérieur est requis pour un match');
     }
 
+    // The placeholder is the FFBB import's word, never a manager's: refused
+    // when it would replace something else, but EventEditModal re-sends
+    // `location` on every save, so an unchanged placeholder passes.
+    const resultingLocation = data.location ?? event.location;
+    const locationChanged = data.location !== undefined && data.location !== event.location;
+    if (
+      data.location !== undefined &&
+      isUnknownEventLocation(data.location) &&
+      !isUnknownEventLocation(event.location)
+    ) {
+      throw new BadRequestException('Le lieu doit être une adresse');
+    }
+    // A name describes an address: a new address sent without one clears the
+    // old name rather than pinning it to the wrong place.
+    const resultingLocationName =
+      data.locationName !== undefined
+        ? data.locationName
+        : locationChanged
+          ? null
+          : event.locationName;
+    // A name without an address can't be geocoded, and the timeline would lie.
+    if (resultingLocationName && isUnknownEventLocation(resultingLocation)) {
+      throw new BadRequestException("Renseignez l'adresse de la salle");
+    }
+
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
     const updateData: Prisma.EventUpdateInput = {
       ...(data.startsAt !== undefined ? { startsAt: new Date(data.startsAt) } : {}),
       ...(data.location !== undefined ? { location: data.location } : {}),
+      ...(data.locationName !== undefined || locationChanged
+        ? { locationName: resultingLocationName }
+        : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
+      ...(data.waReminderOverride !== undefined
+        ? { waReminderOverride: data.waReminderOverride }
+        : {}),
+      ...(data.waOffsetMinutes !== undefined ? { waOffsetMinutes: data.waOffsetMinutes } : {}),
       // Switching to TRAINING always clears the opponent, even if one was
       // also passed in the same request — there's nothing sensible to keep
       // it for once the event isn't a match. Skipped when it's already
@@ -321,7 +404,13 @@ export class EventsService {
     // and keeping it across a reschedule would send the group to the wrong
     // hour. Same transaction as the event write, so neither lands alone.
     const meetingCleanup = becomesTraining
-      ? [this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } })]
+      ? [
+          this.prisma.eventMeeting.deleteMany({ where: { eventId: { in: ids } } }),
+          // The jersey wash is a MATCH concept too: its duty and declines go
+          // with the switch (a TRAINING → MATCH needs nothing).
+          this.prisma.eventJerseyDuty.deleteMany({ where: { eventId: { in: ids } } }),
+          this.prisma.eventJerseyDecline.deleteMany({ where: { eventId: { in: ids } } }),
+        ]
       : data.startsAt !== undefined
         ? [
             this.prisma.eventMeeting.updateMany({
@@ -330,16 +419,65 @@ export class EventsService {
             }),
           ]
         : [];
+    // « Changement de salle » compares against the address each row had
+    // before the write, so it is read now: the anchor already is, a series'
+    // other occurrences need one read.
+    const previousLocations =
+      data.location === undefined
+        ? null
+        : scope === 'THIS'
+          ? new Map([[event.id, event.location]])
+          : new Map(
+              (
+                await this.prisma.event.findMany({
+                  where: { id: { in: ids } },
+                  select: { id: true, location: true },
+                })
+              ).map((row) => [row.id, row.location]),
+            );
+
     const results = await this.prisma.$transaction([
       ...ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
       ...meetingCleanup,
     ]);
     const updated = results.slice(0, ids.length) as EventRow[];
-    // A new kick-off moves the meeting time with it.
-    if (data.startsAt !== undefined && !becomesTraining) {
+    // A TRAINING that becomes a MATCH has no EventMeeting row yet, so no
+    // travel time and no known meeting hour: announcing now would be a no-op.
+    // Queue the route instead; the recompute job announces once the hour is
+    // known (« RDV fixé »). A new kick-off on an existing match moves an
+    // already-known meeting time with it, which announces straight away.
+    const becomesMatch = resultingType === EventType.MATCH && event.type === EventType.TRAINING;
+    // A new address on a match makes the stored route stale: queue the
+    // recompute now rather than waiting for someone to read the match, so
+    // the RDV announcement doesn't wait on a reader either.
+    if (becomesMatch || (locationChanged && resultingType === EventType.MATCH)) {
+      await this.meetingPoints.enqueueRecompute(ids);
+    } else if (data.startsAt !== undefined && !becomesTraining) {
       await this.meetingPoints.announceMeetingChanges(ids);
     }
-    return this.buildTeamEventsForUser(teamId, userId, updated);
+    if (previousLocations) {
+      await this.notifyVenueChange(clubId, teamId, updated, previousLocations);
+    }
+    await this.syncWhatsAppReminders(clubId, teamId, userId, ids, data.waReminderOverride === true);
+    // Sync first, then prompts: an event whose reminder is still scheduled has
+    // nothing to correct, and this only raises for what the group already read.
+    await this.whatsAppReminders.onEventsChanged(ids);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
+  }
+
+  // The reminder is best-effort like every other notification: the sync logs
+  // and swallows its own failures, so a dead Redis is never a 500 on the event
+  // write. Rule 7: an event override to « on » needs a link to carry, so it
+  // switches the team's guest link on first (idempotent, audited as any enable).
+  private async syncWhatsAppReminders(
+    clubId: string,
+    teamId: string,
+    userId: string,
+    eventIds: string[],
+    needsGuestLink: boolean,
+  ): Promise<void> {
+    if (needsGuestLink) await this.whatsAppReminders.ensureGuestLink(clubId, teamId, userId);
+    await this.whatsAppReminders.syncEvents(eventIds);
   }
 
   // Retries a Serializable transaction on Postgres's serialization failure
@@ -399,24 +537,35 @@ export class EventsService {
     // setEventConvocations's own read+write. runSerializableTransaction
     // retries the (expected, occasional) loser of that race instead of
     // surfacing a serialization failure as a 500.
-    const convokedTeamPlayerIds = await this.runSerializableTransaction(async (tx) => {
-      const convocations = await tx.eventConvocation.findMany({
-        where: { eventId: { in: ids }, teamPlayer: { teamId } },
-        select: { teamPlayerId: true },
-      });
+    const { convokedTeamPlayerIds, cancellations } = await this.runSerializableTransaction(
+      async (tx) => {
+        const convocations = await tx.eventConvocation.findMany({
+          where: { eventId: { in: ids }, teamPlayer: { teamId } },
+          select: { teamPlayerId: true },
+        });
 
-      await tx.event.deleteMany({ where: { id: { in: ids } } });
+        // WhatsApp: cancelling deletes the event, so a CANCELLATION share for
+        // each event the group was told about is written here, with a snapshot,
+        // before its rows go — and no reminder or update is left orphaned.
+        const cancellations = await this.whatsAppReminders.prepareCancellations(tx, teamId, ids);
 
-      // Everyone convoked to any of the events being cancelled, deduplicated
-      // by roster slot. Deliberately the convoked list rather than the whole
-      // roster: a cancellation is only news to someone who was expecting to
-      // play, and notifying an entire roster about a training two of them
-      // were called up for is noise that trains people to ignore the bell.
-      // Slots, not users: the audience (the player and their guardians) is
-      // resolved after the delete, which removes events, never roster slots.
-      return [...new Set(convocations.map((row) => row.teamPlayerId))];
-    });
+        await tx.event.deleteMany({ where: { id: { in: ids } } });
 
+        // Everyone convoked to any of the events being cancelled, deduplicated
+        // by roster slot. Deliberately the convoked list rather than the whole
+        // roster: a cancellation is only news to someone who was expecting to
+        // play, and notifying an entire roster about a training two of them
+        // were called up for is noise that trains people to ignore the bell.
+        // Slots, not users: the audience (the player and their guardians) is
+        // resolved after the delete, which removes events, never roster slots.
+        return {
+          convokedTeamPlayerIds: [...new Set(convocations.map((row) => row.teamPlayerId))],
+          cancellations,
+        };
+      },
+    );
+
+    await this.whatsAppReminders.afterCancellations(teamId, cancellations);
     await this.notifyCancellation(clubId, teamId, event, ids.length, convokedTeamPlayerIds);
   }
 
@@ -458,6 +607,89 @@ export class EventsService {
     );
   }
 
+  // Only a known venue moving to another is news: filling in « Lieu non
+  // communiqué » tells nobody anything they were relying on, a name-only or
+  // case-only edit sends nobody anywhere new, and a TRAINING's gym is known
+  // to the team. Readers are the players expected there (convoked or
+  // GOING) and their guardians, one message each for the whole edit.
+  // Best-effort: the edit has already been written.
+  private async notifyVenueChange(
+    clubId: string,
+    teamId: string,
+    updated: EventRow[],
+    previousLocations: Map<string, string>,
+  ): Promise<void> {
+    const now = new Date();
+    const moved = updated.filter((row) => {
+      const previous = previousLocations.get(row.id);
+      return (
+        previous !== undefined &&
+        row.type === EventType.MATCH &&
+        row.startsAt > now &&
+        !isUnknownEventLocation(previous) &&
+        !isSameEventLocation(previous, row.location)
+      );
+    });
+    if (moved.length === 0) return;
+
+    try {
+      const eventIds = moved.map((row) => row.id);
+      const [convocations, going, team] = await Promise.all([
+        this.prisma.eventConvocation.findMany({
+          where: { eventId: { in: eventIds }, teamPlayer: { teamId } },
+          select: { teamPlayerId: true },
+        }),
+        this.prisma.eventRsvp.findMany({
+          where: {
+            eventId: { in: eventIds },
+            status: EventRsvpStatus.GOING,
+            teamPlayer: { teamId },
+          },
+          select: { teamPlayerId: true },
+        }),
+        this.prisma.team.findUnique({ where: { id: teamId }, select: { name: true } }),
+      ]);
+      const teamPlayerIds = [
+        ...new Set([...convocations, ...going].map((row) => row.teamPlayerId)),
+      ];
+      if (teamPlayerIds.length === 0) return;
+      const recipients = groupByRecipient(await resolvePlayerAudience(this.prisma, teamPlayerIds));
+      if (recipients.length === 0) return;
+
+      const teamName = team?.name ?? 'votre équipe';
+      const first = moved.reduce((a, b) => (b.startsAt < a.startsAt ? b : a));
+      const newLabel = eventVenueLabel(first);
+      const single = moved.length === 1;
+      await this.notifications.notify(
+        recipients.map((recipient) => {
+          const copy = venueChangedNotification(teamName, first, newLabel, moved.length, recipient);
+          return {
+            userId: recipient.userId,
+            type: 'EVENT_VENUE_CHANGED' as const,
+            title: copy.title,
+            body: copy.body,
+            subjectFirstName: subjectLabel(recipient),
+            // One match links to it; a series to the team's calendar.
+            deepLink: single
+              ? recipientDeepLink(
+                  recipient,
+                  `/clubs/${clubId}/teams/${teamId}/events/${first.id}`,
+                  (childClubId) => `/clubs/${childClubId}/teams/${teamId}/events/${first.id}`,
+                )
+              : recipientDeepLink(
+                  recipient,
+                  `/clubs/${clubId}/teams/${teamId}`,
+                  (childClubId) => `/clubs/${childClubId}/teams/${teamId}`,
+                ),
+          };
+        }),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Venue change notification failed: ${message}`);
+    }
+  }
+
   // EventScoresheet's onDelete: Cascade removes the DB row automatically
   // when its Event is deleted, but never the underlying R2 object — deleted
   // here first (best-effort) so deleting a match doesn't leave its
@@ -476,9 +708,9 @@ export class EventsService {
 
   // Bulk-changes only hour/minute across a series, leaving each occurrence's
   // own date untouched — the narrower counterpart to updateEvent's full
-  // startsAt replace (which stays THIS-only). hour/minute are UTC by
-  // contract with the frontend; see UpdateEventTimeOfDayRequest's JSDoc in
-  // @basketeasy/types/events for the full rationale.
+  // startsAt replace (which stays THIS-only). hour/minute are a Paris
+  // wall-clock time, resolved per row so occurrences on either side of a
+  // DST change all land on it.
   async updateEventTimeOfDay(
     clubId: string,
     teamId: string,
@@ -500,8 +732,7 @@ export class EventsService {
 
     const results = await this.prisma.$transaction([
       ...rows.map((row) => {
-        const startsAt = new Date(row.startsAt);
-        startsAt.setUTCHours(data.hour, data.minute, 0, 0);
+        const startsAt = withParisTimeOfDay(row.startsAt, data.hour, data.minute);
         return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
       }),
       // Same rule as updateEvent: a meeting-time override belongs to the old
@@ -513,7 +744,9 @@ export class EventsService {
     ]);
     const updated = results.slice(0, rows.length) as EventRow[];
     await this.meetingPoints.announceMeetingChanges(ids);
-    return this.buildTeamEventsForUser(teamId, userId, updated);
+    await this.whatsAppReminders.syncEvents(ids);
+    await this.whatsAppReminders.onEventsChanged(ids);
+    return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
   }
 
   // Self-service only: the caller can only ever set/clear the status of a
@@ -542,25 +775,44 @@ export class EventsService {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
     const respondedAt = new Date();
-    const rsvp = await this.prisma.eventRsvp.upsert({
-      where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
-      create: {
-        eventId,
-        teamPlayerId: teamPlayer.id,
-        status,
-        respondedAt,
-        respondedByUserId: userId,
-      },
-      update: {
-        status,
-        respondedAt,
-        respondedByUserId: userId,
-        // Leaving GOING drops the travel choice, so GOING → MAYBE → GOING
-        // starts again from the meeting point rather than a stale « Direct ».
-        // Re-answering GOING keeps it: re-tapping « Présent » mustn't undo it.
-        ...(status !== EventRsvpStatus.GOING ? { travelMode: EventTravelMode.MEETING_POINT } : {}),
-      },
-      include: { respondedBy: RSVP_RESPONDENT_SELECT },
+    // The answer and its history row commit together: a history that can miss
+    // an answer is worse than none, since a coach reads it to spot tampering.
+    const rsvp = await this.prisma.$transaction(async (tx) => {
+      const written = await tx.eventRsvp.upsert({
+        where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
+        create: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status,
+          respondedAt,
+          respondedByUserId: userId,
+          source: EventRsvpSource.APP,
+        },
+        update: {
+          status,
+          respondedAt,
+          respondedByUserId: userId,
+          source: EventRsvpSource.APP,
+          // Leaving GOING drops the travel choice, so GOING → MAYBE → GOING
+          // starts again from the meeting point rather than a stale « Direct ».
+          // Re-answering GOING keeps it: re-tapping « Présent » mustn't undo it.
+          ...(status !== EventRsvpStatus.GOING
+            ? { travelMode: EventTravelMode.MEETING_POINT }
+            : {}),
+        },
+        include: { respondedBy: RSVP_RESPONDENT_SELECT },
+      });
+      await tx.eventRsvpChange.create({
+        data: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status,
+          travelMode: status === EventRsvpStatus.GOING ? written.travelMode : null,
+          source: EventRsvpSource.APP,
+          respondedByUserId: userId,
+        },
+      });
+      return written;
     });
     return this.buildOwnAnswer(teamId, event, teamPlayer.id, {
       status,
@@ -581,8 +833,23 @@ export class EventsService {
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
-    await this.prisma.eventRsvp.deleteMany({
-      where: { eventId, teamPlayerId: teamPlayer.id },
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.eventRsvp.deleteMany({
+        where: { eventId, teamPlayerId: teamPlayer.id },
+      });
+      // Clearing an answer that was never given is not a change.
+      if (count > 0) {
+        await tx.eventRsvpChange.create({
+          data: {
+            eventId,
+            teamPlayerId: teamPlayer.id,
+            status: null,
+            travelMode: null,
+            source: EventRsvpSource.APP,
+            respondedByUserId: userId,
+          },
+        });
+      }
     });
     return this.buildOwnAnswer(teamId, event, teamPlayer.id, null);
   }
@@ -604,13 +871,25 @@ export class EventsService {
       throw new BadRequestException('Le mode de déplacement ne concerne que les matchs');
     }
     const teamPlayer = await this.findActingTeamPlayer(teamId, userId, forPlayerId);
-    const { count } = await this.prisma.eventRsvp.updateMany({
-      where: { eventId, teamPlayerId: teamPlayer.id, status: EventRsvpStatus.GOING },
-      data: { travelMode },
+    await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.eventRsvp.updateMany({
+        where: { eventId, teamPlayerId: teamPlayer.id, status: EventRsvpStatus.GOING },
+        data: { travelMode },
+      });
+      if (count === 0) {
+        throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
+      }
+      await tx.eventRsvpChange.create({
+        data: {
+          eventId,
+          teamPlayerId: teamPlayer.id,
+          status: EventRsvpStatus.GOING,
+          travelMode,
+          source: EventRsvpSource.APP,
+          respondedByUserId: userId,
+        },
+      });
     });
-    if (count === 0) {
-      throw new BadRequestException("Indiquez d'abord que vous êtes présent·e");
-    }
     const rsvp = await this.prisma.eventRsvp.findUniqueOrThrow({
       where: { eventId_teamPlayerId: { eventId, teamPlayerId: teamPlayer.id } },
       select: { respondedAt: true, respondedBy: RSVP_RESPONDENT_SELECT },
@@ -693,6 +972,7 @@ export class EventsService {
         respondedBy: toRsvpRespondent(rsvp?.respondedBy ?? null, userId),
         respondedByGuardian:
           !!rsvp?.respondedByUserId && rsvp.respondedByUserId !== tp.player.userId,
+        viaLink: rsvp?.source === EventRsvpSource.GUEST_LINK,
         travelMode:
           event.type === EventType.MATCH && rsvp?.status === EventRsvpStatus.GOING
             ? rsvp.travelMode
@@ -853,7 +1133,9 @@ export class EventsService {
   // types — a TRAINING event uses the same slots for scrimmage bibs
   // ("Chasubles") instead of match jerseys ("Maillots"), see
   // eventLogisticsFieldLabel on the frontend; the ball slot is identical
-  // copy for both. No event.type gate here on purpose.
+  // copy for both. No event.type gate here on purpose — except the jersey slot
+  // of a MATCH of a team with the wash rotation on, which is the duty routes'
+  // (JerseyDutyController) and answers USE_JERSEY_DUTY here.
   async setEventLogistics(
     clubId: string,
     teamId: string,
@@ -863,6 +1145,18 @@ export class EventsService {
     teamPlayerId: string | null,
   ): Promise<TeamEvent> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
+    if (field === 'JERSEYS' && event.type === EventType.MATCH) {
+      const team = await this.prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { jerseyRotationEnabled: true },
+      });
+      if (team.jerseyRotationEnabled) {
+        throw new BadRequestException({
+          message: "Le lavage des maillots d'un match se gère depuis le roulement de lavage",
+          code: JERSEY_DUTY_ERROR_CODES.USE_JERSEY_DUTY,
+        });
+      }
+    }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
     const currentValue = field === 'JERSEYS' ? event.jerseysTeamPlayerId : event.ballsTeamPlayerId;
 
@@ -888,12 +1182,12 @@ export class EventsService {
           ? { jerseysTeamPlayerId: teamPlayerId }
           : { ballsTeamPlayerId: teamPlayerId },
     });
-    const [teamEvent] = await this.buildTeamEventsForUser(teamId, userId, [updated]);
+    const [teamEvent] = await this.buildTeamEventsForUser(clubId, teamId, userId, [updated]);
     return teamEvent;
   }
 
-  // Anonymous peer voting — see the match interface spec's Voting visibility
-  // section. Hard server-side window: opens VOTE_OPEN_DELAY_MS after kickoff
+  // Anonymous peer voting — see the vote rules in
+  // docs/decisions/events.md. Hard server-side window: opens VOTE_OPEN_DELAY_MS (common/vote-window.ts) after kickoff
   // (players are still on court right at the whistle) and closes
   // VOTE_CLOSE_DELAY_MS after kickoff, both enforced here, not just
   // client-displayed. Only a roster member both marked GOING on this event's
@@ -914,12 +1208,10 @@ export class EventsService {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
     const now = new Date();
-    const voteOpensAt = new Date(event.startsAt.getTime() + VOTE_OPEN_DELAY_MS);
-    const voteClosesAt = new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
-    if (now < voteOpensAt) {
+    if (now < voteOpensAt(event.startsAt)) {
       throw new BadRequestException('Le vote ouvre 1h après le début du match');
     }
-    if (now > voteClosesAt) {
+    if (now > voteClosesAt(event.startsAt)) {
       throw new BadRequestException('Le vote est fermé pour ce match');
     }
     const myTeamPlayer = await this.findMyTeamPlayer(teamId, userId);
@@ -966,12 +1258,13 @@ export class EventsService {
     teamId: string,
     eventId: string,
     userId: string,
+    hideMyVote = false,
   ): Promise<EventVoteResults> {
     const event = await this.assertEventInTeam(clubId, teamId, eventId);
     if (event.type !== EventType.MATCH) {
       throw new BadRequestException('Le vote ne concerne que les matchs');
     }
-    const voteHasEnded = new Date() > new Date(event.startsAt.getTime() + VOTE_CLOSE_DELAY_MS);
+    const voteHasEnded = new Date() > voteClosesAt(event.startsAt);
     const [myTeamPlayer, votes, rosterSize] = await Promise.all([
       this.findMyTeamPlayer(teamId, userId),
       this.prisma.eventVote.findMany({
@@ -980,7 +1273,13 @@ export class EventsService {
       }),
       this.prisma.teamPlayer.count({ where: { teamId } }),
     ]);
-    return this.buildVoteResults(votes, myTeamPlayer?.id ?? null, rosterSize, voteHasEnded);
+    return this.buildVoteResults(
+      votes,
+      myTeamPlayer?.id ?? null,
+      rosterSize,
+      voteHasEnded,
+      hideMyVote,
+    );
   }
 
   // Groups the event's votes by category, counts per votedTeamPlayerId, and
@@ -1002,6 +1301,7 @@ export class EventsService {
     myTeamPlayerId: string | null,
     totalVoters: number,
     voteHasEnded: boolean,
+    hideMyVote: boolean,
   ): EventVoteResults {
     const buildCategoryResults = (category: EventVoteCategory): EventVoteCandidateResult[] => {
       const counts = new Map<string, EventVoteCandidateResult>();
@@ -1053,7 +1353,10 @@ export class EventsService {
       worst: showResults ? buildCategoryResults(EventVoteCategory.WORST) : [],
       totalVoters,
       votesCast: distinctVoters.size,
-      myVote,
+      // Masked after showResults is decided, so the subject's screen keeps its
+      // real shape (leaderboard visible once they voted) without saying whom.
+      myVote: hideMyVote ? { best: null, worst: null } : myVote,
+      myVoteHidden: hideMyVote,
     };
   }
 
@@ -1154,7 +1457,7 @@ export class EventsService {
   // this slice, only captured, so the frontend never needs a way to address it.
   private toEventScoresheet(scoresheet: {
     status: string;
-    uploadedByTeamPlayerId: string;
+    uploadedByTeamPlayerId: string | null;
     uploadedAt: Date;
   }): EventScoresheet {
     return {
@@ -1233,7 +1536,7 @@ export class EventsService {
   // for a bounded set of events on one team, in at most three queries total
   // (one resolveActingTeamPlayer shared by both, plus one findMany per concern)
   // regardless of how many event ids are passed — never one query per event
-  // (see RSVP spec's Scope: no per-event aggregate embedded in TeamEvent).
+  // (docs/decisions/events.md: no per-event aggregate embedded in TeamEvent).
   private async resolveMyEventState(
     teamId: string,
     userId: string,
@@ -1443,15 +1746,26 @@ export class EventsService {
     teamId: string,
     events: EventRow[],
     caller: CallerEventState,
+    // Set for a caller who may see the WhatsApp reminder (a team manager, not
+    // acting for a child); null resolves both WhatsApp fields to null.
+    whatsApp: { userId: string } | null = null,
   ): Promise<TeamEvent[]> {
     const eventIds = events.map((e) => e.id);
-    const [logisticsAssignees, rsvpSummaries, { resultsByEventId, myStatsByEventId }, plans] =
-      await Promise.all([
-        this.resolveLogisticsAssignees(events),
-        this.resolveEventRosterSummaries(teamId, eventIds),
-        this.resolveMatchResults(events, caller.myTeamPlayerId),
-        this.meetingPoints.resolvePlans(teamId, events),
-      ]);
+    const [
+      logisticsAssignees,
+      rsvpSummaries,
+      { resultsByEventId, myStatsByEventId },
+      plans,
+      whatsAppView,
+      jerseyDuties,
+    ] = await Promise.all([
+      this.resolveLogisticsAssignees(events),
+      this.resolveEventRosterSummaries(teamId, eventIds),
+      this.resolveMatchResults(events, caller.myTeamPlayerId),
+      this.meetingPoints.resolvePlans(teamId, events),
+      this.resolveWhatsAppView(teamId, events, whatsApp?.userId ?? null),
+      this.jerseyDuty.resolveSummaries(teamId, events, caller.myTeamPlayerId),
+    ]);
     return events.map((event) =>
       this.toTeamEvent({
         event,
@@ -1464,23 +1778,67 @@ export class EventsService {
         result: resultsByEventId.get(event.id) ?? null,
         myMatchStats: myStatsByEventId.get(event.id) ?? null,
         meetingPlan: plans.get(event.id) ?? null,
+        jerseyDuty: jerseyDuties.get(event.id) ?? null,
+        whatsAppShare: whatsAppView?.shares.get(event.id) ?? null,
+        whatsAppSettings: whatsAppView ? whatsAppView.settings(event) : null,
       }),
     );
   }
 
   private async buildTeamEventsForUser(
+    clubId: string,
     teamId: string,
     userId: string,
     events: EventRow[],
     forPlayerId?: string,
   ): Promise<TeamEvent[]> {
-    const caller = await this.resolveMyEventState(
-      teamId,
-      userId,
-      events.map((e) => e.id),
-      forPlayerId,
-    );
-    return this.buildTeamEvents(teamId, events, caller);
+    const [caller, isManager] = await Promise.all([
+      this.resolveMyEventState(
+        teamId,
+        userId,
+        events.map((e) => e.id),
+        forPlayerId,
+      ),
+      // A guardian acting for a child reads the child's page, never the manager's.
+      forPlayerId ? false : this.teamManagerGuard.isTeamManager(clubId, teamId, userId),
+    ]);
+    return this.buildTeamEvents(teamId, events, caller, isManager ? { userId } : null);
+  }
+
+  // The manager-only WhatsApp fields for a batch: one shares read and one team
+  // read, however many events. Null for anyone who does not manage the team.
+  private async resolveWhatsAppView(teamId: string, events: EventRow[], userId: string | null) {
+    if (userId === null || events.length === 0) return null;
+    const [shares, team] = await Promise.all([
+      this.prisma.eventShare.findMany({
+        where: { eventId: { in: events.map((e) => e.id) }, type: 'REMINDER' },
+        include: { sentBy: RSVP_RESPONDENT_SELECT },
+      }),
+      this.prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { waReminderEnabled: true, waDefaultOffsetMinutes: true },
+      }),
+    ]);
+    return {
+      shares: new Map(
+        shares.map((row) => [
+          row.eventId,
+          {
+            type: row.type,
+            state: row.state,
+            dueAt: row.dueAt?.toISOString() ?? null,
+            sentAt: row.sentAt?.toISOString() ?? null,
+            sentBy: toRsvpRespondent(row.sentBy, userId),
+            platform: row.platform,
+          },
+        ]),
+      ),
+      settings: (event: EventRow) => ({
+        override: event.waReminderOverride,
+        offsetMinutes: event.waOffsetMinutes,
+        effective: resolveSettings(event, team),
+      }),
+    };
   }
 
   private toTeamEvent({
@@ -1494,6 +1852,9 @@ export class EventsService {
     result,
     myMatchStats,
     meetingPlan,
+    jerseyDuty,
+    whatsAppShare,
+    whatsAppSettings,
   }: {
     event: EventRow;
     myRsvpStatus: EventRsvpStatus | null;
@@ -1506,6 +1867,9 @@ export class EventsService {
     result: EventMatchResult | null;
     myMatchStats: EventMatchPlayerStats | null;
     meetingPlan: EventMeetingPlan | null;
+    jerseyDuty: EventJerseyDutySummary | null;
+    whatsAppShare: EventShareStatus | null;
+    whatsAppSettings: EventWhatsAppSettings | null;
   }): TeamEvent {
     return {
       id: event.id,
@@ -1513,6 +1877,7 @@ export class EventsService {
       type: event.type,
       startsAt: event.startsAt.toISOString(),
       location: event.location,
+      locationName: event.locationName,
       notes: event.notes,
       opponentName: event.opponentName,
       venue: event.venue,
@@ -1528,17 +1893,22 @@ export class EventsService {
       result,
       myMatchStats,
       meetingPlan,
+      jerseyDuty,
+      whatsAppShare,
+      whatsAppSettings,
       myTravelMode:
         event.type === EventType.MATCH && myRsvpStatus === EventRsvpStatus.GOING
           ? (travelMode ?? EventTravelMode.MEETING_POINT)
           : null,
-      // Populated for both event types — the jersey slot is just labeled
-      // differently ("Maillots" for MATCH, "Chasubles" for TRAINING) on the
-      // frontend, see eventLogisticsFieldLabel.
+      // Populated for both event types, except the jersey slot of a MATCH of a
+      // team with the wash rotation on: that duty is `jerseyDuty`, and a value
+      // set while the rotation was off must not show beside it. The slot is
+      // labeled « Chasubles » for a TRAINING on the frontend.
       logistics: {
-        jerseys: event.jerseysTeamPlayerId
-          ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
-          : null,
+        jerseys:
+          event.jerseysTeamPlayerId && jerseyDuty === null
+            ? (logisticsAssignees.get(event.jerseysTeamPlayerId) ?? null)
+            : null,
         balls: event.ballsTeamPlayerId
           ? (logisticsAssignees.get(event.ballsTeamPlayerId) ?? null)
           : null,

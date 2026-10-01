@@ -105,6 +105,25 @@ export const teamSeasonStatsQueryKey = (
     season ?? 'current',
     ...actingAsKeyPart(forPlayerId),
   ] as const;
+/** Under the season key's `stats` prefix, so a confirm can invalidate both at once. */
+export const matchStatsQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'stats',
+    'matches',
+    eventId,
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
+export const teamStatsQueryKeyPrefix = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'stats'] as const;
 export const teamAdminsQueryKey = (clubId: string, teamId: string) =>
   ['clubs', clubId, 'teams', teamId, 'admins'] as const;
 export const teamFfbbLinksQueryKey = (clubId: string, teamId: string) =>
@@ -143,3 +162,25 @@ export const isClubMeetingDependentQuery =
     queryKey[1] === clubId &&
     queryKey[2] === 'teams' &&
     (queryKey[4] === 'events' || queryKey[4] === 'meeting-settings');
+/** One match's jersey wash duty, under the event's key so deleting or refreshing the event covers it. */
+export const jerseyDutyQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  forPlayerId?: string,
+) =>
+  [
+    'clubs',
+    clubId,
+    'teams',
+    teamId,
+    'events',
+    eventId,
+    'jersey-duty',
+    ...actingAsKeyPart(forPlayerId),
+  ] as const;
+/** Every rotation overview of a team, whichever season or persona. */
+export const jerseyRotationQueryKeyPrefix = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'jersey-rotation'] as const;
+export const jerseyRotationQueryKey = (clubId: string, teamId: string, forPlayerId?: string) =>
+  [...jerseyRotationQueryKeyPrefix(clubId, teamId), ...actingAsKeyPart(forPlayerId)] as const;

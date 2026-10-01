@@ -7,6 +7,7 @@ import {
   type MeetingPoint,
   type MeetingPointSource,
 } from '@basketeasy/types/meeting-points';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 
 /** The meeting-point columns shared by Club, Team and EventMeeting. */
 export interface MeetingPointColumns {
@@ -19,6 +20,8 @@ export interface MeetingPlanEvent {
   type: 'TRAINING' | 'MATCH';
   startsAt: Date;
   location: string;
+  /** A home match is played at our own gym: the team goes straight there, no default RDV. */
+  venue: 'HOME' | 'AWAY' | null;
 }
 
 /**
@@ -94,7 +97,7 @@ export function resolveDefaultMeetingPoint(
 }
 
 /** Event override, then team default, then owner club default — the most specific set one wins. */
-export function resolveMeetingPoint(
+function resolveMeetingPoint(
   override: MeetingPointColumns | null,
   team: MeetingPointColumns,
   club: MeetingPointColumns | null,
@@ -105,7 +108,32 @@ export function resolveMeetingPoint(
 }
 
 /**
- * The whole formula from the design doc, resolved on read:
+ * The meeting point a match actually uses. A home match skips the team and
+ * club defaults (those are for getting to someone else's gym) and has a
+ * meeting point only when a manager set one on the match itself.
+ */
+export function resolveEventMeetingPoint(
+  event: Pick<MeetingPlanEvent, 'venue'>,
+  override: MeetingPointColumns | null,
+  team: MeetingPointColumns,
+  club: MeetingPointColumns | null,
+): { meetingPoint: MeetingPoint; source: MeetingPointSource } | null {
+  if (event.venue !== 'HOME') return resolveMeetingPoint(override, team, club);
+  const fromEvent = toMeetingPoint(override);
+  return fromEvent ? { meetingPoint: fromEvent, source: 'EVENT' } : null;
+}
+
+/**
+ * A computed travel time needs a real destination. The import's « Lieu non
+ * communiqué » placeholder geocodes to somewhere in France, so a route to it
+ * is noise; a manager's typed minutes still count.
+ */
+function hasNoDestination(event: MeetingPlanEvent): boolean {
+  return isUnknownEventLocation(event.location);
+}
+
+/**
+ * The whole formula from docs/decisions/meeting-points.md, resolved on read:
  *
  *   arrivalAt = startsAt − buffer
  *   meetsAt   = override ?? floor15(arrivalAt − travel) ?? null
@@ -124,8 +152,8 @@ export function resolveMeetingPlan(
   const arrivalBufferMinutes =
     team.arrivalBufferMinutes ?? club?.arrivalBufferMinutes ?? DEFAULT_ARRIVAL_BUFFER_MINUTES;
   const arrivalAt = computeArrivalAt(event.startsAt, arrivalBufferMinutes).toISOString();
-  const fallback = resolveDefaultMeetingPoint(team, club);
-  const resolved = resolveMeetingPoint(state, team, club);
+  const fallback = event.venue === 'HOME' ? null : resolveDefaultMeetingPoint(team, club);
+  const resolved = resolveEventMeetingPoint(event, state, team, club);
   const defaults = {
     defaultMeetingPoint: fallback?.meetingPoint ?? null,
     defaultMeetingPointSource: fallback?.source ?? null,
@@ -147,7 +175,8 @@ export function resolveMeetingPlan(
 
   const isCurrentRoute =
     state?.travelRouteKey === travelRouteKey(resolved.meetingPoint.address, event.location);
-  const travelMinutes = isCurrentRoute ? state.travelMinutes : null;
+  const usable = isCurrentRoute && (state.travelMinutesManual || !hasNoDestination(event));
+  const travelMinutes = usable ? state.travelMinutes : null;
   const travelMinutesSource =
     travelMinutes === null ? null : state?.travelMinutesManual ? 'MANUAL' : 'COMPUTED';
 
@@ -193,8 +222,8 @@ export function isTravelStale(
   team: MeetingPlanTeam,
   club: MeetingPlanClub | null,
 ): boolean {
-  if (event.type !== 'MATCH') return false;
-  const resolved = resolveMeetingPoint(state, team, club);
+  if (event.type !== 'MATCH' || hasNoDestination(event)) return false;
+  const resolved = resolveEventMeetingPoint(event, state, team, club);
   if (!resolved) return false;
   return state?.travelRouteKey !== travelRouteKey(resolved.meetingPoint.address, event.location);
 }

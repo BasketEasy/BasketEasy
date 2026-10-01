@@ -1,5 +1,11 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { StatTile } from '@basketeasy/ui/stat-tile';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { UserIcon } from '@basketeasy/ui/icons/user';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
@@ -17,15 +23,12 @@ import { AdminPlayersList } from './AdminPlayersPage';
 import { AdminEventsList } from './AdminEventsPage';
 import { AdminStatsPanel } from './stats/AdminStatsPanel';
 import { AdminMemberDialog } from './actions/AdminMemberDialog';
+import { AdminActionDialog } from './actions/AdminActionDialog';
+import { AdminActionRow, AdminActionsCard } from './actions/AdminActionsCard';
+import { usePlatformSession } from './platformSession';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
-import {
-  AdminPageHeader,
-  AdminPagination,
-  AdminStat,
-  AdminStats,
-  AdminTable,
-} from './shared/AdminLayout';
+import { AdminPageHeader, AdminPagination, AdminStats, AdminTable } from './shared/AdminLayout';
 import { AdminPersonLink } from './shared/AdminLinks';
 import { AdminQueryBranch } from './shared/AdminQueryBranch';
 import { adminPaths } from './shared/adminPaths';
@@ -135,7 +138,40 @@ function ClubMembers({ club }: { club: AdminClubRef }) {
   );
 }
 
+/**
+ * DATA_OFFICER-only, like erasure (the route refuses SUPPORT): the one action
+ * that destroys a club's records instead of fixing them.
+ */
+function ClubDeleteAction({ club }: { club: AdminClubDetail }) {
+  const navigate = useNavigate();
+  return (
+    <AdminActionsCard>
+      <AdminActionRow
+        title="Supprimer le club"
+        detail="Définitif : membres, joueurs, équipes et tout leur historique"
+        action={
+          <AdminActionDialog
+            trigger={<Button variant="outline">Supprimer</Button>}
+            title={`Supprimer ${club.name} ?`}
+            description="Le club est supprimé définitivement avec ses adhésions, ses joueurs et les équipes dont il est propriétaire : événements, feuilles de marque, statistiques et points de rendez-vous compris. Une équipe partagée dont il n’est que partenaire reste à son propriétaire, sans les joueurs de ce club. S’il est propriétaire d’une équipe partagée, la suppression est refusée : transférez-en d’abord la propriété. Les autorisations parentales sont conservées cinq ans."
+            facts={[
+              { label: 'Membres', value: club.memberCount },
+              { label: 'Équipes liées', value: club.teamCount },
+              { label: 'Joueurs', value: club.playerCount },
+            ]}
+            confirmLabel="Supprimer définitivement"
+            danger
+            path={`clubs/${club.id}/delete`}
+            onDone={() => navigate(adminPaths.clubs, { replace: true })}
+          />
+        }
+      />
+    </AdminActionsCard>
+  );
+}
+
 function ClubDetail({ club }: { club: AdminClubDetail }) {
+  const { session } = usePlatformSession();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as ClubTab | null;
   const tab: ClubTab = tabParam && TABS.includes(tabParam) ? tabParam : 'members';
@@ -147,6 +183,7 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={club.name}
+        eyebrow="Club"
         parent={{ to: adminPaths.clubs, label: 'Clubs' }}
         badges={
           club.ffbbClubCode && (
@@ -156,14 +193,35 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           )
         }
         subtitle={`Créé le ${formatAdminDate(club.createdAt)} · ${meetingPoint}`}
+        aside={
+          <AdminStats>
+            <StatTile
+              size="sm"
+              icon={<UserIcon size="md" />}
+              label="Membres"
+              value={club.memberCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<ShieldIcon size="md" />}
+              label="Admins"
+              value={club.adminCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<TrophyIcon size="md" />}
+              label="Équipes"
+              value={club.teamCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<UsersIcon size="md" />}
+              label="Joueurs"
+              value={club.playerCount}
+            />
+          </AdminStats>
+        }
       />
-
-      <AdminStats>
-        <AdminStat label="Membres" value={club.memberCount} />
-        <AdminStat label="Admins" value={club.adminCount} />
-        <AdminStat label="Équipes" value={club.teamCount} />
-        <AdminStat label="Joueurs" value={club.playerCount} />
-      </AdminStats>
 
       {/* `?tab=` triggers, the documented exception to "every URL-changing
           control is a link": role="tab" is the right ARIA, and replace keeps
@@ -204,6 +262,8 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           <AdminStatsPanel clubId={club.id} prefix="s." />
         </TabsContent>
       </Tabs>
+
+      {session?.role === 'DATA_OFFICER' && <ClubDeleteAction club={club} />}
     </div>
   );
 }

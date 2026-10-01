@@ -5,7 +5,7 @@ import {
   type MeetingPoint,
 } from '@basketeasy/types/meeting-points';
 
-export const HALF_FILLED_ERROR = 'Renseignez le nom et l’adresse';
+const HALF_FILLED_ERROR = 'Renseignez le nom et l’adresse';
 
 /**
  * The name/address pair both meeting-point forms edit (the settings dialog

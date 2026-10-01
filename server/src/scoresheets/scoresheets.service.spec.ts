@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ParsedScoresheetData } from '@basketeasy/types/scoresheet-extraction';
 import { ScoresheetsService } from './scoresheets.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,7 +13,7 @@ import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
 
 describe('ScoresheetsService', () => {
   let service: ScoresheetsService;
-  let queue: { add: jest.Mock };
+  let queue: { add: jest.Mock; getJob?: jest.Mock };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: { findUnique: jest.Mock };
@@ -89,6 +94,18 @@ describe('ScoresheetsService', () => {
       // Enqueue must happen first — if it throws, the row should stay at its
       // previous status rather than being stranded at QUEUED with no job.
       expect(calls).toEqual(['add', 'update']);
+    });
+
+    it('replaceStale: refuses (409) when the old job is still held by a worker, adding nothing', async () => {
+      queue.getJob = jest.fn().mockResolvedValue({
+        remove: jest.fn().mockRejectedValue(new Error('locked')),
+      });
+
+      await expect(service.enqueueOcr('sheet-1', { replaceStale: true })).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(queue.add).not.toHaveBeenCalled();
+      expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
     });
 
     it('does not touch the DB when the queue add fails, so the row is not stranded at QUEUED', async () => {
@@ -363,7 +380,7 @@ describe('ScoresheetsService', () => {
     });
 
     // The mapping is what turns a read of a piece of paper into per-player
-    // season stats — see docs/superpowers/specs/2026-09-02-team-season-stats-design.md.
+    // season stats — see docs/decisions/scoresheets-and-stats.md.
     describe('roster mapping → MatchPlayerStat', () => {
       // Three plays for our #7 (a free throw, a two and a three), one for our
       // #9, and one for the opposing #7 — the last exists to prove a jersey

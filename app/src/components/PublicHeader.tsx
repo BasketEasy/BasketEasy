@@ -4,8 +4,8 @@ import { useAccount } from '../auth/useAccount';
 
 /**
  * Header for public (unauthenticated-reachable) routes — today just
- * LandingPage, previously rolling its own copy of this brand/CTA logic
- * (docs/ux-audit/README.md finding 2.7). Distinct from AppHeader, which is
+ * LandingPage, previously rolling its own copy of this brand/CTA logic.
+ * Distinct from AppHeader, which is
  * mounted by ProtectedRoute and assumes a logged-in user (nav links, club
  * switcher, account menu) — this one has to handle both the logged-out and
  * logged-in cases itself, since a logged-in user can still land on `/`.

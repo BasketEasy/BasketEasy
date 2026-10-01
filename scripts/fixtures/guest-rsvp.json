@@ -1,0 +1,185 @@
+{
+  "GET /api/public/guest/tok": {
+    "teamName": "U15 Masculins",
+    "clubName": "BC Nantes",
+    "roster": [
+      {
+        "teamPlayerId": "tp-leo",
+        "firstName": "Léo",
+        "lastInitial": "M",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastInitial": "B",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-noa",
+        "firstName": "Noa",
+        "lastInitial": "R",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-anne",
+        "firstName": "Anne",
+        "lastInitial": "D",
+        "role": "COACH"
+      }
+    ],
+    "events": [
+      {
+        "id": "e1",
+        "type": "TRAINING",
+        "startsAt": "2026-10-08T16:00:00.000Z",
+        "timeConfirmed": true,
+        "location": "Gymnase Jean Jaurès",
+        "opponentName": null,
+        "venue": null,
+        "notes": null,
+        "meetingPlan": null,
+        "attendance": [
+          {
+            "teamPlayerId": "tp-leo",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-zoe",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-noa",
+            "status": "NOT_GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-anne",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          }
+        ]
+      },
+      {
+        "id": "e2",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T19:30:00.000Z",
+        "timeConfirmed": true,
+        "location": "Salle des Sports, Rezé",
+        "opponentName": "Rezé BC",
+        "venue": "AWAY",
+        "notes": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-10T18:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Coubertin, Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "defaultMeetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Coubertin, Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB",
+          "travelMinutes": 23,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-10T18:15:00.000Z",
+          "meetsAtSource": "COMPUTED"
+        },
+        "attendance": [
+          {
+            "teamPlayerId": "tp-leo",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-zoe",
+            "status": "MAYBE",
+            "travelMode": null,
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-noa",
+            "status": null,
+            "travelMode": null,
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-anne",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          }
+        ]
+      }
+    ]
+  },
+  "GET /api/public/guest/dead": {
+    "status": 404,
+    "body": {
+      "statusCode": 404,
+      "message": "Not Found"
+    }
+  },
+  "POST /api/public/guest/tok/invite-request": {
+    "status": 204,
+    "body": null
+  },
+  "PUT /api/public/guest/tok/events/e1/rsvp": {
+    "id": "e1",
+    "type": "TRAINING",
+    "startsAt": "2026-10-08T16:00:00.000Z",
+    "timeConfirmed": true,
+    "location": "Gymnase Jean Jaurès",
+    "opponentName": null,
+    "venue": null,
+    "notes": null,
+    "meetingPlan": null,
+    "attendance": [
+      {
+        "teamPlayerId": "tp-leo",
+        "status": "GOING",
+        "travelMode": null,
+        "convoked": false,
+        "viaLink": true
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "status": "GOING",
+        "travelMode": null,
+        "convoked": false,
+        "viaLink": false
+      },
+      {
+        "teamPlayerId": "tp-noa",
+        "status": "NOT_GOING",
+        "travelMode": null,
+        "convoked": false,
+        "viaLink": true
+      },
+      {
+        "teamPlayerId": "tp-anne",
+        "status": null,
+        "travelMode": null,
+        "convoked": false,
+        "viaLink": false
+      }
+    ]
+  }
+}

@@ -78,7 +78,7 @@ describe('GuardiansService', () => {
     };
     parentalConsent: { findMany: jest.Mock; create: jest.Mock; updateMany: jest.Mock };
     teamPlayer: { findMany: jest.Mock };
-    user: { update: jest.Mock; findUniqueOrThrow: jest.Mock };
+    user: { update: jest.Mock; findUniqueOrThrow: jest.Mock; delete: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
@@ -88,7 +88,7 @@ describe('GuardiansService', () => {
 
   beforeEach(async () => {
     prisma = {
-      player: { findUnique: jest.fn().mockResolvedValue({ clubId: 'club-1' }) },
+      player: { findUnique: jest.fn().mockResolvedValue({ clubId: 'club-1', birthDate: null }) },
       playerGuardian: {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue(null),
@@ -112,6 +112,7 @@ describe('GuardiansService', () => {
       teamPlayer: { findMany: jest.fn().mockResolvedValue([{ team: { name: 'U11 Filles' } }]) },
       user: {
         update: jest.fn(),
+        delete: jest.fn().mockResolvedValue({}),
         findUniqueOrThrow: jest
           .fn()
           .mockResolvedValue({ firstName: 'Sophie', lastName: 'Martin', email: 's@x.fr' }),
@@ -200,10 +201,39 @@ describe('GuardiansService', () => {
     it('creates a hashed invite and returns the raw link once', async () => {
       const link = await service.createInvite('club-1', 'player-1', 'admin-1');
 
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'GUARDIAN_INVITE_CREATED',
+        userId: 'admin-1',
+        metadata: { playerId: 'player-1', inviteId: 'invite-1' },
+      });
+
       expect(link.url).toBe(`https://kluvo.fr/guardian-invite/${link.token}`);
       const data = prisma.guardianInvite.create.mock.calls[0][0].data;
       expect(data).toMatchObject({ playerId: 'player-1', createdByUserId: 'admin-1' });
       expect(data.tokenHash).not.toBe(link.token);
+    });
+
+    it('counts the caps under the player lock, so two admins can’t both pass them', async () => {
+      await service.createInvite('club-1', 'player-1', 'admin-1');
+
+      const [sql, playerId] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray, string];
+      expect(sql.join('?')).toContain('FOR UPDATE');
+      expect(playerId).toBe('player-1');
+      expect(prisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.guardianInvite.count.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('refuses an invite for an adult player', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        clubId: 'club-1',
+        birthDate: new Date('1990-05-01T00:00:00.000Z'),
+      });
+
+      await expect(service.createInvite('club-1', 'player-1', 'admin-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.guardianInvite.create).not.toHaveBeenCalled();
     });
 
     it('refuses a fifth guardian and a fifth pending invite', async () => {
@@ -223,24 +253,39 @@ describe('GuardiansService', () => {
     it('cancels only a pending invite of this player', async () => {
       prisma.guardianInvite.deleteMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.cancelInvite('club-1', 'player-1', 'invite-9')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.cancelInvite('club-1', 'player-1', 'invite-9', 'admin-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.guardianInvite.deleteMany).toHaveBeenCalledWith({
         where: { id: 'invite-9', playerId: 'player-1', acceptedAt: null },
+      });
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('records a cancelled invite', async () => {
+      await service.cancelInvite('club-1', 'player-1', 'invite-1', 'admin-1');
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'GUARDIAN_INVITE_CANCELLED',
+        userId: 'admin-1',
+        metadata: { playerId: 'player-1', inviteId: 'invite-1' },
       });
     });
 
     it('removes a guardian link and 404s an unknown one', async () => {
-      await service.removeGuardian('club-1', 'player-1', 'parent-1');
+      await service.removeGuardian('club-1', 'player-1', 'parent-1', 'admin-1');
       expect(prisma.playerGuardian.deleteMany).toHaveBeenCalledWith({
         where: { playerId: 'player-1', userId: 'parent-1' },
       });
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'GUARDIAN_LINK_REMOVED',
+        userId: 'admin-1',
+        metadata: { playerId: 'player-1', guardianUserId: 'parent-1', removedBy: 'CLUB_ADMIN' },
+      });
 
       prisma.playerGuardian.deleteMany.mockResolvedValue({ count: 0 });
-      await expect(service.removeGuardian('club-1', 'player-1', 'parent-9')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.removeGuardian('club-1', 'player-1', 'parent-9', 'admin-1'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -310,15 +355,28 @@ describe('GuardiansService', () => {
       expect(prisma).not.toHaveProperty('clubMembership');
     });
 
-    it('needs no consent for an adult', async () => {
-      prisma.guardianInvite.findUnique.mockResolvedValue(
-        buildInvite({}, { birthDate: ADULT_BIRTH }),
-      );
+    it('needs no consent while the birth date is unknown', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { birthDate: null }));
 
       await service.acceptAsUser('t', 'parent-1', undefined);
 
       expect(prisma.playerGuardian.create).toHaveBeenCalled();
       expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses a link issued before the player was known to be an adult, writing nothing', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(
+        buildInvite({}, { birthDate: ADULT_BIRTH }),
+      );
+
+      await expectCode(
+        service.acceptAsUser('t', 'parent-1', true),
+        BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
+      );
+      expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
+      expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+      expect(prisma.guardianInvite.update).not.toHaveBeenCalled();
     });
 
     it('refuses a minor without consent and writes nothing', async () => {
@@ -373,6 +431,7 @@ describe('GuardiansService', () => {
       prisma.guardianInvite.findUnique.mockResolvedValue(
         buildInvite({ acceptedAt: new Date(), acceptedByUserId: 'parent-1', expiresAt: PAST }),
       );
+      prisma.playerGuardian.findUnique.mockResolvedValue({ playerId: 'player-1' });
 
       await expect(service.acceptAsUser('t', 'parent-1', true)).resolves.toEqual({
         playerId: 'player-1',
@@ -380,6 +439,18 @@ describe('GuardiansService', () => {
       });
       expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
       expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('404s the old link once the parent it linked has been removed', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(
+        buildInvite({ acceptedAt: new Date(), acceptedByUserId: 'parent-1' }),
+      );
+      prisma.playerGuardian.findUnique.mockResolvedValue(null);
+
+      await expect(service.acceptAsUser('t', 'parent-1', true)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.playerGuardian.create).not.toHaveBeenCalled();
     });
 
     it('refuses the player as their own parent', async () => {
@@ -406,9 +477,7 @@ describe('GuardiansService', () => {
     });
 
     it('does not duplicate an existing link or count it against the cap', async () => {
-      prisma.guardianInvite.findUnique.mockResolvedValue(
-        buildInvite({}, { birthDate: ADULT_BIRTH }),
-      );
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite({}, { birthDate: null }));
       prisma.playerGuardian.findUnique.mockResolvedValue({ playerId: 'player-1' });
       prisma.playerGuardian.count.mockResolvedValue(4);
 
@@ -455,6 +524,20 @@ describe('GuardiansService', () => {
         refreshToken: 'refresh',
         user: { id: 'parent-1', memberships: [] },
       });
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes the new account again when the link loses a race after registering', async () => {
+      prisma.guardianInvite.findUnique.mockResolvedValue(buildInvite());
+      prisma.playerGuardian.count.mockResolvedValue(4);
+
+      await expectCode(
+        service.acceptWithRegistration('t', { ...form, consent: true }),
+        BadRequestException,
+        GUARDIAN_INVITE_REFUSED_CODE,
+      );
+      expect(prisma.user.delete).toHaveBeenCalledWith({ where: { id: 'parent-1' } });
+      expect(accountSecurity.sendVerificationEmail).not.toHaveBeenCalled();
     });
   });
 });

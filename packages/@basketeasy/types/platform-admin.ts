@@ -1,6 +1,6 @@
 // The platform back-office: a tightly-scoped internal surface for handling
 // RGPD access/erasure requests and confirming the retention sweep runs.
-// Design record: docs/superpowers/specs/2026-09-06-backoffice-design.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 //
 // Nothing here is club-scoped. Authority comes from a PlatformAdmin grant
 // provisioned out-of-band, and every route additionally requires a
@@ -8,6 +8,7 @@
 // necessary but not sufficient.
 
 import type { ParentalConsentSource } from './guardians';
+import type { JerseyDutyStatus } from './jersey-duty';
 import type { AdminSupportActionKind } from './platform-admin-actions';
 
 export type PlatformRole = 'SUPPORT' | 'DATA_OFFICER';
@@ -66,12 +67,22 @@ export type AuditEventType =
   | 'REFRESH_TOKEN_REUSE_DETECTED'
   | 'EMAIL_VERIFIED'
   | 'GUARDIAN_INVITE_ACCEPTED'
+  | 'GUARDIAN_INVITE_CREATED'
+  | 'GUARDIAN_INVITE_CANCELLED'
+  | 'GUARDIAN_LINK_REMOVED'
+  | 'GUEST_LINK_ENABLED'
+  | 'GUEST_LINK_REGENERATED'
+  | 'GUEST_LINK_DISABLED'
   | 'ADMIN_LOGIN_SUCCESS'
   | 'ADMIN_LOGIN_FAILURE'
   | 'ADMIN_PII_VIEWED'
+  | 'ADMIN_PII_LISTED'
   | 'ADMIN_USER_ERASED'
   | 'ADMIN_EXPORT_GENERATED'
-  | 'ADMIN_SUPPORT_ACTION';
+  | 'ADMIN_SUPPORT_ACTION'
+  | 'ADMIN_IMPERSONATION_STARTED'
+  | 'ADMIN_IMPERSONATION_ENDED'
+  | 'ADMIN_GRANT_CHANGED';
 
 export interface AuditLogEntry {
   id: string;
@@ -158,8 +169,19 @@ export interface ExportedRosterEntry {
    */
   votesCast: { eventStartsAt: string; category: 'BEST' | 'WORST'; castAt: string }[];
   scoresheetUploads: { eventStartsAt: string; uploadedAt: string }[];
-  /** "Was down to bring the balls on 14 March" — processing about this person. */
-  logisticsAssignments: { eventStartsAt: string; duty: 'JERSEYS' | 'BALLS' }[];
+  /**
+   * "Was down to bring the balls on 14 March" — processing about this person.
+   * `JERSEY_WASH` is a turn at the jersey wash rotation: it carries the turn's
+   * `status` and, like an RSVP, who accepted it without naming them. Who
+   * marked it « fait » or voided it is a manager's act on someone else's turn
+   * and is left out (art. 15(4)).
+   */
+  logisticsAssignments: {
+    eventStartsAt: string;
+    duty: 'JERSEYS' | 'BALLS' | 'JERSEY_WASH';
+    status?: JerseyDutyStatus;
+    acceptedBy?: 'SELF' | 'SOMEONE_ELSE' | 'UNKNOWN' | null;
+  }[];
 }
 
 export interface ExportedPlayerRecord {
@@ -200,6 +222,12 @@ export interface ExportedGuardianActivity {
     status: string;
     travelMode: string;
     respondedAt: string;
+  }[];
+  /** Jersey wash turns this person accepted on a child's behalf. */
+  jerseyDutyAcceptedForOthers: {
+    childFirstName: string;
+    eventStartsAt: string;
+    acceptedAt: string;
   }[];
 }
 

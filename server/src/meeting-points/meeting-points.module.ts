@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { QueueModule } from '../queue/queue.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { GeocodingService } from './geocoding.service';
+import { MeetingChangeFeed } from './meeting-change-feed';
 import { MeetingPointsController } from './meeting-points.controller';
 import { MeetingPointsService } from './meeting-points.service';
 import { MeetingTravelProcessor } from './meeting-travel.processor';
@@ -16,6 +17,7 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
   controllers: [MeetingPointsController],
   providers: [
     MeetingPointsService,
+    MeetingChangeFeed,
     GeocodingService,
     MeetingTravelProcessor,
     OrsRoutingClient,
@@ -43,6 +45,6 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
       },
     },
   ],
-  exports: [MeetingPointsService],
+  exports: [MeetingPointsService, MeetingChangeFeed],
 })
 export class MeetingPointsModule {}

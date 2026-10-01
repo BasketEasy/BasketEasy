@@ -1,7 +1,7 @@
 import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Home / landing screen (Ma semaine, Accueil) — the bottom bar's first tab. */
-export function HomeIcon({ tone, className, ...props }: IconProps) {
+export function HomeIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,7 +10,7 @@ export function HomeIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M4 20h16V9l-8-5-8 5v11" />

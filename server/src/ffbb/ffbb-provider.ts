@@ -2,7 +2,7 @@
 // fields, moves off its current page-rendering approach, restructures the
 // ligue/comité/club/engagement hierarchy), only FfbbPageScrapeProvider should
 // need to change — never the Prisma schema, DTOs, controllers, or frontend.
-// See docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md.
+// See docs/decisions/ffbb.md.
 
 export const FFBB_PROVIDER = Symbol('FFBB_PROVIDER');
 
@@ -31,9 +31,8 @@ export interface FfbbMatch {
  * One page fetch yields both the match list and, when present, a
  * human-readable label for the competition — bundled in one result so
  * TeamsService can snapshot a label into TeamFfbbLink.ffbbEngagementLabel
- * without a second round-trip. The spec's literal FfbbMatch shape carries no
- * label field, so this wrapper is the minimal extension needed to satisfy
- * the Data model section's requirement that the label be "read off the
+ * without a second round-trip. FfbbMatch itself carries no label field, so
+ * this wrapper is the minimal extension needed for the label to be "read off the
  * validated page fetch."
  */
 export interface FfbbEngagementFetchResult {
@@ -46,7 +45,7 @@ export interface FfbbEngagementFetchResult {
    * match's `competitionId` (no second fetch needed) — see
    * FfbbPageScrapeProvider.derivePouleRef. Null when no poule id or match
    * detail link could be found at all (nothing published yet this season)
-   * — see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+   * — see docs/decisions/ffbb.md.
    */
   pouleRef: string | null;
 }
@@ -86,7 +85,11 @@ export interface FfbbPouleStandings {
 
 /** Thrown by FfbbProvider implementations on any fetch/parse failure — never let a partial or garbage result propagate. */
 export class FfbbPageFormatError extends Error {
-  constructor(message: string) {
+  /** `status` is FFBB's HTTP status when the page answered with a non-2xx one. */
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
     super(message);
     this.name = 'FfbbPageFormatError';
   }
@@ -101,6 +104,12 @@ export interface GetMatchesOptions {
    * "paste a URL" form wait seconds for data it discards.
    */
   resolveVenues?: boolean;
+  /**
+   * Matches whose venue is already known locally. Still re-read when the
+   * budget allows (FFBB can move a match), but only after every match with
+   * no venue yet, so a re-sync spends its page loads where they're missing.
+   */
+  knownVenueMatchIds?: ReadonlySet<string>;
 }
 
 export interface FfbbProvider {

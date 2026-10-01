@@ -41,7 +41,7 @@ function playerKey(team: ScoresheetTeamSide, jerseyNumber: number): string {
 // marks in the running-score column, one per basket. So a player's total is
 // the sum of their own plays there (the model is told to leave `points`
 // null), which is also what makes the 1/2/3-point notation worth reading —
-// see docs/superpowers/specs/2026-09-02-scoresheet-points-parsing-design.md.
+// see docs/decisions/scoresheets-and-stats.md.
 function derivePlayerPoints(data: ParsedScoresheetData): ScoresheetPlayerStats[] {
   const totals = new Map<string, number>();
   const teamsWithPlays = new Set<ScoresheetTeamSide>();
@@ -203,8 +203,9 @@ export class ScoresheetOcrProcessor extends WorkerHost {
         },
       });
 
-      const userId = scoresheet?.uploadedBy.player.userId;
-      if (!scoresheet || !userId) return;
+      // A null uploader (their roster slot was deleted) has nobody to tell.
+      const userId = scoresheet?.uploadedBy?.player.userId;
+      if (!scoresheet?.uploadedBy || !userId) return;
 
       const clubId = await this.resolveNavigationClubId(userId, scoresheet.uploadedBy.team);
       if (!clubId) return;

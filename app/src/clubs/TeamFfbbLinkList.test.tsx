@@ -20,9 +20,12 @@ describe('TeamFfbbLinkList', () => {
   it('shows nothing for a non-manager when there are no links', async () => {
     server.use(http.get('/api/clubs/club-1/teams/team-1/ffbb-links', () => HttpResponse.json([])));
 
-    const { container } = renderList(false);
+    renderList(false);
 
-    await waitFor(() => expect(container).not.toHaveTextContent('Compétitions FFBB liées'));
+    // Neither the empty line nor the add row a manager gets.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/aucune compétition ffbb liée/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('shows an empty-state line and the add row for a manager', async () => {
@@ -51,7 +54,8 @@ describe('TeamFfbbLinkList', () => {
 
     expect(await screen.findByText('Seniors M D3')).toBeInTheDocument();
     expect(screen.getByText('Compétition liée')).toBeInTheDocument();
-    expect(screen.getByText('Compétitions FFBB liées (2)')).toBeInTheDocument();
+    // No heading of its own: the team page's accordion trigger is the heading.
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /importer le calendrier ffbb/i }),
     ).toBeInTheDocument();
@@ -133,7 +137,13 @@ describe('TeamFfbbLinkList', () => {
         HttpResponse.json([{ id: 'link-1', ffbbEngagementLabel: 'Championnat' }]),
       ),
       http.post('/api/clubs/club-1/teams/team-1/ffbb-import', () =>
-        HttpResponse.json({ created: 8, updated: 2, unchanged: 1 }),
+        HttpResponse.json({
+          created: 8,
+          updated: 2,
+          unchanged: 1,
+          missingVenue: [],
+          missingVenueTotal: 0,
+        }),
       ),
     );
 
@@ -152,7 +162,13 @@ describe('TeamFfbbLinkList', () => {
         HttpResponse.json([{ id: 'link-1', ffbbEngagementLabel: 'Championnat' }]),
       ),
       http.post('/api/clubs/club-1/teams/team-1/ffbb-import', () =>
-        HttpResponse.json({ created: 0, updated: 0, unchanged: 8 }),
+        HttpResponse.json({
+          created: 0,
+          updated: 0,
+          unchanged: 8,
+          missingVenue: [],
+          missingVenueTotal: 0,
+        }),
       ),
     );
 
@@ -189,5 +205,76 @@ describe('TeamFfbbLinkList', () => {
     expect(
       screen.getByText(/impossible de récupérer les matchs pour « coupe loire-atlantique/i),
     ).toBeInTheDocument();
+  });
+
+  describe('matches left without a venue', () => {
+    function givenImport(result: object) {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/ffbb-links', () =>
+          HttpResponse.json([{ id: 'link-1', ffbbEngagementLabel: 'Championnat' }]),
+        ),
+        http.post('/api/clubs/club-1/teams/team-1/ffbb-import', () =>
+          HttpResponse.json({ created: 3, updated: 0, unchanged: 0, ...result }),
+        ),
+      );
+    }
+
+    async function importNow() {
+      const user = userEvent.setup();
+      renderList(true);
+      await user.click(await screen.findByRole('button', { name: /importer le calendrier ffbb/i }));
+      await screen.findByText('Calendrier importé');
+    }
+
+    it('lists each match without a venue, linking to its page', async () => {
+      givenImport({
+        missingVenue: [
+          { eventId: 'event-1', opponentName: 'Rezé', startsAt: '2099-10-04T13:30:00Z' },
+          { eventId: 'event-2', opponentName: null, startsAt: '2099-10-11T13:30:00Z' },
+        ],
+        missingVenueTotal: 2,
+      });
+
+      await importNow();
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('2 matchs sans lieu');
+      expect(alert).toHaveTextContent('Les joueurs ne savent pas encore où aller.');
+      expect(screen.getByRole('link', { name: /vs Rezé/ })).toHaveAttribute(
+        'href',
+        '/clubs/club-1/teams/team-1/events/event-1',
+      );
+      expect(screen.getByRole('link', { name: /Match ·/ })).toHaveAttribute(
+        'href',
+        '/clubs/club-1/teams/team-1/events/event-2',
+      );
+      expect(alert).not.toHaveTextContent(/et \d+ autre/);
+    });
+
+    it('counts the matches past the listed ones', async () => {
+      givenImport({
+        missingVenue: Array.from({ length: 20 }, (_, i) => ({
+          eventId: `event-${i}`,
+          opponentName: `Club ${i}`,
+          startsAt: '2099-10-04T13:30:00Z',
+        })),
+        missingVenueTotal: 23,
+      });
+
+      await importNow();
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('23 matchs sans lieu');
+      expect(screen.getAllByRole('link')).toHaveLength(20);
+      expect(alert).toHaveTextContent('et 3 autres');
+    });
+
+    it('shows nothing when every match has a venue', async () => {
+      givenImport({ missingVenue: [], missingVenueTotal: 0 });
+
+      await importNow();
+
+      expect(screen.queryByText(/sans lieu/)).not.toBeInTheDocument();
+    });
   });
 });

@@ -6,7 +6,7 @@ import { pushPublicKeyQueryKey } from './queryKeys';
 
 const SERVICE_WORKER_URL = '/sw.js';
 
-export type PushSupport =
+type PushSupport =
   /** The browser has no Push API at all — notably iOS Safari outside an installed PWA. */
   | 'unsupported'
   /** Supported, but the deployment has no VAPID keys, so there is nothing to subscribe to. */

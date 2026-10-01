@@ -5,25 +5,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { FfbbImportResult } from '@basketeasy/types/ffbb';
+import { FFBB_MISSING_VENUE_LIST_LIMIT, type FfbbImportResult } from '@basketeasy/types/ffbb';
+import { EVENT_LOCATION_MAX_LENGTH, UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
+import { parisWallClockToDate } from '../common/paris-time';
 import { FFBB_PROVIDER, FfbbMatch, FfbbProvider } from './ffbb-provider';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
 
 type UpsertOutcome = 'created' | 'updated' | 'unchanged';
-
-const MISSING_LOCATION = 'Lieu non communiqué';
 
 // Events are written here through Prisma directly, bypassing the
 // class-validator @MaxLength(120) on Create/UpdateEventDto — so an
 // over-long scraped address would import fine and then make the event
 // uneditable, since EventEditModal re-sends `location` on every save.
-const MAX_LOCATION_LENGTH = 120;
-
 function clampLocation(location: string): string {
-  return location.length <= MAX_LOCATION_LENGTH
+  return location.length <= EVENT_LOCATION_MAX_LENGTH
     ? location
-    : `${location.slice(0, MAX_LOCATION_LENGTH - 1).trimEnd()}…`;
+    : `${location.slice(0, EVENT_LOCATION_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
 /**
@@ -39,6 +38,7 @@ export class FfbbImportService {
     private readonly prisma: PrismaService,
     @Inject(FFBB_PROVIDER) private readonly ffbbProvider: FfbbProvider,
     private readonly meetingPoints: MeetingPointsService,
+    private readonly whatsAppReminders: WhatsAppReminderService,
   ) {}
 
   async importSchedule(clubId: string, teamId: string): Promise<FfbbImportResult> {
@@ -49,10 +49,22 @@ export class FfbbImportService {
       throw new BadRequestException("Cette équipe n'a aucune compétition FFBB liée");
     }
 
+    // Matches whose venue an earlier import already found: the provider reads
+    // the others' detail pages first, since its budget can't cover a season.
+    const withVenue = await this.prisma.event.findMany({
+      where: {
+        teamId,
+        externalId: { not: null },
+        location: { not: UNKNOWN_EVENT_LOCATION },
+      },
+      select: { externalId: true },
+    });
+    const knownVenueMatchIds = new Set(withVenue.map((e) => e.externalId as string));
+
     // Fetch every linked engagement's matches before writing anything: one
     // link's fetch failure aborts the whole import rather than partially
     // importing the others, so the admin never sees a silently half-done
-    // sync (see the design spec's Backend section).
+    // sync (see docs/decisions/ffbb.md).
     const matchesByLink: FfbbMatch[][] = [];
     for (const link of links) {
       try {
@@ -63,7 +75,7 @@ export class FfbbImportService {
         // resolved comes back with location null and still imports.
         const { matches } = await this.ffbbProvider.getMatchesForEngagement(
           link.ffbbEngagementRef,
-          { resolveVenues: true },
+          { resolveVenues: true, knownVenueMatchIds },
         );
         matchesByLink.push(matches);
       } catch {
@@ -81,9 +93,19 @@ export class FfbbImportService {
     let updated = 0;
     let unchanged = 0;
     const rescheduledEventIds: string[] = [];
+    // Every created or changed match: this import is a second write path for
+    // Event rows, so it reconciles the WhatsApp reminders itself.
+    const touchedEventIds: string[] = [];
+    const changedEventIds: string[] = [];
     for (const matches of matchesByLink) {
       for (const match of matches) {
-        const outcome = await this.upsertMatch(teamId, match, rescheduledEventIds);
+        const outcome = await this.upsertMatch(
+          teamId,
+          match,
+          rescheduledEventIds,
+          touchedEventIds,
+          changedEventIds,
+        );
         if (outcome === 'created') created += 1;
         else if (outcome === 'updated') updated += 1;
         else unchanged += 1;
@@ -101,13 +123,52 @@ export class FfbbImportService {
       await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
     }
 
-    return { created, updated, unchanged };
+    await this.whatsAppReminders.syncEvents(touchedEventIds);
+    // Only matches FFBB changed can have made a shared message stale.
+    await this.whatsAppReminders.onEventsChanged(changedEventIds);
+
+    const { missingVenue, missingVenueTotal } = await this.findMissingVenues(teamId);
+    return { created, updated, unchanged, missingVenue, missingVenueTotal };
+  }
+
+  // Read after the upserts rather than collected during them: upsertMatch
+  // returns early for a played match and never sees one whose FFBB link was
+  // removed, and both can still be upcoming rows with no venue.
+  private async findMissingVenues(
+    teamId: string,
+  ): Promise<Pick<FfbbImportResult, 'missingVenue' | 'missingVenueTotal'>> {
+    const where = {
+      teamId,
+      type: 'MATCH' as const,
+      externalId: { not: null },
+      location: UNKNOWN_EVENT_LOCATION,
+      startsAt: { gt: new Date() },
+    };
+    const [rows, missingVenueTotal] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        orderBy: { startsAt: 'asc' },
+        take: FFBB_MISSING_VENUE_LIST_LIMIT,
+        select: { id: true, opponentName: true, startsAt: true },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+    return {
+      missingVenue: rows.map((row) => ({
+        eventId: row.id,
+        opponentName: row.opponentName,
+        startsAt: row.startsAt.toISOString(),
+      })),
+      missingVenueTotal,
+    };
   }
 
   private async upsertMatch(
     teamId: string,
     match: FfbbMatch,
     rescheduledEventIds: string[],
+    touchedEventIds: string[],
+    changedEventIds: string[],
   ): Promise<UpsertOutcome> {
     const existing = await this.prisma.event.findUnique({
       where: { teamId_externalId: { teamId, externalId: match.id } },
@@ -119,16 +180,16 @@ export class FfbbImportService {
     // silently wipe every venue back to the placeholder.
     const location = match.location
       ? clampLocation(match.location)
-      : (existing?.location ?? MISSING_LOCATION);
-    // FFBB's date_rencontre has no offset; parse it as UTC explicitly
-    // rather than relying on the server process's local timezone to
-    // interpret an offset-less ISO string.
-    const startsAt = new Date(`${match.startsAt}Z`);
+      : (existing?.location ?? UNKNOWN_EVENT_LOCATION);
+    // FFBB's date_rencontre has no offset and is a Paris wall-clock time.
+    // Resolve it against Europe/Paris explicitly, never UTC and never the
+    // server process's local timezone.
+    const startsAt = parisWallClockToDate(match.startsAt);
 
     const venue = match.isHome ? 'HOME' : 'AWAY';
 
     if (!existing) {
-      await this.prisma.event.create({
+      const createdEvent = await this.prisma.event.create({
         data: {
           teamId,
           type: 'MATCH',
@@ -140,11 +201,12 @@ export class FfbbImportService {
           venue,
         },
       });
+      touchedEventIds.push(createdEvent.id);
       return 'created';
     }
 
-    // No result/score is stored locally (out of scope — see the design
-    // spec's Scope section), so once FFBB reports a match as played there's
+    // No result/score is stored locally (out of scope — see
+    // docs/decisions/ffbb.md), so once FFBB reports a match as played there's
     // nothing left to sync; re-touching it on a later re-sync risks
     // clobbering fields with stale placeholder data instead.
     if (match.played) {
@@ -162,17 +224,27 @@ export class FfbbImportService {
     }
 
     const rescheduled = existing.startsAt.getTime() !== startsAt.getTime();
+    // The jersey wash duty (EventJerseyDuty) is deliberately untouched here: a
+    // moved kickoff simply moves the lock and the « counts as a turn » moment
+    // with it, and the freeze job only ever reads the current `startsAt`.
     await this.prisma.event.update({
       where: { id: existing.id },
       data: {
         startsAt,
         location,
+        // Every import is a write: an FFBB venue replaces a manager's, and
+        // the gym name they typed described the old address, so it goes too.
+        // `isUnchanged` compares `location` only: a name on an unchanged
+        // address is not an FFBB change.
+        locationName: location !== existing.location ? null : undefined,
         opponentName: match.opponentLabel,
         timeConfirmed: match.timeConfirmed,
         venue,
       },
     });
     if (rescheduled) rescheduledEventIds.push(existing.id);
+    touchedEventIds.push(existing.id);
+    changedEventIds.push(existing.id);
     return 'updated';
   }
 

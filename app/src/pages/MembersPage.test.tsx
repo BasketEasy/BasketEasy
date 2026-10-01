@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
@@ -55,9 +55,8 @@ describe('MembersPage', () => {
 
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Effectif · ASB Rezé' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'ASB Rezé' })).toBeInTheDocument();
+    expect(screen.getByText('Club')).toBeInTheDocument();
   });
 
   it('shows the FFBB link block for an admin, with the stored code once set', async () => {
@@ -78,7 +77,82 @@ describe('MembersPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/members' });
 
     expect(await screen.findByText('pdl0044190')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /modifier le lien/i })).toBeInTheDocument();
+    expect(screen.getByText('FFBB pdl0044190')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^retirer$/i })).toBeInTheDocument();
+  });
+
+  it('offers a neutral « Ajouter le code » tile, and no badge, when the club has no code', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', ffbbClubCode: null, createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(await screen.findByText('Aucun code club FFBB')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ajouter le code' })).toBeInTheDocument();
+    expect(screen.queryByText(/^FFBB /)).not.toBeInTheDocument();
+  });
+
+  it('sums up the club in the hero and counts each tab', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', ffbbClubCode: null, createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () =>
+        HttpResponse.json(
+          paginated([
+            { userId: 'user-1', email: 'a@b.com', role: 'ADMIN', joinedAt: '2026-01-01' },
+            { userId: 'user-2', email: 'b@example.com', role: 'MEMBER', joinedAt: '2026-01-02' },
+          ]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([], { total: 42 }))),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([], { total: 1 }))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(await screen.findByText('2 membres · 42 joueurs · 1 équipe')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Membres/ })).toHaveTextContent('2');
+    expect(screen.getByRole('tab', { name: /^Joueurs/ })).toHaveTextContent('42');
+  });
+
+  it('folds « RDV par défaut » under « Réglages du club », loading it only once opened', async () => {
+    let requested = false;
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'ASB Rezé', ffbbClubCode: null, createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/meeting-settings', () => {
+        requested = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    const user = userEvent.setup();
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/members' });
+
+    expect(await screen.findByRole('heading', { name: 'Réglages du club' })).toBeInTheDocument();
+    const trigger = within(screen.getByRole('heading', { name: /rdv par défaut/i })).getByRole(
+      'button',
+    );
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(requested).toBe(false);
+
+    await user.click(trigger);
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(requested).toBe(true);
   });
 
   it('shows the Membres tab by default, with the add-member form and remove buttons for an ADMIN', async () => {
@@ -699,5 +773,53 @@ describe('MembersPage', () => {
     // The whole card is the link now — no separate "Gérer" button.
     await user.click(screen.getByRole('link', { name: /u15 garçons/i }));
     expect(await screen.findByRole('heading', { name: /u15 garçons/i })).toBeInTheDocument();
+  });
+
+  describe('invite-request landing (?invite=)', () => {
+    const player = (overrides: Record<string, unknown> = {}) => ({
+      id: 'player-1',
+      firstName: 'Léo',
+      lastName: 'Martin',
+      clubId: 'club-1',
+      userId: null,
+      isMinor: false,
+      parentalConsentGivenAt: null,
+      ...overrides,
+    });
+
+    function mockClub(players: unknown[]) {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      server.use(
+        http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated(players))),
+        http.get('/api/clubs/club-1/players/player-1/invite', () =>
+          HttpResponse.json({ status: 'NONE', expiresAt: null }),
+        ),
+      );
+    }
+
+    it('opens the invite dialog for the player the notification names, and drops the param on close', async () => {
+      mockClub([player()]);
+      const user = userEvent.setup();
+      renderWithProviders(<App />, {
+        route: '/clubs/club-1/members?tab=players&invite=player-1',
+      });
+
+      expect(await screen.findByRole('dialog', { name: /Inviter Léo Martin/ })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /close|fermer/i }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    it('opens nothing for a player who already has an account', async () => {
+      mockClub([player({ userId: 'user-9' })]);
+      renderWithProviders(<App />, {
+        route: '/clubs/club-1/members?tab=players&invite=player-1',
+      });
+
+      await screen.findByText('Léo');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 });

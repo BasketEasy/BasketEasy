@@ -10,6 +10,7 @@ const trainingEvent: TeamEvent = {
   type: 'TRAINING',
   startsAt: '2026-08-12T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: null,
   venue: null,
@@ -35,7 +36,10 @@ const trainingEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const matchEventSameDay: TeamEvent = {

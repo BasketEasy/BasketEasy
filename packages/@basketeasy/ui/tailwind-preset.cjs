@@ -29,7 +29,7 @@ module.exports = {
         },
         // Best-player trophy/leaderboard accent (Vote tab) — distinct from
         // orange on purpose, so voting doesn't compete visually with the
-        // primary-action color. See docs/superpowers/specs/2026-08-27-match-interface-design.md.
+        // primary-action color. See docs/decisions/events.md.
         gold: { DEFAULT: '#C08A2E', text: '#8C5F16', tint: '#FBF1DC' },
         // Points-repartition ramp (PointsRepartitionBar). One hue — the
         // blue-green that already carries structure — stepped by lightness,
@@ -48,7 +48,9 @@ module.exports = {
         // `text` mirrors `gold.text`/`error`'s darker-shade pattern: the flat
         // DEFAULT only measures 4.27:1 on a `/10` tint background, under the
         // 4.5:1 AA bar for Badge's small text — `text` clears it at 6.4:1.
-        success: { DEFAULT: '#2F7D5C', text: '#245F48' },
+        // tint = success at 10% over `surface`, pre-mixed so it is opaque
+        // (a toast floats over content; a translucent fill let it show through).
+        success: { DEFAULT: '#2F7D5C', text: '#245F48', tint: '#EAEFE8' },
       },
       fontSize: {
         // In-graphic numerals — the counts printed inside a
@@ -90,6 +92,13 @@ module.exports = {
         lg: '14px',
         xl: '16px',
         '2xl': '20px',
+      },
+      spacing: {
+        // Switch geometry (`@basketeasy/ui/switch`): a 40 x 24 track holding
+        // an 18px thumb with a 3px margin, so the thumb travels 16px.
+        'switch-thumb': '18px',
+        'switch-inset': '3px',
+        'switch-travel': '16px',
       },
       minWidth: {
         // The dropdown-menu content's floor width, previously an arbitrary

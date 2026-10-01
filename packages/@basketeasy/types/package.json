@@ -6,103 +6,148 @@
   "exports": {
     "./health": {
       "types": "./health.ts",
-      "default": "./health.ts"
+      "import": "./health.ts",
+      "require": "./dist/health.js"
     },
     "./auth": {
       "types": "./auth.ts",
-      "default": "./auth.ts"
+      "import": "./auth.ts",
+      "require": "./dist/auth.js"
     },
     "./clubs": {
       "types": "./clubs.ts",
-      "default": "./clubs.ts"
+      "import": "./clubs.ts",
+      "require": "./dist/clubs.js"
     },
     "./club-members": {
       "types": "./club-members.ts",
-      "default": "./club-members.ts"
+      "import": "./club-members.ts",
+      "require": "./dist/club-members.js"
     },
     "./players": {
       "types": "./players.ts",
-      "default": "./players.ts"
+      "import": "./players.ts",
+      "require": "./dist/players.js"
     },
     "./teams": {
       "types": "./teams.ts",
-      "default": "./teams.ts"
+      "import": "./teams.ts",
+      "require": "./dist/teams.js"
     },
     "./events": {
       "types": "./events.ts",
-      "default": "./events.ts"
+      "import": "./events.ts",
+      "require": "./dist/events.js"
     },
     "./pagination": {
       "types": "./pagination.ts",
-      "default": "./pagination.ts"
+      "import": "./pagination.ts",
+      "require": "./dist/pagination.js"
     },
     "./team-admins": {
       "types": "./team-admins.ts",
-      "default": "./team-admins.ts"
+      "import": "./team-admins.ts",
+      "require": "./dist/team-admins.js"
     },
     "./my-teams": {
       "types": "./my-teams.ts",
-      "default": "./my-teams.ts"
+      "import": "./my-teams.ts",
+      "require": "./dist/my-teams.js"
     },
     "./my-dashboard": {
       "types": "./my-dashboard.ts",
-      "default": "./my-dashboard.ts"
+      "import": "./my-dashboard.ts",
+      "require": "./dist/my-dashboard.js"
     },
     "./ffbb": {
       "types": "./ffbb.ts",
-      "default": "./ffbb.ts"
+      "import": "./ffbb.ts",
+      "require": "./dist/ffbb.js"
     },
     "./scoresheet-extraction": {
       "types": "./scoresheet-extraction.ts",
-      "default": "./scoresheet-extraction.ts"
+      "import": "./scoresheet-extraction.ts",
+      "require": "./dist/scoresheet-extraction.js"
+    },
+    "./jersey-duty": {
+      "types": "./jersey-duty.ts",
+      "import": "./jersey-duty.ts",
+      "require": "./dist/jersey-duty.js"
     },
     "./team-stats": {
       "types": "./team-stats.ts",
-      "default": "./team-stats.ts"
+      "import": "./team-stats.ts",
+      "require": "./dist/team-stats.js"
     },
     "./player-invites": {
       "types": "./player-invites.ts",
-      "default": "./player-invites.ts"
+      "import": "./player-invites.ts",
+      "require": "./dist/player-invites.js"
     },
     "./notifications": {
       "types": "./notifications.ts",
-      "default": "./notifications.ts"
+      "import": "./notifications.ts",
+      "require": "./dist/notifications.js"
     },
     "./account-security": {
       "types": "./account-security.ts",
-      "default": "./account-security.ts"
+      "import": "./account-security.ts",
+      "require": "./dist/account-security.js"
     },
     "./parental-consent": {
       "types": "./parental-consent.ts",
-      "default": "./parental-consent.ts"
+      "import": "./parental-consent.ts",
+      "require": "./dist/parental-consent.js"
     },
     "./meeting-points": {
       "types": "./meeting-points.ts",
-      "default": "./meeting-points.ts"
+      "import": "./meeting-points.ts",
+      "require": "./dist/meeting-points.js"
+    },
+    "./guest-links": {
+      "types": "./guest-links.ts",
+      "import": "./guest-links.ts",
+      "require": "./dist/guest-links.js"
     },
     "./guardians": {
       "types": "./guardians.ts",
-      "default": "./guardians.ts"
+      "import": "./guardians.ts",
+      "require": "./dist/guardians.js"
     },
     "./platform-admin": {
       "types": "./platform-admin.ts",
-      "default": "./platform-admin.ts"
+      "import": "./platform-admin.ts",
+      "require": "./dist/platform-admin.js"
     },
     "./platform-admin-browse": {
       "types": "./platform-admin-browse.ts",
-      "default": "./platform-admin-browse.ts"
+      "import": "./platform-admin-browse.ts",
+      "require": "./dist/platform-admin-browse.js"
     },
     "./platform-admin-search": {
       "types": "./platform-admin-search.ts",
-      "default": "./platform-admin-search.ts"
+      "import": "./platform-admin-search.ts",
+      "require": "./dist/platform-admin-search.js"
     },
     "./platform-admin-stats": {
       "types": "./platform-admin-stats.ts",
-      "default": "./platform-admin-stats.ts"
+      "import": "./platform-admin-stats.ts",
+      "require": "./dist/platform-admin-stats.js"
     },
     "./platform-admin-actions": {
       "types": "./platform-admin-actions.ts",
-      "default": "./platform-admin-actions.ts"
+      "import": "./platform-admin-actions.ts",
+      "require": "./dist/platform-admin-actions.js"
+    },
+    "./platform-admin-impersonation": {
+      "types": "./platform-admin-impersonation.ts",
+      "import": "./platform-admin-impersonation.ts",
+      "require": "./dist/platform-admin-impersonation.js"
+    },
+    "./whatsapp-reminder": {
+      "types": "./whatsapp-reminder.ts",
+      "import": "./whatsapp-reminder.ts",
+      "require": "./dist/whatsapp-reminder.js"
     }
   },
   "scripts": {

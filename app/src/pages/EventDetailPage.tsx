@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -5,11 +6,12 @@ import { PageContainer } from '@basketeasy/ui/page-container';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { PageBackLink, PageBar } from '../components/PageBar';
 import { EventDetailManagerView } from '../clubs/EventDetailManagerView';
 import { EventDetailPlayerView } from '../clubs/EventDetailPlayerView';
 import { hasVoteWindowClosed } from '../clubs/voteWindow';
 import { useEventShow } from '../clubs/useEventShow';
-import { useEventSectionAnchor } from '../clubs/useEventSectionAnchor';
+import { EVENT_TAB_ANCHORS, useEventSectionAnchor } from '../clubs/useEventSectionAnchor';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
@@ -46,8 +48,28 @@ export function EventDetailPage() {
     eventId: string;
   }>();
   const { state: navState } = useLocation();
-  const [searchParams] = useSearchParams();
-  useEventSectionAnchor(searchParams.get('tab'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?partage=<shareId>` comes from a « à partager » notification. Captured
+  // once, then dropped from the URL so a copied address doesn't carry it.
+  const [cameFromShareNotification, setCameFromShareNotification] = useState(() =>
+    searchParams.has('partage'),
+  );
+  // Another event in the same mounted page is a new arrival: forget the last
+  // one. Declared before the effect below, so on an event that does carry
+  // `partage` the later `true` wins.
+  useEffect(() => {
+    setCameFromShareNotification(false);
+  }, [eventId]);
+  useEffect(() => {
+    if (!searchParams.has('partage')) return;
+    setCameFromShareNotification(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('partage');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const anchorTab = searchParams.get('tab') ?? (cameFromShareNotification ? 'partage' : null);
+  useEventSectionAnchor(anchorTab);
+  const openSection = anchorTab ? (EVENT_TAB_ANCHORS[anchorTab] ?? null) : null;
 
   const {
     data: event,
@@ -91,7 +113,7 @@ export function EventDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+          icon={<CalendarIcon size="3xl" tone="secondary" />}
           title="Événement introuvable"
           description="Cet événement n’existe plus ou a été supprimé."
           action={
@@ -113,39 +135,43 @@ export function EventDetailPage() {
   const canVoteNow = event.myConvocation && event.myRsvpStatus === 'GOING';
   const showVote = event.type === 'MATCH' && (canVoteNow || hasVoteWindowClosed(event.startsAt));
 
+  const backTo = `/clubs/${clubId}/teams/${teamId}?tab=events`;
   return (
-    <PageContainer size="lg">
+    <>
       {/* The origin recorded on the way in (e.g. from the dashboard agenda,
           which now links straight to the event) is handed on to the team
           page, so TeamDetailPage's origin-aware back link still resolves to
           where the journey actually started instead of falling back to
-          /my-teams. */}
-      <Button asChild variant="ghost" className="self-start">
-        <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`} state={navState}>
-          ← {team.name}
-        </Link>
-      </Button>
+          /my-teams. The bar is full-bleed under the header on a phone, so it
+          sits outside the container; the desktop link is inside it. */}
+      <PageBar to={backTo} state={navState} title={team.name} />
+      <PageContainer size="lg" top="bar">
+        <PageBackLink to={backTo} state={navState} title={team.name} />
 
-      {canManage ? (
-        <EventDetailManagerView
-          clubId={clubId!}
-          teamId={teamId!}
-          event={event}
-          teamName={team.name}
-          isRostered={isRostered}
-          showVote={showVote}
-        />
-      ) : (
-        <EventDetailPlayerView
-          clubId={clubId!}
-          teamId={teamId!}
-          event={event}
-          teamName={team.name}
-          isRostered={isRostered}
-          showVote={showVote}
-          childName={childName}
-        />
-      )}
-    </PageContainer>
+        {canManage ? (
+          <EventDetailManagerView
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            teamName={team.name}
+            isRostered={isRostered}
+            showVote={showVote}
+            focusShare={cameFromShareNotification}
+            openSection={openSection}
+          />
+        ) : (
+          <EventDetailPlayerView
+            clubId={clubId!}
+            teamId={teamId!}
+            event={event}
+            teamName={team.name}
+            isRostered={isRostered}
+            showVote={showVote}
+            childName={childName}
+            openSection={openSection}
+          />
+        )}
+      </PageContainer>
+    </>
   );
 }

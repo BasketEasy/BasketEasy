@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import type { EventConvocationRosterEntry, EventRsvpRosterEntry } from '@basketeasy/types/events';
 import { server } from '../mocks/server';
@@ -20,6 +21,7 @@ const rsvps: EventRsvpRosterEntry[] = [
     respondedAt: '2026-01-02T00:00:00.000Z',
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: false,
   },
@@ -33,6 +35,7 @@ const rsvps: EventRsvpRosterEntry[] = [
     respondedAt: null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: true,
   },
@@ -136,5 +139,74 @@ describe('EventRosterList', () => {
     renderList();
 
     expect(await screen.findByText('Sophie R. · parent')).toBeInTheDocument();
+  });
+
+  describe('guest link', () => {
+    const HISTORY = '/api/clubs/club-1/teams/team-1/events/event-1/rsvps/tp-1/history';
+
+    it('marks an answer given through the link, and only an answer', async () => {
+      mockRoster([
+        { ...rsvps[0], viaLink: true },
+        { ...rsvps[1], viaLink: true },
+      ]);
+      renderList();
+
+      await screen.findByText(/Camille/);
+      // tp-2 has no answer: nothing to attribute to the link.
+      expect(screen.getAllByText('via lien')).toHaveLength(1);
+    });
+
+    it('opens the answer history from the badge', async () => {
+      mockRoster([{ ...rsvps[0], viaLink: true }, rsvps[1]]);
+      server.use(
+        http.get(HISTORY, () =>
+          HttpResponse.json([
+            {
+              status: 'GOING',
+              travelMode: null,
+              source: 'GUEST_LINK',
+              respondedBy: null,
+              createdAt: new Date(2026, 9, 3, 14, 32).toISOString(),
+            },
+            {
+              status: 'NOT_GOING',
+              travelMode: null,
+              source: 'APP',
+              respondedBy: { firstName: 'Sophie', lastInitial: 'M', isMe: false },
+              createdAt: new Date(2026, 9, 2, 20, 10).toISOString(),
+            },
+          ]),
+        ),
+      );
+      const user = userEvent.setup();
+      renderList();
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: /^Historique des réponses de Camille Roussel \(.+\)$/,
+        }),
+      );
+
+      const dialog = await screen.findByRole('dialog', { name: /Historique · Camille Roussel/ });
+      const lines = await within(dialog).findAllByRole('listitem');
+      expect(lines[0]).toHaveTextContent('Présent · via lien');
+      expect(lines[1]).toHaveTextContent('Absent · Sophie M.');
+    });
+
+    it('says a failed history load is a failure, not an empty history', async () => {
+      mockRoster();
+      server.use(http.get(HISTORY, () => HttpResponse.json({}, { status: 500 })));
+      const user = userEvent.setup();
+      renderList();
+
+      await user.click(
+        await screen.findByRole('button', {
+          name: /^Historique des réponses de Camille Roussel \(.+\)$/,
+        }),
+      );
+
+      expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+      expect(screen.queryByText(/Aucune réponse pour l'instant/)).not.toBeInTheDocument();
+    });
   });
 });

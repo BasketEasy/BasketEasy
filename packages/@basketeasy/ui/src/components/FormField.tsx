@@ -24,6 +24,9 @@ export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   /**
    * A unit read after the input (« minutes »). Rendered beside it rather than
    * inside, so a narrow numeric input keeps its full width for the digits.
+   * A string is set as meta text; a control (a unit `SelectField` with
+   * `hideLabel`) is rendered as is, so it lines up with the input rather than
+   * with the label above it.
    */
   suffix?: ReactNode;
   /** className applied to the wrapping <div>, not the <input>. */
@@ -59,9 +62,13 @@ export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
         {suffix ? (
           <div className="flex items-center gap-2">
             {input}
-            <Text as="span" variant="meta">
-              {suffix}
-            </Text>
+            {typeof suffix === 'string' ? (
+              <Text as="span" variant="meta">
+                {suffix}
+              </Text>
+            ) : (
+              suffix
+            )}
           </div>
         ) : (
           input

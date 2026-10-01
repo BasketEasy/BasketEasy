@@ -7,6 +7,10 @@ import { StorageService } from '../storage/storage.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
+import { JerseyDutyService } from './jersey-duty.service';
+import { EventType, EventVenue } from '@prisma/client';
+import { UNKNOWN_EVENT_LOCATION } from '@basketeasy/types/events';
 
 const RESPONDED_AT = new Date('2026-01-01T12:00:00.000Z');
 // The account answering in the write tests — the caller, as themself.
@@ -37,10 +41,23 @@ describe('EventsService', () => {
   let storage: { getUploadUrl: jest.Mock; deleteObject: jest.Mock };
   let scoresheets: { enqueueOcr: jest.Mock };
   let notifications: { notify: jest.Mock };
-  let meetingPoints: { resolvePlans: jest.Mock; announceMeetingChanges: jest.Mock };
+  let whatsAppReminders: {
+    syncEvents: jest.Mock;
+    ensureGuestLink: jest.Mock;
+    onEventsChanged: jest.Mock;
+    prepareCancellations: jest.Mock;
+    afterCancellations: jest.Mock;
+  };
+  let jerseyDuty: { resolveSummaries: jest.Mock };
+  let meetingPoints: {
+    resolvePlans: jest.Mock;
+    announceMeetingChanges: jest.Mock;
+    enqueueRecompute: jest.Mock;
+  };
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
-    team: { findUnique: jest.Mock };
+    team: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock };
+    eventShare: { findMany: jest.Mock };
     event: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -61,6 +78,7 @@ describe('EventsService', () => {
       updateMany: jest.Mock;
       deleteMany: jest.Mock;
     };
+    eventRsvpChange: { create: jest.Mock };
     eventConvocation: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -71,6 +89,8 @@ describe('EventsService', () => {
     eventScoresheet: { findUnique: jest.Mock; findMany: jest.Mock; upsert: jest.Mock };
     matchPlayerStat: { findMany: jest.Mock };
     eventMeeting: { updateMany: jest.Mock; deleteMany: jest.Mock };
+    eventJerseyDuty: { deleteMany: jest.Mock };
+    eventJerseyDecline: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -79,7 +99,14 @@ describe('EventsService', () => {
       clubTeam: { findUnique: jest.fn() },
       // Backs notifyNewlyConvoked / notifyCancellation, which name the team
       // in the notification title.
-      team: { findUnique: jest.fn().mockResolvedValue({ name: 'U15 M' }) },
+      team: {
+        findUnique: jest.fn().mockResolvedValue({ name: 'U15 M' }),
+        // Backs the manager-only WhatsApp view.
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ waReminderEnabled: false, waDefaultOffsetMinutes: 4320 }),
+      },
+      eventShare: { findMany: jest.fn().mockResolvedValue([]) },
       event: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -105,8 +132,9 @@ describe('EventsService', () => {
           .fn()
           .mockResolvedValue({ respondedAt: RESPONDED_AT, respondedBy: CALLER }),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        deleteMany: jest.fn(),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
+      eventRsvpChange: { create: jest.fn().mockResolvedValue({}) },
       eventConvocation: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -124,6 +152,8 @@ describe('EventsService', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      eventJerseyDuty: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      eventJerseyDecline: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
       // Supports both $transaction call shapes used by EventsService: the
       // array form (a batch of prepared queries) and the interactive
       // callback form (setEventConvocations, which needs to read then write
@@ -156,12 +186,23 @@ describe('EventsService', () => {
     };
     scoresheets = { enqueueOcr: jest.fn().mockResolvedValue(undefined) };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+    whatsAppReminders = {
+      syncEvents: jest.fn().mockResolvedValue(undefined),
+      ensureGuestLink: jest.fn().mockResolvedValue(undefined),
+      onEventsChanged: jest.fn().mockResolvedValue(undefined),
+      prepareCancellations: jest.fn().mockResolvedValue({ created: [], discardedShareIds: [] }),
+      afterCancellations: jest.fn().mockResolvedValue(undefined),
+    };
     // Default: no event resolves a meeting plan, so every TeamEvent carries
     // meetingPlan: null unless a test says otherwise.
     meetingPoints = {
       resolvePlans: jest.fn().mockResolvedValue(new Map()),
       announceMeetingChanges: jest.fn().mockResolvedValue(undefined),
+      enqueueRecompute: jest.fn().mockResolvedValue(undefined),
     };
+
+    // Default: no event carries a jersey duty (rotation off or a TRAINING).
+    jerseyDuty = { resolveSummaries: jest.fn().mockResolvedValue(new Map()) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -172,6 +213,8 @@ describe('EventsService', () => {
         { provide: ScoresheetsService, useValue: scoresheets },
         { provide: NotificationsService, useValue: notifications },
         { provide: MeetingPointsService, useValue: meetingPoints },
+        { provide: WhatsAppReminderService, useValue: whatsAppReminders },
+        { provide: JerseyDutyService, useValue: jerseyDuty },
       ],
     }).compile();
 
@@ -246,6 +289,9 @@ describe('EventsService', () => {
             result: null,
             myMatchStats: null,
             meetingPlan: null,
+            jerseyDuty: null,
+            whatsAppShare: null,
+            whatsAppSettings: null,
             myTravelMode: null,
             myRsvpRespondedBy: null,
             myRsvpRespondedAt: null,
@@ -706,6 +752,24 @@ describe('EventsService', () => {
       expect(prisma.event.create).not.toHaveBeenCalled();
     });
 
+    it('refuses the unknown-venue placeholder as a typed location', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+
+      await expect(
+        service.createEvent(
+          'club-1',
+          'team-1',
+          {
+            type: 'TRAINING',
+            startsAt: '2026-01-05T18:00:00.000Z',
+            location: UNKNOWN_EVENT_LOCATION,
+          },
+          'user-1',
+        ),
+      ).rejects.toThrow('Le lieu doit être une adresse');
+      expect(prisma.event.create).not.toHaveBeenCalled();
+    });
+
     it('throws BadRequestException for a MATCH with no opponentName', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
@@ -756,10 +820,13 @@ describe('EventsService', () => {
           type: 'TRAINING',
           startsAt: new Date('2026-01-05T18:00:00.000Z'),
           location: 'Gymnase A',
+          locationName: null,
           notes: null,
           opponentName: null,
           venue: null,
           recurrenceId: null,
+          waReminderOverride: null,
+          waOffsetMinutes: null,
         },
       });
       expect(result).toHaveLength(1);
@@ -928,6 +995,42 @@ describe('EventsService', () => {
       expect(result.every((e) => e.recurrenceId === recurrenceIds[0])).toBe(true);
     });
 
+    it('keeps the Paris wall-clock time across a DST change', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockImplementation(({ data }: { data: { startsAt: Date } }) =>
+        Promise.resolve({
+          id: `event-${data.startsAt.toISOString()}`,
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: data.startsAt,
+          location: 'Gymnase A',
+          notes: null,
+          opponentName: null,
+          recurrenceId: 'series-1',
+          createdAt: new Date('2026-01-01'),
+        }),
+      );
+
+      // 19:00 in Paris on both sides of 25 October 2026 (UTC+2 → UTC+1).
+      const result = await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-10-21T17:00:00.000Z',
+          location: 'Gymnase A',
+          recurrence: { frequency: 'WEEKLY', until: '2026-11-04T18:00:00.000Z' },
+        },
+        'user-1',
+      );
+
+      expect(result.map((e) => e.startsAt)).toEqual([
+        '2026-10-21T17:00:00.000Z',
+        '2026-10-28T18:00:00.000Z',
+        '2026-11-04T18:00:00.000Z',
+      ]);
+    });
+
     it('throws BadRequestException when the recurrence end date is before the start date', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
 
@@ -966,6 +1069,8 @@ describe('EventsService', () => {
         teamId: 'team-1',
         type: 'TRAINING',
         startsAt: new Date('2026-01-05T18:00:00.000Z'),
+        location: 'Gymnase A',
+        locationName: null,
         opponentName: null,
         venue: null,
         recurrenceId: null,
@@ -995,10 +1100,371 @@ describe('EventsService', () => {
 
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
-        data: { location: 'Gymnase B' },
+        data: { location: 'Gymnase B', locationName: null },
       });
       expect(result).toHaveLength(1);
       expect(result[0].location).toBe('Gymnase B');
+    });
+
+    describe('venue', () => {
+      const importedMatch = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: UNKNOWN_EVENT_LOCATION,
+        locationName: null,
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        externalId: 'ffbb-1',
+        createdAt: new Date('2026-01-01'),
+      };
+
+      function givenEvent(row: Record<string, unknown>) {
+        prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+        prisma.event.findUnique.mockResolvedValue(row);
+        prisma.event.update.mockImplementation(({ data }: { data: object }) =>
+          Promise.resolve({ ...row, ...data }),
+        );
+      }
+
+      it('stores the gym name with its address', async () => {
+        givenEvent(importedMatch);
+
+        const [result] = await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '12 rue des Sports, Rezé', locationName: 'Gymnase de la Trocardière' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: {
+            location: '12 rue des Sports, Rezé',
+            locationName: 'Gymnase de la Trocardière',
+          },
+        });
+        expect(result.locationName).toBe('Gymnase de la Trocardière');
+      });
+
+      it('clears the old name when only the address changes', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent('club-1', 'team-1', 'event-1', { location: '2 rue B' }, 'user-1');
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { location: '2 rue B', locationName: null },
+        });
+      });
+
+      it('keeps the name when the same address is re-sent', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '1 rue A', notes: 'Maillots blancs' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { location: '1 rue A', notes: 'Maillots blancs' },
+        });
+      });
+
+      it('accepts the placeholder re-sent unchanged on an unrelated edit', async () => {
+        givenEvent(importedMatch);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: UNKNOWN_EVENT_LOCATION, notes: 'Maillots blancs' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalled();
+      });
+
+      it('refuses changing a known address to the placeholder', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A' });
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { location: ` ${UNKNOWN_EVENT_LOCATION} ` },
+            'user-1',
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses a gym name without an address', async () => {
+        givenEvent(importedMatch);
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { locationName: 'Gymnase de la Trocardière' },
+            'user-1',
+          ),
+        ).rejects.toThrow("Renseignez l'adresse de la salle");
+        expect(prisma.event.update).not.toHaveBeenCalled();
+      });
+
+      it('queues a travel recompute when a match changes address', async () => {
+        givenEvent(importedMatch);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '12 rue des Sports, Rezé' },
+          'user-1',
+        );
+
+        expect(meetingPoints.enqueueRecompute).toHaveBeenCalledWith(['event-1']);
+      });
+
+      it('does not queue a recompute for a name-only change', async () => {
+        givenEvent({ ...importedMatch, location: '1 rue A', locationName: 'Salle A' });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { locationName: 'Salle Alpha' },
+          'user-1',
+        );
+
+        expect(prisma.event.update).toHaveBeenCalledWith({
+          where: { id: 'event-1' },
+          data: { locationName: 'Salle Alpha' },
+        });
+        expect(meetingPoints.enqueueRecompute).not.toHaveBeenCalled();
+      });
+
+      it('does not queue a recompute when a training changes address', async () => {
+        givenEvent({
+          ...importedMatch,
+          type: 'TRAINING',
+          location: '1 rue A',
+          opponentName: null,
+          venue: null,
+          externalId: null,
+        });
+
+        await service.updateEvent('club-1', 'team-1', 'event-1', { location: '2 rue B' }, 'user-1');
+
+        expect(meetingPoints.enqueueRecompute).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('« Changement de salle »', () => {
+      const future = new Date('2099-01-10T19:30:00.000Z');
+      const match = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: future,
+        location: '1 rue A, Rezé',
+        locationName: 'Salle A',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        externalId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      const convoked = [{ eventId: 'event-1', teamPlayerId: 'tp-1' }];
+      const rsvps = [
+        { eventId: 'event-1', teamPlayerId: 'tp-2', status: 'GOING' },
+        { eventId: 'event-1', teamPlayerId: 'tp-3', status: 'MAYBE' },
+      ];
+
+      function givenMatch(row: Record<string, unknown>) {
+        prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+        prisma.event.findUnique.mockResolvedValue(row);
+        prisma.event.update.mockImplementation(({ where, data }) =>
+          Promise.resolve({ ...row, id: where.id, ...data }),
+        );
+        // Only the venue audience reads filter on the roster's team; the
+        // TeamEvent builders read the same tables without it.
+        prisma.eventConvocation.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(where.teamPlayer ? convoked : []),
+        );
+        prisma.eventRsvp.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(
+            where.teamPlayer ? rsvps.filter((r) => !where.status || r.status === where.status) : [],
+          ),
+        );
+        prisma.teamPlayer.findMany.mockImplementation(({ where }) =>
+          Promise.resolve(
+            (where?.id?.in ?? []).map((id: string) =>
+              audienceRow(id, `user-of-${id}`, id === 'tp-2' ? { guardians: ['parent-1'] } : {}),
+            ),
+          ),
+        );
+      }
+
+      function venueNotifications() {
+        return notifications.notify.mock.calls
+          .flatMap(([inputs]) => inputs)
+          .filter((input: { type: string }) => input.type === 'EVENT_VENUE_CHANGED');
+      }
+
+      it('tells the convoked and GOING players when a known venue moves', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B' },
+          'user-1',
+        );
+
+        const sent = venueNotifications();
+        expect(sent.map((n: { userId: string }) => n.userId).sort()).toEqual([
+          'parent-1',
+          'user-of-tp-1',
+          'user-of-tp-2',
+        ]);
+        expect(sent[0]).toEqual(
+          expect.objectContaining({
+            title: 'Changement de salle — U15 M',
+            deepLink: '/clubs/club-1/teams/team-1/events/event-1',
+          }),
+        );
+        expect(sent[0].body).toContain('se jouera à Salle B.');
+        // MAYBE and unanswered players aren't expected there.
+        expect(sent.map((n: { userId: string }) => n.userId)).not.toContain('user-of-tp-3');
+      });
+
+      it('is silent when « Lieu non communiqué » is filled in', async () => {
+        givenMatch({ ...match, location: UNKNOWN_EVENT_LOCATION, locationName: null });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a name-only change', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: match.location, locationName: 'Salle Alpha' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent when only whitespace or case changes', async () => {
+        givenMatch(match);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '1  RUE A, rezé' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a match that has already started', async () => {
+        givenMatch({ ...match, startsAt: new Date('2020-01-10T19:30:00.000Z') });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('is silent for a training', async () => {
+        givenMatch({ ...match, type: 'TRAINING', opponentName: null, venue: null });
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes' },
+          'user-1',
+        );
+
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
+      it('sends one notification per reader for a whole series, with the count', async () => {
+        givenMatch({ ...match, recurrenceId: 'series-1' });
+        prisma.event.findMany.mockImplementation(({ select }) =>
+          Promise.resolve(
+            select?.location
+              ? [
+                  { id: 'event-1', location: match.location },
+                  { id: 'event-2', location: match.location },
+                ]
+              : [{ id: 'event-1' }, { id: 'event-2' }],
+          ),
+        );
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          { location: '2 rue B, Nantes', locationName: 'Salle B', scope: 'ALL' },
+          'user-1',
+        );
+
+        const sent = venueNotifications();
+        expect(sent).toHaveLength(3);
+        expect(sent[0].body).toContain(
+          'Les 2 prochains matchs de cette série se joueront à Salle B.',
+        );
+        expect(sent[0].deepLink).toBe('/clubs/club-1/teams/team-1');
+      });
+
+      it('never fails the edit when the notification does', async () => {
+        givenMatch(match);
+        notifications.notify.mockRejectedValueOnce(new Error('db down'));
+
+        await expect(
+          service.updateEvent(
+            'club-1',
+            'team-1',
+            'event-1',
+            { location: '2 rue B, Nantes' },
+            'user-1',
+          ),
+        ).resolves.toHaveLength(1);
+      });
     });
 
     it('clears the meeting-time override when the kick-off moves', async () => {
@@ -1039,6 +1505,70 @@ describe('EventsService', () => {
       });
       // The meeting time moved with the kick-off.
       expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('queues the first travel recompute when a TRAINING becomes a MATCH', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue({
+        ...row,
+        type: 'MATCH',
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+      });
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { type: EventType.MATCH, opponentName: 'Rezé', venue: EventVenue.AWAY },
+        'user-1',
+      );
+
+      // Nothing to announce yet: no travel time, so no meeting hour. The
+      // recompute job announces once the route is known.
+      expect(meetingPoints.enqueueRecompute).toHaveBeenCalledWith(['event-1']);
+      expect(meetingPoints.announceMeetingChanges).not.toHaveBeenCalled();
+    });
+
+    it('does not announce an edit that neither moves the kick-off nor changes the type', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      const row = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: new Date('2026-01-10T19:30:00.000Z'),
+        location: 'Gymnase B',
+        notes: null,
+        opponentName: 'Rezé',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: new Date('2026-01-01'),
+      };
+      prisma.event.findUnique.mockResolvedValue(row);
+      prisma.event.update.mockResolvedValue({ ...row, notes: 'Maillots blancs' });
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { notes: 'Maillots blancs' },
+        'user-1',
+      );
+
+      expect(meetingPoints.announceMeetingChanges).not.toHaveBeenCalled();
     });
 
     it('returns the meeting plan MeetingPointsService resolves for each event', async () => {
@@ -1187,6 +1717,13 @@ describe('EventsService', () => {
       });
       // The meeting point is a MATCH concept, dropped with the opponent.
       expect(prisma.eventMeeting.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+      });
+      // So is the jersey wash: its duty and declines go with the switch.
+      expect(prisma.eventJerseyDuty.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1'] } },
+      });
+      expect(prisma.eventJerseyDecline.deleteMany).toHaveBeenCalledWith({
         where: { eventId: { in: ['event-1'] } },
       });
     });
@@ -1399,7 +1936,7 @@ describe('EventsService', () => {
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    it('scope ALL applies the given UTC hour/minute to every row in the series, keeping each date unchanged', async () => {
+    it('scope ALL applies the given Paris hour/minute to every row in the series, keeping each date unchanged', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.event.findUnique.mockResolvedValue({
         id: 'event-2',
@@ -1485,9 +2022,9 @@ describe('EventsService', () => {
       expect(prisma.event.update).toHaveBeenCalledTimes(3);
       expect(result).toHaveLength(3);
       expect(result.map((e) => e.startsAt)).toEqual([
-        '2026-01-05T19:30:00.000Z',
-        '2026-01-12T19:30:00.000Z',
-        '2026-01-19T19:30:00.000Z',
+        '2026-01-05T18:30:00.000Z',
+        '2026-01-12T18:30:00.000Z',
+        '2026-01-19T18:30:00.000Z',
       ]);
     });
 
@@ -1564,8 +2101,8 @@ describe('EventsService', () => {
       });
       expect(prisma.event.update).toHaveBeenCalledTimes(2);
       expect(result.map((e) => e.startsAt)).toEqual([
-        '2026-01-12T20:00:00.000Z',
-        '2026-01-19T20:00:00.000Z',
+        '2026-01-12T19:00:00.000Z',
+        '2026-01-19T19:00:00.000Z',
       ]);
     });
   });
@@ -1893,9 +2430,25 @@ describe('EventsService', () => {
           status: 'GOING',
           respondedAt: expect.any(Date),
           respondedByUserId: 'user-1',
+          source: 'APP',
         },
-        update: { status: 'GOING', respondedAt: expect.any(Date), respondedByUserId: 'user-1' },
+        update: {
+          status: 'GOING',
+          respondedAt: expect.any(Date),
+          respondedByUserId: 'user-1',
+          source: 'APP',
+        },
         include: { respondedBy: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: {
+          eventId: 'event-1',
+          teamPlayerId: 'tp-1',
+          status: 'GOING',
+          travelMode: 'MEETING_POINT',
+          source: 'APP',
+          respondedByUserId: 'user-1',
+        },
       });
       expect(result.myRsvpStatus).toBe('GOING');
       expect(result.myConvocation).toBe(true);
@@ -1943,6 +2496,17 @@ describe('EventsService', () => {
         service.setMyRsvp('club-1', 'team-1', 'event-1', 'user-1', 'GOING', 'stranger-1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
       expect(prisma.eventRsvp.upsert).not.toHaveBeenCalled();
+    });
+
+    it('logs no change when there was no answer to clear', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.findUnique.mockResolvedValue(existingEvent);
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventRsvp.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+      await service.clearMyRsvp('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.eventRsvpChange.create).not.toHaveBeenCalled();
     });
 
     it('resolves the write in a bounded number of queries, without re-fetching the event or re-resolving the caller TeamPlayer', async () => {
@@ -2008,6 +2572,9 @@ describe('EventsService', () => {
 
       expect(prisma.eventRsvp.deleteMany).toHaveBeenCalledWith({
         where: { eventId: 'event-1', teamPlayerId: 'tp-1' },
+      });
+      expect(prisma.eventRsvpChange.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ status: null, travelMode: null, source: 'APP' }),
       });
       expect(result.myRsvpStatus).toBeNull();
       expect(result.myConvocation).toBe(false);
@@ -2097,6 +2664,7 @@ describe('EventsService', () => {
           respondedAt: '2026-01-02T00:00:00.000Z',
           respondedBy: { firstName: 'Lea', lastInitial: 'B', isMe: true },
           respondedByGuardian: false,
+          viaLink: false,
           travelMode: null,
           isMe: true,
         },
@@ -2110,6 +2678,7 @@ describe('EventsService', () => {
           respondedAt: null,
           respondedBy: null,
           respondedByGuardian: false,
+          viaLink: false,
           travelMode: null,
           isMe: false,
         },
@@ -2725,6 +3294,59 @@ describe('EventsService', () => {
       expect(result.type).toBe('TRAINING');
     });
 
+    it('answers USE_JERSEY_DUTY for the jersey slot of a MATCH on a team with the rotation on', async () => {
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: true });
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await expect(
+        service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'JERSEYS', 'tp-1'),
+      ).rejects.toMatchObject({ response: { code: 'USE_JERSEY_DUTY' } });
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it('leaves the balls slot of a MATCH alone on a team with the rotation on', async () => {
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: true });
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      await service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'BALLS', 'tp-1');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { ballsTeamPlayerId: 'tp-1' },
+      });
+    });
+
+    it('nulls logistics.jerseys beside a jerseyDuty, whatever the old column held', async () => {
+      prisma.event.findUnique.mockResolvedValue({ ...matchEvent, jerseysTeamPlayerId: 'tp-9' });
+      prisma.event.update.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...matchEvent, jerseysTeamPlayerId: 'tp-9', ...data }),
+      );
+      prisma.team.findUniqueOrThrow.mockResolvedValue({ jerseyRotationEnabled: false });
+      jerseyDuty.resolveSummaries.mockResolvedValue(
+        new Map([
+          ['event-1', { holder: null, status: 'UNASSIGNED', broughtBy: null, isMine: false }],
+        ]),
+      );
+      mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
+
+      const result = await service.setEventLogistics(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        'BALLS',
+        'tp-1',
+      );
+
+      expect(result.jerseyDuty).toEqual({
+        holder: null,
+        status: 'UNASSIGNED',
+        broughtBy: null,
+        isMine: false,
+      });
+      expect(result.logistics.jerseys).toBeNull();
+    });
+
     it('allows a rostered non-manager to self-assign', async () => {
       mockRoster({ callerTeamPlayerId: 'tp-1', rosterTeamPlayerIds: ['tp-1'] });
 
@@ -2737,7 +3359,8 @@ describe('EventsService', () => {
         'tp-1',
       );
 
-      expect(teamManagerGuard.isTeamManager).not.toHaveBeenCalled();
+      // Only the read-side WhatsApp visibility check, never the write gate.
+      expect(teamManagerGuard.isTeamManager).toHaveBeenCalledTimes(1);
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
         data: { jerseysTeamPlayerId: 'tp-1' },
@@ -2751,7 +3374,7 @@ describe('EventsService', () => {
 
       await service.setEventLogistics('club-1', 'team-1', 'event-1', 'user-1', 'BALLS', null);
 
-      expect(teamManagerGuard.isTeamManager).not.toHaveBeenCalled();
+      expect(teamManagerGuard.isTeamManager).toHaveBeenCalledTimes(1);
       expect(prisma.event.update).toHaveBeenCalledWith({
         where: { id: 'event-1' },
         data: { ballsTeamPlayerId: null },
@@ -3023,6 +3646,7 @@ describe('EventsService', () => {
         totalVoters: 2,
         votesCast: 1,
         myVote: { best: 'tp-2', worst: null },
+        myVoteHidden: false,
       });
     });
   });
@@ -3149,6 +3773,31 @@ describe('EventsService', () => {
       const result = await service.getEventVoteResults('club-1', 'team-1', 'event-1', 'user-1');
 
       expect(result.myVote).toEqual({ best: 'tp-2', worst: null });
+    });
+
+    it("hides the caller's own vote, but not the leaderboard it unlocks, when asked to", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.eventVote.findMany.mockResolvedValue([
+        {
+          category: 'BEST',
+          voterTeamPlayerId: 'tp-1',
+          votedTeamPlayerId: 'tp-2',
+          votedFor: { player: { firstName: 'Léa', lastName: 'Martin' } },
+        },
+      ]);
+      prisma.teamPlayer.count.mockResolvedValue(2);
+
+      const result = await service.getEventVoteResults(
+        'club-1',
+        'team-1',
+        'event-1',
+        'user-1',
+        true,
+      );
+
+      expect(result.myVote).toEqual({ best: null, worst: null });
+      expect(result.myVoteHidden).toBe(true);
+      expect(result.best).toHaveLength(1);
     });
 
     it('breaks a vote-count tie alphabetically (lastName, then firstName) for a stable order', async () => {
@@ -3495,6 +4144,228 @@ describe('EventsService', () => {
         status: 'UPLOADED',
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',
+      });
+    });
+  });
+
+  describe('WhatsApp reminder integration', () => {
+    const row = (over: Record<string, unknown> = {}) => ({
+      id: 'event-1',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: new Date('2026-01-05T18:00:00.000Z'),
+      location: 'Gymnase A',
+      notes: null,
+      opponentName: null,
+      venue: null,
+      recurrenceId: null,
+      externalId: null,
+      timeConfirmed: true,
+      createdAt: new Date('2026-01-01'),
+      waReminderOverride: null,
+      waOffsetMinutes: null,
+      ...over,
+    });
+
+    it('stores the override and offset on create and reconciles the whole series once', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockImplementation(({ data }) =>
+        Promise.resolve(row({ id: `e-${data.startsAt.getTime()}`, ...data })),
+      );
+
+      await service.createEvent(
+        'club-1',
+        'team-1',
+        {
+          type: 'TRAINING',
+          startsAt: '2026-01-05T18:00:00.000Z',
+          location: 'Gymnase A',
+          recurrence: { frequency: 'WEEKLY', until: '2026-01-19T18:00:00.000Z' },
+          waReminderOverride: true,
+          waOffsetMinutes: 120,
+        },
+        'user-1',
+      );
+
+      expect(prisma.event.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ waReminderOverride: true, waOffsetMinutes: 120 }),
+      });
+      expect(whatsAppReminders.ensureGuestLink).toHaveBeenCalledWith('club-1', 'team-1', 'user-1');
+      expect(whatsAppReminders.syncEvents).toHaveBeenCalledTimes(1);
+      expect(whatsAppReminders.syncEvents.mock.calls[0][0]).toHaveLength(3);
+    });
+
+    it('does not touch the guest link unless the override turns the reminder on', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockResolvedValue(row());
+
+      await service.createEvent(
+        'club-1',
+        'team-1',
+        { type: 'TRAINING', startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' },
+        'user-1',
+      );
+
+      expect(whatsAppReminders.ensureGuestLink).not.toHaveBeenCalled();
+      expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('updateEvent writes only the WhatsApp fields it was given, null clearing the override', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.update.mockResolvedValue(row({ waReminderOverride: null, waOffsetMinutes: 90 }));
+
+      await service.updateEvent(
+        'club-1',
+        'team-1',
+        'event-1',
+        { waReminderOverride: null, waOffsetMinutes: 90 },
+        'user-1',
+      );
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: { waReminderOverride: null, waOffsetMinutes: 90 },
+      });
+      expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('updateEvent asks for update prompts after syncing, for every id in scope', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.update.mockResolvedValue(row({ location: 'Gymnase B' }));
+      const order: string[] = [];
+      whatsAppReminders.syncEvents.mockImplementation(() => {
+        order.push('sync');
+        return Promise.resolve();
+      });
+      whatsAppReminders.onEventsChanged.mockImplementation(() => {
+        order.push('prompts');
+        return Promise.resolve();
+      });
+
+      await service.updateEvent('club-1', 'team-1', 'event-1', { location: 'Gymnase B' }, 'user-1');
+
+      expect(order).toEqual(['sync', 'prompts']);
+      expect(whatsAppReminders.onEventsChanged).toHaveBeenCalledWith(['event-1']);
+    });
+
+    it('createEvent never asks for update prompts: a new event was never shared', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.create.mockResolvedValue(row());
+      await service.createEvent(
+        'club-1',
+        'team-1',
+        { type: 'TRAINING', startsAt: '2026-01-05T18:00:00.000Z', location: 'Gymnase A' },
+        'user-1',
+      );
+      expect(whatsAppReminders.onEventsChanged).not.toHaveBeenCalled();
+    });
+
+    it('deleteEvent prepares cancellations inside the transaction, before the rows go, and follows up after', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.eventConvocation.findMany.mockResolvedValue([]);
+      prisma.event.deleteMany.mockResolvedValue({ count: 1 });
+      const prepared = { created: [], discardedShareIds: ['r1'] };
+      const order: string[] = [];
+      whatsAppReminders.prepareCancellations.mockImplementation(() => {
+        order.push('prepare');
+        return Promise.resolve(prepared);
+      });
+      prisma.event.deleteMany.mockImplementation(() => {
+        order.push('delete');
+        return Promise.resolve({ count: 1 });
+      });
+      whatsAppReminders.afterCancellations.mockImplementation(() => {
+        order.push('after');
+        return Promise.resolve();
+      });
+
+      await service.deleteEvent('club-1', 'team-1', 'event-1');
+
+      expect(order).toEqual(['prepare', 'delete', 'after']);
+      expect(whatsAppReminders.prepareCancellations).toHaveBeenCalledWith(
+        expect.anything(),
+        'team-1',
+        ['event-1'],
+      );
+      expect(whatsAppReminders.afterCancellations).toHaveBeenCalledWith('team-1', prepared);
+    });
+
+    it('updateEvent leaves the WhatsApp columns alone when the request has none', async () => {
+      prisma.event.findUnique.mockResolvedValue(row());
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.event.update.mockResolvedValue(row({ location: 'Gymnase B' }));
+
+      await service.updateEvent('club-1', 'team-1', 'event-1', { location: 'Gymnase B' }, 'user-1');
+
+      const { data } = prisma.event.update.mock.calls[0][0];
+      expect(data).not.toHaveProperty('waReminderOverride');
+      expect(data).not.toHaveProperty('waOffsetMinutes');
+    });
+
+    describe('manager-only fields on a TeamEvent', () => {
+      beforeEach(() => {
+        prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+        prisma.event.findMany.mockResolvedValue([
+          row({ waReminderOverride: true, waOffsetMinutes: 120 }),
+        ]);
+        prisma.event.count.mockResolvedValue(1);
+        prisma.eventShare.findMany.mockResolvedValue([
+          {
+            eventId: 'event-1',
+            type: 'REMINDER',
+            state: 'PENDING',
+            dueAt: new Date('2026-01-02T18:00:00.000Z'),
+            sentAt: null,
+            platform: null,
+            sentBy: null,
+          },
+        ]);
+      });
+
+      it('a manager gets the share row and the resolved settings, in one shares read', async () => {
+        teamManagerGuard.isTeamManager.mockResolvedValue(true);
+
+        const { items } = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+        expect(items[0].whatsAppShare).toMatchObject({
+          type: 'REMINDER',
+          state: 'PENDING',
+          dueAt: '2026-01-02T18:00:00.000Z',
+        });
+        expect(items[0].whatsAppSettings).toEqual({
+          override: true,
+          offsetMinutes: 120,
+          effective: { enabled: true, offsetMinutes: 120 },
+        });
+        expect(prisma.eventShare.findMany).toHaveBeenCalledTimes(1);
+      });
+
+      it('anyone else gets null for both, and no query is spent', async () => {
+        teamManagerGuard.isTeamManager.mockResolvedValue(false);
+
+        const { items } = await service.listEvents('club-1', 'team-1', {}, 'user-1');
+
+        expect(items[0].whatsAppShare).toBeNull();
+        expect(items[0].whatsAppSettings).toBeNull();
+        expect(prisma.eventShare.findMany).not.toHaveBeenCalled();
+      });
+
+      it('a guardian acting for a child never gets them, whatever their own rights', async () => {
+        teamManagerGuard.isTeamManager.mockResolvedValue(true);
+        prisma.player.findFirst.mockResolvedValue({ id: 'child' });
+
+        const { items } = await service.listEvents(
+          'club-1',
+          'team-1',
+          { forPlayerId: 'child' },
+          'user-1',
+        );
+
+        expect(items[0].whatsAppShare).toBeNull();
+        expect(items[0].whatsAppSettings).toBeNull();
       });
     });
   });

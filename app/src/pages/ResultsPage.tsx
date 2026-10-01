@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Heading } from '@basketeasy/ui/heading';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { PastMatchesSection } from '../clubs/PastMatchesSection';
@@ -11,8 +11,7 @@ import { useMyAgenda } from '../clubs/useMyAgenda';
  * `/results` — the bottom nav's third slot, real since phase 8. Reads the
  * same `pastMatchesWindowParams()`-windowed `GET /me/dashboard` and renders
  * the very `PastMatchesSection` both homes preview — this is the full-page
- * destination for that same list, not a second implementation of it
- * (`docs/ux-audit/player-first-implementation-plan.md` §2 Phase 8).
+ * destination for that same list, not a second implementation of it.
  *
  * Unlike the home previews, "no recent match" is worth an explicit empty
  * state here: this page's entire purpose is the list, so a blank page would
@@ -28,10 +27,9 @@ export function ResultsPage() {
 
   return (
     <PageContainer size="lg">
-      <Heading as="h1" className="m-0">
-        Résultats
-      </Heading>
+      <PageHeader title="Résultats" meta="30 derniers jours" />
       <PastMatchesSection
+        headingless
         matches={pastMatches}
         isLoading={isLoading}
         isError={isError}
@@ -39,7 +37,7 @@ export function ResultsPage() {
         isRefetching={isRefetching}
         emptyState={
           <EmptyState
-            icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+            icon={<TrophyIcon size="3xl" tone="secondary" />}
             title="Aucun résultat récent"
             description="Aucun match joué au cours des 30 derniers jours pour vos équipes."
           />

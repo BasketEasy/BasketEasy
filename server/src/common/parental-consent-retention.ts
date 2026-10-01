@@ -7,7 +7,7 @@ import type { Prisma } from '@prisma/client';
  * rule is "compte/joueur + 5 ans", so there is nothing to prescribe against
  * until the player or the account it belonged to goes away.
  */
-export const PARENTAL_CONSENT_RETENTION_YEARS = 5;
+const PARENTAL_CONSENT_RETENTION_YEARS = 5;
 
 export function parentalConsentRetentionExpiry(from: Date = new Date()): Date {
   const expiry = new Date(from);

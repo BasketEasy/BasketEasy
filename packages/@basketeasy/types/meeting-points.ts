@@ -1,6 +1,6 @@
 // Match meeting point (point de rendez-vous) — where and when the group meets
 // before a match. See
-// docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+// docs/decisions/meeting-points.md.
 
 /** A named place with a postal address, e.g. « Parking salle Coubertin ». */
 export interface MeetingPoint {

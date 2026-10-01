@@ -27,7 +27,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
-import { removeClubMembership, writeParentalConsent } from './club-writes';
+import {
+  createClubWithAdmin,
+  removeClubMembership,
+  toFfbbClubCodeError,
+  writeParentalConsent,
+} from './club-writes';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
@@ -47,18 +52,7 @@ export class ClubsService {
   ) {}
 
   async createClub(userId: string, data: { name: string; ffbbClubCode?: string }): Promise<Club> {
-    try {
-      const club = await this.prisma.club.create({
-        data: {
-          name: data.name,
-          ffbbClubCode: data.ffbbClubCode ?? null,
-          memberships: { create: { userId, role: 'ADMIN' } },
-        },
-      });
-      return this.toClub(club);
-    } catch (err) {
-      throw this.toFfbbClubCodeError(err);
-    }
+    return this.toClub(await createClubWithAdmin(this.prisma, userId, data));
   }
 
   async listClubsForUser(userId: string): Promise<Club[]> {
@@ -78,14 +72,14 @@ export class ClubsService {
   }
 
   // ffbbClubCode is stored unvalidated — no working lookup exists to
-  // confirm a code is real (see docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md).
+  // confirm a code is real (see docs/decisions/ffbb.md).
   async setFfbbLink(clubId: string, ffbbClubCode: string): Promise<Club> {
     await this.assertClubExists(clubId);
     try {
       const club = await this.prisma.club.update({ where: { id: clubId }, data: { ffbbClubCode } });
       return this.toClub(club);
     } catch (err) {
-      throw this.toFfbbClubCodeError(err);
+      throw toFfbbClubCodeError(err);
     }
   }
 
@@ -99,16 +93,6 @@ export class ClubsService {
     if (!club) {
       throw new NotFoundException('Club not found');
     }
-  }
-
-  private toFfbbClubCodeError(err: unknown): unknown {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === UNIQUE_CONSTRAINT_VIOLATION
-    ) {
-      return new ConflictException('Ce code club FFBB est déjà utilisé par un autre club');
-    }
-    return err;
   }
 
   async addMember(clubId: string, email: string): Promise<ClubMember> {
@@ -317,7 +301,7 @@ export class ClubsService {
     // federation data with nobody reading any individual one, so failing an
     // import because row 34 is sixteen would make the feature unusable —
     // those players surface in the roster as "autorisation manquante"
-    // instead. See the data-retention design doc.
+    // instead. See docs/decisions/rgpd-and-backoffice.md.
     const isMinor = isMinorBirthDate(data.birthDate);
     if (isMinor && !data.parentalConsent) {
       throw new BadRequestException({
@@ -396,16 +380,6 @@ export class ClubsService {
     );
 
     return this.toParentalConsent(consent);
-  }
-
-  /** The most recent attestation for a player, or null if there is none. */
-  async getParentalConsent(clubId: string, playerId: string): Promise<ParentalConsent | null> {
-    await this.findPlayerInClub(clubId, playerId);
-    const consent = await this.prisma.parentalConsent.findFirst({
-      where: { playerId },
-      orderBy: { consentGivenAt: 'desc' },
-    });
-    return consent ? this.toParentalConsent(consent) : null;
   }
 
   async updatePlayer(
@@ -646,7 +620,7 @@ export class ClubsService {
   private toParentalConsent(consent: {
     id: string;
     playerId: string | null;
-    clubId: string;
+    clubId: string | null;
     playerFirstName: string;
     playerLastName: string;
     playerBirthDate: Date;

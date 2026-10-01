@@ -18,7 +18,7 @@ describe('TeamDeleteModal', () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamDeleteModal clubId="c1" teamId="t1" teamName="U15 Filles" />);
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(screen.getByRole('button', { name: 'Supprimer l’équipe' }));
     const confirm = screen.getByRole('button', { name: /Supprimer définitivement/ });
     expect(confirm).toBeDisabled();
 
@@ -38,7 +38,7 @@ describe('TeamDeleteModal', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(screen.getByRole('button', { name: 'Supprimer l’équipe' }));
     expect(
       screen.getByText(
         '« U15 Filles » sera supprimée définitivement, avec son effectif (14) et tous ses événements (32). Cette action est irréversible.',
@@ -58,7 +58,7 @@ describe('TeamDeleteModal', () => {
     const user = userEvent.setup();
     renderWithProviders(<TeamDeleteModal clubId="c1" teamId="t1" teamName="U15 Filles" />);
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(screen.getByRole('button', { name: 'Supprimer l’équipe' }));
     await user.type(screen.getByLabelText(/Saisissez/), 'U15 Filles');
     await user.click(screen.getByRole('button', { name: /Supprimer définitivement/ }));
 
@@ -81,7 +81,7 @@ describe('TeamDeleteModal', () => {
       </>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Supprimer' }));
+    await user.click(screen.getByRole('button', { name: 'Supprimer l’équipe' }));
     await user.type(screen.getByLabelText(/Saisissez/), 'U15 Filles');
     await user.click(screen.getByRole('button', { name: /Supprimer définitivement/ }));
 

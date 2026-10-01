@@ -43,6 +43,7 @@ const matchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() + 2 * DAY_MS).toISOString(),
   location: 'Gymnase Pierre de Coubertin',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
@@ -68,7 +69,10 @@ const matchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const trainingEvent: TeamEvent = {
@@ -90,6 +94,7 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     respondedAt: '2026-01-02T00:00:00.000Z',
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: false,
   },
@@ -103,6 +108,7 @@ const rsvpRoster: EventRsvpRosterEntry[] = [
     respondedAt: null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: true,
   },
@@ -197,7 +203,7 @@ describe('EventDetailPage — player view', () => {
     renderWithProviders(<App />, { route });
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i }),
+      await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i }),
     ).toBeInTheDocument();
 
     // The convocation is a sentence, not a bare badge.
@@ -243,7 +249,7 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('button', { name: /^modifier$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /convocation|convoquer le groupe/i })).toBeNull();
@@ -256,7 +262,7 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
     // …but « Qui vient ? » is still visible to the same audience as the event.
     expect(await screen.findByRole('heading', { name: /qui vient/i })).toBeInTheDocument();
@@ -268,8 +274,11 @@ describe('EventDetailPage — player view', () => {
 
     renderWithProviders(<App />, { route });
 
-    expect(await screen.findByRole('heading', { name: /notes du coach/i })).toBeInTheDocument();
-    expect(screen.getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { name: /notes du coach/i });
+    // Folded: the first line is the summary, the body mounts once opened.
+    expect(within(heading).getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    await userEvent.click(within(heading).getByRole('button'));
+    expect(heading.closest('[data-state="open"]')).not.toBeNull();
   });
 
   it('renders a TRAINING with no opponent, venue or scoresheet block', async () => {
@@ -279,7 +288,7 @@ describe('EventDetailPage — player view', () => {
     renderWithProviders(<App />, { route: trainingRoute });
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: /u15 filles — entraînement/i }),
+      await screen.findByRole('heading', { level: 1, name: /^entraînement$/i }),
     ).toBeInTheDocument();
     expect(screen.queryByText('Domicile')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /après la rencontre/i })).not.toBeInTheDocument();
@@ -293,7 +302,7 @@ describe('EventDetailPage — manager view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
 
     // Pilot band: the counts that used to sit behind the Effectif tab.
     expect(await screen.findByText('2 convoqué·es')).toBeInTheDocument();
@@ -304,7 +313,7 @@ describe('EventDetailPage — manager view', () => {
     expect(screen.getByRole('button', { name: 'Modifier la convocation' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /relancer les 1 sans réponse/i })).toBeDisabled();
     expect(screen.getByRole('heading', { name: /logistique/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /effectif de la rencontre/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /présences/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /après la rencontre/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^modifier$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
@@ -336,7 +345,7 @@ describe('EventDetailPage — manager view', () => {
 
     renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
   });
 
@@ -360,7 +369,7 @@ describe('EventDetailPage — manager view', () => {
     mockEventPage();
     const { unmount } = renderWithProviders(<App />, { route });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(screen.queryByRole('heading', { name: /vote du match/i })).not.toBeInTheDocument();
     unmount();
 
@@ -450,7 +459,266 @@ describe('EventDetailPage — ?tab= deep links', () => {
 
     renderWithProviders(<App />, { route: `${route}?tab=nope` });
 
-    await screen.findByRole('heading', { level: 1, name: /u15 filles vs es rezé/i });
+    await screen.findByRole('heading', { level: 1, name: /^vs es rezé$/i });
     expect(scrollSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('EventDetailPage — WhatsApp share, manager view', () => {
+  const shareBody = (state: string) => ({
+    guestLinkActive: true,
+    shares: [
+      {
+        type: 'REMINDER',
+        state,
+        dueAt: null,
+        sentAt: null,
+        sentBy: null,
+        platform: null,
+        message: 'Le message',
+        changes: [],
+      },
+    ],
+  });
+
+  it('shows the share card to a manager on an upcoming event, never to a player', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('NOT_SENT')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    const heading = await screen.findByRole('heading', { name: 'Partage WhatsApp' });
+    // A closed accordion item mounts nothing, so the card appears once opened.
+    expect(screen.queryByRole('button', { name: 'Partager sur WhatsApp' })).not.toBeInTheDocument();
+    await userEvent.click(within(heading).getByRole('button'));
+    expect(
+      await screen.findByRole('button', { name: 'Partager sur WhatsApp' }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens from a notification: focuses the share button, then drops ?partage= from the URL', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('PENDING')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: `${route}?partage=share-1` });
+
+    const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
+    await waitFor(() => expect(button).toHaveFocus());
+    expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('does not steal focus on a plain visit', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share', () =>
+        HttpResponse.json(shareBody('PENDING')),
+      ),
+    );
+
+    renderWithProviders(<App />, { route });
+
+    const heading = await screen.findByRole('heading', { name: 'Partage WhatsApp' });
+    await userEvent.click(within(heading).getByRole('button'));
+    const button = await screen.findByRole('button', { name: 'Partager sur WhatsApp' });
+    expect(button).not.toHaveFocus();
+  });
+});
+
+describe('EventDetailPage — manager accordion', () => {
+  const shareUrl = '/api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share';
+  const originalWidth = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = originalWidth;
+  });
+  const setup = (width: number, path = route) => {
+    window.innerWidth = width;
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage();
+    server.use(http.get(shareUrl, () => HttpResponse.json({ guestLinkActive: true, shares: [] })));
+    renderWithProviders(<App />, { route: path });
+  };
+  const trigger = async (name: RegExp) =>
+    within(await screen.findByRole('heading', { name })).getByRole('button');
+
+  it('opens Présences by default on a phone and leaves the rest closed', async () => {
+    setup(390);
+    expect(await trigger(/présences/i)).toHaveAttribute('aria-expanded', 'true');
+    expect(await trigger(/partage whatsapp/i)).toHaveAttribute('aria-expanded', 'false');
+    expect(await trigger(/après la rencontre/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('shows Logistique and Présences as plain sections on desktop, with no Présences trigger', async () => {
+    setup(1280);
+    expect(await screen.findByRole('heading', { name: 'Logistique' })).toBeInTheDocument();
+    const presences = await screen.findByRole('heading', { name: 'Présences' });
+    expect(within(presences).queryByRole('button')).not.toBeInTheDocument();
+    expect(await trigger(/partage whatsapp/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it.each([
+    ['?tab=scoresheet', /après la rencontre/i],
+    ['?partage=share-1', /partage whatsapp/i],
+  ])('opens the item %s names', async (query, name) => {
+    setup(390, `${route}${query}`);
+    expect(await trigger(name)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('puts the answered count in the Présences trigger', async () => {
+    setup(390);
+    const button = await trigger(/présences/i);
+    expect(button).toHaveAccessibleName(/présents sur \d+/);
+  });
+});
+
+describe('EventDetailPage — player accordion', () => {
+  const originalWidth = window.innerWidth;
+  afterEach(() => {
+    window.innerWidth = originalWidth;
+  });
+  const setup = (
+    width: number,
+    { event = matchEvent, path = route }: { event?: TeamEvent; path?: string } = {},
+  ) => {
+    window.innerWidth = width;
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockEventPage({ event, rostered: true });
+    renderWithProviders(<App />, { route: path });
+  };
+  const trigger = async (name: RegExp) =>
+    within(await screen.findByRole('heading', { name })).getByRole('button');
+  const withNotes = { ...matchEvent, notes: 'Échauffement à 19h50.\nApportez le maillot blanc.' };
+  const voteEvent = {
+    ...matchEvent,
+    startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
+    myConvocation: true,
+    myRsvpStatus: 'GOING' as const,
+  };
+
+  it('opens « Qui vient ? » by default on a phone and folds the rest', async () => {
+    setup(390, { event: withNotes });
+    expect(await trigger(/qui vient/i)).toHaveAttribute('aria-expanded', 'true');
+    expect(await trigger(/notes du coach/i)).toHaveAttribute('aria-expanded', 'false');
+    expect(await trigger(/après la rencontre/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('puts the answered count in the « Qui vient ? » trigger', async () => {
+    setup(390);
+    expect(await trigger(/qui vient/i)).toHaveAccessibleName(/1 présents sur 2/);
+  });
+
+  it('shows the first line of the notes as the summary', async () => {
+    setup(390, { event: withNotes });
+    const heading = await screen.findByRole('heading', { name: /notes du coach/i });
+    expect(within(heading).getByText('Échauffement à 19h50.')).toBeInTheDocument();
+    expect(within(heading).queryByText(/maillot blanc/)).not.toBeInTheDocument();
+  });
+
+  it('shows Logistique and « Qui vient ? » side by side on desktop, with no « Qui vient ? » trigger', async () => {
+    setup(1280, { event: withNotes });
+    expect(await screen.findByRole('heading', { name: /s’y rendre/i })).toBeInTheDocument();
+    const presences = await screen.findByRole('heading', { name: /qui vient/i });
+    expect(within(presences).queryByRole('button')).not.toBeInTheDocument();
+    expect(await trigger(/notes du coach/i)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the vote item when the window is open and the reader can vote', async () => {
+    setup(390, { event: voteEvent });
+    const button = await trigger(/vote du match/i);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(within(button).getByText('Vote ouvert')).toBeInTheDocument();
+  });
+
+  it('folds the vote once the window has closed', async () => {
+    setup(390, {
+      event: { ...voteEvent, startsAt: new Date(Date.now() - 10 * DAY_MS).toISOString() },
+    });
+    const button = await trigger(/vote du match/i);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(within(button).getByText('Résultats')).toBeInTheDocument();
+  });
+
+  it('summarises the result in « Après la rencontre » and shows none without one', async () => {
+    setup(390, { event: { ...matchEvent, result: { ourScore: 71, theirScore: 64 } } as TeamEvent });
+    expect(within(await trigger(/après la rencontre/i)).getByText('71 – 64')).toBeInTheDocument();
+  });
+
+  it('shows no result summary on a match without a result', async () => {
+    setup(390);
+    expect(within(await trigger(/après la rencontre/i)).queryByText(/–/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['?tab=scoresheet', /après la rencontre/i],
+    ['?tab=vote', /vote du match/i],
+  ])('opens the item %s names', async (query, name) => {
+    setup(390, { event: voteEvent, path: `${route}${query}` });
+    expect(await trigger(name)).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('reaches the error branch inside an opened « Après la rencontre »', async () => {
+    window.innerWidth = 390;
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockEventPage({ rostered: true });
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
+        HttpResponse.json({ message: 'error' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(<App />, { route: `${route}?tab=scoresheet` });
+    expect(await screen.findAllByRole('button', { name: /réessayer/i })).not.toHaveLength(0);
+  });
+});
+
+describe('EventDetailPage — Stats du match', () => {
+  const playedMatch = { ...matchEvent, startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString() };
+  const statsUrl = '/api/clubs/club-1/teams/team-1/stats/matches/event-1';
+
+  it('fetches the match lines only once « Après la rencontre » is opened', async () => {
+    let requests = 0;
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockEventPage({ event: playedMatch });
+    server.use(
+      http.get(statsUrl, () => {
+        requests += 1;
+        return HttpResponse.json({
+          hasStats: true,
+          lines: [
+            {
+              teamPlayerId: 'tp-1',
+              firstName: 'Léa',
+              lastName: 'Moreau',
+              jerseyNumber: 7,
+              points: 14,
+              fouls: 2,
+              freeThrowPoints: 2,
+              twoPointPoints: 6,
+              threePointPoints: 6,
+              isMe: false,
+            },
+          ],
+        });
+      }),
+    );
+    renderWithProviders(<App />, { route });
+    const user = userEvent.setup();
+
+    const heading = await screen.findByRole('heading', { name: /après la rencontre/i });
+    expect(requests).toBe(0);
+
+    await user.click(within(heading).getByRole('button'));
+
+    expect(await screen.findByText('Léa M.')).toBeInTheDocument();
+    expect(requests).toBe(1);
   });
 });

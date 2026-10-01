@@ -41,7 +41,7 @@ type ConsentFormValues = z.infer<typeof consentSchema>;
 /**
  * Records the parental-consent attestation for a minor who already exists —
  * the path for players created by bulk import, which is exempt from the
- * create-time requirement (see the data-retention design doc).
+ * create-time requirement (see `docs/decisions/rgpd-and-backoffice.md`).
  *
  * A dialog rather than an inline control, per CLAUDE.md's rule: two fields,
  * rarely used, and it writes a legal record that outlives the player's own

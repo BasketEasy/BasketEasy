@@ -11,15 +11,20 @@ import {
 } from '@nestjs/common';
 import type { PlatformRole } from '@prisma/client';
 import type { Request } from 'express';
-import type { AdminActionResult } from '@basketeasy/types/platform-admin-actions';
+import type {
+  AdminActionResult,
+  AdminCreateClubResult,
+} from '@basketeasy/types/platform-admin-actions';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { CurrentPlatformRole } from '../auth/decorators/current-platform-role.decorator';
+import { PlatformRoles } from '../auth/decorators/platform-roles.decorator';
 import { PlatformAdminActionsService } from './platform-admin-actions.service';
 import type { PlatformActor } from './platform-admin-browse.service';
 import {
   AddTeamAdminDto,
+  AdminCreateClubDto,
   ChangeClubRoleDto,
   ReasonDto,
   RecordConsentDto,
@@ -50,6 +55,7 @@ export class PlatformAdminActionsController {
   }
 
   @Post('users/:userId/mark-verified')
+  @PlatformRoles('DATA_OFFICER')
   @HttpCode(HttpStatus.OK)
   markVerified(
     @CurrentUser() user: RequestUser,
@@ -83,6 +89,39 @@ export class PlatformAdminActionsController {
     @Req() request: Request,
   ): Promise<AdminActionResult> {
     return this.actions.revokeSessions(actor(user, role), userId, body.reason, request);
+  }
+
+  @Post('clubs')
+  @HttpCode(HttpStatus.CREATED)
+  createClub(
+    @CurrentUser() user: RequestUser,
+    @CurrentPlatformRole() role: PlatformRole,
+    @Body() body: AdminCreateClubDto,
+    @Req() request: Request,
+  ): Promise<AdminCreateClubResult> {
+    return this.actions.createClub(
+      actor(user, role),
+      { name: body.name, ffbbClubCode: body.ffbbClubCode, firstAdminUserId: body.firstAdminUserId },
+      body.reason,
+      request,
+    );
+  }
+
+  /**
+   * DATA_OFFICER-only, like erasure: the one support action that destroys a
+   * club's own records (players, teams, events, stats) rather than fixing them.
+   */
+  @Post('clubs/:clubId/delete')
+  @HttpCode(HttpStatus.OK)
+  @PlatformRoles('DATA_OFFICER')
+  deleteClub(
+    @CurrentUser() user: RequestUser,
+    @CurrentPlatformRole() role: PlatformRole,
+    @Param('clubId', ParseUUIDPipe) clubId: string,
+    @Body() body: ReasonDto,
+    @Req() request: Request,
+  ): Promise<AdminActionResult> {
+    return this.actions.deleteClub(actor(user, role), clubId, body.reason, request);
   }
 
   @Post('clubs/:clubId/members/:userId/role')
@@ -144,6 +183,7 @@ export class PlatformAdminActionsController {
   }
 
   @Post('teams/:teamId/owner')
+  @PlatformRoles('DATA_OFFICER')
   @HttpCode(HttpStatus.OK)
   transferOwnership(
     @CurrentUser() user: RequestUser,

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { ConfirmDialog } from '@basketeasy/ui/confirm-dialog';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { SectionAccordionItem } from '@basketeasy/ui/section-accordion';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { MyPlayerGuardian, MyPlayerGuardians } from '@basketeasy/types/guardians';
@@ -89,8 +89,11 @@ function PlayerGuardiansList({ data }: { data: MyPlayerGuardians }) {
 }
 
 /**
- * « Accès parents »: who can act for the caller as a player. Rendered only
- * when at least one of the caller's players has a guardian.
+ * « Accès parents »: who can act for the caller as a player, as an item of the
+ * account page's accordion (so it must render inside a `SectionAccordion`).
+ * It owns its item rather than being wrapped by the page because whether the
+ * item exists at all depends on a query that lives here: a fold that opened
+ * onto nothing would sit on every adult's account page.
  */
 export function ParentAccessCard({ playerIds }: { playerIds: string[] }) {
   const results = useMyPlayerGuardians(playerIds);
@@ -102,14 +105,9 @@ export function ParentAccessCard({ playerIds }: { playerIds: string[] }) {
 
   if (failed) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Accès parents</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <QueryError onRetry={() => void failed.refetch()} isRetrying={failed.isRefetching} />
-        </CardContent>
-      </Card>
+      <SectionAccordionItem value="parents" title="Accès parents">
+        <QueryError onRetry={() => void failed.refetch()} isRetrying={failed.isRefetching} />
+      </SectionAccordionItem>
     );
   }
   // Nothing while loading either: most players have no parents linked, and a
@@ -119,15 +117,12 @@ export function ParentAccessCard({ playerIds }: { playerIds: string[] }) {
   if (withGuardians.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Accès parents</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+    <SectionAccordionItem value="parents" title="Accès parents">
+      <div className="flex flex-col gap-4">
         {withGuardians.map((data) => (
           <PlayerGuardiansList key={data.playerId} data={data} />
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </SectionAccordionItem>
   );
 }

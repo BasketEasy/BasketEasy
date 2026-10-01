@@ -1,4 +1,3 @@
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { DEFAULT_ARRIVAL_BUFFER_MINUTES } from '@basketeasy/types/meeting-points';
 import { MeetingPointSettingsCard } from './MeetingPointSettingsCard';
 import { MeetingPointSettingsDialog } from './MeetingPointSettingsDialog';
@@ -6,15 +5,18 @@ import { useClubMeetingSettings } from './useClubMeetingSettings';
 import { useClubMeetingSettingsUpdate } from './useClubMeetingSettingsUpdate';
 import { useMeetingSettingsEditor } from './useMeetingSettingsEditor';
 
-/** The club admin's default meeting point and arrival buffer, inherited by every team the club owns. */
+/**
+ * The club admin's default meeting point and arrival buffer, inherited by
+ * every team the club owns. No heading of its own: it is the content of the
+ * club page's « RDV par défaut » accordion item.
+ */
 export function ClubMeetingPointSettings({ clubId }: { clubId: string }) {
   const { data, isError, isLoading, refetch } = useClubMeetingSettings(clubId);
   const { mutateAsync: save } = useClubMeetingSettingsUpdate(clubId);
   const editor = useMeetingSettingsEditor(save);
 
   return (
-    <section className="flex flex-col gap-3">
-      <SectionHeading as="h2">Rendez-vous d’avant-match</SectionHeading>
+    <>
       <MeetingPointSettingsCard
         scope="club"
         isError={isError}
@@ -37,6 +39,6 @@ export function ClubMeetingPointSettings({ clubId }: { clubId: string }) {
           }
         />
       )}
-    </section>
+    </>
   );
 }

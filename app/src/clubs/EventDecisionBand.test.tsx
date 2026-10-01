@@ -12,6 +12,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: '2026-09-05T18:30:00.000Z',
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',
@@ -37,7 +38,10 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     result: null,
     myMatchStats: null,
     meetingPlan: null,
+    whatsAppShare: null,
+    whatsAppSettings: null,
     myTravelMode: null,
+    jerseyDuty: null,
     ...overrides,
   };
 }
@@ -52,6 +56,7 @@ function counts(convokedCount: number) {
     rsvpStatus: null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     convoked: i < convokedCount,
   }));

@@ -1,8 +1,10 @@
-import { ApiError } from '../api/client';
+import { ApiError, IMPERSONATION_READ_ONLY_MESSAGE, isImpersonationReadOnly } from '../api/client';
 
 const GENERIC_ERROR = 'Une erreur est survenue. Merci de réessayer.';
 
 export function getAccountErrorMessage(err: unknown): string {
+  // A write refused during a back-office impersonation, whatever the route.
+  if (isImpersonationReadOnly(err)) return IMPERSONATION_READ_ONLY_MESSAGE;
   if (err instanceof ApiError) {
     switch (err.status) {
       case 400:

@@ -8,13 +8,14 @@ import type {
   AdminStats,
   AdminStatsRange,
 } from '@basketeasy/types/platform-admin-stats';
+import { ADMIN_OCR_STUCK_AFTER_MS } from '@basketeasy/types/platform-admin-actions';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   INACTIVE_ACCOUNT_RETENTION_MONTHS,
   INACTIVE_SOON_LEAD_MONTHS,
   subMonths,
 } from '../retention/retention.constants';
-import { seasonWindow, seasonYearFor } from '../team-stats/team-stats.service';
+import { seasonWindow, seasonYearFor } from '../common/season';
 import { isTravelStale } from '../meeting-points/meeting-plan';
 import { minorBirthDateBound } from './platform-admin-browse.service';
 
@@ -24,9 +25,11 @@ const RANGE_DAYS: Record<Exclude<AdminStatsRange, 'season' | 'all'>, number> = {
   '30d': 30,
   '90d': 90,
 };
-const STUCK_AFTER_MS = 60 * 60 * 1000;
 const UNVERIFIED_GRACE_DAYS = 7;
+const STATS_CACHE_TTL_MS = 60_000;
 const MEETING_LOOKAHEAD_DAYS = 7;
+/** The WhatsApp sweep runs every 10 minutes: a send later than this lost its job. */
+const WHATSAPP_OVERDUE_MS = 15 * 60 * 1000;
 
 const SCORESHEET_STATUSES: EventScoresheetStatus[] = [
   'UPLOADED',
@@ -62,9 +65,9 @@ export function ratio(part: number, whole: number): AdminRatio {
 /**
  * The back-office dashboard, platform-wide or for one club.
  *
- * Computed on read: each metric is one aggregate query (a `count`, a
- * `groupBy`, or one SQL statement for a weekly series), all run in parallel,
- * never a query per row. Weekly series are bucketed by ISO week in
+ * Computed on read and cached for a minute: each metric is one aggregate
+ * query (a `count`, a `groupBy`, or one SQL statement), run in parallel within
+ * a section and one section at a time, never a query per row. Weekly series are bucketed by ISO week in
  * Europe/Paris and zero-filled in SQL, so every series of a response has the
  * same weeks.
  *
@@ -79,7 +82,34 @@ export function ratio(part: number, whole: number): AdminRatio {
 export class PlatformAdminStatsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly cache = new Map<string, { at: number; value: Promise<AdminStats> }>();
+
+  /**
+   * Cached per range and club for STATS_CACHE_TTL_MS: a dashboard is a few
+   * dozen aggregates, and every staff tab polling or reloading it would
+   * otherwise recompute all of them. A concurrent request for the same key
+   * shares the one in flight. Figures that are a minute old are fine for a
+   * trends screen; nothing here drives an action.
+   */
   async getStats(range: AdminStatsRange, clubId: string | undefined): Promise<AdminStats> {
+    const key = `${range}|${clubId ?? ''}`;
+    const now = Date.now();
+    const cached = this.cache.get(key);
+    if (cached && now - cached.at < STATS_CACHE_TTL_MS) return cached.value;
+    for (const [entryKey, entry] of this.cache) {
+      if (now - entry.at >= STATS_CACHE_TTL_MS) this.cache.delete(entryKey);
+    }
+    const value = this.computeStats(range, clubId);
+    this.cache.set(key, { at: now, value });
+    // A failure is not cached: the next request tries again.
+    value.catch(() => this.cache.delete(key));
+    return value;
+  }
+
+  private async computeStats(
+    range: AdminStatsRange,
+    clubId: string | undefined,
+  ): Promise<AdminStats> {
     const now = new Date();
     const firstClub = await this.prisma.club.findFirst({
       orderBy: { createdAt: 'asc' },
@@ -88,11 +118,13 @@ export class PlatformAdminStatsService {
     const { from, to } = rangeWindow(range, now, firstClub?.createdAt ?? null);
     const scope = new Scope(clubId);
 
-    const [growth, engagement, health] = await Promise.all([
-      this.growth(scope, from, to, now),
-      this.engagement(scope, from, to, now),
-      this.health(scope, from, to, now),
-    ]);
+    // One section at a time, each running its own queries in parallel: all
+    // three at once was ~50 concurrent queries, enough to drain Prisma's
+    // default connection pool and stall every other request behind it.
+    const growth = await this.growth(scope, from, to, now);
+    const engagement = await this.engagement(scope, from, to, now);
+    const sharing = await this.sharing(scope, from, to, now);
+    const health = await this.health(scope, from, to, now);
 
     return {
       range,
@@ -101,7 +133,57 @@ export class PlatformAdminStatsService {
       clubId: clubId ?? null,
       growth,
       engagement,
+      sharing,
       health,
+    };
+  }
+
+  private async sharing(
+    scope: Scope,
+    from: Date,
+    to: Date,
+    now: Date,
+  ): Promise<AdminStats['sharing']> {
+    const eventInRange = { ...scope.event, startsAt: { gte: from, lt: to } };
+    const inRange = { gte: from, lt: to };
+    const shares = { team: scope.team };
+
+    const [
+      guestTeams,
+      answers,
+      answersViaLink,
+      whatsappTeams,
+      sent,
+      pending,
+      scheduled,
+      expired,
+      overdue,
+    ] = await Promise.all([
+      this.prisma.team.count({ where: { ...scope.team, guestLink: { isNot: null } } }),
+      this.prisma.eventRsvp.count({ where: { event: eventInRange } }),
+      this.prisma.eventRsvp.count({ where: { source: 'GUEST_LINK', event: eventInRange } }),
+      this.prisma.team.count({ where: { ...scope.team, waReminderEnabled: true } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'SENT', sentAt: inRange } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'PENDING' } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'SCHEDULED' } }),
+      this.prisma.eventShare.count({ where: { ...shares, state: 'EXPIRED', updatedAt: inRange } }),
+      this.prisma.eventShare.count({
+        where: {
+          ...shares,
+          state: 'SCHEDULED',
+          dueAt: { lte: new Date(now.getTime() - WHATSAPP_OVERDUE_MS) },
+          event: { startsAt: { gt: now } },
+        },
+      }),
+    ]);
+
+    return {
+      guestLinks: {
+        teamsEnabled: guestTeams,
+        answersViaLink,
+        answersViaLinkShare: ratio(answersViaLink, answers),
+      },
+      whatsapp: { teamsEnabled: whatsappTeams, sent, pending, scheduled, expired, overdue },
     };
   }
 
@@ -281,22 +363,7 @@ export class PlatformAdminStatsService {
           JOIN "Event" e ON e."id" = ec."eventId"
           WHERE ${scope.teamSql('e."teamId"')}`,
       ),
-      this.prisma.event.findMany({
-        where: { ...eventInRange, type: 'MATCH' },
-        select: {
-          meeting: { select: { meetingPointName: true, meetingPointAddress: true } },
-          team: {
-            select: {
-              meetingPointName: true,
-              meetingPointAddress: true,
-              clubTeams: {
-                where: { isOwner: true },
-                select: { club: { select: { meetingPointName: true, meetingPointAddress: true } } },
-              },
-            },
-          },
-        },
-      }),
+      this.countMatchesWithMeetingPoint(scope, from, to),
       this.prisma.eventRsvp.groupBy({
         by: ['travelMode'],
         where: { status: 'GOING', event: eventInRange },
@@ -327,11 +394,6 @@ export class PlatformAdminStatsService {
       rsvpSplit.find((row) => row.status === status)?._count._all ?? 0;
     const travelCount = (mode: 'MEETING_POINT' | 'DIRECT') =>
       travelSplit.find((row) => row.travelMode === mode)?._count._all ?? 0;
-    const withMeetingPoint = matches.filter((match) =>
-      [match.meeting, match.team, match.team.clubTeams[0]?.club ?? null].some(
-        (source) => !!(source?.meetingPointName && source.meetingPointAddress),
-      ),
-    ).length;
 
     return {
       matchesByWeek: eventsByWeek.map((row) => ({ weekStart: row.weekStart, value: row.a })),
@@ -349,7 +411,7 @@ export class PlatformAdminStatsService {
       },
       guardianAnswers,
       convocationsByWeek: countSeries(convocationsByWeek),
-      matchesWithMeetingPointShare: ratio(withMeetingPoint, matches.length),
+      matchesWithMeetingPointShare: ratio(matches.withMeetingPoint, matches.total),
       travelSplit: { meetingPoint: travelCount('MEETING_POINT'), direct: travelCount('DIRECT') },
       votesCast,
       scoresheetCoverage: ratio(pastMatchesWithSheet, pastMatches),
@@ -403,7 +465,7 @@ export class PlatformAdminStatsService {
         where: {
           ...sheetScope,
           status: { in: ['QUEUED', 'PROCESSING'] },
-          uploadedAt: { lt: new Date(now.getTime() - STUCK_AFTER_MS) },
+          uploadedAt: { lt: new Date(now.getTime() - ADMIN_OCR_STUCK_AFTER_MS) },
         },
       }),
       this.prisma.user.count({ where: { ...scope.user, emailVerifiedAt: null } }),
@@ -456,6 +518,7 @@ export class PlatformAdminStatsService {
           type: true,
           startsAt: true,
           location: true,
+          venue: true,
           meeting: {
             select: {
               meetingPointName: true,
@@ -555,6 +618,34 @@ export class PlatformAdminStatsService {
    * Europe/Paris, from the week holding `from` to the one holding `to`.
    * Timestamps are stored as UTC `timestamp(3)`, hence the double AT TIME ZONE.
    */
+  /**
+   * Matches in range, and those with a meeting point at any level (the match's
+   * own override, its team's default, its owner club's default — the order
+   * `resolveMeetingPlan` reads them in). One SQL count: it used to load every
+   * match with three nested selects, unbounded for `range=all`.
+   */
+  private async countMatchesWithMeetingPoint(
+    scope: Scope,
+    from: Date,
+    to: Date,
+  ): Promise<{ total: number; withMeetingPoint: number }> {
+    const set = (alias: string) =>
+      Prisma.raw(
+        `(COALESCE(${alias}."meetingPointName", '') <> '' AND COALESCE(${alias}."meetingPointAddress", '') <> '')`,
+      );
+    const [row] = await this.prisma.$queryRaw<{ total: number; withMeetingPoint: number }[]>`
+      SELECT count(*)::int AS total,
+        count(*) FILTER (WHERE ${set('m')} OR ${set('t')} OR ${set('c')})::int AS "withMeetingPoint"
+      FROM "Event" e
+      JOIN "Team" t ON t."id" = e."teamId"
+      LEFT JOIN "EventMeeting" m ON m."eventId" = e."id"
+      LEFT JOIN "ClubTeam" o ON o."teamId" = t."id" AND o."isOwner" = TRUE
+      LEFT JOIN "Club" c ON c."id" = o."clubId"
+      WHERE e."type" = 'MATCH' AND e."startsAt" >= ${from} AND e."startsAt" < ${to}
+        AND ${scope.teamSql('e."teamId"')}`;
+    return row ?? { total: 0, withMeetingPoint: 0 };
+  }
+
   private async weekly(
     from: Date,
     to: Date,

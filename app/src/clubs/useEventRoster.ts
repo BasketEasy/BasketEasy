@@ -19,6 +19,8 @@ export interface EventRosterRow {
   respondedBy: EventRsvpRespondent | null;
   /** The answer came from one of the player's parents, not the player. */
   respondedByGuardian: boolean;
+  /** The current answer came through the team's shared guest link. */
+  viaLink: boolean;
   /** Null unless GOING to a match — see EventRsvpRosterEntry.travelMode. */
   travelMode: EventTravelMode | null;
   convoked: boolean;
@@ -69,12 +71,15 @@ function mergeRoster(
     rsvpStatus: rsvp.status,
     respondedBy: rsvp.respondedBy,
     respondedByGuardian: rsvp.respondedByGuardian,
+    viaLink: rsvp.viaLink,
     travelMode: rsvp.travelMode,
     convoked: convocationByPlayer.get(rsvp.teamPlayerId)?.convoked ?? false,
   }));
 }
 
-export function countEventRoster(rows: EventRosterRow[]): EventRosterCounts {
+export function countEventRoster(
+  rows: Pick<EventRosterRow, 'convoked' | 'rsvpStatus' | 'travelMode'>[],
+): EventRosterCounts {
   const convoked = rows.filter((row) => row.convoked);
   const isConvocationScoped = convoked.length > 0;
   const answering = isConvocationScoped ? convoked : rows;

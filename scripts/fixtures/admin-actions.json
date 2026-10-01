@@ -875,9 +875,17 @@
       "user": [
         {
           "kind": "user",
+          "id": "user-9",
+          "label": "Claire Durand",
+          "sublabel": "claire.durand@example.fr",
+          "emailVerified": false
+        },
+        {
+          "kind": "user",
           "id": "user-1",
           "label": "Nicolas Bernard",
-          "sublabel": "n.bernard@example.fr"
+          "sublabel": "n.bernard@example.fr",
+          "emailVerified": true
         }
       ],
       "player": [
@@ -1555,6 +1563,17 @@
       "ffbbLinkedClubs": 131,
       "ffbbLinkedTeams": 640
     },
+    "sharing": {
+      "guestLinks": { "teamsEnabled": 212, "answersViaLink": 1840, "answersViaLinkShare": 0.23 },
+      "whatsapp": {
+        "teamsEnabled": 158,
+        "sent": 934,
+        "pending": 41,
+        "scheduled": 320,
+        "expired": 27,
+        "overdue": 2
+      }
+    },
     "health": {
       "scoresheetsByStatus": {
         "UPLOADED": 2,
@@ -1616,5 +1635,14 @@
       "statusCode": 409,
       "message": "C’est le dernier admin du club : nommez d’abord un autre admin"
     }
+  },
+  "POST /api/admin/clubs": {
+    "action": "CLUB_CREATED",
+    "auditLogId": "log-new",
+    "clubId": "club-1"
+  },
+  "POST /api/admin/clubs/club-1/delete": {
+    "action": "CLUB_DELETED",
+    "auditLogId": "log-99"
   }
 }

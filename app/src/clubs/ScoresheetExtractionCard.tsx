@@ -7,6 +7,7 @@ import { cn } from '@basketeasy/ui/cn';
 import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 import { Input } from '@basketeasy/ui/input';
 import { Check } from '@basketeasy/ui/icons/check';
+import { WarningIcon } from '@basketeasy/ui/icons/warning';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import {
   Table,
@@ -16,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@basketeasy/ui/table';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
 import type {
@@ -47,7 +49,7 @@ const quarterMismatchId = (side: 'home' | 'away') => `scoresheet-quarter-mismatc
 // editable, matching the mockup's flagged-field affordance. Always rendered
 // with aria-hidden at its call site: it carries no information the adjacent
 // input's own aria-label doesn't already give.
-function PencilIcon({ tone, className, ...props }: IconProps) {
+function PencilIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -56,7 +58,7 @@ function PencilIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={2.4}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M12 20h9" />
@@ -65,31 +67,12 @@ function PencilIcon({ tone, className, ...props }: IconProps) {
   );
 }
 
-function WarningIcon({ tone, className, ...props }: IconProps) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
-      {...props}
-    >
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-      <path d="M12 9v4" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
 /** A `<th scope="row">` styled to match TableCell — gives a horizontally
  * scrolling table a row header a screen reader can associate with every
  * other cell in that row (WCAG 1.3.1). */
-function RowHeader({ children, className }: { children: ReactNode; className?: string }) {
+function RowHeader({ children }: { children: ReactNode }) {
   return (
-    <th scope="row" className={cn('p-3 text-left align-middle text-charcoal', className)}>
+    <th scope="row" className="p-3 text-left align-middle text-charcoal">
       {children}
     </th>
   );
@@ -114,7 +97,7 @@ function StatusBadge({ extraction }: { extraction: ScoresheetExtraction }) {
   if (extraction.status === 'NEEDS_REVIEW') {
     return (
       <Badge variant="soft" tone="accent" size="md" className="gap-1.5">
-        <WarningIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <WarningIcon size="sm" aria-hidden="true" className="shrink-0" />
         {confidenceLabel ? `${confidenceLabel} · à vérifier` : 'À vérifier'}
       </Badge>
     );
@@ -122,14 +105,14 @@ function StatusBadge({ extraction }: { extraction: ScoresheetExtraction }) {
   if (extraction.status === 'CONFIRMED') {
     return (
       <Badge variant="outline" tone="success" size="md" className="gap-1.5">
-        <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <Check size="sm" aria-hidden="true" className="shrink-0" />
         Données validées
       </Badge>
     );
   }
   return (
     <Badge variant="soft" tone="structure" size="md" className="gap-1.5">
-      <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      <Check size="sm" aria-hidden="true" className="shrink-0" />
       {confidenceLabel}
     </Badge>
   );
@@ -300,7 +283,7 @@ function FlaggedNumberCell({
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
         className="h-11 w-14 border-0 bg-transparent p-0 text-center text-base tabular-nums md:h-9 md:w-12 md:text-sm"
       />
-      {flagged && <PencilIcon aria-hidden="true" className="h-3 w-3 shrink-0 text-gold-text" />}
+      {flagged && <PencilIcon size="xs" aria-hidden="true" className="shrink-0 text-gold-text" />}
     </div>
   );
 }
@@ -680,7 +663,7 @@ export function ScoresheetExtractionCard({
   };
 
   return (
-    <Card variant="panel" className="flex max-w-sm flex-col gap-4 md:max-w-lg">
+    <Card variant="panel" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Text variant="label" size="sm">
           {matchupLabel(event)}
@@ -756,14 +739,9 @@ export function ScoresheetExtractionCard({
 
       {isReadOnly ? (
         <Card variant="inset" className="flex items-center gap-2.5">
-          <Text
-            as="span"
-            variant="body"
-            tone="structure"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-          >
-            <Check aria-hidden="true" className="h-3.5 w-3.5" />
-          </Text>
+          <IconBadge className="h-7 w-7">
+            <Check size="sm" aria-hidden="true" />
+          </IconBadge>
           <div className="flex flex-col gap-0.5">
             <Text variant="label" size="sm">
               Feuille de match confirmée
@@ -790,7 +768,7 @@ export function ScoresheetExtractionCard({
               onClick={() => void handleSubmit(onConfirm)()}
               className={cn('w-full', hasUnresolvedFlags && 'pointer-events-none opacity-50')}
             >
-              <Check aria-hidden="true" className="h-4 w-4" />
+              <Check size="md" aria-hidden="true" />
               Confirmer ces données
             </Button>
             {hasUnresolvedFlags && (

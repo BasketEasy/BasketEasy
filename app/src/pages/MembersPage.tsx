@@ -6,7 +6,10 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { Button } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
+import { Badge } from '@basketeasy/ui/badge';
+import { PageHero } from '@basketeasy/ui/page-hero';
+import { SectionAccordion, SectionAccordionItem } from '@basketeasy/ui/section-accordion';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Input } from '@basketeasy/ui/input';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Pagination } from '@basketeasy/ui/pagination';
@@ -31,12 +34,13 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useTeamList } from '../clubs/useTeamList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useClubShow } from '../clubs/useClubShow';
-import { ClubFfbbLinkControl } from '../clubs/ClubFfbbLinkControl';
+import { ClubFfbbFactTile } from '../clubs/ClubFfbbFactTile';
 import { ClubMeetingPointSettings } from '../meeting-points/ClubMeetingPointSettings';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ClubMemberAddForm } from '../clubs/ClubMemberAddForm';
 import { PlayerCreateForm } from '../clubs/PlayerCreateForm';
 import { PlayerRow } from '../clubs/PlayerRow';
+import { PlayerInviteDialog } from '../clubs/PlayerInviteDialog';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { TeamRow } from '../clubs/TeamRow';
 import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
@@ -52,7 +56,7 @@ type MembersTab = 'members' | 'players' | 'teams';
 // The member/player picker <select>s (add-member exclusion, player-account
 // linking) need the full roster, not one paginated table page — capped at
 // the server's MAX_PAGE_SIZE rather than becoming searchable comboboxes,
-// see docs/superpowers/specs/2026-08-11-table-filters-pagination-design.md.
+// see docs/decisions/accounts-and-access.md.
 const LINKING_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -330,6 +334,8 @@ export function MembersPage() {
   const { mutate: removeMember } = useClubMemberRemove(clubId!);
 
   const [removeError, setRemoveError] = useState<string | null>(null);
+  // « Réglages du club », folded: the lists are what the page is for.
+  const [openSettings, setOpenSettings] = useState<string[]>([]);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
@@ -339,6 +345,12 @@ export function MembersPage() {
   const players = playersResult?.items;
   const allPlayers = useMemo(() => allPlayersResult?.items ?? [], [allPlayersResult]);
   const teams = teamsResult?.items;
+
+  // « X demande un lien d'invitation » lands here with ?invite=<playerId>.
+  // A player past the capped full list, or already linked, opens nothing.
+  const inviteId = searchParams.get('invite');
+  const invitePlayer =
+    isAdmin && inviteId ? allPlayers.find((p) => p.id === inviteId && !p.userId) : undefined;
 
   const linkedUserIds = useMemo(
     () => new Set(allPlayers.flatMap((p) => (p.userId ? [p.userId] : []))),
@@ -366,20 +378,58 @@ export function MembersPage() {
     return <ForbiddenPage />;
   }
 
+  // The unfiltered lists when they exist (a search must not change the
+  // club's own size), the tab's list otherwise. Every list runs on mount for
+  // an admin, so the counts cost no request; a part shows once it is known.
+  const memberTotal = allMembersResult?.total ?? membersResult?.total;
+  const playerTotal = allPlayersResult?.total ?? playersResult?.total;
+  const teamTotal = teamsResult?.total;
+  const clubCounts = [
+    memberTotal !== undefined && `${memberTotal} membre${memberTotal > 1 ? 's' : ''}`,
+    playerTotal !== undefined && `${playerTotal} joueur${playerTotal > 1 ? 's' : ''}`,
+    teamTotal !== undefined && `${teamTotal} équipe${teamTotal > 1 ? 's' : ''}`,
+  ].filter((part): part is string => typeof part === 'string');
+
   return (
     <PageContainer size="lg">
-      <Heading as="h1" className="m-0">
-        Effectif · {club?.name ?? '…'}
-      </Heading>
-
-      {isAdmin && club && <ClubFfbbLinkControl clubId={clubId!} club={club} />}
-
-      {isAdmin && <ClubMeetingPointSettings clubId={clubId!} />}
+      {/* An entity page reached from the « Club » tab: a hero, no page bar. */}
+      <PageHero
+        badges={
+          club?.ffbbClubCode && (
+            <Badge variant="soft" tone="structure">
+              FFBB {club.ffbbClubCode}
+            </Badge>
+          )
+        }
+        eyebrow="Club"
+        title={club?.name ?? '…'}
+        meta={clubCounts.length > 0 ? clubCounts.join(' · ') : undefined}
+        aside={club && <ClubFfbbFactTile clubId={clubId!} club={club} />}
+      />
 
       {removeError && (
         <Alert variant="destructive">
           <AlertDescription>{removeError}</AlertDescription>
         </Alert>
+      )}
+
+      {invitePlayer && (
+        <PlayerInviteDialog
+          clubId={clubId!}
+          player={invitePlayer}
+          open
+          onOpenChange={(open) => {
+            if (open) return;
+            setSearchParams(
+              (previous) => {
+                const next = new URLSearchParams(previous);
+                next.delete('invite');
+                return next;
+              },
+              { replace: true },
+            );
+          }}
+        />
       )}
 
       <Tabs
@@ -396,9 +446,15 @@ export function MembersPage() {
         }
       >
         <TabsList>
-          <TabsTrigger value="members">Membres</TabsTrigger>
-          <TabsTrigger value="players">Joueurs</TabsTrigger>
-          <TabsTrigger value="teams">Équipes</TabsTrigger>
+          <TabsTrigger value="members" badge={memberTotal}>
+            Membres
+          </TabsTrigger>
+          <TabsTrigger value="players" badge={playerTotal}>
+            Joueurs
+          </TabsTrigger>
+          <TabsTrigger value="teams" badge={teamTotal}>
+            Équipes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="members" className="mt-4 flex flex-col gap-4">
@@ -464,7 +520,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (membersResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+                  icon={<UsersIcon size="3xl" tone="secondary" />}
                   title={isMembersFiltered ? 'Aucun résultat' : 'Aucun membre pour le moment'}
                   description={
                     isMembersFiltered
@@ -572,7 +628,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (playersResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+                  icon={<UsersIcon size="3xl" tone="secondary" />}
                   title={isPlayersFiltered ? 'Aucun résultat' : 'Aucun joueur pour le moment'}
                   description={
                     isPlayersFiltered
@@ -695,7 +751,7 @@ export function MembersPage() {
                 <SkeletonList rows={3} />
               ) : (teamsResult?.total ?? 0) === 0 ? (
                 <EmptyState
-                  icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+                  icon={<TrophyIcon size="3xl" tone="secondary" />}
                   title={isTeamsFiltered ? 'Aucun résultat' : 'Aucune équipe pour le moment'}
                   description={
                     isTeamsFiltered
@@ -732,6 +788,15 @@ export function MembersPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <section className="flex flex-col gap-3.5">
+        <SectionHeading as="h2">Réglages du club</SectionHeading>
+        <SectionAccordion value={openSettings} onValueChange={setOpenSettings}>
+          <SectionAccordionItem value="rdv" title="RDV par défaut">
+            <ClubMeetingPointSettings clubId={clubId!} />
+          </SectionAccordionItem>
+        </SectionAccordion>
+      </section>
     </PageContainer>
   );
 }

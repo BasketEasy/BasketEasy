@@ -23,6 +23,7 @@ import {
 import { AdminClubLink, AdminLink, AdminPersonLink } from './shared/AdminLinks';
 import { AdminQueryBranch } from './shared/AdminQueryBranch';
 import { adminPaths } from './shared/adminPaths';
+import { usePlatformSession } from './platformSession';
 import { formatAdminDate } from './shared/adminFormat';
 
 function RosterRow({ entry }: { entry: AdminRosterEntry }) {
@@ -97,6 +98,8 @@ function TeamRoster({ teamId }: { teamId: string }) {
 }
 
 function TeamDetail({ team }: { team: AdminTeamDetail }) {
+  const { session } = usePlatformSession();
+  const isDataOfficer = session?.role === 'DATA_OFFICER';
   const clubs = [
     ...(team.ownerClub ? [{ club: team.ownerClub, isOwner: true }] : []),
     ...team.partnerClubs.map((club) => ({ club, isOwner: false })),
@@ -106,6 +109,7 @@ function TeamDetail({ team }: { team: AdminTeamDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={team.name}
+        eyebrow="Équipe"
         parent={{ to: adminPaths.teams, label: 'Équipes' }}
         badges={
           <>
@@ -183,7 +187,9 @@ function TeamDetail({ team }: { team: AdminTeamDetail }) {
                   />
                 }
               />
-              {team.ownerClub && team.partnerClubs.length > 0 && (
+              {/* DATA_OFFICER-only on the server: the owner decides who may
+                  delete the team and its partners' shared data. */}
+              {isDataOfficer && team.ownerClub && team.partnerClubs.length > 0 && (
                 <AdminActionRow
                   title="Transférer la propriété"
                   detail={`Aujourd’hui : ${team.ownerClub.name}`}

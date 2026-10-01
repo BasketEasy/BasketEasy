@@ -1,4 +1,5 @@
 import type { EventType } from '@prisma/client';
+import { eventVenueLabel } from '@basketeasy/types/events';
 import { describeEvent, formatEventMoment } from '../common/event-copy';
 import { describeMeeting, type KnownMeeting } from '../meeting-points/meeting-notification-copy';
 import {
@@ -21,7 +22,13 @@ function presenceRequest(subject: NotificationSubject): string {
 
 export function convocationNotification(
   teamName: string,
-  event: { type: EventType; startsAt: Date; location: string; opponentName: string | null },
+  event: {
+    type: EventType;
+    startsAt: Date;
+    location: string;
+    locationName: string | null;
+    opponentName: string | null;
+  },
   meeting: KnownMeeting | null = null,
   subject: NotificationSubject = SELF_SUBJECT,
 ): { title: string; body: string } {
@@ -29,7 +36,7 @@ export function convocationNotification(
   const sentence = convocationSentence(subject);
   return {
     title: `${sentence} — ${teamName}`,
-    body: `${sentence} pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${event.location}.${meetingSentence} Merci d’indiquer ${presenceRequest(subject)}.`,
+    body: `${sentence} pour ${describeEvent(event)} du ${formatEventMoment(event.startsAt)} à ${eventVenueLabel(event)}.${meetingSentence} Merci d’indiquer ${presenceRequest(subject)}.`,
   };
 }
 
@@ -57,6 +64,32 @@ export function cancellationNotification(
   return {
     title: `Annulation — ${teamName}`,
     body: `${prefix}${capitalise(describeEvent(event))} du ${formatEventMoment(event.startsAt)} a été annulé.`,
+  };
+}
+
+/**
+ * « Changement de salle » for a match whose known venue moved. One per
+ * recipient for the whole edit: a series scope summarises the count rather
+ * than sending one per occurrence, the same rule as a cancellation.
+ */
+export function venueChangedNotification(
+  teamName: string,
+  event: { type: EventType; startsAt: Date; opponentName: string | null },
+  newLabel: string,
+  matchCount: number,
+  subject: NotificationSubject = SELF_SUBJECT,
+): { title: string; body: string } {
+  const prefix = forWhomPrefix(subject);
+  const title = `Changement de salle — ${teamName}`;
+  if (matchCount > 1) {
+    return {
+      title,
+      body: `${prefix}Les ${matchCount} prochains matchs de cette série se joueront à ${newLabel}.`,
+    };
+  }
+  return {
+    title,
+    body: `${prefix}${capitalise(describeEvent(event))} du ${formatEventMoment(event.startsAt)} se jouera à ${newLabel}.`,
   };
 }
 

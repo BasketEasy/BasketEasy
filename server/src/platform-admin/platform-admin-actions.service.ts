@@ -2,7 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -11,15 +14,48 @@ import type { Request } from 'express';
 import {
   ADMIN_OCR_STUCK_AFTER_MS,
   type AdminActionResult,
+  type AdminCreateClubResult,
   type AdminSupportActionKind,
 } from '@basketeasy/types/platform-admin-actions';
 import { isMinorBirthDate } from '@basketeasy/types/parental-consent';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountSecurityService } from '../auth/account-security.service';
 import { ScoresheetsService } from '../scoresheets/scoresheets.service';
-import { removeClubMembership, writeParentalConsent } from '../clubs/club-writes';
+import { StorageService } from '../storage/storage.service';
+import {
+  createClubWithAdmin,
+  lockClubAdmins,
+  removeClubMembership,
+  writeParentalConsent,
+} from '../clubs/club-writes';
+import { parentalConsentRetentionExpiry } from '../common/parental-consent-retention';
 import { auditContextOf } from './audit-context';
 import type { PlatformActor } from './platform-admin-browse.service';
+
+/**
+ * Staff never act on their own account from here: marking your own address
+ * verified would bypass EmailVerifiedGuard, and granting yourself a club or
+ * team role would make a support tool a way into a club's data.
+ */
+function assertNotSelf(actor: PlatformActor, userId: string): void {
+  if (userId === actor.id) {
+    throw new ForbiddenException('Impossible sur votre propre compte');
+  }
+}
+
+function throttled(): HttpException {
+  return new HttpException(
+    'Un e-mail a déjà été envoyé à ce compte il y a moins d’une minute. Réessayez dans un instant.',
+    HttpStatus.TOO_MANY_REQUESTS,
+  );
+}
+
+const CLUB_DELETE_TIMEOUT_MS = 120_000;
+// The OCR retry enqueues inside its transaction (so a dead queue rolls the
+// audit row back); a slow Redis must not hit Prisma's 5 s default and roll back
+// a row whose job did land.
+const OCR_RETRY_TX_OPTIONS = { maxWait: 10_000, timeout: 30_000 };
+const STORAGE_DELETE_CONCURRENCY = 10;
 
 /** Who and what an action row is about, beside `action` and `reason`. */
 interface ActionSubjects {
@@ -49,14 +85,17 @@ interface ActionSubjects {
  * the last-ADMIN check runs under a row lock, so two staff demoting the two
  * admins of one club at once can't both succeed.
  *
- * See docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md.
+ * See docs/decisions/rgpd-and-backoffice.md.
  */
 @Injectable()
 export class PlatformAdminActionsService {
+  private readonly logger = new Logger(PlatformAdminActionsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly accountSecurity: AccountSecurityService,
     private readonly scoresheets: ScoresheetsService,
+    private readonly storage: StorageService,
   ) {}
 
   // ------------------------------------------------------------- accounts
@@ -67,15 +106,21 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
     if (user.emailVerifiedAt) {
       throw new ConflictException('Cette adresse est déjà vérifiée');
     }
+    // Throttled like the product's own resend (one a minute). Checked before
+    // the row is written, so an audit entry never claims an e-mail the
+    // throttle then swallowed.
+    if (await this.accountSecurity.isVerificationThrottled(userId)) {
+      throw throttled();
+    }
     const result = await this.prisma.$transaction((tx) =>
       this.record(tx, actor, request, 'RESEND_VERIFICATION', reason, { subjectUserId: userId }),
     );
-    // After the commit: an e-mail can't be rolled back. Throttled like the
-    // product's own resend (one a minute).
+    // After the commit: an e-mail can't be rolled back.
     await this.accountSecurity.sendVerificationEmail(userId);
     return result;
   }
@@ -86,6 +131,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
     if (user.emailVerifiedAt) {
       throw new ConflictException('Cette adresse est déjà vérifiée');
@@ -105,11 +151,17 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     const user = await this.findUser(userId);
+    if (await this.accountSecurity.isPasswordResetThrottled(userId)) {
+      throw throttled();
+    }
     const result = await this.prisma.$transaction((tx) =>
       this.record(tx, actor, request, 'SEND_PASSWORD_RESET', reason, { subjectUserId: userId }),
     );
-    await this.accountSecurity.requestPasswordReset(user.email, auditContextOf(request));
+    // Staff-origin: the reset's own audit row must not carry the staff
+    // member's IP under the subject's userId (see requestPasswordReset).
+    await this.accountSecurity.requestPasswordReset(user.email, undefined, { byStaff: true });
     return result;
   }
 
@@ -119,10 +171,9 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
-    if (userId === actor.id) {
-      // Revoking your own sessions would end the step-up session mid-request.
-      throw new ForbiddenException('Impossible sur votre propre compte');
-    }
+    // Also: revoking your own sessions would end the step-up session
+    // mid-request.
+    assertNotSelf(actor, userId);
     await this.findUser(userId);
     const now = new Date();
     return this.prisma.$transaction(async (tx) => {
@@ -147,6 +198,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const membership = await this.findMembership(tx, clubId, userId);
       if (membership.role === role) {
@@ -175,6 +227,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const membership = await this.findMembership(tx, clubId, userId);
       if (membership.role === 'ADMIN') {
@@ -202,6 +255,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     await this.findTeam(teamId);
     const eligible = await this.prisma.clubMembership.findFirst({
       where: { userId, club: { clubTeams: { some: { teamId } } } },
@@ -233,6 +287,7 @@ export class PlatformAdminActionsService {
     reason: string,
     request: Request,
   ): Promise<AdminActionResult> {
+    assertNotSelf(actor, userId);
     return this.prisma.$transaction(async (tx) => {
       const { count } = await tx.teamAdmin.deleteMany({ where: { teamId, userId } });
       if (count === 0) {
@@ -305,14 +360,18 @@ export class PlatformAdminActionsService {
     if (inFlight && sheet.uploadedAt.getTime() > Date.now() - ADMIN_OCR_STUCK_AFTER_MS) {
       throw new ConflictException('Une lecture est déjà en cours pour cette feuille');
     }
-    const result = await this.prisma.$transaction((tx) =>
-      this.record(tx, actor, request, 'RETRY_OCR', reason, {
+    // The enqueue runs inside the transaction, last: if the queue is
+    // unreachable the audit row rolls back with it instead of recording a
+    // retry that never happened. A stuck sheet's leftover job is replaced,
+    // since BullMQ would otherwise ignore the new one.
+    return this.prisma.$transaction(async (tx) => {
+      const result = await this.record(tx, actor, request, 'RETRY_OCR', reason, {
         eventId: sheet.eventId,
         before: { status: sheet.status },
-      }),
-    );
-    await this.scoresheets.enqueueOcr(sheet.id);
-    return result;
+      });
+      await this.scoresheets.enqueueOcr(sheet.id, { replaceStale: inFlight });
+      return result;
+    }, OCR_RETRY_TX_OPTIONS);
   }
 
   // ----------------------------------------------------- guardians/consent
@@ -414,6 +473,171 @@ export class PlatformAdminActionsService {
     });
   }
 
+  // ----------------------------------------------------------------- clubs
+
+  /**
+   * A new club and its first ADMIN, who must already have an account: the
+   * back-office never creates people. An unverified first admin is allowed —
+   * EmailVerifiedGuard still gates what they can hand out until they confirm.
+   */
+  async createClub(
+    actor: PlatformActor,
+    data: { name: string; ffbbClubCode?: string; firstAdminUserId: string },
+    reason: string,
+    request: Request,
+  ): Promise<AdminCreateClubResult> {
+    assertNotSelf(actor, data.firstAdminUserId);
+    await this.findUser(data.firstAdminUserId);
+    return this.prisma.$transaction(async (tx) => {
+      const club = await createClubWithAdmin(tx, data.firstAdminUserId, data);
+      const result = await this.record(tx, actor, request, 'CLUB_CREATED', reason, {
+        clubId: club.id,
+        subjectUserId: data.firstAdminUserId,
+        after: { name: club.name, ffbbClubCode: club.ffbbClubCode },
+      });
+      return { ...result, clubId: club.id };
+    });
+  }
+
+  /**
+   * Deletes a club and everything that is the club's: memberships, players
+   * (their roster slots, stats, invites, guardian links cascade), parental
+   * consents, and every team it owns with that team's events, scoresheets,
+   * extractions, stats and meeting points. A team it only partners on stays
+   * with its owner, minus this club's players.
+   *
+   * Owned teams are deleted here rather than by the database: Team reaches
+   * Club only through ClubTeam, so the FK cascade would leave them orphaned.
+   * Scoresheet files are removed from storage after the commit, best-effort —
+   * a stray object costs storage, a rolled-back delete over a storage outage
+   * would cost the action.
+   */
+  async deleteClub(
+    actor: PlatformActor,
+    clubId: string,
+    reason: string,
+    request: Request,
+  ): Promise<AdminActionResult> {
+    const { result, storageKeys } = await this.prisma.$transaction(
+      async (tx) => {
+        const club = await tx.club.findUnique({
+          where: { id: clubId },
+          select: { name: true, ffbbClubCode: true },
+        });
+        if (!club) {
+          throw new NotFoundException('Club introuvable');
+        }
+        const [owned, partnerOnCount] = await Promise.all([
+          tx.clubTeam.findMany({ where: { clubId, isOwner: true }, select: { teamId: true } }),
+          tx.clubTeam.count({ where: { clubId, isOwner: false } }),
+        ]);
+        const lockedTeamIds = owned.map((link) => link.teamId);
+        // Lock the owned Team rows before looking for partners: linking a club
+        // to a team takes a key-share lock on that row, so a link added by a
+        // concurrent request either commits before this read (and is seen) or
+        // waits until this deletion is done. Without it the check below is a
+        // plain READ COMMITTED read and a fresh partner's rosters would go too.
+        if (lockedTeamIds.length > 0) {
+          await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" IN (${Prisma.join(lockedTeamIds)}) FOR UPDATE`;
+        }
+        const partnered = await tx.clubTeam.findMany({
+          where: { teamId: { in: lockedTeamIds }, clubId: { not: clubId } },
+          select: { teamId: true },
+          distinct: ['teamId'],
+        });
+        // A CTC team the club owns also holds its partners' rosters, events,
+        // scoresheets and stats. Deleting it would destroy another club's
+        // data, so the ownership has to move to a partner first.
+        if (partnered.length > 0) {
+          throw new ConflictException({
+            message: `Ce club possède ${partnered.length} équipe(s) partagée(s) avec d'autres clubs : transférez-en la propriété avant de supprimer le club.`,
+            sharedTeamIds: partnered.map((link) => link.teamId),
+          });
+        }
+        const ownedTeamIds = lockedTeamIds;
+        // Only the owned teams' sheets go. One of this club's players may have
+        // uploaded on a partner's team, but the sheet belongs to that team:
+        // its uploader link is merely nulled (SetNull), the file stays.
+        const [sheets, playerCount] = await Promise.all([
+          tx.eventScoresheet.findMany({
+            where: { event: { teamId: { in: ownedTeamIds } } },
+            select: { storageKey: true },
+          }),
+          tx.player.count({ where: { clubId } }),
+        ]);
+        // Consent evidence outlives the club (RGPD art. 17.3.b): it keeps the
+        // club's name, and its five-year clock starts now, the same as when a
+        // club removes a single player.
+        const [consentCount] = await Promise.all([
+          tx.parentalConsent.updateMany({ where: { clubId }, data: { clubName: club.name } }),
+          tx.parentalConsent.updateMany({
+            where: { clubId, retentionExpiresAt: null },
+            data: { retentionExpiresAt: parentalConsentRetentionExpiry() },
+          }),
+        ]);
+        await tx.team.deleteMany({ where: { id: { in: ownedTeamIds } } });
+        await tx.club.delete({ where: { id: clubId } });
+        const result = await this.record(tx, actor, request, 'CLUB_DELETED', reason, {
+          clubId,
+          // The club no longer exists, so the row has to say what it was.
+          before: {
+            name: club.name,
+            ffbbClubCode: club.ffbbClubCode,
+            ownedTeamCount: ownedTeamIds.length,
+            partnerOnTeamCount: partnerOnCount,
+            playerCount,
+            parentalConsentsKept: consentCount.count,
+            scoresheetFileCount: sheets.length,
+          },
+        });
+        return { result, storageKeys: sheets.map((sheet) => sheet.storageKey) };
+      },
+      // A large club has many rows to cascade; Prisma's 5s default would roll
+      // the whole deletion back (P2028) for exactly the biggest clubs.
+      { maxWait: 10_000, timeout: CLUB_DELETE_TIMEOUT_MS },
+    );
+    await this.deleteScoresheetFiles(result.auditLogId, storageKeys);
+    return result;
+  }
+
+  /**
+   * Best-effort, after the commit: the rows that held the keys are gone, so a
+   * failed delete is logged and written onto the CLUB_DELETED row, where a
+   * later cleanup can find it, instead of disappearing silently. Bounded, so
+   * a club with hundreds of sheets doesn't open hundreds of requests at once.
+   */
+  private async deleteScoresheetFiles(auditLogId: string, keys: string[]): Promise<void> {
+    const failed: string[] = [];
+    for (let i = 0; i < keys.length; i += STORAGE_DELETE_CONCURRENCY) {
+      const batch = keys.slice(i, i + STORAGE_DELETE_CONCURRENCY);
+      const outcomes = await Promise.allSettled(batch.map((key) => this.storage.deleteObject(key)));
+      outcomes.forEach((outcome, index) => {
+        if (outcome.status === 'rejected') failed.push(batch[index]);
+      });
+    }
+    if (failed.length === 0) return;
+    this.logger.error(
+      `Club deletion ${auditLogId}: ${failed.length} scoresheet file(s) not deleted: ${failed.join(', ')}`,
+    );
+    try {
+      const row = await this.prisma.auditLog.findUnique({
+        where: { id: auditLogId },
+        select: { metadata: true },
+      });
+      await this.prisma.auditLog.update({
+        where: { id: auditLogId },
+        data: {
+          metadata: {
+            ...(row?.metadata as Prisma.JsonObject | null),
+            failedStorageKeys: failed,
+          },
+        },
+      });
+    } catch (err: unknown) {
+      this.logger.error(`Could not record failed storage keys: ${String(err)}`);
+    }
+  }
+
   // --------------------------------------------------------------- helpers
 
   /** Writes the one audit row an action produces, through the action's transaction. */
@@ -475,11 +699,7 @@ export class PlatformAdminActionsService {
    * and the second sees one admin left and is refused.
    */
   private async assertNotLastAdmin(tx: Prisma.TransactionClient, clubId: string): Promise<void> {
-    const admins = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "ClubMembership"
-      WHERE "clubId" = ${clubId} AND "role" = 'ADMIN'
-      FOR UPDATE`;
-    if (admins.length <= 1) {
+    if ((await lockClubAdmins(tx, clubId)) <= 1) {
       throw new ConflictException('C’est le dernier admin du club : nommez d’abord un autre admin');
     }
   }

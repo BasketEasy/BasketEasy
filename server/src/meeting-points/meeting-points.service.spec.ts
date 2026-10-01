@@ -9,6 +9,7 @@ import type { PrismaService } from '../prisma/prisma.service';
 import type { GeocodingService } from './geocoding.service';
 import { travelRouteKey } from './meeting-plan';
 import type { NotificationsService } from '../notifications/notifications.service';
+import type { MeetingChangeFeed } from './meeting-change-feed';
 import {
   MEETING_CHANGE_NOTIFY_WINDOW_MS,
   MeetingPointsService,
@@ -54,6 +55,7 @@ describe('MeetingPointsService', () => {
     clubMembership: { findMany: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
+  let changeFeed: { publish: jest.Mock };
   let geocoding: { geocode: jest.Mock };
   let routing: { geocode: jest.Mock; drivingMinutes: jest.Mock };
   let queue: { addBulk: jest.Mock; add: jest.Mock };
@@ -81,6 +83,7 @@ describe('MeetingPointsService', () => {
       type: 'MATCH',
       startsAt: new Date('2026-01-10T19:30:00.000Z'),
       location: 'Salle Coubertin, Rezé',
+      venue: 'AWAY',
       ...overrides,
     };
   }
@@ -128,6 +131,7 @@ describe('MeetingPointsService', () => {
       clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
     };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+    changeFeed = { publish: jest.fn() };
     geocoding = { geocode: jest.fn() };
     routing = { geocode: jest.fn(), drivingMinutes: jest.fn() };
     queue = { addBulk: jest.fn().mockResolvedValue([]), add: jest.fn().mockResolvedValue({}) };
@@ -137,6 +141,7 @@ describe('MeetingPointsService', () => {
       routing as unknown as RoutingClient,
       queue as unknown as Queue<MeetingTravelJobData>,
       notifications as unknown as NotificationsService,
+      changeFeed as unknown as MeetingChangeFeed,
     );
   });
 
@@ -226,6 +231,27 @@ describe('MeetingPointsService', () => {
       expect(queue.add).not.toHaveBeenCalled();
     });
 
+    it('queues a team announcement, not recomputes, when only the buffer changed', async () => {
+      await service.updateTeamSettings('club-1', 'team-1', {
+        meetingPoint: null,
+        arrivalBufferMinutes: 60,
+      });
+
+      expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith('announce', { teamId: 'team-1' }, expect.anything());
+    });
+
+    it('queues a team announcement, not recomputes, when only the place name changed', async () => {
+      await service.updateTeamSettings('club-1', 'team-1', {
+        // Same address as the inherited club place, different name.
+        meetingPoint: { name: 'Devant le gymnase', address: ' 1 RUE du club, nantes' },
+        arrivalBufferMinutes: null,
+      });
+
+      expect(queue.addBulk).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith('announce', { teamId: 'team-1' }, expect.anything());
+    });
+
     it('returns the owner club defaults alongside the team’s own settings', async () => {
       prisma.team.findUnique.mockResolvedValue({
         ...teamRow,
@@ -313,9 +339,48 @@ describe('MeetingPointsService', () => {
       }
     });
 
+    it('keys each recompute job without a colon, which BullMQ refuses in a custom id', async () => {
+      await service.enqueueRecompute(['event-1']);
+      const [[jobs]] = queue.addBulk.mock.calls;
+      expect(jobs[0].opts.jobId).toBe('meeting-travel-event-1');
+      expect(jobs[0].opts.jobId).not.toContain(':');
+    });
+
     it('never fails the read when the queue is unreachable', async () => {
       queue.addBulk.mockRejectedValue(new Error('redis down'));
       await expect(service.resolvePlans('team-1', [match()])).resolves.toBeInstanceOf(Map);
+    });
+  });
+
+  describe('resolvePlansAcrossTeams', () => {
+    it('resolves a batch spanning several teams in two queries', async () => {
+      prisma.team.findMany.mockResolvedValue([teamRow, { ...teamRow, id: 'team-2' }]);
+      prisma.eventMeeting.findMany.mockResolvedValue([
+        meeting({ eventId: 'event-2', travelMinutes: 23, travelRouteKey: clubRoute }),
+      ]);
+
+      const plans = await service.resolvePlansAcrossTeams([
+        match(),
+        match({ id: 'event-2', teamId: 'team-2' }),
+        match({ id: 'event-3', type: 'TRAINING' }),
+      ]);
+
+      expect(prisma.team.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.team.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['team-1', 'team-2'] } } }),
+      );
+      expect(prisma.team.findUnique).not.toHaveBeenCalled();
+      expect(prisma.eventMeeting.findMany).toHaveBeenCalledWith({
+        where: { eventId: { in: ['event-1', 'event-2'] } },
+      });
+      expect(plans.get('event-2')?.meetsAt).toBe('2026-01-10T18:15:00.000Z');
+      expect(plans.get('event-3')).toBeNull();
+    });
+
+    it('skips every query for a batch of trainings', async () => {
+      const plans = await service.resolvePlansAcrossTeams([match({ type: 'TRAINING' })]);
+      expect(plans.get('event-1')).toBeNull();
+      expect(prisma.team.findMany).not.toHaveBeenCalled();
     });
   });
 
@@ -646,9 +711,44 @@ describe('MeetingPointsService', () => {
     });
   });
 
+  describe('a TRAINING that just became a MATCH', () => {
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    soon.setUTCHours(19, 30, 0, 0);
+
+    it('has no meeting hour to announce until its route is computed, then announces it', async () => {
+      prisma.eventRsvp.findMany.mockResolvedValue([{ eventId: 'event-1', teamPlayerId: 'tp-1' }]);
+      prisma.teamPlayer.findMany.mockResolvedValue([audienceRow('tp-1', 'user-1')]);
+
+      // Straight after the flip: no EventMeeting row, so no travel time.
+      prisma.event.findMany.mockResolvedValue([
+        { ...stored(null, { startsAt: soon }), opponentName: 'Rezé' },
+      ]);
+      await service.announceMeetingChanges(['event-1']);
+      expect(notifications.notify).not.toHaveBeenCalled();
+
+      // The queued recompute stores the route and announces from it.
+      prisma.event.findUnique.mockResolvedValue(stored(null, { startsAt: soon }));
+      geocoding.geocode.mockResolvedValue({ latitude: 1, longitude: 1 });
+      routing.drivingMinutes.mockResolvedValue(23);
+      prisma.event.findMany.mockResolvedValue([
+        {
+          ...stored(meeting({ travelMinutes: 23, travelRouteKey: clubRoute }), { startsAt: soon }),
+          opponentName: 'Rezé',
+        },
+      ]);
+      await service.recomputeTravel('event-1');
+
+      expect(notifications.notify).toHaveBeenCalledWith([
+        expect.objectContaining({ userId: 'user-1', type: 'EVENT_MEETING_FIXED' }),
+      ]);
+    });
+  });
+
   describe('announceUpcoming', () => {
+    const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
     it('announces the window’s matches of the club’s owned teams', async () => {
-      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-1' }]);
+      prisma.event.findMany.mockResolvedValueOnce([{ id: 'event-1', startsAt: inDays(3) }]);
 
       await service.announceUpcoming({ clubId: 'club-1' });
 
@@ -656,12 +756,39 @@ describe('MeetingPointsService', () => {
         where: expect.objectContaining({
           team: { clubTeams: { some: { clubId: 'club-1', isOwner: true } } },
         }),
-        select: { id: true },
+        select: { id: true, startsAt: true },
       });
       expect(prisma.event.findMany).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({ where: expect.objectContaining({ id: { in: ['event-1'] } }) }),
       );
+    });
+
+    it('publishes the 14-day window to the change feed but only announces to players inside 7 days', async () => {
+      prisma.event.findMany.mockResolvedValueOnce([
+        { id: 'near', startsAt: inDays(3) },
+        { id: 'far', startsAt: inDays(10) },
+      ]);
+
+      await service.announceUpcoming({ teamId: 'team-1' });
+
+      expect(changeFeed.publish).toHaveBeenCalledWith(['near', 'far']);
+      expect(prisma.event.findMany).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ where: expect.objectContaining({ id: { in: ['near'] } }) }),
+      );
+    });
+  });
+
+  describe('the meeting change feed', () => {
+    it('announceMeetingChanges publishes every id, before any window filter', async () => {
+      await service.announceMeetingChanges(['event-1', 'event-far']);
+      expect(changeFeed.publish).toHaveBeenCalledWith(['event-1', 'event-far']);
+    });
+
+    it('publishes nothing for an empty batch', async () => {
+      await service.announceMeetingChanges([]);
+      expect(changeFeed.publish).not.toHaveBeenCalled();
     });
   });
 });

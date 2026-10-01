@@ -19,13 +19,15 @@ import { Label } from '@basketeasy/ui/label';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { Text } from '@basketeasy/ui/text';
 import { Textarea } from '@basketeasy/ui/textarea';
-import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
-import type { AdminReasonRequest } from '@basketeasy/types/platform-admin-actions';
+import type {
+  AdminActionResult,
+  AdminReasonRequest,
+} from '@basketeasy/types/platform-admin-actions';
 import { adminActionErrorMessage, reasonSchema, toastActionDone } from './adminActionForm';
 import { useAdminAction } from './useAdminAction';
 
 // The confirm step every support action goes through, per the validated
-// canvas linked from docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md:
+// canvas (https://claude.ai/artifact/KPyBhRHf8cQPgjEg26BGa2):
 // what will happen, the facts it acts on, a mandatory reason, confirm/cancel.
 // A centred dialog on desktop, a bottom sheet on a phone.
 
@@ -80,7 +82,7 @@ function AdminActionFacts({ facts }: { facts: AdminActionFact[] }) {
   );
 }
 
-/** Dialog chrome shared by every action: header, placement by viewport. */
+/** Dialog chrome shared by every action: header (a sheet on a phone, a centred dialog on desktop, by `Dialog`'s default). */
 export function AdminActionDialogFrame({
   open,
   onOpenChange,
@@ -96,11 +98,10 @@ export function AdminActionDialogFrame({
   description: ReactNode;
   children: ReactNode;
 }) {
-  const isDesktop = useIsDesktopViewport();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent variant={isDesktop ? 'dialog' : 'sheet'}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -153,6 +154,7 @@ export function AdminActionDialog({
   confirmLabel,
   danger = false,
   path,
+  onDone,
 }: {
   trigger: ReactElement;
   title: string;
@@ -163,6 +165,8 @@ export function AdminActionDialog({
   confirmLabel: string;
   danger?: boolean;
   path: string;
+  /** After the success toast, e.g. to leave a page whose record is gone. */
+  onDone?: (result: AdminActionResult) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { mutate, isPending } = useAdminAction<AdminReasonRequest>(path);
@@ -206,6 +210,7 @@ export function AdminActionDialog({
       onSuccess: (result) => {
         handleOpenChange(false);
         toastActionDone(result);
+        onDone?.(result);
       },
       onError: (error) => setError('root', { message: adminActionErrorMessage(error) }),
     });

@@ -9,6 +9,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { EventRsvpStatus, EventTravelMode, EventType, type EventMeeting } from '@prisma/client';
+import { isUnknownEventLocation } from '@basketeasy/types/events';
 import type {
   ClubMeetingSettings,
   EventMeetingPlan,
@@ -16,6 +17,7 @@ import type {
   TeamMeetingSettings,
   UpdateEventMeetingRequest,
 } from '@basketeasy/types/meeting-points';
+import { GUEST_WINDOW_DAYS } from '@basketeasy/types/guest-links';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   groupByRecipient,
@@ -26,14 +28,15 @@ import { subjectLabel } from '../common/notification-subject';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MEETING_TRAVEL_QUEUE } from '../queue/queue.module';
 import { GeocodingService } from './geocoding.service';
+import { MeetingChangeFeed } from './meeting-change-feed';
 import { meetingChangedNotification, meetingFixedNotification } from './meeting-notification-copy';
 import {
   isTravelStale,
   meetingAnnouncementKey,
   normaliseAddress,
   resolveDefaultMeetingPoint,
+  resolveEventMeetingPoint,
   resolveMeetingPlan,
-  resolveMeetingPoint,
   travelRouteKey,
   type MeetingPlanClub,
   type MeetingPlanEvent,
@@ -46,11 +49,13 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
 // club-wide default change must not send one notification per future match.
 // Further-off matches update quietly and read correctly when opened.
 export const MEETING_CHANGE_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+// What the change feed covers: the WhatsApp reminders reach as far as the guest page does.
+const MEETING_CHANGE_FEED_WINDOW_MS = GUEST_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 // Two job kinds share the rate-limited `meeting-travel` queue: a route
 // recompute for one match, and the announcement sweep a settings change that
 // moved no route (a buffer, a place name) still owes the players.
-export const RECOMPUTE_JOB = 'recompute';
+const RECOMPUTE_JOB = 'recompute';
 export const ANNOUNCE_JOB = 'announce';
 export interface MeetingRecomputeJobData {
   eventId: string;
@@ -86,7 +91,7 @@ const STALE_ENQUEUE_MAP_LIMIT = 10_000;
  * mashed button can't spend the rate limit the queue's limiter protects.
  */
 export const REFRESH_TIMEOUT_MS = 5_000;
-export const REFRESH_COOLDOWN_MS = 15_000;
+const REFRESH_COOLDOWN_MS = 15_000;
 
 interface TeamContext {
   teamName: string;
@@ -158,7 +163,7 @@ function sameAddress(a: MeetingPoint | null | undefined, b: MeetingPoint | null 
 /**
  * The match meeting point: club and team defaults, the per-match override,
  * the driving time behind the meeting time, and the plan every TeamEvent
- * carries. See docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+ * carries. See docs/decisions/meeting-points.md.
  *
  * Queries PrismaService directly rather than injecting TeamsService/
  * EventsService — same cross-module convention as Events, Dashboard and Team
@@ -177,6 +182,7 @@ export class MeetingPointsService {
     @Inject(ROUTING_CLIENT) private readonly routing: RoutingClient,
     @InjectQueue(MEETING_TRAVEL_QUEUE) private readonly queue: Queue<MeetingTravelJobData>,
     private readonly notifications: NotificationsService,
+    private readonly changeFeed: MeetingChangeFeed,
   ) {}
 
   async getClubSettings(clubId: string): Promise<ClubMeetingSettings> {
@@ -289,6 +295,37 @@ export class MeetingPointsService {
   }
 
   /**
+   * `resolvePlans` for a batch spanning several teams (the dashboard agenda):
+   * still two queries, whatever the number of teams — every team's and owner
+   * club's settings in one, the matches' EventMeeting rows in the other.
+   */
+  async resolvePlansAcrossTeams(
+    events: MeetingEventRow[],
+  ): Promise<Map<string, EventMeetingPlan | null>> {
+    const plans = new Map<string, EventMeetingPlan | null>(events.map((e) => [e.id, null]));
+    const matches = events.filter((e) => e.type === EventType.MATCH);
+    if (matches.length === 0) return plans;
+
+    const [contexts, states] = await Promise.all([
+      this.loadTeamContexts(Array.from(new Set(matches.map((e) => e.teamId)))),
+      this.prisma.eventMeeting.findMany({
+        where: { eventId: { in: matches.map((e) => e.id) } },
+      }),
+    ]);
+    const stateByEventId = new Map(states.map((s) => [s.eventId, s]));
+    const staleIds: string[] = [];
+    for (const event of matches) {
+      const context = contexts.get(event.teamId);
+      if (!context) continue;
+      const state = stateByEventId.get(event.id) ?? null;
+      plans.set(event.id, resolveMeetingPlan(event, state, context.team, context.club));
+      if (isTravelStale(event, state, context.team, context.club)) staleIds.push(event.id);
+    }
+    this.enqueueStale(staleIds);
+    return plans;
+  }
+
+  /**
    * A team manager's per-match adjustments. Each field is applied only when
    * present. Answers with the resulting plan; the client refetches the
    * event for everything else.
@@ -309,7 +346,7 @@ export class MeetingPointsService {
             meetingPointName: state?.meetingPointName ?? null,
             meetingPointAddress: state?.meetingPointAddress ?? null,
           };
-    const resolved = resolveMeetingPoint(nextPlaceColumns, team, club);
+    const resolved = resolveEventMeetingPoint(event, nextPlaceColumns, team, club);
     const currentKey = resolved
       ? travelRouteKey(resolved.meetingPoint.address, event.location)
       : null;
@@ -374,11 +411,21 @@ export class MeetingPointsService {
   ): Promise<void> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
-      select: { type: true, startsAt: true, location: true, teamId: true, meeting: true },
+      select: {
+        type: true,
+        startsAt: true,
+        location: true,
+        venue: true,
+        teamId: true,
+        meeting: true,
+      },
     });
     if (!event || event.type !== EventType.MATCH) return;
+    // No venue published yet: nothing to route to. The next import that
+    // finds one changes the route key, and the read path re-queues it.
+    if (isUnknownEventLocation(event.location)) return;
     const { team, club } = await this.loadTeamContext(event.teamId);
-    const resolved = resolveMeetingPoint(event.meeting, team, club);
+    const resolved = resolveEventMeetingPoint(event, event.meeting, team, club);
     if (!resolved) return;
 
     const key = travelRouteKey(resolved.meetingPoint.address, event.location);
@@ -463,17 +510,24 @@ export class MeetingPointsService {
   /** The ANNOUNCE_JOB: every match of the scope inside the notification window. */
   async announceUpcoming(scope: MeetingAnnounceJobData): Promise<void> {
     const now = Date.now();
-    const events = await this.prisma.event.findMany({
+    // Published for the whole change-feed window, before the narrower player
+    // notification window below: the WhatsApp group hears about a moved RDV
+    // up to 14 days out, players only 7.
+    const feedEvents = await this.prisma.event.findMany({
       where: {
         type: EventType.MATCH,
-        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_NOTIFY_WINDOW_MS) },
+        startsAt: { gt: new Date(now), lte: new Date(now + MEETING_CHANGE_FEED_WINDOW_MS) },
         ...('teamId' in scope
           ? { teamId: scope.teamId }
           : { team: { clubTeams: { some: { clubId: scope.clubId, isOwner: true } } } }),
       },
-      select: { id: true },
+      select: { id: true, startsAt: true },
     });
-    await this.announceMeetingChanges(events.map((e) => e.id));
+    this.changeFeed.publish(feedEvents.map((e) => e.id));
+    const notifyBefore = now + MEETING_CHANGE_NOTIFY_WINDOW_MS;
+    await this.announceQuietly(
+      feedEvents.filter((e) => e.startsAt.getTime() <= notifyBefore).map((e) => e.id),
+    );
   }
 
   /**
@@ -495,6 +549,14 @@ export class MeetingPointsService {
    * not fail a manager's save or a recompute job.
    */
   async announceMeetingChanges(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) return;
+    // Before the window filter below: listeners (the WhatsApp update prompts)
+    // have their own, wider window.
+    this.changeFeed.publish(eventIds);
+    await this.announceQuietly(eventIds);
+  }
+
+  private async announceQuietly(eventIds: string[]): Promise<void> {
     if (eventIds.length === 0) return;
     try {
       await this.announce(eventIds);
@@ -518,6 +580,7 @@ export class MeetingPointsService {
         type: true,
         startsAt: true,
         location: true,
+        venue: true,
         opponentName: true,
         meeting: true,
       },
@@ -692,7 +755,14 @@ export class MeetingPointsService {
     await this.assertTeamInClub(clubId, teamId);
     const row = await this.prisma.event.findUnique({
       where: { id: eventId },
-      select: { teamId: true, type: true, startsAt: true, location: true, meeting: true },
+      select: {
+        teamId: true,
+        type: true,
+        startsAt: true,
+        location: true,
+        venue: true,
+        meeting: true,
+      },
     });
     if (!row || row.teamId !== teamId) throw new NotFoundException('Event not found');
     if (row.type !== EventType.MATCH) throw this.notAMatchError();

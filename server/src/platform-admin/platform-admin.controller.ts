@@ -49,7 +49,7 @@ const RETENTION_RUN_HISTORY_LIMIT = 30;
  * product — it is the one place a compromised credential exposes every
  * club's roster at once rather than one club's own data — so the route list
  * stays at what the job actually needs and no more. See
- * docs/superpowers/specs/2026-09-06-backoffice-design.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Controller('admin')
 export class PlatformAdminController {
@@ -84,8 +84,8 @@ export class PlatformAdminController {
   @Post('retention/dry-run')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   @PlatformRoles('DATA_OFFICER')
-  runRetentionDryRun(): Promise<RetentionStepSummary[]> {
-    return this.platformAdmin.runRetentionDryRun();
+  runRetentionDryRun(@CurrentUser() user: RequestUser): Promise<RetentionStepSummary[]> {
+    return this.platformAdmin.runRetentionDryRun(user.id);
   }
 
   /**
@@ -120,11 +120,17 @@ export class PlatformAdminController {
   @Get('audit-log')
   @UseGuards(JwtAuthGuard, PlatformAdminGuard)
   @PlatformRoles('DATA_OFFICER')
-  listAuditLog(@Query() query: ListAuditLogDto): Promise<PaginatedResult<AuditLogEntry>> {
+  listAuditLog(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListAuditLogDto,
+    @Req() request: Request,
+  ): Promise<PaginatedResult<AuditLogEntry>> {
     return this.platformAdmin.listAuditLog(
+      { id: user.id, email: user.email },
       { subjectUserId: query.userId, subjectPlayerId: query.playerId, action: query.action },
       query.page ?? 1,
       query.pageSize ?? DEFAULT_PAGE_SIZE,
+      request,
     );
   }
 }

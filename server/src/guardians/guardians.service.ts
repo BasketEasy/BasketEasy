@@ -118,26 +118,45 @@ export class GuardiansService {
     playerId: string,
     createdByUserId: string,
   ): Promise<GuardianInviteLink> {
-    await this.findPlayerInClub(clubId, playerId);
-    const [guardianCount, pendingCount] = await Promise.all([
-      this.prisma.playerGuardian.count({ where: { playerId } }),
-      this.prisma.guardianInvite.count({
-        where: { playerId, acceptedAt: null, expiresAt: { gt: new Date() } },
-      }),
-    ]);
-    if (guardianCount >= MAX_GUARDIANS_PER_PLAYER) {
-      throw new BadRequestException(TOO_MANY_GUARDIANS);
-    }
-    if (pendingCount >= MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER) {
+    const player = await this.findPlayerInClub(clubId, playerId);
+    // A parent follows a minor, or a player whose age the club never recorded.
+    // An adult decides for themself who follows them (decision 13), and an
+    // adult with no account couldn't remove a parent the club linked.
+    if (isAdultBirthDate(player.birthDate)) {
       throw new BadRequestException(
-        `${MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER} invitations sont déjà en attente pour ce joueur`,
+        'Ce joueur est majeur : il n’est pas possible d’inviter un parent',
       );
     }
-
     const rawToken = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + GUARDIAN_INVITE_TTL_MS);
-    const invite = await this.prisma.guardianInvite.create({
-      data: { playerId, tokenHash: hashToken(rawToken), expiresAt, createdByUserId },
+
+    // Same player-row lock as linkFromInvite, so two admins issuing links at
+    // once can't both pass the pending-invite cap below.
+    const invite = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "Player" WHERE "id" = ${playerId} FOR UPDATE`;
+      const [guardianCount, pendingCount] = await Promise.all([
+        tx.playerGuardian.count({ where: { playerId } }),
+        tx.guardianInvite.count({
+          where: { playerId, acceptedAt: null, expiresAt: { gt: new Date() } },
+        }),
+      ]);
+      if (guardianCount >= MAX_GUARDIANS_PER_PLAYER) {
+        throw new BadRequestException(TOO_MANY_GUARDIANS);
+      }
+      if (pendingCount >= MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER) {
+        throw new BadRequestException(
+          `${MAX_PENDING_GUARDIAN_INVITES_PER_PLAYER} invitations sont déjà en attente pour ce joueur`,
+        );
+      }
+      return tx.guardianInvite.create({
+        data: { playerId, tokenHash: hashToken(rawToken), expiresAt, createdByUserId },
+      });
+    });
+
+    this.audit.record({
+      type: 'GUARDIAN_INVITE_CREATED',
+      userId: createdByUserId,
+      metadata: { playerId, inviteId: invite.id },
     });
 
     return {
@@ -150,7 +169,12 @@ export class GuardiansService {
 
   // Deleted rather than flagged: a cancelled link is simply unknown afterwards,
   // the same answer an expired one gets.
-  async cancelInvite(clubId: string, playerId: string, inviteId: string): Promise<void> {
+  async cancelInvite(
+    clubId: string,
+    playerId: string,
+    inviteId: string,
+    actorUserId: string,
+  ): Promise<void> {
     await this.findPlayerInClub(clubId, playerId);
     const { count } = await this.prisma.guardianInvite.deleteMany({
       where: { id: inviteId, playerId, acceptedAt: null },
@@ -158,14 +182,29 @@ export class GuardiansService {
     if (count === 0) {
       throw new NotFoundException('Invitation introuvable');
     }
+    this.audit.record({
+      type: 'GUARDIAN_INVITE_CANCELLED',
+      userId: actorUserId,
+      metadata: { playerId, inviteId },
+    });
   }
 
-  async removeGuardian(clubId: string, playerId: string, userId: string): Promise<void> {
+  async removeGuardian(
+    clubId: string,
+    playerId: string,
+    userId: string,
+    actorUserId: string,
+  ): Promise<void> {
     await this.findPlayerInClub(clubId, playerId);
     const { count } = await this.prisma.playerGuardian.deleteMany({ where: { playerId, userId } });
     if (count === 0) {
       throw new NotFoundException('Ce parent n’est pas lié à ce joueur');
     }
+    this.audit.record({
+      type: 'GUARDIAN_LINK_REMOVED',
+      userId: actorUserId,
+      metadata: { playerId, guardianUserId: userId, removedBy: 'CLUB_ADMIN' },
+    });
   }
 
   // ── Public: accepting an invite ───────────────────────────────────────────
@@ -190,9 +229,9 @@ export class GuardiansService {
   /**
    * Creates the parent's account, then links it. The invite and the consent
    * rule are checked *before* registering, so a missing consent never leaves
-   * an orphan account behind; the transaction re-checks both, and only a race
-   * between the two can still fail after registration — the same accepted
-   * cost as InvitesService.accept.
+   * an orphan account behind; the transaction re-checks both, and when a race
+   * between the two makes it fail after registration, the new account is
+   * deleted again.
    */
   async acceptWithRegistration(
     token: string,
@@ -212,11 +251,20 @@ export class GuardiansService {
       data.email,
       data.password,
     );
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { firstName: data.firstName, lastName: data.lastName },
-    });
-    await this.linkFromInvite(invite, user.id, data.consent, context);
+    try {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { firstName: data.firstName, lastName: data.lastName },
+      });
+      await this.linkFromInvite(invite, user.id, data.consent, context);
+    } catch (err) {
+      // The link lost a race (cap reached, link used or expired meanwhile):
+      // the account was created for this link alone and no session was
+      // handed out, so drop it rather than leave an orphan the parent can't
+      // log into without knowing it exists. Its refresh token cascades.
+      await this.prisma.user.delete({ where: { id: user.id } }).catch(() => undefined);
+      throw err;
+    }
 
     // Same fire-and-forget verification link a plain registration gets.
     void this.accountSecurity.sendVerificationEmail(user.id);
@@ -270,10 +318,20 @@ export class GuardiansService {
         throw new NotFoundException('Invitation invalide ou expirée');
       }
       if (invite.acceptedAt) {
-        if (invite.acceptedByUserId === userId) {
-          return false;
+        if (invite.acceptedByUserId !== userId) {
+          throw alreadyAccepted();
         }
-        throw alreadyAccepted();
+        // A second tap from the same account lands where the first did — but
+        // only while the link it made still exists. Once the club or the
+        // player removed this parent, the old link opens nothing.
+        const stillLinked = await tx.playerGuardian.findUnique({
+          where: { playerId_userId: { playerId, userId } },
+          select: { playerId: true },
+        });
+        if (!stillLinked) {
+          throw new NotFoundException('Invitation invalide ou expirée');
+        }
+        return false;
       }
       if (invite.expiresAt < new Date()) {
         throw new NotFoundException('Invitation invalide ou expirée');
@@ -282,6 +340,11 @@ export class GuardiansService {
       const { player } = invite;
       if (player.userId === userId) {
         throw refused('Vous ne pouvez pas être votre propre parent');
+      }
+      // createInvite refuses an adult, but the birth date can be recorded after
+      // the link was issued (or the link predate the rule): re-check under lock.
+      if (isAdultBirthDate(player.birthDate)) {
+        throw refused('Ce joueur est majeur : il n’est pas possible de le suivre comme parent');
       }
       assertConsent(player.birthDate, consent);
 
@@ -372,15 +435,23 @@ export class GuardiansService {
     return `${frontendUrl}/guardian-invite/${token}`;
   }
 
-  private async findPlayerInClub(clubId: string, playerId: string): Promise<void> {
+  private async findPlayerInClub(
+    clubId: string,
+    playerId: string,
+  ): Promise<{ birthDate: Date | null }> {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
-      select: { clubId: true },
+      select: { clubId: true, birthDate: true },
     });
     if (!player || player.clubId !== clubId) {
       throw new NotFoundException('Player not found');
     }
+    return player;
   }
+}
+
+function isAdultBirthDate(birthDate: Date | null): boolean {
+  return birthDate !== null && !isMinorBirthDate(birthDate.toISOString());
 }
 
 // An unknown birth date requires none: a consent record snapshots the birth

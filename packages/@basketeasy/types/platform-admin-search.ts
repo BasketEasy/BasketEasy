@@ -1,6 +1,6 @@
 // The back-office global search: one box that finds a club, team, account,
 // player or event by id, and the first four by name.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part3-search.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 
 export type AdminSearchKind = 'club' | 'team' | 'user' | 'player' | 'event';
 
@@ -11,6 +11,8 @@ export interface AdminSearchHit {
   label: string;
   /** Context that tells two hits apart: a club, an e-mail domain, a date. */
   sublabel: string | null;
+  /** Users only: whether the account confirmed its address. Picking a first club admin warns on false. */
+  emailVerified?: boolean;
 }
 
 export interface AdminSearchResult {

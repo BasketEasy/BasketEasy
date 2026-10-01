@@ -22,7 +22,7 @@ import { PlatformAdminGuard } from '../auth/guards/platform-admin.guard';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { CurrentPlatformRole } from '../auth/decorators/current-platform-role.decorator';
 import type { AdminSearchResult } from '@basketeasy/types/platform-admin-search';
-import { PlatformAdminBrowseService } from './platform-admin-browse.service';
+import { PlatformAdminBrowseService, type PlatformActor } from './platform-admin-browse.service';
 import { PlatformAdminSearchService } from './platform-admin-search.service';
 import { PlatformAdminStatsService } from './platform-admin-stats.service';
 import type { AdminStats } from '@basketeasy/types/platform-admin-stats';
@@ -38,13 +38,19 @@ import {
   AdminUsersQueryDto,
 } from './dto/admin-list-queries.dto';
 
+function actorOf(user: RequestUser, role: PlatformRole): PlatformActor {
+  return { id: user.id, email: user.email, role };
+}
+
 /**
  * Read-only browsing over the club graph, mounted at /api/admin.
  *
  * Open to both platform roles: what differs between them is not *whether* a
  * record can be read but how its people are rendered, which the service
- * decides from the caller's role. See
- * docs/superpowers/specs/2026-09-28-backoffice-v2-part1-read-api.md.
+ * decides from the caller's role. Every read that shows a DATA_OFFICER
+ * people's names (a person list, a roster, an event, a search — any role's
+ * search) writes ADMIN_PII_LISTED before answering. See
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Controller('admin')
 @UseGuards(JwtAuthGuard, PlatformAdminGuard)
@@ -63,11 +69,22 @@ export class PlatformAdminBrowseController {
 
   /** The global search box: an id in any table, or names (per-role rule). */
   @Get('search')
-  search(
+  async search(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Query() query: AdminSearchQueryDto,
+    @Req() request: Request,
   ): Promise<AdminSearchResult> {
-    return this.searchService.search(role, query.q);
+    const result = await this.searchService.search(role, query.q);
+    await this.browse.recordListed(
+      actorOf(user, role),
+      request,
+      'search',
+      result,
+      { q: query.q },
+      { always: true },
+    );
+    return result;
   }
 
   @Get('clubs')
@@ -81,12 +98,19 @@ export class PlatformAdminBrowseController {
   }
 
   @Get('clubs/:clubId/members')
-  listClubMembers(
+  async listClubMembers(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Param('clubId', ParseUUIDPipe) clubId: string,
     @Query() query: AdminClubMembersQueryDto,
+    @Req() request: Request,
   ): Promise<PaginatedResult<AdminClubMember>> {
-    return this.browse.listClubMembers(role, clubId, query);
+    const result = await this.browse.listClubMembers(role, clubId, query);
+    await this.browse.recordListed(actorOf(user, role), request, 'club-members', result, {
+      clubId,
+      ...query,
+    });
+    return result;
   }
 
   @Get('teams')
@@ -95,27 +119,50 @@ export class PlatformAdminBrowseController {
   }
 
   @Get('teams/:teamId')
-  getTeam(
+  async getTeam(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Param('teamId', ParseUUIDPipe) teamId: string,
+    @Req() request: Request,
   ): Promise<AdminTeamDetail> {
-    return this.browse.getTeam(role, teamId);
+    const result = await this.browse.getTeam(role, teamId);
+    await this.browse.recordListed(actorOf(user, role), request, 'team', result, { teamId });
+    return result;
   }
 
   @Get('teams/:teamId/roster')
-  getTeamRoster(
+  async getTeamRoster(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Param('teamId', ParseUUIDPipe) teamId: string,
+    @Req() request: Request,
   ): Promise<AdminRosterEntry[]> {
-    return this.browse.getTeamRoster(role, teamId);
+    const result = await this.browse.getTeamRoster(role, teamId);
+    await this.browse.recordListed(actorOf(user, role), request, 'team-roster', result, {
+      teamId,
+    });
+    return result;
   }
 
   @Get('users')
-  listUsers(
+  async listUsers(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Query() query: AdminUsersQueryDto,
+    @Req() request: Request,
   ): Promise<PaginatedResult<AdminUserSummary>> {
-    return this.browse.listUsers(role, query);
+    const result = await this.browse.listUsers(role, query);
+    // A search (`q`) is recorded for SUPPORT too: an exact-address hit, even
+    // redacted, confirms that the address has an account.
+    await this.browse.recordListed(
+      actorOf(user, role),
+      request,
+      'users',
+      result,
+      { ...query },
+      { always: !!query.q },
+    );
+    return result;
   }
 
   /** Both roles; a DATA_OFFICER's read writes ADMIN_PII_VIEWED. */
@@ -130,11 +177,22 @@ export class PlatformAdminBrowseController {
   }
 
   @Get('players')
-  listPlayers(
+  async listPlayers(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Query() query: AdminPlayersQueryDto,
+    @Req() request: Request,
   ): Promise<PaginatedResult<AdminPlayerSummary>> {
-    return this.browse.listPlayers(role, query);
+    const result = await this.browse.listPlayers(role, query);
+    await this.browse.recordListed(
+      actorOf(user, role),
+      request,
+      'players',
+      result,
+      { ...query },
+      { always: !!query.q },
+    );
+    return result;
   }
 
   /** Both roles; a DATA_OFFICER's read writes ADMIN_PII_VIEWED. */
@@ -154,11 +212,15 @@ export class PlatformAdminBrowseController {
   }
 
   @Get('events/:eventId')
-  getEvent(
+  async getEvent(
+    @CurrentUser() user: RequestUser,
     @CurrentPlatformRole() role: PlatformRole,
     @Param('eventId', ParseUUIDPipe) eventId: string,
+    @Req() request: Request,
   ): Promise<AdminEventDetail> {
-    return this.browse.getEvent(role, eventId);
+    const result = await this.browse.getEvent(role, eventId);
+    await this.browse.recordListed(actorOf(user, role), request, 'event', result, { eventId });
+    return result;
   }
 
   @Get('scoresheets')

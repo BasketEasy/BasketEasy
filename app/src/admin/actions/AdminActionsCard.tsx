@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card } from '@basketeasy/ui/card';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { Text } from '@basketeasy/ui/text';
 
 /**
@@ -14,7 +15,7 @@ export function AdminActionsCard({ children }: { children: ReactNode }) {
       <Text variant="meta" size="sm">
         Chaque action demande un motif et est journalisée.
       </Text>
-      <ul className="m-0 flex list-none flex-col divide-y divide-border p-0">{children}</ul>
+      <List variant="panel">{children}</List>
     </Card>
   );
 }
@@ -29,18 +30,8 @@ export function AdminActionRow({
   action: ReactNode;
 }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0">
-      <div className="flex min-w-40 flex-1 flex-col gap-0.5">
-        <Text as="span" variant="label" size="sm">
-          {title}
-        </Text>
-        {detail && (
-          <Text as="span" variant="meta" size="xs">
-            {detail}
-          </Text>
-        )}
-      </div>
-      {action}
-    </li>
+    <ListItem wrap meta={detail} trailing={action}>
+      {title}
+    </ListItem>
   );
 }

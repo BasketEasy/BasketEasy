@@ -23,6 +23,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: new Date(Date.now() + 3 * DAY_MS).toISOString(),
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',
@@ -48,7 +49,10 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     result: null,
     myMatchStats: null,
     meetingPlan: null,
+    whatsAppShare: null,
+    whatsAppSettings: null,
     myTravelMode: null,
+    jerseyDuty: null,
     ...overrides,
   };
 }
@@ -70,6 +74,7 @@ function mockRoster(people: Person[]) {
     respondedAt: p.status ? '2026-01-02T00:00:00.000Z' : null,
     respondedBy: null,
     respondedByGuardian: false,
+    viaLink: false,
     travelMode: null,
     isMe: false,
   }));

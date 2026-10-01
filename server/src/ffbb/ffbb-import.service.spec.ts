@@ -21,25 +21,43 @@ describe('FfbbImportService', () => {
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     teamFfbbLink: { findMany: jest.Mock };
-    event: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    event: {
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      count: jest.Mock;
+    };
     eventMeeting: { updateMany: jest.Mock };
   };
   let ffbbProvider: { getMatchesForEngagement: jest.Mock; parseEngagementRef: jest.Mock };
   let meetingPoints: { announceMeetingChanges: jest.Mock };
+  let whatsAppReminders: { syncEvents: jest.Mock; onEventsChanged: jest.Mock };
 
   beforeEach(() => {
     prisma = {
       clubTeam: { findUnique: jest.fn() },
       teamFfbbLink: { findMany: jest.fn() },
-      event: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      event: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'event-new' }),
+        update: jest.fn(),
+        count: jest.fn().mockResolvedValue(0),
+      },
       eventMeeting: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     ffbbProvider = { getMatchesForEngagement: jest.fn(), parseEngagementRef: jest.fn() };
     meetingPoints = { announceMeetingChanges: jest.fn().mockResolvedValue(undefined) };
+    whatsAppReminders = {
+      syncEvents: jest.fn().mockResolvedValue(undefined),
+      onEventsChanged: jest.fn().mockResolvedValue(undefined),
+    };
     service = new FfbbImportService(
       prisma as never,
       ffbbProvider as unknown as FfbbProvider,
       meetingPoints as unknown as MeetingPointsService,
+      whatsAppReminders as never,
     );
     prisma.clubTeam.findUnique.mockResolvedValue({
       clubId: 'club-1',
@@ -81,7 +99,7 @@ describe('FfbbImportService', () => {
       data: {
         teamId: 'team-1',
         type: 'MATCH',
-        startsAt: new Date('2026-09-20T18:30:00Z'),
+        startsAt: new Date('2026-09-20T16:30:00Z'),
         location: 'Lieu non communiqué',
         opponentName: 'Nantes Sully Basket',
         externalId: 'match-1',
@@ -89,7 +107,63 @@ describe('FfbbImportService', () => {
         venue: 'HOME',
       },
     });
-    expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, unchanged: 0 });
+  });
+
+  it('reconciles the WhatsApp reminders for a created match and an updated one, not an unchanged one', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      { id: 'link-1', teamId: 'team-1', ffbbEngagementRef: 'r', ffbbEngagementLabel: 'C' },
+    ]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+      competitionLabel: null,
+      matches: [
+        match({ id: 'new' }),
+        match({ id: 'moved', startsAt: '2026-09-27T18:30:00' }),
+        match({ id: 'same' }),
+      ],
+    });
+    const stored = (id: string, startsAt: string) => ({
+      id,
+      startsAt: new Date(startsAt),
+      location: 'Lieu non communiqué',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    });
+    prisma.event.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(stored('event-moved', '2026-09-20T16:30:00Z'))
+      .mockResolvedValueOnce(stored('event-same', '2026-09-20T16:30:00Z'));
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(whatsAppReminders.syncEvents).toHaveBeenCalledTimes(1);
+    expect(whatsAppReminders.syncEvents).toHaveBeenCalledWith(['event-new', 'event-moved']);
+    // Only a match FFBB changed can have made a shared message stale, not a new one.
+    expect(whatsAppReminders.onEventsChanged).toHaveBeenCalledWith(['event-moved']);
+  });
+
+  it('tells the provider which matches already have a venue, so it reads the others first', async () => {
+    prisma.teamFfbbLink.findMany.mockResolvedValue([
+      { id: 'link-1', teamId: 'team-1', ffbbEngagementRef: 'ref-1', ffbbEngagementLabel: null },
+    ]);
+    prisma.event.findMany.mockResolvedValueOnce([{ externalId: 'm-known' }]);
+    ffbbProvider.getMatchesForEngagement.mockResolvedValue({ competitionLabel: null, matches: [] });
+
+    await service.importSchedule('club-1', 'team-1');
+
+    expect(prisma.event.findMany).toHaveBeenCalledWith({
+      where: {
+        teamId: 'team-1',
+        externalId: { not: null },
+        location: { not: 'Lieu non communiqué' },
+      },
+      select: { externalId: true },
+    });
+    expect(ffbbProvider.getMatchesForEngagement).toHaveBeenCalledWith('ref-1', {
+      resolveVenues: true,
+      knownVenueMatchIds: new Set(['m-known']),
+    });
   });
 
   it('asks the provider to resolve venues and writes the address to the event', async () => {
@@ -113,6 +187,7 @@ describe('FfbbImportService', () => {
 
     expect(ffbbProvider.getMatchesForEngagement).toHaveBeenCalledWith('ref-1', {
       resolveVenues: true,
+      knownVenueMatchIds: new Set(),
     });
     expect(prisma.event.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -136,7 +211,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -149,7 +224,7 @@ describe('FfbbImportService', () => {
       where: { id: 'event-1' },
       data: expect.objectContaining({ location: 'Gymnase du Loquidy, Nantes' }),
     });
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('keeps an already-imported address when a re-sync resolves no venue', async () => {
@@ -167,7 +242,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Salle de la Herdrie, 12 rue des Sports, 44115 Basse-Goulaine',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -177,7 +252,150 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
+  });
+
+  describe('a venue a manager typed', () => {
+    const manualVenue = {
+      id: 'event-1',
+      startsAt: new Date('2026-09-20T16:30:00Z'),
+      location: '12 rue des Sports, Rezé',
+      locationName: 'Gymnase de la Trocardière',
+      opponentName: 'Nantes Sully Basket',
+      timeConfirmed: true,
+      venue: 'HOME',
+    };
+
+    beforeEach(() => {
+      prisma.teamFfbbLink.findMany.mockResolvedValue([
+        {
+          id: 'link-1',
+          teamId: 'team-1',
+          ffbbEngagementRef: 'ref-1',
+          ffbbEngagementLabel: 'Championnat',
+        },
+      ]);
+      prisma.event.findUnique.mockResolvedValue(manualVenue);
+    });
+
+    it('is replaced by a different FFBB venue, and its name cleared', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: 'Gymnase du Loquidy, Nantes' })],
+      });
+
+      await service.importSchedule('club-1', 'team-1');
+
+      expect(prisma.event.update).toHaveBeenCalledWith({
+        where: { id: 'event-1' },
+        data: expect.objectContaining({
+          location: 'Gymnase du Loquidy, Nantes',
+          locationName: null,
+        }),
+      });
+    });
+
+    it('is kept, name included, when FFBB has no venue', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: null })],
+      });
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      expect(prisma.event.update).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
+    });
+
+    it('keeps its name when FFBB returns the same address and something else changed', async () => {
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [match({ location: '12 rue des Sports, Rezé', startsAt: '2026-09-21T19:00:00' })],
+      });
+
+      await service.importSchedule('club-1', 'team-1');
+
+      const { data } = prisma.event.update.mock.calls[0][0];
+      expect(data.location).toBe('12 rue des Sports, Rezé');
+      expect(data.locationName).toBeUndefined();
+    });
+  });
+
+  describe('matches left without a venue', () => {
+    beforeEach(() => {
+      prisma.teamFfbbLink.findMany.mockResolvedValue([
+        {
+          id: 'link-1',
+          teamId: 'team-1',
+          ffbbEngagementRef: 'ref-1',
+          ffbbEngagementLabel: 'Championnat',
+        },
+      ]);
+      ffbbProvider.getMatchesForEngagement.mockResolvedValue({
+        competitionLabel: null,
+        matches: [],
+      });
+    });
+
+    it('lists the upcoming imported matches of this team still on the placeholder, soonest first', async () => {
+      prisma.event.findMany.mockImplementation(({ take }) =>
+        Promise.resolve(
+          take
+            ? [
+                {
+                  id: 'event-1',
+                  opponentName: 'Rezé',
+                  startsAt: new Date('2099-10-04T13:30:00Z'),
+                },
+              ]
+            : [],
+        ),
+      );
+      prisma.event.count.mockResolvedValue(1);
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      const where = {
+        teamId: 'team-1',
+        type: 'MATCH',
+        externalId: { not: null },
+        location: 'Lieu non communiqué',
+        startsAt: { gt: expect.any(Date) },
+      };
+      // A match with a manual venue no longer has the placeholder, so the
+      // query itself leaves it out.
+      expect(prisma.event.findMany).toHaveBeenCalledWith({
+        where,
+        orderBy: { startsAt: 'asc' },
+        take: 20,
+        select: { id: true, opponentName: true, startsAt: true },
+      });
+      expect(prisma.event.count).toHaveBeenCalledWith({ where });
+      expect(result.missingVenue).toEqual([
+        { eventId: 'event-1', opponentName: 'Rezé', startsAt: '2099-10-04T13:30:00.000Z' },
+      ]);
+      expect(result.missingVenueTotal).toBe(1);
+    });
+
+    it('caps the list at 20 and still reports the full count', async () => {
+      prisma.event.findMany.mockImplementation(({ take }) =>
+        Promise.resolve(
+          take
+            ? Array.from({ length: take }, (_, i) => ({
+                id: `event-${i}`,
+                opponentName: null,
+                startsAt: new Date(Date.UTC(2099, 0, i + 1)),
+              }))
+            : [],
+        ),
+      );
+      prisma.event.count.mockResolvedValue(23);
+
+      const result = await service.importSchedule('club-1', 'team-1');
+
+      expect(result.missingVenue).toHaveLength(20);
+      expect(result.missingVenueTotal).toBe(23);
+    });
   });
 
   it('clamps an over-long address to what the event DTO will accept back', async () => {
@@ -217,7 +435,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -229,7 +447,7 @@ describe('FfbbImportService', () => {
     expect(prisma.event.update).toHaveBeenCalledWith({
       where: { id: 'event-1' },
       data: {
-        startsAt: new Date('2026-09-21T19:00:00Z'),
+        startsAt: new Date('2026-09-21T17:00:00Z'),
         location: 'Lieu non communiqué',
         opponentName: 'Nantes Sully Basket',
         timeConfirmed: true,
@@ -244,7 +462,7 @@ describe('FfbbImportService', () => {
     });
     expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
     expect(prisma.event.create).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('leaves an existing event unchanged when nothing actually differs', async () => {
@@ -262,7 +480,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -272,7 +490,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
   });
 
   it('never re-touches an already-played match even if fields differ', async () => {
@@ -290,7 +508,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -299,7 +517,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ created: 0, updated: 0, unchanged: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, unchanged: 1 });
   });
 
   it('still creates a first-time import of an already-played match', async () => {
@@ -320,7 +538,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.create).toHaveBeenCalled();
-    expect(result).toEqual({ created: 1, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, unchanged: 0 });
   });
 
   it('propagates isImported-relevant timeConfirmed:false onto the created event', async () => {
@@ -382,7 +600,7 @@ describe('FfbbImportService', () => {
     });
     prisma.event.findUnique.mockResolvedValue({
       id: 'event-1',
-      startsAt: new Date('2026-09-20T18:30:00Z'),
+      startsAt: new Date('2026-09-20T16:30:00Z'),
       location: 'Lieu non communiqué',
       opponentName: 'Nantes Sully Basket',
       timeConfirmed: true,
@@ -394,7 +612,7 @@ describe('FfbbImportService', () => {
     expect(prisma.event.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ venue: 'AWAY' }) }),
     );
-    expect(result).toEqual({ created: 0, updated: 1, unchanged: 0 });
+    expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });
 
   it('imports matches from two linked engagements with no id collision, into one combined result', async () => {
@@ -418,7 +636,7 @@ describe('FfbbImportService', () => {
     const result = await service.importSchedule('club-1', 'team-1');
 
     expect(prisma.event.create).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ created: 2, updated: 0, unchanged: 0 });
+    expect(result).toMatchObject({ created: 2, updated: 0, unchanged: 0 });
   });
 
   it('aborts the whole import and names the failing link when one engagement fetch fails', async () => {

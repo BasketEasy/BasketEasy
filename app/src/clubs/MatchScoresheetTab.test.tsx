@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { focusManager } from '@tanstack/react-query';
 import type { EventScoresheet, TeamEvent } from '@basketeasy/types/events';
 import type {
   ParsedScoresheetData,
@@ -17,6 +18,7 @@ const matchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: '2026-01-01T18:00:00.000Z',
   location: 'Gymnase Pierre de Coubertin',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
@@ -42,7 +44,10 @@ const matchEvent: TeamEvent = {
   result: null,
   myMatchStats: null,
   meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const uploadedStatus: EventScoresheet = {
@@ -430,6 +435,53 @@ describe('MatchScoresheetTab', () => {
     expect(screen.getAllByDisplayValue('58').length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue('Karim Belaïd')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Confirmer ces données/ })).toBeEnabled();
+  });
+
+  it('re-seeds the corrections when a refetch brings a different read', async () => {
+    mockStatus(statusFor('PARSED'));
+    const extraction: ScoresheetExtraction = {
+      status: 'PARSED',
+      parsedData,
+      confidence: 0.96,
+      failureReason: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      suggestedRosterMapping: [],
+    };
+    mockExtraction(extraction);
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    // A correction typed against the first read…
+    const name = await screen.findByDisplayValue('Karim Belaïd');
+    await user.clear(name);
+    await user.type(name, 'Corrigé à la main');
+
+    // …must not survive a new read of the sheet (a retried OCR).
+    mockExtraction({
+      ...extraction,
+      parsedData: {
+        ...parsedData,
+        players: [{ ...parsedData.players[0], name: 'Karim B.' }, parsedData.players[1]],
+      },
+    });
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(await screen.findByDisplayValue('Karim B.')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Corrigé à la main')).not.toBeInTheDocument();
+    focusManager.setFocused(undefined);
   });
 
   describe('roster mapping step', () => {

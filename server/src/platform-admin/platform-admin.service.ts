@@ -26,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { auditContextOf } from './audit-context';
 import { RetentionService } from '../retention/retention.service';
+import { jerseyDutyStatus } from '../events/jersey-duty-rules';
 import { clientIpOf, isIpAllowed } from './client-ip.util';
 import {
   lockedUntilCleared,
@@ -52,6 +53,7 @@ const EXPORT_NOTICE = {
     'Les votes émis par la personne sont listés sans le joueur désigné : le vote entre coéquipiers est anonyme par construction, et la désignation est une donnée relative à un tiers (art. 15.4).',
     "Les consultations et actions effectuées par un administrateur sur ce compte sont datées mais n'identifient pas l'administrateur concerné (art. 15.4).",
     "Les abonnements aux notifications push sont listés sans leur adresse technique ni leurs clés : celles-ci constituent un moyen d'envoi actif vers l'appareil, et non une donnée descriptive de la personne.",
+    "Les actions « Fait » ou « Annulé » d'un responsable d'équipe sur un tour de lavage des maillots de la personne ne sont pas incluses : ce sont des actes de ce responsable (art. 15.4). Un tour accepté en son nom par un parent est signalé sans identifier ce parent.",
     "Les enfants dont la personne est responsable légal·e sont nommés, mais leur profil, leurs statistiques et leurs propres réponses n'y figurent pas : ce sont les données de l'enfant (art. 15.4). Une réponse donnée au nom de la personne par un parent est signalée sans identifier ce parent, et un consentement parental la concernant est daté sans nommer qui l'a donné.",
   ],
 };
@@ -255,8 +257,8 @@ export class PlatformAdminService {
    * "the newest row" could hand the caller the nightly sweep's row instead of
    * their own. The client refreshes the history list anyway.
    */
-  async runRetentionDryRun(): Promise<RetentionStepSummary[]> {
-    const summary = await this.retention.run(true);
+  async runRetentionDryRun(adminUserId: string): Promise<RetentionStepSummary[]> {
+    const summary = await this.retention.run(true, adminUserId);
     return toStepSummaries(summary as unknown as Prisma.JsonValue);
   }
 
@@ -285,10 +287,17 @@ export class PlatformAdminService {
 
     const subject = await this.prisma.user.findUnique({
       where: { id: subjectUserId },
-      select: { email: true },
+      select: { email: true, platformAdmin: { select: { userId: true } } },
     });
     if (!subject) {
       throw new NotFoundException('Compte introuvable');
+    }
+    // Same line as impersonation: staff accounts are managed out-of-band
+    // (the CLI revokes the grant first), never by another staff member here.
+    if (subject.platformAdmin) {
+      throw new ForbiddenException(
+        'Ce compte détient un accès back-office : révoquez-le d’abord avec la CLI',
+      );
     }
 
     const ipAddress = clientIpOf(request);
@@ -377,6 +386,7 @@ export class PlatformAdminService {
       auditEntries,
       reviewedExtractions,
       answersGivenForOthers,
+      jerseyDutiesAcceptedForOthers,
       consentsGiven,
       consentsAboutSubject,
     ] = await Promise.all([
@@ -399,6 +409,10 @@ export class PlatformAdminService {
               uploadedScoresheets: { include: { event: { select: { startsAt: true } } } },
               jerseysAssignedEvents: { select: { startsAt: true } },
               ballsAssignedEvents: { select: { startsAt: true } },
+              // doneBy/voidedBy are never read: a manager's act on this turn, art. 15(4).
+              jerseyDuties: {
+                include: { event: { select: { startsAt: true } } },
+              },
             },
           },
         },
@@ -408,6 +422,8 @@ export class PlatformAdminService {
           OR: [
             { userId: subjectUserId },
             { metadata: { path: ['subjectUserId'], equals: subjectUserId } },
+            // A parent removed by a club admin: the row's actor is the admin.
+            { metadata: { path: ['guardianUserId'], equals: subjectUserId } },
           ],
         },
         orderBy: { createdAt: 'asc' },
@@ -431,6 +447,20 @@ export class PlatformAdminService {
           teamPlayer: { select: { player: { select: { firstName: true } } } },
         },
         orderBy: { respondedAt: 'asc' },
+      }),
+      this.prisma.eventJerseyDuty.findMany({
+        where: {
+          acceptedByUserId: subjectUserId,
+          teamPlayer: {
+            player: { OR: [{ userId: null }, { userId: { not: subjectUserId } }] },
+          },
+        },
+        select: {
+          acceptedAt: true,
+          event: { select: { startsAt: true } },
+          teamPlayer: { select: { player: { select: { firstName: true } } } },
+        },
+        orderBy: { acceptedAt: 'asc' },
       }),
       this.prisma.parentalConsent.findMany({
         where: { attestedByUserId: subjectUserId },
@@ -528,6 +558,20 @@ export class PlatformAdminService {
               eventStartsAt: event.startsAt.toISOString(),
               duty: 'BALLS' as const,
             })),
+            ...teamPlayer.jerseyDuties.map((duty) => ({
+              eventStartsAt: duty.event.startsAt.toISOString(),
+              duty: 'JERSEY_WASH' as const,
+              status: jerseyDutyStatus(duty),
+              // Who accepted, never by name: a guardian is a third party.
+              acceptedBy:
+                duty.acceptedAt === null
+                  ? null
+                  : duty.acceptedByUserId === null
+                    ? ('UNKNOWN' as const)
+                    : duty.acceptedByUserId === subjectUserId
+                      ? ('SELF' as const)
+                      : ('SOMEONE_ELSE' as const),
+            })),
           ],
         })),
       })),
@@ -568,12 +612,23 @@ export class PlatformAdminService {
           travelMode: rsvp.travelMode,
           respondedAt: rsvp.respondedAt.toISOString(),
         })),
+        jerseyDutyAcceptedForOthers: jerseyDutiesAcceptedForOthers.flatMap((duty) =>
+          duty.acceptedAt
+            ? [
+                {
+                  childFirstName: duty.teamPlayer?.player.firstName ?? '',
+                  eventStartsAt: duty.event.startsAt.toISOString(),
+                  acceptedAt: duty.acceptedAt.toISOString(),
+                },
+              ]
+            : [],
+        ),
       },
       parentalConsents: {
         // playerBirthDate is deliberately not read: it is the minor's data.
         given: consentsGiven.map((consent) => ({
           source: consent.source,
-          clubName: consent.club.name,
+          clubName: consent.club?.name ?? consent.clubName ?? 'Club supprimé',
           minorFirstName: consent.playerFirstName,
           minorLastName: consent.playerLastName,
           consentGivenAt: consent.consentGivenAt.toISOString(),
@@ -581,7 +636,7 @@ export class PlatformAdminService {
         // attestedByName/attestedByUserId deliberately not read: art. 15(4).
         aboutThisPerson: consentsAboutSubject.map((consent) => ({
           source: consent.source,
-          clubName: consent.club.name,
+          clubName: consent.club?.name ?? consent.clubName ?? 'Club supprimé',
           consentGivenAt: consent.consentGivenAt.toISOString(),
         })),
       },
@@ -602,7 +657,10 @@ export class PlatformAdminService {
           : [],
       ),
       securityLog: auditEntries.map((entry) => {
-        const actedByThisPerson = entry.userId === subjectUserId;
+        // A reset link staff sent carries the subject's userId but was not
+        // something the subject did.
+        const byStaff = asMetadata(entry.metadata)?.requestedByStaff === true;
+        const actedByThisPerson = entry.userId === subjectUserId && !byStaff;
         return {
           type: entry.type,
           createdAt: entry.createdAt.toISOString(),
@@ -627,22 +685,55 @@ export class PlatformAdminService {
    * `subjectPlayerId` covers views of a player record, which may have no
    * account at all. Given together, the two filters narrow each other.
    */
+  /**
+   * The log holds subject addresses and free-text reasons, so reading it is
+   * itself recorded (ADMIN_PII_LISTED, view `audit-log`), awaited first.
+   */
   async listAuditLog(
+    actor: { id: string; email: string },
     filter: { subjectUserId?: string; subjectPlayerId?: string; action?: string },
     page: number,
     pageSize: number,
+    request: Request,
   ): Promise<PaginatedResult<AuditLogEntry>> {
+    await this.audit.recordAndWait({
+      type: 'ADMIN_PII_LISTED',
+      userId: actor.id,
+      actorEmail: actor.email,
+      metadata: {
+        view: 'audit-log',
+        filters: Object.fromEntries(
+          Object.entries({ ...filter, page }).filter(([, value]) => value !== undefined),
+        ),
+      },
+      context: auditContextOf(request),
+    });
     const clauses: Prisma.AuditLogWhereInput[] = [];
     if (filter.subjectUserId) {
       clauses.push({
         OR: [
           { userId: filter.subjectUserId },
           { metadata: { path: ['subjectUserId'], equals: filter.subjectUserId } },
+          // GUARDIAN_LINK_REMOVED names the parent here, the actor being the admin.
+          { metadata: { path: ['guardianUserId'], equals: filter.subjectUserId } },
+          // Shown on someone else's profile, or on a list page.
+          {
+            metadata: { path: ['disclosedUserIds'], array_contains: [filter.subjectUserId] },
+          },
         ],
       });
     }
     if (filter.subjectPlayerId) {
-      clauses.push({ metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } });
+      clauses.push({
+        OR: [
+          { metadata: { path: ['subjectPlayerId'], equals: filter.subjectPlayerId } },
+          // GUARDIAN_* rows (who was given access to this player's data).
+          { metadata: { path: ['playerId'], equals: filter.subjectPlayerId } },
+          {
+            metadata: { path: ['disclosedPlayerIds'], array_contains: [filter.subjectPlayerId] },
+          },
+        ],
+      });
     }
     if (filter.action) {
       clauses.push({

@@ -1,4 +1,8 @@
-import { cancellationNotification, convocationNotification } from './event-notification-copy';
+import {
+  cancellationNotification,
+  convocationNotification,
+  venueChangedNotification,
+} from './event-notification-copy';
 
 // 20:30 Paris time in January (UTC+1). Formatting in UTC would render this as
 // 19:30 for every French reader, which is the bug this module exists to avoid.
@@ -11,6 +15,7 @@ describe('event notification copy', () => {
         type: 'MATCH',
         startsAt: WINTER_EVENING,
         location: 'Gymnase Léo Lagrange',
+        locationName: null,
         opponentName: 'ASVEL',
       });
 
@@ -21,6 +26,19 @@ describe('event notification copy', () => {
       expect(copy.body).not.toContain('RDV');
     });
 
+    it('names the gym when a manager gave one, not the address', () => {
+      const copy = convocationNotification('U15 M', {
+        type: 'MATCH',
+        startsAt: WINTER_EVENING,
+        location: '12 rue des Sports, Rezé',
+        locationName: 'Gymnase de la Trocardière',
+        opponentName: 'ASVEL',
+      });
+
+      expect(copy.body).toContain('à Gymnase de la Trocardière.');
+      expect(copy.body).not.toContain('12 rue des Sports');
+    });
+
     it('adds the meeting point and its Paris time once one is known', () => {
       const copy = convocationNotification(
         'U15 M',
@@ -28,6 +46,7 @@ describe('event notification copy', () => {
           type: 'MATCH',
           startsAt: WINTER_EVENING,
           location: 'Gymnase Léo Lagrange',
+          locationName: null,
           opponentName: 'ASVEL',
         },
         { meetsAt: new Date('2026-01-10T18:15:00.000Z'), placeName: 'Parking salle Coubertin' },
@@ -68,6 +87,7 @@ describe('event notification copy', () => {
       type: 'MATCH' as const,
       startsAt: WINTER_EVENING,
       location: 'Gymnase Léo Lagrange',
+      locationName: null,
       opponentName: 'ASVEL',
     };
 
@@ -100,6 +120,36 @@ describe('event notification copy', () => {
 
       expect(copy.body).toBe(
         'Pour Léo : Le match contre ASVEL du samedi 10 janvier à 20:30 a été annulé.',
+      );
+    });
+  });
+
+  describe('venueChangedNotification', () => {
+    const match = { type: 'MATCH' as const, startsAt: WINTER_EVENING, opponentName: 'ASVEL' };
+
+    it('names the match, its moment and the new venue', () => {
+      const copy = venueChangedNotification('U15 M', match, 'Gymnase de la Trocardière', 1);
+
+      expect(copy.title).toBe('Changement de salle — U15 M');
+      expect(copy.body).toBe(
+        'Le match contre ASVEL du samedi 10 janvier à 20:30 se jouera à Gymnase de la Trocardière.',
+      );
+    });
+
+    it('summarises a series instead of naming each match', () => {
+      const copy = venueChangedNotification('U15 M', match, 'Salle B', 3);
+
+      expect(copy.body).toBe('Les 3 prochains matchs de cette série se joueront à Salle B.');
+    });
+
+    it('names the child for a guardian', () => {
+      const subject = { self: false, children: [{ firstName: 'Léo' }] };
+
+      expect(venueChangedNotification('U15 M', match, 'Salle B', 1, subject).body).toBe(
+        'Pour Léo : Le match contre ASVEL du samedi 10 janvier à 20:30 se jouera à Salle B.',
+      );
+      expect(venueChangedNotification('U15 M', match, 'Salle B', 2, subject).body).toBe(
+        'Pour Léo : Les 2 prochains matchs de cette série se joueront à Salle B.',
       );
     });
   });

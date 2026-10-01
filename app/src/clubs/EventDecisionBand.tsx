@@ -7,6 +7,7 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import type { EventRosterCounts } from './useEventRoster';
 import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
+import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /**
  * Says what the call-up *means*, in a sentence.
@@ -86,11 +87,11 @@ export function EventDecisionBand({
       id={id}
       variant="panel"
       tone={event.myConvocation ? 'brand' : 'neutral'}
-      className="flex scroll-mt-20 flex-col gap-2"
+      className={`flex flex-col gap-2 ${EVENT_SECTION_SCROLL_MARGIN}`}
     >
       {event.myConvocation && (
         <Badge variant="solid" tone="brand" size="md" className="w-fit gap-1.5">
-          <ConvocationIcon size={13} className="shrink-0" />
+          <ConvocationIcon size="sm" className="shrink-0" />
           {childName ? `${childName} est convoqué·e` : 'Vous êtes convoqué·e'}
         </Badge>
       )}

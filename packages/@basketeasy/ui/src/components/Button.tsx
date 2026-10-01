@@ -20,12 +20,20 @@ const buttonVariants = cva(
         outline: 'border border-border-strong bg-surface-2 text-charcoal hover:bg-sunk',
         ghost: 'bg-transparent text-charcoal hover:bg-blue-green-tint',
         destructive: 'bg-error text-cream hover:bg-error/90 shadow-segment-active',
+        /** An outline control on a filled dark ground (a `critical` Alert). */
+        inverse: 'border border-cream/70 bg-transparent text-cream hover:bg-cream/10',
       },
       size: {
         sm: 'h-9 px-3 text-sm',
         default: 'h-11 px-4 text-sm md:h-10',
         lg: 'h-12 px-6 text-base',
         icon: 'h-11 w-11',
+        /**
+         * A secondary header action: a square icon button below `md`, the icon
+         * plus its label from `md`. The caller renders the icon, a
+         * `span.hidden.md:inline` label and an `aria-label`.
+         */
+        'icon-responsive': 'h-9 w-9 shrink-0 px-0 text-sm md:w-auto md:px-3',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
@@ -81,7 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
         type={type}
       >
-        {loading && <Spinner className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />}
+        {loading && <Spinner size="md" className="shrink-0 animate-spin" aria-hidden="true" />}
         {children}
       </button>
     );

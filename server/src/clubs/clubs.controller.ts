@@ -171,16 +171,6 @@ export class ClubsController {
     return this.clubsService.recordParentalConsent(clubId, playerId, dto.attestedByName, user.id);
   }
 
-  @Get(':clubId/players/:playerId/parental-consent')
-  @UseGuards(ClubRolesGuard)
-  @ClubRoles('ADMIN')
-  getParentalConsent(
-    @Param('clubId') clubId: string,
-    @Param('playerId') playerId: string,
-  ): Promise<ParentalConsent | null> {
-    return this.clubsService.getParentalConsent(clubId, playerId);
-  }
-
   @Post(':clubId/players/:playerId/invite')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN')

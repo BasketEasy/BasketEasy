@@ -35,6 +35,10 @@
       "types": "./src/components/CountBadge.tsx",
       "default": "./src/components/CountBadge.tsx"
     },
+    "./icon-badge": {
+      "types": "./src/components/IconBadge.tsx",
+      "default": "./src/components/IconBadge.tsx"
+    },
     "./badge": {
       "types": "./src/components/Badge.tsx",
       "default": "./src/components/Badge.tsx"
@@ -55,6 +59,10 @@
       "types": "./src/components/Textarea.tsx",
       "default": "./src/components/Textarea.tsx"
     },
+    "./list": {
+      "types": "./src/components/List.tsx",
+      "default": "./src/components/List.tsx"
+    },
     "./card": {
       "types": "./src/components/Card.tsx",
       "default": "./src/components/Card.tsx"
@@ -70,6 +78,10 @@
     "./alert": {
       "types": "./src/components/Alert.tsx",
       "default": "./src/components/Alert.tsx"
+    },
+    "./switch": {
+      "types": "./src/components/Switch.tsx",
+      "default": "./src/components/Switch.tsx"
     },
     "./checkbox": {
       "types": "./src/components/Checkbox.tsx",
@@ -123,6 +135,10 @@
       "types": "./src/components/icons/UsersIcon.tsx",
       "default": "./src/components/icons/UsersIcon.tsx"
     },
+    "./icons/warning": {
+      "types": "./src/components/icons/WarningIcon.tsx",
+      "default": "./src/components/icons/WarningIcon.tsx"
+    },
     "./icons/trophy": {
       "types": "./src/components/icons/TrophyIcon.tsx",
       "default": "./src/components/icons/TrophyIcon.tsx"
@@ -150,6 +166,18 @@
     "./icons/check": {
       "types": "./src/components/icons/Check.tsx",
       "default": "./src/components/icons/Check.tsx"
+    },
+    "./icons/chevron-down": {
+      "types": "./src/components/icons/ChevronDownIcon.tsx",
+      "default": "./src/components/icons/ChevronDownIcon.tsx"
+    },
+    "./icons/chevron-left": {
+      "types": "./src/components/icons/ChevronLeftIcon.tsx",
+      "default": "./src/components/icons/ChevronLeftIcon.tsx"
+    },
+    "./icons/plus": {
+      "types": "./src/components/icons/PlusIcon.tsx",
+      "default": "./src/components/icons/PlusIcon.tsx"
     },
     "./icons/chevron-right": {
       "types": "./src/components/icons/ChevronRightIcon.tsx",
@@ -203,6 +231,22 @@
       "types": "./src/components/Skeleton.tsx",
       "default": "./src/components/Skeleton.tsx"
     },
+    "./section-accordion": {
+      "types": "./src/components/SectionAccordion.tsx",
+      "default": "./src/components/SectionAccordion.tsx"
+    },
+    "./page-header": {
+      "types": "./src/components/PageHeader.tsx",
+      "default": "./src/components/PageHeader.tsx"
+    },
+    "./page-hero": {
+      "types": "./src/components/PageHero.tsx",
+      "default": "./src/components/PageHero.tsx"
+    },
+    "./fact-tile": {
+      "types": "./src/components/FactTile.tsx",
+      "default": "./src/components/FactTile.tsx"
+    },
     "./section-heading": {
       "types": "./src/components/SectionHeading.tsx",
       "default": "./src/components/SectionHeading.tsx"
@@ -247,6 +291,14 @@
       "types": "./src/components/icons/UserIcon.tsx",
       "default": "./src/components/icons/UserIcon.tsx"
     },
+    "./icons/bag": {
+      "types": "./src/components/icons/BagIcon.tsx",
+      "default": "./src/components/icons/BagIcon.tsx"
+    },
+    "./icons/swap": {
+      "types": "./src/components/icons/SwapIcon.tsx",
+      "default": "./src/components/icons/SwapIcon.tsx"
+    },
     "./icons/route": {
       "types": "./src/components/icons/RouteIcon.tsx",
       "default": "./src/components/icons/RouteIcon.tsx"
@@ -254,6 +306,10 @@
     "./icons/bell": {
       "types": "./src/components/icons/BellIcon.tsx",
       "default": "./src/components/icons/BellIcon.tsx"
+    },
+    "./template-editor": {
+      "types": "./src/components/TemplateEditor.tsx",
+      "default": "./src/components/TemplateEditor.tsx"
     }
   },
   "scripts": {
@@ -269,16 +325,24 @@
     "react-dom": "^18.3.1"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.1",
     "@radix-ui/react-dropdown-menu": "^2.1.1",
-    "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-select": "^2.1.1",
     "@radix-ui/react-slot": "^1.3.3",
+    "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.1.2",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-document": "^3.31.3",
+    "@tiptap/extension-paragraph": "^3.31.3",
+    "@tiptap/extension-text": "^3.31.3",
+    "@tiptap/extensions": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "recharts": "^3.10.1",

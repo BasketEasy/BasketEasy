@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { MyGuardiansService } from './my-guardians.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 const MINOR_BIRTH = new Date('2015-05-01T00:00:00.000Z');
 const ADULT_BIRTH = new Date('1990-05-01T00:00:00.000Z');
@@ -29,7 +30,10 @@ describe('MyGuardiansService', () => {
     parentalConsent: { findFirst: jest.Mock };
   };
 
+  let audit: { record: jest.Mock };
+
   beforeEach(async () => {
+    audit = { record: jest.fn() };
     prisma = {
       clubMembership: { count: jest.fn().mockResolvedValue(0) },
       teamAdmin: { count: jest.fn().mockResolvedValue(0) },
@@ -49,7 +53,11 @@ describe('MyGuardiansService', () => {
       parentalConsent: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     const module = await Test.createTestingModule({
-      providers: [MyGuardiansService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        MyGuardiansService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: audit },
+      ],
     }).compile();
     service = module.get(MyGuardiansService);
   });
@@ -177,7 +185,7 @@ describe('MyGuardiansService', () => {
         id: 'child-1',
         firstName: 'Léo',
         lastName: 'Martin',
-        birthDate: null,
+        birthDate: MINOR_BIRTH,
         gender: null,
         clubId: 'club-1',
         club: { name: 'ASBC' },
@@ -198,6 +206,21 @@ describe('MyGuardiansService', () => {
           birthDate: new Date('2015-05-01'),
         },
       });
+    });
+
+    it.each([
+      ['an adult', ADULT_BIRTH],
+      ['a player with no birth date', null],
+    ])('refuses to edit %s', async (_label, birthDate) => {
+      prisma.player.findUniqueOrThrow.mockResolvedValue({ birthDate });
+
+      await expect(
+        service.updateChild('parent-1', 'child-1', { firstName: 'X' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.updateChild('parent-1', 'child-1', { birthDate: '2015-05-01' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.player.update).not.toHaveBeenCalled();
     });
 
     it('lets a parent correct a minor’s birth date within minority', async () => {
@@ -235,6 +258,11 @@ describe('MyGuardiansService', () => {
       expect(prisma.playerGuardian.deleteMany).toHaveBeenCalledWith({
         where: { playerId: 'child-1', userId: 'parent-1' },
       });
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'GUARDIAN_LINK_REMOVED',
+        userId: 'parent-1',
+        metadata: { playerId: 'child-1', guardianUserId: 'parent-1', removedBy: 'GUARDIAN' },
+      });
     });
   });
 
@@ -254,6 +282,11 @@ describe('MyGuardiansService', () => {
 
       expect(prisma.playerGuardian.deleteMany).toHaveBeenCalledWith({
         where: { playerId: 'player-1', userId: 'parent-1' },
+      });
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'GUARDIAN_LINK_REMOVED',
+        userId: 'user-1',
+        metadata: { playerId: 'player-1', guardianUserId: 'parent-1', removedBy: 'PLAYER' },
       });
     });
 

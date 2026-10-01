@@ -8,6 +8,7 @@ import { renderWithProviders } from '../testUtils';
 import type { AdminUserDetail } from '@basketeasy/types/platform-admin-browse';
 import { AdminUserDetailPage } from './AdminUserDetailPage';
 import { clearPlatformSession, startPlatformSession } from './platformSession';
+import { dropImpersonation, isImpersonating } from '../impersonation/impersonationSession';
 
 const CLUB = { id: 'club-1', name: 'BC Nantes' };
 
@@ -63,6 +64,7 @@ function renderDetail() {
     <Routes>
       <Route path="/admin/users/:userId" element={<AdminUserDetailPage />} />
       <Route path="/admin/users" element={<p>Comptes inactifs</p>} />
+      <Route path="/dashboard" element={<p>Accueil produit</p>} />
     </Routes>,
     { route: '/admin/users/user-9' },
   );
@@ -83,6 +85,12 @@ describe('AdminUserDetailPage', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: 'J. D.' })).toBeInTheDocument();
+    expect(screen.getByText('Utilisateur')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Utilisateurs' })).toHaveAttribute(
+      'href',
+      '/admin/users',
+    );
     expect(screen.getByText('…@example.org')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Effacer ce compte' })).not.toBeInTheDocument();
     expect(screen.queryByText('Export RGPD')).not.toBeInTheDocument();
@@ -245,6 +253,91 @@ describe('AdminUserDetailPage', () => {
         await screen.findByText('L’export a échoué. Aucun fichier n’a été produit.'),
       ).toBeInTheDocument();
       expect(clicked).toEqual([]);
+    });
+  });
+
+  describe('Consulter en tant que', () => {
+    afterEach(() => {
+      dropImpersonation();
+    });
+
+    it('is offered to a DATA_OFFICER, and not for an account holding a back-office grant', async () => {
+      server.use(
+        http.get('/api/admin/users/user-9', () =>
+          HttpResponse.json({ ...USER, platformRole: 'SUPPORT' }),
+        ),
+      );
+
+      renderDetail();
+
+      expect(await screen.findByText('jean.dupont@example.org')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Voir en tant que…' })).not.toBeInTheDocument();
+    });
+
+    it('is not offered to SUPPORT', async () => {
+      startSession('SUPPORT');
+      server.use(http.get('/api/admin/users/user-9', () => HttpResponse.json(REDACTED_USER)));
+
+      renderDetail();
+
+      expect(await screen.findByRole('heading', { name: 'J. D.' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Voir en tant que…' })).not.toBeInTheDocument();
+    });
+
+    it('requires a reason, then starts the session and opens the product as the subject', async () => {
+      mockDetail();
+      let sentReason: string | null = null;
+      server.use(
+        http.post('/api/admin/users/user-9/impersonate', async ({ request }) => {
+          sentReason = ((await request.json()) as { reason: string }).reason;
+          return HttpResponse.json({
+            sessionId: 's-1',
+            token: 'impersonation-token',
+            expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+            subject: { id: 'user-9', displayName: 'Jean Dupont' },
+          });
+        }),
+      );
+      const user = userEvent.setup();
+
+      renderDetail();
+
+      await user.click(await screen.findByRole('button', { name: 'Voir en tant que…' }));
+      const dialog = within(screen.getByRole('dialog'));
+      await user.click(dialog.getByRole('button', { name: 'Démarrer la consultation' }));
+      expect(await dialog.findByText('Motif requis (10 caractères minimum)')).toBeInTheDocument();
+
+      await user.type(dialog.getByLabelText('Motif'), 'Ticket #482, convocations U13');
+      await user.click(dialog.getByRole('button', { name: 'Démarrer la consultation' }));
+
+      expect(await screen.findByText('Accueil produit')).toBeInTheDocument();
+      expect(sentReason).toBe('Ticket #482, convocations U13');
+      expect(isImpersonating()).toBe(true);
+    });
+
+    it('shows a refusal in the dialog', async () => {
+      mockDetail();
+      server.use(
+        http.post('/api/admin/users/user-9/impersonate', () =>
+          HttpResponse.json(
+            { message: "Impossible de consulter le compte d'un membre du back-office" },
+            { status: 403 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+
+      renderDetail();
+
+      await user.click(await screen.findByRole('button', { name: 'Voir en tant que…' }));
+      const dialog = within(screen.getByRole('dialog'));
+      await user.type(dialog.getByLabelText('Motif'), 'Ticket #482, convocations U13');
+      await user.click(dialog.getByRole('button', { name: 'Démarrer la consultation' }));
+
+      expect(
+        await dialog.findByText("Impossible de consulter le compte d'un membre du back-office"),
+      ).toBeInTheDocument();
+      expect(isImpersonating()).toBe(false);
     });
   });
 });

@@ -5,11 +5,18 @@ import { Divider } from '@basketeasy/ui/divider';
 import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { TeamEvent } from '@basketeasy/types/events';
-import type { EventTravelMode } from '@basketeasy/types/meeting-points';
+import type { EventType } from '@basketeasy/types/events';
+import type {
+  EventMeetingPlan,
+  EventTravelMode,
+  MeetingPoint,
+} from '@basketeasy/types/meeting-points';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import { formatEventTime } from '../clubs/eventDateFormat';
 import { useEventTravelModeSet } from './useEventTravelModeSet';
+import { eventVenueLabel } from '@basketeasy/types/events';
+
+export type TravelModeLayout = 'stack' | 'split';
 
 /** One card's contents: what it is, where, and — big, on the right — when. */
 function ChoiceCard({
@@ -26,7 +33,7 @@ function ChoiceCard({
   return (
     <>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Text as="span" variant="label" size="sm" className="font-bold">
+        <Text as="span" variant="label" size="sm">
           {title}
         </Text>
         <Text as="span" variant="meta" size="xs" className="tabular">
@@ -53,70 +60,46 @@ function ChoiceCard({
 }
 
 /**
- * « Comment venez-vous ? » — for a player who answered « Présent » to a match
- * with a meeting point. Inline radio cards rather than a dialog: a
- * single-field, low-risk, high-frequency answer, like the RSVP control above
- * it. Not choosing counts as coming with the group, so that card is already
- * selected the moment the player says they're coming.
- *
- * Before « Présent », on a match that has a meeting point, it leaves a line
- * saying the choice is coming; with no meeting point at all it renders
- * nothing, since there is nothing to choose between.
+ * The two ways to get to a match, as radio cards with their hours. Pure
+ * presentation: the event page saves the pick through an authenticated
+ * mutation, the guest page through the link's, and both pass the same plan.
  */
-export function EventTravelModeControl({
-  clubId,
-  teamId,
-  event,
+export function TravelModeChoice({
+  eventId,
+  plan,
+  meetingPoint,
+  venueLabel,
+  value,
+  onChange,
   divided = true,
+  layout = 'stack',
 }: {
-  clubId: string;
-  teamId: string;
-  event: TeamEvent;
+  eventId: string;
+  plan: EventMeetingPlan;
+  meetingPoint: MeetingPoint;
+  /** The gym as it reads, `eventVenueLabel`. */
+  venueLabel: string;
+  value: EventTravelMode;
+  onChange: (travelMode: EventTravelMode) => void;
   /** A rule above the question — for the decision band, where it follows the RSVP answer. */
   divided?: boolean;
+  /** `split`: the two cards side by side from `md`, for a full-width card (the home's hero). */
+  layout?: TravelModeLayout;
 }) {
-  const { mutate: setTravelMode } = useEventTravelModeSet(clubId, teamId);
-  // Optimistic: the selection moves on click, and snaps back on failure.
-  const [pending, setPending] = useState<EventTravelMode | null>(null);
-  const plan = event.meetingPlan;
-  if (!plan?.meetingPoint) return null;
-
-  if (event.myTravelMode === null) {
-    return (
-      <Text variant="meta" size="xs">
-        Le choix « avec le groupe / direct » apparaît dès que vous répondez Oui. Horaires dans « S’y
-        rendre » ci-dessous.
-      </Text>
-    );
-  }
-
-  const meetingPoint = plan.meetingPoint;
   const meetsAt = plan.meetsAt ? formatEventTime(plan.meetsAt) : null;
-  const select = (travelMode: EventTravelMode) => {
-    if (travelMode === (pending ?? event.myTravelMode)) return;
-    setPending(travelMode);
-    setTravelMode(
-      { eventId: event.id, travelMode },
-      {
-        onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
-        onSettled: () => setPending(null),
-      },
-    );
-  };
-
   return (
     <div className={cn('flex flex-col gap-2.5', divided && 'mt-1')}>
       {divided && <Divider tone="brand" className="mb-1" />}
-      <Text variant="label" size="sm" className="font-bold" id={`travel-mode-${event.id}`}>
+      <Text variant="label" size="sm" id={`travel-mode-${eventId}`}>
         Comment venez-vous&nbsp;?
       </Text>
       <RadioCardGroup<EventTravelMode>
-        aria-labelledby={`travel-mode-${event.id}`}
+        aria-labelledby={`travel-mode-${eventId}`}
         tone="choice"
         indicator
-        className="gap-2"
-        value={pending ?? event.myTravelMode}
-        onChange={select}
+        className={cn('gap-2', layout === 'split' && 'md:grid md:grid-cols-2')}
+        value={value}
+        onChange={onChange}
         options={[
           {
             value: 'MEETING_POINT',
@@ -134,7 +117,7 @@ export function EventTravelModeControl({
             render: ({ selected }) => (
               <ChoiceCard
                 title="Directement à la salle"
-                detail={event.location}
+                detail={venueLabel}
                 time={formatEventTime(plan.arrivalAt)}
                 selected={selected}
               />
@@ -148,5 +131,86 @@ export function EventTravelModeControl({
           : 'Le coach n’a pas encore confirmé l’heure du RDV. Vous serez prévenu·e dès qu’elle est fixée.'}
       </Text>
     </div>
+  );
+}
+
+/**
+ * What the control reads off an event: the narrow shape a `TeamEvent` and a
+ * home agenda event (`MyAgendaEvent`, mapped `eventId` → `id`) both satisfy,
+ * so the event page's decision band and the home's hero render this one
+ * component instead of two wirings of `TravelModeChoice`.
+ */
+export interface TravelModeEvent {
+  id: string;
+  type: EventType;
+  location: string;
+  locationName: string | null;
+  meetingPlan: EventMeetingPlan | null;
+  myTravelMode: EventTravelMode | null;
+}
+
+/**
+ * « Comment venez-vous ? » — for a player who answered « Présent » to a match
+ * with a meeting point. Inline radio cards rather than a dialog: a
+ * single-field, low-risk, high-frequency answer, like the RSVP control above
+ * it. Not choosing counts as coming with the group, so that card is already
+ * selected the moment the player says they're coming.
+ *
+ * Before « Présent », on a match that has a meeting point, it leaves a line
+ * saying the choice is coming; with no meeting point at all it renders
+ * nothing, since there is nothing to choose between.
+ */
+export function EventTravelModeControl({
+  clubId,
+  teamId,
+  event,
+  divided = true,
+  layout = 'stack',
+}: {
+  clubId: string;
+  teamId: string;
+  event: TravelModeEvent;
+  /** A rule above the question — for the decision band, where it follows the RSVP answer. */
+  divided?: boolean;
+  layout?: TravelModeLayout;
+}) {
+  const { mutate: setTravelMode } = useEventTravelModeSet(clubId, teamId);
+  // Optimistic: the selection moves on click, and snaps back on failure.
+  const [pending, setPending] = useState<EventTravelMode | null>(null);
+  const plan = event.meetingPlan;
+  if (!plan?.meetingPoint) return null;
+
+  if (event.myTravelMode === null) {
+    return (
+      <Text variant="meta" size="xs">
+        Le choix « avec le groupe / direct » apparaît dès que vous répondez Oui. Horaires dans « S’y
+        rendre » ci-dessous.
+      </Text>
+    );
+  }
+
+  const select = (travelMode: EventTravelMode) => {
+    if (travelMode === (pending ?? event.myTravelMode)) return;
+    setPending(travelMode);
+    setTravelMode(
+      { eventId: event.id, travelMode },
+      {
+        onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+        onSettled: () => setPending(null),
+      },
+    );
+  };
+
+  return (
+    <TravelModeChoice
+      eventId={event.id}
+      plan={plan}
+      meetingPoint={plan.meetingPoint}
+      venueLabel={eventVenueLabel(event)}
+      value={pending ?? event.myTravelMode}
+      onChange={select}
+      divided={divided}
+      layout={layout}
+    />
   );
 }
