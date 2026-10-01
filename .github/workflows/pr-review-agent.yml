@@ -1,5 +1,6 @@
 # Autonomous PR review. The LLM judges; deterministic steps decide what it may do.
 #
+#   ci-green-> waits for every other check on the head SHA; the review only runs if all are green.
 #   gate    -> infra/config path, dependency and label rules, no LLM. Can only ever make the agent MORE cautious.
 #   review  -> Claude with five lens subagents (.claude/agents/review-*.md), reads the diff,
 #              posts inline comments, writes verdict.json. Cannot merge or approve.
@@ -82,8 +83,64 @@ jobs:
         env:
           REVIEW_AGENT_AUTOMERGE: ${{ vars.REVIEW_AGENT_AUTOMERGE }}
 
+  ci-green:
+    # No point spending an LLM review on a head that already fails CI: the author has to push again anyway.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      checks: read
+      statuses: read
+    outputs:
+      green: ${{ steps.wait.outputs.green }}
+    steps:
+      - id: wait
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.pull_request.head.sha;
+            // This workflow's own jobs and the clearance status are not CI.
+            const SELF_JOBS = new Set(['gate', 'ci-green', 'review', 'decide']);
+            const OK = new Set(['success', 'skipped', 'neutral']);
+            const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+            const deadline = Date.now() + 30 * 60 * 1000;
+            // CI workflows start in parallel with this one; give their checks time to register.
+            await sleep(60 * 1000);
+
+            while (Date.now() < deadline) {
+              const runs = (await github.paginate(github.rest.checks.listForRef, {
+                ...context.repo, ref: sha, per_page: 100,
+              })).filter((c) => !SELF_JOBS.has(c.name));
+              const statuses = (await github.rest.repos.getCombinedStatusForRef({
+                ...context.repo, ref: sha, per_page: 100,
+              })).data.statuses.filter((s) => s.context !== 'review-agent/verdict');
+
+              const failed = [
+                ...runs.filter((c) => c.status === 'completed' && !OK.has(c.conclusion)).map((c) => c.name),
+                ...statuses.filter((s) => ['failure', 'error'].includes(s.state)).map((s) => s.context),
+              ];
+              if (failed.length) {
+                core.setOutput('green', 'false');
+                core.notice(`CI not green, review skipped: ${failed.join(', ')}`);
+                return;
+              }
+              const pending = runs.filter((c) => c.status !== 'completed').length
+                + statuses.filter((s) => s.state === 'pending').length;
+              if (!pending && runs.length) {
+                core.setOutput('green', 'true');
+                return;
+              }
+              await sleep(30 * 1000);
+            }
+            core.setOutput('green', 'false');
+            core.notice('CI did not finish within 30 minutes, review skipped.');
+
   review:
-    needs: gate
+    needs: [gate, ci-green]
+    if: needs.ci-green.outputs.green == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -144,7 +201,7 @@ jobs:
           retention-days: 7
 
   decide:
-    needs: [gate, review]
+    needs: [gate, ci-green, review]
     if: always() && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -161,6 +218,7 @@ jobs:
       GATE_ESCALATE: ${{ needs.gate.outputs.escalate }}
       GATE_REASONS: ${{ needs.gate.outputs.reasons }}
       REVIEW_RESULT: ${{ needs.review.result }}
+      CI_GREEN: ${{ needs.ci-green.outputs.green }}
       OWNER: ${{ vars.REVIEW_AGENT_OWNER }}
     steps:
       - uses: actions/checkout@v4
@@ -191,6 +249,13 @@ jobs:
             gh pr comment "$PR" --repo "$REPO" --body "Owner decision needed ${OWNER:+@$OWNER}: $1"
             exit 0
           }
+
+          # CI red or unfinished: the review never ran. Nothing to escalate, the author fixes CI and pushes.
+          if [ "$CI_GREEN" != "true" ]; then
+            deny
+            echo "CI not green, review skipped."
+            exit 0
+          fi
 
           if [ "$REVIEW_RESULT" != "success" ] || [ ! -f verdict.json ]; then
             escalate "review agent did not complete, no verdict."
