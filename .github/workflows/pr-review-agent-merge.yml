@@ -1,0 +1,39 @@
+# Second half of the review agent: merges a cleared PR the moment its checks finish.
+# Event-driven instead of a polling job, so no Actions minutes are spent waiting on CI.
+# Runs from main, never checks out PR code.
+name: PR review agent merge
+
+on:
+  workflow_run:
+    workflows: [CI, PR scope, Docker build]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+  statuses: read
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_TOKEN: ${{ secrets.REVIEW_AGENT_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          PRS: ${{ toJSON(github.event.workflow_run.pull_requests.*.number) }}
+        run: |
+          for PR in $(jq -r '.[]' <<<"$PRS"); do
+            PR="$PR" bash .github/review-agent/merge.sh
+          done

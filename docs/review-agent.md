@@ -25,9 +25,12 @@ Works on a free private repo: no branch protection, rulesets or auto-merge neede
 3. Settings, Actions: allow Actions to create and approve pull requests.
 4. Variable `REVIEW_AGENT_OWNER`: GitHub login to ping on escalation.
 
-Without branch protection the workflow is the only gate: it merges after the other workflows'
-checks pass on the same head (30 min cap), and anyone with write access can still merge by
-hand. The run costs Actions minutes while it waits for CI (2,000/month on the free plan).
+Without branch protection the workflow is the only gate, and anyone with write access can
+still merge by hand. Minutes: nothing polls. The agent records a clearance status on the
+head SHA; `.github/review-agent/merge.sh` merges when the other checks are green, called by the
+verdict step or by `pr-review-agent-merge.yml` when CI, PR scope or Docker build finish,
+whichever comes last. The main cost is the review job itself; `cancel-in-progress` drops
+superseded runs, and draft PRs are skipped, so keep PRs in draft until ready.
 
 ## Controls
 
