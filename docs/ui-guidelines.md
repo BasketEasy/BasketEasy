@@ -107,15 +107,16 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 
 ## 5. Lists
 
-| Record         | Shape                                                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Event          | `MyAgendaEventCard`: `TimeBlock` (solid blue-green = MATCH, bordered `surface-2` = TRAINING) + title + meta + status badges |
-| Person         | row: `Avatar` initials + « Prénom N. » or full name + a trailing `Badge` or action                                          |
-| Link to a page | row: title (`label sm`) + meta (`meta xs`) + trailing badge + chevron, all rows in one `Card variant="flush"`               |
-| Table vs. card | one component in `ResponsiveTable`, branching on `useTableLayout()`, never a `…Row`/`…Card` pair                            |
-| Grouped by day | `Text variant="eyebrow"` day label above each group                                                                         |
-| Sequence       | the match timeline: time (display 2xl) · dot + `Divider` rail · content. The import stepper uses the same dot and rail.     |
-| Figures        | `StatTile` (`md` on pages, `sm` inside a hero); `—` for unknown, never `0`                                                  |
+| Record         | Shape                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Event          | `MyAgendaEventCard`: `TimeBlock` (solid blue-green = MATCH, bordered `surface-2` = TRAINING) + title + meta + status badges           |
+| Person         | row: `Avatar` initials + « Prénom N. » or full name + a trailing `Badge` or action                                                    |
+| Link to a page | `ListItem asChild chevron` over a `Link`: title + `meta` + `trailing` badge, all rows in one `List` inside a `Card variant="flush"`   |
+| Divided list   | `List` / `ListItem` (`@basketeasy/ui/list`), never a hand-built `<ul className="divide-y …">`; `variant="panel"` inside a padded card |
+| Table vs. card | one component in `ResponsiveTable`, branching on `useTableLayout()`, never a `…Row`/`…Card` pair                                      |
+| Grouped by day | `Text variant="eyebrow"` day label above each group                                                                                   |
+| Sequence       | the match timeline: time (display 2xl) · dot + `Divider` rail · content. The import stepper uses the same dot and rail.               |
+| Figures        | `StatTile` (`md` on pages, `sm` inside a hero); `—` for unknown, never `0`                                                            |
 
 ## 6. Actions and controls
 
@@ -194,6 +195,7 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 | Round icon disc                    | `IconBadge` (`tone`)                                       |
 | Event time                         | `TimeBlock`                                                |
 | A figure                           | `StatTile`                                                 |
+| Divided list / link row            | `@basketeasy/ui/list` `List` + `ListItem`                  |
 | Table on desktop / cards on mobile | `ResponsiveTable` + `useTableLayout()`                     |
 | Modal / sheet                      | `@basketeasy/ui/dialog`, `ConfirmDialog`                   |
 | Chart                              | `@basketeasy/ui/chart`                                     |

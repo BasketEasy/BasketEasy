@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { List } from '@basketeasy/ui/list';
 import { screen } from '@testing-library/react';
 import type { AppNotification } from '@basketeasy/types/notifications';
 import { renderWithProviders } from '../testUtils';
@@ -17,7 +18,11 @@ const notification: AppNotification = {
 
 describe('NotificationItem', () => {
   it('tags a notification about a child with the child’s name', () => {
-    renderWithProviders(<NotificationItem notification={notification} onRead={() => undefined} />);
+    renderWithProviders(
+      <List>
+        <NotificationItem notification={notification} onRead={() => undefined} />
+      </List>,
+    );
 
     expect(screen.getByText('Léo', { selector: 'span, div' })).toBeInTheDocument();
     expect(
@@ -27,10 +32,12 @@ describe('NotificationItem', () => {
 
   it('has no tag on a notification about the reader', () => {
     renderWithProviders(
-      <NotificationItem
-        notification={{ ...notification, subjectFirstName: null, title: 'Vous êtes convoqué·e' }}
-        onRead={() => undefined}
-      />,
+      <List>
+        <NotificationItem
+          notification={{ ...notification, subjectFirstName: null, title: 'Vous êtes convoqué·e' }}
+          onRead={() => undefined}
+        />
+      </List>,
     );
 
     expect(

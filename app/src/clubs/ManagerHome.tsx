@@ -3,17 +3,14 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
-import { cn } from '@basketeasy/ui/cn';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { focusRing } from '@basketeasy/ui/focus-ring';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { StatTile } from '@basketeasy/ui/stat-tile';
-import { Text } from '@basketeasy/ui/text';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
-import { ChevronRightIcon } from '@basketeasy/ui/icons/chevron-right';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { MyDashboardSummary } from '@basketeasy/types/my-dashboard';
@@ -29,36 +26,36 @@ import { useMyAgenda } from './useMyAgenda';
 
 /** One team as a link row: name, « club · category », the reader's roles, a chevron. */
 function TeamLinkRow({ team }: { team: MyTeamSummary }) {
+  const hasRoles = Boolean(team.rosterRole) || team.isTeamAdmin;
   return (
-    <li>
+    <ListItem
+      asChild
+      chevron
+      meta={`${team.clubName} · ${teamCategoryLabel(team.category)}`}
+      trailing={
+        hasRoles && (
+          <>
+            {team.rosterRole && (
+              <Badge variant="soft" tone="muted">
+                {teamMemberRoleLabel(team.rosterRole)}
+              </Badge>
+            )}
+            {team.isTeamAdmin && (
+              <Badge variant="soft" tone="muted">
+                Administrateur
+              </Badge>
+            )}
+          </>
+        )
+      }
+    >
       <Link
         to={`/clubs/${team.clubId}/teams/${team.teamId}`}
         state={{ origin: { from: 'dashboard' } }}
-        className={cn('flex items-center gap-3 px-3.5 py-3 no-underline', focusRing)}
       >
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text as="span" variant="label" size="sm">
-            {team.teamName}
-          </Text>
-          <Text as="span" variant="meta" size="xs">
-            {team.clubName} · {teamCategoryLabel(team.category)}
-          </Text>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          {team.rosterRole && (
-            <Badge variant="soft" tone="muted">
-              {teamMemberRoleLabel(team.rosterRole)}
-            </Badge>
-          )}
-          {team.isTeamAdmin && (
-            <Badge variant="soft" tone="muted">
-              Administrateur
-            </Badge>
-          )}
-        </div>
-        <ChevronRightIcon size="lg" tone="secondary" className="shrink-0" aria-hidden="true" />
+        {team.teamName}
       </Link>
-    </li>
+    </ListItem>
   );
 }
 
@@ -194,11 +191,11 @@ export function ManagerHome({
               <SkeletonList rows={3} variant="card" />
             ) : teams && teams.length > 0 ? (
               <Card variant="flush">
-                <ul className="flex flex-col divide-y divide-border">
+                <List>
                   {teams.map((team) => (
                     <TeamLinkRow key={team.teamId} team={team} />
                   ))}
-                </ul>
+                </List>
               </Card>
             ) : (
               <EmptyState

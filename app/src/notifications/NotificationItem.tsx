@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
-import { Text } from '@basketeasy/ui/text';
+import { ListItem } from '@basketeasy/ui/list';
 import { cn } from '@basketeasy/ui/cn';
-import { focusRing } from '@basketeasy/ui/focus-ring';
 import type { AppNotification } from '@basketeasy/types/notifications';
 import { formatNotificationAge } from './notificationTime';
 
@@ -27,79 +26,63 @@ interface NotificationItemProps {
 export function NotificationItem({ notification, onRead, onNavigate }: NotificationItemProps) {
   const isUnread = notification.readAt === null;
 
-  const body = (
-    <>
-      <span className="flex items-start gap-3">
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* « Pour qui »: set when a parent is told about a child, so a
-              family's notifications can be told apart at a glance. */}
-          {notification.subjectFirstName && (
-            <Badge variant="soft" tone="structure" className="w-fit">
-              {notification.subjectFirstName}
-            </Badge>
-          )}
-          <Text as="span" variant="label" size="sm" tone={isUnread ? 'primary' : 'secondary'}>
-            {notification.title}
-          </Text>
-          {notification.body && (
-            <Text as="span" variant="meta">
-              {notification.body}
-            </Text>
-          )}
-          <Text as="span" variant="meta" size="xs">
-            {formatNotificationAge(notification.createdAt)}
-          </Text>
-        </span>
-        {/* The unread dot, at the row's trailing edge. aria-hidden because
-            "non lue" is already in the row's own accessible name below — a
-            screen reader should hear it once, as part of the row, not as a
-            stray bullet. */}
-        <span
-          aria-hidden="true"
-          className={cn(
-            'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
-            isUnread ? 'bg-orange' : 'bg-transparent',
-          )}
-        />
-      </span>
-    </>
-  );
-
-  const shared = cn(
-    'flex w-full flex-col gap-1 p-3.5 text-left no-underline transition-colors',
-    focusRing,
-    'hover:bg-surface-2',
-  );
+  const rowProps = {
+    align: 'start',
+    titleTone: isUnread ? 'primary' : 'secondary',
+    // « Pour qui »: set when a parent is told about a child, so a family's
+    // notifications can be told apart at a glance.
+    eyebrow: notification.subjectFirstName && (
+      <Badge variant="soft" tone="structure" className="w-fit">
+        {notification.subjectFirstName}
+      </Badge>
+    ),
+    meta: [notification.body, formatNotificationAge(notification.createdAt)],
+    // The unread dot, at the row's trailing edge. aria-hidden because
+    // "non lue" is already in the row's own accessible name below — a
+    // screen reader should hear it once, as part of the row, not as a
+    // stray bullet.
+    trailing: (
+      <span
+        aria-hidden="true"
+        className={cn(
+          'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
+          isUnread ? 'bg-orange' : 'bg-transparent',
+        )}
+      />
+    ),
+  } as const;
 
   const accessibleName = `${notification.subjectFirstName ? `Pour ${notification.subjectFirstName} : ` : ''}${notification.title}${isUnread ? ' (non lue)' : ''}`;
 
   if (notification.deepLink) {
     return (
-      <Link
-        to={notification.deepLink}
-        aria-label={accessibleName}
-        className={shared}
-        onClick={() => {
-          if (isUnread) onRead(notification.id);
-          onNavigate?.();
-        }}
-      >
-        {body}
-      </Link>
+      <ListItem asChild {...rowProps}>
+        <Link
+          to={notification.deepLink}
+          aria-label={accessibleName}
+          onClick={() => {
+            if (isUnread) onRead(notification.id);
+            onNavigate?.();
+          }}
+        >
+          {notification.title}
+        </Link>
+      </ListItem>
     );
   }
 
   return (
-    <button
-      type="button"
-      aria-label={accessibleName}
-      className={shared}
-      // A read notification with no link has nothing left to do — disabled
-      // rather than a control that silently does nothing when pressed.
-      disabled={!isUnread}
-      onClick={() => onRead(notification.id)}
-    >
-      {body}
-    </button>
+    <ListItem asChild {...rowProps}>
+      <button
+        type="button"
+        aria-label={accessibleName}
+        // A read notification with no link has nothing left to do — disabled
+        // rather than a control that silently does nothing when pressed.
+        disabled={!isUnread}
+        onClick={() => onRead(notification.id)}
+      >
+        {notification.title}
+      </button>
+    </ListItem>
   );
 }
