@@ -795,17 +795,6 @@ describe('ClubsService', () => {
       );
     });
 
-    it('reports the most recent attestation, or null when there is none', async () => {
-      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
-      prisma.parentalConsent.findFirst.mockResolvedValue(null);
-
-      await expect(service.getParentalConsent('club-1', 'p1')).resolves.toBeNull();
-      expect(prisma.parentalConsent.findFirst).toHaveBeenCalledWith({
-        where: { playerId: 'p1' },
-        orderBy: { consentGivenAt: 'desc' },
-      });
-    });
-
     it('reports a minor’s consent date on the roster listing', async () => {
       prisma.player.findMany.mockResolvedValue([
         {

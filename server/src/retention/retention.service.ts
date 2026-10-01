@@ -13,8 +13,7 @@ import {
 /** How long an expired impersonation session row is kept before the sweep drops it. */
 const IMPERSONATION_SESSION_GRACE_MS = 24 * 60 * 60 * 1000;
 
-export type RetentionStepName =
-  'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
+type RetentionStepName = 'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
 
 export interface RetentionStepResult {
   status: 'ok' | 'error';

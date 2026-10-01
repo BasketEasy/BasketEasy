@@ -155,7 +155,6 @@ Beyond the Working conventions above, four traps this direction has already fall
 - The agenda window defaults server-side to "now → +7 days" when `from`/`to` are omitted (`GetDashboardDto`, validated `IsISO8601`).
 - Each `MyAgendaEvent`'s `clubId` is resolved the same way `TeamsService.toMyTeamSummary` picks a team's navigation club: prefer the club the caller actually belongs to among the event's team's linked clubs, so a CTC event always links to a club membership the caller has (avoiding a `ClubRolesGuard` 403 on click-through).
 - Each `MyAgendaEvent` also carries `meetingPlan`/`myTravelMode` (from `MeetingPointsService.resolvePlansAcrossTeams`, the same resolver the match page uses, two queries per batch) and a played match's `vote` (`MyAgendaVote`: `canVote`, `hasVoted`, the turnout and the « MVP » once public to the reader, under `EventsService`'s exact visibility rule). The vote window constants live in `server/src/common/vote-window.ts`, shared with `castVote`. **The « joueur en difficulté » category never reaches the home, `/results` or a notification**: the dashboard reads a WORST row for its voter only. A guardian persona never gets `canVote` (votes stay the player's own). Design record: [`2026-09-30-screen-consistency-player-home.md`](./docs/superpowers/specs/2026-09-30-screen-consistency-player-home.md).
-- `HealthStatus` lives at `/about` (`AboutPage.tsx`), not the default `/dashboard` view — kept off the landing page per the audit, given a permanent route instead of an env-flag toggle.
 
 ## Scoresheets module
 

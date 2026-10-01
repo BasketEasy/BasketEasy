@@ -49,7 +49,7 @@ const REQUEST_FIELDS = {
 const MESSAGE_TYPES = [EventShareType.REMINDER, EventShareType.UPDATE];
 
 /** What a cancellation prompt needs once its event row is gone. */
-export interface CancellationPrompt {
+interface CancellationPrompt {
   shareId: string;
   startsAt: Date;
   subject: string;

@@ -52,7 +52,7 @@ export async function resolvePlayerAudience(
   }));
 }
 
-export interface RecipientChild {
+interface RecipientChild {
   playerId: string;
   firstName: string;
   clubId: string;

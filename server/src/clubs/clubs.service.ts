@@ -382,16 +382,6 @@ export class ClubsService {
     return this.toParentalConsent(consent);
   }
 
-  /** The most recent attestation for a player, or null if there is none. */
-  async getParentalConsent(clubId: string, playerId: string): Promise<ParentalConsent | null> {
-    await this.findPlayerInClub(clubId, playerId);
-    const consent = await this.prisma.parentalConsent.findFirst({
-      where: { playerId },
-      orderBy: { consentGivenAt: 'desc' },
-    });
-    return consent ? this.toParentalConsent(consent) : null;
-  }
-
   async updatePlayer(
     clubId: string,
     playerId: string,

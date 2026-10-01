@@ -16,10 +16,10 @@ export const SEND_JOB = 'send';
 export const NUDGE_JOB = 'nudge';
 export const EXPIRE_JOB = 'expire';
 export const SWEEP_JOB = 'sweep';
-export const SWEEP_SCHEDULER_ID = 'wa-sweep';
+const SWEEP_SCHEDULER_ID = 'wa-sweep';
 
 /** How often the sweep looks for shares whose job was lost. */
-export const SWEEP_EVERY_MS = 10 * 60 * 1000;
+const SWEEP_EVERY_MS = 10 * 60 * 1000;
 /** A send this far overdue means its job is gone, not merely late. */
 const SWEEP_GRACE_MS = 2 * 60 * 1000;
 const SWEEP_BATCH = 200;
@@ -33,7 +33,7 @@ const JOB_OPTIONS = {
   removeOnFail: true,
 };
 
-export const NUDGE_DELAY_MS = 60 * 60 * 1000;
+const NUDGE_DELAY_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 
 export interface ShareJobData {
