@@ -7,7 +7,7 @@ tells the agent how to judge. Human decisions are never the agent's to take.
 ## Verdicts
 
 - `APPROVE`: no open 🔴 finding, every lens passed, change is inside the agent's remit.
-  The workflow then approves and enables squash auto-merge (waits for green CI).
+  The workflow then approves and squash-merges once CI is green.
 - `COMMENT`: only 🟡/🟣 findings. Same as APPROVE for merging, nits ride along.
 - `REQUEST_CHANGES`: at least one 🔴 finding. Author fixes, agent re-reviews on push.
 - `ESCALATE`: a decision belongs to the owner. Never approve, never merge.
