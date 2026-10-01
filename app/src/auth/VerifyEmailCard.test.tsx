@@ -67,4 +67,15 @@ describe('VerifyEmailCard', () => {
     expect(await screen.findByText('Adresse confirmée')).toBeInTheDocument();
     expect(calls).toBe(1);
   });
+
+  it('has one h1 and a plain wordmark', async () => {
+    renderWithProviders(<VerifyEmailCard token="tok-1" />);
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByText('Kluvo')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Kluvo' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Adresse confirmée' }),
+    ).toBeInTheDocument();
+  });
 });

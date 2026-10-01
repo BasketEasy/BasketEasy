@@ -78,7 +78,8 @@ describe('InviteAcceptForm', () => {
     const user = userEvent.setup();
     renderForm();
 
-    expect(await screen.findByText(/rejoindre asvel/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Rejoindre' })).toBeInTheDocument();
+    expect(screen.getByText('ASVEL')).toBeInTheDocument();
     expect(screen.getByText(/théo dupont/i)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/adresse e-mail/i), 'theo@example.com');
@@ -107,7 +108,7 @@ describe('InviteAcceptForm', () => {
     const user = userEvent.setup();
     renderForm();
 
-    await screen.findByText(/rejoindre asvel/i);
+    await screen.findByRole('heading', { level: 1, name: 'Rejoindre' });
     await user.type(screen.getByLabelText(/adresse e-mail/i), 'theo@example.com');
     await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
     await user.click(screen.getByRole('button', { name: /créer mon compte/i }));
@@ -135,7 +136,7 @@ describe('InviteAcceptForm', () => {
     const user = userEvent.setup();
     renderForm();
 
-    await screen.findByText(/rejoindre asvel/i);
+    await screen.findByRole('heading', { level: 1, name: 'Rejoindre' });
     await user.type(screen.getByLabelText(/adresse e-mail/i), 'theo@example.com');
     await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
     await user.click(screen.getByRole('button', { name: /créer mon compte/i }));
@@ -169,7 +170,7 @@ describe('InviteAcceptForm', () => {
 
     renderForm();
 
-    await screen.findByText(/rejoindre asvel/i);
+    await screen.findByRole('heading', { level: 1, name: 'Rejoindre' });
 
     expect(await screen.findByText(/admin@example\.com/)).toBeInTheDocument();
     expect(screen.getByText(/déconnectera de votre session actuelle/i)).toBeInTheDocument();
