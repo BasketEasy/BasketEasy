@@ -53,6 +53,7 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     whatsAppShare: null,
     whatsAppSettings: null,
     myTravelMode: null,
+    jerseyDuty: null,
     ...overrides,
   };
 }

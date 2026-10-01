@@ -8,6 +8,7 @@
 // necessary but not sufficient.
 
 import type { ParentalConsentSource } from './guardians';
+import type { JerseyDutyStatus } from './jersey-duty';
 import type { AdminSupportActionKind } from './platform-admin-actions';
 
 export type PlatformRole = 'SUPPORT' | 'DATA_OFFICER';
@@ -168,8 +169,19 @@ export interface ExportedRosterEntry {
    */
   votesCast: { eventStartsAt: string; category: 'BEST' | 'WORST'; castAt: string }[];
   scoresheetUploads: { eventStartsAt: string; uploadedAt: string }[];
-  /** "Was down to bring the balls on 14 March" — processing about this person. */
-  logisticsAssignments: { eventStartsAt: string; duty: 'JERSEYS' | 'BALLS' }[];
+  /**
+   * "Was down to bring the balls on 14 March" — processing about this person.
+   * `JERSEY_WASH` is a turn at the jersey wash rotation: it carries the turn's
+   * `status` and, like an RSVP, who accepted it without naming them. Who
+   * marked it « fait » or voided it is a manager's act on someone else's turn
+   * and is left out (art. 15(4)).
+   */
+  logisticsAssignments: {
+    eventStartsAt: string;
+    duty: 'JERSEYS' | 'BALLS' | 'JERSEY_WASH';
+    status?: JerseyDutyStatus;
+    acceptedBy?: 'SELF' | 'SOMEONE_ELSE' | 'UNKNOWN' | null;
+  }[];
 }
 
 export interface ExportedPlayerRecord {
@@ -210,6 +222,12 @@ export interface ExportedGuardianActivity {
     status: string;
     travelMode: string;
     respondedAt: string;
+  }[];
+  /** Jersey wash turns this person accepted on a child's behalf. */
+  jerseyDutyAcceptedForOthers: {
+    childFirstName: string;
+    eventStartsAt: string;
+    acceptedAt: string;
   }[];
 }
 

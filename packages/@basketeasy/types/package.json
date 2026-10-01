@@ -69,6 +69,11 @@
       "import": "./scoresheet-extraction.ts",
       "require": "./dist/scoresheet-extraction.js"
     },
+    "./jersey-duty": {
+      "types": "./jersey-duty.ts",
+      "import": "./jersey-duty.ts",
+      "require": "./dist/jersey-duty.js"
+    },
     "./team-stats": {
       "types": "./team-stats.ts",
       "import": "./team-stats.ts",

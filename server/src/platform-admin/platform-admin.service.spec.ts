@@ -51,6 +51,7 @@ describe('PlatformAdminService', () => {
     player: { findMany: jest.Mock };
     scoresheetExtraction: { findMany: jest.Mock };
     eventRsvp: { findMany: jest.Mock };
+    eventJerseyDuty: { findMany: jest.Mock };
     parentalConsent: { findMany: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
@@ -96,6 +97,7 @@ describe('PlatformAdminService', () => {
       player: { findMany: jest.fn().mockResolvedValue([]) },
       scoresheetExtraction: { findMany: jest.fn().mockResolvedValue([]) },
       eventRsvp: { findMany: jest.fn().mockResolvedValue([]) },
+      eventJerseyDuty: { findMany: jest.fn().mockResolvedValue([]) },
       parentalConsent: { findMany: jest.fn().mockResolvedValue([]) },
       $queryRaw: jest.fn().mockResolvedValue([]),
       // The transaction client is the same mock: what matters is which calls
@@ -467,6 +469,7 @@ describe('PlatformAdminService', () => {
               uploadedScoresheets: [],
               jerseysAssignedEvents: [{ startsAt: new Date('2025-03-14T18:00:00.000Z') }],
               ballsAssignedEvents: [],
+              jerseyDuties: [],
             },
           ],
         },
@@ -601,7 +604,7 @@ describe('PlatformAdminService', () => {
       );
 
       expect(result.notice.basis).toContain('article');
-      expect(result.notice.omissions).toHaveLength(4);
+      expect(result.notice.omissions).toHaveLength(5);
     });
 
     function playerWithRsvp(rsvp: Record<string, unknown>) {
@@ -635,6 +638,7 @@ describe('PlatformAdminService', () => {
             uploadedScoresheets: [],
             jerseysAssignedEvents: [],
             ballsAssignedEvents: [],
+            jerseyDuties: [],
           },
         ],
       };
@@ -664,6 +668,70 @@ describe('PlatformAdminService', () => {
         },
       ]);
       expect(JSON.stringify(result)).not.toContain('guardian-user-42');
+    });
+
+    it('lists a jersey wash turn with its status and who accepted it, without naming a guardian or a manager (art. 15.4)', async () => {
+      mockSubject();
+      const player = playerWithRsvp({});
+      player.teamPlayers[0].jerseyDuties = [
+        {
+          teamPlayerId: 'tp-1',
+          acceptedAt: new Date('2025-03-01T10:00:00.000Z'),
+          acceptedByUserId: 'guardian-user-42',
+          doneAt: new Date('2025-03-16T10:00:00.000Z'),
+          doneByUserId: 'manager-user-7',
+          voidedAt: null,
+          voidedByUserId: null,
+          event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+        },
+      ] as never;
+      prisma.player.findMany.mockResolvedValue([player]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.playerRecords[0].rosterEntries[0].logisticsAssignments).toEqual([
+        {
+          eventStartsAt: '2025-03-14T18:00:00.000Z',
+          duty: 'JERSEY_WASH',
+          status: 'DONE',
+          acceptedBy: 'SOMEONE_ELSE',
+        },
+      ]);
+      expect(JSON.stringify(result)).not.toContain('guardian-user-42');
+      expect(JSON.stringify(result)).not.toContain('manager-user-7');
+    });
+
+    it('lists the jersey wash turns a parent accepted for a child', async () => {
+      mockSubject();
+      prisma.eventJerseyDuty.findMany.mockResolvedValue([
+        {
+          acceptedAt: new Date('2025-03-01T10:00:00.000Z'),
+          event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+          teamPlayer: { player: { firstName: 'Léo' } },
+        },
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      expect(result.guardian.jerseyDutyAcceptedForOthers).toEqual([
+        {
+          childFirstName: 'Léo',
+          eventStartsAt: '2025-03-14T18:00:00.000Z',
+          acceptedAt: '2025-03-01T10:00:00.000Z',
+        },
+      ]);
     });
 
     it("tells the subject's own answers apart from unknown responders", async () => {
@@ -739,6 +807,7 @@ describe('PlatformAdminService', () => {
             respondedAt: '2026-09-29T19:00:00.000Z',
           },
         ],
+        jerseyDutyAcceptedForOthers: [],
       });
       // The subject's own roster slots are already under playerRecords; the
       // query must not count them twice as "for someone else".

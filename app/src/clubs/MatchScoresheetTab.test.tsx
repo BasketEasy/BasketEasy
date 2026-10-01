@@ -47,6 +47,7 @@ const matchEvent: TeamEvent = {
   whatsAppShare: null,
   whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const uploadedStatus: EventScoresheet = {

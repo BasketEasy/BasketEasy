@@ -22,7 +22,7 @@ describe('TeamsController', () => {
     listTeamPlayers: jest.Mock;
     addTeamPlayer: jest.Mock;
     removeTeamPlayer: jest.Mock;
-    updateTeamPlayerRole: jest.Mock;
+    updateTeamPlayer: jest.Mock;
     listTeamAdmins: jest.Mock;
     listEligibleAdmins: jest.Mock;
     addTeamAdmin: jest.Mock;
@@ -47,7 +47,7 @@ describe('TeamsController', () => {
       listTeamPlayers: jest.fn(),
       addTeamPlayer: jest.fn(),
       removeTeamPlayer: jest.fn(),
-      updateTeamPlayerRole: jest.fn(),
+      updateTeamPlayer: jest.fn(),
       listTeamAdmins: jest.fn(),
       listEligibleAdmins: jest.fn(),
       addTeamAdmin: jest.fn(),
@@ -196,23 +196,26 @@ describe('TeamsController', () => {
     expect(service.removeTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'player-1');
   });
 
-  it('updateTeamPlayerRole delegates clubId, teamId, playerId, role', async () => {
-    service.updateTeamPlayerRole.mockResolvedValue({
+  it('updateTeamPlayer delegates clubId, teamId, playerId, role', async () => {
+    service.updateTeamPlayer.mockResolvedValue({
       id: 'tp1',
       teamId: 'team-1',
       playerId: 'p1',
       role: 'COACH',
+      jerseyDutyExempt: false,
       firstName: 'A',
       lastName: 'B',
       clubId: 'club-1',
       createdAt: 'x',
     });
 
-    const result = await controller.updateTeamPlayerRole('club-1', 'team-1', 'p1', {
+    const result = await controller.updateTeamPlayer('club-1', 'team-1', 'p1', {
       role: 'COACH',
     });
 
-    expect(service.updateTeamPlayerRole).toHaveBeenCalledWith('club-1', 'team-1', 'p1', 'COACH');
+    expect(service.updateTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'p1', {
+      role: 'COACH',
+    });
     expect(result.role).toBe('COACH');
   });
 

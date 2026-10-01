@@ -43,6 +43,7 @@ const closedMatchEvent: TeamEvent = {
   whatsAppShare: null,
   whatsAppSettings: null,
   myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const openMatchEvent: TeamEvent = {

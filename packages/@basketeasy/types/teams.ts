@@ -14,6 +14,8 @@ export interface Team {
   category: TeamCategory;
   gender: Gender;
   createdAt: string;
+  /** The jersey wash rotation is on for this team (default). */
+  jerseyRotationEnabled: boolean;
 }
 
 export interface CreateTeamRequest {
@@ -28,6 +30,7 @@ export interface UpdateTeamRequest {
   name?: string;
   category?: TeamCategory;
   gender?: Gender;
+  jerseyRotationEnabled?: boolean;
 }
 
 export interface TeamClubLink {
@@ -50,6 +53,8 @@ export interface TeamPlayer {
   lastName: string;
   clubId: string;
   role: TeamMemberRole;
+  /** Never suggested for the jersey wash; a manager can still assign them. */
+  jerseyDutyExempt: boolean;
   createdAt: string;
 }
 
@@ -58,8 +63,10 @@ export interface AddTeamPlayerRequest {
   role?: TeamMemberRole;
 }
 
+/** At least one field is required. */
 export interface UpdateTeamPlayerRequest {
-  role: TeamMemberRole;
+  role?: TeamMemberRole;
+  jerseyDutyExempt?: boolean;
 }
 
 export type TeamSortBy = 'name' | 'category' | 'createdAt';
