@@ -156,8 +156,4 @@ New `NotificationType`s, copy in `server/src/events/jersey-duty-notification-cop
 
 ## Out of scope
 
-Rotation by jersey number, « rapportez les maillots » reminders, « set not returned » alerts, household/family grouping, cross-team sibling balancing, washing for chasubles or balls, a configurable list of other duties (goûter, buvette, table de marque).
-
-## Open questions
-
-1. **Handing over between matches.** After match N the holder has the bag at home. If they then can't make match N+1, can they pass the duty (and the bag) to a teammate themselves, or must a manager reassign? This spec says manager only, since player swaps close at N's kickoff.
+Rotation by jersey number, « rapportez les maillots » reminders, « set not returned » alerts, household/family grouping, cross-team sibling balancing, washing for chasubles or balls, a configurable list of other duties (goûter, buvette, table de marque), and player handovers after kickoff (the holder can't make the next match: the families arrange it between themselves, a manager reassigns only if they want the record right).
