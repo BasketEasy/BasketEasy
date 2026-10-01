@@ -46,6 +46,7 @@ function UserDetail({ user, onErased }: { user: AdminUserDetail; onErased: () =>
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={user.person.displayName}
+        eyebrow="Utilisateur"
         parent={{ to: adminPaths.users, label: 'Utilisateurs' }}
         badges={
           <>

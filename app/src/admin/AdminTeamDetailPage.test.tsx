@@ -54,6 +54,9 @@ describe('AdminTeamDetailPage', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'U13 F CTC' })).toBeInTheDocument();
+    expect(screen.getByText('Équipe')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Équipes' })).toHaveAttribute('href', '/admin/teams');
     expect(screen.getByText('Propriétaire')).toBeInTheDocument();
     expect(screen.getByText('Partenaire')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Lina Bouvier' })).toHaveAttribute(

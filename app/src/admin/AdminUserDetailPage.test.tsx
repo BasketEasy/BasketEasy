@@ -85,6 +85,12 @@ describe('AdminUserDetailPage', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: 'J. D.' })).toBeInTheDocument();
+    expect(screen.getByText('Utilisateur')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Utilisateurs' })).toHaveAttribute(
+      'href',
+      '/admin/users',
+    );
     expect(screen.getByText('…@example.org')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Effacer ce compte' })).not.toBeInTheDocument();
     expect(screen.queryByText('Export RGPD')).not.toBeInTheDocument();

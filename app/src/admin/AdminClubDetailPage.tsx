@@ -1,3 +1,8 @@
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { StatTile } from '@basketeasy/ui/stat-tile';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { UserIcon } from '@basketeasy/ui/icons/user';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -23,13 +28,7 @@ import { AdminActionRow, AdminActionsCard } from './actions/AdminActionsCard';
 import { usePlatformSession } from './platformSession';
 import { useAdminListParams } from './shared/useAdminListParams';
 import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
-import {
-  AdminPageHeader,
-  AdminPagination,
-  AdminStat,
-  AdminStats,
-  AdminTable,
-} from './shared/AdminLayout';
+import { AdminPageHeader, AdminPagination, AdminStats, AdminTable } from './shared/AdminLayout';
 import { AdminPersonLink } from './shared/AdminLinks';
 import { AdminQueryBranch } from './shared/AdminQueryBranch';
 import { adminPaths } from './shared/adminPaths';
@@ -184,6 +183,7 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={club.name}
+        eyebrow="Club"
         parent={{ to: adminPaths.clubs, label: 'Clubs' }}
         badges={
           club.ffbbClubCode && (
@@ -193,14 +193,35 @@ function ClubDetail({ club }: { club: AdminClubDetail }) {
           )
         }
         subtitle={`Créé le ${formatAdminDate(club.createdAt)} · ${meetingPoint}`}
+        aside={
+          <AdminStats>
+            <StatTile
+              size="sm"
+              icon={<UserIcon size="md" />}
+              label="Membres"
+              value={club.memberCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<ShieldIcon size="md" />}
+              label="Admins"
+              value={club.adminCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<TrophyIcon size="md" />}
+              label="Équipes"
+              value={club.teamCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<UsersIcon size="md" />}
+              label="Joueurs"
+              value={club.playerCount}
+            />
+          </AdminStats>
+        }
       />
-
-      <AdminStats>
-        <AdminStat label="Membres" value={club.memberCount} />
-        <AdminStat label="Admins" value={club.adminCount} />
-        <AdminStat label="Équipes" value={club.teamCount} />
-        <AdminStat label="Joueurs" value={club.playerCount} />
-      </AdminStats>
 
       {/* `?tab=` triggers, the documented exception to "every URL-changing
           control is a link": role="tab" is the right ARIA, and replace keeps
