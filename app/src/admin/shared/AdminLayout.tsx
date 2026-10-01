@@ -1,59 +1,67 @@
 import type { ReactNode } from 'react';
 import { Card } from '@basketeasy/ui/card';
-import { Heading } from '@basketeasy/ui/heading';
 import { List, ListItem } from '@basketeasy/ui/list';
+import { PageHeader } from '@basketeasy/ui/page-header';
+import { PageHero } from '@basketeasy/ui/page-hero';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
-import { AdminLink } from './AdminLinks';
+import { PageBackLink } from '../../components/PageBar';
 
 // Page-level building blocks shared by every back-office screen: the header
 // with its breadcrumb, a labelled fact list, a titled section, and the list
 // footer. See the validated canvas linked from
 // docs/superpowers/specs/2026-09-28-backoffice-v2-part2-browse-ui.md.
 
+/**
+ * The page's title block, in the product's two shapes. With an `eyebrow` (the
+ * entity kind) it is an entity page's `PageHero`, the stats block as its
+ * `aside`; without, a collection's `PageHeader`. The breadcrumb stays above
+ * either: the back-office has no `PageBar`, and the link stays visible on a
+ * phone, where the shell is usable but not designed for.
+ */
 export function AdminPageHeader({
   title,
   parent,
+  eyebrow,
   subtitle,
   badges,
   actions,
+  aside,
 }: {
   title: string;
   parent?: { to: string; label: string };
+  /** The entity kind (« Club », « Joueur »…): switches the header to the hero. */
+  eyebrow?: string;
   subtitle?: ReactNode;
   badges?: ReactNode;
   actions?: ReactNode;
+  aside?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3">
       {parent && (
-        <nav aria-label="Fil d’Ariane" className="flex items-center gap-1.5">
-          <AdminLink to={parent.to}>{parent.label}</AdminLink>
-          <Text as="span" variant="meta" size="sm" aria-hidden="true">
-            /
-          </Text>
-          <Text as="span" variant="meta" size="sm">
+        <nav aria-label="Fil d’Ariane" className="flex flex-wrap items-center gap-1">
+          <PageBackLink to={parent.to} title={parent.label} alwaysVisible />
+          <Text as="span" variant="meta" size="sm" aria-current="page">
             {title}
           </Text>
         </nav>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2.5">
-          <Heading as="h1" className="m-0 break-words">
-            {title}
-          </Heading>
-          {badges && <div className="flex flex-wrap items-center gap-2">{badges}</div>}
-          {subtitle && (
-            <Text variant="meta" size="sm">
-              {subtitle}
-            </Text>
-          )}
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </div>
+      {eyebrow ? (
+        <PageHero
+          badges={badges}
+          eyebrow={eyebrow}
+          title={title}
+          actions={actions}
+          meta={subtitle}
+          aside={aside}
+        />
+      ) : (
+        <PageHeader title={title} meta={subtitle} actions={actions} />
+      )}
     </div>
   );
 }
@@ -176,20 +184,7 @@ export function AdminLinkedList({ items, empty }: { items: AdminLinkedItem[]; em
   );
 }
 
-/** A count at the top of a record page. */
-export function AdminStat({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <Card variant="panel" className="flex flex-col gap-1">
-      <Text as="span" variant="eyebrow" size="xs" tone="secondary">
-        {label}
-      </Text>
-      <Text as="span" variant="display" size="3xl" className="tabular">
-        {value}
-      </Text>
-    </Card>
-  );
-}
-
+/** The counts of a record page: a 2×2 grid of small tiles, the hero's `aside`. */
 export function AdminStats({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-3 md:grid-cols-4">{children}</div>;
+  return <div className="grid grid-cols-2 gap-3">{children}</div>;
 }

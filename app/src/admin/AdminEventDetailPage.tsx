@@ -1,3 +1,8 @@
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { Check as CheckIcon } from '@basketeasy/ui/icons/check';
+import { StatTile } from '@basketeasy/ui/stat-tile';
+import { UserIcon } from '@basketeasy/ui/icons/user';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { useParams } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -20,7 +25,6 @@ import {
   AdminFacts,
   AdminPageHeader,
   AdminSection,
-  AdminStat,
   AdminStats,
   AdminTable,
   AdminTwoColumn,
@@ -152,6 +156,7 @@ function EventDetail({ event }: { event: AdminEventDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={eventTitle(event)}
+        eyebrow="Événement"
         parent={{ to: adminPaths.team(event.team.id), label: event.team.name }}
         badges={
           <>
@@ -167,14 +172,35 @@ function EventDetail({ event }: { event: AdminEventDetail }) {
           </>
         }
         subtitle={`${formatAdminDateTime(event.startsAt)} · ${event.location}`}
+        aside={
+          <AdminStats>
+            <StatTile
+              size="sm"
+              icon={<CheckIcon size="md" />}
+              label="Présents"
+              value={event.rsvpCounts.going}
+            />
+            <StatTile
+              size="sm"
+              icon={<UserIcon size="md" />}
+              label="Absents"
+              value={event.rsvpCounts.notGoing}
+            />
+            <StatTile
+              size="sm"
+              icon={<UsersIcon size="md" />}
+              label="Peut-être"
+              value={event.rsvpCounts.maybe}
+            />
+            <StatTile
+              size="sm"
+              icon={<CalendarIcon size="md" />}
+              label="Convoqués"
+              value={event.convocationCount}
+            />
+          </AdminStats>
+        }
       />
-
-      <AdminStats>
-        <AdminStat label="Présents" value={event.rsvpCounts.going} />
-        <AdminStat label="Absents" value={event.rsvpCounts.notGoing} />
-        <AdminStat label="Peut-être" value={event.rsvpCounts.maybe} />
-        <AdminStat label="Convoqués" value={event.convocationCount} />
-      </AdminStats>
 
       <AdminTwoColumn
         main={

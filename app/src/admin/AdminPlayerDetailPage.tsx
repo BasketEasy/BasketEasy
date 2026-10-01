@@ -44,6 +44,7 @@ function PlayerDetail({ player }: { player: AdminPlayerDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={player.person.displayName}
+        eyebrow="Joueur"
         parent={{ to: adminPaths.players, label: 'Joueurs' }}
         badges={
           <>

@@ -64,6 +64,9 @@ describe('AdminPlayerDetailPage', () => {
     renderPlayer(PLAYER, 'DATA_OFFICER');
 
     expect(await screen.findByRole('heading', { name: 'Léo Bernard' })).toBeInTheDocument();
+    expect(screen.getByText('Joueur')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Joueurs' })).toHaveAttribute('href', '/admin/players');
     expect(screen.getByText('VT150314')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Nicolas Bernard' })).toHaveAttribute(
       'href',

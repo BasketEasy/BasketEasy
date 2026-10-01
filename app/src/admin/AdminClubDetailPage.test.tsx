@@ -78,6 +78,10 @@ describe('AdminClubDetailPage', () => {
     renderClub();
 
     expect(await screen.findByRole('heading', { name: 'BC Nantes Erdre' })).toBeInTheDocument();
+    expect(screen.getByText('Club')).toBeInTheDocument();
+    expect(screen.getByText('Joueurs', { selector: 'span' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Clubs' })).toHaveAttribute('href', '/admin/clubs');
     expect(await screen.findByRole('link', { name: 'Julie Roux' })).toHaveAttribute(
       'href',
       '/admin/users/user-1',

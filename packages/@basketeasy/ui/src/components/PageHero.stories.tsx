@@ -43,3 +43,13 @@ export const WithAside: Story = {
 export const WithoutAside: Story = {
   render: () => <PageHero eyebrow="Club" title="ASC Rezé Basket" meta="42 membres" />,
 };
+
+export const WithActions: Story = {
+  render: () => (
+    <PageHero
+      eyebrow="Utilisateur"
+      title="Nicolas Bernard"
+      actions={<Button variant="outline">Journal d’audit de ce compte</Button>}
+    />
+  ),
+};

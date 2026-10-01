@@ -109,6 +109,7 @@ function TeamDetail({ team }: { team: AdminTeamDetail }) {
     <div className="flex flex-col gap-6">
       <AdminPageHeader
         title={team.name}
+        eyebrow="Équipe"
         parent={{ to: adminPaths.teams, label: 'Équipes' }}
         badges={
           <>
