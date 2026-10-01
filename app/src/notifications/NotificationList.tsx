@@ -67,6 +67,7 @@ export function NotificationList({
           notification={notification}
           onRead={markRead}
           onNavigate={onNavigate}
+          density={density}
         />
       ))}
     </List>

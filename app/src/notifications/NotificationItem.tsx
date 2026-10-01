@@ -1,9 +1,35 @@
 import { Link } from 'react-router-dom';
+import type { ComponentType } from 'react';
 import { Badge } from '@basketeasy/ui/badge';
+import { IconBadge, type IconBadgeProps } from '@basketeasy/ui/icon-badge';
+import type { IconProps } from '@basketeasy/ui/icon-variants';
+import { BuildingIcon } from '@basketeasy/ui/icons/building';
+import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
+import { ChartBarsIcon } from '@basketeasy/ui/icons/chart-bars';
+import { RouteIcon } from '@basketeasy/ui/icons/route';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { WarningIcon } from '@basketeasy/ui/icons/warning';
 import { ListItem } from '@basketeasy/ui/list';
-import { cn } from '@basketeasy/ui/cn';
-import type { AppNotification } from '@basketeasy/types/notifications';
+import { Text } from '@basketeasy/ui/text';
+import type { AppNotification, NotificationType } from '@basketeasy/types/notifications';
 import { formatNotificationAge } from './notificationTime';
+
+// Which icon, and which badge tone, says what a notification is about. The
+// copy is already a finished sentence; this is only the glyph at the row's head.
+const TYPE_BADGE: Record<
+  NotificationType,
+  { Icon: ComponentType<IconProps>; tone: NonNullable<IconBadgeProps['tone']> }
+> = {
+  EVENT_CONVOCATION: { Icon: CalendarIcon, tone: 'structure' },
+  EVENT_CANCELLED: { Icon: WarningIcon, tone: 'danger' },
+  SCORESHEET_READY: { Icon: ChartBarsIcon, tone: 'structure' },
+  SCORESHEET_FAILED: { Icon: WarningIcon, tone: 'danger' },
+  EVENT_MEETING_FIXED: { Icon: RouteIcon, tone: 'structure' },
+  EVENT_MEETING_CHANGED: { Icon: RouteIcon, tone: 'accent' },
+  EVENT_VENUE_CHANGED: { Icon: BuildingIcon, tone: 'accent' },
+  GUEST_INVITE_REQUESTED: { Icon: UsersIcon, tone: 'structure' },
+  WHATSAPP_SHARE_REQUESTED: { Icon: UsersIcon, tone: 'structure' },
+};
 
 interface NotificationItemProps {
   notification: AppNotification;
@@ -11,6 +37,8 @@ interface NotificationItemProps {
   onRead: (id: string) => void;
   /** Lets the bell's dropdown close itself when a row is followed. */
   onNavigate?: () => void;
+  /** `comfortable` (the page) leads with a type icon; `compact` (the bell) stays tight. */
+  density?: 'compact' | 'comfortable';
 }
 
 /**
@@ -23,12 +51,25 @@ interface NotificationItemProps {
  * A row without one has nowhere to go, so it is a button that only marks
  * itself read.
  */
-export function NotificationItem({ notification, onRead, onNavigate }: NotificationItemProps) {
+export function NotificationItem({
+  notification,
+  onRead,
+  onNavigate,
+  density = 'comfortable',
+}: NotificationItemProps) {
   const isUnread = notification.readAt === null;
+
+  const badge = TYPE_BADGE[notification.type];
+  const comfortable = density === 'comfortable';
 
   const rowProps = {
     align: 'start',
     titleTone: isUnread ? 'primary' : 'secondary',
+    leading: comfortable && badge && (
+      <IconBadge tone={badge.tone} aria-hidden="true">
+        <badge.Icon size="lg" />
+      </IconBadge>
+    ),
     // « Pour qui »: set when a parent is told about a child, so a family's
     // notifications can be told apart at a glance.
     eyebrow: notification.subjectFirstName && (
@@ -40,15 +81,16 @@ export function NotificationItem({ notification, onRead, onNavigate }: Notificat
     // The unread dot, at the row's trailing edge. aria-hidden because
     // "non lue" is already in the row's own accessible name below — a
     // screen reader should hear it once, as part of the row, not as a
-    // stray bullet.
-    trailing: (
-      <span
+    // stray bullet. Read rows keep an invisible dot so the layout is stable.
+    trailing: isUnread ? (
+      <Text
+        as="span"
+        tone="brand"
         aria-hidden="true"
-        className={cn(
-          'mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full',
-          isUnread ? 'bg-orange' : 'bg-transparent',
-        )}
+        className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-current"
       />
+    ) : (
+      <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 shrink-0" />
     ),
   } as const;
 

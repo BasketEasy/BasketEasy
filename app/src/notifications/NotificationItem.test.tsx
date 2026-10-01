@@ -44,4 +44,17 @@ describe('NotificationItem', () => {
       screen.getByRole('link', { name: 'Vous êtes convoqué·e (non lue)' }),
     ).toBeInTheDocument();
   });
+
+  it('leads with a type icon at comfortable density only', () => {
+    const comfortable = renderWithProviders(
+      <NotificationItem notification={notification} onRead={() => undefined} />,
+    );
+    expect(comfortable.container.querySelector('svg')).not.toBeNull();
+    comfortable.unmount();
+
+    const compact = renderWithProviders(
+      <NotificationItem notification={notification} onRead={() => undefined} density="compact" />,
+    );
+    expect(compact.container.querySelector('svg')).toBeNull();
+  });
 });
