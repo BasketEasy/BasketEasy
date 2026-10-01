@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@basketeasy/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
+import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
+import { SectionAccordion, SectionAccordionItem } from '@basketeasy/ui/section-accordion';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
 import { AccountProfileForm } from '../account/AccountProfileForm';
+import { useAccount } from '../auth/useAccount';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useLogout } from '../auth/mutations';
 import { useAdminClubs } from '../clubs/useAdminClubs';
@@ -25,6 +30,7 @@ import { ParentAccessCard } from '../guardians/ParentAccessCard';
  * on viewport width.
  */
 export function AccountPage() {
+  const { user } = useAccount();
   const adminClubs = useAdminClubs();
   const { activeClubId, setActiveClubId } = useActiveClub();
   const showCreateClub = useShowCreateClub();
@@ -33,30 +39,51 @@ export function AccountPage() {
   // pending personas read simply leaves them out rather than blocking it.
   const { data: personas } = usePersonas();
   const ownPlayerIds = personas?.self?.playerIds ?? [];
+  // Every fold starts closed: the profile is the page, the rest is reference.
+  const [open, setOpen] = useState<string[]>([]);
+
+  const children = personas?.children ?? [];
+  const activeClub = adminClubs.find((club) => club.id === activeClubId);
 
   return (
     <PageContainer size="md">
-      <Card>
-        <CardHeader>
-          <CardTitle>Mon compte</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AccountProfileForm />
-        </CardContent>
-      </Card>
+      <PageHeader
+        title="Mon compte"
+        meta={user ? <span className="break-all">{user.email}</span> : undefined}
+      />
 
-      <NotificationPreferencesCard />
-
-      {personas && personas.children.length > 0 && <MyChildrenCard personas={personas.children} />}
-
-      {ownPlayerIds.length > 0 && <ParentAccessCard playerIds={ownPlayerIds} />}
-
-      {adminClubs.length > 0 && (
+      <section className="flex flex-col gap-3.5">
+        <SectionHeading as="h2">Profil</SectionHeading>
         <Card>
-          <CardHeader>
-            <CardTitle>Club actif</CardTitle>
-          </CardHeader>
           <CardContent>
+            <AccountProfileForm />
+          </CardContent>
+        </Card>
+      </section>
+
+      <SectionAccordion value={open} onValueChange={setOpen}>
+        <SectionAccordionItem
+          value="notifications"
+          title="Notifications"
+          summary={user?.emailNotificationsEnabled === false ? 'E-mail désactivé' : 'E-mail activé'}
+        >
+          <NotificationPreferencesCard />
+        </SectionAccordionItem>
+
+        {children.length > 0 && (
+          <SectionAccordionItem
+            value="enfants"
+            title="Mes enfants"
+            summary={children.map((child) => child.firstName).join(', ')}
+          >
+            <MyChildrenCard personas={children} />
+          </SectionAccordionItem>
+        )}
+
+        {ownPlayerIds.length > 0 && <ParentAccessCard playerIds={ownPlayerIds} />}
+
+        {adminClubs.length > 0 && (
+          <SectionAccordionItem value="club" title="Club actif" summary={activeClub?.name}>
             <Text variant="meta" className="mb-3">
               Le club dont vous gérez l'effectif depuis la barre du bas.
             </Text>
@@ -73,22 +100,20 @@ export function AccountPage() {
                 ),
               }))}
             />
-          </CardContent>
-        </Card>
-      )}
+          </SectionAccordionItem>
+        )}
+      </SectionAccordion>
 
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          {showCreateClub && (
-            <Button asChild variant="outline">
-              <Link to="/clubs/new">Créer un club</Link>
-            </Button>
-          )}
-          <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
-            Se déconnecter
+      <div className="flex flex-wrap items-center gap-2">
+        {showCreateClub && (
+          <Button asChild variant="outline">
+            <Link to="/clubs/new">Créer un club</Link>
           </Button>
-        </CardContent>
-      </Card>
+        )}
+        <Button variant="outline" disabled={isLoggingOut} onClick={() => logout()}>
+          Se déconnecter
+        </Button>
+      </div>
     </PageContainer>
   );
 }
