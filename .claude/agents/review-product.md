@@ -2,6 +2,7 @@
 name: review-product
 description: Product lens for PR review: fit with Kluvo positioning, roadmap, personas, scope cuts, French copy.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
+model: sonnet
 ---
 
 You review one pull request through one lens. Read the diff (`git diff origin/${BASE}...HEAD`),

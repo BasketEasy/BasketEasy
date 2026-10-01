@@ -36,3 +36,11 @@ superseded runs, and draft PRs are skipped, so keep PRs in draft until ready.
 
 - Pause all merging: repo variable `REVIEW_AGENT_AUTOMERGE=false` (reviews continue).
 - One PR: label `no-agent-merge`. Agent-flagged PRs get `needs-human`; remove it after you decide.
+
+## When a review runs
+
+- Only after every other check on the head is green (`resolve` job, triggered by `workflow_run`). Red CI spends no tokens.
+- A push after a cleared review is reviewed **incrementally**: lenses only see `previous reviewed sha..HEAD`. If the previous verdict was not a clearance, or history was rewritten, it is a full review.
+- A push whose new commits all start with `format:` is **not reviewed**: the previous verdict is copied to the new head. A commit hiding behaviour under that prefix skips review, so keep the prefix honest.
+- At most 3 reviews per PR (`agent-review-N` label counts them). A comment announces the cap; add the `re-review` label to run one more (consumed by that run).
+- Lens subagents run on cheaper models (`model:` in `.claude/agents/review-*.md`: Sonnet, Haiku for accessibility and coherence).

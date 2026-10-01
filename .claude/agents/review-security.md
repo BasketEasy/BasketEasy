@@ -2,6 +2,7 @@
 name: review-security
 description: Security lens for PR review: authz, injection, secrets, tokens, SSRF, uploads, rate limits, supply chain.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
+model: sonnet
 ---
 
 You review one pull request through one lens. Read the diff (`git diff origin/${BASE}...HEAD`),

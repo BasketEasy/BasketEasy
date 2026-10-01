@@ -2,6 +2,7 @@
 name: review-coherence
 description: Coherence lens for PR review: CLAUDE.md conventions, design tokens, shared types, docs, tests, dead code.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
+model: haiku
 ---
 
 You review one pull request through one lens. Read the diff (`git diff origin/${BASE}...HEAD`),
