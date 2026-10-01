@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
-import { ChevronLeftIcon } from '@basketeasy/ui/icons/chevron-left';
 import { List, ListItem } from '@basketeasy/ui/list';
 import { PageHeader } from '@basketeasy/ui/page-header';
 import { PageHero } from '@basketeasy/ui/page-hero';
@@ -11,6 +8,7 @@ import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
+import { PageBackLink } from '../../components/PageBar';
 
 // Page-level building blocks shared by every back-office screen: the header
 // with its breadcrumb, a labelled fact list, a titled section, and the list
@@ -46,12 +44,7 @@ export function AdminPageHeader({
     <div className="flex flex-col gap-3">
       {parent && (
         <nav aria-label="Fil d’Ariane" className="flex flex-wrap items-center gap-1">
-          <Button asChild variant="ghost" className="self-start">
-            <Link to={parent.to}>
-              <ChevronLeftIcon size="md" />
-              {parent.label}
-            </Link>
-          </Button>
+          <PageBackLink to={parent.to} title={parent.label} alwaysVisible />
           <Text as="span" variant="meta" size="sm" aria-current="page">
             {title}
           </Text>
@@ -62,7 +55,7 @@ export function AdminPageHeader({
           badges={badges}
           eyebrow={eyebrow}
           title={title}
-          titleAction={actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          actions={actions}
           meta={subtitle}
           aside={aside}
         />

@@ -31,6 +31,7 @@ export function PageHero({
   eyebrow,
   title,
   titleAction,
+  actions,
   meta,
   aside,
   stacked,
@@ -41,6 +42,11 @@ export function PageHero({
   title: ReactNode;
   /** A control beside the title (the edit icon). */
   titleAction?: ReactNode;
+  /**
+   * The page's actions (one or several buttons): under the title below `sm`,
+   * to its right from `sm`, so a long label never squeezes the `h1`.
+   */
+  actions?: ReactNode;
   meta?: ReactNode;
   aside?: ReactNode;
   /** Keep the aside below the title from `md` up, for a page narrower than two columns. */
@@ -52,11 +58,14 @@ export function PageHero({
       <div className="flex min-w-0 flex-col gap-2">
         {badges && <div className="flex flex-wrap items-center gap-2">{badges}</div>}
         {eyebrow !== undefined && eyebrow !== null && <Text variant="eyebrow">{eyebrow}</Text>}
-        <div className="flex items-start gap-3">
-          <Heading as="h1" size="hero" className="m-0 min-w-0 flex-1">
-            {title}
-          </Heading>
-          {titleAction}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <Heading as="h1" size="hero" className="m-0 min-w-0 flex-1">
+              {title}
+            </Heading>
+            {titleAction}
+          </div>
+          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
         {meta !== undefined && meta !== null && (
           <Text variant="meta" className="tabular">

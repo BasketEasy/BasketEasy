@@ -31,10 +31,28 @@ export function PageBar({ to, state, title }: { to: string; state?: unknown; tit
   );
 }
 
-/** The desktop twin of `PageBar`: an inline ghost link, hidden below `md`. */
-export function PageBackLink({ to, state, title }: { to: string; state?: unknown; title: string }) {
+/**
+ * The desktop twin of `PageBar`: an inline ghost link, hidden below `md`.
+ * `alwaysVisible` keeps it at every width, for a surface with no `PageBar`
+ * (the back-office, which has no mobile bar).
+ */
+export function PageBackLink({
+  to,
+  state,
+  title,
+  alwaysVisible = false,
+}: {
+  to: string;
+  state?: unknown;
+  title: string;
+  alwaysVisible?: boolean;
+}) {
   return (
-    <Button asChild variant="ghost" className="hidden self-start md:inline-flex">
+    <Button
+      asChild
+      variant="ghost"
+      className={alwaysVisible ? 'self-start' : 'hidden self-start md:inline-flex'}
+    >
       <Link to={to} state={state}>
         <ChevronLeftIcon size="md" />
         {title}

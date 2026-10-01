@@ -20,4 +20,12 @@ describe('PageBar', () => {
     );
     expect(screen.getByRole('link', { name: 'U15 Filles' })).toBeInTheDocument();
   });
+
+  it('hides the desktop link below md unless alwaysVisible', () => {
+    const { unmount } = renderWithProviders(<PageBackLink to="/x" title="Clubs" />);
+    expect(screen.getByRole('link', { name: 'Clubs' })).toHaveClass('hidden');
+    unmount();
+    renderWithProviders(<PageBackLink to="/x" title="Clubs" alwaysVisible />);
+    expect(screen.getByRole('link', { name: 'Clubs' })).not.toHaveClass('hidden');
+  });
 });

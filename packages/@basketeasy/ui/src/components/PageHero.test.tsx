@@ -37,4 +37,9 @@ describe('PageHero', () => {
     expect(screen.getByText('Entente CTC')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Modifier' })).toBeInTheDocument();
   });
+
+  it('renders the actions beside the title row', () => {
+    render(<PageHero title="Seniors M1" actions={<button type="button">Journal</button>} />);
+    expect(screen.getByRole('button', { name: 'Journal' })).toBeInTheDocument();
+  });
 });
