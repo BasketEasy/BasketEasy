@@ -8,6 +8,8 @@ const iconBadgeVariants = cva(
     variants: {
       tone: {
         structure: 'bg-blue-green-tint text-blue-green',
+        /** On a card that is already blue-green-tint: the badge steps up to `surface` so it stays visible. */
+        onTint: 'bg-surface text-blue-green',
         danger: 'bg-error-tint text-error',
         accent: 'bg-gold-tint text-gold-text',
       },

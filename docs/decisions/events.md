@@ -103,6 +103,11 @@ Corrections to the design, found in the code:
   (art. 15(4)), named in the bundle's `notice`.
 - A removed roster entry takes its turns on matches not yet started with it, so the next
   suggestion moves on; played ones are left to `SetNull` (« Aucun », the turn stops counting).
+- **The team page shows it as its own « Maillots » tab, not a section of the page.** `TeamDetailPage`
+  is a hero over `?tab=` tabs and has no tab-free area. The tab is the manager's always (the
+  rotation switch lives there) and the team's only while `Team.jerseyRotationEnabled`. The overview
+  names peers « Prénom N. » and shows that someone is « Exemptée » but never why; the exemption is
+  a manager-set flag on the roster entry, not something a player or guardian can change.
 
 ## Agenda
 

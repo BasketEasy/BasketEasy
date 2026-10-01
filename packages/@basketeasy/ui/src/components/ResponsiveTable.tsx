@@ -2,6 +2,7 @@ import { type ReactNode, createContext, useContext } from 'react';
 import { cn } from '../lib/cn';
 import { useIsDesktopViewport } from '../lib/useIsDesktopViewport';
 import { List } from './List';
+import { Text } from './Text';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from './Table';
 
 /**
@@ -55,6 +56,13 @@ export interface ResponsiveTableProps {
    * `Card variant="flush"`; `className` is not applied.
    */
   list?: boolean;
+  /**
+   * With `list`, an eyebrow row above the rows: `true` reuses `columns`, an
+   * array gives the mobile list its own labels when the desktop table has
+   * more columns than the list has places. The first label takes the free
+   * width, the others hug the right edge. Ignored without `list`.
+   */
+  listHeader?: boolean | ReadonlyArray<ReactNode>;
 }
 
 export function ResponsiveTable({
@@ -62,6 +70,7 @@ export function ResponsiveTable({
   children,
   className,
   list = false,
+  listHeader = false,
 }: ResponsiveTableProps) {
   const isDesktop = useIsDesktopViewport();
 
@@ -69,7 +78,26 @@ export function ResponsiveTable({
     return (
       <TableLayoutContext.Provider value="card">
         {list ? (
-          <List>{children}</List>
+          <>
+            {listHeader !== false && (
+              <div
+                role="presentation"
+                className="flex items-center gap-3 border-b border-border px-3.5 py-2.5"
+              >
+                {(listHeader === true ? columns : listHeader).map((label, index) => (
+                  <Text
+                    key={index}
+                    as="span"
+                    variant="eyebrow"
+                    className={index === 0 ? 'flex-1' : ''}
+                  >
+                    {label}
+                  </Text>
+                ))}
+              </div>
+            )}
+            <List>{children}</List>
+          </>
         ) : (
           <div className={cn('flex flex-col gap-3', className)}>{children}</div>
         )}

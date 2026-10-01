@@ -141,6 +141,11 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 - **RSVP** is always three separate buttons (Présent / Absent / Peut-être), filled by the answer.
 - **Choice between cards** is `RadioCardGroup`. **Several values in one control** is
   `SegmentedControl`.
+- **An immediate on/off setting** (« Rotation activée », a roster entry's « Exemptée ») is `Switch`
+  (`@basketeasy/ui/switch`): flipping it is the whole action, saved at once, optimistic and rolled
+  back with a toast if refused. A value that is submitted later with a form is a `Checkbox`.
+  Give the switch an `aria-label` that names its subject (« Exempter Emma M. »); a visible label
+  beside it is for sighted readers and does not replace it.
 - Touch targets are at least 44px (`h-11` default, `icon` 44px). The 36px `sm`/`icon-responsive`
   is for secondary actions next to a larger target.
 
@@ -199,7 +204,8 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 | Any non-heading text               | `@basketeasy/ui/text` `Text` (`variant` × `size` × `tone`) |
 | Inline link                        | `@basketeasy/ui/text-link` `TextLink`                      |
 | Status label                       | `Badge` (`variant` soft/solid/outline × `tone`)            |
-| Round icon disc                    | `IconBadge` (`tone`)                                       |
+| Round icon disc                    | `IconBadge` (`tone`; `onTint` on a blue-green-tint card)   |
+| Immediate on/off setting           | `@basketeasy/ui/switch` `Switch`                           |
 | Event time                         | `TimeBlock`                                                |
 | A figure                           | `StatTile`                                                 |
 | Divided list / link row            | `@basketeasy/ui/list` `List` + `ListItem`                  |

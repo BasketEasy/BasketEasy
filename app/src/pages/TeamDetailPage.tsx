@@ -32,6 +32,7 @@ import { TeamAdminsTab } from '../clubs/TeamAdminsTab';
 import { TeamEventsTab } from '../clubs/TeamEventsTab';
 import { TeamAgendaTab } from '../clubs/TeamAgendaTab';
 import { ROSTER_SORT_OPTIONS, TEAM_CLUB_SORT_OPTIONS } from '../clubs/teamFilterOptions';
+import { TeamJerseyRotationSection } from '../jersey-duty/TeamJerseyRotationSection';
 import { TeamSeasonStatsTab } from '../clubs/TeamSeasonStatsTab';
 import { TeamEditModal } from '../clubs/TeamEditModal';
 import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
@@ -54,7 +55,7 @@ const LINKING_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'stats' | 'events';
+type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'stats' | 'maillots' | 'events';
 
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
@@ -77,14 +78,9 @@ export function TeamDetailPage() {
           ? 'admins'
           : tabParam === 'stats'
             ? 'stats'
-            : 'events';
-  // Clubs partenaires/Administrateurs are management-only tabs, hidden from
-  // a rostered player with no manage rights — fall back to Événements (the
-  // default for everyone) rather than rendering a tab that isn't in the list.
-  const activeTab: TeamDetailTab =
-    !canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')
-      ? 'events'
-      : requestedTab;
+            : tabParam === 'maillots'
+              ? 'maillots'
+              : 'events';
   // Undefined means "the season containing today", which only the server can
   // resolve — the September-to-August boundary is its rule, not the client's.
   const [statsSeason, setStatsSeason] = useState<number | undefined>(undefined);
@@ -119,6 +115,18 @@ export function TeamDetailPage() {
     isError: isTeamError,
     refetch: refetchTeam,
   } = useTeamShow(clubId!, teamId!);
+
+  // Clubs partenaires/Administrateurs are management-only tabs, hidden from
+  // a rostered player with no manage rights — fall back to Événements (the
+  // default for everyone) rather than rendering a tab that isn't in the list.
+  // Maillots is the manager's always (the rotation switch lives there) and
+  // the team's only while the rotation is on.
+  const showJerseyTab = canManageTeam || (team?.jerseyRotationEnabled ?? false);
+  const activeTab: TeamDetailTab =
+    (!canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')) ||
+    (!showJerseyTab && requestedTab === 'maillots')
+      ? 'events'
+      : requestedTab;
 
   // Clubs partenaires (CTC) filters
   const [teamClubsSearch, setTeamClubsSearch] = useState('');
@@ -491,6 +499,7 @@ export function TeamDetailPage() {
                   Administrateurs
                 </TabsTrigger>
                 <TabsTrigger value="stats">Statistiques</TabsTrigger>
+                <TabsTrigger value="maillots">Maillots</TabsTrigger>
                 <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
                   Événements
                 </TabsTrigger>
@@ -508,6 +517,7 @@ export function TeamDetailPage() {
                   Effectif
                 </TabsTrigger>
                 <TabsTrigger value="stats">Mes stats</TabsTrigger>
+                {showJerseyTab && <TabsTrigger value="maillots">Maillots</TabsTrigger>}
               </>
             )}
           </TabsList>
@@ -523,6 +533,12 @@ export function TeamDetailPage() {
               />
             </div>
           </TabsContent>
+
+          {showJerseyTab && (
+            <TabsContent value="maillots" className="mt-4">
+              <TeamJerseyRotationSection clubId={clubId!} teamId={teamId!} />
+            </TabsContent>
+          )}
 
           <TabsContent value="roster">
             <TeamRosterTab
