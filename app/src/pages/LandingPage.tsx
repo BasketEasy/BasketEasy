@@ -4,7 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/car
 import { Badge } from '@basketeasy/ui/badge';
 import { Heading } from '@basketeasy/ui/heading';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
-import { TimeBlock } from '@basketeasy/ui/time-block';
+import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
+import { MyAgendaEventCard } from '../clubs/MyAgendaEventCard';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
@@ -61,52 +62,87 @@ const UPCOMING: { title: string; description: string }[] = [
 // timestamp, so build them from local components to read 19:00 / 15:00 anywhere.
 const mockKickoff = (hour: number) => new Date(2026, 0, 6, hour, 0).toISOString();
 
-const MOCK_EVENTS: {
-  type: 'TRAINING' | 'MATCH';
-  startsAt: string;
-  title: string;
-  meta: string;
-  badge: string;
-}[] = [
-  {
+const mockEvent = (
+  overrides: Pick<
+    MyAgendaEvent,
+    'eventId' | 'type' | 'startsAt' | 'locationName' | 'opponentName'
+  > &
+    Pick<MyAgendaEvent, 'venue' | 'rsvpSummary'>,
+): MyAgendaEvent => ({
+  teamId: 'mock-team',
+  teamName: 'U15 Garçons',
+  clubId: 'mock-club',
+  clubName: 'Kluvo',
+  location: 'Nantes',
+  notes: null,
+  recurrenceId: null,
+  myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
+  myConvocation: false,
+  isImported: false,
+  timeConfirmed: true,
+  logistics: { jerseys: null, balls: null },
+  result: null,
+  myMatchStats: null,
+  vote: null,
+  meetingPlan: null,
+  myTravelMode: null,
+  ...overrides,
+});
+
+const MOCK_EVENTS: MyAgendaEvent[] = [
+  mockEvent({
+    eventId: 'mock-training',
     type: 'TRAINING',
     startsAt: mockKickoff(19),
-    title: 'Entraînement',
-    meta: 'Mardi · Gymnase Jean-Moulin',
-    badge: '12 convoqués',
-  },
-  {
+    locationName: 'Gymnase Jean-Moulin',
+    opponentName: null,
+    venue: null,
+    rsvpSummary: {
+      rosterSize: 14,
+      convoked: 12,
+      answering: 12,
+      going: 9,
+      maybe: 1,
+      notGoing: 1,
+      pending: 1,
+      isConvocationScoped: true,
+    },
+  }),
+  mockEvent({
+    eventId: 'mock-match',
     type: 'MATCH',
     startsAt: mockKickoff(15),
-    title: 'Match vs. ES Rezé',
-    meta: 'Samedi · Salle des sports',
-    badge: '9 / 12',
-  },
+    locationName: 'Salle des sports',
+    opponentName: 'ES Rezé',
+    venue: 'HOME',
+    rsvpSummary: {
+      rosterSize: 14,
+      convoked: 12,
+      answering: 12,
+      going: 9,
+      maybe: 2,
+      notGoing: 0,
+      pending: 1,
+      isConvocationScoped: true,
+    },
+  }),
 ];
 
+/**
+ * The real `MyAgendaEventCard` (the manager's « Cette semaine » row) on static
+ * events, so the pitch shows the product rather than a lookalike. It is
+ * decoration: `inert` takes its links out of the tab order and the a11y tree,
+ * since they would point into the signed-in app.
+ */
 function HeroAgendaMock() {
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="pb-3">
-        <SectionHeading as="h2">Cette semaine</SectionHeading>
-        <Text variant="meta">U15 Garçons</Text>
-      </CardHeader>
-      <div className="flex flex-col gap-2 px-6 pb-6">
+    <Card variant="inset" className="flex w-full max-w-sm flex-col gap-3 p-4">
+      <SectionHeading as="h2">Cette semaine</SectionHeading>
+      <div className="flex flex-col gap-3" {...{ inert: '' }}>
         {MOCK_EVENTS.map((event) => (
-          <Card key={event.title} variant="inset" className="flex items-center gap-3">
-            <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed size="sm" />
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              <Text as="span" variant="label">
-                {event.title}
-              </Text>
-              <Text as="span" variant="meta">
-                {event.meta}
-              </Text>
-              <Badge variant="soft" tone="structure">
-                {event.badge}
-              </Badge>
-            </div>
-          </Card>
+          <MyAgendaEventCard key={event.eventId} event={event} isRostered={false} showRsvpSummary />
         ))}
       </div>
     </Card>
