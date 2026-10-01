@@ -58,6 +58,7 @@ import { subjectLabel } from '../common/notification-subject';
 import { RSVP_RESPONDENT_SELECT, toRsvpRespondent } from '../common/rsvp-respondent';
 import { NotificationsService } from '../notifications/notifications.service';
 import { MeetingPointsService } from '../meeting-points/meeting-points.service';
+import { addParisWeeks, withParisTimeOfDay } from '../common/paris-time';
 import { voteClosesAt, voteOpensAt } from '../common/vote-window';
 import { resolveSettings } from '../whatsapp-reminders/whatsapp-reminder.scheduler';
 import { WhatsAppReminderService } from '../whatsapp-reminders/whatsapp-reminder.service';
@@ -68,7 +69,6 @@ import {
   venueChangedNotification,
 } from './event-notification-copy';
 
-const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 // Caps a single recurring create at ~2 years of weekly occurrences, so a
 // distant `until` date can't be used to write an unbounded number of rows.
 const MAX_RECURRING_OCCURRENCES = 104;
@@ -283,11 +283,13 @@ export class EventsService {
       );
     }
 
+    // Stepped in Paris weeks, not 7 × 24 h: a series crossing a DST change
+    // keeps its wall-clock time instead of drifting by an hour.
     const occurrences: Date[] = [];
     for (
       let current = start;
       current <= until && occurrences.length < MAX_RECURRING_OCCURRENCES;
-      current = new Date(current.getTime() + WEEK_IN_MS)
+      current = addParisWeeks(start, occurrences.length)
     ) {
       occurrences.push(current);
     }
@@ -694,9 +696,9 @@ export class EventsService {
 
   // Bulk-changes only hour/minute across a series, leaving each occurrence's
   // own date untouched — the narrower counterpart to updateEvent's full
-  // startsAt replace (which stays THIS-only). hour/minute are UTC by
-  // contract with the frontend; see UpdateEventTimeOfDayRequest's JSDoc in
-  // @basketeasy/types/events for the full rationale.
+  // startsAt replace (which stays THIS-only). hour/minute are a Paris
+  // wall-clock time, resolved per row so occurrences on either side of a
+  // DST change all land on it.
   async updateEventTimeOfDay(
     clubId: string,
     teamId: string,
@@ -718,8 +720,7 @@ export class EventsService {
 
     const results = await this.prisma.$transaction([
       ...rows.map((row) => {
-        const startsAt = new Date(row.startsAt);
-        startsAt.setUTCHours(data.hour, data.minute, 0, 0);
+        const startsAt = withParisTimeOfDay(row.startsAt, data.hour, data.minute);
         return this.prisma.event.update({ where: { id: row.id }, data: { startsAt } });
       }),
       // Same rule as updateEvent: a meeting-time override belongs to the old
