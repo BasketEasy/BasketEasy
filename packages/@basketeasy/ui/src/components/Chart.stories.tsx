@@ -22,7 +22,6 @@ export const Columns: Story = {
       <ColumnChart
         data={WEEKS}
         table={{ caption: 'Comptes par semaine', labelHeader: 'Semaine', valueHeader: 'Comptes' }}
-        showAxisLabels
       />
     </div>
   ),

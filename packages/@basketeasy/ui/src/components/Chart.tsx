@@ -114,28 +114,17 @@ export function ColumnChart({
   data,
   table,
   className = 'h-32',
-  showAxisLabels = false,
 }: {
   data: ChartDatum[];
   table: ChartTableProps;
   className?: string;
-  /** Category labels under the axis; off when the caller labels the ends itself. */
-  showAxisLabels?: boolean;
 }) {
   return (
     <>
       <Plot className={className}>
         <BarChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barCategoryGap={2}>
           <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.15} />
-          <XAxis
-            dataKey="label"
-            hide={!showAxisLabels}
-            tickLine={false}
-            axisLine={false}
-            tick={AXIS_TICK}
-            interval="preserveStartEnd"
-            minTickGap={16}
-          />
+          <XAxis dataKey="label" hide />
           <YAxis hide domain={[0, 'auto']} />
           <Tooltip
             cursor={{ fill: 'currentColor', fillOpacity: 0.08 }}

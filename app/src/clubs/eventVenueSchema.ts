@@ -5,8 +5,8 @@ import {
   isUnknownEventLocation,
 } from '@basketeasy/types/events';
 
-export const ADDRESS_REQUIRED_ERROR = 'Adresse requise';
-export const NAME_REQUIRED_ERROR = 'Nom de la salle requis';
+const ADDRESS_REQUIRED_ERROR = 'Adresse requise';
+const NAME_REQUIRED_ERROR = 'Nom de la salle requis';
 
 /**
  * The gym name / address pair every event form edits (`EventVenueDialog`,

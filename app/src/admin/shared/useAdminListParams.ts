@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
-export const ADMIN_PAGE_SIZE = 25;
+const ADMIN_PAGE_SIZE = 25;
 
 /**
  * A back-office list's filters and page, kept in the URL rather than in

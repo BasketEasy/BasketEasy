@@ -223,8 +223,6 @@ export interface TeamPendingCancellation {
   status: EventShareStatus;
 }
 
-/** 3 days before the event, unless a team or an event says otherwise. */
-export const DEFAULT_WA_OFFSET_MINUTES = 4320;
 export const WA_OFFSET_MINUTES_MIN = 60;
 /** The guest page lists only the next GUEST_WINDOW_DAYS days: a reminder further out would link to a page that doesn't show the event yet. */
 export const WA_OFFSET_MINUTES_MAX = GUEST_WINDOW_DAYS * 1440;

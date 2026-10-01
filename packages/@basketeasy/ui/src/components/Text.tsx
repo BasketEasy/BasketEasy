@@ -101,5 +101,3 @@ export const Text = forwardRef<HTMLElement, TextProps>(
   },
 );
 Text.displayName = 'Text';
-
-export { textVariants };

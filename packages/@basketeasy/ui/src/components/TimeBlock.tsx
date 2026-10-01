@@ -124,5 +124,3 @@ export function TimeBlock({ type, startsAt, timeConfirmed, size, className }: Ti
     </div>
   );
 }
-
-export { timeBlockVariants };

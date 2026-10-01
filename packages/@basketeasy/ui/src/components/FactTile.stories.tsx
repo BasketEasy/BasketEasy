@@ -38,19 +38,3 @@ export const AccentWithFilledAction: Story = {
     />
   ),
 };
-
-export const WithTrailing: Story = {
-  render: () => (
-    <FactTile
-      icon={<Dot />}
-      label="Code club FFBB"
-      detail="ARA0044012"
-      trailing={
-        <Button variant="outline" size="icon-responsive" aria-label="Modifier">
-          <Dot />
-          <span className="hidden md:inline">Modifier</span>
-        </Button>
-      }
-    />
-  ),
-};

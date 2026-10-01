@@ -23,14 +23,12 @@ export function EventRsvpBreakdown({
   clubId,
   teamId,
   eventId,
-  defaultOpen = false,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
-  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(false);
   const { data: roster, isError, refetch } = useEventRsvps(clubId, teamId, eventId, isOpen);
   const meSuffix = useMeSuffix(teamId);
   const confirmedCount = roster?.filter((r) => r.status === 'GOING').length ?? 0;

@@ -35,15 +35,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T;
   options: ReadonlyArray<SegmentedControlOption<T>>;
   onChange: (value: T) => void;
-  /** Pressed-state fill. `structure` is the organising blue-green; `brand` the rare sharp accent. */
-  tone?: 'structure' | 'brand';
   className?: string;
 }
-
-const PRESSED_CLASSES: Record<NonNullable<SegmentedControlProps<string>['tone']>, string> = {
-  structure: 'bg-blue-green text-cream shadow-segment-active',
-  brand: 'bg-orange-text text-cream shadow-segment-active',
-};
 
 const OPTION_SELECTOR = 'button[aria-pressed]';
 
@@ -52,7 +45,6 @@ export function SegmentedControl<T extends string>({
   value,
   options,
   onChange,
-  tone = 'structure',
   className,
 }: SegmentedControlProps<T>) {
   const groupRef = useRef<HTMLDivElement>(null);
@@ -126,7 +118,9 @@ export function SegmentedControl<T extends string>({
             className={cn(
               'flex min-h-11 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-bold transition-colors',
               focusRing,
-              pressed ? PRESSED_CLASSES[tone] : 'text-muted hover:bg-surface-2 hover:text-charcoal',
+              pressed
+                ? 'bg-blue-green text-cream shadow-segment-active'
+                : 'text-muted hover:bg-surface-2 hover:text-charcoal',
             )}
           >
             {option.label}

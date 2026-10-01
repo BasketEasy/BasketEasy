@@ -13,14 +13,12 @@ export function EventConvocationBreakdown({
   clubId,
   teamId,
   eventId,
-  defaultOpen = false,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
-  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(false);
   const { data: roster, isError, refetch } = useEventConvocations(clubId, teamId, eventId, isOpen);
   const meSuffix = useMeSuffix(teamId);
   const convokedCount = roster?.filter((r) => r.convoked).length ?? 0;
