@@ -10,82 +10,99 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PNPM_VERSION: 9.7.0
-  NODE_VERSION: 24
-
+# Jobs are gated on what the PR touches (`changes`), not by workflow-level
+# `paths:`, so a skipped job still reports success to branch protection.
+# Pushes to main always run everything. `server` and `app` both include the
+# shared packages, the lockfile and this file.
 jobs:
-  install:
+  changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      server: ${{ github.event_name == 'push' || steps.filter.outputs.server == 'true' }}
+      app: ${{ github.event_name == 'push' || steps.filter.outputs.app == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          filters: |
+            shared: &shared
+              - 'packages/@basketeasy/types/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.github/workflows/ci.yml'
+            server:
+              - *shared
+              - 'server/**'
+            app:
+              - *shared
+              - 'app/**'
+              - 'packages/@basketeasy/ui/**'
 
   format:
-    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: 'basketeasy'
       - name: Prettier check
         run: pnpm run format:check
 
-  lint:
-    needs: install
+  lint-server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Lint server
-        run: pnpm --filter @basketeasy/server run lint
-      - name: Lint app
-        run: pnpm --filter @basketeasy/app run lint
+          filter: '@basketeasy/server...'
+      - run: pnpm --filter @basketeasy/server run lint
 
-  test:
-    needs: install
+  lint-app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+          filter: '@basketeasy/app...'
+      - run: pnpm --filter @basketeasy/app run lint
+
+  test-server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Test server
-        run: pnpm --filter @basketeasy/server run test
-      - name: Test app
-        run: pnpm --filter @basketeasy/app run test
+          filter: '@basketeasy/server...'
+      - run: pnpm --filter @basketeasy/server run test
+
+  test-app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          filter: '@basketeasy/app...'
+      - run: pnpm --filter @basketeasy/app run test
 
   # Specs that need a real Postgres: FK cascades, FOR UPDATE races, JSON-path
   # filters, raw SQL aggregates. Unit specs mock Prisma and can't see any of
   # these. See server/test/db/db.ts.
   test-db:
-    needs: install
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -106,31 +123,32 @@ jobs:
       NEON_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/server...'
       - name: Apply migrations
         run: pnpm --filter @basketeasy/server exec prisma migrate deploy
       - name: Test server against Postgres
         run: pnpm --filter @basketeasy/server run test:db
 
-  build:
-    needs: [format, lint, test, test-db]
+  build-server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+          filter: '@basketeasy/server...'
+      - run: pnpm --filter @basketeasy/server run build
+
+  build-app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Build all workspace packages
-        run: pnpm run build
+          filter: '@basketeasy/app...'
+      - run: pnpm --filter @basketeasy/app run build
