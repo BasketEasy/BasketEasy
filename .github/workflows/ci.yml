@@ -10,10 +10,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PNPM_VERSION: 9.7.0
-  NODE_VERSION: 24
-
 # Jobs are gated on what the PR touches (`changes`), not by workflow-level
 # `paths:`, so a skipped job still reports success to branch protection.
 # Pushes to main always run everything. `server` and `app` both include the
@@ -51,14 +47,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: 'basketeasy'
       - name: Prettier check
         run: pnpm run format:check
 
@@ -68,14 +59,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/server...'
       - run: pnpm --filter @basketeasy/server run lint
 
   lint-app:
@@ -84,14 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/app...'
       - run: pnpm --filter @basketeasy/app run lint
 
   test-server:
@@ -100,14 +81,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/server...'
       - run: pnpm --filter @basketeasy/server run test
 
   test-app:
@@ -116,14 +92,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/app...'
       - run: pnpm --filter @basketeasy/app run test
 
   # Specs that need a real Postgres: FK cascades, FOR UPDATE races, JSON-path
@@ -152,14 +123,9 @@ jobs:
       NEON_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/server...'
       - name: Apply migrations
         run: pnpm --filter @basketeasy/server exec prisma migrate deploy
       - name: Test server against Postgres
@@ -171,14 +137,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/server...'
       - run: pnpm --filter @basketeasy/server run build
 
   build-app:
@@ -187,12 +148,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+          filter: '@basketeasy/app...'
       - run: pnpm --filter @basketeasy/app run build
