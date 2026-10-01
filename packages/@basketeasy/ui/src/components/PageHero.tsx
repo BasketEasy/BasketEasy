@@ -6,10 +6,18 @@ import { Text } from './Text';
 
 // Without an aside the card stays one column at every width, so the title
 // doesn't sit in half a card beside an empty cell.
-const heroVariants = cva('flex flex-col gap-3.5 p-4 md:grid md:items-center md:gap-6 md:p-6', {
+const heroVariants = cva('flex flex-col gap-3.5 p-4 md:p-6', {
   variants: {
-    hasAside: { true: 'md:grid-cols-2', false: 'md:grid-cols-1' },
+    hasAside: { true: '', false: '' },
+    // A narrow page (`PageContainer size="md"`) has no room for two columns:
+    // `stacked` keeps the aside under the title at every width.
+    stacked: { true: '', false: 'md:grid md:items-center md:gap-6' },
   },
+  compoundVariants: [
+    { hasAside: true, stacked: false, class: 'md:grid-cols-2' },
+    { hasAside: false, stacked: false, class: 'md:grid-cols-1' },
+  ],
+  defaultVariants: { stacked: false },
 });
 
 /**
@@ -25,6 +33,7 @@ export function PageHero({
   titleAction,
   meta,
   aside,
+  stacked,
 }: {
   badges?: ReactNode;
   /** The parent: team → club, event → team. */
@@ -34,10 +43,12 @@ export function PageHero({
   titleAction?: ReactNode;
   meta?: ReactNode;
   aside?: ReactNode;
+  /** Keep the aside below the title from `md` up, for a page narrower than two columns. */
+  stacked?: boolean;
 }) {
   const hasAside = aside !== undefined && aside !== null && aside !== false;
   return (
-    <Card className={heroVariants({ hasAside })}>
+    <Card className={heroVariants({ hasAside, stacked })}>
       <div className="flex min-w-0 flex-col gap-2">
         {badges && <div className="flex flex-wrap items-center gap-2">{badges}</div>}
         {eyebrow !== undefined && eyebrow !== null && <Text variant="eyebrow">{eyebrow}</Text>}
