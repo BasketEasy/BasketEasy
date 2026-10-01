@@ -139,7 +139,7 @@ export function MyAgendaEventCard({
             </Text>
           </div>
           <FactTile
-            icon={<MapPinIcon size={19} />}
+            icon={<MapPinIcon size="lg" />}
             label={
               isUnknownEventLocation(event.location)
                 ? 'Lieu non communiqué'

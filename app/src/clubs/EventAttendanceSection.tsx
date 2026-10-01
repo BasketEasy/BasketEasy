@@ -173,7 +173,7 @@ export function EventAttendanceSection({
     if (rows.length === 0) {
       return (
         <EmptyState
-          icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+          icon={<UsersIcon size="3xl" tone="secondary" />}
           title="Effectif vide"
           description="Personne n’est encore inscrit sur cette équipe."
         />

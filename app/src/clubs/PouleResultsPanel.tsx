@@ -118,7 +118,7 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
   if (isNoLinkYet) {
     return (
       <EmptyState
-        icon={<UsersIcon tone="structure" className="h-8 w-8" />}
+        icon={<UsersIcon size="3xl" tone="structure" />}
         title="Aucune compétition FFBB liée"
         description="Liez cette équipe à sa compétition sur competitions.ffbb.com (ci-dessus) pour voir les résultats et le classement de sa poule."
       />
@@ -142,7 +142,7 @@ export function PouleResultsPanel({ clubId, teamId }: { clubId: string; teamId: 
           <SectionHeading>Résultats de la poule</SectionHeading>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRefetching}>
-          <RefreshIcon aria-hidden="true" className="h-4 w-4" />
+          <RefreshIcon size="md" aria-hidden="true" />
           Rafraîchir
         </Button>
       </div>

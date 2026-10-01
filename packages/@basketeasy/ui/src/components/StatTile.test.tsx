@@ -7,7 +7,7 @@ describe('StatTile', () => {
   it('renders the label, the value and the caller-supplied icon', () => {
     const { container } = render(
       <StatTile
-        icon={<UsersIcon className="h-4 w-4" data-testid="icon" />}
+        icon={<UsersIcon size="md" data-testid="icon" />}
         label="Joueurs au total"
         value={58}
       />,

@@ -148,7 +148,7 @@ export function PlayerHome({
           <MyAgendaEventCard event={nextEvent} isRostered size="hero" />
         ) : (
           <EmptyState
-            icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+            icon={<CalendarIcon size="3xl" tone="secondary" />}
             title="Rien de prévu"
             description="Aucun événement prévu dans les 14 prochains jours pour vos équipes."
           />
@@ -205,7 +205,7 @@ function OwedVoteTile({ match }: { match: MyAgendaEvent }) {
   return (
     <FactTile
       tone="accent"
-      icon={<TrophyIcon aria-hidden="true" className="h-5 w-5" />}
+      icon={<TrophyIcon size="lg" aria-hidden="true" />}
       label={`Votez pour le MVP${match.opponentName ? ` · vs ${match.opponentName}` : ''}`}
       detail={
         match.vote

@@ -113,7 +113,7 @@ function ConvocationMark({ convoked }: { convoked: boolean }) {
   }
   return (
     <Badge variant="soft" tone="brand" className="gap-1.5">
-      <ConvocationIcon size={12} className="shrink-0" />
+      <ConvocationIcon size="xs" className="shrink-0" />
       Convoqué·e
     </Badge>
   );
@@ -254,7 +254,7 @@ export function EventRosterList({
   if (rows.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+        icon={<UsersIcon size="3xl" tone="secondary" />}
         title="Effectif vide"
         description="Cette équipe n’a pas encore de joueurs ou de staff à convoquer."
       />

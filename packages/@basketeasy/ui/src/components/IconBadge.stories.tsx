@@ -5,7 +5,7 @@ import { CalendarIcon } from './icons/CalendarIcon';
 const meta: Meta<typeof IconBadge> = {
   title: 'Components/IconBadge',
   component: IconBadge,
-  args: { children: <CalendarIcon className="h-5 w-5" /> },
+  args: { children: <CalendarIcon size="lg" /> },
 };
 export default meta;
 

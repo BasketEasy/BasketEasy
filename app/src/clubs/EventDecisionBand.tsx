@@ -91,7 +91,7 @@ export function EventDecisionBand({
     >
       {event.myConvocation && (
         <Badge variant="solid" tone="brand" size="md" className="w-fit gap-1.5">
-          <ConvocationIcon size={13} className="shrink-0" />
+          <ConvocationIcon size="sm" className="shrink-0" />
           {childName ? `${childName} est convoqué·e` : 'Vous êtes convoqué·e'}
         </Badge>
       )}

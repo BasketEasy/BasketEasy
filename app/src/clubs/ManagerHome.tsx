@@ -3,17 +3,14 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
-import { cn } from '@basketeasy/ui/cn';
 import { EmptyState } from '@basketeasy/ui/empty-state';
-import { focusRing } from '@basketeasy/ui/focus-ring';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { StatTile } from '@basketeasy/ui/stat-tile';
-import { Text } from '@basketeasy/ui/text';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
-import { ChevronRightIcon } from '@basketeasy/ui/icons/chevron-right';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { MyDashboardSummary } from '@basketeasy/types/my-dashboard';
@@ -29,36 +26,36 @@ import { useMyAgenda } from './useMyAgenda';
 
 /** One team as a link row: name, « club · category », the reader's roles, a chevron. */
 function TeamLinkRow({ team }: { team: MyTeamSummary }) {
+  const hasRoles = Boolean(team.rosterRole) || team.isTeamAdmin;
   return (
-    <li>
+    <ListItem
+      asChild
+      chevron
+      meta={`${team.clubName} · ${teamCategoryLabel(team.category)}`}
+      trailing={
+        hasRoles && (
+          <>
+            {team.rosterRole && (
+              <Badge variant="soft" tone="muted">
+                {teamMemberRoleLabel(team.rosterRole)}
+              </Badge>
+            )}
+            {team.isTeamAdmin && (
+              <Badge variant="soft" tone="muted">
+                Administrateur
+              </Badge>
+            )}
+          </>
+        )
+      }
+    >
       <Link
         to={`/clubs/${team.clubId}/teams/${team.teamId}`}
         state={{ origin: { from: 'dashboard' } }}
-        className={cn('flex items-center gap-3 px-3.5 py-3 no-underline', focusRing)}
       >
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <Text as="span" variant="label" size="sm">
-            {team.teamName}
-          </Text>
-          <Text as="span" variant="meta" size="xs">
-            {team.clubName} · {teamCategoryLabel(team.category)}
-          </Text>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-1">
-          {team.rosterRole && (
-            <Badge variant="soft" tone="muted">
-              {teamMemberRoleLabel(team.rosterRole)}
-            </Badge>
-          )}
-          {team.isTeamAdmin && (
-            <Badge variant="soft" tone="muted">
-              Administrateur
-            </Badge>
-          )}
-        </div>
-        <ChevronRightIcon tone="secondary" className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {team.teamName}
       </Link>
-    </li>
+    </ListItem>
   );
 }
 
@@ -131,22 +128,22 @@ export function ManagerHome({
       <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start">
         <div className="grid grid-cols-2 gap-4 order-2 md:order-none md:col-span-2 md:grid-cols-4">
           <StatTile
-            icon={<TrophyIcon className="h-4 w-4" />}
+            icon={<TrophyIcon size="md" />}
             label="Équipes gérées"
             value={managedTeamCount}
           />
           <StatTile
-            icon={<CalendarIcon className="h-4 w-4" />}
+            icon={<CalendarIcon size="md" />}
             label="Événements — 7 prochains jours"
             value={upcomingEvents.length}
           />
           <StatTile
-            icon={<UsersIcon className="h-4 w-4" />}
+            icon={<UsersIcon size="md" />}
             label="Joueurs au total"
             value={dashboard?.totalPlayers ?? 0}
           />
           <StatTile
-            icon={<BuildingIcon className="h-4 w-4" />}
+            icon={<BuildingIcon size="md" />}
             label="Clubs administrés"
             value={adminClubs.length}
           />
@@ -171,7 +168,7 @@ export function ManagerHome({
             </div>
           ) : (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title="Rien de prévu cette semaine"
               description="Aucun événement dans les 7 prochains jours pour vos équipes."
             />
@@ -194,15 +191,15 @@ export function ManagerHome({
               <SkeletonList rows={3} variant="card" />
             ) : teams && teams.length > 0 ? (
               <Card variant="flush">
-                <ul className="flex flex-col divide-y divide-border">
+                <List>
                   {teams.map((team) => (
                     <TeamLinkRow key={team.teamId} team={team} />
                   ))}
-                </ul>
+                </List>
               </Card>
             ) : (
               <EmptyState
-                icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+                icon={<TrophyIcon size="3xl" tone="secondary" />}
                 title="Aucune équipe pour le moment"
                 description="Vous n'êtes membre d'aucune équipe pour le moment."
               />

@@ -59,6 +59,10 @@
       "types": "./src/components/Textarea.tsx",
       "default": "./src/components/Textarea.tsx"
     },
+    "./list": {
+      "types": "./src/components/List.tsx",
+      "default": "./src/components/List.tsx"
+    },
     "./card": {
       "types": "./src/components/Card.tsx",
       "default": "./src/components/Card.tsx"

@@ -36,7 +36,7 @@ export function TeamNextEventTile({
     : '';
   return (
     <FactTile
-      icon={<CalendarIcon aria-hidden="true" className="h-5 w-5" />}
+      icon={<CalendarIcon size="lg" aria-hidden="true" />}
       label={
         <span className="tabular">
           {formatEventDayShort(event.startsAt)} ·{' '}

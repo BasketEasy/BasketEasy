@@ -61,7 +61,7 @@ function MyTeamRow({ team }: { team: MyTeamSummary }) {
             </Text>
             <div className="flex flex-wrap items-center gap-1">{badges}</div>
           </div>
-          <ChevronRightIcon tone="secondary" className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <ChevronRightIcon size="lg" tone="secondary" className="shrink-0" aria-hidden="true" />
         </Card>
       </Link>
     );
@@ -164,7 +164,7 @@ export function MyTeamsPage() {
             </ResponsiveTable>
           ) : (
             <EmptyState
-              icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+              icon={<TrophyIcon size="3xl" tone="secondary" />}
               title="Aucune équipe pour le moment"
               description="Vous n'êtes membre d'aucune équipe pour le moment."
             />

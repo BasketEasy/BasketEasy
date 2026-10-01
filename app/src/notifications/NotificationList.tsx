@@ -1,6 +1,7 @@
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { EmptyState } from '@basketeasy/ui/empty-state';
+import { List } from '@basketeasy/ui/list';
 import { BellIcon } from '@basketeasy/ui/icons/bell';
 import type { ListNotificationsParams } from '@basketeasy/types/notifications';
 import { useNotifications } from './useNotifications';
@@ -51,7 +52,7 @@ export function NotificationList({
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={<BellIcon tone="structure" className="h-8 w-8" />}
+        icon={<BellIcon size="3xl" tone="structure" />}
         title="Aucune notification"
         description="Vos convocations et les annulations de séance apparaîtront ici."
       />
@@ -59,12 +60,15 @@ export function NotificationList({
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-border">
+    <List>
       {items.map((notification) => (
-        <li key={notification.id}>
-          <NotificationItem notification={notification} onRead={markRead} onNavigate={onNavigate} />
-        </li>
+        <NotificationItem
+          key={notification.id}
+          notification={notification}
+          onRead={markRead}
+          onNavigate={onNavigate}
+        />
       ))}
-    </ul>
+    </List>
   );
 }

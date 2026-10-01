@@ -385,7 +385,7 @@ export function TeamDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+          icon={<TrophyIcon size="3xl" tone="secondary" />}
           title="Équipe introuvable"
           description="Cette équipe n’existe plus ou a été supprimée."
           action={

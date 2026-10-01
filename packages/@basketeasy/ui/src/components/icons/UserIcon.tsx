@@ -4,7 +4,7 @@ import { iconVariants, type IconProps } from '../../lib/iconVariants';
  * A single person (Mon profil, Mon compte) — the head-and-shoulders bust.
  * UsersIcon is the plural of this: a roster, never one account.
  */
-export function UserIcon({ tone, className, ...props }: IconProps) {
+export function UserIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -13,7 +13,7 @@ export function UserIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <circle cx="12" cy="8.5" r="3.5" />

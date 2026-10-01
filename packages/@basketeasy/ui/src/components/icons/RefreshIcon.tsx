@@ -2,7 +2,7 @@ import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 
 /** Manual refresh (Rafraîchir) — a circular arrow. */
-export function RefreshIcon({ tone, className, ...props }: IconProps) {
+export function RefreshIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -11,7 +11,7 @@ export function RefreshIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M21 12a9 9 0 1 1-2.6-6.36" />

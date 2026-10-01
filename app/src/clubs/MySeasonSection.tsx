@@ -31,25 +31,25 @@ function SeasonBlock({ snapshot }: { snapshot: MySeasonSnapshot }) {
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <StatTile
             size="sm"
-            icon={<CalendarIcon aria-hidden="true" className="h-4 w-4" />}
+            icon={<CalendarIcon size="md" aria-hidden="true" />}
             label="MJ"
             value={me.gamesPlayed}
           />
           <StatTile
             size="sm"
-            icon={<ChartBarsIcon aria-hidden="true" className="h-4 w-4" />}
+            icon={<ChartBarsIcon size="md" aria-hidden="true" />}
             label="PTS/M"
             value={formatAverage(me.pointsPerGame)}
           />
           <StatTile
             size="sm"
-            icon={<TrophyIcon aria-hidden="true" className="h-4 w-4" />}
+            icon={<TrophyIcon size="md" aria-hidden="true" />}
             label="Meilleur total"
             value={formatCount(me.seasonHighPoints)}
           />
           <StatTile
             size="sm"
-            icon={<TrophyIcon aria-hidden="true" className="h-4 w-4" />}
+            icon={<TrophyIcon size="md" aria-hidden="true" />}
             label="MVP"
             value={me.mvpAwards}
           />

@@ -53,7 +53,7 @@ export function TeamPendingCancellations({ clubId, teamId }: { clubId: string; t
           <div key={cancellation.shareId} id={`partage-${cancellation.shareId}`}>
             <FactTile
               tone={isSent ? 'neutral' : 'accent'}
-              icon={<WarningIcon aria-hidden="true" className="h-5 w-5" />}
+              icon={<WarningIcon size="lg" aria-hidden="true" />}
               label={`${cancellation.eventName}, ${cancellation.eventDate}`}
               detail={
                 isSent

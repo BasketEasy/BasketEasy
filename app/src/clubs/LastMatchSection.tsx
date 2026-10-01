@@ -33,7 +33,7 @@ const OUTCOME: Record<
 function MvpTile({ match }: { match: MyAgendaEvent }) {
   const vote = match.vote;
   if (!vote) return null;
-  const icon = <TrophyIcon aria-hidden="true" className="h-5 w-5" />;
+  const icon = <TrophyIcon size="lg" aria-hidden="true" />;
   if (vote.hasVoted && new Date(vote.closesAt) > new Date()) {
     return (
       <FactTile
@@ -86,7 +86,7 @@ export function LastMatchSection({ match }: { match: MyAgendaEvent }) {
           )}
         </div>
         <FactTile
-          icon={<ChartBarsIcon aria-hidden="true" className="h-5 w-5" />}
+          icon={<ChartBarsIcon size="lg" aria-hidden="true" />}
           label={
             stats ? (
               <span className="tabular">

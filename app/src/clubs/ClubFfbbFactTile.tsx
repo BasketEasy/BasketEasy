@@ -59,7 +59,7 @@ export function ClubFfbbFactTile({ clubId, club }: { clubId: string; club: Club 
     });
   };
 
-  const icon = <BuildingIcon aria-hidden="true" className="h-5 w-5" />;
+  const icon = <BuildingIcon size="lg" aria-hidden="true" />;
 
   if (isEditing) {
     return (

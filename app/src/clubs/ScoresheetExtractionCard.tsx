@@ -49,7 +49,7 @@ const quarterMismatchId = (side: 'home' | 'away') => `scoresheet-quarter-mismatc
 // editable, matching the mockup's flagged-field affordance. Always rendered
 // with aria-hidden at its call site: it carries no information the adjacent
 // input's own aria-label doesn't already give.
-function PencilIcon({ tone, className, ...props }: IconProps) {
+function PencilIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -58,7 +58,7 @@ function PencilIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={2.4}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M12 20h9" />
@@ -97,7 +97,7 @@ function StatusBadge({ extraction }: { extraction: ScoresheetExtraction }) {
   if (extraction.status === 'NEEDS_REVIEW') {
     return (
       <Badge variant="soft" tone="accent" size="md" className="gap-1.5">
-        <WarningIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <WarningIcon size="sm" aria-hidden="true" className="shrink-0" />
         {confidenceLabel ? `${confidenceLabel} · à vérifier` : 'À vérifier'}
       </Badge>
     );
@@ -105,14 +105,14 @@ function StatusBadge({ extraction }: { extraction: ScoresheetExtraction }) {
   if (extraction.status === 'CONFIRMED') {
     return (
       <Badge variant="outline" tone="success" size="md" className="gap-1.5">
-        <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+        <Check size="sm" aria-hidden="true" className="shrink-0" />
         Données validées
       </Badge>
     );
   }
   return (
     <Badge variant="soft" tone="structure" size="md" className="gap-1.5">
-      <Check aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+      <Check size="sm" aria-hidden="true" className="shrink-0" />
       {confidenceLabel}
     </Badge>
   );
@@ -283,7 +283,7 @@ function FlaggedNumberCell({
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
         className="h-11 w-14 border-0 bg-transparent p-0 text-center text-base tabular-nums md:h-9 md:w-12 md:text-sm"
       />
-      {flagged && <PencilIcon aria-hidden="true" className="h-3 w-3 shrink-0 text-gold-text" />}
+      {flagged && <PencilIcon size="xs" aria-hidden="true" className="shrink-0 text-gold-text" />}
     </div>
   );
 }
@@ -740,7 +740,7 @@ export function ScoresheetExtractionCard({
       {isReadOnly ? (
         <Card variant="inset" className="flex items-center gap-2.5">
           <IconBadge className="h-7 w-7">
-            <Check aria-hidden="true" className="h-3.5 w-3.5" />
+            <Check size="sm" aria-hidden="true" />
           </IconBadge>
           <div className="flex flex-col gap-0.5">
             <Text variant="label" size="sm">
@@ -768,7 +768,7 @@ export function ScoresheetExtractionCard({
               onClick={() => void handleSubmit(onConfirm)()}
               className={cn('w-full', hasUnresolvedFlags && 'pointer-events-none opacity-50')}
             >
-              <Check aria-hidden="true" className="h-4 w-4" />
+              <Check size="md" aria-hidden="true" />
               Confirmer ces données
             </Button>
             {hasUnresolvedFlags && (

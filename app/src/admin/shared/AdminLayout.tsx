@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card } from '@basketeasy/ui/card';
 import { Heading } from '@basketeasy/ui/heading';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { Pagination } from '@basketeasy/ui/pagination';
 import { ResponsiveTable } from '@basketeasy/ui/responsive-table';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
@@ -164,26 +165,13 @@ export function AdminLinkedList({ items, empty }: { items: AdminLinkedItem[]; em
   }
   return (
     <Card variant="flush">
-      <ul className="m-0 flex list-none flex-col divide-y divide-border p-0">
+      <List>
         {items.map((item) => (
-          <li
-            key={item.key}
-            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3"
-          >
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <div className="flex flex-wrap items-center gap-2">{item.primary}</div>
-              {item.secondary && (
-                <Text as="span" variant="meta" size="sm">
-                  {item.secondary}
-                </Text>
-              )}
-            </div>
-            {item.trailing && (
-              <div className="flex flex-wrap items-center gap-2">{item.trailing}</div>
-            )}
-          </li>
+          <ListItem key={item.key} wrap meta={item.secondary} trailing={item.trailing}>
+            <span className="flex flex-wrap items-center gap-2">{item.primary}</span>
+          </ListItem>
         ))}
-      </ul>
+      </List>
     </Card>
   );
 }

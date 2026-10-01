@@ -80,7 +80,7 @@ function LogisticsFieldRow({
   return (
     <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
       <IconBadge>
-        <Icon size={19} />
+        <Icon size="lg" />
       </IconBadge>
       <div className="flex min-w-0 flex-col gap-px">
         <Text as="span" variant="label" size="sm">
@@ -114,7 +114,7 @@ function LogisticsFieldRow({
               tone="inverse"
               className="flex h-4 w-4 items-center justify-center rounded-full bg-success"
             >
-              <Check className="h-2.5 w-2.5" />
+              <Check size="2xs" />
             </Text>
             {canChange && (
               <Button variant="ghost" size="sm" onClick={() => setIsChanging(true)}>

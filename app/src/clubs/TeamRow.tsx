@@ -33,7 +33,7 @@ export function TeamRow({ clubId, team }: { clubId: string; team: Team }) {
               </Badge>
             </div>
           </div>
-          <ChevronRightIcon tone="secondary" className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <ChevronRightIcon size="lg" tone="secondary" className="shrink-0" aria-hidden="true" />
         </Card>
       </Link>
     );
