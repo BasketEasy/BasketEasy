@@ -2,6 +2,7 @@
 name: review-scalability
 description: Scalability and reliability lens for PR review: queries, indexes, queues, caching, failure modes, migrations.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*)
+model: sonnet
 ---
 
 You review one pull request through one lens. Read the diff (`git diff origin/${BASE}...HEAD`),
