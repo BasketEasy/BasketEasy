@@ -2,17 +2,15 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
-import { Text } from '@basketeasy/ui/text';
-import { TextLink } from '@basketeasy/ui/text-link';
 import type { EventMatchResult } from '@basketeasy/types/events';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
 import { formatEventDate } from './eventDateFormat';
 import { formatCount } from './teamStatsFormat';
 import { formatMvpNames } from './myAgendaVote';
-import { eventVenueLabel } from '@basketeasy/types/events';
 
 const OUTCOME_BADGE_TONE: Record<EventMatchResult['outcome'], 'success' | 'danger' | 'neutral'> = {
   WIN: 'success',
@@ -27,81 +25,70 @@ const OUTCOME_LABEL: Record<EventMatchResult['outcome'], string> = {
 };
 
 /**
- * One played match on « Après le match ». `result`/`myMatchStats` land here
- * in phase 8 — until a manager confirms the scoresheet, `result` stays null
- * and the row is just a link back to the match (so a manager still has
+ * One played match as a link row (design rule 8): « vs {opponent} · score »,
+ * « {team} · {date} », the outcome badge and a chevron, the whole row being
+ * the link back to the match. Until a manager confirms the scoresheet,
+ * `result` stays null and the row is just that link (so a manager still has
  * something to click through to go confirm it); a player must never see an
  * unconfirmed score (CLAUDE.md, Scoresheets module), so there is no
  * "provisional" score rendered here either.
  *
- * The vote state comes from the server (`MyAgendaEvent.vote`): « Voter »
- * only when this reader can vote and hasn't, « A voté » once they have while
- * the window is still open, and the MVP as a meta line once it is public to
- * them. The link goes into the event page's existing vote section
- * (`?tab=vote`, resolved by `useEventSectionAnchor`). The « joueur en
+ * The vote state comes from the server (`MyAgendaEvent.vote`): a « Voter »
+ * badge (and a link straight into the event page's vote section,
+ * `?tab=vote`, resolved by `useEventSectionAnchor`) only when this reader can
+ * vote and hasn't, « A voté » once they have while the window is still open,
+ * and the MVP as a meta line once it is public to them. The « joueur en
  * difficulté » outcome never appears here.
  */
 function PastMatchRow({ match }: { match: MyAgendaEvent }) {
   const eventHref = `/clubs/${match.clubId}/teams/${match.teamId}/events/${match.eventId}`;
-  const navState = { origin: { from: 'dashboard' } };
   const vote = match.vote;
   const mvp = vote?.mvp && vote.mvp.length > 0 ? formatMvpNames(vote.mvp) : null;
   const isVoteOpen = !!vote && new Date(vote.closesAt) > new Date();
+  const mustVote = !!vote?.canVote && !vote.hasVoted;
+  const opponent = match.opponentName ? `vs ${match.opponentName}` : 'Match joué';
 
   return (
-    <Card variant="inset" className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <Text as="span" variant="label" size="sm">
-            {formatEventDate(match.startsAt)}
-            {match.opponentName ? ` · vs ${match.opponentName}` : ''}
-          </Text>
-          <Text as="span" variant="meta" size="xs">
-            {match.teamName} · {eventVenueLabel(match)}
-          </Text>
-          {match.myMatchStats && (
-            <Text as="span" variant="meta" size="xs">
-              {formatCount(match.myMatchStats.points)} pts · {formatCount(match.myMatchStats.fouls)}{' '}
-              fautes
-            </Text>
-          )}
-          {mvp && (
-            <Text as="span" variant="meta" size="xs">
-              MVP : {mvp}
-            </Text>
-          )}
-        </div>
-        {match.result && (
-          <div className="flex shrink-0 items-center gap-2">
-            <Text as="span" variant="display" size="md" className="tabular">
-              {match.result.ourScore}–{match.result.theirScore}
-            </Text>
+    <ListItem
+      asChild
+      chevron
+      meta={[
+        `${match.teamName} · ${formatEventDate(match.startsAt)}`,
+        match.myMatchStats &&
+          `${formatCount(match.myMatchStats.points)} pts · ${formatCount(match.myMatchStats.fouls)} fautes`,
+        mvp && `MVP : ${mvp}`,
+      ]}
+      trailing={
+        <>
+          {match.result && (
             <Badge tone={OUTCOME_BADGE_TONE[match.result.outcome]}>
               {OUTCOME_LABEL[match.result.outcome]}
             </Badge>
-          </div>
+          )}
+          {mustVote && <Badge tone="brand">Voter</Badge>}
+          {vote?.hasVoted && isVoteOpen && (
+            <Badge variant="soft" tone="muted">
+              A voté
+            </Badge>
+          )}
+        </>
+      }
+    >
+      <Link
+        to={mustVote ? `${eventHref}?tab=vote` : eventHref}
+        state={{ origin: { from: 'dashboard' } }}
+      >
+        {opponent}
+        {match.result && (
+          <>
+            {' · '}
+            <span className="tabular whitespace-nowrap">
+              {match.result.ourScore}–{match.result.theirScore}
+            </span>
+          </>
         )}
-      </div>
-      <div className="flex flex-wrap items-center gap-4">
-        <TextLink asChild tone="brand">
-          <Link to={eventHref} state={navState}>
-            Voir →
-          </Link>
-        </TextLink>
-        {vote?.canVote && !vote.hasVoted && (
-          <TextLink asChild tone="brand">
-            <Link to={`${eventHref}?tab=vote`} state={navState}>
-              Voter →
-            </Link>
-          </TextLink>
-        )}
-        {vote?.hasVoted && isVoteOpen && (
-          <Badge variant="soft" tone="muted">
-            A voté
-          </Badge>
-        )}
-      </div>
-    </Card>
+      </Link>
+    </ListItem>
   );
 }
 
@@ -128,6 +115,7 @@ export function PastMatchesSection({
   isRefetching,
   emptyState,
   title = 'Après le match',
+  headingless = false,
   footer,
 }: {
   matches: MyAgendaEvent[];
@@ -138,13 +126,16 @@ export function PastMatchesSection({
   emptyState?: ReactNode;
   /** The section's court-line label; the player home calls it « Derniers résultats ». */
   title?: string;
+  /** Drops the court-line label when the page already carries the title (`/results`). */
+  headingless?: boolean;
   /** Rendered under the list, e.g. a link to the full `/results` page. */
   footer?: ReactNode;
 }) {
+  const heading = headingless ? null : <SectionHeading as="h2">{title}</SectionHeading>;
   if (isError) {
     return (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">{title}</SectionHeading>
+        {heading}
         <QueryError onRetry={onRetry} isRetrying={isRefetching} />
       </section>
     );
@@ -152,7 +143,7 @@ export function PastMatchesSection({
   if (isLoading) {
     return (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">{title}</SectionHeading>
+        {heading}
         <SkeletonList rows={1} variant="card" />
       </section>
     );
@@ -160,19 +151,21 @@ export function PastMatchesSection({
   if (matches.length === 0) {
     return emptyState ? (
       <section className="flex flex-col gap-3.5">
-        <SectionHeading as="h2">{title}</SectionHeading>
+        {heading}
         {emptyState}
       </section>
     ) : null;
   }
   return (
     <section className="flex flex-col gap-3.5">
-      <SectionHeading as="h2">{title}</SectionHeading>
-      <div className="flex flex-col gap-2">
-        {matches.map((match) => (
-          <PastMatchRow key={match.eventId} match={match} />
-        ))}
-      </div>
+      {heading}
+      <Card variant="flush">
+        <List>
+          {matches.map((match) => (
+            <PastMatchRow key={match.eventId} match={match} />
+          ))}
+        </List>
+      </Card>
       {footer}
     </section>
   );

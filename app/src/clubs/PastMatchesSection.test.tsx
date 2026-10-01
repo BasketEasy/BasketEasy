@@ -119,7 +119,7 @@ describe('PastMatchesSection', () => {
   it('renders no score or outcome badge for a match with no confirmed scoresheet yet, but still links to it', () => {
     renderWithProviders(
       <PastMatchesSection
-        matches={[baseMatch]}
+        matches={[{ ...baseMatch, vote: null }]}
         isLoading={false}
         isError={false}
         onRetry={noop}
@@ -129,7 +129,7 @@ describe('PastMatchesSection', () => {
 
     expect(screen.queryByText('Victoire')).not.toBeInTheDocument();
     expect(screen.queryByText('Défaite')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /voir/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /vs ES Rezé/ })).toHaveAttribute(
       'href',
       '/clubs/club-1/teams/team-1/events/event-1',
     );
@@ -175,6 +175,22 @@ describe('PastMatchesSection', () => {
     expect(screen.getByText(/— fautes/)).toBeInTheDocument();
   });
 
+  function renderWith(props: {
+    matches: MyAgendaEvent[];
+    isError?: boolean;
+    headingless?: boolean;
+  }) {
+    renderWithProviders(
+      <PastMatchesSection
+        isLoading={false}
+        isError={false}
+        onRetry={noop}
+        isRefetching={false}
+        {...props}
+      />,
+    );
+  }
+
   function renderMatch(match: MyAgendaEvent) {
     renderWithProviders(
       <PastMatchesSection
@@ -186,6 +202,32 @@ describe('PastMatchesSection', () => {
       />,
     );
   }
+
+  it('is one link row: title with score, « équipe · date » meta, badge, in a single list', () => {
+    renderMatch({
+      ...baseMatch,
+      vote: null,
+      result: { ourScore: 62, theirScore: 58, outcome: 'WIN' },
+    });
+
+    expect(screen.getAllByRole('list')).toHaveLength(1);
+    const link = screen.getByRole('link');
+    expect(link).toHaveTextContent(/vs ES Rezé · 62–58/);
+    expect(link).toHaveTextContent(/U15 Filles · /);
+    expect(link).toHaveTextContent('Victoire');
+  });
+
+  it('hides the heading when headingless', () => {
+    renderWith({ matches: [baseMatch], headingless: true });
+    expect(screen.queryByText('Après le match')).not.toBeInTheDocument();
+    expect(screen.getByRole('link')).toBeInTheDocument();
+  });
+
+  it('hides the heading when headingless on error too', () => {
+    renderWith({ matches: [], isError: true, headingless: true });
+    expect(screen.queryByText('Après le match')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+  });
 
   it('shows « Voter » when the server says this reader can vote and has not', () => {
     renderMatch(baseMatch);
