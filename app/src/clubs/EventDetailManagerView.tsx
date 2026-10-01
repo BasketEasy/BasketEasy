@@ -122,7 +122,6 @@ export function EventDetailManagerView({
   const logistics = (
     <section id={EVENT_SECTION_IDS.logistique} className={`flex flex-col gap-3.5 ${scroll}`}>
       <SectionHeading as="h2">Logistique</SectionHeading>
-      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
       <EventLogisticsCard
         clubId={clubId}
         teamId={teamId}
@@ -131,6 +130,7 @@ export function EventDetailManagerView({
         isRostered={isRostered}
         stacked={isDesktop}
       />
+      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
     </section>
   );
   const share = event.whatsAppShare ? SHARE_SUMMARY[event.whatsAppShare.state] : undefined;
