@@ -8,6 +8,7 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import { EventDeleteModal } from './EventDeleteModal';
 import { EventDetailHero } from './EventDetailHero';
 import { EventEditModal } from './EventEditModal';
+import { EventJerseyDutyCard } from '../jersey-duty/EventJerseyDutyCard';
 import { EventLogisticsCard } from './EventLogisticsCard';
 import { EventPilotBand } from './EventPilotBand';
 import { EventRosterList } from './EventRosterList';
@@ -121,6 +122,7 @@ export function EventDetailManagerView({
   const logistics = (
     <section id={EVENT_SECTION_IDS.logistique} className={`flex flex-col gap-3.5 ${scroll}`}>
       <SectionHeading as="h2">Logistique</SectionHeading>
+      {event.jerseyDuty && <EventJerseyDutyCard clubId={clubId} teamId={teamId} event={event} />}
       <EventLogisticsCard
         clubId={clubId}
         teamId={teamId}

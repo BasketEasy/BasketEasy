@@ -121,6 +121,23 @@ describe('EventLogisticsCard', () => {
     expect(screen.getAllByText('Ballons').length).toBeGreaterThan(0);
   });
 
+  it('drops the jersey row when the match has a jersey duty, keeping the balls row', async () => {
+    mockRoster();
+    renderWithProviders(
+      <EventLogisticsCard
+        clubId="club-1"
+        teamId="team-1"
+        event={baseEvent({
+          jerseyDuty: { holder: null, status: 'UNASSIGNED', broughtBy: null, isMine: false },
+        })}
+        canManage={false}
+        isRostered
+      />,
+    );
+    expect(await screen.findByText('Ballons')).toBeInTheDocument();
+    expect(screen.queryByText('Maillots')).not.toBeInTheDocument();
+  });
+
   it('shows the unassigned state with a self-assign button for a rostered member', async () => {
     mockRoster();
     const getBody = mockLogisticsPatch();

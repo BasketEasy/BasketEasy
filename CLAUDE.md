@@ -451,6 +451,10 @@ action RGPD access/erasure requests and confirm the retention sweep is doing its
 - A kick-off change (`updateEvent`, `updateEventTimeOfDay`, FFBB import) clears `meetsAtOverride`. A MATCH → TRAINING switch deletes the `EventMeeting` row.
 - **Frontend:** `app/src/meeting-points/` holds the club/team settings card and dialog, the per-match `EventMatchTimeline` (RDV → arrival → tip-off, which replaces the venue row on a MATCH in `EventLogisticsCard`) with its `EventMeetingDialog`, and `EventTravelModeControl` (a `RadioCardGroup` with `tone="choice"` and `indicator` in the decision band). Both dialogs are react-hook-form + zod and share the name/address pair rule from `meetingPointSchema.ts`; travel counts come from `countEventRoster`'s `travel`, the same scoping as the attendance counts. The screens follow the validated [canvas](https://claude.ai/artifact/BxNfwfDZ5jHYqNXgZYQJNF).
 
+## Jersey wash on the frontend
+
+`app/src/jersey-duty/` renders the match page's « Lavage des maillots » (`EventJerseyDutyCard`, above `EventLogisticsCard`, which drops its JERSEYS row when `event.jerseyDuty` is set), the swap `Dialog` and the agenda chip. Its hooks are persona-scoped (`useJerseyDuty`, `useJerseyDutyMutations`: `forPlayerId` last in the key and on every player-side write, each response written straight into the duty's cache). The card picks its state from the server's `rights`, never recomputes them; every gendered string comes from `jerseyDutyCopy.ts` (team gender for collective nouns, the person's `gender ?? teamGender` for pronouns). Decisions: [`events.md`](./docs/decisions/events.md).
+
 ## WhatsApp share reminders
 
 `server/src/whatsapp-reminders` + `app/src/whatsapp-reminders/` get the guest link into the team's WhatsApp group. Decisions, state machine and template rules: [`docs/decisions/guest-rsvp-and-whatsapp.md`](./docs/decisions/guest-rsvp-and-whatsapp.md).

@@ -5,6 +5,7 @@ import type {
   EventType,
   TeamEvent,
 } from '@basketeasy/types/events';
+import type { EventJerseyDutySummary } from '@basketeasy/types/jersey-duty';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
 import { eventLogisticsFieldLabel } from './eventLogisticsLabels';
 
@@ -37,6 +38,25 @@ function LogisticsMiniChip({
 }
 
 /**
+ * The jersey wash of a MATCH with the rotation on: « Vous lavez les maillots »
+ * when the reader holds it, the holder's name when someone does, « non
+ * assigné » otherwise. Same badge tones and icon as the other chips.
+ */
+function JerseyDutyMiniChip({ duty }: { duty: EventJerseyDutySummary }) {
+  const hasHolder = duty.holder !== null;
+  return (
+    <Badge variant="soft" tone={hasHolder ? 'neutral' : 'muted'} className="gap-1.5">
+      <JerseyIcon size="xs" tone={hasHolder ? 'structure' : 'secondary'} className="shrink-0" />
+      {duty.isMine
+        ? 'Vous lavez les maillots'
+        : duty.holder
+          ? `Lavage : ${shortAssigneeName(duty.holder)} ✓`
+          : 'Lavage : non assigné'}
+    </Badge>
+  );
+}
+
+/**
  * The agenda card's jersey/ball mini-chip pair (`AgendaCard.dc.html:77-86`)
  * — shared between the table row (EventRow) and card (TeamEventsAgenda)
  * views of the agenda so the assigned/unassigned copy and icon branching
@@ -49,13 +69,20 @@ function LogisticsMiniChip({
 export function EventLogisticsMiniChips({
   eventType,
   logistics,
+  jerseyDuty = null,
 }: {
   eventType: EventType;
   logistics: TeamEvent['logistics'];
+  /** `TeamEvent.jerseyDuty`: replaces the jersey chip on a MATCH of a team with the rotation on. */
+  jerseyDuty?: EventJerseyDutySummary | null;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <LogisticsMiniChip field="JERSEYS" eventType={eventType} assignee={logistics.jerseys} />
+      {eventType === 'MATCH' && jerseyDuty ? (
+        <JerseyDutyMiniChip duty={jerseyDuty} />
+      ) : (
+        <LogisticsMiniChip field="JERSEYS" eventType={eventType} assignee={logistics.jerseys} />
+      )}
       <LogisticsMiniChip field="BALLS" eventType={eventType} assignee={logistics.balls} />
     </div>
   );

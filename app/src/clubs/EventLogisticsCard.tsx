@@ -147,6 +147,10 @@ function LogisticsFieldRow({
  * - a MATCH reads as its day — `EventMatchTimeline` (meeting point, arrival,
  *   tip-off) beside a « Matériel » card with the kit.
  *
+ * On a MATCH of a team with the jersey wash rotation on (`event.jerseyDuty`),
+ * the jersey row is gone: the duty has its own card, `EventJerseyDutyCard`,
+ * rendered above this one by the two event views.
+ *
  * The venue and its directions live in the hero (`EventHeroLocation`) for
  * both types, so this card has no venue row.
  *
@@ -195,16 +199,18 @@ export function EventLogisticsCard({
 
   const kitRows = (
     <>
-      <LogisticsFieldRow
-        clubId={clubId}
-        teamId={teamId}
-        event={event}
-        field="JERSEYS"
-        myTeamPlayerId={myTeamPlayerId}
-        canManage={canManage}
-        isRostered={isRostered}
-        rosterOptions={rosterOptions}
-      />
+      {!event.jerseyDuty && (
+        <LogisticsFieldRow
+          clubId={clubId}
+          teamId={teamId}
+          event={event}
+          field="JERSEYS"
+          myTeamPlayerId={myTeamPlayerId}
+          canManage={canManage}
+          isRostered={isRostered}
+          rosterOptions={rosterOptions}
+        />
+      )}
       <LogisticsFieldRow
         clubId={clubId}
         teamId={teamId}
