@@ -25,8 +25,8 @@ describe('IconBadge', () => {
     expect(screen.getByTestId('badge')).toHaveClass('bg-blue-green-tint', 'h-10', 'w-10');
   });
 
-  it('lets the caller resize it', () => {
-    render(<IconBadge className="h-14 w-14" data-testid="badge" />);
+  it('offers a large size', () => {
+    render(<IconBadge size="lg" data-testid="badge" />);
 
     const badge = screen.getByTestId('badge');
     expect(badge).toHaveClass('h-14', 'w-14');

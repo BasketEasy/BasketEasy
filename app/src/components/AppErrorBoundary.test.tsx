@@ -18,6 +18,7 @@ describe('AppErrorBoundary', () => {
         <Boom />
       </AppErrorBoundary>,
     );
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { name: /Une erreur est survenue/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Recharger la page' })).toBeInTheDocument();
   });
