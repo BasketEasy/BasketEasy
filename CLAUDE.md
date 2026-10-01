@@ -83,7 +83,8 @@ This is a **pnpm workspace**, not yet an Nx workspace, despite the stack docs de
   would be the one write staff could make as someone else. System upkeep (a cache fill, a queued
   route recompute) is fine.
 - **Query branches:** every query consumer branches `error → loading → empty → data`, in that order. An error must never fall through to an `EmptyState` — that tells the user their data doesn't exist when it merely failed to load.
-- The `?tab=` `TabsTrigger`s in `MembersPage`/`TeamDetailPage` are the documented exception to "every URL-changing control is a link" — `role="tab"` is the correct ARIA and `replace: true` means no history entry.
+- The `?tab=` `TabsTrigger`s in `MembersPage`/`TeamDetailPage` are the documented exception to "every URL-changing control is a link" — `role="tab"` is the correct ARIA and `replace: true` means no history entry. That includes `TeamDetailPage`'s `?tab=maillots` (« Maillots »): the manager's always, the team's only while `Team.jerseyRotationEnabled` (a player asking for it by URL lands on Agenda).
+- **An immediate, persisted on/off setting is a `Switch`** (`@basketeasy/ui/switch`, over `@radix-ui/react-switch`), a value submitted later with a form is a `Checkbox`. Inline `Switch`es still go through react-hook-form (`Controller`, submit on change), optimistic with a rollback and a toast.
 
 ## Design direction — Parquet
 
@@ -454,6 +455,8 @@ action RGPD access/erasure requests and confirm the retention sweep is doing its
 ## Jersey wash on the frontend
 
 `app/src/jersey-duty/` renders the match page's « Lavage des maillots » (`EventJerseyDutyCard`, above `EventLogisticsCard`, which drops its JERSEYS row when `event.jerseyDuty` is set), the swap `Dialog` and the agenda chip. Its hooks are persona-scoped (`useJerseyDuty`, `useJerseyDutyMutations`: `forPlayerId` last in the key and on every player-side write, each response written straight into the duty's cache). The card picks its state from the server's `rights`, never recomputes them; every gendered string comes from `jerseyDutyCopy.ts` (team gender for collective nouns, the person's `gender ?? teamGender` for pronouns). Decisions: [`events.md`](./docs/decisions/events.md).
+
+The team page's « Maillots » tab (`TeamJerseyRotationSection`, `useJerseyRotation`) is the season's overview: next-match tile, then one `JerseyRotationRow` per player in the server's suggestion order (exempted last), which is a table row on desktop and a `ListItem` on a phone. The server decides `canManage`: a manager gets the « Exemptée » `Switch` per row (`PATCH …/players/:playerId { jerseyDutyExempt }` through `useTeamPlayerUpdate`) and the « Rotation activée » switch (`PATCH …/teams/:teamId { jerseyRotationEnabled }`); everyone else reads counts and a footnote. Both switches are optimistic on the cached overview (`useJerseyRotationMutations`). With the rotation off a manager keeps only the switch.
 
 ## WhatsApp share reminders
 

@@ -274,6 +274,38 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText(/^U15 · Féminin/)).toBeInTheDocument());
   });
 
+  it('always shows the Maillots tab to a manager, even with the rotation off', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () =>
+        HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: false }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+        HttpResponse.json({
+          seasonYear: 2026,
+          teamGender: 'MEN',
+          enabled: false,
+          canManage: true,
+          nextMatch: null,
+          rows: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+    expect(
+      await screen.findByRole('tab', { name: 'Maillots', selected: true }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Rotation activée' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
   it('hides all admin controls for a MEMBER, and hides the Clubs partenaires/Administrateurs tabs entirely', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
@@ -1098,6 +1130,58 @@ describe('TeamDetailPage', () => {
         ),
       );
     }
+
+    it('shows a Maillots tab while the rotation is on, and opens the rotation from ?tab=maillots', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () =>
+          HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: true }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+          HttpResponse.json({
+            seasonYear: 2026,
+            teamGender: 'MEN',
+            enabled: true,
+            canManage: false,
+            nextMatch: null,
+            rows: [],
+          }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Maillots', selected: true }),
+      ).toBeInTheDocument();
+      expect(await screen.findByText('Aucun joueur dans l’effectif.')).toBeInTheDocument();
+    });
+
+    it('hides the Maillots tab while the rotation is off, falling back to Agenda from the URL', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () =>
+          HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: false }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Agenda', selected: true }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Maillots' })).not.toBeInTheDocument();
+    });
 
     it('shows three tabs — Agenda (default), Effectif, Mes stats — with no Agenda/Liste toggle', async () => {
       mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);

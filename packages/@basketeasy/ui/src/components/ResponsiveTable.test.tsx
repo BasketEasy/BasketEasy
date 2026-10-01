@@ -52,6 +52,43 @@ describe('ResponsiveTable', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
+  it('renders `columns` as an eyebrow row above the list with `listHeader`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable columns={['Joueuse', 'Lavages']} list listHeader>
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByText('Joueuse')).toBeInTheDocument();
+    expect(screen.getByText('Lavages')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('takes the mobile list header labels from an array', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable
+        columns={['Joueuse', 'Lavages', 'Dernier lavage']}
+        list
+        listHeader={['Joueuse', 'Lavages']}
+      >
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByText('Lavages')).toBeInTheDocument();
+    expect(screen.queryByText('Dernier lavage')).not.toBeInTheDocument();
+  });
+
+  it('renders no header on the mobile list without `listHeader`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable columns={['Joueuse', 'Lavages']} list>
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.queryByText('Joueuse')).not.toBeInTheDocument();
+  });
+
   it('renders a card stack with no table semantics below the breakpoint', () => {
     setViewport(DESKTOP_BREAKPOINT_PX - 1);
     render(

@@ -5,12 +5,20 @@ import {
   declineLabel,
   dutyPersonName,
   emptyPoolBody,
+  emptyRosterTitle,
+  exemptLabel,
+  exemptionToast,
   holderStatus,
+  lastTurnLine,
+  nextMatchLine,
   poolSummary,
+  rosterColumnLabel,
+  seasonLabel,
   suggestionMeta,
   swapFootnote,
   swapIntro,
   turnTitle,
+  turnsAndLastLine,
   withdrawLabel,
 } from './jerseyDutyCopy';
 
@@ -77,5 +85,40 @@ describe('jerseyDutyCopy', () => {
     expect(holderStatus('DONE', true, null).badge).toBe('Fait');
     expect(holderStatus('VOIDED', true, null).badge).toBe('Annulé');
     expect(holderStatus('ACCEPTED', false, null).badge).toBe('Noté');
+  });
+});
+
+describe('team page copy', () => {
+  it('gendered words follow the team', () => {
+    expect(rosterColumnLabel('WOMEN')).toBe('Joueuse');
+    expect(rosterColumnLabel('MEN')).toBe('Joueur');
+    expect(exemptLabel('WOMEN')).toBe('Exemptée');
+    expect(exemptLabel('MEN')).toBe('Exempté');
+    expect(emptyRosterTitle('WOMEN')).toBe('Aucune joueuse dans l’effectif.');
+    expect(emptyRosterTitle('MEN')).toBe('Aucun joueur dans l’effectif.');
+  });
+
+  it('labels the season and the meta lines', () => {
+    expect(seasonLabel(2026)).toBe('Saison 2026-2027');
+    expect(lastTurnLine('27 sept.')).toBe('Dernier : 27 sept.');
+    expect(lastTurnLine(null)).toBe('Dernier : —');
+    expect(turnsAndLastLine(0, null)).toBe('0 lavage · —');
+    expect(turnsAndLastLine(1, '27 sept.')).toBe('1 lavage · 27 sept.');
+    expect(turnsAndLastLine(2, '6 sept.')).toBe('2 lavages · 6 sept.');
+  });
+
+  it('words the exemption toasts', () => {
+    expect(exemptionToast('Emma M.', true, 'WOMEN')).toBe('Emma M. est exemptée.');
+    expect(exemptionToast('Emma M.', false, 'WOMEN')).toBe('Emma M. n’est plus exemptée.');
+    expect(exemptionToast('Hugo M.', true, 'MEN')).toBe('Hugo M. est exempté.');
+  });
+
+  it('words the next-match tile', () => {
+    const emma = { firstName: 'Emma', lastName: 'Martin' };
+    expect(nextMatchLine({ holder: emma, suggestion: null })).toBe('Lavage : Emma M.');
+    expect(nextMatchLine({ holder: null, suggestion: emma })).toBe('Suggestion : Emma M.');
+    expect(nextMatchLine({ holder: null, suggestion: null })).toBe(
+      'Aucune suggestion pour l’instant',
+    );
   });
 });

@@ -93,6 +93,13 @@ module.exports = {
         xl: '16px',
         '2xl': '20px',
       },
+      spacing: {
+        // Switch geometry (`@basketeasy/ui/switch`): a 40 x 24 track holding
+        // an 18px thumb with a 3px margin, so the thumb travels 16px.
+        'switch-thumb': '18px',
+        'switch-inset': '3px',
+        'switch-travel': '16px',
+      },
       minWidth: {
         // The dropdown-menu content's floor width, previously an arbitrary
         // min-w-[14rem] at the DropdownMenuContent call site.

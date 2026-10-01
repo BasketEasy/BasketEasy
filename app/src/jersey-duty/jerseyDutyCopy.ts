@@ -170,3 +170,57 @@ export function holderStatus(
     tone: 'muted',
   };
 }
+
+/** The team page's column and section words: collective, so they follow the team's gender. */
+
+/** « Joueuse » / « Joueur » — the roster column's header. */
+export function rosterColumnLabel(teamGender: Gender): string {
+  return isFeminine(teamGender) ? 'Joueuse' : 'Joueur';
+}
+
+/** « Exemptée » / « Exempté » — the badge, and the manager toggle's label. */
+export function exemptLabel(teamGender: Gender): string {
+  return isFeminine(teamGender) ? 'Exemptée' : 'Exempté';
+}
+
+/** « Aucune joueuse dans l'effectif. » */
+export function emptyRosterTitle(teamGender: Gender): string {
+  return isFeminine(teamGender)
+    ? 'Aucune joueuse dans l’effectif.'
+    : 'Aucun joueur dans l’effectif.';
+}
+
+/** « Saison 2026-2027 » — the FFBB's way of labelling one; `seasonYear` is the year it starts. */
+export function seasonLabel(seasonYear: number): string {
+  return `Saison ${seasonYear}-${seasonYear + 1}`;
+}
+
+/** « Dernier : 27 sept. » / « Dernier : — » — the player view's meta line. */
+export function lastTurnLine(lastDay: string | null): string {
+  return `Dernier : ${lastDay ?? '—'}`;
+}
+
+/** « 1 lavage · 27 sept. » / « 0 lavage · — » — the manager view's meta line. */
+export function turnsAndLastLine(turns: number, lastDay: string | null): string {
+  return `${turnsLabel(turns)} · ${lastDay ?? '—'}`;
+}
+
+/** « Emma M. est exemptée. » / « Emma M. n'est plus exemptée. » */
+export function exemptionToast(name: string, exempt: boolean, teamGender: Gender): string {
+  const word = exemptLabel(teamGender).toLowerCase();
+  return exempt ? `${name} est ${word}.` : `${name} n’est plus ${word}.`;
+}
+
+export const ROTATION_ON_TOAST = 'Rotation activée.';
+export const ROTATION_OFF_TOAST =
+  'Rotation désactivée : les matchs reprennent « Qui apporte les maillots ? ».';
+
+/** The next-match tile's second line. */
+export function nextMatchLine(nextMatch: {
+  holder: { firstName: string; lastName: string } | null;
+  suggestion: { firstName: string; lastName: string } | null;
+}): string {
+  if (nextMatch.holder) return `Lavage : ${dutyPersonName(nextMatch.holder)}`;
+  if (nextMatch.suggestion) return `Suggestion : ${dutyPersonName(nextMatch.suggestion)}`;
+  return 'Aucune suggestion pour l’instant';
+}
