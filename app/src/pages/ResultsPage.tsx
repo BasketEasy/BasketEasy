@@ -39,7 +39,7 @@ export function ResultsPage() {
         isRefetching={isRefetching}
         emptyState={
           <EmptyState
-            icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+            icon={<TrophyIcon size="3xl" tone="secondary" />}
             title="Aucun résultat récent"
             description="Aucun match joué au cours des 30 derniers jours pour vos équipes."
           />

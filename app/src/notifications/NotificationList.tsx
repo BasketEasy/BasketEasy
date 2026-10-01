@@ -51,7 +51,7 @@ export function NotificationList({
   if (items.length === 0) {
     return (
       <EmptyState
-        icon={<BellIcon tone="structure" className="h-8 w-8" />}
+        icon={<BellIcon size="3xl" tone="structure" />}
         title="Aucune notification"
         description="Vos convocations et les annulations de séance apparaîtront ici."
       />

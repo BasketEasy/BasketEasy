@@ -73,8 +73,9 @@ function BallotCandidate({
       </Text>
       {selected && (
         <Check
+          size="sm"
           tone={category === 'BEST' ? 'inverse' : 'structure'}
-          className="ml-auto h-3.5 w-3.5 shrink-0"
+          className="ml-auto shrink-0"
         />
       )}
     </>
@@ -238,7 +239,7 @@ function MatchVoteResultsCard({
           Résultats — visibles par toute l&apos;équipe
         </Text>
         <div className="flex items-center gap-2">
-          <TrophyIcon tone="accent" className="h-5 w-5" />
+          <TrophyIcon size="lg" tone="accent" />
           <h3 className="font-heading text-lg font-extrabold">Meilleur joueur</h3>
         </div>
       </div>
@@ -282,7 +283,7 @@ function MatchVoteResultsCard({
 
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <WorstIcon size={16} tone="structure" />
+          <WorstIcon size="md" tone="structure" />
           <h3 className="text-base font-extrabold">Joueur en difficulté — agrégé</h3>
         </div>
         {gateMessage ? (
@@ -379,7 +380,7 @@ export function MatchVoteTab({
   if (!hasOpened) {
     return (
       <EmptyState
-        icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+        icon={<TrophyIcon size="3xl" tone="secondary" />}
         title="Le vote ouvrira après le match"
         description="Le bulletin de vote ouvre 1h après le début de la rencontre."
       />
@@ -423,7 +424,7 @@ export function MatchVoteTab({
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
         <Card variant="panel" className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <TrophyIcon tone="secondary" className="h-5 w-5" />
+            <TrophyIcon size="lg" tone="secondary" />
             <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
           </div>
           <Text variant="meta">Vote masqué (consultation support)</Text>
@@ -441,7 +442,7 @@ export function MatchVoteTab({
   if (candidates.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+        icon={<UsersIcon size="3xl" tone="secondary" />}
         title="Pas assez de joueurs à départager"
         description="Il faut au moins un·e autre coéquipier·ère sur l'effectif pour voter."
       />
@@ -469,7 +470,7 @@ export function MatchVoteTab({
       <Card variant="panel" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <TrophyIcon tone="brand" className="h-5 w-5" />
+            <TrophyIcon size="lg" tone="brand" />
             <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
           </div>
           <Text as="span" variant="meta" size="xs">
@@ -507,7 +508,7 @@ export function MatchVoteTab({
             tone="success"
             className="flex items-center gap-1.5"
           >
-            <Check className="h-3 w-3 shrink-0" />
+            <Check size="xs" className="shrink-0" />
             Vote envoyé — merci !
           </Text>
         )}

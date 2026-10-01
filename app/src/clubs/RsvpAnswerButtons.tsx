@@ -104,7 +104,7 @@ export function RsvpAnswerButtons({
                   )}
                 >
                   {isThisPending ? (
-                    <Spinner className="h-4 w-4 shrink-0 animate-spin" />
+                    <Spinner size="md" className="shrink-0 animate-spin" />
                   ) : (
                     <svg
                       viewBox="0 0 24 24"

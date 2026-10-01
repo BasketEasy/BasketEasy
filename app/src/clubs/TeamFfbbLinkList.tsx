@@ -129,7 +129,7 @@ export function TeamFfbbLinkList({
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-3 pr-1.5 shadow-sm"
                 key={link.id}
               >
-                <TrophyIcon tone="structure" className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <TrophyIcon size="sm" tone="structure" className="shrink-0" aria-hidden="true" />
                 {label}
                 {canManage && (
                   <button

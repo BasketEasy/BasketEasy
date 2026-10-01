@@ -54,7 +54,7 @@ export function MatchWinnersRow({
     // there's room for the mockup's actual space-between single row.
     <div className="flex flex-col gap-1.5 border-t border-border pt-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="flex min-w-0 items-center gap-1.5">
-        <TrophyIcon tone="accent" className="h-4 w-4 shrink-0" />
+        <TrophyIcon size="md" tone="accent" className="shrink-0" />
         <Text as="span" variant="label" className="truncate">
           {winnerLabel(bestWinner, bestTiedCount)}
         </Text>
@@ -70,7 +70,7 @@ export function MatchWinnersRow({
           <Text as="span" variant="label" className="truncate">
             {winnerLabel(worstWinner, worstTiedCount)}
           </Text>
-          <WorstIcon size={15} tone="structure" className="shrink-0" />
+          <WorstIcon size="md" tone="structure" className="shrink-0" />
         </span>
       )}
     </div>

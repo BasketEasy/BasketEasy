@@ -31,7 +31,7 @@ export const AccentWithFilledAction: Story = {
   render: () => (
     <FactTile
       tone="accent"
-      icon={<WarningIcon aria-hidden="true" className="h-5 w-5" />}
+      icon={<WarningIcon size="lg" aria-hidden="true" />}
       label="Lieu non communiqué"
       detail="Les joueurs ne savent pas encore où aller."
       actions={<Button className="w-full">Ajouter le lieu</Button>}

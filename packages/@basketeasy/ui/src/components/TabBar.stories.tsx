@@ -27,10 +27,10 @@ type Story = StoryObj<typeof TabBar>;
 export const PlayerBar: Story = {
   render: () => (
     <TabBar ariaLabel="Navigation principale">
-      <TabBarItem icon={<HomeIcon className="h-5 w-5" />} label="Ma semaine" count={2} active />
-      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Mon équipe" />
-      <TabBarItem icon={<TrophyIcon className="h-5 w-5" />} label="Résultats" />
-      <TabBarItem icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+      <TabBarItem icon={<HomeIcon size="lg" />} label="Ma semaine" count={2} active />
+      <TabBarItem icon={<UsersIcon size="lg" />} label="Mon équipe" />
+      <TabBarItem icon={<TrophyIcon size="lg" />} label="Résultats" />
+      <TabBarItem icon={<UserIcon size="lg" />} label="Profil" />
     </TabBar>
   ),
 };
@@ -39,10 +39,10 @@ export const PlayerBar: Story = {
 export const ManagerBar: Story = {
   render: () => (
     <TabBar ariaLabel="Navigation principale">
-      <TabBarItem icon={<HomeIcon className="h-5 w-5" />} label="Accueil" count={4} />
-      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Équipes" active />
-      <TabBarItem icon={<BuildingIcon className="h-5 w-5" />} label="Club" />
-      <TabBarItem icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+      <TabBarItem icon={<HomeIcon size="lg" />} label="Accueil" count={4} />
+      <TabBarItem icon={<UsersIcon size="lg" />} label="Équipes" active />
+      <TabBarItem icon={<BuildingIcon size="lg" />} label="Club" />
+      <TabBarItem icon={<UserIcon size="lg" />} label="Profil" />
     </TabBar>
   ),
 };
@@ -55,15 +55,15 @@ export const ManagerBar: Story = {
 export const UnavailableItem: Story = {
   render: () => (
     <TabBar ariaLabel="Navigation principale">
-      <TabBarItem icon={<HomeIcon className="h-5 w-5" />} label="Ma semaine" active />
-      <TabBarItem icon={<UsersIcon className="h-5 w-5" />} label="Mon équipe" />
+      <TabBarItem icon={<HomeIcon size="lg" />} label="Ma semaine" active />
+      <TabBarItem icon={<UsersIcon size="lg" />} label="Mon équipe" />
       <TabBarItem
-        icon={<TrophyIcon className="h-5 w-5" />}
+        icon={<TrophyIcon size="lg" />}
         label="Résultats"
         disabled
         aria-label="Résultats (bientôt disponible)"
       />
-      <TabBarItem icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+      <TabBarItem icon={<UserIcon size="lg" />} label="Profil" />
     </TabBar>
   ),
 };
@@ -75,13 +75,13 @@ export const UnavailableItem: Story = {
 export const AsLinks: Story = {
   render: () => (
     <TabBar ariaLabel="Navigation principale">
-      <TabBarItem asChild icon={<HomeIcon className="h-5 w-5" />} label="Ma semaine" active>
+      <TabBarItem asChild icon={<HomeIcon size="lg" />} label="Ma semaine" active>
         <a href="#accueil" />
       </TabBarItem>
-      <TabBarItem asChild icon={<CalendarIcon className="h-5 w-5" />} label="Agenda">
+      <TabBarItem asChild icon={<CalendarIcon size="lg" />} label="Agenda">
         <a href="#agenda" />
       </TabBarItem>
-      <TabBarItem asChild icon={<UserIcon className="h-5 w-5" />} label="Profil">
+      <TabBarItem asChild icon={<UserIcon size="lg" />} label="Profil">
         <a href="#profil" />
       </TabBarItem>
     </TabBar>

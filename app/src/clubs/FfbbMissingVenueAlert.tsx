@@ -27,7 +27,7 @@ export function FfbbMissingVenueAlert({
   const remaining = missingVenueTotal - missingVenue.length;
   return (
     <Alert variant="warning" className="flex max-w-md gap-3">
-      <WarningIcon tone="accent" aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+      <WarningIcon size="lg" tone="accent" aria-hidden="true" className="mt-0.5 shrink-0" />
       <div className="flex min-w-0 flex-col gap-2">
         <div>
           <Text variant="label">

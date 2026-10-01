@@ -2,7 +2,7 @@ import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 
 /** The open/closed affordance of a disclosure — `SectionAccordion`'s trigger. */
-export function ChevronDownIcon({ tone, className, ...props }: IconProps) {
+export function ChevronDownIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -11,7 +11,7 @@ export function ChevronDownIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M5 9l7 7 7-7" />

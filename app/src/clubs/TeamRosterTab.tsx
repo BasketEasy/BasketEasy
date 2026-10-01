@@ -157,7 +157,7 @@ export function TeamRosterTab({
             <SkeletonList rows={3} />
           ) : isRosterEmpty ? (
             <EmptyState
-              icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+              icon={<UsersIcon size="3xl" tone="secondary" />}
               title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
               description={
                 isRosterFiltered

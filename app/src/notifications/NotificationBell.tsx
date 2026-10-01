@@ -38,7 +38,7 @@ export function NotificationBellLink() {
       aria-label={unreadCount > 0 ? `Notifications (${unreadCount} non lues)` : 'Notifications'}
     >
       <Link to="/notifications">
-        <BellIcon className="h-5 w-5" />
+        <BellIcon size="lg" />
         <CountBadge count={unreadCount} className="absolute right-1 top-1" />
       </Link>
     </Button>
@@ -71,7 +71,7 @@ export function NotificationBell() {
           // assistive tech through this name instead.
           aria-label={unreadCount > 0 ? `Notifications (${unreadCount} non lues)` : 'Notifications'}
         >
-          <BellIcon className="h-5 w-5" />
+          <BellIcon size="lg" />
           <CountBadge count={unreadCount} className="absolute -right-0.5 -top-0.5" />
         </Button>
       </DropdownMenuTrigger>

@@ -33,7 +33,7 @@ export function EventHeroLocation({
     return (
       <FactTile
         tone="accent"
-        icon={<WarningIcon aria-hidden="true" className="h-5 w-5" />}
+        icon={<WarningIcon size="lg" aria-hidden="true" />}
         label="Lieu non communiqué"
         detail="Les joueurs ne savent pas encore où aller."
         actions={
@@ -53,7 +53,7 @@ export function EventHeroLocation({
   const hasName = event.locationName !== null;
   return (
     <FactTile
-      icon={<MapPinIcon size={19} />}
+      icon={<MapPinIcon size="lg" />}
       label={hasName ? event.locationName : event.location}
       detail={
         hasName
@@ -72,7 +72,7 @@ export function EventHeroLocation({
                 rel="noreferrer"
                 className="gap-1.5"
               >
-                <RouteIcon className="h-4 w-4 shrink-0" />
+                <RouteIcon size="md" className="shrink-0" />
                 Itinéraire
               </a>
             </Button>

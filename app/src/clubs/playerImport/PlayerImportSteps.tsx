@@ -37,7 +37,7 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
                   !isDone && !isCurrent && 'border border-border-strong bg-sunk text-muted',
                 )}
               >
-                {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                {isDone ? <Check size="sm" /> : index + 1}
               </span>
               <Text as="span" variant="label" size="sm" tone={isCurrent ? 'primary' : 'secondary'}>
                 {label}

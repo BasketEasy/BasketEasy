@@ -61,7 +61,7 @@ function HeroAgendaMock() {
     <Card className="w-full max-w-sm">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
         <div className="flex items-center gap-2 text-muted">
-          <CalendarIcon className="h-4 w-4" aria-hidden="true" />
+          <CalendarIcon size="md" aria-hidden="true" />
           <Text tone="inherit" as="span" variant="body" size="sm">
             Cette semaine · U15 Garçons
           </Text>
@@ -156,7 +156,7 @@ export function LandingPage() {
             </SectionHeading>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="flex items-center gap-3">
-                <BuildingIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <BuildingIcon size="xl" tone="structure" className="shrink-0" aria-hidden="true" />
                 <Text variant="meta">
                   <Text as="span" variant="display" size="2xl" className="tabular">
                     ~130
@@ -165,7 +165,7 @@ export function LandingPage() {
                 </Text>
               </div>
               <div className="flex items-center gap-3">
-                <UsersIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <UsersIcon size="xl" tone="structure" className="shrink-0" aria-hidden="true" />
                 <Text variant="meta">
                   <Text as="span" variant="display" size="2xl" className="tabular">
                     ~28 000
@@ -174,7 +174,7 @@ export function LandingPage() {
                 </Text>
               </div>
               <div className="flex items-center gap-3">
-                <TrophyIcon tone="structure" className="h-6 w-6 shrink-0" aria-hidden="true" />
+                <TrophyIcon size="xl" tone="structure" className="shrink-0" aria-hidden="true" />
                 <Text variant="meta">
                   <Text as="span" variant="display" size="2xl" className="tabular">
                     0 €
@@ -195,7 +195,7 @@ export function LandingPage() {
               <article key={feature.title}>
                 <Card>
                   <CardHeader>
-                    <feature.icon className="h-6 w-6 text-blue-green" aria-hidden="true" />
+                    <feature.icon size="xl" tone="structure" aria-hidden="true" />
                     <CardTitle>{feature.title}</CardTitle>
                     <CardDescription>{feature.description}</CardDescription>
                   </CardHeader>

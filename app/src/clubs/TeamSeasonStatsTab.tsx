@@ -107,25 +107,25 @@ function MyStatsCard({ player }: { player: TeamSeasonPlayerStats }) {
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <StatTile
           size="sm"
-          icon={<CalendarIcon aria-hidden="true" className="h-4 w-4" />}
+          icon={<CalendarIcon size="md" aria-hidden="true" />}
           label="MJ"
           value={player.gamesPlayed}
         />
         <StatTile
           size="sm"
-          icon={<ChartBarsIcon aria-hidden="true" className="h-4 w-4" />}
+          icon={<ChartBarsIcon size="md" aria-hidden="true" />}
           label="PTS/M"
           value={formatAverage(player.pointsPerGame)}
         />
         <StatTile
           size="sm"
-          icon={<TrophyIcon aria-hidden="true" className="h-4 w-4" />}
+          icon={<TrophyIcon size="md" aria-hidden="true" />}
           label="Meilleur total"
           value={formatCount(player.seasonHighPoints)}
         />
         <StatTile
           size="sm"
-          icon={<ShieldIcon aria-hidden="true" className="h-4 w-4" />}
+          icon={<ShieldIcon size="md" aria-hidden="true" />}
           label="FA/M"
           value={formatAverage(player.foulsPerGame)}
         />
@@ -213,13 +213,13 @@ export function TeamSeasonStatsTab({
     // as broken rather than as empty.
     return (
       <EmptyState
-        icon={<ChartBarsIcon tone="structure" className="h-8 w-8" />}
+        icon={<ChartBarsIcon size="3xl" tone="structure" />}
         title="Aucun match analysé cette saison"
         description="Les statistiques individuelles se calculent à partir des feuilles de match analysées puis confirmées. Importez la feuille d'un match joué pour voir apparaître les moyennes, les meilleurs totaux et la répartition des points."
         action={
           <Button asChild>
             <Link to={`/clubs/${clubId}/teams/${teamId}?tab=events`}>
-              <CalendarIcon aria-hidden="true" className="h-4 w-4" />
+              <CalendarIcon size="md" aria-hidden="true" />
               Voir les événements
             </Link>
           </Button>
@@ -257,7 +257,12 @@ export function TeamSeasonStatsTab({
           }))}
         />
         <Text as="p" variant="meta" className="flex items-start gap-2 pb-2.5">
-          <ChartBarsIcon tone="structure" aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          <ChartBarsIcon
+            size="md"
+            tone="structure"
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+          />
           <span>
             <strong className="font-bold tabular text-charcoal">
               Calculé sur {data.matchesPlayed} match{data.matchesPlayed > 1 ? 's' : ''} analysé

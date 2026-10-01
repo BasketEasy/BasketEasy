@@ -16,7 +16,7 @@ type Story = StoryObj<typeof StatTile>;
 
 export const Default: Story = {
   args: {
-    icon: <UsersIcon className="h-4 w-4" />,
+    icon: <UsersIcon size="md" />,
     label: 'Joueurs au total',
     value: 58,
   },
@@ -26,14 +26,14 @@ export const Default: Story = {
 export const TileRow: Story = {
   render: () => (
     <div className="grid grid-cols-2 gap-4 bg-ground p-4 md:grid-cols-4">
-      <StatTile icon={<TrophyIcon className="h-4 w-4" />} label="Équipes gérées" value={2} />
+      <StatTile icon={<TrophyIcon size="md" />} label="Équipes gérées" value={2} />
       <StatTile
-        icon={<CalendarIcon className="h-4 w-4" />}
+        icon={<CalendarIcon size="md" />}
         label="Événements — 7 prochains jours"
         value={6}
       />
-      <StatTile icon={<UsersIcon className="h-4 w-4" />} label="Joueurs au total" value={58} />
-      <StatTile icon={<BuildingIcon className="h-4 w-4" />} label="Clubs administrés" value={1} />
+      <StatTile icon={<UsersIcon size="md" />} label="Joueurs au total" value={58} />
+      <StatTile icon={<BuildingIcon size="md" />} label="Clubs administrés" value={1} />
     </div>
   ),
 };
@@ -43,18 +43,8 @@ export const SmallInsideACard: Story = {
   render: () => (
     <div className="max-w-sm rounded-lg border border-border bg-surface p-4 shadow-sm">
       <div className="grid grid-cols-2 gap-2">
-        <StatTile
-          icon={<CalendarIcon className="h-4 w-4" />}
-          label="Matches joués"
-          value={12}
-          size="sm"
-        />
-        <StatTile
-          icon={<ChartBarsIcon className="h-4 w-4" />}
-          label="Points / match"
-          value="8,4"
-          size="sm"
-        />
+        <StatTile icon={<CalendarIcon size="md" />} label="Matches joués" value={12} size="sm" />
+        <StatTile icon={<ChartBarsIcon size="md" />} label="Points / match" value="8,4" size="sm" />
       </div>
     </div>
   ),

@@ -101,7 +101,7 @@ export function AppBottomNav() {
     <TabBar ariaLabel="Navigation principale">
       <BottomNavItem
         to="/dashboard"
-        icon={<HomeIcon className="h-5 w-5" />}
+        icon={<HomeIcon size="lg" />}
         label={hasManageRights ? 'Accueil' : persona ? 'Semaine' : 'Ma semaine'}
         // The manager's pip counts what is waiting to be handled, which is
         // the « À traiter » band — phase 9, and no endpoint answers it yet.
@@ -112,7 +112,7 @@ export function AppBottomNav() {
       {hasManageRights || !soleTeam ? (
         <BottomNavItem
           to="/my-teams"
-          icon={<UsersIcon className="h-5 w-5" />}
+          icon={<UsersIcon size="lg" />}
           label={hasManageRights ? 'Équipes' : teamsLabel(myTeams.length, persona !== null)}
         />
       ) : (
@@ -122,7 +122,7 @@ export function AppBottomNav() {
         // to its stats tab, the screen a player opens this for most often.
         <BottomNavItem
           to={`/clubs/${soleTeam.clubId}/teams/${soleTeam.teamId}?tab=stats`}
-          icon={<UsersIcon className="h-5 w-5" />}
+          icon={<UsersIcon size="lg" />}
           label={teamsLabel(1, persona !== null)}
         />
       )}
@@ -130,7 +130,7 @@ export function AppBottomNav() {
       {activeClubId ? (
         <BottomNavItem
           to={`/clubs/${activeClubId}/members`}
-          icon={<BuildingIcon className="h-5 w-5" />}
+          icon={<BuildingIcon size="lg" />}
           label="Club"
         />
       ) : (
@@ -139,10 +139,10 @@ export function AppBottomNav() {
         // — both personas get « Résultats » (phase 8's post-match surface,
         // /results) in this slot instead of a « Club » that would go
         // nowhere for them.
-        <BottomNavItem to="/results" icon={<TrophyIcon className="h-5 w-5" />} label="Résultats" />
+        <BottomNavItem to="/results" icon={<TrophyIcon size="lg" />} label="Résultats" />
       )}
 
-      <BottomNavItem to="/account" icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+      <BottomNavItem to="/account" icon={<UserIcon size="lg" />} label="Profil" />
     </TabBar>
   );
 }

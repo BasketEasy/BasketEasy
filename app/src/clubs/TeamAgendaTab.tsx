@@ -66,7 +66,7 @@ export function TeamAgendaTab({
             <SkeletonList rows={3} />
           ) : isEmpty ? (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title={agendaPeriod === 'past' ? 'Aucun événement passé' : 'Aucun événement'}
               description={
                 agendaPeriod === 'past'

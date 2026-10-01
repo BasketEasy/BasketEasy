@@ -49,7 +49,7 @@ function ReminderAction({ pending }: { pending: number }) {
         <TooltipTrigger asChild>
           <span tabIndex={0} className={cn('inline-flex rounded-md', focusRing)}>
             <Button variant="outline" size="sm" disabled aria-describedby={hintId}>
-              <BellIcon className="h-4 w-4 shrink-0" />
+              <BellIcon size="md" className="shrink-0" />
               Relancer les {pending} sans réponse
             </Button>
           </span>
@@ -70,7 +70,7 @@ function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: Tea
     <>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="solid" tone="structure" size="md" className="gap-1.5">
-          <ConvocationIcon size={13} className="shrink-0" />
+          <ConvocationIcon size="sm" className="shrink-0" />
           {counts.convoked} convoqué·es
         </Badge>
         {counts.pending > 0 && (
@@ -146,7 +146,7 @@ export function EventPilotBand({
     if (rows.length === 0) {
       return (
         <EmptyState
-          icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+          icon={<UsersIcon size="3xl" tone="secondary" />}
           title="Effectif vide"
           description="Ajoutez des joueurs à l’équipe pour pouvoir composer un groupe."
         />

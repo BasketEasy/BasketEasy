@@ -89,7 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
         type={type}
       >
-        {loading && <Spinner className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />}
+        {loading && <Spinner size="md" className="shrink-0 animate-spin" aria-hidden="true" />}
         {children}
       </button>
     );

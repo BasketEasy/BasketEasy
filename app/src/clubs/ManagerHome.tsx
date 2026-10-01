@@ -56,7 +56,7 @@ function TeamLinkRow({ team }: { team: MyTeamSummary }) {
             </Badge>
           )}
         </div>
-        <ChevronRightIcon tone="secondary" className="h-5 w-5 shrink-0" aria-hidden="true" />
+        <ChevronRightIcon size="lg" tone="secondary" className="shrink-0" aria-hidden="true" />
       </Link>
     </li>
   );
@@ -131,22 +131,22 @@ export function ManagerHome({
       <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start">
         <div className="grid grid-cols-2 gap-4 order-2 md:order-none md:col-span-2 md:grid-cols-4">
           <StatTile
-            icon={<TrophyIcon className="h-4 w-4" />}
+            icon={<TrophyIcon size="md" />}
             label="Équipes gérées"
             value={managedTeamCount}
           />
           <StatTile
-            icon={<CalendarIcon className="h-4 w-4" />}
+            icon={<CalendarIcon size="md" />}
             label="Événements — 7 prochains jours"
             value={upcomingEvents.length}
           />
           <StatTile
-            icon={<UsersIcon className="h-4 w-4" />}
+            icon={<UsersIcon size="md" />}
             label="Joueurs au total"
             value={dashboard?.totalPlayers ?? 0}
           />
           <StatTile
-            icon={<BuildingIcon className="h-4 w-4" />}
+            icon={<BuildingIcon size="md" />}
             label="Clubs administrés"
             value={adminClubs.length}
           />
@@ -171,7 +171,7 @@ export function ManagerHome({
             </div>
           ) : (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title="Rien de prévu cette semaine"
               description="Aucun événement dans les 7 prochains jours pour vos équipes."
             />
@@ -202,7 +202,7 @@ export function ManagerHome({
               </Card>
             ) : (
               <EmptyState
-                icon={<TrophyIcon tone="secondary" className="h-8 w-8" />}
+                icon={<TrophyIcon size="3xl" tone="secondary" />}
                 title="Aucune équipe pour le moment"
                 description="Vous n'êtes membre d'aucune équipe pour le moment."
               />

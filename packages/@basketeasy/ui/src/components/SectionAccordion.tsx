@@ -79,9 +79,10 @@ export const SectionAccordionItem = forwardRef<
               </>
             )}
             <ChevronDownIcon
+              size="lg"
               tone="secondary"
               aria-hidden="true"
-              className="h-5 w-5 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+              className="shrink-0 transition-transform group-data-[state=open]:rotate-180"
             />
           </Accordion.Trigger>
         </h2>

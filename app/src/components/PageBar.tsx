@@ -21,7 +21,7 @@ export function PageBar({ to, state, title }: { to: string; state: unknown; titl
     <div className="sticky top-14 z-10 flex h-12 items-center gap-1 border-b border-border bg-surface pl-1 pr-4 md:hidden">
       <Button asChild variant="ghost" size="icon">
         <Link to={to} state={state} aria-label={`Retour à ${title}`}>
-          <ChevronLeftIcon className="h-5 w-5" />
+          <ChevronLeftIcon size="lg" />
         </Link>
       </Button>
       <Text as="span" variant="label" className="truncate">
@@ -36,7 +36,7 @@ export function PageBackLink({ to, state, title }: { to: string; state: unknown;
   return (
     <Button asChild variant="ghost" className="hidden self-start md:inline-flex">
       <Link to={to} state={state}>
-        <ChevronLeftIcon className="h-4 w-4" />
+        <ChevronLeftIcon size="md" />
         {title}
       </Link>
     </Button>

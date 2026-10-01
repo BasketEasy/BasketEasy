@@ -91,7 +91,7 @@ export function MeetingPointSettingsCard({
     <div className="flex flex-col gap-3">
       <Card variant="inset" className="flex flex-wrap items-center gap-3.5">
         <IconBadge>
-          <MapPinIcon size={19} />
+          <MapPinIcon size="lg" />
         </IconBadge>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">

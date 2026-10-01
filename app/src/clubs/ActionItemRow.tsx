@@ -19,7 +19,7 @@ const ACCENT_KINDS: ReadonlySet<ActionItemKind> = new Set([
 ]);
 
 function ActionItemIcon({ kind }: { kind: ActionItemKind }) {
-  const props = { 'aria-hidden': true, className: 'h-5 w-5' } as const;
+  const props = { 'aria-hidden': true, size: 'lg' } as const;
   switch (kind) {
     case 'EVENT_PENDING_RSVPS':
       return <CalendarIcon {...props} />;
