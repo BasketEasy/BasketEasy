@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
 import { PublicHeader } from '../../components/PublicHeader';
@@ -39,8 +39,15 @@ export function LegalPageLayout({
           then re-narrowed to max-w-3xl below for readability. */}
       <PageContainer size="lg" className="gap-8">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
-          <Heading as="h1">{title}</Heading>
-          <Text variant="meta">Dernière mise à jour : {lastUpdated}</Text>
+          <Text variant="eyebrow">Documents légaux</Text>
+          <PageHeader
+            title={title}
+            meta={
+              <>
+                Dernière mise à jour : <span className="tabular">{lastUpdated}</span>
+              </>
+            }
+          />
         </div>
 
         <nav
@@ -49,7 +56,14 @@ export function LegalPageLayout({
         >
           {LEGAL_PAGES.map((page) =>
             page.to === currentPath ? (
-              <Text key={page.to} as="span" variant="label" size="sm" tone="brand">
+              <Text
+                key={page.to}
+                as="span"
+                variant="label"
+                size="sm"
+                tone="brand"
+                aria-current="page"
+              >
                 {page.label}
               </Text>
             ) : (
