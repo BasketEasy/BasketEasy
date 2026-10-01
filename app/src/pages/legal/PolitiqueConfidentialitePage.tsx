@@ -111,7 +111,7 @@ export function PolitiqueConfidentialitePage() {
             ],
             [
               'Photos de feuilles de marque et données envoyées à Gemini AI Studio',
-              'Aucune suppression automatique à ce jour. Les photos sont supprimées uniquement lors de la suppression manuelle de l’événement associé ; un mécanisme de purge automatisée est en cours d’implémentation.',
+              'Aucune suppression automatique à ce jour. Les photos sont supprimées uniquement lors de la suppression manuelle de l’événement associé.',
             ],
           ]}
         />
