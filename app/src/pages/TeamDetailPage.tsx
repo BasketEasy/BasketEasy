@@ -479,8 +479,7 @@ export function TeamDetailPage() {
             {canManageTeam ? (
               // Manager: the five tabs stay exactly as they are, in the order
               // they've always been in — the desktop power view this revamp
-              // deliberately doesn't touch (docs/ux-audit/player-journey.md
-              // §4.4).
+              // deliberately doesn't touch (docs/personas.md).
               <>
                 <TabsTrigger value="roster" badge={allTeamPlayers.length}>
                   Effectif

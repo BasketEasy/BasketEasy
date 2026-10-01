@@ -1,5 +1,5 @@
 // The team's shared « réponse sans compte » link — see
-// docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md. Public
+// docs/decisions/guest-rsvp-and-whatsapp.md. Public
 // payloads carry first name + last initial only, never a player or user id.
 import type { EventRsvpRespondent, EventRsvpStatus, EventType, EventVenue } from './events';
 import type { EventMeetingPlan, EventTravelMode } from './meeting-points';

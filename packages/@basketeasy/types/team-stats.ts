@@ -5,7 +5,7 @@ import type { TeamMemberRole } from './teams';
  * scoresheets. Averages are null rather than 0 when nothing contributed a
  * known value: a player whose only match had an illegible running-score
  * column has no measured average, and reporting that as 0 would read as
- * "scored nothing" (see the zero-vs-unknown rule in the design spec).
+ * "scored nothing" (docs/decisions/scoresheets-and-stats.md).
  */
 export interface TeamSeasonPlayerStats {
   teamPlayerId: string;

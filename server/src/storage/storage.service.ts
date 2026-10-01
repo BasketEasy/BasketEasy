@@ -32,7 +32,7 @@ export class StorageService {
       // not the plain `<account>.r2.cloudflarestorage.com` a
       // no-restriction bucket would use. This app's bucket is required to
       // have the EU restriction (RGPD: scoresheet photos are minors' data,
-      // see the match interface spec's Storage section), so this is the
+      // see docs/decisions/scoresheets-and-stats.md), so this is the
       // only endpoint shape this service ever needs to produce.
       endpoint: `https://${accountId}.eu.r2.cloudflarestorage.com`,
       credentials: {

@@ -72,7 +72,7 @@ export class ClubsService {
   }
 
   // ffbbClubCode is stored unvalidated — no working lookup exists to
-  // confirm a code is real (see docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md).
+  // confirm a code is real (see docs/decisions/ffbb.md).
   async setFfbbLink(clubId: string, ffbbClubCode: string): Promise<Club> {
     await this.assertClubExists(clubId);
     try {
@@ -301,7 +301,7 @@ export class ClubsService {
     // federation data with nobody reading any individual one, so failing an
     // import because row 34 is sixteen would make the feature unusable —
     // those players surface in the roster as "autorisation manquante"
-    // instead. See the data-retention design doc.
+    // instead. See docs/decisions/rgpd-and-backoffice.md.
     const isMinor = isMinorBirthDate(data.birthDate);
     if (isMinor && !data.parentalConsent) {
       throw new BadRequestException({

@@ -56,7 +56,7 @@ type MembersTab = 'members' | 'players' | 'teams';
 // The member/player picker <select>s (add-member exclusion, player-account
 // linking) need the full roster, not one paginated table page — capped at
 // the server's MAX_PAGE_SIZE rather than becoming searchable comboboxes,
-// see docs/superpowers/specs/2026-08-11-table-filters-pagination-design.md.
+// see docs/decisions/accounts-and-access.md.
 const LINKING_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];

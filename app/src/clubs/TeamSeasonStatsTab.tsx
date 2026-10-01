@@ -73,8 +73,7 @@ function RepartitionLegend() {
 
 /**
  * The requesting player's own season, above the squad ranking — resolved via
- * `isMe` (`TeamSeasonPlayerStats.isMe`, `docs/ux-audit/player-journey.md`
- * §3.10/§6.5: the client cannot derive it, since it never learns its own
+ * `isMe` (`TeamSeasonPlayerStats.isMe`: the client cannot derive it, since it never learns its own
  * `teamPlayerId` on this screen otherwise).
  *
  * Deliberately absent: a jersey number (the mockup shows one, but a stable

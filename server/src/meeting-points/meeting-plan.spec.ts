@@ -95,7 +95,7 @@ describe('resolveMeetingPlan', () => {
     expect(resolveMeetingPlan(match({ type: 'TRAINING' }), team, club)).toBeNull();
   });
 
-  it('computes the design doc example: 20:30, 45 min, 23 min drive → 19:15', () => {
+  it('computes the documented example: 20:30, 45 min, 23 min drive → 19:15', () => {
     const plan = resolveMeetingPlan(
       match({ travelMinutes: 23, travelRouteKey: clubRoute }),
       team,

@@ -49,7 +49,7 @@ const STEP_ORDER: RetentionStepName[] = [
 
 /**
  * Every retention rule that application code can enforce, run as one nightly
- * sweep (see docs/superpowers/specs/2026-09-06-data-retention-policy-design.md).
+ * sweep (see docs/decisions/rgpd-and-backoffice.md).
  *
  * Backup rotation, the sixth rule, is deliberately absent: it is set on the
  * Postgres backup tool and the R2 bucket lifecycle, not in business logic.

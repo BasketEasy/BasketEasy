@@ -33,7 +33,7 @@ interface Actor {
  * A session is a disclosure (the subject's whole product view), so it is
  * DATA_OFFICER-only, takes a reason, and writes ADMIN_IMPERSONATION_STARTED /
  * _ENDED in the same transaction as the session row. See
- * docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Injectable()
 export class PlatformAdminImpersonationService {

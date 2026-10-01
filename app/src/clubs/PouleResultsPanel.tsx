@@ -80,7 +80,7 @@ function MatchdayGroup({ matchday }: { matchday: PouleMatchday }) {
  * something this app owns, which is why it's a panel on the Statistiques tab
  * (alongside the team's own season stats — both answer "how are we doing")
  * rather than a tab of its own (see
- * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md).
+ * docs/decisions/ffbb.md).
  * Originally lived at the bottom of the Agenda tab; moved after real usage
  * showed it buried below a (often long) event list there.
  *

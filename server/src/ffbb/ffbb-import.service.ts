@@ -64,7 +64,7 @@ export class FfbbImportService {
     // Fetch every linked engagement's matches before writing anything: one
     // link's fetch failure aborts the whole import rather than partially
     // importing the others, so the admin never sees a silently half-done
-    // sync (see the design spec's Backend section).
+    // sync (see docs/decisions/ffbb.md).
     const matchesByLink: FfbbMatch[][] = [];
     for (const link of links) {
       try {
@@ -205,8 +205,8 @@ export class FfbbImportService {
       return 'created';
     }
 
-    // No result/score is stored locally (out of scope — see the design
-    // spec's Scope section), so once FFBB reports a match as played there's
+    // No result/score is stored locally (out of scope — see
+    // docs/decisions/ffbb.md), so once FFBB reports a match as played there's
     // nothing left to sync; re-touching it on a later re-sync risks
     // clobbering fields with stale placeholder data instead.
     if (match.played) {

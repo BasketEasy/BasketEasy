@@ -5,16 +5,14 @@ starts from these rules and doesn't re-derive them. It collects what the Parquet
 page revamp (#290–#294) and the screen-consistency pass settled on.
 
 **Precedence:** `CLAUDE.md` (constraints: tokens, closed prop APIs, forms, feedback, query
-branches) > this file (screen grammar and workflow) > a spec's own decisions > a canvas. When they
-disagree, the higher one wins and you raise the conflict in the spec rather than copying the lower
-one. Keep this file current: a PR that establishes a new pattern updates it in the same diff.
+branches) > this file (screen grammar and workflow) > a feature plan's own decisions > a canvas. When
+they disagree, the higher one wins and you raise the conflict in the plan rather than copying the
+lower one. Keep this file current: a PR that establishes a new pattern updates it in the same diff.
 
-Sources: [Parquet design record](./superpowers/specs/2026-08-25-frontend-parquet-revamp-design.md),
-[match page plan](./superpowers/specs/2026-09-30-match-page-revamp-implementation-plan.md),
-[screen consistency record](./superpowers/specs/2026-09-30-screen-consistency-design.md),
-[`brand.md`](./brand.md), [`design-system-audit.md`](./design-system-audit.md). Reference canvases:
-[match page](https://claude.ai/artifact/VHmwSUJyvYhmHQmTuPi7yo),
-[all screens](https://claude.ai/artifact/B3Fd4kEVqfQMhaMPfXtVpd).
+Background: [`brand.md`](./brand.md), [`personas.md`](./personas.md) (who the screens are for).
+Reference canvases: [match page](https://claude.ai/artifact/VHmwSUJyvYhmHQmTuPi7yo),
+[all screens](https://claude.ai/artifact/B3Fd4kEVqfQMhaMPfXtVpd),
+[parents](https://claude.ai/artifact/XamFReY4Va2PeKMVdaRVxR).
 
 ---
 
@@ -201,33 +199,43 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 | Chart                              | `@basketeasy/ui/chart`                                     |
 | Rich text with tokens              | `@basketeasy/ui/template-editor`                           |
 
-`PageHeader`, `PageHero`, `FactTile`, `PageBar` and `icon-responsive` land with
-[Part 0](./superpowers/specs/2026-09-30-screen-consistency-part0-shared-primitives.md). Until then,
-`EventDetailHero`/`EventHeroLocation`/`EventPageBar` are the reference implementations. A missing
-look is a new variant on the component, never a class at the call site. A solved problem (date
-picker, drag and drop, upload) is a maintained library wrapped in one `@basketeasy/ui/<name>` file.
+A missing look is a new variant on the component, never a class at the call site. A solved problem
+(date picker, drag and drop, upload) is a maintained library wrapped in one `@basketeasy/ui/<name>`
+file.
+
+**Lessons the design-system consolidation paid for** (each was a real defect):
+
+- A prop typed `string` that holds Tailwind colours (`colorClassName`, `statusClassName`) is the
+  same violation as a colour `className`, with a name that hides it. Use a `tone` union.
+- A responsive font size, width or padding at a call site (`w-9 px-0 md:w-auto`, `sm:text-5xl`) is
+  a closed-API break too: add a size (`icon-responsive`, `Heading size="hero"`,
+  `PageContainer top="bar"`).
+- A child's class can silently lose to a component's own (`text-xs` on `Avatar` never shrank the
+  initials). Size belongs on the component's `size` axis.
+- A `…Row` / `…Card` twin pair drifts: one pair validated the same edit form two different ways.
+- `focusRing` is an outline because a Tailwind ring paints its offset gap a solid colour, which
+  would have to name the background on four different surfaces.
 
 ## 11. Design workflow
 
-1. **Spec first.** Put a design record in `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
-   (why, decisions, what's out of scope), then **one plan file per part/screen**, each its own PR,
-   with a status line, a `Depends on:`, files, changes, tests and screenshots.
-2. **Canvas.** Make a Claude Design canvas with artboards at 390 (mobile, `.app-top` + `.tabbar`
+The full process (decisions with the product owner, parts, PR, where decisions are recorded
+afterwards) is the `plan-feature` skill. For a screen:
+
+1. **Canvas.** A Claude Design canvas with artboards at 390 (mobile, `.app-top` + `.tabbar`
    chrome) and 1280 (desktop header). Start every artboard from
    [`design-kit/artboard-mobile.dc.html`](./design-kit/artboard-mobile.dc.html) /
    [`artboard-desktop.dc.html`](./design-kit/artboard-desktop.dc.html). Their `<style>` is the
    **Parquet canvas kit**: every class mirrors a component and its props (`.card-inset` =
    `Card variant="inset"`, `.btn-outline.btn-sm` = `Button variant="outline" size="sm"`, `.acc` =
    `SectionAccordionItem`, …), and every value in it comes from the preset. Don't invent a class the
-   kit lacks. If a design needs one, it needs a component variant too: add both and say so in the
-   plan.
-3. **Commit the canvas source** under `docs/superpowers/specs/assets/<date>-<topic>/` (the
-   `.dc.html` files + `canvas.json`) and link the canvas URL from the spec. The spec's
-   mockup-class → component table is the contract. Where the canvas and the spec disagree, the spec
-   wins, and the spec says so.
-4. **Implement against the artboard** at 390 and 1280 with the same content. A difference is a bug
-   unless the plan names it. Screenshot with `pnpm mock-api` + `scripts/fixtures/` + Playwright and
-   put the screenshots in the PR next to the artboard.
+   kit lacks. If a design needs one, it needs a component variant too: add both.
+2. **Contract.** The plan carries a mockup class → component and props table, and the canvas URL.
+   Where the canvas and a rule disagree, the rule wins and the PR says so. Canvas sources and
+   screenshots are not committed to `docs/`.
+3. **Implement against the artboard** at 390 and 1280 with the same content. A difference is a bug
+   unless the plan names it. Screenshot with `pnpm mock-api` + `scripts/fixtures/` + Playwright
+   (`screenshot-ui` skill) and put the screenshots in the PR next to the artboard.
+4. A PR that establishes a new pattern updates this file in the same diff.
 
 ## 12. Review checklist (copy into the PR)
 
@@ -242,3 +250,20 @@ picker, drag and drop, upload) is a maintained library wrapped in one `@basketea
       actions.
 - [ ] « Prénom N. » for peers, `.tabular` digits, `—` for unknown, no WORST outside the vote section.
 - [ ] Screenshots at 390 and 1280 next to the artboard. This file updated if a new pattern landed.
+
+## 13. Pending screen work
+
+The screen-consistency pass left three standalone screens on the old shapes:
+
+- **Auth and invite pages** (`/login`, `/register`, `/forgot-password`, `/reset-password/:token`,
+  `/verify-email/:token`, `/invite/:token`, `/guardian-invite/:token`): no `h1` (the title is a
+  `CardTitle`) and no wordmark, so an invite opened from an e-mail never says « Kluvo ». Plan: one
+  `AuthCard` (wordmark, card, eyebrow, `Heading as="h1"`, footer links). The wordmark links to `/`
+  only on the `PublicOnlyRoute` pages, never on inbox-opened ones. Eyebrow: the tagline on login and
+  register, the club name on both invite pages. `AdminLoginForm` stays as is.
+- **Errors** (404, 403, error boundary): three hand-built stacks on `ground`, and a `text-5xl` passed
+  to a `Text`. Plan: one `ErrorScreen` (card, `IconBadge tone="accent"`, eyebrow « Erreur 404 »,
+  `h1`, meta, one full-width action passed as a node because the boundary renders outside the
+  router).
+- **Legal pages**: eyebrow « Documents légaux » + `PageHeader` with the update date; the document
+  switcher stays a `nav` of links (four routes, not tabs).

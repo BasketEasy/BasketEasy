@@ -4,7 +4,7 @@ import { apiClient } from '../api/client';
 import { notificationsQueryKey } from './queryKeys';
 
 // Nothing pushes a new notification into an open tab — there is no websocket
-// or SSE transport, deliberately (see the design record): the payload is a
+// or SSE transport, deliberately (see docs/decisions/notifications.md): the payload is a
 // handful of rows and the audience is a club volunteer with one tab open, so
 // a poll is the right amount of machinery. A minute is slow enough to be
 // invisible in load terms and fast enough that a convocation sent during a

@@ -38,7 +38,7 @@ export interface CreatePlayerRequest {
   /**
    * Required when birthDate makes the player a minor — the API answers 400
    * PARENTAL_CONSENT_REQUIRED without it. Bulk import is deliberately exempt:
-   * see the data-retention design doc.
+   * see docs/decisions/rgpd-and-backoffice.md.
    */
   parentalConsent?: RecordParentalConsentRequest;
 }

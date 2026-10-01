@@ -2,7 +2,7 @@ import type { AdminReasonRequest } from './platform-admin-actions';
 
 /**
  * Read-only impersonation: a DATA_OFFICER viewing the product as another user.
- * Design record: docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+ * Threat model: docs/decisions/rgpd-and-backoffice.md.
  */
 
 /**

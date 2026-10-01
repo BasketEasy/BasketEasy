@@ -10,7 +10,7 @@ const POULE_FETCH_FAILED_MESSAGE =
 
 /**
  * Reads a team's whole poule (standings + latest results) live from FFBB —
- * never persisted, see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+ * never persisted, see docs/decisions/ffbb.md.
  * Its own module rather than a route on TeamsService: same cross-module
  * convention as TeamStatsService/DashboardService/EventsService (queries
  * PrismaService directly), and this reads a distinct external source, not
@@ -28,8 +28,8 @@ export class FfbbPouleService {
   async getPouleResults(clubId: string, teamId: string): Promise<PouleResults> {
     await this.assertTeamInClub(clubId, teamId);
 
-    // A team can hold more than one FFBB link (championship + cup — see the
-    // calendar-import spec's "Multiple competitions per team"); the most
+    // A team can hold more than one FFBB link (championship + cup — see
+    // docs/decisions/ffbb.md); the most
     // recently added one is treated as the league poule that matters here,
     // since a cup poule's standings aren't meaningful the same way and
     // asking the coach to pick isn't worth building for the rarer case.

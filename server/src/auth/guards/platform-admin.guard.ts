@@ -39,7 +39,7 @@ interface PlatformTokenPayload {
  * *not sufficient*. A second credential — the short-lived `platformAccessToken`
  * minted by `POST /admin/login` against a TOTP code — must arrive in
  * `X-Platform-Token` as well, so an ordinary session token stolen from an
- * admin's browser opens nothing here. See the design record for why the
+ * admin's browser opens nothing here. See docs/decisions/rgpd-and-backoffice.md for why the
  * highest-blast-radius surface in the product is the one that gets step-up.
  *
  * Must run after `JwtAuthGuard` has populated `request.user`; order guards as

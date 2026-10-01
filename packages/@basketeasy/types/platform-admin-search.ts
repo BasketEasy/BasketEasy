@@ -1,6 +1,6 @@
 // The back-office global search: one box that finds a club, team, account,
 // player or event by id, and the first four by name.
-// Part spec: docs/superpowers/specs/2026-09-28-backoffice-v2-part3-search.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 
 export type AdminSearchKind = 'club' | 'team' | 'user' | 'player' | 'event';
 

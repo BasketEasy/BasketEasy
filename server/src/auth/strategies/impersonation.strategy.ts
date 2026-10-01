@@ -38,7 +38,7 @@ interface ImpersonationTokenPayload {
  * The token alone is not enough: every request re-reads the session row and
  * the actor's grant, so « Quitter », a replaced session, a revoked or locked
  * grant or an IP outside the actor's allowlist ends access at once. See
- * docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 @Injectable()
 export class ImpersonationStrategy extends PassportStrategy(Strategy, IMPERSONATION_STRATEGY) {

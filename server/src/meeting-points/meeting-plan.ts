@@ -133,7 +133,7 @@ function hasNoDestination(event: MeetingPlanEvent): boolean {
 }
 
 /**
- * The whole formula from the design doc, resolved on read:
+ * The whole formula from docs/decisions/meeting-points.md, resolved on read:
  *
  *   arrivalAt = startsAt − buffer
  *   meetsAt   = override ?? floor15(arrivalAt − travel) ?? null

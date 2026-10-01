@@ -22,7 +22,7 @@ type Values = z.infer<typeof schema>;
  * « Consulter en tant que »: opens the product as this user, read-only, for
  * 15 minutes. DATA_OFFICER only and never offered for a back-office account
  * (the server refuses both anyway). Per the validated canvas linked from
- * docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+ * docs/decisions/rgpd-and-backoffice.md.
  */
 export function AdminImpersonateCard({
   userId,

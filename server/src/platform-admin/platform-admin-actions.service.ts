@@ -85,7 +85,7 @@ interface ActionSubjects {
  * the last-ADMIN check runs under a row lock, so two staff demoting the two
  * admins of one club at once can't both succeed.
  *
- * See docs/superpowers/specs/2026-09-28-backoffice-v2-part5-support-actions.md.
+ * See docs/decisions/rgpd-and-backoffice.md.
  */
 @Injectable()
 export class PlatformAdminActionsService {

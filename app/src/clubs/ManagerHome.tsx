@@ -66,7 +66,7 @@ function TeamLinkRow({ team }: { team: MyTeamSummary }) {
  * `DashboardPage`: the player-first revamp turns the player's landing
  * screen into a to-do list, but a manager's four numbers and her team
  * roster are not the thing this pass found broken
- * (`docs/ux-audit/player-journey.md` §4.1) — only the player's screen was.
+ * (`docs/personas.md`) — only the player's screen was.
  *
  * « Après le match » (phase 8) is new here — the pre-phase-8 manager home had
  * no post-match surface at all, even though a manager is exactly who needs

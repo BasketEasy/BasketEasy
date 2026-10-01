@@ -5,8 +5,7 @@ import { eventVenueLabel } from './eventLabels';
 /**
  * Domicile/Extérieur badge for a MATCH event — shared by the match detail
  * hero and the agenda card so both surfaces render the identical tint/icon
- * treatment (per docs/superpowers/specs/assets/2026-08-27-match-interface/
- * AgendaCard.dc.html and Main.dc.html) instead of re-deriving it per call site.
+ * treatment instead of re-deriving it per call site.
  */
 export function EventVenueBadge({ venue }: { venue: EventVenue }) {
   if (venue === 'HOME') {

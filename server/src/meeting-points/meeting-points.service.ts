@@ -163,7 +163,7 @@ function sameAddress(a: MeetingPoint | null | undefined, b: MeetingPoint | null 
 /**
  * The match meeting point: club and team defaults, the per-match override,
  * the driving time behind the meeting time, and the plan every TeamEvent
- * carries. See docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+ * carries. See docs/decisions/meeting-points.md.
  *
  * Queries PrismaService directly rather than injecting TeamsService/
  * EventsService — same cross-module convention as Events, Dashboard and Team

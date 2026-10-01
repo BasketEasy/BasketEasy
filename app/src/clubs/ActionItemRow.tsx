@@ -32,8 +32,7 @@ function ActionItemIcon({ kind }: { kind: ActionItemKind }) {
 
 /**
  * One row of the manager's « À traiter » band: a `FactTile` over an existing
- * flow, deliberately not a new `@basketeasy/ui` component
- * (`docs/ux-audit/player-first-implementation-plan.md` §1.1). Every action
+ * flow, deliberately not a new `@basketeasy/ui` component. Every action
  * reuses an existing flow; this adds no new mutation.
  *
  * `message` is a fully-formed French sentence built server-side

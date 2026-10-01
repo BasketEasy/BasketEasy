@@ -30,7 +30,7 @@ import { GuestRateLimiter } from './guest-rate-limiter';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const INVITE_REQUEST_COOLDOWN_MS = 7 * DAY_MS;
 
-/** What a visitor holding the team's link can read and do — see the design doc's threat model. */
+/** What a visitor holding the team's link can read and do — see the threat model in docs/decisions/guest-rsvp-and-whatsapp.md. */
 @Injectable()
 export class GuestRsvpService {
   constructor(

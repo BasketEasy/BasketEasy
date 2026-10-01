@@ -1,6 +1,6 @@
 // The platform back-office: a tightly-scoped internal surface for handling
 // RGPD access/erasure requests and confirming the retention sweep runs.
-// Design record: docs/superpowers/specs/2026-09-06-backoffice-design.md.
+// Decisions: docs/decisions/rgpd-and-backoffice.md.
 //
 // Nothing here is club-scoped. Authority comes from a PlatformAdmin grant
 // provisioned out-of-band, and every route additionally requires a
