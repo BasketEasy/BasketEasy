@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@basketeasy/ui/car
 import { Badge } from '@basketeasy/ui/badge';
 import { Heading } from '@basketeasy/ui/heading';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { TimeBlock } from '@basketeasy/ui/time-block';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { BuildingIcon } from '@basketeasy/ui/icons/building';
@@ -56,40 +57,57 @@ const UPCOMING: { title: string; description: string }[] = [
   },
 ];
 
+// Static kickoff times: TimeBlock renders the local time-of-day of an ISO
+// timestamp, so build them from local components to read 19:00 / 15:00 anywhere.
+const mockKickoff = (hour: number) => new Date(2026, 0, 6, hour, 0).toISOString();
+
+const MOCK_EVENTS: {
+  type: 'TRAINING' | 'MATCH';
+  startsAt: string;
+  title: string;
+  meta: string;
+  badge: string;
+}[] = [
+  {
+    type: 'TRAINING',
+    startsAt: mockKickoff(19),
+    title: 'Entraînement',
+    meta: 'Mardi · Gymnase Jean-Moulin',
+    badge: '12 convoqués',
+  },
+  {
+    type: 'MATCH',
+    startsAt: mockKickoff(15),
+    title: 'Match vs. ES Rezé',
+    meta: 'Samedi · Salle des sports',
+    badge: '9 / 12',
+  },
+];
+
 function HeroAgendaMock() {
   return (
     <Card className="w-full max-w-sm">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
-        <div className="flex items-center gap-2 text-muted">
-          <CalendarIcon size="md" aria-hidden="true" />
-          <Text tone="inherit" as="span" variant="body" size="sm">
-            Cette semaine · U15 Garçons
-          </Text>
-        </div>
+      <CardHeader className="pb-3">
+        <SectionHeading as="h2">Cette semaine</SectionHeading>
+        <Text variant="meta">U15 Garçons</Text>
       </CardHeader>
       <div className="flex flex-col gap-2 px-6 pb-6">
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
-          <div className="flex flex-col">
-            <Text as="span" variant="label" size="sm">
-              Entraînement
-            </Text>
-            <Text as="span" variant="meta">
-              Mardi 19h · Gymnase Jean-Moulin
-            </Text>
-          </div>
-          <Badge tone="structure">12 convoqués</Badge>
-        </div>
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-2 p-3">
-          <div className="flex flex-col">
-            <Text as="span" variant="label" size="sm">
-              Match vs. ES Rezé
-            </Text>
-            <Text as="span" variant="meta">
-              Samedi 15h · Salle des sports
-            </Text>
-          </div>
-          <Badge tone="structure">9 présents</Badge>
-        </div>
+        {MOCK_EVENTS.map((event) => (
+          <Card key={event.title} variant="inset" className="flex items-center gap-3">
+            <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed size="sm" />
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+              <Text as="span" variant="label">
+                {event.title}
+              </Text>
+              <Text as="span" variant="meta">
+                {event.meta}
+              </Text>
+              <Badge variant="soft" tone="structure">
+                {event.badge}
+              </Badge>
+            </div>
+          </Card>
+        ))}
       </div>
     </Card>
   );

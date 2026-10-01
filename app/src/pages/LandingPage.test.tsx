@@ -48,6 +48,14 @@ describe('LandingPage', () => {
     expect(within(upcoming.closest('article')!).getByText('Bientôt')).toBeInTheDocument();
   });
 
+  it('renders the hero agenda mock with a training and a match time block', () => {
+    renderLandingPage();
+    expect(screen.getByText('19:00')).toBeInTheDocument();
+    expect(screen.getByText('15:00')).toBeInTheDocument();
+    expect(screen.getByText('Entraîn.')).toBeInTheDocument();
+    expect(screen.getByText('Match')).toBeInTheDocument();
+  });
+
   it('renders the footer copyright line', () => {
     renderLandingPage();
     expect(screen.getByText(/© Kluvo 2025/)).toBeInTheDocument();
