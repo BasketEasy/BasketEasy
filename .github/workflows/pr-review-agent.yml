@@ -153,6 +153,7 @@ jobs:
       pull-requests: write
       issues: write
       checks: read
+      actions: read
       statuses: write
     env:
       PR: ${{ github.event.pull_request.number }}
