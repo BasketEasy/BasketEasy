@@ -48,6 +48,17 @@ describe('LandingPage', () => {
     expect(within(upcoming.closest('article')!).getByText('Bientôt')).toBeInTheDocument();
   });
 
+  it('renders the hero agenda mock with the real agenda cards: a training and a match', () => {
+    renderLandingPage();
+    expect(screen.getByText('19:00')).toBeInTheDocument();
+    expect(screen.getByText('15:00')).toBeInTheDocument();
+    expect(screen.getByText('Entraîn.')).toBeInTheDocument();
+    expect(screen.getAllByText('Match').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('U15 Garçons')).toHaveLength(2);
+    expect(screen.getByText(/vs ES Rezé/)).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /Présences : 9 oui/ })).toHaveLength(2);
+  });
+
   it('renders the footer copyright line', () => {
     renderLandingPage();
     expect(screen.getByText(/© Kluvo 2025/)).toBeInTheDocument();
