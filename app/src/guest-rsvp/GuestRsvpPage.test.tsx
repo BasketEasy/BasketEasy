@@ -103,6 +103,18 @@ describe('GuestRsvpPage', () => {
     expect(screen.queryByText('Gymnase A')).not.toBeInTheDocument();
   });
 
+  it('shows the team as the page hero, and the identity card once a player is chosen', async () => {
+    window.localStorage.setItem('kluvo.guest.tok', 'tp-leo');
+    serve(page([training()]));
+    renderPage();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'U15 Masculins' })).toBeVisible();
+    expect(screen.getByText('Répondez pour les 14 prochains jours')).toBeInTheDocument();
+    expect(screen.getByText('Vous répondez pour')).toBeInTheDocument();
+    expect(screen.getByText('Léo M.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ce n.est pas moi/ })).toBeInTheDocument();
+  });
+
   it('remembers the choice on the device and « Ce n’est pas moi ? » forgets it', async () => {
     serve(page([training()]));
     const user = userEvent.setup();
