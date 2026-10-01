@@ -13,21 +13,13 @@ type Story = StoryObj<typeof SegmentedControl>;
 function Demo({
   ariaLabel,
   options,
-  tone,
 }: {
   ariaLabel: string;
   options: { value: string; label: string }[];
-  tone?: 'structure' | 'brand';
 }) {
   const [value, setValue] = useState(options[0].value);
   return (
-    <SegmentedControl
-      ariaLabel={ariaLabel}
-      value={value}
-      onChange={setValue}
-      options={options}
-      tone={tone}
-    />
+    <SegmentedControl ariaLabel={ariaLabel} value={value} onChange={setValue} options={options} />
   );
 }
 
@@ -66,20 +58,6 @@ export const ThreeOptions: Story = {
         { value: '2026', label: '2026-27' },
         { value: '2025', label: '2025-26' },
         { value: '2024', label: '2024-25' },
-      ]}
-    />
-  ),
-};
-
-/** The rare sharp accent, for a switch that is itself the primary action. */
-export const BrandTone: Story = {
-  render: () => (
-    <Demo
-      ariaLabel="Affichage de l'effectif"
-      tone="brand"
-      options={[
-        { value: 'cards', label: 'Cartes' },
-        { value: 'table', label: 'Tableau' },
       ]}
     />
   ),

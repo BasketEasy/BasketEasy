@@ -50,12 +50,12 @@ import { ROUTING_CLIENT, type RoutingClient } from './routing-client';
 // Further-off matches update quietly and read correctly when opened.
 export const MEETING_CHANGE_NOTIFY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 // What the change feed covers: the WhatsApp reminders reach as far as the guest page does.
-export const MEETING_CHANGE_FEED_WINDOW_MS = GUEST_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const MEETING_CHANGE_FEED_WINDOW_MS = GUEST_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 // Two job kinds share the rate-limited `meeting-travel` queue: a route
 // recompute for one match, and the announcement sweep a settings change that
 // moved no route (a buffer, a place name) still owes the players.
-export const RECOMPUTE_JOB = 'recompute';
+const RECOMPUTE_JOB = 'recompute';
 export const ANNOUNCE_JOB = 'announce';
 export interface MeetingRecomputeJobData {
   eventId: string;
@@ -91,7 +91,7 @@ const STALE_ENQUEUE_MAP_LIMIT = 10_000;
  * mashed button can't spend the rate limit the queue's limiter protects.
  */
 export const REFRESH_TIMEOUT_MS = 5_000;
-export const REFRESH_COOLDOWN_MS = 15_000;
+const REFRESH_COOLDOWN_MS = 15_000;
 
 interface TeamContext {
   teamName: string;

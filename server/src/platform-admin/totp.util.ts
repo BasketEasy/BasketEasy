@@ -9,7 +9,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
 /** RFC 6238's default, and what every authenticator app assumes. */
-export const TOTP_STEP_SECONDS = 30;
+const TOTP_STEP_SECONDS = 30;
 export const TOTP_DIGITS = 6;
 
 /**
@@ -17,7 +17,7 @@ export const TOTP_DIGITS = 6;
  * standard tolerance for phone-vs-server clock skew; widening it multiplies
  * the codes a brute-force attempt can hit.
  */
-export const TOTP_SKEW_STEPS = 1;
+const TOTP_SKEW_STEPS = 1;
 
 /** 160 bits, RFC 4226 §4 R6's recommendation for the shared secret. */
 const SECRET_BYTES = 20;

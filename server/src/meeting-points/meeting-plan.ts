@@ -97,7 +97,7 @@ export function resolveDefaultMeetingPoint(
 }
 
 /** Event override, then team default, then owner club default — the most specific set one wins. */
-export function resolveMeetingPoint(
+function resolveMeetingPoint(
   override: MeetingPointColumns | null,
   team: MeetingPointColumns,
   club: MeetingPointColumns | null,

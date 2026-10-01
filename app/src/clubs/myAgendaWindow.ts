@@ -12,7 +12,7 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
  * the manager view (unchanged in this phase); a player's « Ma semaine »
  * overrides it client-side with an explicit 14-day window instead.
  */
-export const PLAYER_AGENDA_WINDOW_DAYS = 14;
+const PLAYER_AGENDA_WINDOW_DAYS = 14;
 
 /**
  * How far back « Après le match » looks for a played match to surface — the
@@ -20,7 +20,7 @@ export const PLAYER_AGENDA_WINDOW_DAYS = 14;
  * `/résultats` destination (phase 8), stubbed here against the *existing*
  * payload shape (no `result` field yet) rather than waiting on that phase.
  */
-export const PAST_MATCHES_WINDOW_DAYS = 30;
+const PAST_MATCHES_WINDOW_DAYS = 30;
 
 /** `now → now + 14 days`, in the shape `useMyAgenda` expects. */
 export function playerAgendaWindowParams(now: Date = new Date()): GetDashboardParams {

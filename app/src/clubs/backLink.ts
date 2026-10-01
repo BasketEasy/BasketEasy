@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-export type TeamOrigin =
+type TeamOrigin =
   { from: 'members'; clubId: string } | { from: 'my-teams' } | { from: 'dashboard' };
 
 const FALLBACK = { to: '/my-teams', label: 'Mes équipes' } as const;

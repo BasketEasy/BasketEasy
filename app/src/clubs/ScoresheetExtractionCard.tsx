@@ -70,9 +70,9 @@ function PencilIcon({ size, tone, className, ...props }: IconProps) {
 /** A `<th scope="row">` styled to match TableCell — gives a horizontally
  * scrolling table a row header a screen reader can associate with every
  * other cell in that row (WCAG 1.3.1). */
-function RowHeader({ children, className }: { children: ReactNode; className?: string }) {
+function RowHeader({ children }: { children: ReactNode }) {
   return (
-    <th scope="row" className={cn('p-3 text-left align-middle text-charcoal', className)}>
+    <th scope="row" className="p-3 text-left align-middle text-charcoal">
       {children}
     </th>
   );

@@ -20,15 +20,12 @@ export function FactTile({
   label,
   detail,
   tone = 'neutral',
-  trailing,
   actions,
 }: {
   icon: ReactNode;
   label: ReactNode;
   detail?: ReactNode;
   tone?: FactTileTone;
-  /** A control on the head row, after the text (an edit icon). */
-  trailing?: ReactNode;
   /** Controls under the head row; pass `className="flex-1"` on the ones that fill. */
   actions?: ReactNode;
 }) {
@@ -47,7 +44,6 @@ export function FactTile({
             </Text>
           )}
         </div>
-        {trailing}
       </div>
       {actions && <div className="flex gap-2">{actions}</div>}
     </Card>
