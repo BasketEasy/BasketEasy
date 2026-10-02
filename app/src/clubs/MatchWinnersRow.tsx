@@ -32,7 +32,7 @@ export function MatchWinnersRow({
   event: TeamEvent;
 }) {
   const eligible = event.type === 'MATCH' && hasVoteWindowClosed(event.startsAt);
-  const { data: results } = useEventVoteResults(clubId, teamId, event.id, eligible);
+  const { data: results } = useEventVoteResults(clubId, teamId, event.id, event.startsAt, eligible);
 
   if (!eligible || !results || results.best.length === 0) {
     return null;

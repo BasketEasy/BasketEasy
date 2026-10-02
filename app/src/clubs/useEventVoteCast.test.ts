@@ -46,7 +46,7 @@ describe('useEventVoteCast', () => {
     ).toEqual(freshResults);
   });
 
-  it('marks only the dashboard stale, whose vote.hasVoted changed', async () => {
+  it('marks stale the dashboard (vote.hasVoted) and the season table (awards), nothing else', async () => {
     server.use(
       http.patch('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
         HttpResponse.json({ best: [], worst: [], totalVoters: 1, votesCast: 1 }),
@@ -58,6 +58,6 @@ describe('useEventVoteCast', () => {
     result.current.mutate({ eventId: 'event-1', category: 'BEST', teamPlayerId: 'tp-2' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(staleLabels()).toEqual(['dashboard']);
+    expect(staleLabels()).toEqual(['dashboard', 'team stats']);
   });
 });

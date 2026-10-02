@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Club } from '@basketeasy/types/clubs';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { useAccount } from '../auth/useAccount';
 import { clubsQueryKey } from './queryKeys';
 
@@ -14,6 +15,9 @@ export function useClubList() {
   // session.
   return useQuery({
     queryKey: clubsQueryKey,
+    // Mounted for the whole session (header, club switcher), so never discarded:
+    // a finite tier, or a club added by someone else would never show up.
+    staleTime: FRESHNESS.slow,
     queryFn: () => apiClient.get<Club[]>('/clubs'),
     enabled: Boolean(user),
   });

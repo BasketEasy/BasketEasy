@@ -7,12 +7,14 @@ import type {
   GuardianInvitePreview,
 } from '@basketeasy/types/guardians';
 import { apiClient, setAccessToken } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { replaceSession } from '../auth/session';
 import { guardianInvitePreviewQueryKey, personasQueryKey } from './queryKeys';
 
 export function useGuardianInvitePreview(token: string) {
   return useQuery({
     queryKey: guardianInvitePreviewQueryKey(token),
+    staleTime: FRESHNESS.static,
     queryFn: () => apiClient.get<GuardianInvitePreview>(`/guardian-invites/${token}`),
     // A 404/409 here is a fact about the link, not a transient failure.
     retry: false,

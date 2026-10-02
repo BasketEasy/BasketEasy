@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ClubMember, ListClubMembersParams } from '@basketeasy/types/club-members';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { clubMembersQueryKey } from './queryKeys';
 
 export function useClubMemberList(
@@ -11,6 +12,7 @@ export function useClubMemberList(
 ) {
   return useQuery({
     queryKey: clubMembersQueryKey(clubId, params),
+    staleTime: FRESHNESS.slow,
     queryFn: () => apiClient.get<PaginatedResult<ClubMember>>(`/clubs/${clubId}/members`, params),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,

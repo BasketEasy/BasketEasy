@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { JerseyDutyDetail, JerseyRotationOverview } from '@basketeasy/types/jersey-duty';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { jerseyDutyQueryKey, jerseyRotationQueryKey } from '../clubs/queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -14,6 +15,7 @@ export function useJerseyDuty(clubId: string, teamId: string, eventId: string) {
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: jerseyDutyQueryKey(clubId, teamId, eventId, forPlayerId),
+    staleTime: FRESHNESS.live,
     queryFn: () =>
       apiClient.get<JerseyDutyDetail>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/jersey-duty`,
@@ -32,6 +34,8 @@ export function useJerseyRotation(clubId: string, teamId: string, enabled = true
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: jerseyRotationQueryKey(clubId, teamId, forPlayerId),
+    // Built from the roster's RSVPs and call-ups, which teammates change all day.
+    staleTime: FRESHNESS.live,
     queryFn: () =>
       apiClient.get<JerseyRotationOverview>(
         `/clubs/${clubId}/teams/${teamId}/jersey-rotation`,

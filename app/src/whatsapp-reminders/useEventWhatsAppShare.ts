@@ -6,6 +6,7 @@ import type {
   EventWhatsAppShare,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { teamEventsQueryKeyPrefix, whatsAppShareQueryKey } from '../clubs/queryKeys';
 
 const path = (clubId: string, teamId: string, eventId: string) =>
@@ -14,6 +15,7 @@ const path = (clubId: string, teamId: string, eventId: string) =>
 export function useEventWhatsAppShare(clubId: string, teamId: string, eventId: string) {
   return useQuery({
     queryKey: whatsAppShareQueryKey(clubId, teamId, eventId),
+    staleTime: FRESHNESS.live,
     queryFn: () => apiClient.get<EventWhatsAppShare>(path(clubId, teamId, eventId)),
   });
 }

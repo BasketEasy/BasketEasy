@@ -3,6 +3,7 @@ import { EmptyState } from '@basketeasy/ui/empty-state';
 import { PageHeader } from '@basketeasy/ui/page-header';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { FRESHNESS } from '../api/freshness';
 import { PastMatchesSection } from '../clubs/PastMatchesSection';
 import { pastMatchesWindowParams } from '../clubs/myAgendaWindow';
 import { useMyAgenda } from '../clubs/useMyAgenda';
@@ -22,7 +23,9 @@ export function ResultsPage() {
   // PlayerHome/ManagerHome): the window is floored to 5 minutes, so it shares
   // its cache entry with them.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
-  const { data, isLoading, isError, refetch, isRefetching } = useMyAgenda(pastWindow);
+  const { data, isLoading, isError, refetch, isRefetching } = useMyAgenda(pastWindow, {
+    freshness: FRESHNESS.slow,
+  });
   const pastMatches = (data?.upcomingEvents ?? []).filter((event) => event.type === 'MATCH');
 
   return (

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EventRsvpRosterEntry } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { eventRsvpsQueryKey } from './queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -14,6 +15,7 @@ export function useEventRsvps(clubId: string, teamId: string, eventId: string, e
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: eventRsvpsQueryKey(clubId, teamId, eventId, forPlayerId),
+    staleTime: FRESHNESS.live,
     queryFn: () =>
       apiClient.get<EventRsvpRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps`,

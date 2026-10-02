@@ -84,6 +84,9 @@ publishes instead of asking a coach to retype it. All FFBB knowledge lives behin
   « link a competition first », distinct from an FFBB failure and from an empty pre-season poule.
 - « Latest results » are the `joue: true` matches of the highest journée that has any (a postponed
   match of that journée has no score and is left out).
+- Client side, the panel is `slow` (10 minutes), never retried, and refreshed when a link is added or
+  removed or after an import. Not `static`: standings move when FFBB records a result, with no write of
+  ours. Not retried: the server scrapes FFBB on every attempt, so a retry triples a failing call.
 
 ## Open
 

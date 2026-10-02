@@ -5,6 +5,7 @@ import type {
   TeamPendingCancellation,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { pendingCancellationsQueryKey } from './queryKeys';
 
 const pendingQueryKey = pendingCancellationsQueryKey;
@@ -14,6 +15,7 @@ const base = (clubId: string, teamId: string) => `/clubs/${clubId}/teams/${teamI
 export function useTeamPendingCancellations(clubId: string, teamId: string) {
   return useQuery({
     queryKey: pendingQueryKey(clubId, teamId),
+    staleTime: FRESHNESS.slow,
     queryFn: () =>
       apiClient.get<TeamPendingCancellation[]>(`${base(clubId, teamId)}/pending-cancellations`),
   });

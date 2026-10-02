@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { VapidPublicKeyResponse } from '@basketeasy/types/notifications';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { pushPublicKeyQueryKey } from './queryKeys';
 
 const SERVICE_WORKER_URL = '/sw.js';
@@ -79,7 +80,7 @@ export function usePushSubscription(): PushSubscriptionState {
     queryKey: pushPublicKeyQueryKey,
     queryFn: () => apiClient.get<VapidPublicKeyResponse>('/me/push-subscriptions/public-key'),
     enabled: supported,
-    staleTime: Infinity,
+    staleTime: FRESHNESS.static,
   });
 
   useEffect(() => {

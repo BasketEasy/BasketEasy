@@ -15,7 +15,7 @@ export function voteWindowOpensAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_OPEN_DELAY_HOURS * HOUR_MS);
 }
 
-function voteWindowClosesAt(startsAtIso: string): Date {
+export function voteWindowClosesAt(startsAtIso: string): Date {
   return new Date(new Date(startsAtIso).getTime() + VOTE_CLOSE_DELAY_DAYS * DAY_MS);
 }
 

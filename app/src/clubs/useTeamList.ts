@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ListTeamsParams, Team } from '@basketeasy/types/teams';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { clubTeamsQueryKey } from './queryKeys';
 
 export function useTeamList(
@@ -11,6 +12,7 @@ export function useTeamList(
 ) {
   return useQuery({
     queryKey: clubTeamsQueryKey(clubId, params),
+    staleTime: FRESHNESS.slow,
     queryFn: () => apiClient.get<PaginatedResult<Team>>(`/clubs/${clubId}/teams`, params),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,

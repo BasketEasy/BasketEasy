@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TeamGuestLinkInfo } from '@basketeasy/types/guest-links';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { guestLinkQueryKey } from '../clubs/queryKeys';
 
 const path = (clubId: string, teamId: string) => `/clubs/${clubId}/teams/${teamId}/guest-link`;
@@ -8,6 +9,7 @@ const path = (clubId: string, teamId: string) => `/clubs/${clubId}/teams/${teamI
 export function useTeamGuestLink(clubId: string, teamId: string) {
   return useQuery({
     queryKey: guestLinkQueryKey(clubId, teamId),
+    staleTime: FRESHNESS.slow,
     queryFn: () => apiClient.get<TeamGuestLinkInfo>(path(clubId, teamId)),
   });
 }

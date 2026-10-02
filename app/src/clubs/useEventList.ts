@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { ListEventsParams, TeamEvent } from '@basketeasy/types/events';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { teamEventsQueryKey } from './queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -11,6 +12,7 @@ export function useEventList(clubId: string, teamId: string, params?: ListEvents
   const scoped = forPlayerId ? { ...params, forPlayerId } : params;
   const query = useQuery({
     queryKey: teamEventsQueryKey(clubId, teamId, scoped),
+    staleTime: FRESHNESS.live,
     queryFn: () =>
       apiClient.get<PaginatedResult<TeamEvent>>(`/clubs/${clubId}/teams/${teamId}/events`, scoped),
     placeholderData: keepPreviousData,

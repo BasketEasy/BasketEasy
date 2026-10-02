@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { myTeamsForQueryKey } from './queryKeys';
 import { useActingAs } from '../guardians/useActingAs';
 
@@ -12,6 +13,7 @@ export function useMyTeamList() {
   const { forPlayerId, isReady } = useActingAs();
   return useQuery({
     queryKey: myTeamsForQueryKey(forPlayerId ?? undefined),
+    staleTime: FRESHNESS.slow,
     queryFn: () =>
       apiClient.get<MyTeamSummary[]>('/me/teams', forPlayerId ? { forPlayerId } : undefined),
     enabled: isReady,

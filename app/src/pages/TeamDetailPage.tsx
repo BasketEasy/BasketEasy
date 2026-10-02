@@ -21,6 +21,7 @@ import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useTeamActingAs } from '../guardians/useActingAs';
+import { useRefreshPersonasOnEntry } from '../guardians/usePersonas';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
@@ -115,6 +116,7 @@ export function TeamDetailPage() {
     isError: isTeamError,
     refetch: refetchTeam,
   } = useTeamShow(clubId!, teamId!);
+  useRefreshPersonasOnEntry();
 
   // Clubs partenaires/Administrateurs are management-only tabs, hidden from
   // a rostered player with no manage rights — fall back to Événements (the
