@@ -69,6 +69,12 @@ describe('EventDetailHero', () => {
     expect(screen.queryByText('Importé')).not.toBeInTheDocument();
   });
 
+  it('does not print « vs null » for an imported match whose opponent is not known yet', () => {
+    renderHero(baseEvent({ opponentName: null }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Match' })).toBeInTheDocument();
+  });
+
   it('drops the opponent and venue chrome for a TRAINING', () => {
     renderHero(baseEvent({ type: 'TRAINING', opponentName: null, venue: null }));
 

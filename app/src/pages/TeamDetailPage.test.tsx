@@ -1033,6 +1033,39 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(requestedPages).toContain('2'));
   });
 
+  it('does not read a failed roster load as « 0 joueur », and counts from the total', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await screen.findByRole('tab', { name: /^effectif$/i });
+    expect(screen.queryByText(/\bjoueurs?\b/)).not.toBeInTheDocument();
+  });
+
+  it('shows the roster total, not the first page length, in the hero', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(alexRoster, { total: 130 })),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText(/· 130 joueurs/)).toBeInTheDocument();
+  });
+
   it('deletes the team and navigates back to the club roster page', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     let deleteCalled = false;
