@@ -368,12 +368,21 @@ export class EventsService {
 
     const ids = scope === 'THIS' ? [eventId] : await this.resolveScopeIds(teamId, event, scope);
 
+    // EventEditModal re-sends the venue on every save. On a series, the anchor
+    // is the only row the form showed, so a venue is written to the other
+    // occurrences only when it differs from the anchor's: a notes-only edit
+    // must not stamp the anchor's address (or pair it with a stale gym name)
+    // on occurrences that play elsewhere.
+    const nameChanged = data.locationName !== undefined && data.locationName !== event.locationName;
+    const writeLocation = data.location !== undefined && (scope === 'THIS' || locationChanged);
+    const writeLocationName =
+      (data.locationName !== undefined && (scope === 'THIS' || nameChanged || locationChanged)) ||
+      (writeLocation && locationChanged);
+
     const updateData: Prisma.EventUpdateInput = {
       ...(data.startsAt !== undefined ? { startsAt: new Date(data.startsAt) } : {}),
-      ...(data.location !== undefined ? { location: data.location } : {}),
-      ...(data.locationName !== undefined || locationChanged
-        ? { locationName: resultingLocationName }
-        : {}),
+      ...(writeLocation ? { location: data.location } : {}),
+      ...(writeLocationName ? { locationName: resultingLocationName } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.type !== undefined ? { type: data.type } : {}),
       ...(data.waReminderOverride !== undefined
@@ -422,19 +431,18 @@ export class EventsService {
     // « Changement de salle » compares against the address each row had
     // before the write, so it is read now: the anchor already is, a series'
     // other occurrences need one read.
-    const previousLocations =
-      data.location === undefined
-        ? null
-        : scope === 'THIS'
-          ? new Map([[event.id, event.location]])
-          : new Map(
-              (
-                await this.prisma.event.findMany({
-                  where: { id: { in: ids } },
-                  select: { id: true, location: true },
-                })
-              ).map((row) => [row.id, row.location]),
-            );
+    const previousLocations = !writeLocation
+      ? null
+      : scope === 'THIS'
+        ? new Map([[event.id, event.location]])
+        : new Map(
+            (
+              await this.prisma.event.findMany({
+                where: { id: { in: ids } },
+                select: { id: true, location: true },
+              })
+            ).map((row) => [row.id, row.location]),
+          );
 
     const results = await this.prisma.$transaction([
       ...ids.map((id) => this.prisma.event.update({ where: { id }, data: updateData })),
