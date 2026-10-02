@@ -7,7 +7,7 @@ import type {
   GuardianInvitePreview,
 } from '@basketeasy/types/guardians';
 import { apiClient, setAccessToken } from '../api/client';
-import { sessionQueryKey } from '../auth/session';
+import { replaceSession } from '../auth/session';
 import { guardianInvitePreviewQueryKey, personasQueryKey } from './queryKeys';
 
 export function useGuardianInvitePreview(token: string) {
@@ -28,7 +28,7 @@ export function useAcceptGuardianInvite(token: string) {
       apiClient.post<AccessTokenResponse>(`/guardian-invites/${token}/accept`, dto),
     onSuccess: (response) => {
       setAccessToken(response.accessToken);
-      queryClient.setQueryData(sessionQueryKey, response.user);
+      replaceSession(queryClient, response.user);
     },
   });
 }

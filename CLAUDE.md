@@ -120,6 +120,7 @@ Beyond the Working conventions above, four traps this direction has already fall
 - Passwords hashed with argon2; JWT access tokens (short-lived, `JwtStrategy` + `JwtAuthGuard`) plus rotating opaque refresh tokens stored hashed in `RefreshToken`, grouped by `familyId` for reuse detection (a reused/already-revoked refresh token revokes the whole family).
 - `ClubRolesGuard` + `@ClubRoles()` decorator gate club-scoped routes by the caller's `ClubMembership.role`.
 - `JWT_ACCESS_SECRET` env var is required — set in `docker-compose.yml`'s `server` service and `.env.example`.
+- **Client side, any flow that changes the logged-in user goes through `replaceSession`** (`app/src/auth/session.ts`: login, register, logout, session expiry, accepting a player or guardian invite). It sets the session and removes every other query (on session end, once `ProtectedRoute` has unmounted the tree), because product keys are written for "me" and are identical for every user. The `QueryClient` is built by `createQueryClient()` (`app/src/api/queryClient.ts`) and nothing else in product code. Why: [`docs/decisions/accounts-and-access.md`](./docs/decisions/accounts-and-access.md).
 
 ## Teams module
 

@@ -1,11 +1,12 @@
 import { StrictMode, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { apiClient } from '../api/client';
 import { AccountProvider } from './AccountContext';
+import { sessionQueryKey } from './session';
 import { useAccount } from './useAccount';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -118,6 +119,41 @@ describe('useAccount', () => {
       memberships: [],
     });
     expect(refreshCallCount).toBe(1);
+  });
+
+  it('drops every cached query but the session when the session expires mid-use', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    server.use(
+      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+      http.get('/api/auth/me', () =>
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
+      ),
+    );
+    const { result } = renderHook(() => useAccount(), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          <AccountProvider>{children}</AccountProvider>
+        </QueryClientProvider>
+      ),
+    });
+    await waitFor(() => expect(result.current.user?.id).toBe('user-1'));
+    queryClient.setQueryData(['me', 'teams'], [{ id: 'team-of-user-1' }]);
+
+    server.use(
+      http.get('/api/whoami', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ message: 'Unauthorized' }, { status: 401 }),
+      ),
+    );
+    await act(async () => {
+      await apiClient.get('/whoami').catch(() => undefined);
+    });
+
+    await waitFor(() => expect(result.current.user).toBeNull());
+    expect(queryClient.getQueryData(['me', 'teams'])).toBeUndefined();
+    expect(queryClient.getQueryState(sessionQueryKey)?.data).toBeNull();
   });
 
   describe('when the restore keeps failing', () => {
