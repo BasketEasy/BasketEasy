@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,11 +19,24 @@ import type {
   TeamWhatsAppSettings,
   UpdateTeamWhatsAppSettingsResponse,
 } from '@basketeasy/types/whatsapp-reminder';
+import { IMPERSONATION_READ_ONLY_CODE } from '@basketeasy/types/platform-admin-impersonation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { ConfirmEventShareDto, UpdateTeamWhatsAppSettingsDto } from './dto/whatsapp-reminder.dto';
 import { WhatsAppReminderService } from './whatsapp-reminder.service';
+
+// The rendered message embeds the team's guest-link URL, a write credential
+// (anyone holding it can answer RSVPs for every teammate), so a read-only
+// impersonation must not be handed it.
+function assertNotImpersonating(user: RequestUser): void {
+  if (user.impersonation) {
+    throw new ForbiddenException({
+      code: IMPERSONATION_READ_ONLY_CODE,
+      message: "Le message de partage contient le lien d'invité, inaccessible en lecture seule",
+    });
+  }
+}
 
 @Controller('clubs/:clubId/teams/:teamId')
 @UseGuards(JwtAuthGuard, TeamManagerGuard)
@@ -54,6 +68,7 @@ export class WhatsAppReminderController {
     @Param('teamId') teamId: string,
     @CurrentUser() user: RequestUser,
   ): Promise<TeamPendingCancellation[]> {
+    assertNotImpersonating(user);
     return this.reminders.listPendingCancellations(clubId, teamId, user.id);
   }
 
@@ -76,6 +91,7 @@ export class WhatsAppReminderController {
     @Param('eventId') eventId: string,
     @CurrentUser() user: RequestUser,
   ): Promise<EventWhatsAppShare> {
+    assertNotImpersonating(user);
     return this.reminders.getEventShare(clubId, teamId, eventId, user.id);
   }
 
