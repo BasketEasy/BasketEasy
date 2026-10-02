@@ -290,7 +290,10 @@ jobs:
             3. Delegate to ALL FIVE lens subagents in parallel (review-security, review-product,
                review-accessibility, review-coherence, review-scalability). Pass each the PR number,
                base branch and a one-line summary of the change. Skip review-accessibility only if
-               nothing under app/ or packages/@basketeasy/ui changed.
+               nothing under app/ or packages/@basketeasy/ui changed. Issue every Agent call in ONE
+               message, in the foreground (never run_in_background), and wait for ALL results before
+               going on. This is a headless run: your turn ending is the end of the job, so never end
+               it while a lens is still running or before verdict.json is written.
             4. Verify each reported finding yourself against the code. Drop anything you cannot prove.
                Deduplicate across lenses. Apply the privacy-review and backend-slice skills where relevant.
             5. Post every surviving finding as ONE INLINE comment on its line with
