@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { usePlayerCreate } from './usePlayerCreate';
+import { createSeededCache } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -42,5 +43,16 @@ describe('usePlayerCreate', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(queryClient.getQueryState(['clubs', 'club-1', 'players', {}])?.isInvalidated).toBe(true);
+  });
+
+  it('refreshes the home, which counts players and lists those without an account', async () => {
+    server.use(http.post('/api/clubs/club-1/players', () => HttpResponse.json({ id: 'p1' })));
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => usePlayerCreate('club-1'), { wrapper });
+
+    result.current.mutate({ firstName: 'A', lastName: 'B' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual(['club players', 'dashboard']);
   });
 });

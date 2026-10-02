@@ -49,22 +49,49 @@ export const teamEventQueryKey = (
   forPlayerId?: string,
 ) =>
   ['clubs', clubId, 'teams', teamId, 'events', eventId, ...actingAsKeyPart(forPlayerId)] as const;
+/**
+ * The sub-queries an event owns, one family per name. Each sits under the
+ * event's key, so deleting the event covers them all; a persona, when the
+ * family has one, is the last segment (so this key is the prefix of every
+ * persona's copy of the family).
+ */
+export type EventPart =
+  | 'rsvps'
+  | 'convocations'
+  | 'jersey-duty'
+  | 'votes'
+  | 'scoresheet'
+  | 'scoresheet-extraction'
+  | 'whatsapp-share'
+  | 'rsvp-history';
+export const eventSubKey = (clubId: string, teamId: string, eventId: string, part: EventPart) =>
+  ['clubs', clubId, 'teams', teamId, 'events', eventId, part] as const;
+/**
+ * The event itself, whichever persona read it, and none of its sub-queries:
+ * `teamEventQueryKey` is a prefix of those too, so invalidating it also
+ * refetches every RSVP, convocation, vote and scoresheet query of the event.
+ * Matches on the positions the builders above lay out: the key is six
+ * segments long, or seven when the last is the persona object.
+ */
+export const isEventDetailQuery =
+  (clubId: string, teamId: string, eventId: string) =>
+  ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    queryKey[0] === 'clubs' &&
+    queryKey[1] === clubId &&
+    queryKey[2] === 'teams' &&
+    queryKey[3] === teamId &&
+    queryKey[4] === 'events' &&
+    queryKey[5] === eventId &&
+    (queryKey.length === 6 || (queryKey.length === 7 && typeof queryKey[6] === 'object'));
+/** The persona (`forPlayerId`) a cached event detail was read for; undefined for the user themself. */
+export const eventDetailPersona = (queryKey: readonly unknown[]): string | undefined =>
+  (queryKey[6] as { pour?: string } | undefined)?.pour;
 export const eventRsvpsQueryKey = (
   clubId: string,
   teamId: string,
   eventId: string,
   forPlayerId?: string,
-) =>
-  [
-    'clubs',
-    clubId,
-    'teams',
-    teamId,
-    'events',
-    eventId,
-    'rsvps',
-    ...actingAsKeyPart(forPlayerId),
-  ] as const;
+) => [...eventSubKey(clubId, teamId, eventId, 'rsvps'), ...actingAsKeyPart(forPlayerId)] as const;
 export const eventConvocationsQueryKey = (
   clubId: string,
   teamId: string,
@@ -72,24 +99,30 @@ export const eventConvocationsQueryKey = (
   forPlayerId?: string,
 ) =>
   [
-    'clubs',
-    clubId,
-    'teams',
-    teamId,
-    'events',
-    eventId,
-    'convocations',
+    ...eventSubKey(clubId, teamId, eventId, 'convocations'),
     ...actingAsKeyPart(forPlayerId),
   ] as const;
 export const eventVoteResultsQueryKey = (clubId: string, teamId: string, eventId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'votes'] as const;
+  eventSubKey(clubId, teamId, eventId, 'votes');
 export const eventScoresheetStatusQueryKey = (clubId: string, teamId: string, eventId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'events', eventId, 'scoresheet'] as const;
+  eventSubKey(clubId, teamId, eventId, 'scoresheet');
 export const eventScoresheetExtractionQueryKey = (
   clubId: string,
   teamId: string,
   eventId: string,
-) => ['clubs', clubId, 'teams', teamId, 'events', eventId, 'scoresheet-extraction'] as const;
+) => eventSubKey(clubId, teamId, eventId, 'scoresheet-extraction');
+export const rsvpHistoryQueryKey = (
+  clubId: string,
+  teamId: string,
+  eventId: string,
+  teamPlayerId: string,
+) => [...eventSubKey(clubId, teamId, eventId, 'rsvp-history'), teamPlayerId] as const;
+export const whatsAppShareQueryKey = (clubId: string, teamId: string, eventId: string) =>
+  eventSubKey(clubId, teamId, eventId, 'whatsapp-share');
+export const guestLinkQueryKey = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'guest-link'] as const;
+export const whatsAppSettingsQueryKey = (clubId: string, teamId: string) =>
+  ['clubs', clubId, 'teams', teamId, 'whatsapp-settings'] as const;
 export const teamSeasonStatsQueryKey = (
   clubId: string,
   teamId: string,
@@ -162,6 +195,27 @@ export const isClubMeetingDependentQuery =
     queryKey[1] === clubId &&
     queryKey[2] === 'teams' &&
     (queryKey[4] === 'events' || queryKey[4] === 'meeting-settings');
+/**
+ * Any cached query of a team, by the family it sits in (`'players'`,
+ * `'events'`, `'stats'`, `'jersey-rotation'`, …), for the club and team given
+ * or, when one is left out, whichever it was read through: a CTC team is
+ * reachable under each of its linked clubs. Matches on the positions the
+ * builders above lay out; the club's own `['clubs', id, 'teams', {params}]`
+ * lists have an object where the team id goes, so they never match.
+ */
+export const isTeamFamilyQuery =
+  (families: readonly string[], scope: { clubId?: string; teamId?: string } = {}) =>
+  ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    queryKey[0] === 'clubs' &&
+    queryKey[2] === 'teams' &&
+    typeof queryKey[3] === 'string' &&
+    typeof queryKey[4] === 'string' &&
+    families.includes(queryKey[4]) &&
+    (scope.clubId === undefined || queryKey[1] === scope.clubId) &&
+    (scope.teamId === undefined || queryKey[3] === scope.teamId);
+/** Every team's admin candidates (`…/admins/eligible`), whichever club they were read through. */
+export const isTeamAdminCandidatesQuery = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+  isTeamFamilyQuery(['admins'])({ queryKey }) && queryKey[5] === 'eligible';
 /** One match's jersey wash duty, under the event's key so deleting or refreshing the event covers it. */
 export const jerseyDutyQueryKey = (
   clubId: string,
@@ -170,13 +224,7 @@ export const jerseyDutyQueryKey = (
   forPlayerId?: string,
 ) =>
   [
-    'clubs',
-    clubId,
-    'teams',
-    teamId,
-    'events',
-    eventId,
-    'jersey-duty',
+    ...eventSubKey(clubId, teamId, eventId, 'jersey-duty'),
     ...actingAsKeyPart(forPlayerId),
   ] as const;
 /** Every rotation overview of a team, whichever season or persona. */

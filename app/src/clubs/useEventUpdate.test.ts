@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { useEventUpdate } from './useEventUpdate';
+import { createSeededCache, TEAM_EVENT_LABELS } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -59,5 +60,20 @@ describe('useEventUpdate', () => {
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,
     ).toBe(true);
+  });
+
+  it('also refreshes the season table, which a moved or retyped match changes', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1', () => HttpResponse.json([])),
+    );
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useEventUpdate('club-1', 'team-1'), { wrapper });
+
+    result.current.mutate({ eventId: 'event-1', dto: { location: 'Gymnase B' } });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual(
+      [...TEAM_EVENT_LABELS, 'jersey rotation', 'dashboard', 'team stats'].sort(),
+    );
   });
 });
