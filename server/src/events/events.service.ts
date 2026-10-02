@@ -1427,7 +1427,7 @@ export class EventsService {
     // Hand off to the scoresheets module's async OCR pipeline now that a
     // real upload exists — this call sets status to QUEUED, overwriting the
     // 'UPLOADED' just written above.
-    await this.scoresheets.enqueueOcr(scoresheet.id);
+    await this.scoresheets.enqueueOcr(scoresheet.id, { replaceStale: true });
     return this.toEventScoresheet({ ...scoresheet, status: 'QUEUED' });
   }
 
