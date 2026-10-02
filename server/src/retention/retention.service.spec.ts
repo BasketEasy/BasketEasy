@@ -12,6 +12,7 @@ describe('RetentionService', () => {
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
+    eventShare: { deleteMany: jest.Mock; count: jest.Mock };
     impersonationSession: { deleteMany: jest.Mock; findMany: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
@@ -39,6 +40,10 @@ describe('RetentionService', () => {
         count: jest.fn().mockResolvedValue(0),
       },
       geocodedAddress: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        count: jest.fn().mockResolvedValue(0),
+      },
+      eventShare: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
       },
@@ -321,6 +326,33 @@ describe('RetentionService', () => {
 
       expect(summary.geocodeCache).toEqual({ status: 'ok', count: 4 });
       expect(prisma.geocodedAddress.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('event shares', () => {
+    const where = {
+      state: { in: ['SENT', 'EXPIRED', 'VOID'] },
+      updatedAt: { lt: subMonths(now, 12) },
+      OR: [{ eventId: null }, { event: { startsAt: { lt: subMonths(now, 12) } } }],
+    };
+
+    it('drops finished shares untouched for 12 months, never live ones', async () => {
+      prisma.eventShare.deleteMany.mockResolvedValue({ count: 6 });
+
+      const summary = await service.run();
+
+      expect(prisma.eventShare.deleteMany).toHaveBeenCalledWith({ where });
+      expect(summary.eventShares).toEqual({ status: 'ok', count: 6 });
+    });
+
+    it('only counts in a dry run', async () => {
+      prisma.eventShare.count.mockResolvedValue(6);
+
+      const summary = await service.run(true);
+
+      expect(prisma.eventShare.count).toHaveBeenCalledWith({ where });
+      expect(summary.eventShares).toEqual({ status: 'ok', count: 6 });
+      expect(prisma.eventShare.deleteMany).not.toHaveBeenCalled();
     });
   });
 

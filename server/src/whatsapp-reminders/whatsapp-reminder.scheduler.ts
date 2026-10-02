@@ -362,6 +362,7 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
       });
       throw error;
     }
+    await this.withdrawIfSettled(shareId);
     await this.queueNudge(shareId, event.startsAt);
     await this.ensureExpire(shareId, event.startsAt);
   }
@@ -376,6 +377,18 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
 
   private async voidShareById(shareId: string): Promise<void> {
     await this.voidShare({ id: shareId });
+  }
+
+  // A `confirmShare` that lands between the PENDING write and the rows above
+  // ran `withdraw` before any row existed, so it cleared nothing. Looking again
+  // once the rows exist closes that gap: a share that is no longer PENDING must
+  // not leave an unread bell behind.
+  private async withdrawIfSettled(shareId: string): Promise<void> {
+    const share = await this.prisma.eventShare.findUnique({
+      where: { id: shareId },
+      select: { state: true },
+    });
+    if (share && share.state !== EventShareState.PENDING) await this.withdraw(shareId);
   }
 
   private async markPending(shareId: string): Promise<boolean> {
@@ -430,6 +443,7 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
       });
       throw error;
     }
+    await this.withdrawIfSettled(shareId);
   }
 
   // One nudge for a whole call's prompts, for those still PENDING and unnudged.
@@ -708,8 +722,9 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
   /**
    * TeamAdmins of the team plus club ADMINs of every linked club, deduplicated
    * by user, in two reads. The deep link's club is one the manager is an ADMIN
-   * of, else any linked club they belong to (a ClubRolesGuard 403 on click-through
-   * is the alternative), else the owner-first first linked club.
+   * of, else any linked club they belong to. A TeamAdmin with no membership in
+   * any linked club is left out: the event and team pages read through
+   * `ClubRoles('ADMIN','MEMBER')`, so every link we could give them is a 403.
    */
   async resolveManagers(teamId: string): Promise<Array<{ userId: string; clubId: string }>> {
     const team = await this.prisma.team.findUnique({
@@ -742,10 +757,6 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
       if (better) best.set(userId, { clubId, isAdmin });
     };
     for (const m of memberships) consider(m.userId, m.clubId, m.role === 'ADMIN');
-    // A TeamAdmin with no membership in a linked club is still a manager.
-    for (const userId of teamAdminIds) {
-      if (!best.has(userId)) best.set(userId, { clubId: clubIds[0], isAdmin: false });
-    }
     return [...best.entries()].map(([userId, { clubId }]) => ({ userId, clubId }));
   }
 

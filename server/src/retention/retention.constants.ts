@@ -20,6 +20,14 @@ export const INACTIVE_SOON_LEAD_MONTHS = 1;
 export const GEOCODE_CACHE_RETENTION_MONTHS = 12;
 
 /**
+ * A finished WhatsApp share (sent, expired or voided) is dropped this long
+ * after its last change. A CANCELLATION row carries an `eventSnapshot` (event
+ * name, opponent, venue) and `sentByUserId`, so it is not kept for the life of
+ * the app; nothing reads a share this old.
+ */
+export const EVENT_SHARE_RETENTION_MONTHS = 12;
+
+/**
  * Ceiling on how many accounts one nightly run erases. The first real run
  * after a deployment has been observing in dry-run mode can have a large
  * backlog, and deleting it in one unbounded burst of transactions is how a

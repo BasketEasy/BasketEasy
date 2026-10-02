@@ -786,6 +786,12 @@ describe('MeetingPointsService', () => {
       expect(changeFeed.publish).toHaveBeenCalledWith(['event-1', 'event-far']);
     });
 
+    it('publishChange: false still announces to players but leaves the feed to the caller', async () => {
+      await service.announceMeetingChanges(['event-1'], { publishChange: false });
+      expect(changeFeed.publish).not.toHaveBeenCalled();
+      expect(prisma.event.findMany).toHaveBeenCalled();
+    });
+
     it('publishes nothing for an empty batch', async () => {
       await service.announceMeetingChanges([]);
       expect(changeFeed.publish).not.toHaveBeenCalled();

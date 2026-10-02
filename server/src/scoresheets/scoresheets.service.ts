@@ -191,10 +191,10 @@ export class ScoresheetsService {
 
   // Called by EventsService right after confirmScoresheetUpload persists the
   // EventScoresheet row — this module owns the async parsing lifecycle from
-  // here on, EventsService just hands off the id. Enqueues before writing
-  // QUEUED (not after): if the Redis/BullMQ call throws, the row is left at
-  // its previous status (UPLOADED) instead of being permanently stranded at
-  // QUEUED with no job ever created and no worker to pick it up.
+  // here on, EventsService just hands off the id. Writes QUEUED before the job
+  // is added and restores the previous status if the add throws, so the row is
+  // never stranded at QUEUED with no job and a fast worker's status is never
+  // overwritten.
   // jobId: eventScoresheetId lets BullMQ dedupe — a re-upload while the
   // previous job is still queued/processing replaces it instead of running
   // two extractions concurrently against the same row. Since EventScoresheet
@@ -230,21 +230,45 @@ export class ScoresheetsService {
         });
       }
     }
-    await this.ocrQueue.add(
-      'extract',
-      { eventScoresheetId },
-      {
-        jobId: eventScoresheetId,
-        attempts: OCR_JOB_ATTEMPTS,
-        backoff: { type: 'exponential', delay: OCR_JOB_BACKOFF_DELAY_MS },
-        removeOnComplete: true,
-        removeOnFail: true,
-      },
-    );
+    // QUEUED is written before the job exists, not after: a worker that picks
+    // the job up at once moves the row to PROCESSING/FAILED, and a QUEUED
+    // written afterwards would overwrite that. If the add fails the row goes
+    // back to what it was, so it is never stranded at QUEUED with no job.
+    const previous = await this.prisma.eventScoresheet.findUnique({
+      where: { id: eventScoresheetId },
+      select: { status: true },
+    });
     await this.prisma.eventScoresheet.update({
       where: { id: eventScoresheetId },
       data: { status: 'QUEUED' },
     });
+    try {
+      await this.ocrQueue.add(
+        'extract',
+        { eventScoresheetId },
+        {
+          jobId: eventScoresheetId,
+          attempts: OCR_JOB_ATTEMPTS,
+          backoff: { type: 'exponential', delay: OCR_JOB_BACKOFF_DELAY_MS },
+          removeOnComplete: true,
+          removeOnFail: true,
+        },
+      );
+    } catch (err) {
+      if (previous) {
+        await this.prisma.eventScoresheet
+          .updateMany({
+            where: { id: eventScoresheetId, status: 'QUEUED' },
+            data: { status: previous.status },
+          })
+          .catch((restoreErr: unknown) => {
+            this.logger.warn(
+              `Could not restore status of scoresheet ${eventScoresheetId}: ${String(restoreErr)}`,
+            );
+          });
+      }
+      throw err;
+    }
   }
 
   // Re-runs the OCR against the file already archived in R2, so recovering
@@ -277,7 +301,7 @@ export class ScoresheetsService {
         'Cette feuille a déjà été confirmée : renvoyez le fichier pour relancer une analyse',
       );
     }
-    await this.enqueueOcr(scoresheet.id);
+    await this.enqueueOcr(scoresheet.id, { replaceStale: true });
     return {
       status: 'QUEUED',
       uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,

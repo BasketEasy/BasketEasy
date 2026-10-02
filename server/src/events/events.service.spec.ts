@@ -1453,6 +1453,29 @@ describe('EventsService', () => {
         expect(sent[0].deepLink).toBe('/clubs/club-1/teams/team-1');
       });
 
+      it('leaves each occurrence its own venue when a series edit re-sends the anchor venue unchanged', async () => {
+        givenMatch({ ...match, recurrenceId: 'series-1' });
+        prisma.event.findMany.mockResolvedValue([{ id: 'event-1' }, { id: 'event-2' }]);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            location: match.location,
+            locationName: match.locationName,
+            notes: 'Apportez les maillots',
+            scope: 'ALL',
+          },
+          'user-1',
+        );
+
+        for (const [{ data }] of prisma.event.update.mock.calls) {
+          expect(data).toEqual({ notes: 'Apportez les maillots' });
+        }
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
       it('never fails the edit when the notification does', async () => {
         givenMatch(match);
         notifications.notify.mockRejectedValueOnce(new Error('db down'));
@@ -1506,7 +1529,11 @@ describe('EventsService', () => {
         data: { meetsAtOverride: null },
       });
       // The meeting time moved with the kick-off.
-      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+      // The service runs the WhatsApp change detection itself, after its reminder
+      // sync, so the feed must not start a second pass.
+      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1'], {
+        publishChange: false,
+      });
     });
 
     it('queues the first travel recompute when a TRAINING becomes a MATCH', async () => {
@@ -4003,7 +4030,7 @@ describe('EventsService', () => {
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',
       });
-      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1');
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: true });
     });
 
     it('does not attempt to delete anything on a first-ever upload (no previous row)', async () => {

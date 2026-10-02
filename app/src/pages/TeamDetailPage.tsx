@@ -325,6 +325,9 @@ export function TeamDetailPage() {
 
   const teamClubs = teamClubsResult?.items;
   const teamPlayers = teamPlayersResult?.items;
+  // `undefined` while loading or failed: never rendered as « 0 joueur ». `total`
+  // (not `items.length`) because the fetch is capped at one page.
+  const rosterTotal = allTeamPlayersResult?.total;
   const allTeamPlayers = useMemo(() => allTeamPlayersResult?.items ?? [], [allTeamPlayersResult]);
   const clubPlayers = useMemo(() => clubPlayersResult?.items ?? [], [clubPlayersResult]);
   const events = eventsResult?.items;
@@ -446,7 +449,7 @@ export function TeamDetailPage() {
               </Button>
             )
           }
-          meta={`${teamCategoryLabel(team.category)} · ${teamGenderLabel(team.gender)} · ${allTeamPlayers.length} joueur${allTeamPlayers.length > 1 ? 's' : ''}`}
+          meta={`${teamCategoryLabel(team.category)} · ${teamGenderLabel(team.gender)}${rosterTotal === undefined ? '' : ` · ${rosterTotal} joueur${rosterTotal > 1 ? 's' : ''}`}`}
           aside={
             nextEvent && (
               <TeamNextEventTile
@@ -489,7 +492,7 @@ export function TeamDetailPage() {
               // they've always been in — the desktop power view this revamp
               // deliberately doesn't touch (docs/personas.md).
               <>
-                <TabsTrigger value="roster" badge={allTeamPlayers.length}>
+                <TabsTrigger value="roster" badge={rosterTotal}>
                   Effectif
                 </TabsTrigger>
                 <TabsTrigger value="clubs" badge={teamClubsResult?.total ?? 0}>
@@ -513,7 +516,7 @@ export function TeamDetailPage() {
               // "events" — the rendered content differ.
               <>
                 <TabsTrigger value="events">Agenda</TabsTrigger>
-                <TabsTrigger value="roster" badge={allTeamPlayers.length}>
+                <TabsTrigger value="roster" badge={rosterTotal}>
                   Effectif
                 </TabsTrigger>
                 <TabsTrigger value="stats">Mes stats</TabsTrigger>
@@ -706,7 +709,7 @@ export function TeamDetailPage() {
                   clubId={clubId!}
                   teamId={teamId!}
                   teamName={team.name}
-                  playerCount={allTeamPlayers.length}
+                  playerCount={rosterTotal}
                   eventCount={eventsResult?.total ?? 0}
                 />
               </div>

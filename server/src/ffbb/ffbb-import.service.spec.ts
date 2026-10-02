@@ -460,7 +460,9 @@ describe('FfbbImportService', () => {
       where: { eventId: { in: ['event-1'] } },
       data: { meetsAtOverride: null },
     });
-    expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+    expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1'], {
+      publishChange: false,
+    });
     expect(prisma.event.create).not.toHaveBeenCalled();
     expect(result).toMatchObject({ created: 0, updated: 1, unchanged: 0 });
   });

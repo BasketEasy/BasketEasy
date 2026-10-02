@@ -249,7 +249,7 @@ export class GuestRsvpService {
   }
 
   // Answers close at kick-off. An FFBB match whose time isn't confirmed is
-  // stored at 00:00 UTC of its date, which is not a kick-off: it stays
+  // stored at 00:00 Paris time of its date, which is not a kick-off: it stays
   // answerable until the end of that day in Paris instead.
   private closesAt(event: { startsAt: Date; timeConfirmed: boolean }): Date {
     return event.timeConfirmed ? event.startsAt : endOfParisDay(event.startsAt);
@@ -296,8 +296,8 @@ export class GuestRsvpService {
   private async loadEvents(teamId: string, onlyEventId?: string): Promise<GuestEvent[]> {
     const now = new Date();
     const { lte } = this.window(now);
-    // Lower bound a day back: an unconfirmed-time match stored at 00:00 UTC is
-    // already "in the past" for most of its own day but still answerable.
+    // Lower bound a day back: an unconfirmed-time match stored at 00:00 Paris time (22:00 or 23:00 UTC the
+    // evening before) is already "in the past" for most of its own day but still answerable.
     const candidates = await this.prisma.event.findMany({
       where: {
         teamId,

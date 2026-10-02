@@ -30,7 +30,12 @@ export function TeamNextEventTile({
   showMyAnswer: boolean;
   navState: unknown;
 }) {
-  const subject = event.type === 'MATCH' ? `vs ${event.opponentName}` : 'Entraînement';
+  const subject =
+    event.type === 'MATCH'
+      ? event.opponentName
+        ? `vs ${event.opponentName}`
+        : 'Match'
+      : 'Entraînement';
   const answer = showMyAnswer
     ? ` · ${event.myRsvpStatus ? MY_ANSWER[event.myRsvpStatus] : 'Sans réponse'}`
     : '';

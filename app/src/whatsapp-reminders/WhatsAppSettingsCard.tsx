@@ -126,7 +126,7 @@ function TemplateForm({
     setError,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
     defaultValues: toFormValues(saved),
@@ -166,14 +166,21 @@ function TemplateForm({
 
   const orNull = (value: string) => (value.trim() === '' ? null : value);
 
+  // Only what the manager changed: the server re-syncs every upcoming event
+  // (and switches the guest link on) for `reminderEnabled`/`defaultOffsetMinutes`,
+  // which a template-only save must not trigger.
   const onSubmit = (values: TemplateFormValues) =>
     save(
       {
-        reminderTemplate: orNull(values.reminderTemplate),
-        updateTemplate: orNull(values.updateTemplate),
-        cancellationTemplate: orNull(values.cancellationTemplate),
-        reminderEnabled: values.reminderEnabled,
-        defaultOffsetMinutes: partsToMinutes(values.offsetValue, values.offsetUnit) ?? undefined,
+        ...(dirtyFields.reminderTemplate && { reminderTemplate: orNull(values.reminderTemplate) }),
+        ...(dirtyFields.updateTemplate && { updateTemplate: orNull(values.updateTemplate) }),
+        ...(dirtyFields.cancellationTemplate && {
+          cancellationTemplate: orNull(values.cancellationTemplate),
+        }),
+        ...(dirtyFields.reminderEnabled && { reminderEnabled: values.reminderEnabled }),
+        ...((dirtyFields.offsetValue || dirtyFields.offsetUnit) && {
+          defaultOffsetMinutes: partsToMinutes(values.offsetValue, values.offsetUnit) ?? undefined,
+        }),
       },
       {
         onSuccess: ({ guestLinkEnabled }) =>

@@ -478,6 +478,34 @@ describe('WhatsAppReminderScheduler', () => {
       expect(stateWrites()).toEqual(['VOID']);
     });
 
+    it('clears the bell again when a confirm landed before the rows existed', async () => {
+      prisma.eventShare.findUnique
+        .mockResolvedValueOnce(loaded()) // send's own read
+        .mockResolvedValueOnce(loaded()) // notifyManagers
+        .mockResolvedValueOnce({ state: 'SENT' }); // after the rows are written
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', deepLink: '/clubs/c1/teams/t1/events/e1?partage=s1' },
+      ]);
+
+      await scheduler.send('s1');
+
+      expect(prisma.notification.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['n1'] } },
+        data: { readAt: expect.any(Date) },
+      });
+    });
+
+    it('leaves the bell alone while the share is still PENDING', async () => {
+      prisma.eventShare.findUnique
+        .mockResolvedValueOnce(loaded())
+        .mockResolvedValueOnce(loaded())
+        .mockResolvedValueOnce({ state: 'PENDING' });
+
+      await scheduler.send('s1');
+
+      expect(prisma.notification.findMany).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['a deleted share', null],
       ['an already sent share', loaded({ state: 'SENT' })],
@@ -779,15 +807,13 @@ describe('WhatsAppReminderScheduler', () => {
       expect(prisma.clubMembership.findMany).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps a TeamAdmin with no membership, linking through the owner club', async () => {
+    it('leaves out a TeamAdmin with no membership: every page link would be a 403', async () => {
       prisma.team.findUnique.mockResolvedValue({
         clubTeams: [{ clubId: 'owner' }],
         teamAdmins: [{ userId: 'lonely' }],
       });
       prisma.clubMembership.findMany.mockResolvedValue([]);
-      expect(await scheduler.resolveManagers('t1')).toEqual([
-        { userId: 'lonely', clubId: 'owner' },
-      ]);
+      expect(await scheduler.resolveManagers('t1')).toEqual([]);
     });
   });
 
