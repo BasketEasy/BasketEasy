@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
 import {
   AUDIT_LOG_RETENTION_MONTHS,
+  EVENT_SHARE_RETENTION_MONTHS,
   GEOCODE_CACHE_RETENTION_MONTHS,
   INACTIVE_ACCOUNT_RETENTION_MONTHS,
   MAX_ACCOUNTS_PER_SWEEP,
@@ -13,7 +14,8 @@ import {
 /** How long an expired impersonation session row is kept before the sweep drops it. */
 const IMPERSONATION_SESSION_GRACE_MS = 24 * 60 * 60 * 1000;
 
-type RetentionStepName = 'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache';
+type RetentionStepName =
+  'inactiveAccounts' | 'auditLogs' | 'parentalConsents' | 'geocodeCache' | 'eventShares';
 
 export interface RetentionStepResult {
   status: 'ok' | 'error';
@@ -45,6 +47,7 @@ const STEP_ORDER: RetentionStepName[] = [
   'auditLogs',
   'parentalConsents',
   'geocodeCache',
+  'eventShares',
 ];
 
 /**
@@ -72,6 +75,7 @@ export class RetentionService {
       this.sweepAuditLogs(dryRun, now),
       this.sweepExpiredParentalConsents(dryRun, now),
       this.sweepUnusedGeocodes(dryRun, now),
+      this.sweepFinishedEventShares(dryRun, now),
     ]);
 
     const summary = STEP_ORDER.reduce((acc, step, index) => {
@@ -329,6 +333,26 @@ export class RetentionService {
       return { status: 'ok', count: await this.prisma.geocodedAddress.count({ where }) };
     }
     const { count } = await this.prisma.geocodedAddress.deleteMany({ where });
+    return { status: 'ok', count };
+  }
+
+  /**
+   * WhatsApp share rows that are finished (SENT, EXPIRED, VOID) and have not
+   * changed for a year. SCHEDULED and PENDING rows are live work and never
+   * match. A share still tied to an event that has not been played yet is kept
+   * whatever its age: its sent variables feed the « what moved » line.
+   */
+  private async sweepFinishedEventShares(dryRun: boolean, now: Date): Promise<RetentionStepResult> {
+    const cutoff = subMonths(now, EVENT_SHARE_RETENTION_MONTHS);
+    const where = {
+      state: { in: ['SENT', 'EXPIRED', 'VOID'] as Array<'SENT' | 'EXPIRED' | 'VOID'> },
+      updatedAt: { lt: cutoff },
+      OR: [{ eventId: null }, { event: { startsAt: { lt: cutoff } } }],
+    };
+    if (dryRun) {
+      return { status: 'ok', count: await this.prisma.eventShare.count({ where }) };
+    }
+    const { count } = await this.prisma.eventShare.deleteMany({ where });
     return { status: 'ok', count };
   }
 }

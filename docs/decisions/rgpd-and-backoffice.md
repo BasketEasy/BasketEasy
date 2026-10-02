@@ -30,6 +30,9 @@ How the rules interact:
 - Parental consent is required on the interactive create path and **not** on bulk imports: failing
   an 80-row import because row 34 is sixteen would make imports unusable; those players surface as
   « autorisation manquante ».
+- Finished `EventShare` rows (SENT, EXPIRED, VOID) are deleted 12 months after their last change,
+  unless still tied to an event not yet played: a CANCELLATION row keeps an `eventSnapshot` (event
+  name, opponent, venue) and `sentByUserId`, and « every table has a retention rule » is the policy.
 - Every sweep run, dry-run included, writes a `RetentionRun` row: « prove the policy executes » is
   itself accountability (art. 5.2), asked months later, and a log line is neither durable nor
   queryable. Those rows are never swept. `RETENTION_SWEEP_DRY_RUN=true` lets a deployment observe a
