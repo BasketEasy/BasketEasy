@@ -15,9 +15,11 @@ export function useEventRsvpHistory(
   return useQuery({
     queryKey: rsvpHistoryQueryKey(clubId, teamId, eventId, teamPlayerId),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<EventRsvpChangeEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps/${teamPlayerId}/history`,
+        undefined,
+        { signal },
       ),
     enabled,
     // "Who looked at what" style log: no refetch just because the tab regained focus.

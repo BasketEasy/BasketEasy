@@ -94,6 +94,18 @@ function buildHeaders(path: string): Record<string, string> {
 
 const READ_METHODS = new Set(['GET', 'HEAD']);
 
+// An aborted request rejects with the signal's own reason (a `DOMException`
+// named `AbortError` unless the caller chose one), never an `ApiError`: no
+// branch below that keys on a status (refresh, session expiry, impersonation
+// expiry) can mistake a cancellation for a refusal.
+function abortReason(signal: AbortSignal): unknown {
+  return signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function throwIfAborted(signal: AbortSignal | null | undefined): void {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
 async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
   // Refused here as well as on the server (ImpersonationStrategy, which is
   // the enforcement): a write never leaves the browser, and that includes
@@ -133,6 +145,9 @@ async function rawRequest<T>(path: string, init?: RequestInit): Promise<T> {
       // Response body wasn't JSON (or had no body) — fall back to the
       // generic status-based message above.
     }
+    // A body read cut short by an abort lands in the catch above and would
+    // otherwise be reported as the status alone.
+    throwIfAborted(init?.signal);
     throw new ApiError(message, res.status, code);
   }
 
@@ -188,10 +203,27 @@ export function refreshAccessToken(): Promise<void> {
   return sharedRefresh();
 }
 
+// Waits for the shared refresh, but gives up as soon as `signal` aborts. The
+// refresh itself is never tied to one caller's signal: other callers (and the
+// session restore) await the same promise, so cancelling one request must
+// leave it running.
+function waitForRefresh(signal: AbortSignal | null | undefined): Promise<boolean> {
+  const refresh = attemptRefresh();
+  if (!signal) return refresh;
+  return new Promise<boolean>((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    signal.addEventListener('abort', onAbort, { once: true });
+    void refresh.then(resolve).finally(() => signal.removeEventListener('abort', onAbort));
+  });
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await rawRequest<T>(path, init);
   } catch (err) {
+    // First, before any status is looked at: a cancelled request is not a
+    // refused one, so it never refreshes and never notifies a listener.
+    throwIfAborted(init?.signal);
     if (err instanceof ApiError && err.status === 401 && isImpersonatedPath(path)) {
       // Never a refresh: that would silently swap the subject's view for the
       // admin's own session. The impersonation is over; say so instead.
@@ -199,7 +231,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       throw err;
     }
     if (err instanceof ApiError && err.status === 401 && path !== '/auth/refresh') {
-      const refreshed = await attemptRefresh();
+      const refreshed = await waitForRefresh(init?.signal);
+      // Aborted while waiting: the refresh went on without this caller, and
+      // its result is not this request's to retry on or to report.
+      throwIfAborted(init?.signal);
       if (refreshed) {
         return rawRequest<T>(path, init);
       }
@@ -225,9 +260,14 @@ function buildQuery(params?: object): string {
   return qs ? `?${qs}` : '';
 }
 
+export interface GetOptions {
+  /** TanStack Query's `signal`: an unmounted or superseded query aborts the fetch. */
+  signal?: AbortSignal;
+}
+
 export const apiClient = {
-  get: <T>(path: string, params?: object) =>
-    request<T>(`${path}${buildQuery(params)}`, { method: 'GET' }),
+  get: <T>(path: string, params?: object, options?: GetOptions) =>
+    request<T>(`${path}${buildQuery(params)}`, { method: 'GET', signal: options?.signal }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: 'POST',

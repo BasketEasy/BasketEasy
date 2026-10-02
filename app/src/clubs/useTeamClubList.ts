@@ -14,10 +14,11 @@ export function useTeamClubList(
   return useQuery({
     queryKey: teamClubsQueryKey(clubId, teamId, params),
     staleTime: FRESHNESS.static,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<PaginatedResult<TeamClubLink>>(
         `/clubs/${clubId}/teams/${teamId}/clubs`,
         params,
+        { signal },
       ),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,

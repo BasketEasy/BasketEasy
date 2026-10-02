@@ -9,7 +9,8 @@ export function useMyChild(playerId: string) {
     queryKey: myChildQueryKey(playerId),
     // Co-guardians and the club's admins edit the same profile.
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<MyChildProfile>(`/me/children/${playerId}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<MyChildProfile>(`/me/children/${playerId}`, undefined, { signal }),
   });
 }
 
