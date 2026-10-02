@@ -92,7 +92,7 @@ describe('GuestRsvpService', () => {
     });
 
     describe('an FFBB match whose kick-off time is unconfirmed', () => {
-      // Stored at 00:00 UTC of its date; on the day itself that is already past.
+      // Stored at 00:00 Paris time of its date; on the day itself that is already past.
       const unconfirmed = () => ({
         ...soon(),
         startsAt: new Date('2026-06-13T00:00:00Z'),
