@@ -19,9 +19,11 @@ describe('recurring events Paris wall-clock realignment against Postgres', () =>
   beforeEach(resetDb);
   afterAll(() => prisma.$disconnect());
 
+  // `startsAt` is a zone-less timestamp holding UTC, so it is tagged UTC first:
+  // a bare `AT TIME ZONE 'Europe/Paris'` would read it as Paris local time.
   const parisTime = async (id: string) => {
     const [row] = await prisma.$queryRaw<{ t: string }[]>`
-      SELECT to_char("startsAt" AT TIME ZONE 'Europe/Paris', 'HH24:MI') AS t
+      SELECT to_char(("startsAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Paris', 'HH24:MI') AS t
       FROM "Event" WHERE id = ${id}`;
     return row.t;
   };
