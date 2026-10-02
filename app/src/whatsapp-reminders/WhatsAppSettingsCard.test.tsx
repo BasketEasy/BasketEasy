@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { DEFAULT_CANCELLATION_TEMPLATE } from '@basketeasy/types/whatsapp-reminder';
 import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -125,13 +126,8 @@ describe('WhatsAppSettingsCard', () => {
     await user.click(screen.getByRole('button', { name: 'Équipe' }));
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
-    await waitFor(() =>
-      expect(body).toMatchObject({
-        reminderTemplate: 'Salut {link}{team_name}',
-        reminderEnabled: false,
-        defaultOffsetMinutes: 4320,
-      }),
-    );
+    // Only the edited field: schedule fields would re-sync every upcoming event.
+    await waitFor(() => expect(body).toEqual({ reminderTemplate: 'Salut {link}{team_name}' }));
     expect(await screen.findByText('Réglages enregistrés')).toBeInTheDocument();
   });
 
@@ -231,7 +227,10 @@ describe('WhatsAppSettingsCard', () => {
       expect(body).toMatchObject({ reminderEnabled: true, defaultOffsetMinutes: 2880 }),
     );
     expect(await screen.findByText('Réglages enregistrés')).toBeInTheDocument();
-    expect(screen.getByText(/lien de réponse sans compte a été activé/)).toBeInTheDocument();
+    // The toast's live region repeats its text for assistive tech.
+    expect(screen.getAllByText(/lien de réponse sans compte a été activé/).length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('refuses an offset beyond the guest page’s 14 days', async () => {
@@ -343,9 +342,13 @@ describe('WhatsAppSettingsCard', () => {
       renderCard();
       await editor();
 
+      await user.click(screen.getByRole('button', { name: 'Annulation' }));
+      await user.click(screen.getByRole('button', { name: 'Rétablir le texte par défaut' }));
       await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
-      await waitFor(() => expect(body.cancellationTemplate).toBe('Annulé'));
+      await waitFor(() =>
+        expect(body).toEqual({ cancellationTemplate: DEFAULT_CANCELLATION_TEMPLATE }),
+      );
     });
 
     it('restores the default of the section being edited only', async () => {

@@ -152,6 +152,9 @@ model Notification {
   // its own composite index.
   @@index([userId, createdAt])
   @@index([userId, readAt])
+  // `WhatsAppReminderScheduler.withdraw` clears every manager's unread row of
+  // one type, so it has no userId to lead with.
+  @@index([type, readAt])
 }
 
 // One browser's Web Push subscription. `endpoint` is globally unique (it is

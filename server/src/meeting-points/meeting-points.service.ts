@@ -547,12 +547,20 @@ export class MeetingPointsService {
    * Bounded: three reads for the whole batch plus one conditional write per
    * changed match, run in parallel. Never throws: a missed notification must
    * not fail a manager's save or a recompute job.
+   *
+   * `publishChange: false` is for a caller that runs the change detection
+   * itself, awaited and after its own reminder sync (`EventsService`, the FFBB
+   * import): the feed would otherwise start a second, unawaited pass over the
+   * same events that can run before that sync.
    */
-  async announceMeetingChanges(eventIds: string[]): Promise<void> {
+  async announceMeetingChanges(
+    eventIds: string[],
+    { publishChange = true }: { publishChange?: boolean } = {},
+  ): Promise<void> {
     if (eventIds.length === 0) return;
     // Before the window filter below: listeners (the WhatsApp update prompts)
     // have their own, wider window.
-    this.changeFeed.publish(eventIds);
+    if (publishChange) this.changeFeed.publish(eventIds);
     await this.announceQuietly(eventIds);
   }
 
