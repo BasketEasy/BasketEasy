@@ -53,6 +53,7 @@ describe('WhatsAppReminderScheduler', () => {
     };
     notification: { findMany: jest.Mock; updateMany: jest.Mock };
     clubMembership: { findMany: jest.Mock };
+    teamGuestLink: { findUnique: jest.Mock };
   };
   let notifications: { notify: jest.Mock };
   let queue: {
@@ -79,6 +80,7 @@ describe('WhatsAppReminderScheduler', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
       clubMembership: { findMany: jest.fn().mockResolvedValue([]) },
+      teamGuestLink: { findUnique: jest.fn().mockResolvedValue({ teamId: 't1' }) },
     };
     notifications = { notify: jest.fn().mockResolvedValue(undefined) };
     queue = {
@@ -427,6 +429,53 @@ describe('WhatsAppReminderScheduler', () => {
       expect(stateWrites()).toEqual(['PENDING']);
       expect(notifications.notify).toHaveBeenCalledTimes(1);
       expect(jobAdds()).toContain('nudge');
+    });
+
+    it('send rolls the share back to SCHEDULED and rethrows when notifying fails', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(loaded());
+      notifications.notify.mockRejectedValue(new Error('db down'));
+      await expect(scheduler.send('s1')).rejects.toThrow('db down');
+      expect(stateWrites()).toEqual(['PENDING', 'SCHEDULED']);
+      expect(jobAdds()).not.toContain('nudge');
+    });
+
+    it('send requeues instead of prompting when dueAt is still well in the future', async () => {
+      const dueAt = new Date(NOW.getTime() + 5 * HOUR);
+      prisma.eventShare.findUnique.mockResolvedValue(loaded({ dueAt }));
+      await scheduler.send('s1');
+      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(prisma.eventShare.updateMany).not.toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith(
+        'send',
+        { shareId: 's1' },
+        expect.objectContaining({ delay: 5 * HOUR }),
+      );
+    });
+
+    it('send voids the share instead of prompting while the guest link is off', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(loaded());
+      prisma.teamGuestLink.findUnique.mockResolvedValue(null);
+      await scheduler.send('s1');
+      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(stateWrites()).toEqual(['VOID']);
+    });
+
+    it('nudge un-claims itself and rethrows when notifying fails', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(loaded({ state: 'PENDING' }));
+      notifications.notify.mockRejectedValue(new Error('db down'));
+      await expect(scheduler.nudge('s1')).rejects.toThrow('db down');
+      expect(prisma.eventShare.updateMany).toHaveBeenLastCalledWith({
+        where: { id: 's1', state: 'PENDING' },
+        data: { nudgedAt: null },
+      });
+    });
+
+    it('nudge voids the share while the guest link is off', async () => {
+      prisma.eventShare.findUnique.mockResolvedValue(loaded({ state: 'PENDING' }));
+      prisma.teamGuestLink.findUnique.mockResolvedValue(null);
+      await scheduler.nudge('s1');
+      expect(notifications.notify).not.toHaveBeenCalled();
+      expect(stateWrites()).toEqual(['VOID']);
     });
 
     it.each([
