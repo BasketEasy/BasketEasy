@@ -17,7 +17,7 @@ describe('ScoresheetsService', () => {
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
     event: { findUnique: jest.Mock };
-    eventScoresheet: { findUnique: jest.Mock; update: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     scoresheetExtraction: { update: jest.Mock };
     teamPlayer: { findMany: jest.Mock; findFirst: jest.Mock };
     matchPlayerStat: { deleteMany: jest.Mock; createMany: jest.Mock };
@@ -39,7 +39,7 @@ describe('ScoresheetsService', () => {
     prisma = {
       clubTeam: { findUnique: jest.fn() },
       event: { findUnique: jest.fn() },
-      eventScoresheet: { findUnique: jest.fn(), update: jest.fn() },
+      eventScoresheet: { findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
       scoresheetExtraction: { update: jest.fn() },
       teamPlayer: { findMany: jest.fn(), findFirst: jest.fn() },
       matchPlayerStat: { deleteMany: jest.fn(), createMany: jest.fn() },
@@ -65,7 +65,7 @@ describe('ScoresheetsService', () => {
   });
 
   describe('enqueueOcr', () => {
-    it('adds a deduped job (jobId = eventScoresheetId) before setting the scoresheet to QUEUED', async () => {
+    it('sets the scoresheet to QUEUED before adding a deduped job (jobId = eventScoresheetId)', async () => {
       const calls: string[] = [];
       queue.add.mockImplementation(async () => {
         calls.push('add');
@@ -91,9 +91,9 @@ describe('ScoresheetsService', () => {
         where: { id: 'sheet-1' },
         data: { status: 'QUEUED' },
       });
-      // Enqueue must happen first — if it throws, the row should stay at its
-      // previous status rather than being stranded at QUEUED with no job.
-      expect(calls).toEqual(['add', 'update']);
+      // QUEUED first: a worker that starts at once must not have its status
+      // overwritten by a late QUEUED write.
+      expect(calls).toEqual(['update', 'add']);
     });
 
     it('replaceStale: refuses (409) when the old job is still held by a worker, adding nothing', async () => {
@@ -108,12 +108,17 @@ describe('ScoresheetsService', () => {
       expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
     });
 
-    it('does not touch the DB when the queue add fails, so the row is not stranded at QUEUED', async () => {
+    it('restores the previous status when the queue add fails, so the row is not stranded at QUEUED', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({ status: 'FAILED' });
+      prisma.eventScoresheet.updateMany.mockResolvedValue({ count: 1 });
       queue.add.mockRejectedValue(new Error('Redis unavailable'));
 
       await expect(service.enqueueOcr('sheet-1')).rejects.toThrow('Redis unavailable');
 
-      expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+      expect(prisma.eventScoresheet.updateMany).toHaveBeenCalledWith({
+        where: { id: 'sheet-1', status: 'QUEUED' },
+        data: { status: 'FAILED' },
+      });
     });
   });
 
