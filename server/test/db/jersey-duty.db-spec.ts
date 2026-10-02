@@ -408,6 +408,10 @@ describe('jersey wash rotation against Postgres', () => {
         })),
       });
       const newer = await match(fullTeam.id, new Date(Date.now() - hour));
+      await prisma.eventConvocation.create({ data: { eventId: newer.id, teamPlayerId: a.id } });
+      await prisma.eventRsvp.create({
+        data: { eventId: newer.id, teamPlayerId: a.id, status: 'GOING' },
+      });
       const service = dutyService();
 
       await service.freezeDue(new Date());
