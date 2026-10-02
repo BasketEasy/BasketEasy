@@ -47,7 +47,10 @@ describe('ScoresheetsService', () => {
       // matchPlayerStat/scoresheetExtraction see the transactional writes.
       $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
     };
-    queue = { add: jest.fn().mockResolvedValue(undefined) };
+    queue = {
+      add: jest.fn().mockResolvedValue(undefined),
+      getJob: jest.fn().mockResolvedValue(null),
+    };
     prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
     prisma.event.findUnique.mockResolvedValue(matchEvent);
     prisma.teamPlayer.findMany.mockResolvedValue([]);
@@ -144,6 +147,21 @@ describe('ScoresheetsService', () => {
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-09-01T20:00:00.000Z',
       });
+    });
+
+    it('replaces a job still queued (e.g. in backoff) so the retry is not silently dropped', async () => {
+      const remove = jest.fn().mockResolvedValue(undefined);
+      queue.getJob = jest.fn().mockResolvedValue({ remove });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({ ...uploadedSheet, status: 'QUEUED' });
+
+      await service.retryOcr('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(remove).toHaveBeenCalled();
+      expect(queue.add).toHaveBeenCalledWith(
+        'extract',
+        { eventScoresheetId: 'sheet-1' },
+        expect.objectContaining({ jobId: 'sheet-1' }),
+      );
     });
 
     it('throws ForbiddenException for a caller who is not on the roster', async () => {

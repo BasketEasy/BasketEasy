@@ -4001,7 +4001,7 @@ describe('EventsService', () => {
         uploadedByTeamPlayerId: 'tp-1',
         uploadedAt: '2026-01-01T20:00:00.000Z',
       });
-      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1');
+      expect(scoresheets.enqueueOcr).toHaveBeenCalledWith('sheet-1', { replaceStale: true });
     });
 
     it('does not attempt to delete anything on a first-ever upload (no previous row)', async () => {

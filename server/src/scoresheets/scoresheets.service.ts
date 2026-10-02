@@ -277,7 +277,7 @@ export class ScoresheetsService {
         'Cette feuille a déjà été confirmée : renvoyez le fichier pour relancer une analyse',
       );
     }
-    await this.enqueueOcr(scoresheet.id);
+    await this.enqueueOcr(scoresheet.id, { replaceStale: true });
     return {
       status: 'QUEUED',
       uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
