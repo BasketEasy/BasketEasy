@@ -435,6 +435,10 @@ describe('WhatsAppReminderScheduler', () => {
       ['a share that is no longer scheduled', loaded({ state: 'VOID' })],
       ['an event that has started', loaded({}, { startsAt: new Date(NOW.getTime() - HOUR) })],
       ['a reminder that was turned off', loaded({}, { waReminderOverride: false })],
+      [
+        'a job that fires before the share was moved to',
+        loaded({ dueAt: new Date(NOW.getTime() + HOUR) }),
+      ],
     ])('send drops %s', async (_label, share) => {
       prisma.eventShare.findUnique.mockResolvedValue(share);
       await scheduler.send('s1');
