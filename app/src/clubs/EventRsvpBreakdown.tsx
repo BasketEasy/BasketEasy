@@ -44,7 +44,7 @@ export function EventRsvpBreakdown({
       summary={roster ? `${confirmedCount}/${roster.length} confirmés` : undefined}
       meterValue={confirmedCount}
       meterMax={roster?.length ?? 0}
-      meterClassName="bg-success"
+      meterTone="success"
       entries={
         roster?.map((entry) => ({
           id: entry.teamPlayerId,

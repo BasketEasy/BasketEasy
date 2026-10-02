@@ -22,6 +22,8 @@ const cardVariants = cva('rounded-lg border border-border', {
       raised: 'bg-surface shadow-md',
       inset: 'bg-surface-2 p-3 shadow-sm',
       panel: 'bg-surface p-5 shadow-md',
+      /** A list record: the agenda's event card, snug on a phone. Padding is the variant's. */
+      record: 'bg-surface p-3.5 shadow-md sm:p-4',
       flush: 'overflow-hidden bg-surface shadow-md',
       /**
        * The empty slot a setting will fill — « Aucun point de rendez-vous ».
