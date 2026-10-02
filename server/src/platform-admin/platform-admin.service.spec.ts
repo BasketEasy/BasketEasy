@@ -456,6 +456,7 @@ describe('PlatformAdminService', () => {
               role: 'PLAYER',
               createdAt: new Date('2024-01-06T09:00:00.000Z'),
               rsvps: [],
+              rsvpChanges: [],
               convocations: [],
               matchStats: [],
               votesCast: [
@@ -604,10 +605,13 @@ describe('PlatformAdminService', () => {
       );
 
       expect(result.notice.basis).toContain('article');
-      expect(result.notice.omissions).toHaveLength(5);
+      expect(result.notice.omissions).toHaveLength(6);
     });
 
-    function playerWithRsvp(rsvp: Record<string, unknown>) {
+    function playerWithRsvp(
+      rsvp: Record<string, unknown>,
+      rsvpChanges: Record<string, unknown>[] = [],
+    ) {
       return {
         club: { name: 'ASC Nantes' },
         firstName: 'Léo',
@@ -628,10 +632,12 @@ describe('PlatformAdminService', () => {
                 status: 'GOING',
                 travelMode: 'DIRECT',
                 respondedAt: new Date('2025-03-10T20:00:00.000Z'),
+                source: 'APP',
                 event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
                 ...rsvp,
               },
             ],
+            rsvpChanges,
             convocations: [],
             matchStats: [],
             votesCast: [],
@@ -664,6 +670,7 @@ describe('PlatformAdminService', () => {
           status: 'GOING',
           travelMode: 'DIRECT',
           respondedAt: '2025-03-10T20:00:00.000Z',
+          source: 'APP',
           respondedBy: 'SOMEONE_ELSE',
         },
       ]);
@@ -753,6 +760,48 @@ describe('PlatformAdminService', () => {
         'SELF',
         'UNKNOWN',
       ]);
+    });
+
+    it('reads a guest-link answer as LINK and exports the history without naming anyone (art. 15.4)', async () => {
+      mockSubject();
+      prisma.player.findMany.mockResolvedValue([
+        playerWithRsvp({ source: 'GUEST_LINK', respondedByUserId: null }, [
+          {
+            status: 'GOING',
+            travelMode: null,
+            source: 'GUEST_LINK',
+            via: 'WHATSAPP',
+            respondedByUserId: null,
+            createdAt: new Date('2025-03-10T20:00:00.000Z'),
+            event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+          },
+          {
+            status: null,
+            travelMode: null,
+            source: 'APP',
+            via: null,
+            respondedByUserId: 'guardian-user-42',
+            createdAt: new Date('2025-03-11T08:00:00.000Z'),
+            event: { startsAt: new Date('2025-03-14T18:00:00.000Z') },
+          },
+        ]),
+      ]);
+
+      const result = await service.exportUser(
+        'admin-1',
+        'dpo@kluvo.net',
+        SUBJECT,
+        'a valid reason',
+        buildRequest(),
+      );
+
+      const entry = result.playerRecords[0].rosterEntries[0];
+      expect(entry.rsvps[0]).toMatchObject({ source: 'GUEST_LINK', respondedBy: 'LINK' });
+      expect(entry.rsvpHistory.map((c) => [c.changedBy, c.via, c.status])).toEqual([
+        ['LINK', 'WHATSAPP', 'GOING'],
+        ['SOMEONE_ELSE', null, null],
+      ]);
+      expect(JSON.stringify(result)).not.toContain('guardian-user-42');
     });
 
     it("lists a parent's own guardian activity, naming the child but nothing else of theirs", async () => {

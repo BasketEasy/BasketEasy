@@ -54,9 +54,20 @@ const EXPORT_NOTICE = {
     "Les consultations et actions effectuées par un administrateur sur ce compte sont datées mais n'identifient pas l'administrateur concerné (art. 15.4).",
     "Les abonnements aux notifications push sont listés sans leur adresse technique ni leurs clés : celles-ci constituent un moyen d'envoi actif vers l'appareil, et non une donnée descriptive de la personne.",
     "Les actions « Fait » ou « Annulé » d'un responsable d'équipe sur un tour de lavage des maillots de la personne ne sont pas incluses : ce sont des actes de ce responsable (art. 15.4). Un tour accepté en son nom par un parent est signalé sans identifier ce parent.",
+    "L'historique des réponses indique la source de chaque changement (appli ou lien partagé) et, pour un changement fait depuis l'appli, s'il a été fait par la personne ou par quelqu'un d'autre, sans identifier cette personne (art. 15.4). Une réponse donnée par le lien partagé de l'équipe n'a pas d'auteur identifié par construction.",
     "Les enfants dont la personne est responsable légal·e sont nommés, mais leur profil, leurs statistiques et leurs propres réponses n'y figurent pas : ce sont les données de l'enfant (art. 15.4). Une réponse donnée au nom de la personne par un parent est signalée sans identifier ce parent, et un consentement parental la concernant est daté sans nommer qui l'a donné.",
   ],
 };
+
+/** Who gave an answer, without naming them: art. 15(4) keeps a guardian's identity out. */
+function rsvpAuthor(
+  answer: { source: 'APP' | 'GUEST_LINK'; respondedByUserId: string | null },
+  subjectUserId: string,
+): 'SELF' | 'SOMEONE_ELSE' | 'LINK' | 'UNKNOWN' {
+  if (answer.source === 'GUEST_LINK') return 'LINK';
+  if (answer.respondedByUserId === null) return 'UNKNOWN';
+  return answer.respondedByUserId === subjectUserId ? 'SELF' : 'SOMEONE_ELSE';
+}
 
 @Injectable()
 export class PlatformAdminService {
@@ -403,6 +414,10 @@ export class PlatformAdminService {
                 },
               },
               rsvps: { include: { event: { select: { startsAt: true } } } },
+              rsvpChanges: {
+                include: { event: { select: { startsAt: true } } },
+                orderBy: { createdAt: 'asc' },
+              },
               convocations: { include: { event: { select: { startsAt: true } } } },
               matchStats: { include: { event: { select: { startsAt: true } } } },
               votesCast: { include: { event: { select: { startsAt: true } } } },
@@ -521,13 +536,20 @@ export class PlatformAdminService {
             status: rsvp.status,
             travelMode: rsvp.travelMode,
             respondedAt: rsvp.respondedAt.toISOString(),
-            // Never the responder's id: a guardian's identity is their data.
-            respondedBy:
-              rsvp.respondedByUserId === null
-                ? ('UNKNOWN' as const)
-                : rsvp.respondedByUserId === subjectUserId
-                  ? ('SELF' as const)
-                  : ('SOMEONE_ELSE' as const),
+            source: rsvp.source,
+            // Never the responder's id: a guardian's identity is their data. A guest-link
+            // answer has no author account by design, so it reads `LINK`, not an erased one.
+            respondedBy: rsvpAuthor(rsvp, subjectUserId),
+          })),
+          // The answer history a manager sees (art. 15), author reduced as above.
+          rsvpHistory: teamPlayer.rsvpChanges.map((change) => ({
+            eventStartsAt: change.event.startsAt.toISOString(),
+            status: change.status,
+            travelMode: change.travelMode,
+            source: change.source,
+            via: change.via,
+            changedAt: change.createdAt.toISOString(),
+            changedBy: rsvpAuthor(change, subjectUserId),
           })),
           convocations: teamPlayer.convocations.map((convocation) => ({
             eventStartsAt: convocation.event.startsAt.toISOString(),

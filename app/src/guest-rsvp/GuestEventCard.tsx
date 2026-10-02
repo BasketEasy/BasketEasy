@@ -69,7 +69,7 @@ export function GuestEventCard({
   };
 
   return (
-    <Card className="flex flex-col gap-3.5 p-3.5 sm:p-4">
+    <Card variant="record" className="flex flex-col gap-3.5">
       <div className="flex min-w-0 gap-3.5">
         <TimeBlock
           type={event.type}

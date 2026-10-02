@@ -34,7 +34,7 @@ export function EventConvocationBreakdown({
       summary={roster ? `${convokedCount}/${roster.length} convoqués` : undefined}
       meterValue={convokedCount}
       meterMax={roster?.length ?? 0}
-      meterClassName="bg-orange"
+      meterTone="brand"
       entries={
         roster?.map((entry) => ({
           id: entry.teamPlayerId,
