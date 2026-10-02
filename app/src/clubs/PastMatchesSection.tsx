@@ -43,8 +43,10 @@ const OUTCOME_LABEL: Record<EventMatchResult['outcome'], string> = {
 function PastMatchRow({ match }: { match: MyAgendaEvent }) {
   const eventHref = `/clubs/${match.clubId}/teams/${match.teamId}/events/${match.eventId}`;
   const vote = match.vote;
-  const mvp = vote?.mvp && vote.mvp.length > 0 ? formatMvpNames(vote.mvp) : null;
   const isVoteOpen = !!vote && new Date(vote.closesAt) > new Date();
+  // While the window is open `vote.mvp` is only the current leader (the server
+  // fills it as soon as the reader has voted), so it is not shown as the MVP.
+  const mvp = !isVoteOpen && vote?.mvp && vote.mvp.length > 0 ? formatMvpNames(vote.mvp) : null;
   const mustVote = !!vote?.canVote && !vote.hasVoted;
   const opponent = match.opponentName ? `vs ${match.opponentName}` : 'Match joué';
 

@@ -13,7 +13,18 @@ import { getInitials } from './getInitials';
 import { formatCount } from './teamStatsFormat';
 import { useMatchStats } from './useMatchStats';
 
-const COLUMNS = ['Joueur', 'PTS', 'FTES', '3 PTS', '2 PTS', 'LF'] as const;
+const COLUMNS = [
+  'Joueur',
+  'PTS',
+  <abbr key="fautes" title="Fautes">
+    FTES
+  </abbr>,
+  '3 PTS',
+  '2 PTS',
+  <abbr key="lf" title="Lancers francs">
+    LF
+  </abbr>,
+];
 
 function shortName(line: MatchStatLine): string {
   return `${line.firstName} ${line.lastName.charAt(0).toUpperCase()}.`;

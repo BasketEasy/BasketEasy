@@ -56,7 +56,7 @@ export function EventDetailHero({
         )
       }
       eyebrow={teamName}
-      title={isMatch ? `vs ${event.opponentName}` : 'Entraînement'}
+      title={isMatch ? (event.opponentName ? `vs ${event.opponentName}` : 'Match') : 'Entraînement'}
       meta={
         <>
           {formatEventDayFull(event.startsAt)} ·{' '}

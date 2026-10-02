@@ -21,7 +21,7 @@ const pageContainerVariants = cva(
         md: 'max-w-md',
         lg: 'max-w-6xl',
       },
-      // A page that opens under a sticky page bar (`EventPageBar`): content
+      // A page that opens under a sticky page bar (`PageBar`): content
       // starts 16px below it on a phone. The sm: repeat is needed, sm:py-16
       // would otherwise win between 640 and 767.
       top: {

@@ -16,7 +16,6 @@ import {
 import { FormField } from '@basketeasy/ui/form-field';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import {
   isSameEventLocation,
   isUnknownEventLocation,
@@ -62,7 +61,6 @@ export function EventVenueDialog({
   onOpenChange: (open: boolean) => void;
   trigger: ReactElement;
 }) {
-  const isDesktop = useIsDesktopViewport();
   const idPrefix = useId();
   const { mutateAsync: updateEvent } = useEventUpdate(clubId, teamId);
   // Fetched once the dialog opens, not for every manager who reads the page.
@@ -126,7 +124,7 @@ export function EventVenueDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent variant={isDesktop ? 'dialog' : 'sheet'}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>

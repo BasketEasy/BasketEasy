@@ -244,7 +244,7 @@ describe('PastMatchesSection', () => {
     expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
   });
 
-  it('shows « A voté » instead of « Voter » once the reader voted, while the window is open', () => {
+  it('shows « A voté » instead of « Voter » once the reader voted, without labelling the provisional leader MVP while the window is open', () => {
     renderMatch({
       ...baseMatch,
       vote: {
@@ -256,7 +256,8 @@ describe('PastMatchesSection', () => {
 
     expect(screen.queryByRole('link', { name: /voter/i })).not.toBeInTheDocument();
     expect(screen.getByText('A voté')).toBeInTheDocument();
-    expect(screen.getByText('MVP : Karim D.')).toBeInTheDocument();
+    // The current leader is provisional until the window closes.
+    expect(screen.queryByText(/MVP/)).not.toBeInTheDocument();
   });
 
   it('keeps the MVP hidden while it is not public to the reader', () => {
