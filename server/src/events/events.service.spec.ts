@@ -1451,6 +1451,29 @@ describe('EventsService', () => {
         expect(sent[0].deepLink).toBe('/clubs/club-1/teams/team-1');
       });
 
+      it('leaves each occurrence its own venue when a series edit re-sends the anchor venue unchanged', async () => {
+        givenMatch({ ...match, recurrenceId: 'series-1' });
+        prisma.event.findMany.mockResolvedValue([{ id: 'event-1' }, { id: 'event-2' }]);
+
+        await service.updateEvent(
+          'club-1',
+          'team-1',
+          'event-1',
+          {
+            location: match.location,
+            locationName: match.locationName,
+            notes: 'Apportez les maillots',
+            scope: 'ALL',
+          },
+          'user-1',
+        );
+
+        for (const [{ data }] of prisma.event.update.mock.calls) {
+          expect(data).toEqual({ notes: 'Apportez les maillots' });
+        }
+        expect(venueNotifications()).toHaveLength(0);
+      });
+
       it('never fails the edit when the notification does', async () => {
         givenMatch(match);
         notifications.notify.mockRejectedValueOnce(new Error('db down'));
