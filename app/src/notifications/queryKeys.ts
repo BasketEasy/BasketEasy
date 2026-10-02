@@ -16,3 +16,11 @@ export const notificationsQueryKey = (params?: ListNotificationsParams) =>
   [...notificationsQueryKeyPrefix, params ?? {}] as const;
 
 export const pushPublicKeyQueryKey = ['me', 'push-subscriptions', 'public-key'] as const;
+
+/**
+ * The params of the feed the header's bell shows: the most recent handful,
+ * small enough that the panel never needs its own scrollbar (the full run
+ * lives on /notifications). Anything else that only needs the unread count
+ * asks for this same entry rather than polling a second one.
+ */
+export const BELL_PARAMS = { limit: 6 } as const;

@@ -14,11 +14,7 @@ import { TextLink } from '@basketeasy/ui/text-link';
 import { useNotifications } from './useNotifications';
 import { useNotificationsReadAll } from './useNotificationRead';
 import { NotificationList } from './NotificationList';
-
-// The bell shows the most recent handful; the full run lives on
-// /notifications. Small enough that the panel never needs its own scrollbar
-// on a laptop screen.
-const BELL_PARAMS = { limit: 6 } as const;
+import { BELL_PARAMS } from './queryKeys';
 
 /**
  * The phone top bar's bell: a plain link to /notifications carrying the same

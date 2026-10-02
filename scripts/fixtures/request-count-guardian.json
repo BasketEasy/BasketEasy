@@ -1,0 +1,531 @@
+{
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "sophie.martin@example.fr",
+    "firstName": "Sophie",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": []
+  },
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking salle Coubertin",
+      "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/players": {
+    "status": 403,
+    "body": {
+      "statusCode": 403,
+      "message": "Forbidden resource",
+      "error": "Forbidden"
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "U11 M",
+    "category": "U11",
+    "gender": "MEN",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "GET /api/clubs/club-1/teams/team-1/admins": {
+    "status": 403,
+    "body": {
+      "statusCode": 403,
+      "message": "Forbidden resource",
+      "error": "Forbidden"
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [
+      {
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "isOwner": true,
+        "linkedAt": "x"
+      },
+      {
+        "clubId": "club-2",
+        "clubName": "Rezé Basket",
+        "isOwner": false,
+        "linkedAt": "x"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/events": {
+    "items": [
+      {
+        "id": "event-1",
+        "teamId": "team-1",
+        "type": "MATCH",
+        "startsAt": "2026-10-09T18:30:00.000Z",
+        "location": "Salle des Sports de la Trocardière, Rezé",
+        "notes": null,
+        "opponentName": "Rezé Basket",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "createdAt": "2026-09-01T00:00:00.000Z",
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": {
+          "firstName": "Marc",
+          "lastInitial": "M",
+          "isMe": false
+        },
+        "myRsvpRespondedAt": "2026-10-08T17:12:00.000Z",
+        "isImported": false,
+        "timeConfirmed": true,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 5,
+          "convoked": 5,
+          "answering": 5,
+          "going": 3,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-09T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 23,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-09T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "myTravelMode": "MEETING_POINT"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1": {
+    "id": "event-1",
+    "teamId": "team-1",
+    "type": "MATCH",
+    "startsAt": "2026-10-09T18:30:00.000Z",
+    "location": "Salle des Sports de la Trocardière, Rezé",
+    "notes": null,
+    "opponentName": "Rezé Basket",
+    "venue": "AWAY",
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": {
+      "firstName": "Marc",
+      "lastInitial": "M",
+      "isMe": false
+    },
+    "myRsvpRespondedAt": "2026-10-08T17:12:00.000Z",
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": true,
+    "rsvpSummary": {
+      "rosterSize": 5,
+      "convoked": 5,
+      "answering": 5,
+      "going": 3,
+      "maybe": 1,
+      "notGoing": 0,
+      "pending": 1,
+      "isConvocationScoped": true
+    },
+    "logistics": {
+      "jerseys": null,
+      "balls": null
+    },
+    "result": null,
+    "myMatchStats": null,
+    "meetingPlan": {
+      "arrivalAt": "2026-10-09T17:45:00.000Z",
+      "arrivalBufferMinutes": 45,
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "meetingPointSource": "CLUB",
+      "travelMinutes": 23,
+      "travelMinutesSource": "COMPUTED",
+      "meetsAt": "2026-10-09T17:15:00.000Z",
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
+    },
+    "myTravelMode": "MEETING_POINT"
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/convocations": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "leo",
+      "firstName": "Léo",
+      "lastName": "Martin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": true
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "leo",
+      "firstName": "Léo",
+      "lastName": "Martin",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": {
+        "firstName": "Marc",
+        "lastInitial": "M",
+        "isMe": false
+      },
+      "respondedByGuardian": true,
+      "travelMode": "MEETING_POINT",
+      "isMe": true
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "status": "MAYBE",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "status": null,
+      "respondedAt": null,
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/scoresheet": {
+    "status": 200,
+    "body": null
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [],
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": 60,
+    "clubDefaults": {
+      "clubName": "ASC Nantes",
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [
+      {
+        "id": "tp-0",
+        "teamId": "team-1",
+        "playerId": "p0",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "clubId": "club-1",
+        "role": "COACH",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-1",
+        "teamId": "team-1",
+        "playerId": "p1",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-2",
+        "teamId": "team-1",
+        "playerId": "p2",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-3",
+        "teamId": "team-1",
+        "playerId": "p3",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-4",
+        "teamId": "team-1",
+        "playerId": "p4",
+        "firstName": "Camille",
+        "lastName": "Roussel",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-5",
+        "teamId": "team-1",
+        "playerId": "p5",
+        "firstName": "Jade",
+        "lastName": "Bernard",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-6",
+        "teamId": "team-1",
+        "playerId": "p6",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-7",
+        "teamId": "team-1",
+        "playerId": "p7",
+        "firstName": "Chloé",
+        "lastName": "Robert",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      }
+    ],
+    "total": 8,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/stats": {
+    "seasonYear": 2026,
+    "seasonStart": "2026-09-01T00:00:00.000Z",
+    "seasonEnd": "2027-08-31T23:59:59.999Z",
+    "matchesPlayed": 3,
+    "availableSeasons": [2026],
+    "players": [
+      {
+        "teamPlayerId": "tp-me",
+        "firstName": "Camille",
+        "lastName": "Martin",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 13.7,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 19,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 5,
+        "twoPointPoints": 24,
+        "threePointPoints": 12,
+        "totalPoints": 41,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": true
+      }
+    ]
+  },
+  "GET /api/me/dashboard": {
+    "upcomingEvents": [
+      {
+        "type": "MATCH",
+        "startsAt": "2026-10-09T18:30:00.000Z",
+        "location": "Salle des Sports de la Trocardière, Rezé",
+        "notes": null,
+        "opponentName": "Rezé Basket",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": {
+          "firstName": "Marc",
+          "lastInitial": "M",
+          "isMe": false
+        },
+        "myRsvpRespondedAt": "2026-10-08T17:12:00.000Z",
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 5,
+          "convoked": 5,
+          "answering": 5,
+          "going": 3,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "eventId": "event-1",
+        "teamId": "team-1",
+        "teamName": "U11 M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes"
+      }
+    ],
+    "totalPlayers": 0,
+    "actionItems": []
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 2
+  },
+  "GET /api/me/personas": {
+    "self": null,
+    "children": [
+      {
+        "playerId": "leo",
+        "firstName": "Léo",
+        "lastName": "Martin",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "teams": [
+          {
+            "teamId": "team-1",
+            "teamName": "U11 M"
+          }
+        ],
+        "pendingCount": 0
+      }
+    ]
+  },
+  "GET /api/me/teams": []
+}

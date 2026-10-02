@@ -202,7 +202,10 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    const row = await screen.findByRole('link', { name: /U15 Filles/ });
+    // The agenda strip and the manager's « Après le match » band share cache
+    // entries with the player layout that renders while the role resolves, so
+    // the two can land together: wait for the event's own link.
+    const row = await screen.findByRole('link', { name: /U15 Filles.*Match/ });
     expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1/events/event-1');
     // Once on the type badge, once on the card's time block.
     expect(screen.getAllByText('Match')).toHaveLength(2);
@@ -356,7 +359,9 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    await screen.findByRole('link', { name: /U15 Filles/ });
+    // Wait for the event card itself (the team card also links with the team's
+    // name), so the absence below is asserted once the agenda has rendered.
+    await screen.findByRole('link', { name: /U15 Filles.*Les Aigles/ });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
   });
 

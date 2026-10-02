@@ -334,6 +334,35 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
   });
 
+  it("only reads the club's player list for a club admin, since the route refuses everyone else", async () => {
+    const clubPlayerReads: string[] = [];
+    function mockTeamPage() {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', ({ request }) => {
+          clubPlayerReads.push(request.url);
+          return HttpResponse.json(paginated([]));
+        }),
+      );
+    }
+
+    // A MEMBER: the route is ADMIN-only, so the call could only 403.
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockTeamPage();
+    const member = renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(clubPlayerReads).toHaveLength(0);
+    member.unmount();
+
+    // A club ADMIN reads it, for the « Ajouter un joueur » picker.
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockTeamPage();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(clubPlayerReads).toHaveLength(1));
+  });
+
   it('falls back to Agenda when a MEMBER requests the Clubs/Administrateurs tab directly via the URL', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(

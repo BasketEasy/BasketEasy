@@ -273,7 +273,14 @@ export function TeamDetailPage() {
   } = useTeamPlayerList(clubId!, teamId!, {
     pageSize: LINKING_PAGE_SIZE,
   });
-  const { data: clubPlayersResult } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
+  // The club's player list is ADMIN-only on the server and only feeds the
+  // « Ajouter un joueur » picker, which is a club admin's control: for anyone
+  // else the call could only 403.
+  const { data: clubPlayersResult } = usePlayerList(
+    clubId!,
+    { pageSize: LINKING_PAGE_SIZE },
+    { enabled: isAdmin },
+  );
 
   const {
     data: eventsResult,

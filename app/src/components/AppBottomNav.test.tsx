@@ -191,6 +191,68 @@ describe('AppBottomNav', () => {
     expect(screen.getByText('2')).toHaveAttribute('aria-hidden', 'true');
   });
 
+  describe('agenda request', () => {
+    // Records every `GET /me/dashboard` the bar makes, with its window.
+    function recordAgendaRequests() {
+      const requests: URLSearchParams[] = [];
+      server.use(
+        http.get('/api/me/dashboard', ({ request }) => {
+          requests.push(new URL(request.url).searchParams);
+          return HttpResponse.json({ totalPlayers: 0, upcomingEvents: [] });
+        }),
+      );
+      return requests;
+    }
+
+    it("asks for the player home's 14-day window, not the server's 7-day default, so the badge counts what the home lists", async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await screen.findByRole('link', { name: 'Profil' });
+      await waitFor(() => expect(requests).toHaveLength(1));
+      const from = new Date(requests[0].get('from')!).getTime();
+      const to = new Date(requests[0].get('to')!).getTime();
+      expect(to - from).toBe(14 * 24 * 60 * 60 * 1000);
+      // Floored to 5 minutes: the home's own request lands on the same key.
+      expect(from % (5 * 60 * 1000)).toBe(0);
+    });
+
+    it('makes no request above the desktop breakpoint, where it renders nothing', async () => {
+      setViewportWidth(1280);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('navigation', { name: 'Navigation principale' }),
+        ).not.toBeInTheDocument(),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests).toHaveLength(0);
+    });
+
+    it('makes no request for a manager, whose first tab carries no count', async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockAdminClubs([{ id: 'club-1', name: 'COC Basket' }]);
+      mockTeams([team({ isTeamAdmin: true, rosterRole: null })]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await screen.findByRole('link', { name: 'Accueil' });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests).toHaveLength(0);
+    });
+  });
+
   it('marks the item for the page being read, including a page nested under it', async () => {
     setViewportWidth(390);
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);

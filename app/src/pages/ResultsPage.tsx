@@ -18,9 +18,9 @@ import { useMyAgenda } from '../clubs/useMyAgenda';
  * read as broken rather than as "nothing happened lately".
  */
 export function ResultsPage() {
-  // Computed once per mount, not inline — pastMatchesWindowParams() stamps
-  // from/to with new Date(), so recomputing it every render would shift the
-  // query key and refetch forever (same reasoning as PlayerHome/ManagerHome).
+  // Computed once per mount, not inline (same reasoning as
+  // PlayerHome/ManagerHome): the window is floored to 5 minutes, so it shares
+  // its cache entry with them.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
   const { data, isLoading, isError, refetch, isRefetching } = useMyAgenda(pastWindow);
   const pastMatches = (data?.upcomingEvents ?? []).filter((event) => event.type === 'MATCH');
