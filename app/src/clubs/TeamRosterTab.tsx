@@ -38,6 +38,10 @@ export function TeamRosterTab({
   teamGender,
   canManageTeam,
   addablePlayers,
+  isLoadingAddablePlayers,
+  isAddablePlayersError,
+  isAddablePlayersRefetching,
+  refetchAddablePlayers,
   isAddPlayerOpen,
   setIsAddPlayerOpen,
   rosterViewMode,
@@ -65,6 +69,11 @@ export function TeamRosterTab({
   teamGender: Gender;
   canManageTeam: boolean;
   addablePlayers: Player[];
+  /** The club's players load when the dialog opens, so the picker has its own states. */
+  isLoadingAddablePlayers: boolean;
+  isAddablePlayersError: boolean;
+  isAddablePlayersRefetching: boolean;
+  refetchAddablePlayers: () => void;
   isAddPlayerOpen: boolean;
   setIsAddPlayerOpen: (open: boolean) => void;
   rosterViewMode: 'cards' | 'table';
@@ -102,12 +111,21 @@ export function TeamRosterTab({
                   Ajoutez un joueur du club à l'effectif de cette équipe.
                 </DialogDescription>
               </DialogHeader>
-              <TeamPlayerAddForm
-                clubId={clubId}
-                teamId={teamId}
-                addablePlayers={addablePlayers}
-                onSuccess={() => setIsAddPlayerOpen(false)}
-              />
+              {isAddablePlayersError ? (
+                <QueryError
+                  onRetry={() => refetchAddablePlayers()}
+                  isRetrying={isAddablePlayersRefetching}
+                />
+              ) : isLoadingAddablePlayers ? (
+                <SkeletonList rows={2} />
+              ) : (
+                <TeamPlayerAddForm
+                  clubId={clubId}
+                  teamId={teamId}
+                  addablePlayers={addablePlayers}
+                  onSuccess={() => setIsAddPlayerOpen(false)}
+                />
+              )}
             </DialogContent>
           </Dialog>
         )}

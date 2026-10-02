@@ -5,7 +5,12 @@ import { apiClient } from '../api/client';
 import { FRESHNESS } from '../api/freshness';
 import { teamPlayersQueryKey } from './queryKeys';
 
-export function useTeamPlayerList(clubId: string, teamId: string, params?: ListTeamPlayersParams) {
+export function useTeamPlayerList(
+  clubId: string,
+  teamId: string,
+  params?: ListTeamPlayersParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: teamPlayersQueryKey(clubId, teamId, params),
     staleTime: FRESHNESS.slow,
@@ -14,6 +19,7 @@ export function useTeamPlayerList(clubId: string, teamId: string, params?: ListT
         `/clubs/${clubId}/teams/${teamId}/players`,
         params,
       ),
+    enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });
 }
