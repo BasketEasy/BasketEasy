@@ -152,3 +152,10 @@ jobs:
         with:
           filter: '@basketeasy/app...'
       - run: pnpm --filter @basketeasy/app run build
+
+  # merge.sh decides what the review agent may merge; it has no other test.
+  test-review-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash .github/review-agent/merge.test.sh

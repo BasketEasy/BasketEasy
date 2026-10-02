@@ -35,6 +35,11 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
           PRS: ${{ toJSON(github.event.workflow_run.pull_requests.*.number) }}
         run: |
+          # workflow_run.pull_requests is empty for some runs: fall back to the PRs the
+          # head commit belongs to. merge.sh re-checks open state and head SHA per PR.
+          if [ "$(jq length <<<"$PRS")" -eq 0 ]; then
+            PRS=$(gh api "repos/$REPO/commits/$SHA/pulls" -q '[.[].number]')
+          fi
           for PR in $(jq -r '.[]' <<<"$PRS"); do
             PR="$PR" bash .github/review-agent/merge.sh
           done
