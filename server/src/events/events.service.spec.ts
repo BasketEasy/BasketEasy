@@ -1504,7 +1504,11 @@ describe('EventsService', () => {
         data: { meetsAtOverride: null },
       });
       // The meeting time moved with the kick-off.
-      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1']);
+      // The service runs the WhatsApp change detection itself, after its reminder
+      // sync, so the feed must not start a second pass.
+      expect(meetingPoints.announceMeetingChanges).toHaveBeenCalledWith(['event-1'], {
+        publishChange: false,
+      });
     });
 
     it('queues the first travel recompute when a TRAINING becomes a MATCH', async () => {

@@ -120,7 +120,9 @@ export class FfbbImportService {
         where: { eventId: { in: rescheduledEventIds } },
         data: { meetsAtOverride: null },
       });
-      await this.meetingPoints.announceMeetingChanges(rescheduledEventIds);
+      await this.meetingPoints.announceMeetingChanges(rescheduledEventIds, {
+        publishChange: false,
+      });
     }
 
     await this.whatsAppReminders.syncEvents(touchedEventIds);

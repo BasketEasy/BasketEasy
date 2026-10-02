@@ -453,7 +453,7 @@ export class EventsService {
     if (becomesMatch || (locationChanged && resultingType === EventType.MATCH)) {
       await this.meetingPoints.enqueueRecompute(ids);
     } else if (data.startsAt !== undefined && !becomesTraining) {
-      await this.meetingPoints.announceMeetingChanges(ids);
+      await this.meetingPoints.announceMeetingChanges(ids, { publishChange: false });
     }
     if (previousLocations) {
       await this.notifyVenueChange(clubId, teamId, updated, previousLocations);
@@ -743,7 +743,7 @@ export class EventsService {
       }),
     ]);
     const updated = results.slice(0, rows.length) as EventRow[];
-    await this.meetingPoints.announceMeetingChanges(ids);
+    await this.meetingPoints.announceMeetingChanges(ids, { publishChange: false });
     await this.whatsAppReminders.syncEvents(ids);
     await this.whatsAppReminders.onEventsChanged(ids);
     return this.buildTeamEventsForUser(clubId, teamId, userId, updated);
