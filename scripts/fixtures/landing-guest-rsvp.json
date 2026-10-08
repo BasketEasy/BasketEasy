@@ -1,0 +1,279 @@
+{
+  "GET /api/public/guest/Qm4x2vJ9kT0aLw8e": {
+    "teamName": "Seniors Filles 1",
+    "clubName": "ES Erdre Basket",
+    "roster": [
+      {
+        "teamPlayerId": "tp-lea",
+        "firstName": "Léa",
+        "lastInitial": "M",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-sarah",
+        "firstName": "Sarah",
+        "lastInitial": "D",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-manon",
+        "firstName": "Manon",
+        "lastInitial": "G",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-amina",
+        "firstName": "Amina",
+        "lastInitial": "T",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastInitial": "L",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-jade",
+        "firstName": "Jade",
+        "lastInitial": "L",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-emma",
+        "firstName": "Emma",
+        "lastInitial": "M",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastInitial": "B",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-clara",
+        "firstName": "Clara",
+        "lastInitial": "F",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-maelys",
+        "firstName": "Maëlys",
+        "lastInitial": "P",
+        "role": "PLAYER"
+      },
+      {
+        "teamPlayerId": "tp-ines",
+        "firstName": "Inès",
+        "lastInitial": "P",
+        "role": "COACH"
+      }
+    ],
+    "events": [
+      {
+        "id": "event-training",
+        "type": "TRAINING",
+        "startsAt": "2026-10-08T18:00:00.000Z",
+        "timeConfirmed": true,
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "opponentName": null,
+        "venue": null,
+        "notes": null,
+        "meetingPlan": null,
+        "attendance": [
+          {
+            "teamPlayerId": "tp-lea",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-sarah",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-manon",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-amina",
+            "status": "NOT_GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-chloe",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-jade",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-emma",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-zoe",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-clara",
+            "status": "MAYBE",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-maelys",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-ines",
+            "status": "GOING",
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          }
+        ]
+      },
+      {
+        "id": "event-1",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T18:30:00.000Z",
+        "timeConfirmed": true,
+        "location": "Rue des Trois-Moulins, 44400 Rezé",
+        "locationName": "Gymnase des Trois-Moulins",
+        "opponentName": "Rezé Trentemoult Basket",
+        "venue": "AWAY",
+        "notes": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-10T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 22,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-10T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "attendance": [
+          {
+            "teamPlayerId": "tp-lea",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-sarah",
+            "status": "GOING",
+            "travelMode": "DIRECT",
+            "convoked": true,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-manon",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-amina",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": true
+          },
+          {
+            "teamPlayerId": "tp-chloe",
+            "status": "GOING",
+            "travelMode": "DIRECT",
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-jade",
+            "status": "MAYBE",
+            "travelMode": null,
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-emma",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-zoe",
+            "status": "NOT_GOING",
+            "travelMode": null,
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-clara",
+            "status": null,
+            "travelMode": null,
+            "convoked": true,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-maelys",
+            "status": null,
+            "travelMode": null,
+            "convoked": false,
+            "viaLink": false
+          },
+          {
+            "teamPlayerId": "tp-ines",
+            "status": "GOING",
+            "travelMode": "MEETING_POINT",
+            "convoked": true,
+            "viaLink": false
+          }
+        ]
+      }
+    ]
+  },
+  "POST /api/public/guest/Qm4x2vJ9kT0aLw8e/invite-request": {
+    "status": 204,
+    "body": null
+  }
+}
