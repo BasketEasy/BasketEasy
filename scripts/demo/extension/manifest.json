@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Kluvo démo",
+  "version": "1.0.0",
+  "description": "Remplace l'API Kluvo par le club démo « Avenir Basket du Cens », pour filmer sans toucher la prod.",
+  "content_scripts": [
+    {
+      "matches": ["https://kluvo.net/*", "https://*.kluvo.net/*", "http://localhost/*"],
+      "js": ["config.js", "demo.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+// Runs in the page (MAIN world) before Kluvo's own scripts: every call to
+// the Kluvo API is answered from the demo world, and nothing reaches the
+// real server. Persona: `?demo=coach` / `?demo=joueuse`, or Alt+Shift+K to
+// switch; `?demo=reset` restores the demo's starting state.
+
+import { handle } from './api';
+import { loadState, resetState, saveState, type DemoState } from './state';
+import { buildWorld, type DemoConfig, type PersonaKey, type World } from './world';
+
+declare global {
+  interface Window {
+    __KLUVO_DEMO_CONFIG__?: Partial<DemoConfig> & { persona?: PersonaKey };
+    __KLUVO_DEMO__?: boolean;
+  }
+}
+
+const config: DemoConfig = { played: 8, ...window.__KLUVO_DEMO_CONFIG__ };
+const defaultPersona: PersonaKey = window.__KLUVO_DEMO_CONFIG__?.persona ?? 'coach';
+
+let state: DemoState = loadState(defaultPersona);
+
+const url = new URL(location.href);
+const demoParam = url.searchParams.get('demo');
+if (demoParam) {
+  if (demoParam === 'reset') state = resetState(state.persona);
+  if (demoParam === 'coach' || demoParam === 'joueuse') {
+    state.persona = demoParam;
+    state.loggedOut = false;
+    saveState(state);
+  }
+  url.searchParams.delete('demo');
+  history.replaceState(history.state, '', url.toString());
+}
+
+// The world only depends on the day and the config; rebuilt hourly so a
+// demo left open overnight rolls over like the real app would.
+let world: World = buildWorld(Date.now(), config);
+let builtAt = Date.now();
+function currentWorld(): World {
+  if (Date.now() - builtAt > 60 * 60 * 1000) {
+    world = buildWorld(Date.now(), config);
+    builtAt = Date.now();
+  }
+  return world;
+}
+
+const realFetch = window.fetch.bind(window);
+
+function isApiUrl(u: URL): boolean {
+  return (
+    u.pathname.startsWith('/api/') &&
+    (u.hostname === location.hostname ||
+      /(^|\.)kluvo\.(net|app|fr)$/.test(u.hostname) ||
+      u.hostname === 'localhost')
+  );
+}
+
+const latency = () => new Promise((r) => setTimeout(r, 90 + Math.random() * 160));
+
+async function readBody(input: RequestInfo | URL, init?: RequestInit): Promise<unknown> {
+  const raw = init?.body ?? (input instanceof Request ? await input.clone().text() : null);
+  if (typeof raw !== 'string' || raw === '') return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const target = new URL(href, location.href);
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+  if (target.hostname === 'kluvo-demo.invalid') {
+    await latency();
+    return new Response(null, { status: 200 });
+  }
+  if (!isApiUrl(target)) return realFetch(input, init);
+
+  const path = target.pathname.replace(/^\/api/, '');
+  const body = await readBody(input, init);
+  await latency();
+  const result = handle(
+    {
+      world: currentWorld(),
+      state,
+      persona: state.persona,
+      now: Date.now(),
+      save: () => saveState(state),
+    },
+    method,
+    path,
+    target.searchParams,
+    body,
+  );
+  if (!result) {
+    console.warn(`[Kluvo démo] route non simulée : ${method} ${path}`);
+    if (method === 'GET') {
+      return new Response(
+        JSON.stringify({ statusCode: 404, message: 'Non disponible dans la démo' }),
+        {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    }
+    return new Response(null, { status: 204 });
+  }
+  if (result.status === 204) return new Response(null, { status: 204 });
+  return new Response(JSON.stringify(result.body), {
+    status: result.status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+window.__KLUVO_DEMO__ = true;
+
+window.addEventListener('keydown', (event) => {
+  if (event.altKey && event.shiftKey && event.code === 'KeyK') {
+    state.persona = state.persona === 'coach' ? 'joueuse' : 'coach';
+    state.loggedOut = false;
+    saveState(state);
+    location.reload();
+  }
+});
