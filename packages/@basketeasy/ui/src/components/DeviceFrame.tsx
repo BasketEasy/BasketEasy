@@ -129,8 +129,10 @@ function PhoneFrame({ className, children }: { className: string; children: Reac
         screenWidth={screenWidth}
         screenType="island"
         frameColor="currentColor"
-        hideStatusBar
-        transparentNavBar
+        // The app never draws under the island or the home indicator: both
+        // strips are real safe areas in the app's surface colour, and the
+        // screenshot (captured at 390 x 751) fills only the space between.
+        statusbarColor="var(--device-safe-area)"
       >
         {children}
       </IPhoneMockup>

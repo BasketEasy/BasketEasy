@@ -36,7 +36,7 @@ import seasonStatsPhone from '../assets/landing/season-stats-phone.webp';
 // or figure is claimed that the product or the team can't back.
 
 /** Intrinsic sizes of the stored screenshots (the capture script's widths). */
-const PHONE_SHOT = { width: 600, height: 1298 } as const;
+const PHONE_SHOT = { width: 600, height: 1155 } as const;
 const DESKTOP_SHOT = { width: 1280, height: 800 } as const;
 
 const REGISTER_CTA = 'Créer mon équipe gratuitement';

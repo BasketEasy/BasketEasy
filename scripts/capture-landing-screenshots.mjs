@@ -38,7 +38,10 @@ import { fileURLToPath } from 'node:url';
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOW = '2026-10-08T10:00:00+02:00'; // Thursday; the match is Saturday 10 Oct.
 
-const PHONE = { width: 390, height: 844, scale: 2 };
+// An iPhone's 390 x 844 screen minus its safe areas (59px status bar around
+// the Dynamic Island, 34px home indicator): DeviceFrame paints those two strips
+// itself, so the app is captured at the height it really gets between them.
+const PHONE = { width: 390, height: 751, scale: 2 };
 const ASSET_DIR = `${REPO}/app/src/assets/landing`;
 // Width each landing asset is stored at: a phone frame shows at most ~300 CSS px.
 const ASSET_WIDTH = { phone: 600, desktop: 1280 };
@@ -336,6 +339,9 @@ async function main() {
         cwd: REPO,
         env: { ...process.env, VITE_API_PROXY_TARGET: `http://localhost:${args.mockPort}` },
         stdio: 'ignore',
+        // Its own process group: pnpm doesn't forward SIGTERM to vite, so only
+        // killing the whole group lets this script exit when it is done.
+        detached: true,
       },
     );
   }
@@ -380,7 +386,7 @@ async function main() {
   } finally {
     await browser.close();
     await stop(mock);
-    if (vite) vite.kill();
+    if (vite) process.kill(-vite.pid, 'SIGTERM');
   }
   console.log(`\n${shots.length - failed.length} screenshot(s) in ${outDir}`);
   if (failed.length > 0) {
