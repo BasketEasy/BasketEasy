@@ -38,8 +38,13 @@ await build({
   legalComments: 'none',
 });
 copyFileSync(join(here, 'manifest.json'), join(out, 'manifest.json'));
+const config =
+  "// Journées déjà jouées (la suivante est ce week-end) et persona au premier chargement.\nwindow.__KLUVO_DEMO_CONFIG__ = { played: 8, persona: 'coach' };\n";
+writeFileSync(join(out, 'config.js'), config);
+// The same code as one file, for a DevTools override or snippet where an
+// extension can't be installed (a managed work browser).
 writeFileSync(
-  join(out, 'config.js'),
-  "// Journées déjà jouées (la suivante est ce week-end) et persona au premier chargement.\nwindow.__KLUVO_DEMO_CONFIG__ = { played: 8, persona: 'coach' };\n",
+  join(here, 'dist/kluvo-demo-devtools.js'),
+  `${config}${readFileSync(join(out, 'demo.js'), 'utf-8')}`,
 );
 console.log(`Built ${out}`);

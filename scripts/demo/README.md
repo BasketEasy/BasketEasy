@@ -20,8 +20,10 @@ node scripts/demo/extension/build.mjs
 
 Puis `chrome://extensions` → Mode développeur → Charger l'extension non empaquetée → `scripts/demo/extension/dist/kluvo-demo`, et ouvrir `https://kluvo.net/dashboard?demo=coach`.
 
+Poste géré où les extensions sont bloquées (« Extension installation is blocked by policy ») : `dist/kluvo-demo-devtools.js` est le même code en un fichier. DevTools → Sources → Overrides → choisir un dossier, puis Sources → Page → `kluvo.net/assets/index-….js` → Override content, coller le fichier tout en haut, enregistrer, recharger. Le bundle principal est chargé sur toutes les pages, donc le remplacement tient aux rechargements (DevTools ouverts). À défaut, le coller en snippet sur `/login` et se connecter avec n'importe quel mot de passe.
+
 - `dist/kluvo-demo/config.js` : `played` (journées déjà jouées : 4, 6, 8 ou 12) et `persona` au premier chargement.
-- `?demo=coach` / `?demo=joueuse` change de personne, <kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>K</kbd> bascule, `?demo=reset` efface ce qui a été cliqué.
+- `?demo=coach` / `?demo=joueuse` change de personne, <kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>K</kbd> bascule, `?demo=reset` ou <kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>R</kbd> efface ce qui a été cliqué.
 - Les réponses sont typées sur `@basketeasy/types` (`app/node_modules/.bin/tsc -p scripts/demo/extension`) : un changement de contrat casse le build ici plutôt qu'un écran pendant le tournage.
 - Simulés : RSVP, trajet, convocations, vote MVP, lavage des maillots, feuille de marque (envoi → lecture → validation → stats), partage WhatsApp, notifications, création/modification/suppression d'événement. Non simulés : invitations, ajout de membres ou de joueurs, back-office.
 

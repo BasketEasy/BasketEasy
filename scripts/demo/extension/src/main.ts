@@ -1,7 +1,10 @@
-// Runs in the page (MAIN world) before Kluvo's own scripts: every call to
-// the Kluvo API is answered from the demo world, and nothing reaches the
-// real server. Persona: `?demo=coach` / `?demo=joueuse`, or Alt+Shift+K to
-// switch; `?demo=reset` restores the demo's starting state.
+// Runs in the page before Kluvo's own code: every call to the Kluvo API is
+// answered from the demo world, and nothing reaches the real server. Three
+// ways in, same file: the Chrome extension (MAIN world, document_start),
+// pasted at the top of kluvo.net's main bundle through a DevTools override,
+// or run as a DevTools snippet on the login page.
+// Persona: `?demo=coach` / `?demo=joueuse`, or Alt+Shift+K to switch;
+// `?demo=reset` or Alt+Shift+R restores the demo's starting state.
 
 import { handle } from './api';
 import { loadState, resetState, saveState, type DemoState } from './state';
@@ -11,6 +14,7 @@ declare global {
   interface Window {
     __KLUVO_DEMO_CONFIG__?: Partial<DemoConfig> & { persona?: PersonaKey };
     __KLUVO_DEMO__?: boolean;
+    __KLUVO_REAL_FETCH__?: typeof fetch;
   }
 }
 
@@ -44,7 +48,9 @@ function currentWorld(): World {
   return world;
 }
 
-const realFetch = window.fetch.bind(window);
+// Kept across a second run (a snippet pasted twice) so fetch is never wrapped twice.
+window.__KLUVO_REAL_FETCH__ ??= window.fetch.bind(window);
+const realFetch = window.__KLUVO_REAL_FETCH__;
 
 function isApiUrl(u: URL): boolean {
   return (
@@ -116,11 +122,21 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
 
 window.__KLUVO_DEMO__ = true;
 
+// Both shortcuts land on the dashboard rather than reloading the current
+// URL: a DevTools override only covers the document it was made on.
 window.addEventListener('keydown', (event) => {
-  if (event.altKey && event.shiftKey && event.code === 'KeyK') {
+  if (!event.altKey || !event.shiftKey) return;
+  if (event.code === 'KeyK') {
     state.persona = state.persona === 'coach' ? 'joueuse' : 'coach';
     state.loggedOut = false;
     saveState(state);
-    location.reload();
+    location.assign('/dashboard');
+  } else if (event.code === 'KeyR') {
+    state = resetState(state.persona);
+    location.assign('/dashboard');
   }
 });
+
+console.info(
+  `[Kluvo démo] actif : ${state.persona === 'coach' ? 'Hélène Cadiou (coach)' : 'Léa Moreau (joueuse)'}. Alt+Maj+K change de personne, Alt+Maj+R repart de zéro.`,
+);
