@@ -80,6 +80,15 @@ module.exports = {
         // along the top edge, between the bar and the content it covers.
         'nav-active-top': 'inset 0 2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
+        // DeviceFrame (`@basketeasy/ui/device-frame`): a product screenshot
+        // lifted off the page. Deeper and wider than shadow-lg because the
+        // frame is the hero of its section, not a card among others; the
+        // phone's is darker because its bezel is charcoal, not surface.
+        'frame-browser': '0 18px 40px rgba(59, 42, 24, 0.16), 0 4px 10px rgba(59, 42, 24, 0.08)',
+        'frame-phone': '0 18px 40px rgba(59, 42, 24, 0.22), 0 4px 10px rgba(59, 42, 24, 0.12)',
+        // A bar pinned to the bottom of the viewport (the landing page's
+        // mobile CTA bar): the shadow falls upward, onto the content it covers.
+        'bar-up': '0 -6px 16px rgba(59, 42, 24, 0.1)',
       },
       // Radius scale, overridden like boxShadow so every existing rounded-*
       // call site picks up the Parquet shapes without being touched: `md`
@@ -92,6 +101,10 @@ module.exports = {
         lg: '14px',
         xl: '16px',
         '2xl': '20px',
+        // DeviceFrame's phone: the bezel, and the screen inside its 10px
+        // padding (bezel radius minus padding, so the two curves stay parallel).
+        device: '40px',
+        'device-screen': '30px',
       },
       spacing: {
         // Switch geometry (`@basketeasy/ui/switch`): a 40 x 24 track holding

@@ -26,6 +26,12 @@ const headingVariants = cva('break-words font-heading uppercase', {
     size: {
       /** The event page's h1: one step smaller on a phone. */
       hero: 'text-4xl md:text-5xl',
+      /** A marketing page's h1 (the landing hero): the largest step, two smaller on a phone. */
+      display: 'text-5xl md:text-7xl',
+      /** A marketing page's section title (« Vous reconnaissez cette semaine ? »). */
+      section: 'text-4xl md:text-5xl',
+      /** A marketing page's feature title, under a section. */
+      feature: 'text-3xl md:text-4xl',
       '6xl': 'text-6xl',
       '5xl': 'text-5xl',
       '4xl': 'text-4xl',

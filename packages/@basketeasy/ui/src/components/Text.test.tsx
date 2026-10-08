@@ -47,4 +47,15 @@ describe('Text', () => {
     const el = screen.getByText('Prochain match');
     expect(el).toHaveClass('font-heading', 'uppercase', 'tracking-eyebrow');
   });
+
+  it('inherits its size inside a heading when size is inherit', () => {
+    render(
+      <Text as="span" size="inherit" tone="brand">
+        plus de terrain.
+      </Text>,
+    );
+    const el = screen.getByText('plus de terrain.');
+    expect(el).toHaveClass('text-orange-text');
+    expect(el.className).not.toMatch(/text-(xs|sm|base|lg|xl)/);
+  });
 });
