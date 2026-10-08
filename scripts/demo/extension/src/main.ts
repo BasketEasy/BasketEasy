@@ -48,9 +48,13 @@ function currentWorld(): World {
   return world;
 }
 
-// Kept across a second run (a snippet pasted twice) so fetch is never wrapped twice.
-window.__KLUVO_REAL_FETCH__ ??= window.fetch.bind(window);
-const realFetch = window.__KLUVO_REAL_FETCH__;
+const nativeFetch: typeof fetch = window.__KLUVO_REAL_FETCH__ ?? window.fetch.bind(window);
+window.__KLUVO_REAL_FETCH__ = nativeFetch;
+// What non-API requests go through. A script that replaces window.fetch after
+// this one (Cloudflare's bot detection on kluvo.net does) lands here instead
+// of in front of the demo, so the app's API calls never leave the page.
+let downstream: typeof fetch = nativeFetch;
+let callingDownstream = false;
 
 function isApiUrl(u: URL): boolean {
   return (
@@ -73,17 +77,32 @@ async function readBody(input: RequestInfo | URL, init?: RequestInit): Promise<u
   }
 }
 
-window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+function demoFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   const target = new URL(href, location.href);
-  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  if (target.hostname === 'kluvo-demo.invalid' || isApiUrl(target)) {
+    return answer(target, input, init);
+  }
+  // A wrapper installed after us calls back into us: break the loop there.
+  if (callingDownstream) return nativeFetch(input, init);
+  callingDownstream = true;
+  try {
+    return downstream(input, init);
+  } finally {
+    callingDownstream = false;
+  }
+}
 
+async function answer(
+  target: URL,
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
   if (target.hostname === 'kluvo-demo.invalid') {
     await latency();
     return new Response(null, { status: 200 });
   }
-  if (!isApiUrl(target)) return realFetch(input, init);
-
   const path = target.pathname.replace(/^\/api/, '');
   const body = await readBody(input, init);
   await latency();
@@ -118,7 +137,22 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
     status: result.status,
     headers: { 'Content-Type': 'application/json' },
   });
-};
+}
+
+if (!window.__KLUVO_DEMO__) {
+  try {
+    Object.defineProperty(window, 'fetch', {
+      configurable: false,
+      enumerable: true,
+      get: () => demoFetch,
+      set: (value: unknown) => {
+        if (typeof value === 'function' && value !== demoFetch) downstream = value as typeof fetch;
+      },
+    });
+  } catch {
+    window.fetch = demoFetch;
+  }
+}
 
 window.__KLUVO_DEMO__ = true;
 
