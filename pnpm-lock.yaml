@@ -174,6 +174,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      react-device-mockup:
+        specifier: ^1.0.0
+        version: 1.0.0(react@18.3.1)
       recharts:
         specifier: ^3.10.1
         version: 3.10.1(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react-is@18.3.1)(react@18.3.1)(redux@5.0.1)
@@ -4949,6 +4952,11 @@ packages:
 
   rc9@2.1.2:
     resolution: {integrity: sha512-btXCnMmRIBINM2LDZoEmOogIZU7Qe7zn4BpomSKZ/ykbLObuBdvG+mFq11DL6fjH1DRwHhrlgtYWG96bJiC7Cg==}
+
+  react-device-mockup@1.0.0:
+    resolution: {integrity: sha512-rtLHqMdzs7FsnvYO7yCLbqvJYw8BmHEk6XsMHDQe4sBRU/SXPB3nofpjjXT3Me+MR2ZE3qsa1bVtASLRZwQO9g==}
+    peerDependencies:
+      react: '*'
 
   react-docgen-typescript@2.4.0:
     resolution: {integrity: sha512-ZtAp5XTO5HRzQctjPU0ybY0RRCQO19X/8fxn3w7y2VVTUbGHDKULPTL4ky3vB05euSgG5NpALhEhDPvQ56wvXg==}
@@ -11019,6 +11027,10 @@ snapshots:
     dependencies:
       defu: 6.1.7
       destr: 2.0.5
+
+  react-device-mockup@1.0.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
 
   react-docgen-typescript@2.4.0(typescript@5.9.3):
     dependencies:

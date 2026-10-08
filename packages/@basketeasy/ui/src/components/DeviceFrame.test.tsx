@@ -36,11 +36,15 @@ describe('DeviceFrame', () => {
   it('owns its look through the variant', () => {
     const { container } = render(<DeviceFrame variant="phone" className="w-60" {...shot} />);
 
-    expect(container.firstChild).toHaveClass(
-      'bg-charcoal',
-      'rounded-device',
-      'shadow-frame-phone',
-      'w-60',
-    );
+    expect(container.firstChild).toHaveClass('text-charcoal', 'drop-shadow-frame-phone', 'w-60');
+  });
+
+  it('puts the phone screenshot inside the device mockup', () => {
+    const { container } = render(<DeviceFrame variant="phone" {...shot} />);
+
+    const img = screen.getByRole('img', { name: 'Capture de Kluvo' });
+    // The mockup's own wrapper sits between the figure and the image.
+    expect(img.parentElement).not.toBe(container.firstChild);
+    expect(container.firstChild).toContainElement(img);
   });
 });

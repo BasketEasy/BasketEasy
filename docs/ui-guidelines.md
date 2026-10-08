@@ -244,7 +244,9 @@ file.
 - `DeviceFrame` takes the image's intrinsic `width`/`height` and loads lazily; only the hero's
   frames pass `priority` (eager, `fetchpriority="high"`). Alt text says in French what the shot
   proves. A frame that only exists at one breakpoint is hidden with `hidden md:block` /
-  `md:hidden`, which also keeps a lazy image from loading.
+  `md:hidden`, which also keeps a lazy image from loading. The phone variant is a realistic
+  iPhone (`react-device-mockup`, imported only by `DeviceFrame`) fitted to the width the caller
+  gives it; never import the library at a call site.
 - One call to action, repeated at each decision point (« Créer mon équipe gratuitement »), and on
   a phone pinned to the bottom of the screen (`shadow-bar-up`), with the footer padded so the bar
   never covers it. On a blue-green band the button is `variant="inverseFilled"`.
