@@ -11,6 +11,9 @@ export function useMyAgenda(params?: GetDashboardParams, options?: { enabled?: b
   return useQuery({
     queryKey: myDashboardQueryKey(scoped),
     queryFn: () => apiClient.get<MyDashboardSummary>('/me/dashboard', scoped),
+    // Several surfaces (home, bottom nav, results) mount this at once; without
+    // a staleTime each mount refetches.
+    staleTime: 30_000,
     enabled: isReady && (options?.enabled ?? true),
   });
 }
