@@ -27,16 +27,6 @@ export function formatDayHeading(isoDate: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-/** Formats an ISO date string's time-of-day only, e.g. "18:00". */
-export function formatEventTime(isoDate: string): string {
-  return timeFormatter.format(new Date(isoDate));
-}
-
 /** Local calendar-day key (YYYY-MM-DD) for grouping events by day. */
 export function eventDayKey(isoDate: string): string {
   const date = new Date(isoDate);
