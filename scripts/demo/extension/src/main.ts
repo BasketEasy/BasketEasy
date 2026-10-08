@@ -22,6 +22,14 @@ const config: DemoConfig = { played: 8, ...window.__KLUVO_DEMO_CONFIG__ };
 const defaultPersona: PersonaKey = window.__KLUVO_DEMO_CONFIG__?.persona ?? 'coach';
 
 let state: DemoState = loadState(defaultPersona);
+// Every full page load starts signed in: a logout only lasts until the next
+// reload, so a stale « déconnecté » from an earlier take never strands the
+// demo on the login page. A snippet run on /login keeps the login form,
+// since the app already asked for its session before the snippet existed.
+if (document.readyState !== 'complete' && state.loggedOut) {
+  state.loggedOut = false;
+  saveState(state);
+}
 
 const url = new URL(location.href);
 const demoParam = url.searchParams.get('demo');
