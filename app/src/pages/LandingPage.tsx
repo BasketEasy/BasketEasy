@@ -243,7 +243,7 @@ export function LandingPage() {
               <div className="flex flex-col gap-3 md:flex-row">
                 <RegisterButton />
                 <Button asChild size="lg" variant="outline" className="hidden md:inline-flex">
-                  <a href="#semaine">Voir l’app en action</a>
+                  <a href="#semaine">Voir une semaine type</a>
                 </Button>
               </div>
               <ul className="flex flex-col gap-2">
