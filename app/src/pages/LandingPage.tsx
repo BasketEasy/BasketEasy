@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Button } from '@basketeasy/ui/button';
+import { Button, type ButtonProps } from '@basketeasy/ui/button';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { Badge } from '@basketeasy/ui/badge';
 import { Heading } from '@basketeasy/ui/heading';
@@ -138,12 +138,27 @@ function CheckLine({ children }: { children: ReactNode }) {
   );
 }
 
-function RegisterButton() {
+/**
+ * The page's one call to action. A signed-in visitor can read the pitch too
+ * (kluvo.net is the brand's front door, not only a sign-up form), so for them
+ * it leads back into the app rather than to a register form they'd bounce off.
+ */
+function RegisterButton({ variant }: { variant?: ButtonProps['variant'] }) {
+  const { user } = useAccount();
   return (
-    <Button asChild size="lg">
-      <Link to="/register">{REGISTER_CTA}</Link>
+    <Button asChild size="lg" variant={variant}>
+      {user ? (
+        <Link to={homePath(user)}>Aller à mon espace</Link>
+      ) : (
+        <Link to="/register">{REGISTER_CTA}</Link>
+      )}
     </Button>
   );
+}
+
+/** Where PublicOnlyRoute sends a signed-in user: the profile first while it has no name. */
+function homePath(user: { firstName: string | null }): string {
+  return user.firstName ? '/dashboard' : '/account';
 }
 
 /**
@@ -204,16 +219,12 @@ function isStandalone(): boolean {
 export function LandingPage() {
   const { user, isLoading } = useAccount();
 
-  // A signed-in visitor (an installed PWA opened from its icon included) has
-  // no use for the pitch: send them where PublicOnlyRoute sends /login.
-  if (!isLoading && user) {
-    return <Navigate to={user.firstName ? '/dashboard' : '/account'} replace />;
-  }
-
-  // An installed app opened without a session goes straight to the sign-in
-  // form; the marketing page is for the browser.
+  // In a browser the page is for everyone, signed in or not: its calls to
+  // action switch to « Aller à mon espace ». An installed app is not a place
+  // for the pitch (its start_url is /dashboard; this covers a stray « / »):
+  // it goes straight into the app, or to the sign-in form without a session.
   if (!isLoading && isStandalone()) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={user ? homePath(user) : '/login'} replace />;
   }
 
   return (
@@ -580,16 +591,14 @@ export function LandingPage() {
               </Text>
             </div>
             <div className="flex shrink-0 flex-col">
-              <Button asChild size="lg" variant="inverseFilled">
-                <Link to="/register">{REGISTER_CTA}</Link>
-              </Button>
+              <RegisterButton variant="inverseFilled" />
             </div>
           </Container>
         </section>
       </main>
 
       {/* pb-28 below md: room for the pinned call-to-action bar. */}
-      <footer className="border-t border-border pb-28 pt-6 md:py-8">
+      <footer className={cn('border-t border-border pt-6 md:py-8', user ? 'pb-6' : 'pb-28')}>
         <Container className="flex flex-col gap-3 md:flex-row-reverse md:items-center md:justify-between">
           <nav aria-label="Documents légaux" className="flex flex-wrap gap-x-4 gap-y-2 md:gap-x-5">
             <TextLink asChild size="sm">
@@ -609,12 +618,15 @@ export function LandingPage() {
         </Container>
       </footer>
 
-      {/* Phones only: the one call to action never scrolls out of reach. */}
-      <div className="safe-area-bottom fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface shadow-bar-up md:hidden">
-        <div className="flex flex-col px-4 py-3">
-          <RegisterButton />
+      {/* Phones only: the one call to action never scrolls out of reach. A
+          signed-in visitor already has « Mon espace » in the header. */}
+      {!user && (
+        <div className="safe-area-bottom fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface shadow-bar-up md:hidden">
+          <div className="flex flex-col px-4 py-3">
+            <RegisterButton />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

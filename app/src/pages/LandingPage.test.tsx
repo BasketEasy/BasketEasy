@@ -145,7 +145,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('© Kluvo · Données hébergées en France · RGPD')).toBeInTheDocument();
   });
 
-  it('redirects a signed-in visitor to the dashboard', async () => {
+  it('shows the pitch to a signed-in visitor, its calls to action leading back into the app', async () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
@@ -161,7 +161,15 @@ describe('LandingPage', () => {
 
     renderLandingPage();
 
-    expect(await screen.findByText('Tableau de bord')).toBeInTheDocument();
+    expect(await screen.findAllByRole('link', { name: 'Aller à mon espace' })).not.toHaveLength(0);
+    for (const link of screen.getAllByRole('link', { name: 'Aller à mon espace' })) {
+      expect(link).toHaveAttribute('href', '/dashboard');
+    }
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Créer mon équipe gratuitement' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Tableau de bord')).not.toBeInTheDocument();
   });
 
   it('sends an installed app opened without a session to the sign-in form', async () => {
