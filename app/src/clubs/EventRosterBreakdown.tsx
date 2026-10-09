@@ -54,6 +54,8 @@ function RosterRow({ entry }: { entry: EventRosterEntry }) {
   );
 }
 
+const METER_TONE_CLASS = { success: 'bg-success', brand: 'bg-orange' } as const;
+
 /**
  * Shared collapsible shell for roster-wide breakdowns (RSVP, convocations):
  * a toggle button, a progress meter + summary, and the per-row list once
@@ -67,7 +69,7 @@ export function EventRosterBreakdown({
   summary,
   meterValue,
   meterMax,
-  meterClassName,
+  meterTone = 'success',
   isOpen,
   onToggle,
   isError = false,
@@ -79,7 +81,8 @@ export function EventRosterBreakdown({
   summary?: string;
   meterValue?: number;
   meterMax?: number;
-  meterClassName?: string;
+  /** The fill's meaning: `success` for a positive count, `brand` for the call-up. */
+  meterTone?: 'success' | 'brand';
   isOpen: boolean;
   onToggle: () => void;
   isError?: boolean;
@@ -108,7 +111,7 @@ export function EventRosterBreakdown({
               className={cn(
                 'h-full rounded-full',
                 meterWidthClass(meterValue ?? 0, meterMax ?? 0),
-                meterClassName,
+                METER_TONE_CLASS[meterTone],
               )}
             />
           </div>

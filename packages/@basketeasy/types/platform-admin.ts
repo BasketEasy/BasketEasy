@@ -150,10 +150,24 @@ export interface ExportedRosterEntry {
     /**
      * Who gave the answer, without naming them: `SOMEONE_ELSE` is a guardian
      * answering for this player. Their identity is a third party's data
-     * (art. 15(4)). `UNKNOWN` when the responder's account no longer exists
-     * or the answer predates the column.
+     * (art. 15(4)). `LINK` is an answer given through the team's shared guest
+     * link, which has no author account by design. `UNKNOWN` when the
+     * responder's account no longer exists or the answer predates the column.
      */
-    respondedBy: 'SELF' | 'SOMEONE_ELSE' | 'UNKNOWN';
+    respondedBy: 'SELF' | 'SOMEONE_ELSE' | 'LINK' | 'UNKNOWN';
+    source: 'APP' | 'GUEST_LINK';
+  }[];
+  /** Every change to this player's answers, oldest first — what a coach sees in the history. */
+  rsvpHistory: {
+    eventStartsAt: string;
+    /** Null when the answer was cleared. */
+    status: string | null;
+    travelMode: string | null;
+    source: 'APP' | 'GUEST_LINK';
+    /** The shared message the answer came through, when known. */
+    via: string | null;
+    changedAt: string;
+    changedBy: 'SELF' | 'SOMEONE_ELSE' | 'LINK' | 'UNKNOWN';
   }[];
   convocations: { eventStartsAt: string; convokedAt: string }[];
   matchStats: {
