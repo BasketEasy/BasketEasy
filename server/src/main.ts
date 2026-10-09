@@ -4,6 +4,7 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { resolveTrustProxy } from './common/trust-proxy';
+import { httpMetrics, metricsHandler } from './metrics/http-metrics';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -33,6 +34,8 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Platform-Token'],
   });
   app.use(cookieParser());
+  app.use(httpMetrics);
+  app.getHttpAdapter().getInstance().get('/metrics', metricsHandler);
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({

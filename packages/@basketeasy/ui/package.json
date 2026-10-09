@@ -63,6 +63,10 @@
       "types": "./src/components/List.tsx",
       "default": "./src/components/List.tsx"
     },
+    "./device-frame": {
+      "types": "./src/components/DeviceFrame.tsx",
+      "default": "./src/components/DeviceFrame.tsx"
+    },
     "./card": {
       "types": "./src/components/Card.tsx",
       "default": "./src/components/Card.tsx"
@@ -130,6 +134,10 @@
     "./radio-card-group": {
       "types": "./src/components/RadioCardGroup.tsx",
       "default": "./src/components/RadioCardGroup.tsx"
+    },
+    "./icons/basketball": {
+      "types": "./src/components/icons/BasketballIcon.tsx",
+      "default": "./src/components/icons/BasketballIcon.tsx"
     },
     "./icons/users": {
       "types": "./src/components/icons/UsersIcon.tsx",
@@ -345,6 +353,7 @@
     "@tiptap/react": "^3.31.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "react-device-mockup": "^1.0.0",
     "recharts": "^3.10.1",
     "tailwind-merge": "^2.5.2"
   },

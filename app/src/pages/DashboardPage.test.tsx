@@ -202,10 +202,12 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    const row = await screen.findByRole('link', { name: /U15 Filles/ });
+    // The mock answers every window with the same event, so « Après le match »
+    // can list it too; the agenda strip's row is the first link.
+    const [row] = await screen.findAllByRole('link', { name: /U15 Filles/ });
     expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1/events/event-1');
     // Once on the type badge, once on the card's time block.
-    expect(screen.getAllByText('Match')).toHaveLength(2);
+    await waitFor(() => expect(screen.getAllByText('Match')).toHaveLength(2));
   });
 
   it('shows an empty state when there are no events in the next 7 days', async () => {
@@ -356,7 +358,7 @@ describe('DashboardPage — manager view', () => {
     );
     renderLoggedIn();
 
-    await screen.findByRole('link', { name: /U15 Filles/ });
+    await screen.findAllByRole('link', { name: /U15 Filles/ });
     expect(screen.queryByRole('group', { name: 'Ma réponse' })).not.toBeInTheDocument();
   });
 
@@ -450,7 +452,7 @@ const MEETING_PLAN = {
 const OPEN_VOTE = {
   canVote: true,
   hasVoted: false,
-  closesAt: '2026-10-03T18:00:00.000Z',
+  closesAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
   votesCast: 6,
   totalVoters: 12,
   mvp: null,

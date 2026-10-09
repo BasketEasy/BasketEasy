@@ -71,4 +71,9 @@ describe('Button', () => {
     expect(link).not.toHaveAttribute('type');
     expect(link).not.toHaveAttribute('aria-busy');
   });
+
+  it('fills with the surface on a structure band (inverseFilled)', () => {
+    render(<Button variant="inverseFilled">Créer mon équipe</Button>);
+    expect(screen.getByRole('button')).toHaveClass('bg-surface', 'text-blue-green');
+  });
 });
