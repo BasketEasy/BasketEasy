@@ -216,9 +216,11 @@ describe('AppBottomNav', () => {
       await waitFor(() => expect(requests).toHaveLength(1));
       const from = new Date(requests[0].get('from')!).getTime();
       const to = new Date(requests[0].get('to')!).getTime();
-      expect(to - from).toBe(14 * 24 * 60 * 60 * 1000);
-      // Floored to 5 minutes: the home's own request lands on the same key.
-      expect(from % (5 * 60 * 1000)).toBe(0);
+      // 14 days, plus at most the quarter hour `to` is rounded up by.
+      expect(to - from).toBeGreaterThanOrEqual(14 * 24 * 60 * 60 * 1000);
+      expect(to - from).toBeLessThanOrEqual(14 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000);
+      // Snapped to a quarter hour: the home's own request lands on the same key.
+      expect(from % (15 * 60 * 1000)).toBe(0);
     });
 
     it('makes no request above the desktop breakpoint, where it renders nothing', async () => {
