@@ -21,7 +21,7 @@ Work through this before writing a hook, and again on your own diff. The fronten
 - [ ] **Key.** A builder in `clubs/queryKeys.ts` (or the domain's `queryKeys.ts`), added in the same
       change as the hook, never an inline array. Hierarchy club, team, event, sub-query; persona
       (`forPlayerId`) is the last segment. A list key ends in `{}` or its params so it never matches
-      a detail. A date in the key goes through `roundedNow()`. An event sub-query goes through
+      a detail. A date in the key is snapped to a quarter hour, as `myAgendaWindow.ts` does. An event sub-query goes through
       `eventSubKey` (add the `EventPart`).
 - [ ] **Gate.** `enabled` mirrors the server guard: read the controller's `@ClubRoles` /
       `TeamManagerGuard` / `@AllowGuardians`, not the screen. A query the viewer cannot read is

@@ -19,7 +19,7 @@ needs the owner to decide. If clean, say "clean".
 - Migrations: additive first, locks on big tables, backfills batched, rollback story. Destructive means the owner decides.
 - Frontend: bundle weight (lazy routes, wrapper-only heavy deps), no request waterfalls, polling cost. Server state, per the `server-state` skill and `docs/frontend-stack.md`:
   - every new query hook sets a `FRESHNESS` tier, and a `static` one has no writer other than our own mutations (nor is it always mounted);
-  - no inline query key, no root key invalidated without `exact: true`, no `new Date()` in a key without `roundedNow()`;
+  - no inline query key, no root key invalidated without `exact: true`, no `new Date()` in a key without snapping it (`myAgendaWindow.ts`);
   - no overlapping invalidations (a key and then a prefix that covers it, or a prefix over the entry just written), and a per-player write never invalidates the team's `events` prefix;
   - a mutation writes its response and refreshes the readers in the dependency table, and the test asserts what stays untouched;
   - no query the viewer cannot read (`enabled` mirrors the guard), and tab or dialog data waits for it;
