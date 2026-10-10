@@ -24,6 +24,7 @@ import {
   type UpdateTeamWhatsAppSettingsResponse,
   type WhatsAppTemplateVars,
 } from '@basketeasy/types/whatsapp-reminder';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
 import { PrismaService } from '../prisma/prisma.service';
 import { toRsvpRespondent, RSVP_RESPONDENT_SELECT } from '../common/rsvp-respondent';
 import { GuestLinksService } from '../guest-links/guest-links.service';
@@ -444,7 +445,16 @@ export class WhatsAppReminderService implements OnModuleInit {
         }
       }
 
-      await this.scheduler.notifyChangePrompts(teamId, 'UPDATE', raised);
+      try {
+        await this.scheduler.notifyChangePrompts(teamId, 'UPDATE', raised);
+      } catch (error) {
+        // Nobody was told, and a PENDING row would make the next detection skip
+        // it: void the prompts so the next edit raises them again.
+        await Promise.all(raised.map((prompt) => this.voidUpdate(prompt.shareId)));
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(`WhatsApp update prompt not delivered for team ${teamId}: ${message}`);
+        continue;
+      }
       await this.scheduler.queueFollowUps(raised);
     }
   }
@@ -500,6 +510,34 @@ export class WhatsAppReminderService implements OnModuleInit {
   }
 
   /**
+   * The meeting plans `prepareCancellations` snapshots, resolved before
+   * `deleteEvent`'s Serializable transaction opens: the resolver reads through
+   * the base client, so inside the transaction it would take a second pooled
+   * connection (a deadlock under load) and a P2034 retry would re-read a
+   * different snapshot.
+   */
+  async resolveCancellationPlans(
+    teamId: string,
+    eventIds: string[],
+  ): Promise<Map<string, EventMeetingPlan | null>> {
+    const events = await this.prisma.event.findMany({
+      where: { id: { in: eventIds }, startsAt: { gt: new Date() } },
+      select: {
+        id: true,
+        teamId: true,
+        type: true,
+        startsAt: true,
+        timeConfirmed: true,
+        venue: true,
+        location: true,
+        locationName: true,
+        opponentName: true,
+      },
+    });
+    return this.meetingPoints.resolvePlans(teamId, events);
+  }
+
+  /**
    * Inside `deleteEvent`'s transaction, before the rows go: a CANCELLATION share
    * for each event the group was told about, holding a snapshot of what it said,
    * and no reminder or update left behind (with `SetNull` they would survive
@@ -510,6 +548,7 @@ export class WhatsAppReminderService implements OnModuleInit {
     tx: Prisma.TransactionClient,
     teamId: string,
     eventIds: string[],
+    plans: Map<string, EventMeetingPlan | null>,
   ): Promise<PreparedCancellations> {
     const rows = await tx.eventShare.findMany({
       where: { eventId: { in: eventIds }, type: { in: MESSAGE_TYPES } },
@@ -539,10 +578,10 @@ export class WhatsAppReminderService implements OnModuleInit {
           opponentName: true,
         },
       });
-      const [team, plans] = await Promise.all([
-        tx.team.findUniqueOrThrow({ where: { id: teamId }, select: { name: true } }),
-        this.meetingPoints.resolvePlans(teamId, events),
-      ]);
+      const team = await tx.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { name: true },
+      });
       for (const event of events) {
         const vars = buildTemplateVars(event, team.name, plans.get(event.id) ?? null, null);
         const row = await tx.eventShare.create({

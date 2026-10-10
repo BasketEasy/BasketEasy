@@ -52,6 +52,7 @@ Pick the type from what the page is. Every page has exactly one `h1`.
 | **Depth ≥ 2**   | reached from another page, not from the bottom nav                  | adds `PageBar` below `md` (sticky under `MobileTopBar`) and `PageBackLink` from `md`.                         |
 | **Task flow**   | a multi-step or single-form task at depth 2 (import, create a club) | `PageBar` + eyebrow + `PageHeader` + one card.                                                                |
 | **Standalone**  | public, auth, error, guest link                                     | wordmark + one centred card whose `h1` is a `Heading`, never a `CardTitle`.                                   |
+| **Marketing**   | the landing page (`/`)                                              | `PublicHeader` (anchors + one CTA), a `Heading size="display"` hero, sections proven by `DeviceFrame` shots.  |
 | **Back-office** | `/admin/*`                                                          | its own shell (no product chrome). It uses `PageHeader`/`PageHero` inside, a breadcrumb instead of `PageBar`. |
 
 Page containers: `PageContainer size="lg"` for data pages, `size="md"` for forms and personal
@@ -213,6 +214,7 @@ event, the next event of a team, a club's FFBB code, a child's consent.
 | Modal / sheet                      | `@basketeasy/ui/dialog`, `ConfirmDialog`                   |
 | Chart                              | `@basketeasy/ui/chart`                                     |
 | Rich text with tokens              | `@basketeasy/ui/template-editor`                           |
+| A product screenshot (marketing)   | `@basketeasy/ui/device-frame` `DeviceFrame`                |
 
 A missing look is a new variant on the component, never a class at the call site. A solved problem
 (date picker, drag and drop, upload) is a maintained library wrapped in one `@basketeasy/ui/<name>`
@@ -230,6 +232,27 @@ file.
 - A `…Row` / `…Card` twin pair drifts: one pair validated the same edit form two different ways.
 - `focusRing` is an outline because a Tailwind ring paints its offset gap a solid colour, which
   would have to name the background on four different surfaces.
+
+### Marketing pages (the landing page)
+
+- **The product is the proof.** Every feature section shows a real screenshot in a `DeviceFrame`
+  (`variant="phone"` for a phone capture, `"browser"` with a `url` for a desktop one), never a
+  mock-up or a re-implementation of a card. The images live in `app/src/assets/landing/` and are
+  regenerated from fictional fixtures (`scripts/fixtures/landing-*.json`) by
+  `node scripts/capture-landing-screenshots.mjs --assets`: re-run it in the PR that changes one of
+  those screens.
+- `DeviceFrame` takes the image's intrinsic `width`/`height` and loads lazily; only the hero's
+  frames pass `priority` (eager, `fetchpriority="high"`). Alt text says in French what the shot
+  proves. A frame that only exists at one breakpoint is hidden with `hidden md:block` /
+  `md:hidden`, which also keeps a lazy image from loading. The phone variant is a realistic
+  iPhone (`react-device-mockup`, imported only by `DeviceFrame`) fitted to the width the caller
+  gives it; never import the library at a call site.
+- One call to action, repeated at each decision point (« Créer mon équipe gratuitement »), and on
+  a phone pinned to the bottom of the screen (`shadow-bar-up`), with the footer padded so the bar
+  never covers it. On a blue-green band the button is `variant="inverseFilled"`.
+- Headings use the marketing sizes: `display` (h1), `section` (h2), `feature` (h3). A re-toned
+  word inside a heading is `Text as="span" size="inherit" tone="brand"`.
+- Claim only what ships: no price, testimonial or figure the team can't back, no « Bientôt ».
 
 ## 11. Design workflow
 

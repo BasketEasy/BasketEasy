@@ -21,7 +21,8 @@ Works on a free private repo: no branch protection, rulesets or auto-merge neede
 
 1. Secret `CLAUDE_CODE_OAUTH_TOKEN`: run `claude setup-token` locally (uses your Claude subscription, no per-token billing).
 2. Secret `REVIEW_AGENT_TOKEN`: fine-grained PAT with `contents` and `pull_requests` write.
-   Needed so a merge triggers `deploy.yml`.
+   Needed so a merge triggers `deploy.yml`. Without it the agent never merges: `merge.sh` fails closed,
+   leaves the PR unapproved and labels it `needs-human`, since a `GITHUB_TOKEN` merge would leave main undeployed.
 3. Settings, Actions: allow Actions to create and approve pull requests.
 4. Variable `REVIEW_AGENT_OWNER`: GitHub login to ping on escalation.
 

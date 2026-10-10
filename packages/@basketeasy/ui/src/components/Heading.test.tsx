@@ -46,4 +46,13 @@ describe('Heading', () => {
     );
     expect(screen.getByRole('heading', { level: 1 })).toHaveClass('m-0', 'text-4xl');
   });
+
+  it('steps the marketing sizes down below md', () => {
+    render(
+      <Heading as="h1" size="display">
+        Moins de tableurs
+      </Heading>,
+    );
+    expect(screen.getByRole('heading', { level: 1 })).toHaveClass('text-5xl', 'md:text-7xl');
+  });
 });
