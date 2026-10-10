@@ -19,7 +19,7 @@ import { useMyAgenda } from '../clubs/useMyAgenda';
  */
 export function ResultsPage() {
   // Computed once per mount, not inline (same reasoning as
-  // PlayerHome/ManagerHome): the window is floored to 5 minutes, so it shares
+  // PlayerHome/ManagerHome): the window is snapped to a quarter hour, so it shares
   // its cache entry with them.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
   const { data, isLoading, isError, refetch, isRefetching } = useMyAgenda(pastWindow);
