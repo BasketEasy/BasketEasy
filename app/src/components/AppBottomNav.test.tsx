@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -221,6 +221,29 @@ describe('AppBottomNav', () => {
       expect(to - from).toBeLessThanOrEqual(14 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000);
       // Snapped to a quarter hour: the home's own request lands on the same key.
       expect(from % (15 * 60 * 1000)).toBe(0);
+    });
+
+    it('moves its window on the next navigation once the quarter hour has passed, as the home that mounts with it does', async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-10T15:01:00.000Z'));
+
+      try {
+        renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+        await waitFor(() => expect(requests).toHaveLength(1));
+        expect(requests[0].get('from')).toBe('2026-10-10T15:00:00.000Z');
+
+        vi.setSystemTime(new Date('2026-10-10T15:17:00.000Z'));
+        fireEvent.click(await screen.findByRole('link', { name: 'Profil' }));
+
+        await waitFor(() => expect(requests).toHaveLength(2));
+        expect(requests[1].get('from')).toBe('2026-10-10T15:15:00.000Z');
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('makes no request above the desktop breakpoint, where it renders nothing', async () => {
