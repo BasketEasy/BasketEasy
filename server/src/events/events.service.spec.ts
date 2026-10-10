@@ -45,6 +45,7 @@ describe('EventsService', () => {
     syncEvents: jest.Mock;
     ensureGuestLink: jest.Mock;
     onEventsChanged: jest.Mock;
+    resolveCancellationPlans: jest.Mock;
     prepareCancellations: jest.Mock;
     afterCancellations: jest.Mock;
   };
@@ -190,6 +191,7 @@ describe('EventsService', () => {
       syncEvents: jest.fn().mockResolvedValue(undefined),
       ensureGuestLink: jest.fn().mockResolvedValue(undefined),
       onEventsChanged: jest.fn().mockResolvedValue(undefined),
+      resolveCancellationPlans: jest.fn().mockResolvedValue(new Map()),
       prepareCancellations: jest.fn().mockResolvedValue({ created: [], discardedShareIds: [] }),
       afterCancellations: jest.fn().mockResolvedValue(undefined),
     };
@@ -4316,6 +4318,7 @@ describe('EventsService', () => {
         expect.anything(),
         'team-1',
         ['event-1'],
+        expect.any(Map),
       );
       expect(whatsAppReminders.afterCancellations).toHaveBeenCalledWith('team-1', prepared);
     });

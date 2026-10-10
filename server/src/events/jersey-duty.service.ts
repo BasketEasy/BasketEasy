@@ -604,8 +604,11 @@ export class JerseyDutyService {
   /**
    * Freezes the suggestion of every match that kicked off in the last 7 days
    * with no duty row: whoever the order picks as of now holds the turn. A
-   * match with an empty pool stays unassigned, and `skipDuplicates` lets a
-   * manager's concurrent write win. Capped per run; the rest waits ten minutes.
+   * match with an empty pool gets a `SUGGESTION` row with no holder, so it is
+   * evaluated once rather than on every run (an unassignable match left row-less
+   * would sit at the head of the oldest-first batch and starve newer ones).
+   * `skipDuplicates` lets a manager's concurrent write win. Capped per run; the
+   * rest waits ten minutes.
    */
   async freezeDue(now: Date): Promise<{ considered: number; frozen: number }> {
     const matches = await this.prisma.event.findMany({
@@ -632,20 +635,19 @@ export class JerseyDutyService {
       );
       const roster = await this.loadRoster(this.prisma, match.teamId, match.id, turns);
       const [first] = orderCandidates(roster.filter(isInPool));
-      if (!first) continue;
       const { count } = await this.prisma.eventJerseyDuty.createMany({
         data: [
           {
             eventId: match.id,
-            teamPlayerId: first.teamPlayerId,
+            teamPlayerId: first?.teamPlayerId ?? null,
             source: JerseyDutySource.SUGGESTION,
           },
         ],
         skipDuplicates: true,
       });
-      frozen += count;
+      if (first) frozen += count;
       // Only a row this run actually created: a concurrent write won otherwise.
-      if (count > 0) {
+      if (count > 0 && first) {
         await this.bestEffort(() =>
           this.notifyDuty(match, {
             audienceTeamPlayerId: first.teamPlayerId,
