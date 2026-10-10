@@ -282,7 +282,7 @@ jobs:
           show_full_output: true
           claude_args: |
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Write,Agent,Task,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "Read,Grep,Glob,Write,Agent,Task,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*),Bash(sleep:*),mcp__github_inline_comment__create_inline_comment"
           prompt: |
             You are the autonomous review agent for REPO ${{ github.repository }}, PR #${{ needs.resolve.outputs.pr }}
             (base ${{ needs.resolve.outputs.base_ref }}, head SHA ${{ needs.resolve.outputs.sha }}).
@@ -303,9 +303,14 @@ jobs:
                review-accessibility, review-coherence, review-scalability). Pass each the PR number,
                base branch and a one-line summary of the change. Skip review-accessibility only if
                nothing under app/ or packages/@basketeasy/ui changed. Issue every Agent call in ONE
-               message, in the foreground (never run_in_background), and wait for ALL results before
-               going on. This is a headless run: your turn ending is the end of the job, so never end
-               it while a lens is still running or before verdict.json is written.
+               message and set run_in_background: false explicitly on each one: left unset, Agent now
+               runs in the background, and the lenses would still be running when your turn ends. Wait
+               for ALL results before going on. This is a headless run: your turn ending is the end of
+               the job, so never end it while a lens is still running or before verdict.json is written.
+               If a lens did start in the background anyway, wait for it with `sleep 30` (repeat as
+               needed) and read its output file; never end the turn to wait for a notification.
+               Run git and gh commands bare from the repo root (the working directory): never prefix
+               them with `cd` or chain them with `&&`, which the allowed tools refuse.
             4. Verify each reported finding yourself against the code. Drop anything you cannot prove.
                Deduplicate across lenses. Apply the privacy-review and backend-slice skills where relevant.
             5. Post every surviving finding as ONE INLINE comment on its line with
