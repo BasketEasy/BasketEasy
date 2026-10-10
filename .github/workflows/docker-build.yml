@@ -1,8 +1,10 @@
 name: Docker build
 
+# PR-only: a push to main re-built the very trees the PR already built, and
+# deploy.yml builds the server image there anyway. Only the paths a PR touches
+# are built (`changes`), not a workflow-level `paths:`, so a skipped job still
+# reports success to branch protection.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -41,13 +43,12 @@ jobs:
               - '.github/workflows/docker-build.yml'
       - id: matrix
         env:
-          PUSH: ${{ github.event_name == 'push' }}
           SERVER: ${{ steps.filter.outputs.server }}
           APP: ${{ steps.filter.outputs.app }}
         run: |
           items=()
-          if [ "$PUSH" = true ] || [ "$SERVER" = true ]; then items+=('{"name":"server","dockerfile":"server/Dockerfile"}'); fi
-          if [ "$PUSH" = true ] || [ "$APP" = true ]; then items+=('{"name":"app","dockerfile":"app/Dockerfile"}'); fi
+          if [ "$SERVER" = true ]; then items+=('{"name":"server","dockerfile":"server/Dockerfile"}'); fi
+          if [ "$APP" = true ]; then items+=('{"name":"app","dockerfile":"app/Dockerfile"}'); fi
           echo "matrix={\"include\":[$(IFS=,; echo "${items[*]}")]}" >> "$GITHUB_OUTPUT"
 
   build-images:

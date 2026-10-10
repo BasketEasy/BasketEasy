@@ -22,6 +22,12 @@ const buttonVariants = cva(
         destructive: 'bg-error text-cream hover:bg-error/90 shadow-segment-active',
         /** An outline control on a filled dark ground (a `critical` Alert). */
         inverse: 'border border-cream/70 bg-transparent text-cream hover:bg-cream/10',
+        /**
+         * The primary action on a filled blue-green band (the landing page's
+         * closing call to action): orange would fight the band, so the button
+         * turns to the surface and takes the band's colour as its text.
+         */
+        inverseFilled: 'bg-surface text-blue-green hover:bg-sunk shadow-segment-active',
       },
       size: {
         sm: 'h-9 px-3 text-sm',
