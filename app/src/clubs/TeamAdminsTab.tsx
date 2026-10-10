@@ -29,6 +29,10 @@ export function TeamAdminsTab({
   isAddAdminOpen,
   setIsAddAdminOpen,
   addableAdmins,
+  isLoadingAddableAdmins,
+  isAddableAdminsError,
+  isAddableAdminsRefetching,
+  refetchAddableAdmins,
   isAdminsError,
   isLoadingAdmins,
   isAdminsRefetching,
@@ -41,6 +45,11 @@ export function TeamAdminsTab({
   isAddAdminOpen: boolean;
   setIsAddAdminOpen: (open: boolean) => void;
   addableAdmins: TeamAdminCandidate[];
+  /** The candidates load when the dialog opens, so the picker has its own states. */
+  isLoadingAddableAdmins: boolean;
+  isAddableAdminsError: boolean;
+  isAddableAdminsRefetching: boolean;
+  refetchAddableAdmins: () => void;
   isAdminsError: boolean;
   isLoadingAdmins: boolean;
   isAdminsRefetching: boolean;
@@ -61,12 +70,21 @@ export function TeamAdminsTab({
               faire un administrateur du club.
             </DialogDescription>
           </DialogHeader>
-          <TeamAdminAddForm
-            clubId={clubId}
-            teamId={teamId}
-            candidates={addableAdmins}
-            onSuccess={() => setIsAddAdminOpen(false)}
-          />
+          {isAddableAdminsError ? (
+            <QueryError
+              onRetry={() => refetchAddableAdmins()}
+              isRetrying={isAddableAdminsRefetching}
+            />
+          ) : isLoadingAddableAdmins ? (
+            <SkeletonList rows={2} />
+          ) : (
+            <TeamAdminAddForm
+              clubId={clubId}
+              teamId={teamId}
+              candidates={addableAdmins}
+              onSuccess={() => setIsAddAdminOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
