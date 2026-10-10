@@ -18,7 +18,7 @@ Work through this before writing a hook, and again on your own diff. The fronten
       anyone can as a routine action, it is finite. `static` for data that is immutable, changed
       solely by mutations that already write the cache, or edited so rarely by another manager
       that showing the edit once the entry is unused for 5 minutes or after a reload is accepted
-      (team and club records, FFBB links, meeting settings). Always mounted (header, bottom nav)? Finite, it is
+      (team and club records, FFBB links, meeting settings). Always mounted (header, bottom nav)? Finite, unless only our own writes change it (the session), it is
       never discarded. Put the reason in a comment on the `staleTime`.
 - [ ] **Key.** A builder in `clubs/queryKeys.ts` (or the domain's `queryKeys.ts`), added in the same
       change as the hook, never an inline array. Hierarchy club, team, event, sub-query; persona

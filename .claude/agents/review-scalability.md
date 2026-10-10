@@ -18,7 +18,7 @@ needs the owner to decide. If clean, say "clean".
 - Provider calls behind a DI seam with timeouts and a fallback. Env vars not boot-validated unless core.
 - Migrations: additive first, locks on big tables, backfills batched, rollback story. Destructive means the owner decides.
 - Frontend: bundle weight (lazy routes, wrapper-only heavy deps), no request waterfalls, polling cost. Server state, per the `server-state` skill and `docs/frontend-stack.md`:
-  - every new query hook sets a `FRESHNESS` tier, and a `static` one has no writer other than our own mutations, or only a rare manager edit accepted until the entry is discarded (`docs/frontend-stack.md`), and is not always mounted;
+  - every new query hook sets a `FRESHNESS` tier, and a `static` one has no writer other than our own mutations, or only a rare manager edit accepted until the entry is discarded (`docs/frontend-stack.md`), and is not always mounted (the session aside: only `replaceSession` writes it);
   - no inline query key, no root key invalidated without `exact: true`, no `new Date()` in a key without snapping it (`myAgendaWindow.ts`);
   - no overlapping invalidations (a key and then a prefix that covers it, or a prefix over the entry just written), and a per-player write never invalidates the team's `events` prefix;
   - a mutation writes its response and refreshes the readers in the dependency table, and the test asserts what stays untouched;
