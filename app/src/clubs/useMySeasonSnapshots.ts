@@ -36,10 +36,11 @@ export function useMySeasonSnapshots(teams: MyTeamSummary[] | undefined): MySeas
     queries: rostered.map((team) => ({
       queryKey: teamSeasonStatsQueryKey(team.clubId, team.teamId, undefined, forPlayerId),
       staleTime: FRESHNESS.slow,
-      queryFn: () =>
+      queryFn: ({ signal }) =>
         apiClient.get<TeamSeasonStats>(
           `/clubs/${team.clubId}/teams/${team.teamId}/stats`,
           forPlayerId ? { forPlayerId } : undefined,
+          { signal },
         ),
       enabled: isReady,
     })),

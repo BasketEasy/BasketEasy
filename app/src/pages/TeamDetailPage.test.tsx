@@ -334,7 +334,7 @@ describe('TeamDetailPage', () => {
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
   });
 
-  it("only reads the club's player list for a club admin, since the route refuses everyone else", async () => {
+  it("only reads the club's player list for a club admin who opens the picker, since the route refuses everyone else", async () => {
     const clubPlayerReads: string[] = [];
     function mockTeamPage() {
       server.use(
@@ -356,10 +356,16 @@ describe('TeamDetailPage', () => {
     expect(clubPlayerReads).toHaveLength(0);
     member.unmount();
 
-    // A club ADMIN reads it, for the « Ajouter un joueur » picker.
+    // A club ADMIN reads it for the « Ajouter un joueur » picker, once it opens
+    // and not before.
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     mockTeamPage();
-    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=roster' });
+    await screen.findAllByRole('button', { name: /ajouter un joueur/i });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(clubPlayerReads).toHaveLength(0);
+    await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
     await waitFor(() => expect(clubPlayerReads).toHaveLength(1));
   });
 
@@ -588,7 +594,7 @@ describe('TeamDetailPage', () => {
     // CTA both render — either opens the same "Ajouter un joueur" dialog.
     await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
 
-    await user.click(screen.getByRole('combobox', { name: /joueur/i }));
+    await user.click(await screen.findByRole('combobox', { name: /joueur/i }));
     await user.click(await screen.findByRole('option', { name: 'Alex Dupont' }));
     await user.click(screen.getByRole('button', { name: /ajouter à l'effectif/i }));
 
@@ -1179,6 +1185,166 @@ describe('TeamDetailPage', () => {
       'href',
       '/my-teams',
     );
+  });
+
+  describe('loads only the active tab’s data', () => {
+    // Every request the page makes, as "path?query" without the /api prefix.
+    function recordRequests() {
+      const seen: string[] = [];
+      const onStart = ({ request }: { request: Request }) => {
+        const url = new URL(request.url);
+        if (request.method === 'GET') seen.push(url.pathname.replace('/api', '') + url.search);
+      };
+      server.events.on('request:start', onStart);
+      afterEachCleanup.push(() => server.events.removeListener('request:start', onStart));
+      return seen;
+    }
+    const afterEachCleanup: (() => void)[] = [];
+    afterEach(() => {
+      afterEachCleanup.splice(0).forEach((fn) => fn());
+    });
+
+    const TEAM = '/clubs/club-1/teams/team-1';
+    const countOf = (seen: string[], pattern: RegExp) => seen.filter((r) => pattern.test(r)).length;
+    // The tab-owned reads, told apart by their query string.
+    const PAGED_PLAYERS = /^\/clubs\/club-1\/teams\/team-1\/players\?.*page=1/;
+    const PAGED_CLUBS = /^\/clubs\/club-1\/teams\/team-1\/clubs\?.*page=1/;
+    const EVENTS_TABLE = /^\/clubs\/club-1\/teams\/team-1\/events\?.*page=1/;
+    const CLUB_PLAYERS = /^\/clubs\/club-1\/players/;
+    const CANDIDATES = /\/admins\/eligible/;
+    const ME_DASHBOARD = /^\/me\/dashboard/;
+
+    function mockManagerTeam() {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+          HttpResponse.json(
+            paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+          ),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/admins', () => HttpResponse.json([])),
+        http.get('/api/clubs/club-1/teams/team-1/admins/eligible', () => HttpResponse.json([])),
+      );
+    }
+
+    it('keeps the other tabs’ reads off a manager’s Événements tab, and loads each when its tab opens', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: TEAM });
+
+      // Événements: the hero, the tab badges and the permission read only.
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      await waitFor(() => expect(countOf(seen, ME_DASHBOARD)).toBe(1));
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, PAGED_CLUBS)).toBe(0);
+      expect(countOf(seen, CLUB_PLAYERS)).toBe(0);
+      expect(countOf(seen, CANDIDATES)).toBe(0);
+      // The roster total (hero + badge), the owner club and the first events page
+      // are what the hero and the tab list read: they stay.
+      expect(countOf(seen, /\/players\?pageSize=100$/)).toBe(1);
+      expect(countOf(seen, /\/clubs\?pageSize=100$/)).toBe(1);
+      expect(countOf(seen, EVENTS_TABLE)).toBe(1);
+
+      // Effectif, cards: the full roster is already there; the table's page is not read.
+      await goToTab(user, /^effectif$/i);
+      expect(await screen.findByText('Joueurs (1)')).toBeInTheDocument();
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, ME_DASHBOARD)).toBe(1);
+
+      // Effectif, table: now the paginated page is read, once.
+      await user.click(screen.getByRole('button', { name: /^tableau$/i }));
+      expect(await screen.findByText('Dupont')).toBeInTheDocument();
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(1);
+
+      // Clubs partenaires: the paginated list is read when the tab opens.
+      await goToTab(user, /clubs partenaires/i);
+      await waitFor(() => expect(countOf(seen, PAGED_CLUBS)).toBe(1));
+
+      // Administrateurs: the list was read for the badge; the candidates wait for the dialog.
+      await goToTab(user, /^administrateurs$/i);
+      expect(await screen.findByText("Aucun administrateur d'équipe")).toBeInTheDocument();
+      expect(countOf(seen, CANDIDATES)).toBe(0);
+      await user.click(screen.getAllByRole('button', { name: /ajouter un administrateur/i })[0]);
+      await waitFor(() => expect(countOf(seen, CANDIDATES)).toBe(1));
+
+      // Back on Événements, the dashboard read is still the cached one.
+      await user.keyboard('{Escape}');
+      await goToTab(user, /^événements/i);
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      expect(countOf(seen, ME_DASHBOARD)).toBe(1);
+    });
+
+    it('reads a team page opened on another tab for that tab only', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=clubs` });
+
+      await waitFor(() => expect(countOf(seen, PAGED_CLUBS)).toBe(1));
+      expect(countOf(seen, ME_DASHBOARD)).toBe(0);
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+    });
+
+    it('does not read a table view or a table of clubs for a player', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      renderWithProviders(<App />, { route: TEAM });
+
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(countOf(seen, EVENTS_TABLE)).toBe(0);
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, PAGED_CLUBS)).toBe(0);
+      expect(countOf(seen, ME_DASHBOARD)).toBe(0);
+    });
+
+    it('shows a retry, not an empty picker, when the club players fail to load in the add-player dialog', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      server.use(
+        http.get('/api/clubs/club-1/players', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=roster` });
+
+      await user.click((await screen.findAllByRole('button', { name: /ajouter un joueur/i }))[0]);
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        await within(dialog).findByText('Chargement impossible', {}, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    });
+
+    it('shows a retry, not an empty picker, when the candidates fail to load in the add-admin dialog', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/admins/eligible', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=admins` });
+
+      await user.click(
+        (await screen.findAllByRole('button', { name: /ajouter un administrateur/i }))[0],
+      );
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        await within(dialog).findByText('Chargement impossible', {}, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    });
   });
 
   describe('player role (no manage rights)', () => {

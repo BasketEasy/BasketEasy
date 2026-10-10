@@ -78,7 +78,10 @@ export function usePushSubscription(): PushSubscriptionState {
   // rather than offering a subscription nothing could ever deliver to.
   const { data: vapid } = useQuery({
     queryKey: pushPublicKeyQueryKey,
-    queryFn: () => apiClient.get<VapidPublicKeyResponse>('/me/push-subscriptions/public-key'),
+    queryFn: ({ signal }) =>
+      apiClient.get<VapidPublicKeyResponse>('/me/push-subscriptions/public-key', undefined, {
+        signal,
+      }),
     enabled: supported,
     staleTime: FRESHNESS.static,
   });

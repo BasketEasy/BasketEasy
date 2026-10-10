@@ -8,6 +8,9 @@ export function useClubMeetingSettings(clubId: string) {
   return useQuery({
     queryKey: clubMeetingSettingsQueryKey(clubId),
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<ClubMeetingSettings>(`/clubs/${clubId}/meeting-settings`),
+    queryFn: ({ signal }) =>
+      apiClient.get<ClubMeetingSettings>(`/clubs/${clubId}/meeting-settings`, undefined, {
+        signal,
+      }),
   });
 }

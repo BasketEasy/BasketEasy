@@ -20,11 +20,15 @@ export function useTeamSeasonStats(clubId: string, teamId: string, season?: numb
     // Awards count every teammate's vote, and `season: 'current'` rolls over on
     // 1 September: both move without a write of ours.
     staleTime: FRESHNESS.slow,
-    queryFn: () =>
-      apiClient.get<TeamSeasonStats>(`/clubs/${clubId}/teams/${teamId}/stats`, {
-        ...(season === undefined ? {} : { season }),
-        ...(forPlayerId ? { forPlayerId } : {}),
-      }),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamSeasonStats>(
+        `/clubs/${clubId}/teams/${teamId}/stats`,
+        {
+          ...(season === undefined ? {} : { season }),
+          ...(forPlayerId ? { forPlayerId } : {}),
+        },
+        { signal },
+      ),
     enabled: isReady,
   });
   // A query held back for the persona is still loading, not empty: callers

@@ -21,7 +21,7 @@ export function useMyAgenda(
   const scoped = forPlayerId ? { ...params, forPlayerId } : params;
   return useQuery({
     queryKey: myDashboardQueryKey(scoped),
-    queryFn: () => apiClient.get<MyDashboardSummary>('/me/dashboard', scoped),
+    queryFn: ({ signal }) => apiClient.get<MyDashboardSummary>('/me/dashboard', scoped, { signal }),
     staleTime: options?.freshness ?? FRESHNESS.feed,
     enabled: isReady && (options?.enabled ?? true),
   });

@@ -11,7 +11,8 @@ export function useTeamAdminList(clubId: string, teamId: string, enabled = true)
     queryKey: teamAdminsQueryKey(clubId, teamId),
     // Who holds authority over the team: another manager can grant or revoke it.
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<TeamAdmin[]>(`/clubs/${clubId}/teams/${teamId}/admins`),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamAdmin[]>(`/clubs/${clubId}/teams/${teamId}/admins`, undefined, { signal }),
     enabled,
   });
 }

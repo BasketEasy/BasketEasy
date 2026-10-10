@@ -43,9 +43,11 @@ export function scoresheetStatusStaleTime(query: Query<EventScoresheet | null>):
 export function useEventScoresheetStatus(clubId: string, teamId: string, eventId: string) {
   return useQuery({
     queryKey: eventScoresheetStatusQueryKey(clubId, teamId, eventId),
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<EventScoresheet | null>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/scoresheet`,
+        undefined,
+        { signal },
       ),
     staleTime: scoresheetStatusStaleTime,
     refetchInterval: (query) => {

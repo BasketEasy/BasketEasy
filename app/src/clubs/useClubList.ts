@@ -18,7 +18,7 @@ export function useClubList() {
     // Mounted for the whole session (header, club switcher), so never discarded:
     // a finite tier, or a club added by someone else would never show up.
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<Club[]>('/clubs'),
+    queryFn: ({ signal }) => apiClient.get<Club[]>('/clubs', undefined, { signal }),
     enabled: Boolean(user),
   });
 }

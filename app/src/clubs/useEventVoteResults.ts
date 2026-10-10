@@ -38,8 +38,12 @@ export function useEventVoteResults(
 ) {
   return useQuery({
     queryKey: eventVoteResultsQueryKey(clubId, teamId, eventId),
-    queryFn: () =>
-      apiClient.get<EventVoteResults>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}/votes`),
+    queryFn: ({ signal }) =>
+      apiClient.get<EventVoteResults>(
+        `/clubs/${clubId}/teams/${teamId}/events/${eventId}/votes`,
+        undefined,
+        { signal },
+      ),
     staleTime: voteResultsStaleTime(startsAt),
     enabled,
   });
