@@ -1,6 +1,13 @@
 import type { GetDashboardParams } from '@basketeasy/types/my-dashboard';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const SNAP_IN_MS = 15 * 60 * 1000;
+
+// Bounds are snapped to a quarter hour so every mount inside it builds the
+// same query key and hits the cache, instead of a fresh `new Date()` key (and
+// request) per visit. `from` rounds down and `to` up, so the window only grows.
+const floorToSnap = (ms: number) => Math.floor(ms / SNAP_IN_MS) * SNAP_IN_MS;
+const ceilToSnap = (ms: number) => Math.ceil(ms / SNAP_IN_MS) * SNAP_IN_MS;
 
 /**
  * `GET /me/dashboard` defaults to a 7-day window server-side
@@ -39,15 +46,15 @@ export function roundedNow(now: Date = new Date()): Date {
 /** `now → now + 14 days`, in the shape `useMyAgenda` expects. */
 export function playerAgendaWindowParams(now: Date = roundedNow()): GetDashboardParams {
   return {
-    from: now.toISOString(),
-    to: new Date(now.getTime() + PLAYER_AGENDA_WINDOW_DAYS * DAY_IN_MS).toISOString(),
+    from: new Date(floorToSnap(now.getTime())).toISOString(),
+    to: new Date(ceilToSnap(now.getTime()) + PLAYER_AGENDA_WINDOW_DAYS * DAY_IN_MS).toISOString(),
   };
 }
 
 /** `now − 30 days → now`. */
 export function pastMatchesWindowParams(now: Date = roundedNow()): GetDashboardParams {
   return {
-    from: new Date(now.getTime() - PAST_MATCHES_WINDOW_DAYS * DAY_IN_MS).toISOString(),
-    to: now.toISOString(),
+    from: new Date(floorToSnap(now.getTime()) - PAST_MATCHES_WINDOW_DAYS * DAY_IN_MS).toISOString(),
+    to: new Date(ceilToSnap(now.getTime())).toISOString(),
   };
 }

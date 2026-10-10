@@ -40,6 +40,10 @@ const textVariants = cva('', {
       xl: 'text-xl',
       '2xl': 'text-2xl',
       '3xl': 'text-3xl',
+      /** A big standalone figure (the landing page's step numbers). */
+      '5xl': 'text-5xl',
+      /** Inherit from the parent — a span re-toned inside a Heading. */
+      inherit: '',
     },
     tone: {
       primary: 'text-charcoal',

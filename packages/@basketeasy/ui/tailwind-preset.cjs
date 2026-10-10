@@ -63,6 +63,12 @@ module.exports = {
         heading: ['"Big Shoulders Display"', '"Arial Narrow"', 'sans-serif'],
         sans: ['"Atkinson Hyperlegible"', 'Verdana', 'system-ui', 'sans-serif'],
       },
+      // DeviceFrame's phone: the mockup is a padded box with side buttons, so
+      // a box-shadow would draw a rectangle; a drop-shadow follows the bezel.
+      // Darker than frame-browser because the bezel is charcoal, not surface.
+      dropShadow: {
+        'frame-phone': ['0 18px 20px rgba(59, 42, 24, 0.22)', '0 4px 5px rgba(59, 42, 24, 0.12)'],
+      },
       // Stock Tailwind shadows are neutral grey and read cold on a warm
       // ground. Overriding the scale upgrades every existing shadow-* call
       // site without touching one of them.
@@ -80,6 +86,13 @@ module.exports = {
         // along the top edge, between the bar and the content it covers.
         'nav-active-top': 'inset 0 2px 0 #D4622A',
         'segment-active': 'inset 0 -3px 0 rgba(0, 0, 0, 0.18)',
+        // DeviceFrame (`@basketeasy/ui/device-frame`): a product screenshot
+        // lifted off the page. Deeper and wider than shadow-lg because the
+        // frame is the hero of its section, not a card among others.
+        'frame-browser': '0 18px 40px rgba(59, 42, 24, 0.16), 0 4px 10px rgba(59, 42, 24, 0.08)',
+        // A bar pinned to the bottom of the viewport (the landing page's
+        // mobile CTA bar): the shadow falls upward, onto the content it covers.
+        'bar-up': '0 -6px 16px rgba(59, 42, 24, 0.1)',
       },
       // Radius scale, overridden like boxShadow so every existing rounded-*
       // call site picks up the Parquet shapes without being touched: `md`

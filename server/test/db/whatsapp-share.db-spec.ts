@@ -183,7 +183,7 @@ describe('WhatsApp share against Postgres', () => {
     await service.confirmShare(club.id, team.id, event.id, 'REMINDER', user.id, 'COPY');
 
     await prisma.$transaction(async (tx) => {
-      await service.prepareCancellations(tx, team.id, [event.id]);
+      await service.prepareCancellations(tx, team.id, [event.id], new Map());
       await tx.event.deleteMany({ where: { id: event.id } });
     });
 
