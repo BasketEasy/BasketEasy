@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AddClubMemberRequest, ClubMember } from '@basketeasy/types/club-members';
 import { apiClient } from '../api/client';
-import { clubMembersQueryKey } from './queryKeys';
+import { clubMembersQueryKey, isTeamAdminCandidatesQuery } from './queryKeys';
 
 export function useClubMemberAdd(clubId: string) {
   const queryClient = useQueryClient();
@@ -15,6 +15,8 @@ export function useClubMemberAdd(clubId: string) {
     // refetch every cached variant instead (see docs/frontend-stack.md).
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clubMembersQueryKey(clubId) });
+      // The candidates for a team's admin are the members of its linked clubs.
+      queryClient.invalidateQueries({ predicate: isTeamAdminCandidatesQuery });
     },
   });
 }

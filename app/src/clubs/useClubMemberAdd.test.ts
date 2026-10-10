@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { useClubMemberAdd } from './useClubMemberAdd';
+import { createSeededCache } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -41,5 +42,22 @@ describe('useClubMemberAdd', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(queryClient.getQueryState(['clubs', 'club-1', 'members', {}])?.isInvalidated).toBe(true);
+  });
+
+  it('refreshes the admin candidates of every team too, not the admins themselves', async () => {
+    server.use(
+      http.post('/api/clubs/club-1/members', () => HttpResponse.json({ userId: 'user-2' })),
+    );
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useClubMemberAdd('club-1'), { wrapper });
+
+    result.current.mutate({ email: 'a@b.com' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual([
+      'club members',
+      'other team admin candidates',
+      'team admin candidates',
+    ]);
   });
 });

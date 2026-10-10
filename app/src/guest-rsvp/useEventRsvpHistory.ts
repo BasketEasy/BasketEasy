@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EventRsvpChangeEntry } from '@basketeasy/types/guest-links';
 import { apiClient } from '../api/client';
+import { rsvpHistoryQueryKey } from '../clubs/queryKeys';
 
 /** Lazy: only fetched while the history dialog is open. */
 export function useEventRsvpHistory(
@@ -11,7 +12,7 @@ export function useEventRsvpHistory(
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey: ['clubs', clubId, 'teams', teamId, 'events', eventId, 'rsvp-history', teamPlayerId],
+    queryKey: rsvpHistoryQueryKey(clubId, teamId, eventId, teamPlayerId),
     queryFn: () =>
       apiClient.get<EventRsvpChangeEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps/${teamPlayerId}/history`,

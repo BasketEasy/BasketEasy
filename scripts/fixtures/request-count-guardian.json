@@ -527,5 +527,62 @@
       }
     ]
   },
-  "GET /api/me/teams": []
+  "GET /api/me/teams": [],
+  "PATCH /api/clubs/club-1/teams/team-1/events/event-1/rsvp": {
+    "id": "event-1",
+    "teamId": "team-1",
+    "type": "MATCH",
+    "startsAt": "2026-10-09T18:30:00.000Z",
+    "location": "Salle des Sports de la Trocardière, Rezé",
+    "notes": null,
+    "opponentName": "Rezé Basket",
+    "venue": "AWAY",
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": {
+      "firstName": "Marc",
+      "lastInitial": "M",
+      "isMe": false
+    },
+    "myRsvpRespondedAt": "2026-10-02T14:00:00.000Z",
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": true,
+    "rsvpSummary": {
+      "rosterSize": 5,
+      "convoked": 5,
+      "answering": 5,
+      "going": 4,
+      "maybe": 1,
+      "notGoing": 0,
+      "pending": 0,
+      "isConvocationScoped": true
+    },
+    "logistics": {
+      "jerseys": null,
+      "balls": null
+    },
+    "result": null,
+    "myMatchStats": null,
+    "meetingPlan": {
+      "arrivalAt": "2026-10-09T17:45:00.000Z",
+      "arrivalBufferMinutes": 45,
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "meetingPointSource": "CLUB",
+      "travelMinutes": 23,
+      "travelMinutesSource": "COMPUTED",
+      "meetsAt": "2026-10-09T17:15:00.000Z",
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
+    },
+    "myTravelMode": "MEETING_POINT"
+  }
 }

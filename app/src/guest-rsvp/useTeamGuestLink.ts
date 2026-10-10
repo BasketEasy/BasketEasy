@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TeamGuestLinkInfo } from '@basketeasy/types/guest-links';
 import { apiClient } from '../api/client';
-
-const guestLinkQueryKey = (clubId: string, teamId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'guest-link'] as const;
+import { guestLinkQueryKey } from '../clubs/queryKeys';
 
 const path = (clubId: string, teamId: string) => `/clubs/${clubId}/teams/${teamId}/guest-link`;
 
