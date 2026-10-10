@@ -11,6 +11,7 @@ import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { Text } from '@basketeasy/ui/text';
 import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
 import type { MyAgendaEvent, MyDashboardSummary } from '@basketeasy/types/my-dashboard';
+import { FRESHNESS } from '../api/freshness';
 import { eventDayKey, formatDayHeading } from './eventDateFormat';
 import { MyAgendaEventCard } from './MyAgendaEventCard';
 import { PastMatchesSection } from './PastMatchesSection';
@@ -104,7 +105,7 @@ export function PlayerHome({
   // hour (`myAgendaWindow.ts`) so every screen shares one cache entry, but a mounted
   // screen should not slide to the next slot's key mid-visit.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
-  const pastMatchesQuery = useMyAgenda(pastWindow);
+  const pastMatchesQuery = useMyAgenda(pastWindow, { freshness: FRESHNESS.slow });
   // Most recent first: the newest is « Dernier match », the next three are
   // « Derniers résultats ».
   const pastMatches = (pastMatchesQuery.data?.upcomingEvents ?? [])

@@ -819,8 +819,12 @@ describe('TeamDetailPage', () => {
     // Toggling back to agenda resets the search that was active in table view.
     await user.click(agendaOption);
     expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
-    await waitFor(() => expect(requestedSearches[requestedSearches.length - 1]).toBe(''));
     expect(screen.getByText('Gymnase A')).toBeInTheDocument();
+    // The unfiltered list is still fresh in the cache, so going back asks for
+    // nothing: the reset shows in the table coming back empty-handed.
+    expect(requestedSearches[requestedSearches.length - 1]).toBe('gym');
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    expect(screen.getByLabelText('Rechercher un événement')).toHaveValue('');
   });
 
   it('toggles the agenda between upcoming and past events, and resets to upcoming when leaving agenda view', async () => {
@@ -940,8 +944,12 @@ describe('TeamDetailPage', () => {
     // Toggling back to cards resets the search that was active in table view.
     await user.click(cardsOption);
     expect(screen.queryByLabelText("Rechercher un joueur de l'effectif")).not.toBeInTheDocument();
-    await waitFor(() => expect(requestedSearches[requestedSearches.length - 1]).toBe(''));
     expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
+    // The unfiltered roster is still fresh in the cache, so going back asks for
+    // nothing: the reset shows in the table coming back empty-handed.
+    expect(requestedSearches[requestedSearches.length - 1]).toBe('dup');
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
+    expect(screen.getByLabelText("Rechercher un joueur de l'effectif")).toHaveValue('');
   });
 
   it('groups the card view by role, with a Joueuses heading for a WOMEN team', async () => {

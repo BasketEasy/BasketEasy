@@ -130,7 +130,7 @@ describe('useEventRsvpSet', () => {
           useEventList('club-1', 'team-1'),
           useEventRsvps('club-1', 'team-1', 'event-1', true),
           useEventConvocations('club-1', 'team-1', 'event-1', true),
-          useEventVoteResults('club-1', 'team-1', 'event-1'),
+          useEventVoteResults('club-1', 'team-1', 'event-1', '2026-01-05T18:00:00.000Z'),
           useJerseyDuty('club-1', 'team-1', 'event-1'),
           useJerseyRotation('club-1', 'team-1'),
           useMyAgenda(),

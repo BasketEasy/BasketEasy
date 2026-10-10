@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type Query } from '@tanstack/react-query';
 import type { EventScoresheet, EventScoresheetStatus } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { eventScoresheetStatusQueryKey } from './queryKeys';
 
 // Statuses the async OCR pipeline is still expected to move off on its own.
@@ -14,6 +15,19 @@ const POLL_INTERVAL_MS = 5000;
 
 export function isScoresheetPending(status: EventScoresheetStatus): boolean {
   return PENDING_STATUSES.includes(status);
+}
+
+/**
+ * Always stale while the OCR job is in flight (it polls, and a remount in the
+ * middle must not trust an older answer), `static` once a manager confirmed the
+ * sheet (a confirmed sheet is never replaced), `live` otherwise: a teammate can
+ * upload, retry or confirm while this tab is open.
+ */
+export function scoresheetStatusStaleTime(query: Query<EventScoresheet | null>): number {
+  const current = query.state.data;
+  if (current && isScoresheetPending(current.status)) return 0;
+  if (current?.status === 'CONFIRMED') return FRESHNESS.static;
+  return FRESHNESS.live;
 }
 
 /**
@@ -33,6 +47,7 @@ export function useEventScoresheetStatus(clubId: string, teamId: string, eventId
       apiClient.get<EventScoresheet | null>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/scoresheet`,
       ),
+    staleTime: scoresheetStatusStaleTime,
     refetchInterval: (query) => {
       const current = query.state.data;
       return current && isScoresheetPending(current.status) ? POLL_INTERVAL_MS : false;

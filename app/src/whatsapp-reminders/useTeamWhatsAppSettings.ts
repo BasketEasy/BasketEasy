@@ -5,6 +5,7 @@ import type {
   UpdateTeamWhatsAppSettingsResponse,
 } from '@basketeasy/types/whatsapp-reminder';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import {
   guestLinkQueryKey,
   teamEventsQueryKeyPrefix,
@@ -17,6 +18,8 @@ const path = (clubId: string, teamId: string) =>
 export function useTeamWhatsAppSettings(clubId: string, teamId: string) {
   return useQuery({
     queryKey: whatsAppSettingsQueryKey(clubId, teamId),
+    // `hasReachableManager` follows the managers' own notification choices.
+    staleTime: FRESHNESS.slow,
     queryFn: () => apiClient.get<TeamWhatsAppSettings>(path(clubId, teamId)),
   });
 }

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { teamSeasonStatsQueryKey } from './queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -16,6 +17,9 @@ export function useTeamSeasonStats(clubId: string, teamId: string, season?: numb
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: teamSeasonStatsQueryKey(clubId, teamId, season, forPlayerId),
+    // Awards count every teammate's vote, and `season: 'current'` rolls over on
+    // 1 September: both move without a write of ours.
+    staleTime: FRESHNESS.slow,
     queryFn: () =>
       apiClient.get<TeamSeasonStats>(`/clubs/${clubId}/teams/${teamId}/stats`, {
         ...(season === undefined ? {} : { season }),

@@ -2,6 +2,7 @@ import { useQueries } from '@tanstack/react-query';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import type { TeamSeasonPlayerStats, TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { useActingAs } from '../guardians/useActingAs';
 import { teamSeasonStatsQueryKey } from './queryKeys';
 
@@ -34,6 +35,7 @@ export function useMySeasonSnapshots(teams: MyTeamSummary[] | undefined): MySeas
   const results = useQueries({
     queries: rostered.map((team) => ({
       queryKey: teamSeasonStatsQueryKey(team.clubId, team.teamId, undefined, forPlayerId),
+      staleTime: FRESHNESS.slow,
       queryFn: () =>
         apiClient.get<TeamSeasonStats>(
           `/clubs/${team.clubId}/teams/${team.teamId}/stats`,

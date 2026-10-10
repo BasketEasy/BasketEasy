@@ -51,6 +51,11 @@ admins only invite, `pendingCount` window 14 days, re-accepting one's own accept
   parent's deep link uses the child's club and `?pour=<playerId>`.
 - Persona is the last segment of each persona-scoped query key so prefix invalidations still match
   every persona, and switching never shows one persona's cached answer under another's name.
+- The persona list is refreshed once when a team or an event page opens (`useRefreshPersonasOnEntry`,
+  `refetchOnMount: 'always'`), not by every team-scoped hook: the child may have joined the team since
+  the list loaded, and a stale list would have a parent who also plays there answer as themself, but
+  a hook that refetched it on each mount cost a `/me/personas` call per dialog. Between entries the
+  list is `slow` (10 minutes).
 - A minor can't remove their own parents; a minor sees « Tes parents peuvent répondre pour toi. ».
 
 ## Out of scope

@@ -33,6 +33,7 @@ import {
 } from '@basketeasy/types/platform-admin-search';
 import type { AdminStats, AdminStatsQuery } from '@basketeasy/types/platform-admin-stats';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import {
   adminAuditLogQueryKey,
   adminClubMembersQueryKey,
@@ -59,18 +60,22 @@ import {
 /**
  * Reads that write ADMIN_PII_LISTED server-side (a DATA_OFFICER's person
  * lists, rosters, events, the audit log, any search): no refetch on focus or
- * reconnect, for the same reason as `personRecordOptions` below. They still
- * refetch after a mutation invalidates them, which is a read someone asked for.
+ * reconnect, for the same reason as `personRecordOptions` below, and `static`:
+ * going back to a list reads it from the cache instead of writing another
+ * ADMIN_PII_LISTED row. They still refetch after a mutation invalidates them,
+ * which is a read someone asked for, and on the page's own refresh button.
  */
 const auditedListOptions = {
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
+  staleTime: FRESHNESS.static,
 } as const;
 
 export function useRetentionRuns() {
   return useQuery({
     queryKey: retentionRunsQueryKey,
     queryFn: () => apiClient.get<RetentionRunSummary[]>('/admin/retention/runs'),
+    staleTime: FRESHNESS.slow,
   });
 }
 
@@ -87,6 +92,7 @@ export function useAdminClubs(query: AdminClubsQuery) {
   return useQuery({
     queryKey: adminClubsQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AdminClubSummary>>('/admin/clubs', query),
+    staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
 }
@@ -95,6 +101,7 @@ export function useAdminClub(clubId: string) {
   return useQuery({
     queryKey: adminClubQueryKey(clubId),
     queryFn: () => apiClient.get<AdminClubDetail>(`/admin/clubs/${clubId}`),
+    staleTime: FRESHNESS.slow,
   });
 }
 
@@ -112,6 +119,7 @@ export function useAdminTeams(query: AdminTeamsQuery) {
   return useQuery({
     queryKey: adminTeamsQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AdminTeamSummary>>('/admin/teams', query),
+    staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
 }
@@ -151,7 +159,7 @@ export function useAdminUsers(query: AdminUsersQuery) {
 const personRecordOptions = {
   refetchOnWindowFocus: false,
   refetchOnReconnect: false,
-  staleTime: Infinity,
+  staleTime: FRESHNESS.static,
   retry: false,
 } as const;
 
@@ -184,6 +192,7 @@ export function useAdminEvents(query: AdminEventsQuery, options: { enabled?: boo
   return useQuery({
     queryKey: adminEventsQueryKey(query),
     queryFn: () => apiClient.get<PaginatedResult<AdminEventSummary>>('/admin/events', query),
+    staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
     enabled: options.enabled ?? true,
   });
@@ -202,13 +211,14 @@ export function useAdminScoresheets(query: AdminScoresheetsQuery) {
     queryKey: adminScoresheetsQueryKey(query),
     queryFn: () =>
       apiClient.get<PaginatedResult<AdminScoresheetSummary>>('/admin/scoresheets', query),
+    staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
 }
 
 /**
- * The global search. Idle below the minimum length (the API would 400), and
- * kept fresh for 30s so reopening the box on the same text is instant.
+ * The global search. Idle below the minimum length (the API would 400). Audited
+ * like the lists, so reopening the box on the same text reads the cache.
  */
 export function useAdminSearch(q: string) {
   const query = q.trim();
@@ -216,7 +226,6 @@ export function useAdminSearch(q: string) {
     queryKey: adminSearchQueryKey(query),
     queryFn: () => apiClient.get<AdminSearchResult>('/admin/search', { q: query }),
     enabled: query.length >= ADMIN_SEARCH_MIN_LENGTH,
-    staleTime: 30_000,
     placeholderData: keepPreviousData,
     ...auditedListOptions,
   });
@@ -228,6 +237,6 @@ export function useAdminStats(query: AdminStatsQuery) {
     queryKey: adminStatsQueryKey(query),
     queryFn: () => apiClient.get<AdminStats>('/admin/stats', query),
     placeholderData: keepPreviousData,
-    staleTime: 60_000,
+    staleTime: FRESHNESS.feed,
   });
 }

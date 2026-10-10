@@ -14,6 +14,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { User } from '@basketeasy/types/auth';
 import { ApiError, apiClient, refreshAccessToken, setAccessToken } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { isImpersonating } from '../impersonation/impersonationSession';
 
 export const sessionQueryKey = ['auth', 'session'] as const;
@@ -105,7 +106,7 @@ export function useSession() {
     // is single-use — a second automatic call would 401 and log the user
     // out. Login/register/logout mutations update this query's cached data
     // directly instead of triggering a refetch.
-    staleTime: Infinity,
+    staleTime: FRESHNESS.static,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

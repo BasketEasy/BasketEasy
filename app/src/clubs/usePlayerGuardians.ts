@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { GuardianInviteLink, PlayerGuardians } from '@basketeasy/types/guardians';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { clubPlayerGuardiansQueryKey, clubPlayersQueryKey } from './queryKeys';
 
 // Fetched only while the « Parents » dialog is open — same lazy convention as
@@ -8,6 +9,9 @@ import { clubPlayerGuardiansQueryKey, clubPlayersQueryKey } from './queryKeys';
 export function usePlayerGuardians(clubId: string, playerId: string, enabled: boolean) {
   return useQuery({
     queryKey: clubPlayerGuardiansQueryKey(clubId, playerId),
+    // A parent accepts their link on their own device while the admin has this
+    // dialog open.
+    staleTime: FRESHNESS.live,
     queryFn: () => apiClient.get<PlayerGuardians>(`/clubs/${clubId}/players/${playerId}/guardians`),
     enabled,
   });

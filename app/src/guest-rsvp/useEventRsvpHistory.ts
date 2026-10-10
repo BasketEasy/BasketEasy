@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EventRsvpChangeEntry } from '@basketeasy/types/guest-links';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { rsvpHistoryQueryKey } from '../clubs/queryKeys';
 
 /** Lazy: only fetched while the history dialog is open. */
@@ -13,6 +14,7 @@ export function useEventRsvpHistory(
 ) {
   return useQuery({
     queryKey: rsvpHistoryQueryKey(clubId, teamId, eventId, teamPlayerId),
+    staleTime: FRESHNESS.live,
     queryFn: () =>
       apiClient.get<EventRsvpChangeEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps/${teamPlayerId}/history`,
