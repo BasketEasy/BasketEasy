@@ -1,0 +1,1340 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "id": "user-ines",
+    "email": "ines.petit@example.fr",
+    "firstName": "Inès",
+    "lastName": "Petit",
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ES Erdre Basket",
+      "ffbbClubCode": null,
+      "createdAt": "2025-06-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ES Erdre Basket",
+    "ffbbClubCode": null,
+    "createdAt": "2025-06-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 0
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking du gymnase de la Jonelière",
+      "address": "Rue de la Jonelière, 44300 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": null,
+    "clubDefaults": {
+      "clubName": "ES Erdre Basket",
+      "meetingPoint": {
+        "name": "Parking du gymnase de la Jonelière",
+        "address": "Rue de la Jonelière, 44300 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors Filles 1",
+    "category": "SENIORS",
+    "gender": "WOMEN",
+    "createdAt": "2025-06-01T00:00:00.000Z",
+    "jerseyRotationEnabled": false
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [
+      {
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "isOwner": true,
+        "linkedAt": "2025-06-01T00:00:00.000Z"
+      },
+      {
+        "clubId": "club-2",
+        "clubName": "Avenir Basket Sucé",
+        "isOwner": false,
+        "linkedAt": "2025-06-02T00:00:00.000Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [
+      {
+        "id": "tp-lea",
+        "teamId": "team-1",
+        "playerId": "p-tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-sarah",
+        "teamId": "team-1",
+        "playerId": "p-tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-manon",
+        "teamId": "team-1",
+        "playerId": "p-tp-manon",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-amina",
+        "teamId": "team-1",
+        "playerId": "p-tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-chloe",
+        "teamId": "team-1",
+        "playerId": "p-tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-jade",
+        "teamId": "team-1",
+        "playerId": "p-tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-emma",
+        "teamId": "team-1",
+        "playerId": "p-tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-zoe",
+        "teamId": "team-1",
+        "playerId": "p-tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-clara",
+        "teamId": "team-1",
+        "playerId": "p-tp-clara",
+        "firstName": "Clara",
+        "lastName": "Fontaine",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-maelys",
+        "teamId": "team-1",
+        "playerId": "p-tp-maelys",
+        "firstName": "Maëlys",
+        "lastName": "Perrin",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-ines",
+        "teamId": "team-1",
+        "playerId": "p-tp-ines",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "clubId": "club-1",
+        "role": "COACH",
+        "jerseyDutyExempt": true,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      }
+    ],
+    "total": 11,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/players": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/events": {
+    "items": [
+      {
+        "teamId": "team-1",
+        "type": "MATCH",
+        "notes": null,
+        "recurrenceId": null,
+        "createdAt": "2026-09-01T00:00:00.000Z",
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "isImported": false,
+        "timeConfirmed": true,
+        "myConvocation": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "jerseyDuty": null,
+        "meetingPlan": null,
+        "whatsAppShare": null,
+        "whatsAppSettings": null,
+        "myTravelMode": null,
+        "id": "event-past",
+        "startsAt": "2026-10-03T18:30:00.000Z",
+        "opponentName": "Carquefou Renaudières BC",
+        "venue": "HOME",
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 10,
+          "maybe": 0,
+          "notGoing": 0,
+          "pending": 0,
+          "isConvocationScoped": true
+        }
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [],
+  "GET /api/clubs/club-1/teams/team-1/admins": [],
+  "GET /api/clubs/club-1/teams/team-1/stats": {
+    "seasonYear": 2026,
+    "seasonStart": "2026-09-01T00:00:00.000Z",
+    "seasonEnd": "2027-08-31T23:59:59.999Z",
+    "matchesPlayed": 4,
+    "availableSeasons": [2026, 2025],
+    "players": [
+      {
+        "teamPlayerId": "tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 15.3,
+        "foulsPerGame": 1.8,
+        "seasonHighPoints": 19,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 7,
+        "twoPointPoints": 36,
+        "threePointPoints": 18,
+        "totalPoints": 61,
+        "mvpAwards": 2,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 11.8,
+        "foulsPerGame": 2.3,
+        "seasonHighPoints": 14,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 5,
+        "twoPointPoints": 30,
+        "threePointPoints": 12,
+        "totalPoints": 47,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 11,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 15,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 4,
+        "twoPointPoints": 28,
+        "threePointPoints": 12,
+        "totalPoints": 44,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-manon",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 8.5,
+        "foulsPerGame": 1.5,
+        "seasonHighPoints": 11,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 6,
+        "twoPointPoints": 22,
+        "threePointPoints": 6,
+        "totalPoints": 34,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 6.7,
+        "foulsPerGame": 3.3,
+        "seasonHighPoints": 9,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 2,
+        "twoPointPoints": 18,
+        "threePointPoints": 0,
+        "totalPoints": 20,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 4.5,
+        "foulsPerGame": 1.3,
+        "seasonHighPoints": 8,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 2,
+        "twoPointPoints": 16,
+        "threePointPoints": 0,
+        "totalPoints": 18,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 4,
+        "foulsPerGame": 0.8,
+        "seasonHighPoints": 6,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 4,
+        "twoPointPoints": 12,
+        "threePointPoints": 0,
+        "totalPoints": 16,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "role": "PLAYER",
+        "gamesPlayed": 2,
+        "pointsPerGame": 3,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 4,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 6,
+        "threePointPoints": 0,
+        "totalPoints": 6,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-clara",
+        "firstName": "Clara",
+        "lastName": "Fontaine",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 1.3,
+        "foulsPerGame": 1,
+        "seasonHighPoints": 2,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 4,
+        "threePointPoints": 0,
+        "totalPoints": 4,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-maelys",
+        "firstName": "Maëlys",
+        "lastName": "Perrin",
+        "role": "PLAYER",
+        "gamesPlayed": 0,
+        "pointsPerGame": null,
+        "foulsPerGame": null,
+        "seasonHighPoints": null,
+        "seasonHighFouls": null,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 0,
+        "threePointPoints": 0,
+        "totalPoints": 0,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-ines",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "role": "COACH",
+        "gamesPlayed": 0,
+        "pointsPerGame": null,
+        "foulsPerGame": null,
+        "seasonHighPoints": null,
+        "seasonHighFouls": null,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 0,
+        "threePointPoints": 0,
+        "totalPoints": 0,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      }
+    ]
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-past": {
+    "teamId": "team-1",
+    "type": "MATCH",
+    "notes": null,
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": null,
+    "myRsvpRespondedAt": null,
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": true,
+    "logistics": {
+      "jerseys": null,
+      "balls": null
+    },
+    "result": null,
+    "myMatchStats": null,
+    "jerseyDuty": null,
+    "meetingPlan": null,
+    "whatsAppShare": null,
+    "whatsAppSettings": null,
+    "myTravelMode": null,
+    "id": "event-past",
+    "startsAt": "2026-10-03T18:30:00.000Z",
+    "opponentName": "Carquefou Renaudières BC",
+    "venue": "HOME",
+    "location": "Rue de la Jonelière, 44300 Nantes",
+    "locationName": "Gymnase de la Jonelière",
+    "rsvpSummary": {
+      "rosterSize": 11,
+      "convoked": 10,
+      "answering": 10,
+      "going": 10,
+      "maybe": 0,
+      "notGoing": 0,
+      "pending": 0,
+      "isConvocationScoped": true
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-past/rsvps": [
+    {
+      "teamPlayerId": "tp-lea",
+      "playerId": "p-tp-lea",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-sarah",
+      "playerId": "p-tp-sarah",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-manon",
+      "playerId": "p-tp-manon",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-amina",
+      "playerId": "p-tp-amina",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-chloe",
+      "playerId": "p-tp-chloe",
+      "firstName": "Chloé",
+      "lastName": "Le Gall",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-jade",
+      "playerId": "p-tp-jade",
+      "firstName": "Jade",
+      "lastName": "Lambert",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-emma",
+      "playerId": "p-tp-emma",
+      "firstName": "Emma",
+      "lastName": "Marchand",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-zoe",
+      "playerId": "p-tp-zoe",
+      "firstName": "Zoé",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-clara",
+      "playerId": "p-tp-clara",
+      "firstName": "Clara",
+      "lastName": "Fontaine",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": null,
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-ines",
+      "playerId": "p-tp-ines",
+      "firstName": "Inès",
+      "lastName": "Petit",
+      "role": "COACH",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": true,
+      "viaLink": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-past/convocations": [
+    {
+      "teamPlayerId": "tp-lea",
+      "playerId": "p-tp-lea",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-sarah",
+      "playerId": "p-tp-sarah",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-manon",
+      "playerId": "p-tp-manon",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-amina",
+      "playerId": "p-tp-amina",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-chloe",
+      "playerId": "p-tp-chloe",
+      "firstName": "Chloé",
+      "lastName": "Le Gall",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-jade",
+      "playerId": "p-tp-jade",
+      "firstName": "Jade",
+      "lastName": "Lambert",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-emma",
+      "playerId": "p-tp-emma",
+      "firstName": "Emma",
+      "lastName": "Marchand",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-zoe",
+      "playerId": "p-tp-zoe",
+      "firstName": "Zoé",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-clara",
+      "playerId": "p-tp-clara",
+      "firstName": "Clara",
+      "lastName": "Fontaine",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-maelys",
+      "playerId": "p-tp-maelys",
+      "firstName": "Maëlys",
+      "lastName": "Perrin",
+      "role": "PLAYER",
+      "convoked": false,
+      "convokedAt": null,
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-ines",
+      "playerId": "p-tp-ines",
+      "firstName": "Inès",
+      "lastName": "Petit",
+      "role": "COACH",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": true
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-past/scoresheet": {
+    "status": "PARSED",
+    "uploadedByTeamPlayerId": "tp-ines",
+    "uploadedAt": "2026-10-03T21:04:00.000Z"
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-past/scoresheet-extraction": {
+    "status": "PARSED",
+    "parsedData": {
+      "homeScore": 64,
+      "awayScore": 57,
+      "quarterScores": [
+        {
+          "home": 15,
+          "away": 14
+        },
+        {
+          "home": 18,
+          "away": 12
+        },
+        {
+          "home": 13,
+          "away": 17
+        },
+        {
+          "home": 18,
+          "away": 14
+        }
+      ],
+      "players": [
+        {
+          "team": "home",
+          "number": 4,
+          "name": "MOREAU",
+          "points": 16,
+          "fouls": 2
+        },
+        {
+          "team": "home",
+          "number": 5,
+          "name": "DIALLO",
+          "points": 12,
+          "fouls": 3
+        },
+        {
+          "team": "home",
+          "number": 7,
+          "name": "GUERIN",
+          "points": 9,
+          "fouls": 1
+        },
+        {
+          "team": "home",
+          "number": 8,
+          "name": "TRAORE",
+          "points": 11,
+          "fouls": 2
+        },
+        {
+          "team": "home",
+          "number": 9,
+          "name": "LE GALL",
+          "points": 6,
+          "fouls": 4
+        },
+        {
+          "team": "home",
+          "number": 10,
+          "name": "LAMBERT",
+          "points": 4,
+          "fouls": 1
+        },
+        {
+          "team": "home",
+          "number": 11,
+          "name": "MARCHAND",
+          "points": 4,
+          "fouls": 0
+        },
+        {
+          "team": "home",
+          "number": 12,
+          "name": "BERNARD",
+          "points": 2,
+          "fouls": 2
+        },
+        {
+          "team": "home",
+          "number": 14,
+          "name": "FONTAINE",
+          "points": 0,
+          "fouls": 1
+        },
+        {
+          "team": "away",
+          "number": 4,
+          "name": "RIVIERE",
+          "points": 18,
+          "fouls": 3
+        },
+        {
+          "team": "away",
+          "number": 6,
+          "name": "COLIN",
+          "points": 13,
+          "fouls": 2
+        },
+        {
+          "team": "away",
+          "number": 7,
+          "name": "BRUNET",
+          "points": 10,
+          "fouls": 4
+        },
+        {
+          "team": "away",
+          "number": 9,
+          "name": "MASSON",
+          "points": 8,
+          "fouls": 1
+        },
+        {
+          "team": "away",
+          "number": 12,
+          "name": "NOEL",
+          "points": 6,
+          "fouls": 2
+        },
+        {
+          "team": "away",
+          "number": 15,
+          "name": "ROY",
+          "points": 2,
+          "fouls": 0
+        }
+      ],
+      "scoringPlays": [
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 3,
+          "runningScore": 3
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 3,
+          "runningScore": 3
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 3,
+          "runningScore": 6
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 3,
+          "runningScore": 6
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 8
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 8
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 10
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 10
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 12
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 12
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 14
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 14
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 16
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 16
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 3,
+          "runningScore": 19
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 4,
+          "points": 2,
+          "runningScore": 18
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 2,
+          "runningScore": 21
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 3,
+          "runningScore": 21
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 2,
+          "runningScore": 23
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 2,
+          "runningScore": 25
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 2,
+          "runningScore": 23
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 2,
+          "runningScore": 27
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 2,
+          "runningScore": 25
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 5,
+          "points": 1,
+          "runningScore": 28
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 2,
+          "runningScore": 27
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 7,
+          "points": 3,
+          "runningScore": 31
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 2,
+          "runningScore": 29
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 33
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 6,
+          "points": 2,
+          "runningScore": 31
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 35
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 33
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 37
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 35
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 8,
+          "points": 3,
+          "runningScore": 40
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 37
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 8,
+          "points": 2,
+          "runningScore": 42
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 39
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 8,
+          "points": 2,
+          "runningScore": 44
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 7,
+          "points": 2,
+          "runningScore": 41
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 8,
+          "points": 2,
+          "runningScore": 46
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 43
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 8,
+          "points": 2,
+          "runningScore": 48
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 45
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 50
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 52
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 47
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 54
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 9,
+          "points": 2,
+          "runningScore": 49
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 10,
+          "points": 2,
+          "runningScore": 56
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 12,
+          "points": 2,
+          "runningScore": 51
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 10,
+          "points": 2,
+          "runningScore": 58
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 12,
+          "points": 2,
+          "runningScore": 53
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 11,
+          "points": 2,
+          "runningScore": 60
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 12,
+          "points": 2,
+          "runningScore": 55
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 11,
+          "points": 2,
+          "runningScore": 62
+        },
+        {
+          "team": "away",
+          "jerseyNumber": 15,
+          "points": 2,
+          "runningScore": 57
+        },
+        {
+          "team": "home",
+          "jerseyNumber": 12,
+          "points": 2,
+          "runningScore": 64
+        }
+      ]
+    },
+    "confidence": 0.94,
+    "failureReason": null,
+    "reviewedByUserId": null,
+    "reviewedAt": null,
+    "suggestedRosterMapping": [
+      {
+        "jerseyNumber": 4,
+        "teamPlayerId": "tp-lea",
+        "sheetName": "MOREAU"
+      },
+      {
+        "jerseyNumber": 5,
+        "teamPlayerId": "tp-sarah",
+        "sheetName": "DIALLO"
+      },
+      {
+        "jerseyNumber": 7,
+        "teamPlayerId": "tp-manon",
+        "sheetName": "GUERIN"
+      },
+      {
+        "jerseyNumber": 8,
+        "teamPlayerId": "tp-amina",
+        "sheetName": "TRAORE"
+      },
+      {
+        "jerseyNumber": 9,
+        "teamPlayerId": "tp-chloe",
+        "sheetName": "LE GALL"
+      },
+      {
+        "jerseyNumber": 10,
+        "teamPlayerId": "tp-jade",
+        "sheetName": "LAMBERT"
+      },
+      {
+        "jerseyNumber": 11,
+        "teamPlayerId": "tp-emma",
+        "sheetName": "MARCHAND"
+      },
+      {
+        "jerseyNumber": 12,
+        "teamPlayerId": "tp-zoe",
+        "sheetName": "BERNARD"
+      },
+      {
+        "jerseyNumber": 14,
+        "teamPlayerId": "tp-clara",
+        "sheetName": "FONTAINE"
+      }
+    ]
+  },
+  "GET /api/clubs/club-1/teams/team-1/guest-link": {
+    "url": "https://kluvo.app/r/Qm4x2vJ9kT0aLw8e"
+  },
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-settings": {
+    "reminderTemplate": null,
+    "reminderEnabled": true,
+    "defaultOffsetMinutes": 4320,
+    "hasReachableManager": true,
+    "updateTemplate": null,
+    "cancellationTemplate": null
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-past/whatsapp-share": {
+    "guestLinkActive": true,
+    "shares": []
+  },
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-shares/pending-cancellations": [],
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors Filles 1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "jerseyRotationEnabled": false,
+      "isTeamAdmin": true,
+      "rosterRole": "COACH"
+    }
+  ]
+}

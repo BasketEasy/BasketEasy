@@ -388,4 +388,41 @@ describe('jersey wash rotation against Postgres', () => {
       expect(await dutyService().freezeDue(new Date())).toEqual({ considered: 0, frozen: 0 });
     });
   });
+
+  describe('freezeDue', () => {
+    it('does not let more unassignable matches than the batch size starve a newer one', async () => {
+      const club = await createClub();
+      const emptyTeam = await createTeam(club.id);
+      const fullTeam = await createTeam(club.id);
+      const [a] = await rosterOf(fullTeam.id, club.id, ['A']);
+      const hour = 60 * 60 * 1000;
+      const base = Date.now() - 6 * 24 * hour;
+      // 205 started matches of a team with an empty roster, all older than the one below.
+      await prisma.event.createMany({
+        data: Array.from({ length: 205 }, (_, i) => ({
+          teamId: emptyTeam.id,
+          type: 'MATCH' as const,
+          startsAt: new Date(base + i * 60 * 1000),
+          location: 'Gymnase',
+          venue: 'HOME' as const,
+        })),
+      });
+      const newer = await match(fullTeam.id, new Date(Date.now() - hour));
+      await prisma.eventConvocation.create({ data: { eventId: newer.id, teamPlayerId: a.id } });
+      await prisma.eventRsvp.create({
+        data: { eventId: newer.id, teamPlayerId: a.id, status: 'GOING' },
+      });
+      const service = dutyService();
+
+      await service.freezeDue(new Date());
+      await service.freezeDue(new Date());
+
+      const duty = await prisma.eventJerseyDuty.findUnique({ where: { eventId: newer.id } });
+      expect(duty).toMatchObject({ teamPlayerId: a.id, source: 'SUGGESTION' });
+      const emptyRows = await prisma.eventJerseyDuty.count({
+        where: { event: { teamId: emptyTeam.id }, teamPlayerId: null, source: 'SUGGESTION' },
+      });
+      expect(emptyRows).toBe(205);
+    });
+  });
 });
