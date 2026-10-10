@@ -110,9 +110,7 @@ export function ManagerHome({
   );
   const isRostered = (teamId: string) => rosterRoleByTeamId.get(teamId) != null;
 
-  // Computed once per mount, not inline — see PlayerHome's identical comment:
-  // pastMatchesWindowParams() stamps from/to with new Date(), so recomputing
-  // it every render would shift the query key and refetch forever.
+  // Computed once per mount, not inline — see PlayerHome's identical comment.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
   const pastMatchesQuery = useMyAgenda(pastWindow);
   const pastMatches = (pastMatchesQuery.data?.upcomingEvents ?? []).filter(

@@ -100,9 +100,9 @@ export function PlayerHome({
   // The hero already shows the next event; the agenda below starts after it.
   const laterEvents = upcomingEvents.slice(1);
 
-  // Computed once per mount, not inline: `pastMatchesWindowParams()` stamps
-  // `from`/`to` with `new Date()`, so recomputing it every render would shift
-  // the query key by a few milliseconds each time and refetch forever.
+  // Computed once per mount, not inline: the window is snapped to a quarter
+  // hour (`myAgendaWindow.ts`) so every screen shares one cache entry, but a mounted
+  // screen should not slide to the next slot's key mid-visit.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
   const pastMatchesQuery = useMyAgenda(pastWindow);
   // Most recent first: the newest is « Dernier match », the next three are

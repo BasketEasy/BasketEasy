@@ -10,6 +10,7 @@ import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useHasManageRights } from '../clubs/useHasManageRights';
+import { useHomeAgendaParams } from '../clubs/useHomeAgendaParams';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useActingAs } from '../guardians/useActingAs';
@@ -70,7 +71,13 @@ export function AppBottomNav() {
   const isDesktop = useIsDesktopViewport();
   const { hasManageRights, isResolving } = useHasManageRights();
   const { data: teams } = useMyTeamList();
-  const { data: dashboard } = useMyAgenda();
+  // The badge counts what the player's home lists: same window, so the same
+  // cache entry and no second request. Only a phone renders the bar and only a
+  // player's tab carries the count, so nothing is fetched for anyone else.
+  const agendaParams = useHomeAgendaParams();
+  const { data: dashboard } = useMyAgenda(agendaParams, {
+    enabled: !isDesktop && !isResolving && !hasManageRights,
+  });
   const adminClubs = useAdminClubs();
   const { activeClubId: contextActiveClubId } = useActiveClub();
   // Acting for a child, the possessives follow them: « Semaine », « Son
