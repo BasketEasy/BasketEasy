@@ -29,22 +29,8 @@ const PLAYER_AGENDA_WINDOW_DAYS = 14;
  */
 const PAST_MATCHES_WINDOW_DAYS = 30;
 
-const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
-
-/**
- * `now`, floored to the previous 5 minutes. The window bounds are part of the
- * query key, so a bound stamped to the millisecond makes a new cache entry on
- * every mount, never a hit, and every visit to the home screen refetches what
- * it just showed. Floored, every screen asking within the same five minutes
- * shares one entry (the home, the bottom nav's badge), and the window is at
- * most five minutes behind: an agenda this short-lived does not need better.
- */
-export function roundedNow(now: Date = new Date()): Date {
-  return new Date(Math.floor(now.getTime() / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS);
-}
-
 /** `now → now + 14 days`, in the shape `useMyAgenda` expects. */
-export function playerAgendaWindowParams(now: Date = roundedNow()): GetDashboardParams {
+export function playerAgendaWindowParams(now: Date = new Date()): GetDashboardParams {
   return {
     from: new Date(floorToSnap(now.getTime())).toISOString(),
     to: new Date(ceilToSnap(now.getTime()) + PLAYER_AGENDA_WINDOW_DAYS * DAY_IN_MS).toISOString(),
@@ -52,7 +38,7 @@ export function playerAgendaWindowParams(now: Date = roundedNow()): GetDashboard
 }
 
 /** `now − 30 days → now`. */
-export function pastMatchesWindowParams(now: Date = roundedNow()): GetDashboardParams {
+export function pastMatchesWindowParams(now: Date = new Date()): GetDashboardParams {
   return {
     from: new Date(floorToSnap(now.getTime()) - PAST_MATCHES_WINDOW_DAYS * DAY_IN_MS).toISOString(),
     to: new Date(ceilToSnap(now.getTime())).toISOString(),
