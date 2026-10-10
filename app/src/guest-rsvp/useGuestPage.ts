@@ -10,7 +10,10 @@ export function useGuestPage(token: string) {
     // A teammate may have answered since the tab was left open: `live` refetches
     // on focus once 30 s have passed.
     staleTime: FRESHNESS.live,
-    queryFn: () => apiClient.get<GuestTeamPage>(`/public/guest/${encodeURIComponent(token)}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<GuestTeamPage>(`/public/guest/${encodeURIComponent(token)}`, undefined, {
+        signal,
+      }),
     // A 404 is a dead link (regenerated or switched off), not a blip.
     retry: false,
   });

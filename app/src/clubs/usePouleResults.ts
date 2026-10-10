@@ -11,7 +11,11 @@ export function usePouleResults(clubId: string, teamId: string) {
     // every mount. Standings move when FFBB records a result, so not `static`.
     staleTime: FRESHNESS.slow,
     retry: false,
-    queryFn: () =>
-      apiClient.get<PouleResults>(`/clubs/${clubId}/teams/${teamId}/ffbb-poule-results`),
+    queryFn: ({ signal }) =>
+      apiClient.get<PouleResults>(
+        `/clubs/${clubId}/teams/${teamId}/ffbb-poule-results`,
+        undefined,
+        { signal },
+      ),
   });
 }

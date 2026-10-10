@@ -15,5 +15,5 @@ needs the owner to decide. If clean, say "clean".
 
 - CLAUDE.md working conventions, line by line: types-first contract order (`@basketeasy/types` → DTO → caller), no barrel files, react-hook-form + zod, toast vs inline feedback, no arbitrary Tailwind values, no `className` colour, `Text`/`Heading`/`Badge` APIs, `ResponsiveTable`, charts via the wrapper, dependency wrapped in one `@basketeasy/ui/<name>`.
 - Dead code deleted in the same change. Colocated tests present, DB-enforced behaviour has a `test/db` spec. Migration SQL matches Prisma style.
-- Same pattern as the surrounding module (`backend-slice` skill). A docs/CLAUDE.md update when a pattern or decision changes, per the `plan-feature` skill.
+- Same pattern as the surrounding module (`backend-slice` skill on the server, `server-state` skill for a new hook or mutation in `app/src`: a mutation's invalidations match the "What reads what" table in `docs/frontend-stack.md`, a test builds no `QueryClient` of its own). A docs/CLAUDE.md update when a pattern or decision changes, per the `plan-feature` skill.
 - PR description covers the whole diff and fills the template; `pr-scope.yml` shape (understated behaviour change) is 🔴.

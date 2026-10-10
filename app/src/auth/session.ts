@@ -60,14 +60,29 @@ export function useDropUserQueriesOnSessionEnd(user: User | null): void {
 
 const RESTORE_RETRY_DELAYS_MS = [500, 1500, 3000, 6000];
 
-async function fetchSession(): Promise<User | null> {
+function waitOrAbort(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function fetchSession(signal: AbortSignal): Promise<User | null> {
   // A back-office impersonation already carries its credential: "me" is the
   // subject, read directly. A refresh here would be refused locally anyway
   // (a write), and would mean the admin's own cookie, not the subject.
   if (isImpersonating()) {
     try {
-      return await apiClient.get<User>('/auth/me');
-    } catch {
+      return await apiClient.get<User>('/auth/me', undefined, { signal });
+    } catch (err) {
+      if (signal.aborted) throw err;
       return null;
     }
   }
@@ -76,8 +91,12 @@ async function fetchSession(): Promise<User | null> {
       // Through the shared refresh, not a raw POST: a 401-triggered refresh
       // running at the same moment must not present the same single-use token.
       await refreshAccessToken();
-      return await apiClient.get<User>('/auth/me');
+      return await apiClient.get<User>('/auth/me', undefined, { signal });
     } catch (err) {
+      // Cancelled (the last observer went away): not "no session" and not a
+      // failure to retry. The refresh above is shared and keeps going for
+      // whoever else awaits it.
+      if (signal.aborted) throw err;
       // Only a refusal of the credential means "no session" (the normal state
       // for a first-time visitor). Anything else says nothing about the
       // session: a network error, a 5xx (API mid-deploy, cold start), or a
@@ -92,7 +111,7 @@ async function fetchSession(): Promise<User | null> {
         setAccessToken(null);
         throw err;
       }
-      await new Promise((resolve) => setTimeout(resolve, RESTORE_RETRY_DELAYS_MS[attempt]));
+      await waitOrAbort(RESTORE_RETRY_DELAYS_MS[attempt], signal);
     }
   }
 }
@@ -100,7 +119,7 @@ async function fetchSession(): Promise<User | null> {
 export function useSession() {
   return useQuery({
     queryKey: sessionQueryKey,
-    queryFn: fetchSession,
+    queryFn: ({ signal }) => fetchSession(signal),
     // One-shot restore-on-load: never goes stale on its own, and shouldn't
     // silently refire (e.g. on window refocus) since /auth/refresh's token
     // is single-use — a second automatic call would 401 and log the user

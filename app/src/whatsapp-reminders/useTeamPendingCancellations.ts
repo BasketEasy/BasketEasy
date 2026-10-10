@@ -16,8 +16,12 @@ export function useTeamPendingCancellations(clubId: string, teamId: string) {
   return useQuery({
     queryKey: pendingQueryKey(clubId, teamId),
     staleTime: FRESHNESS.slow,
-    queryFn: () =>
-      apiClient.get<TeamPendingCancellation[]>(`${base(clubId, teamId)}/pending-cancellations`),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamPendingCancellation[]>(
+        `${base(clubId, teamId)}/pending-cancellations`,
+        undefined,
+        { signal },
+      ),
   });
 }
 

@@ -8,6 +8,7 @@ export function useTeamShow(clubId: string, teamId: string) {
   return useQuery({
     queryKey: teamQueryKey(clubId, teamId),
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<Team>(`/clubs/${clubId}/teams/${teamId}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<Team>(`/clubs/${clubId}/teams/${teamId}`, undefined, { signal }),
   });
 }

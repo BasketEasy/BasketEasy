@@ -14,8 +14,10 @@ export function useMyTeamList() {
   return useQuery({
     queryKey: myTeamsForQueryKey(forPlayerId ?? undefined),
     staleTime: FRESHNESS.slow,
-    queryFn: () =>
-      apiClient.get<MyTeamSummary[]>('/me/teams', forPlayerId ? { forPlayerId } : undefined),
+    queryFn: ({ signal }) =>
+      apiClient.get<MyTeamSummary[]>('/me/teams', forPlayerId ? { forPlayerId } : undefined, {
+        signal,
+      }),
     enabled: isReady,
   });
 }

@@ -13,7 +13,8 @@ export function useClubMemberList(
   return useQuery({
     queryKey: clubMembersQueryKey(clubId, params),
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<PaginatedResult<ClubMember>>(`/clubs/${clubId}/members`, params),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<ClubMember>>(`/clubs/${clubId}/members`, params, { signal }),
     enabled: options?.enabled,
     placeholderData: keepPreviousData,
   });

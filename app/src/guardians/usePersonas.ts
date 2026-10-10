@@ -8,7 +8,7 @@ const personasQuery = queryOptions({
   queryKey: personasQueryKey,
   // Always mounted (`ActingAsProvider`), so never discarded: a finite tier.
   staleTime: FRESHNESS.slow,
-  queryFn: () => apiClient.get<MyPersonas>('/me/personas'),
+  queryFn: ({ signal }) => apiClient.get<MyPersonas>('/me/personas', undefined, { signal }),
 });
 
 /** Who the caller can act as: « Moi » (if anything) and each child they follow. */

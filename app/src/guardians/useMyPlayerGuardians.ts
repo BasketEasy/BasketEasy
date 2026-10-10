@@ -10,7 +10,10 @@ export function useMyPlayerGuardians(playerIds: string[]) {
     queries: playerIds.map((playerId) => ({
       queryKey: myPlayerGuardiansQueryKey(playerId),
       staleTime: FRESHNESS.slow,
-      queryFn: () => apiClient.get<MyPlayerGuardians>(`/me/players/${playerId}/guardians`),
+      queryFn: ({ signal }) =>
+        apiClient.get<MyPlayerGuardians>(`/me/players/${playerId}/guardians`, undefined, {
+          signal,
+        }),
     })),
   });
 }

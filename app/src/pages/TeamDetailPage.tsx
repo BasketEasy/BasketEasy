@@ -99,17 +99,6 @@ export function TeamDetailPage() {
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
 
-  // « À traiter » (phase 9) — only a manager has anything here (the server
-  // gates actionItems on admin/TeamAdmin status), so the fetch is skipped
-  // entirely for a rostered player viewing the same page. No custom
-  // from/to: the default 7-day window is also what every action-item kind's
-  // own window is bounded by (`DashboardService`), independent of it.
-  const { data: dashboard } = useMyAgenda(undefined, { enabled: canManageTeam });
-  const teamActionItems = useMemo(
-    () => (dashboard?.actionItems ?? []).filter((item) => item.teamId === teamId),
-    [dashboard, teamId],
-  );
-
   const {
     data: team,
     isLoading: isLoadingTeam,
@@ -129,6 +118,30 @@ export function TeamDetailPage() {
     (!showJerseyTab && requestedTab === 'maillots')
       ? 'events'
       : requestedTab;
+
+  // Each tab's own data loads when the tab is the active one, not on every
+  // visit to the page: only what the hero, the tab list (its count badges) or
+  // a permission check reads is fetched whatever the tab. Every gated query
+  // below names the tab that reads it.
+  // « À traiter » (phase 9) — only a manager has anything here (the server
+  // gates actionItems on admin/TeamAdmin status), so the fetch is skipped
+  // entirely for a rostered player viewing the same page, and for a manager
+  // until the Événements tab, the only place it is shown. No custom from/to:
+  // the default 7-day window is also what every action-item kind's own window
+  // is bounded by (`DashboardService`), independent of it.
+  const { data: dashboard } = useMyAgenda(undefined, {
+    enabled: canManageTeam && activeTab === 'events',
+  });
+  const teamActionItems = useMemo(
+    () => (dashboard?.actionItems ?? []).filter((item) => item.teamId === teamId),
+    [dashboard, teamId],
+  );
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isAddClubOpen, setIsAddClubOpen] = useState(false);
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
 
   // Clubs partenaires (CTC) filters
   const [teamClubsSearch, setTeamClubsSearch] = useState('');
@@ -229,15 +242,22 @@ export function TeamDetailPage() {
     isError: isClubsError,
     refetch: refetchClubs,
     isRefetching: isClubsRefetching,
-  } = useTeamClubList(clubId!, teamId!, {
-    search: debouncedTeamClubsSearch || undefined,
-    sortBy: teamClubsSortOption.sortBy,
-    sortOrder: teamClubsSortOption.sortOrder,
-    page: teamClubsPage,
-    pageSize: teamClubsPageSize,
-  });
-  // Unfiltered, capped fetch used only to find the owning club below —
-  // independent of the paginated/filtered table view.
+  } = useTeamClubList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedTeamClubsSearch || undefined,
+      sortBy: teamClubsSortOption.sortBy,
+      sortOrder: teamClubsSortOption.sortOrder,
+      page: teamClubsPage,
+      pageSize: teamClubsPageSize,
+    },
+    // Read by the Clubs partenaires tab alone.
+    { enabled: activeTab === 'clubs' },
+  );
+  // Unfiltered, capped fetch: the owning club (hero eyebrow, « Entente CTC »
+  // badge, delete button) and the Clubs partenaires tab's count badge — so it
+  // stays on whatever the active tab is.
   const { data: allTeamClubsResult } = useTeamClubList(clubId!, teamId!, {
     pageSize: LINKING_PAGE_SIZE,
   });
@@ -248,16 +268,25 @@ export function TeamDetailPage() {
     isError: isPlayersError,
     refetch: refetchPlayers,
     isRefetching: isPlayersRefetching,
-  } = useTeamPlayerList(clubId!, teamId!, {
-    search: debouncedRosterSearch || undefined,
-    sortBy: rosterSortOption.sortBy,
-    sortOrder: rosterSortOption.sortOrder,
-    page: rosterPage,
-    pageSize: rosterPageSize,
-  });
+  } = useTeamPlayerList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedRosterSearch || undefined,
+      sortBy: rosterSortOption.sortBy,
+      sortOrder: rosterSortOption.sortOrder,
+      page: rosterPage,
+      pageSize: rosterPageSize,
+    },
+    // Read by the Effectif tab's table view alone (the card view reads the
+    // full roster below).
+    { enabled: activeTab === 'roster' && rosterViewMode === 'table' },
+  );
   // Unfiltered, capped fetch backing the "already rostered" computation below
   // — also backs the Effectif tab's card view, which shows the full roster
-  // rather than one paginated/filtered table page.
+  // rather than one paginated/filtered table page. Its `total` is the hero's
+  // « N joueurs », the tab's count badge and the delete dialog's count, so it
+  // stays on whatever the active tab is.
   // TODO: LINKING_PAGE_SIZE (100) is also the server's MAX_PAGE_SIZE
   // (server/src/common/pagination.ts), so a CTC/entente team's shared roster
   // — this app's own headline multi-club use case — could exceed it and
@@ -277,11 +306,17 @@ export function TeamDetailPage() {
   });
   // The club's player list is ADMIN-only on the server and only feeds the
   // « Ajouter un joueur » picker, which is a club admin's control: for anyone
-  // else the call could only 403.
-  const { data: clubPlayersResult } = usePlayerList(
+  // else the call could only 403, and nobody reads it until the dialog opens.
+  const {
+    data: clubPlayersResult,
+    isLoading: isLoadingClubPlayers,
+    isError: isClubPlayersError,
+    refetch: refetchClubPlayers,
+    isRefetching: isClubPlayersRefetching,
+  } = usePlayerList(
     clubId!,
     { pageSize: LINKING_PAGE_SIZE },
-    { enabled: isAdmin },
+    { enabled: isAdmin && isAddPlayerOpen },
   );
 
   const {
@@ -290,14 +325,22 @@ export function TeamDetailPage() {
     isError: isEventsError,
     refetch: refetchEvents,
     isRefetching: isEventsRefetching,
-  } = useEventList(clubId!, teamId!, {
-    search: debouncedEventsSearch || undefined,
-    from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
-    to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
-    sortOrder: eventsSortOrder,
-    page: eventsPage,
-    pageSize: eventsPageSize,
-  });
+  } = useEventList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedEventsSearch || undefined,
+      from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
+      to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
+      sortOrder: eventsSortOrder,
+      page: eventsPage,
+      pageSize: eventsPageSize,
+    },
+    // A player has no table view and no count to show. A manager's first
+    // page also gives the Événements tab's count badge and the delete dialog's
+    // count, so it is not tied to the tab or the view.
+    { enabled: canManageTeam },
+  );
   // Backs the agenda view — unpaginated, sorted ascending, bounded to
   // upcoming events only. Independent of the table view's own filters above,
   // same as the roster tab's card-view fetch is independent of its table.
@@ -307,11 +350,18 @@ export function TeamDetailPage() {
     isError: isAgendaEventsError,
     refetch: refetchAgendaEvents,
     isRefetching: isAgendaEventsRefetching,
-  } = useEventList(clubId!, teamId!, {
-    ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
-    sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
-    pageSize: LINKING_PAGE_SIZE,
-  });
+  } = useEventList(
+    clubId!,
+    teamId!,
+    {
+      ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
+      sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
+      pageSize: LINKING_PAGE_SIZE,
+    },
+    // Read by the Événements tab alone. « À venir » is the hero's own query
+    // (same key), so this only adds a request once « Passés » is picked.
+    { enabled: activeTab === 'events' },
+  );
 
   const {
     data: teamAdmins,
@@ -320,17 +370,16 @@ export function TeamDetailPage() {
     refetch: refetchAdmins,
     isRefetching: isAdminsRefetching,
   } = useTeamAdminList(clubId!, teamId!, canManageTeam);
-  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(
-    clubId!,
-    teamId!,
-    canManageTeam,
-  );
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAddClubOpen, setIsAddClubOpen] = useState(false);
-  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
-  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
+  // The admin list stays on every tab: it is the tab's count badge and, for a
+  // team admin who is not a club admin, the permission check itself. The
+  // candidates only feed the « Ajouter un administrateur » picker.
+  const {
+    data: teamAdminCandidatesResult,
+    isLoading: isLoadingAdminCandidates,
+    isError: isAdminCandidatesError,
+    refetch: refetchAdminCandidates,
+    isRefetching: isAdminCandidatesRefetching,
+  } = useTeamAdminCandidates(clubId!, teamId!, canManageTeam && isAddAdminOpen);
 
   const teamClubs = teamClubsResult?.items;
   const teamPlayers = teamPlayersResult?.items;
@@ -504,7 +553,7 @@ export function TeamDetailPage() {
                 <TabsTrigger value="roster" badge={rosterTotal}>
                   Effectif
                 </TabsTrigger>
-                <TabsTrigger value="clubs" badge={teamClubsResult?.total ?? 0}>
+                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0}>
                   Clubs partenaires
                 </TabsTrigger>
                 <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
@@ -559,6 +608,10 @@ export function TeamDetailPage() {
               teamGender={team.gender}
               canManageTeam={canManageTeam}
               addablePlayers={addablePlayers}
+              isLoadingAddablePlayers={isLoadingClubPlayers}
+              isAddablePlayersError={isClubPlayersError}
+              isAddablePlayersRefetching={isClubPlayersRefetching}
+              refetchAddablePlayers={refetchClubPlayers}
               isAddPlayerOpen={isAddPlayerOpen}
               setIsAddPlayerOpen={setIsAddPlayerOpen}
               rosterViewMode={rosterViewMode}
@@ -620,6 +673,10 @@ export function TeamDetailPage() {
                 isAddAdminOpen={isAddAdminOpen}
                 setIsAddAdminOpen={setIsAddAdminOpen}
                 addableAdmins={addableAdmins}
+                isLoadingAddableAdmins={isLoadingAdminCandidates}
+                isAddableAdminsError={isAdminCandidatesError}
+                isAddableAdminsRefetching={isAdminCandidatesRefetching}
+                refetchAddableAdmins={refetchAdminCandidates}
                 isAdminsError={isAdminsError}
                 isLoadingAdmins={isLoadingAdmins}
                 isAdminsRefetching={isAdminsRefetching}

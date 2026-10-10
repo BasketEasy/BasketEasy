@@ -37,7 +37,8 @@ Keep the plan in the conversation or the PR description, not in a committed spec
 - Schema changes are hand-written migrations (no Postgres in the sandbox), then
   `prisma generate`. Anything the database must enforce (cascade, `FOR UPDATE`, unique under
   concurrency) gets a `server/test/db/*.db-spec.ts` case.
-- Backend work follows the `backend-slice` skill. Anything touching personal data, minors, auth or
+- Backend work follows the `backend-slice` skill, and a new query hook or mutation in `app/src`
+  follows the `server-state` skill. Anything touching personal data, minors, auth or
   audit runs the `privacy-review` skill before the PR.
 
 ## 4. Design gate for UI
