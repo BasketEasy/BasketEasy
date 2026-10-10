@@ -10,8 +10,8 @@ import { playerAgendaWindowParams } from './myAgendaWindow';
  * therefore shares one cache entry: the dashboard itself, and the bottom
  * nav's « to answer » badge, which has to count what the list shows.
  *
- * Computed once per role (not inline): the window is floored to 5 minutes
- * (`roundedNow`), so a re-render inside the same slot is stable either way,
+ * Computed once per role (not inline): the window is snapped to a quarter hour
+ * (`myAgendaWindow.ts`), so a re-render inside the same slot is stable either way,
  * but a mounted screen should not slide to a new key mid-visit.
  */
 export function useHomeAgendaParams(): GetDashboardParams | undefined {
