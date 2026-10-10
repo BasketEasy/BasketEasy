@@ -1,0 +1,476 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "id": "user-lea",
+    "email": "lea.moreau@example.fr",
+    "firstName": "Léa",
+    "lastName": "Moreau",
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "MEMBER"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ES Erdre Basket",
+      "ffbbClubCode": null,
+      "createdAt": "2025-06-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ES Erdre Basket",
+    "ffbbClubCode": null,
+    "createdAt": "2025-06-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 0
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking du gymnase de la Jonelière",
+      "address": "Rue de la Jonelière, 44300 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": null,
+    "clubDefaults": {
+      "clubName": "ES Erdre Basket",
+      "meetingPoint": {
+        "name": "Parking du gymnase de la Jonelière",
+        "address": "Rue de la Jonelière, 44300 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors Filles 1",
+    "category": "SENIORS",
+    "gender": "WOMEN",
+    "createdAt": "2025-06-01T00:00:00.000Z",
+    "jerseyRotationEnabled": true
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1": {
+    "teamId": "team-1",
+    "type": "MATCH",
+    "notes": null,
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": null,
+    "myRsvpRespondedAt": "2026-10-06T19:12:00.000Z",
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": true,
+    "logistics": {
+      "jerseys": null,
+      "balls": {
+        "teamPlayerId": "tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo"
+      }
+    },
+    "result": null,
+    "myMatchStats": null,
+    "jerseyDuty": {
+      "holder": null,
+      "status": "UNASSIGNED",
+      "broughtBy": {
+        "teamPlayerId": "tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré"
+      },
+      "isMine": false
+    },
+    "meetingPlan": {
+      "arrivalAt": "2026-10-10T17:45:00.000Z",
+      "arrivalBufferMinutes": 45,
+      "meetingPoint": {
+        "name": "Parking du gymnase de la Jonelière",
+        "address": "Rue de la Jonelière, 44300 Nantes"
+      },
+      "meetingPointSource": "CLUB",
+      "travelMinutes": 22,
+      "travelMinutesSource": "COMPUTED",
+      "meetsAt": "2026-10-10T17:15:00.000Z",
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking du gymnase de la Jonelière",
+        "address": "Rue de la Jonelière, 44300 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
+    },
+    "whatsAppShare": null,
+    "whatsAppSettings": null,
+    "myTravelMode": "MEETING_POINT",
+    "id": "event-1",
+    "startsAt": "2026-10-10T18:30:00.000Z",
+    "opponentName": "Rezé Trentemoult Basket",
+    "venue": "AWAY",
+    "location": "Rue des Trois-Moulins, 44400 Rezé",
+    "locationName": "Gymnase des Trois-Moulins",
+    "rsvpSummary": {
+      "rosterSize": 11,
+      "convoked": 10,
+      "answering": 10,
+      "going": 7,
+      "maybe": 1,
+      "notGoing": 1,
+      "pending": 1,
+      "isConvocationScoped": true
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/jersey-duty": {
+    "eventId": "event-1",
+    "teamGender": "WOMEN",
+    "locked": false,
+    "status": "UNASSIGNED",
+    "holder": null,
+    "acceptedBy": null,
+    "broughtBy": {
+      "teamPlayerId": "tp-amina",
+      "firstName": "Amina",
+      "lastName": "Traoré"
+    },
+    "suggestion": {
+      "kind": "SUGGESTED",
+      "candidate": {
+        "teamPlayerId": "tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "gender": "WOMEN",
+        "reachable": true
+      },
+      "isFewest": true
+    },
+    "pool": {
+      "convokedGoingCount": 8,
+      "exemptedCount": 1
+    },
+    "swapCandidates": [
+      {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null
+      },
+      {
+        "teamPlayerId": "tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null
+      },
+      {
+        "teamPlayerId": "tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null
+      }
+    ],
+    "pendingSwap": null,
+    "nextMatchStartsAt": "2026-10-17T18:30:00.000Z",
+    "rights": {
+      "canAccept": true,
+      "canDecline": true,
+      "canSwap": true,
+      "canCancelSwap": false,
+      "canRespondToSwap": false,
+      "canManage": false
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps": [
+    {
+      "teamPlayerId": "tp-lea",
+      "playerId": "p-tp-lea",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": true,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-sarah",
+      "playerId": "p-tp-sarah",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-manon",
+      "playerId": "p-tp-manon",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-amina",
+      "playerId": "p-tp-amina",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-chloe",
+      "playerId": "p-tp-chloe",
+      "firstName": "Chloé",
+      "lastName": "Le Gall",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-jade",
+      "playerId": "p-tp-jade",
+      "firstName": "Jade",
+      "lastName": "Lambert",
+      "role": "PLAYER",
+      "status": "MAYBE",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-emma",
+      "playerId": "p-tp-emma",
+      "firstName": "Emma",
+      "lastName": "Marchand",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-zoe",
+      "playerId": "p-tp-zoe",
+      "firstName": "Zoé",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "status": "NOT_GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-clara",
+      "playerId": "p-tp-clara",
+      "firstName": "Clara",
+      "lastName": "Fontaine",
+      "role": "PLAYER",
+      "status": null,
+      "respondedAt": null,
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-ines",
+      "playerId": "p-tp-ines",
+      "firstName": "Inès",
+      "lastName": "Petit",
+      "role": "COACH",
+      "status": "GOING",
+      "respondedAt": "2026-10-06T19:12:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/convocations": [
+    {
+      "teamPlayerId": "tp-lea",
+      "playerId": "p-tp-lea",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": true
+    },
+    {
+      "teamPlayerId": "tp-sarah",
+      "playerId": "p-tp-sarah",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-manon",
+      "playerId": "p-tp-manon",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-amina",
+      "playerId": "p-tp-amina",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-chloe",
+      "playerId": "p-tp-chloe",
+      "firstName": "Chloé",
+      "lastName": "Le Gall",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-jade",
+      "playerId": "p-tp-jade",
+      "firstName": "Jade",
+      "lastName": "Lambert",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-emma",
+      "playerId": "p-tp-emma",
+      "firstName": "Emma",
+      "lastName": "Marchand",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-zoe",
+      "playerId": "p-tp-zoe",
+      "firstName": "Zoé",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-clara",
+      "playerId": "p-tp-clara",
+      "firstName": "Clara",
+      "lastName": "Fontaine",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-maelys",
+      "playerId": "p-tp-maelys",
+      "firstName": "Maëlys",
+      "lastName": "Perrin",
+      "role": "PLAYER",
+      "convoked": false,
+      "convokedAt": null,
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-ines",
+      "playerId": "p-tp-ines",
+      "firstName": "Inès",
+      "lastName": "Petit",
+      "role": "COACH",
+      "convoked": true,
+      "convokedAt": "2026-10-05T18:00:00.000Z",
+      "isMe": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/scoresheet": {
+    "status": 200,
+    "body": null
+  },
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors Filles 1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "jerseyRotationEnabled": true,
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ]
+}

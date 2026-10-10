@@ -565,9 +565,14 @@ describe('WhatsAppReminderService', () => {
       ]);
       client.event.findMany.mockResolvedValue([event()]);
       client.eventShare.create.mockResolvedValue({ id: 'c1' });
-      meetingPoints.resolvePlans.mockResolvedValue(new Map([['e1', null]]));
+      const plans = new Map([['e1', null]]);
 
-      const prepared = await service.prepareCancellations(client as never, 't1', ['e1', 'e2']);
+      const prepared = await service.prepareCancellations(
+        client as never,
+        't1',
+        ['e1', 'e2'],
+        plans,
+      );
 
       expect(client.eventShare.create).toHaveBeenCalledTimes(1);
       expect(client.eventShare.create).toHaveBeenCalledWith({
@@ -590,13 +595,26 @@ describe('WhatsAppReminderService', () => {
       expect(prepared.discardedShareIds).toEqual(['r1', 'u1', 'r2']);
     });
 
+    it('resolveCancellationPlans reads through the base client, for the events still to come', async () => {
+      prisma.event.findMany.mockResolvedValue([{ id: 'e1' }]);
+      const plans = new Map([['e1', null]]);
+      meetingPoints.resolvePlans.mockResolvedValue(plans);
+      await expect(service.resolveCancellationPlans('t1', ['e1'])).resolves.toBe(plans);
+      expect(meetingPoints.resolvePlans).toHaveBeenCalledWith('t1', [{ id: 'e1' }]);
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: ['e1'] }, startsAt: { gt: expect.any(Date) } },
+        }),
+      );
+    });
+
     it('raises nothing for events never announced, but still drops their shares', async () => {
       const client = tx();
       client.eventShare.findMany.mockResolvedValue([
         { id: 'r2', eventId: 'e2', state: 'SCHEDULED' },
       ]);
 
-      const prepared = await service.prepareCancellations(client as never, 't1', ['e2']);
+      const prepared = await service.prepareCancellations(client as never, 't1', ['e2'], new Map());
 
       expect(client.eventShare.create).not.toHaveBeenCalled();
       expect(client.eventShare.deleteMany).toHaveBeenCalled();
@@ -607,7 +625,7 @@ describe('WhatsAppReminderService', () => {
       const client = tx();
       client.eventShare.findMany.mockResolvedValue([{ id: 'r1', eventId: 'e1', state: 'SENT' }]);
       client.event.findMany.mockResolvedValue([]);
-      const prepared = await service.prepareCancellations(client as never, 't1', ['e1']);
+      const prepared = await service.prepareCancellations(client as never, 't1', ['e1'], new Map());
       expect(prepared.created).toEqual([]);
       expect(client.event.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

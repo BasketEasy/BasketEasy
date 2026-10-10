@@ -1,0 +1,581 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "id": "user-lea",
+    "email": "lea.moreau@example.fr",
+    "firstName": "Léa",
+    "lastName": "Moreau",
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "MEMBER"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ES Erdre Basket",
+      "ffbbClubCode": null,
+      "createdAt": "2025-06-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ES Erdre Basket",
+    "ffbbClubCode": null,
+    "createdAt": "2025-06-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 0
+  },
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors Filles 1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "jerseyRotationEnabled": false,
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ],
+  "GET /api/me/dashboard": {
+    "totalPlayers": 0,
+    "actionItems": [],
+    "upcomingEvents": [
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 52,
+          "theirScore": 58,
+          "outcome": "LOSS"
+        },
+        "myMatchStats": {
+          "points": 13,
+          "fouls": 2
+        },
+        "vote": {
+          "canVote": false,
+          "hasVoted": true,
+          "closesAt": "2026-09-24T18:30:00.000Z",
+          "votesCast": 9,
+          "totalVoters": 10,
+          "mvp": [
+            {
+              "firstName": "Amina",
+              "lastInitial": "T",
+              "isMe": false
+            }
+          ]
+        },
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-past-3",
+        "type": "MATCH",
+        "startsAt": "2026-09-19T18:30:00.000Z",
+        "opponentName": "Sèvre-Maine Basket",
+        "venue": "AWAY",
+        "location": "Rue des Sports, 44000 Nantes",
+        "locationName": null,
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 10,
+          "maybe": 0,
+          "notGoing": 0,
+          "pending": 0,
+          "isConvocationScoped": true
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 71,
+          "theirScore": 49,
+          "outcome": "WIN"
+        },
+        "myMatchStats": {
+          "points": 19,
+          "fouls": 1
+        },
+        "vote": {
+          "canVote": false,
+          "hasVoted": true,
+          "closesAt": "2026-10-01T18:30:00.000Z",
+          "votesCast": 9,
+          "totalVoters": 10,
+          "mvp": [
+            {
+              "firstName": "Léa",
+              "lastInitial": "M",
+              "isMe": true
+            }
+          ]
+        },
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-past-2",
+        "type": "MATCH",
+        "startsAt": "2026-09-26T18:30:00.000Z",
+        "opponentName": "Orvault Bois-Raguenet",
+        "venue": "HOME",
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 10,
+          "maybe": 0,
+          "notGoing": 0,
+          "pending": 0,
+          "isConvocationScoped": true
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 64,
+          "theirScore": 57,
+          "outcome": "WIN"
+        },
+        "myMatchStats": {
+          "points": 16,
+          "fouls": 2
+        },
+        "vote": {
+          "canVote": false,
+          "hasVoted": true,
+          "closesAt": "2026-10-08T18:30:00.000Z",
+          "votesCast": 9,
+          "totalVoters": 10,
+          "mvp": [
+            {
+              "firstName": "Sarah",
+              "lastInitial": "D",
+              "isMe": false
+            }
+          ]
+        },
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-past",
+        "type": "MATCH",
+        "startsAt": "2026-10-03T18:30:00.000Z",
+        "opponentName": "Carquefou Renaudières BC",
+        "venue": "HOME",
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 10,
+          "maybe": 0,
+          "notGoing": 0,
+          "pending": 0,
+          "isConvocationScoped": true
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-training",
+        "type": "TRAINING",
+        "startsAt": "2026-10-08T18:00:00.000Z",
+        "opponentName": null,
+        "venue": null,
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 0,
+          "answering": 11,
+          "going": 8,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 2,
+          "isConvocationScoped": false
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-10T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 22,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-10T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "myTravelMode": null,
+        "eventId": "event-1",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T18:30:00.000Z",
+        "opponentName": "Rezé Trentemoult Basket",
+        "venue": "AWAY",
+        "location": "Rue des Trois-Moulins, 44400 Rezé",
+        "locationName": "Gymnase des Trois-Moulins",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-training-2",
+        "type": "TRAINING",
+        "startsAt": "2026-10-13T18:00:00.000Z",
+        "opponentName": null,
+        "venue": null,
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 0,
+          "answering": 11,
+          "going": 4,
+          "maybe": 0,
+          "notGoing": 1,
+          "pending": 6,
+          "isConvocationScoped": false
+        }
+      }
+    ]
+  },
+  "GET /api/clubs/club-1/teams/team-1/stats": {
+    "seasonYear": 2026,
+    "seasonStart": "2026-09-01T00:00:00.000Z",
+    "seasonEnd": "2027-08-31T23:59:59.999Z",
+    "matchesPlayed": 4,
+    "availableSeasons": [2026, 2025],
+    "players": [
+      {
+        "teamPlayerId": "tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 15.3,
+        "foulsPerGame": 1.8,
+        "seasonHighPoints": 19,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 7,
+        "twoPointPoints": 36,
+        "threePointPoints": 18,
+        "totalPoints": 61,
+        "mvpAwards": 2,
+        "worstPlayerAwards": 0,
+        "isMe": true
+      },
+      {
+        "teamPlayerId": "tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 11.8,
+        "foulsPerGame": 2.3,
+        "seasonHighPoints": 14,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 5,
+        "twoPointPoints": 30,
+        "threePointPoints": 12,
+        "totalPoints": 47,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 11,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 15,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 4,
+        "twoPointPoints": 28,
+        "threePointPoints": 12,
+        "totalPoints": 44,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-manon",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 8.5,
+        "foulsPerGame": 1.5,
+        "seasonHighPoints": 11,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 6,
+        "twoPointPoints": 22,
+        "threePointPoints": 6,
+        "totalPoints": 34,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 6.7,
+        "foulsPerGame": 3.3,
+        "seasonHighPoints": 9,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 2,
+        "twoPointPoints": 18,
+        "threePointPoints": 0,
+        "totalPoints": 20,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 4.5,
+        "foulsPerGame": 1.3,
+        "seasonHighPoints": 8,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 2,
+        "twoPointPoints": 16,
+        "threePointPoints": 0,
+        "totalPoints": 18,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "role": "PLAYER",
+        "gamesPlayed": 4,
+        "pointsPerGame": 4,
+        "foulsPerGame": 0.8,
+        "seasonHighPoints": 6,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 4,
+        "twoPointPoints": 12,
+        "threePointPoints": 0,
+        "totalPoints": 16,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "role": "PLAYER",
+        "gamesPlayed": 2,
+        "pointsPerGame": 3,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 4,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 6,
+        "threePointPoints": 0,
+        "totalPoints": 6,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-clara",
+        "firstName": "Clara",
+        "lastName": "Fontaine",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 1.3,
+        "foulsPerGame": 1,
+        "seasonHighPoints": 2,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 4,
+        "threePointPoints": 0,
+        "totalPoints": 4,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-maelys",
+        "firstName": "Maëlys",
+        "lastName": "Perrin",
+        "role": "PLAYER",
+        "gamesPlayed": 0,
+        "pointsPerGame": null,
+        "foulsPerGame": null,
+        "seasonHighPoints": null,
+        "seasonHighFouls": null,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 0,
+        "threePointPoints": 0,
+        "totalPoints": 0,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-ines",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "role": "COACH",
+        "gamesPlayed": 0,
+        "pointsPerGame": null,
+        "foulsPerGame": null,
+        "seasonHighPoints": null,
+        "seasonHighFouls": null,
+        "freeThrowPoints": 0,
+        "twoPointPoints": 0,
+        "threePointPoints": 0,
+        "totalPoints": 0,
+        "mvpAwards": 0,
+        "worstPlayerAwards": 0,
+        "isMe": false
+      }
+    ]
+  }
+}

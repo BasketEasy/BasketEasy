@@ -118,13 +118,25 @@ jobs:
           script: |
             const sha = context.payload.workflow_run.head_sha;
             const skip = (why) => { core.setOutput('proceed', 'false'); core.notice(why); };
-            const number = context.payload.workflow_run.pull_requests?.[0]?.number;
-            if (!number) return skip('No PR for this run.');
-
-            const { data: pr } = await github.rest.pulls.get({ ...context.repo, pull_number: number });
+            // pull_requests can be empty, or name a PR that reused the branch: take the
+            // candidates from the payload or the commit, keep only the open PR whose head
+            // is exactly this SHA in this repo, and refuse to guess between two.
+            const fromPayload = (context.payload.workflow_run.pull_requests ?? []).map((p) => p.number);
+            const candidates = fromPayload.length ? fromPayload : (await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              { ...context.repo, commit_sha: sha, per_page: 100 },
+            )).map((p) => p.number);
+            const matches = [];
+            for (const n of new Set(candidates)) {
+              const { data: c } = await github.rest.pulls.get({ ...context.repo, pull_number: n });
+              if (c.state === 'open' && c.head.sha === sha
+                  && c.head.repo?.full_name === `${context.repo.owner}/${context.repo.repo}`) matches.push(c);
+            }
+            if (matches.length === 0) return skip('No open same-repo PR with this head.');
+            if (matches.length > 1) return skip(`Ambiguous: PRs ${matches.map((c) => c.number).join(', ')} share this head.`);
+            const pr = matches[0];
+            const number = pr.number;
             if (pr.draft) return skip('Draft PR.');
-            if (pr.state !== 'open') return skip('PR not open.');
-            if (pr.head.sha !== sha) return skip('Newer push supersedes this run.');
 
             // This workflow's own jobs and the clearance status are not CI.
             const SELF_JOBS = new Set(['resolve', 'gate', 'review', 'decide']);
@@ -156,7 +168,7 @@ jobs:
             const earlier = commits.map((c) => c.sha).filter((x) => x !== sha).reverse().slice(0, 30);
             const combined = await Promise.all(earlier.map((ref) => github.rest.repos
               .getCombinedStatusForRef({ ...context.repo, ref, per_page: 100 })
-              .then((r) => ({ ref, v: r.data.statuses.find((s) => s.context === 'review-agent/verdict') }))));
+              .then((r) => ({ ref, v: r.data.statuses.find((s) => s.context === 'review-agent/verdict' && s.creator?.login === 'github-actions[bot]') }))));
             const prev = combined.find((c) => c.v);
 
             let mode = 'full';

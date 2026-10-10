@@ -34,6 +34,8 @@ const JOB_OPTIONS = {
 };
 
 const NUDGE_DELAY_MS = 60 * 60 * 1000;
+/** A `send` job firing this much before `dueAt` is early, not on time (a stale delay survived a re-queue). */
+const SEND_EARLY_SLACK_MS = 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 
 export interface ShareJobData {
@@ -323,7 +325,7 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     }
   }
 
-  private async voidShare(share: SyncShare): Promise<void> {
+  private async voidShare(share: { id: string }): Promise<void> {
     const { count } = await this.prisma.eventShare.updateMany({
       where: {
         id: share.id,
@@ -336,14 +338,45 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
   }
 
   // SCHEDULED -> PENDING, notify, and queue the nudge. The conditional update is
-  // what lets a racing confirm win.
-  private async notifyNow(shareId: string, event: { startsAt: Date }): Promise<void> {
+  // what lets a racing confirm win. A prompt nobody could be told about must not
+  // stay PENDING (a retry would see PENDING and return, so nobody is ever told):
+  // a failed notification puts the share back to SCHEDULED and rethrows, so the
+  // job retry and the sweep both find it still due.
+  private async notifyNow(
+    shareId: string,
+    event: { startsAt: Date; teamId: string },
+  ): Promise<void> {
+    // With the guest link off there is nothing a manager could confirm.
+    if (!(await this.hasGuestLink(event.teamId))) {
+      await this.voidShareById(shareId);
+      return;
+    }
     const moved = await this.markPending(shareId);
     if (!moved) return;
-    await this.notifyManagers(shareId, false);
+    try {
+      await this.notifyManagers(shareId, false);
+    } catch (error) {
+      await this.prisma.eventShare.updateMany({
+        where: { id: shareId, state: EventShareState.PENDING },
+        data: { state: EventShareState.SCHEDULED, firstNotifiedAt: null },
+      });
+      throw error;
+    }
     await this.withdrawIfSettled(shareId);
     await this.queueNudge(shareId, event.startsAt);
     await this.ensureExpire(shareId, event.startsAt);
+  }
+
+  private async hasGuestLink(teamId: string): Promise<boolean> {
+    const link = await this.prisma.teamGuestLink.findUnique({
+      where: { teamId },
+      select: { teamId: true },
+    });
+    return link !== null;
+  }
+
+  private async voidShareById(shareId: string): Promise<void> {
+    await this.voidShare({ id: shareId });
   }
 
   // A `confirmShare` that lands between the PENDING write and the rows above
@@ -370,10 +403,20 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
   async send(shareId: string): Promise<void> {
     const share = await this.loadShareForJob(shareId);
     if (!share || share.state !== EventShareState.SCHEDULED) return;
+    // `dueAt` is the truth, the job a hint: a job queued for a time the share
+    // has since moved off (a data migration realigning a series after a DST
+    // change) fires early and does nothing; the sweep sends it once overdue.
+    if (share.dueAt && share.dueAt.getTime() > Date.now()) return;
     const { event } = share;
     // Only a REMINDER is ever SCHEDULED, and it always has its event.
     if (!event || event.startsAt <= new Date()) return;
     if (!resolveSettings(event, event.team).enabled) return;
+    // The job is a hint, `dueAt` the truth: a delay left stale by a non-atomic
+    // re-queue must not prompt a manager early. Put it back where it belongs.
+    if (share.dueAt && share.dueAt.getTime() - Date.now() > SEND_EARLY_SLACK_MS) {
+      await this.queueSend(shareId, share.dueAt);
+      return;
+    }
     await this.notifyNow(shareId, event);
   }
 
@@ -385,12 +428,25 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
     // A CANCELLATION has no event any more: its own expiry is the deleted event's kick-off.
     const endsAt = share.event?.startsAt ?? share.expiresAt;
     if (!endsAt || endsAt <= new Date()) return;
+    if (share.event && !(await this.hasGuestLink(share.event.teamId))) {
+      await this.voidShareById(shareId);
+      return;
+    }
     const { count } = await this.prisma.eventShare.updateMany({
       where: { id: shareId, state: EventShareState.PENDING, nudgedAt: null },
       data: { nudgedAt: new Date() },
     });
     if (count === 0) return;
-    await this.notifyManagers(shareId, true);
+    try {
+      await this.notifyManagers(shareId, true);
+    } catch (error) {
+      // Un-claim the nudge, or a failed one is never retried.
+      await this.prisma.eventShare.updateMany({
+        where: { id: shareId, state: EventShareState.PENDING },
+        data: { nudgedAt: null },
+      });
+      throw error;
+    }
     await this.withdrawIfSettled(shareId);
   }
 
@@ -423,17 +479,26 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
       data: { nudgedAt: now },
     });
     if (count === 0) return;
-    await this.notifyChangePrompts(
-      live[0].teamId,
-      live[0].type as 'UPDATE' | 'CANCELLATION',
-      live.map((share) => ({
-        shareId: share.id,
-        eventId: share.eventId,
-        startsAt: share.event?.startsAt ?? share.expiresAt ?? now,
-        subject: promptSubject(share),
-      })),
-      true,
-    );
+    try {
+      await this.notifyChangePrompts(
+        live[0].teamId,
+        live[0].type as 'UPDATE' | 'CANCELLATION',
+        live.map((share) => ({
+          shareId: share.id,
+          eventId: share.eventId,
+          startsAt: share.event?.startsAt ?? share.expiresAt ?? now,
+          subject: promptSubject(share),
+        })),
+        true,
+      );
+    } catch (error) {
+      // Un-claim the nudge, or a failed one is never retried.
+      await this.prisma.eventShare.updateMany({
+        where: { id: { in: live.map((share) => share.id) }, state: EventShareState.PENDING },
+        data: { nudgedAt: null },
+      });
+      throw error;
+    }
   }
 
   /** `expire` job: the event started without a share. */
@@ -472,7 +537,9 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
         id: true,
         state: true,
         nudgedAt: true,
+        dueAt: true,
         expiresAt: true,
+        dueAt: true,
         event: {
           select: {
             id: true,

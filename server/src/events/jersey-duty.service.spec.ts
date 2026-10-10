@@ -1139,13 +1139,17 @@ describe('JerseyDutyService', () => {
       expect(summary).toEqual({ considered: 1, frozen: 1 });
     });
 
-    it('writes nothing for an empty pool', async () => {
+    it('records an empty pool as a holder-less SUGGESTION row, notifying nobody', async () => {
       prisma.event.findMany.mockResolvedValue(due);
       roster = DEFAULT_ROSTER.map((r) => ({ ...r, going: false }));
 
       const summary = await service.freezeDue(NOW);
 
-      expect(prisma.eventJerseyDuty.createMany).not.toHaveBeenCalled();
+      expect(prisma.eventJerseyDuty.createMany).toHaveBeenCalledWith({
+        data: [{ eventId: 'event-1', teamPlayerId: null, source: 'SUGGESTION' }],
+        skipDuplicates: true,
+      });
+      expect(notifications.notify).not.toHaveBeenCalled();
       expect(summary).toEqual({ considered: 1, frozen: 0 });
     });
 

@@ -545,6 +545,9 @@ export class EventsService {
     // setEventConvocations's own read+write. runSerializableTransaction
     // retries the (expected, occasional) loser of that race instead of
     // surfacing a serialization failure as a 500.
+    // The meeting plans a cancellation snapshots are resolved here, outside the
+    // transaction: the resolver reads through the base client.
+    const cancellationPlans = await this.whatsAppReminders.resolveCancellationPlans(teamId, ids);
     const { convokedTeamPlayerIds, cancellations } = await this.runSerializableTransaction(
       async (tx) => {
         const convocations = await tx.eventConvocation.findMany({
@@ -555,7 +558,12 @@ export class EventsService {
         // WhatsApp: cancelling deletes the event, so a CANCELLATION share for
         // each event the group was told about is written here, with a snapshot,
         // before its rows go — and no reminder or update is left orphaned.
-        const cancellations = await this.whatsAppReminders.prepareCancellations(tx, teamId, ids);
+        const cancellations = await this.whatsAppReminders.prepareCancellations(
+          tx,
+          teamId,
+          ids,
+          cancellationPlans,
+        );
 
         await tx.event.deleteMany({ where: { id: { in: ids } } });
 
