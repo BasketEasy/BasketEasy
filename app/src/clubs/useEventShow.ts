@@ -10,10 +10,11 @@ export function useEventShow(clubId: string, teamId: string, eventId: string) {
   const query = useQuery({
     queryKey: teamEventQueryKey(clubId, teamId, eventId, forPlayerId),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<TeamEvent>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: isReady,
   });

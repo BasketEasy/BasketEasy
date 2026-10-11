@@ -19,8 +19,10 @@ export function useEventList(
   const query = useQuery({
     queryKey: teamEventsQueryKey(clubId, teamId, scoped),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
-      apiClient.get<PaginatedResult<TeamEvent>>(`/clubs/${clubId}/teams/${teamId}/events`, scoped),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<TeamEvent>>(`/clubs/${clubId}/teams/${teamId}/events`, scoped, {
+        signal,
+      }),
     placeholderData: keepPreviousData,
     enabled: isReady && enabled,
   });

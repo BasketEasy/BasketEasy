@@ -20,10 +20,11 @@ export function useEventConvocations(
   const query = useQuery({
     queryKey: eventConvocationsQueryKey(clubId, teamId, eventId, forPlayerId),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<EventConvocationRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/convocations`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: enabled && isReady,
   });

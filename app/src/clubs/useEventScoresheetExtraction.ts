@@ -29,9 +29,11 @@ export function useEventScoresheetExtraction(
   return useQuery({
     queryKey: eventScoresheetExtractionQueryKey(clubId, teamId, eventId),
     staleTime: scoresheetExtractionStaleTime,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<ScoresheetExtraction | null>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/scoresheet-extraction`,
+        undefined,
+        { signal },
       ),
     enabled: options?.enabled,
   });

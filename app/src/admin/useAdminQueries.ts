@@ -62,7 +62,9 @@ import {
  * lists, rosters, events, the audit log, any search): no refetch on focus or
  * reconnect, for the same reason as `personRecordOptions` below, and `static`:
  * going back to a list reads it from the cache instead of writing another
- * ADMIN_PII_LISTED row. They still refetch after a mutation invalidates them,
+ * ADMIN_PII_LISTED row. Their `queryFn`s deliberately never forward the abort
+ * `signal`: leaving the page mid-request must not cancel the read, or the cache
+ * stays empty and coming back writes a second audit row. They still refetch after a mutation invalidates them,
  * which is a read someone asked for, and on the page's own refresh button.
  */
 const auditedListOptions = {
@@ -74,7 +76,8 @@ const auditedListOptions = {
 export function useRetentionRuns() {
   return useQuery({
     queryKey: retentionRunsQueryKey,
-    queryFn: () => apiClient.get<RetentionRunSummary[]>('/admin/retention/runs'),
+    queryFn: ({ signal }) =>
+      apiClient.get<RetentionRunSummary[]>('/admin/retention/runs', undefined, { signal }),
     staleTime: FRESHNESS.slow,
   });
 }
@@ -91,7 +94,8 @@ export function useAdminAuditLog(query: ListAuditLogParams) {
 export function useAdminClubs(query: AdminClubsQuery) {
   return useQuery({
     queryKey: adminClubsQueryKey(query),
-    queryFn: () => apiClient.get<PaginatedResult<AdminClubSummary>>('/admin/clubs', query),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<AdminClubSummary>>('/admin/clubs', query, { signal }),
     staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
@@ -100,7 +104,8 @@ export function useAdminClubs(query: AdminClubsQuery) {
 export function useAdminClub(clubId: string) {
   return useQuery({
     queryKey: adminClubQueryKey(clubId),
-    queryFn: () => apiClient.get<AdminClubDetail>(`/admin/clubs/${clubId}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<AdminClubDetail>(`/admin/clubs/${clubId}`, undefined, { signal }),
     staleTime: FRESHNESS.slow,
   });
 }
@@ -118,7 +123,8 @@ export function useAdminClubMembers(clubId: string, query: AdminClubMembersQuery
 export function useAdminTeams(query: AdminTeamsQuery) {
   return useQuery({
     queryKey: adminTeamsQueryKey(query),
-    queryFn: () => apiClient.get<PaginatedResult<AdminTeamSummary>>('/admin/teams', query),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<AdminTeamSummary>>('/admin/teams', query, { signal }),
     staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
@@ -127,7 +133,7 @@ export function useAdminTeams(query: AdminTeamsQuery) {
 export function useAdminTeam(teamId: string) {
   return useQuery({
     queryKey: adminTeamQueryKey(teamId),
-    queryFn: () => apiClient.get<AdminTeamDetail>(`/admin/teams/${teamId}`),
+    queryFn: () => apiClient.get<AdminTeamDetail>(`/admin/teams/${teamId}`, undefined),
     ...auditedListOptions,
   });
 }
@@ -135,7 +141,7 @@ export function useAdminTeam(teamId: string) {
 export function useAdminTeamRoster(teamId: string) {
   return useQuery({
     queryKey: adminTeamRosterQueryKey(teamId),
-    queryFn: () => apiClient.get<AdminRosterEntry[]>(`/admin/teams/${teamId}/roster`),
+    queryFn: () => apiClient.get<AdminRosterEntry[]>(`/admin/teams/${teamId}/roster`, undefined),
     ...auditedListOptions,
   });
 }
@@ -154,7 +160,8 @@ export function useAdminUsers(query: AdminUsersQuery) {
  * server-side, so person records are pinned to a single deliberate read: no
  * refetch on window focus or reconnect, no background revalidation, no retry.
  * A DPO answering "who looked at this person's data and when" must not have
- * to explain away six identical rows produced by a tab regaining focus.
+ * to explain away six identical rows produced by a tab regaining focus. Like
+ * the audited lists, their `queryFn`s never forward `signal`.
  */
 const personRecordOptions = {
   refetchOnWindowFocus: false,
@@ -166,7 +173,7 @@ const personRecordOptions = {
 export function useAdminUser(userId: string) {
   return useQuery({
     queryKey: adminUserQueryKey(userId),
-    queryFn: () => apiClient.get<AdminUserDetail>(`/admin/users/${userId}`),
+    queryFn: () => apiClient.get<AdminUserDetail>(`/admin/users/${userId}`, undefined),
     ...personRecordOptions,
   });
 }
@@ -183,7 +190,7 @@ export function useAdminPlayers(query: AdminPlayersQuery) {
 export function useAdminPlayer(playerId: string) {
   return useQuery({
     queryKey: adminPlayerQueryKey(playerId),
-    queryFn: () => apiClient.get<AdminPlayerDetail>(`/admin/players/${playerId}`),
+    queryFn: () => apiClient.get<AdminPlayerDetail>(`/admin/players/${playerId}`, undefined),
     ...personRecordOptions,
   });
 }
@@ -191,7 +198,8 @@ export function useAdminPlayer(playerId: string) {
 export function useAdminEvents(query: AdminEventsQuery, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: adminEventsQueryKey(query),
-    queryFn: () => apiClient.get<PaginatedResult<AdminEventSummary>>('/admin/events', query),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<AdminEventSummary>>('/admin/events', query, { signal }),
     staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
     enabled: options.enabled ?? true,
@@ -201,7 +209,7 @@ export function useAdminEvents(query: AdminEventsQuery, options: { enabled?: boo
 export function useAdminEvent(eventId: string) {
   return useQuery({
     queryKey: adminEventQueryKey(eventId),
-    queryFn: () => apiClient.get<AdminEventDetail>(`/admin/events/${eventId}`),
+    queryFn: () => apiClient.get<AdminEventDetail>(`/admin/events/${eventId}`, undefined),
     ...auditedListOptions,
   });
 }
@@ -209,8 +217,10 @@ export function useAdminEvent(eventId: string) {
 export function useAdminScoresheets(query: AdminScoresheetsQuery) {
   return useQuery({
     queryKey: adminScoresheetsQueryKey(query),
-    queryFn: () =>
-      apiClient.get<PaginatedResult<AdminScoresheetSummary>>('/admin/scoresheets', query),
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<AdminScoresheetSummary>>('/admin/scoresheets', query, {
+        signal,
+      }),
     staleTime: FRESHNESS.slow,
     placeholderData: keepPreviousData,
   });
@@ -235,7 +245,7 @@ export function useAdminSearch(q: string) {
 export function useAdminStats(query: AdminStatsQuery) {
   return useQuery({
     queryKey: adminStatsQueryKey(query),
-    queryFn: () => apiClient.get<AdminStats>('/admin/stats', query),
+    queryFn: ({ signal }) => apiClient.get<AdminStats>('/admin/stats', query, { signal }),
     placeholderData: keepPreviousData,
     staleTime: FRESHNESS.feed,
   });

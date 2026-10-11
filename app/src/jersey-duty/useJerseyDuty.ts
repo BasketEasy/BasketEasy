@@ -16,10 +16,11 @@ export function useJerseyDuty(clubId: string, teamId: string, eventId: string) {
   const query = useQuery({
     queryKey: jerseyDutyQueryKey(clubId, teamId, eventId, forPlayerId),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<JerseyDutyDetail>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/jersey-duty`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: isReady,
   });
@@ -36,10 +37,11 @@ export function useJerseyRotation(clubId: string, teamId: string, enabled = true
     queryKey: jerseyRotationQueryKey(clubId, teamId, forPlayerId),
     // Built from the roster's RSVPs and call-ups, which teammates change all day.
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<JerseyRotationOverview>(
         `/clubs/${clubId}/teams/${teamId}/jersey-rotation`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: enabled && isReady,
   });

@@ -10,7 +10,8 @@ export function useTeamGuestLink(clubId: string, teamId: string) {
   return useQuery({
     queryKey: guestLinkQueryKey(clubId, teamId),
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<TeamGuestLinkInfo>(path(clubId, teamId)),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamGuestLinkInfo>(path(clubId, teamId), undefined, { signal }),
   });
 }
 

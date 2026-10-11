@@ -17,7 +17,8 @@ const POLL_INTERVAL_MS = FRESHNESS.feed;
 export function useNotifications(params?: ListNotificationsParams) {
   return useQuery({
     queryKey: notificationsQueryKey(params),
-    queryFn: () => apiClient.get<NotificationList>('/me/notifications', params),
+    queryFn: ({ signal }) =>
+      apiClient.get<NotificationList>('/me/notifications', params, { signal }),
     // Equal to the poll interval: a mount or a focus inside it reads the cache
     // instead of racing the poller.
     staleTime: POLL_INTERVAL_MS,

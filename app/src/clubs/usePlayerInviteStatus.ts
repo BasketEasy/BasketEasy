@@ -13,7 +13,10 @@ export function usePlayerInviteStatus(clubId: string, playerId: string, enabled:
     // The invitee accepts on their own device while the admin waits on this
     // dialog, so it is not held for ten minutes.
     staleTime: FRESHNESS.live,
-    queryFn: () => apiClient.get<PlayerInviteStatus>(`/clubs/${clubId}/players/${playerId}/invite`),
+    queryFn: ({ signal }) =>
+      apiClient.get<PlayerInviteStatus>(`/clubs/${clubId}/players/${playerId}/invite`, undefined, {
+        signal,
+      }),
     enabled,
   });
 }

@@ -16,10 +16,11 @@ export function useEventRsvps(clubId: string, teamId: string, eventId: string, e
   const query = useQuery({
     queryKey: eventRsvpsQueryKey(clubId, teamId, eventId, forPlayerId),
     staleTime: FRESHNESS.live,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<EventRsvpRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvps`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: enabled && isReady,
   });

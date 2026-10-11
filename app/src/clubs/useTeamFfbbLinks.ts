@@ -8,6 +8,9 @@ export function useTeamFfbbLinks(clubId: string, teamId: string) {
   return useQuery({
     queryKey: teamFfbbLinksQueryKey(clubId, teamId),
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<TeamFfbbLink[]>(`/clubs/${clubId}/teams/${teamId}/ffbb-links`),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamFfbbLink[]>(`/clubs/${clubId}/teams/${teamId}/ffbb-links`, undefined, {
+        signal,
+      }),
   });
 }

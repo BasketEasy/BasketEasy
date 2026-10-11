@@ -7,7 +7,8 @@ export function useInvitePreview(token: string) {
   return useQuery({
     queryKey: ['invites', token] as const,
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<PlayerInvitePreview>(`/invites/${token}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<PlayerInvitePreview>(`/invites/${token}`, undefined, { signal }),
     // A 404 here means the token is invalid/expired, not a transient
     // failure — retrying won't make it valid.
     retry: false,

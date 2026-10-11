@@ -4,7 +4,36 @@ import { __resetToastsForTests } from '@basketeasy/ui/toast-store';
 import { __resetRefreshForTests } from './api/client';
 import { server } from './mocks/server';
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+// Vitest's jsdom environment replaces AbortController/AbortSignal with jsdom's,
+// and Node 24's fetch rejects a signal from another realm ("Expected signal to
+// be an instance of AbortSignal"), so every apiClient.get that forwards a query's
+// signal failed in CI (Node 24) while passing on Node 20/22. The browser has one
+// realm and needs none of this: the wrapper keeps the cancellation (the request
+// rejects with the signal's reason) and hands the rest of the stack no signal.
+// MSW builds a Request from the init before anything else, so the wrapper has to
+// sit outside MSW's patched fetch, i.e. be installed after `server.listen`.
+function bridgeAbortSignal() {
+  const patchedFetch = globalThis.fetch;
+  globalThis.fetch = (input, init) => {
+    const signal = init?.signal;
+    if (!signal) return patchedFetch(input, init);
+    const rest = { ...init };
+    delete rest.signal;
+    return new Promise<Response>((resolve, reject) => {
+      if (signal.aborted) {
+        reject(signal.reason);
+        return;
+      }
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      patchedFetch(input, rest).then(resolve, reject);
+    });
+  };
+}
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'error' });
+  bridgeAbortSignal();
+});
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 

@@ -12,7 +12,10 @@ export function usePlayerGuardians(clubId: string, playerId: string, enabled: bo
     // A parent accepts their link on their own device while the admin has this
     // dialog open.
     staleTime: FRESHNESS.live,
-    queryFn: () => apiClient.get<PlayerGuardians>(`/clubs/${clubId}/players/${playerId}/guardians`),
+    queryFn: ({ signal }) =>
+      apiClient.get<PlayerGuardians>(`/clubs/${clubId}/players/${playerId}/guardians`, undefined, {
+        signal,
+      }),
     enabled,
   });
 }

@@ -20,7 +20,8 @@ export function useTeamWhatsAppSettings(clubId: string, teamId: string) {
     queryKey: whatsAppSettingsQueryKey(clubId, teamId),
     // `hasReachableManager` follows the managers' own notification choices.
     staleTime: FRESHNESS.slow,
-    queryFn: () => apiClient.get<TeamWhatsAppSettings>(path(clubId, teamId)),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamWhatsAppSettings>(path(clubId, teamId), undefined, { signal }),
   });
 }
 

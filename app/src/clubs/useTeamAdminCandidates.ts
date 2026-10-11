@@ -12,8 +12,12 @@ export function useTeamAdminCandidates(clubId: string, teamId: string, enabled =
     // Every member of every linked club, and a player accepting an invite adds
     // one without any manager's write: refreshed, not `static`.
     staleTime: FRESHNESS.slow,
-    queryFn: () =>
-      apiClient.get<TeamAdminCandidate[]>(`/clubs/${clubId}/teams/${teamId}/admins/eligible`),
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamAdminCandidate[]>(
+        `/clubs/${clubId}/teams/${teamId}/admins/eligible`,
+        undefined,
+        { signal },
+      ),
     enabled,
   });
 }

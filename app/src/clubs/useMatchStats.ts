@@ -30,10 +30,11 @@ export function useMatchStats(
   return useQuery({
     queryKey: matchStatsQueryKey(clubId, teamId, eventId, forPlayerId),
     staleTime: matchStatsStaleTime,
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       apiClient.get<MatchStats>(
         `/clubs/${clubId}/teams/${teamId}/stats/matches/${eventId}`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: isReady && (options?.enabled ?? true),
   });

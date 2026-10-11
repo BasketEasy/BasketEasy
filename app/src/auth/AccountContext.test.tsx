@@ -2,7 +2,7 @@ import { StrictMode, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { apiClient } from '../api/client';
 import { AccountProvider } from './AccountContext';
@@ -119,6 +119,26 @@ describe('useAccount', () => {
       memberships: [],
     });
     expect(refreshCallCount).toBe(1);
+  });
+
+  it('stops a restore whose last observer left: the refresh it shared lands, /auth/me is never asked', async () => {
+    let meCalls = 0;
+    server.use(
+      http.post('/api/auth/refresh', async () => {
+        await delay(60);
+        return HttpResponse.json({ accessToken: 'restored-token' });
+      }),
+      http.get('/api/auth/me', () => {
+        meCalls += 1;
+        return HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true });
+      }),
+    );
+
+    const { unmount } = renderHook(() => useAccount(), { wrapper });
+    unmount();
+    await delay(150);
+
+    expect(meCalls).toBe(0);
   });
 
   it('drops every cached query but the session when the session expires mid-use', async () => {

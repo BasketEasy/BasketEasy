@@ -16,7 +16,8 @@ export function useEventWhatsAppShare(clubId: string, teamId: string, eventId: s
   return useQuery({
     queryKey: whatsAppShareQueryKey(clubId, teamId, eventId),
     staleTime: FRESHNESS.live,
-    queryFn: () => apiClient.get<EventWhatsAppShare>(path(clubId, teamId, eventId)),
+    queryFn: ({ signal }) =>
+      apiClient.get<EventWhatsAppShare>(path(clubId, teamId, eventId), undefined, { signal }),
   });
 }
 

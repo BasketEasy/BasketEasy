@@ -15,7 +15,8 @@ export function useGuardianInvitePreview(token: string) {
   return useQuery({
     queryKey: guardianInvitePreviewQueryKey(token),
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<GuardianInvitePreview>(`/guardian-invites/${token}`),
+    queryFn: ({ signal }) =>
+      apiClient.get<GuardianInvitePreview>(`/guardian-invites/${token}`, undefined, { signal }),
     // A 404/409 here is a fact about the link, not a transient failure.
     retry: false,
   });

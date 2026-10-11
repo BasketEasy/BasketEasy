@@ -8,6 +8,6 @@ export function useClubShow(clubId: string) {
   return useQuery({
     queryKey: clubQueryKey(clubId),
     staleTime: FRESHNESS.static,
-    queryFn: () => apiClient.get<Club>(`/clubs/${clubId}`),
+    queryFn: ({ signal }) => apiClient.get<Club>(`/clubs/${clubId}`, undefined, { signal }),
   });
 }
