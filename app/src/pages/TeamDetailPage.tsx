@@ -607,6 +607,7 @@ export function TeamDetailPage() {
               teamId={teamId!}
               teamGender={team.gender}
               canManageTeam={canManageTeam}
+              canAddPlayers={isAdmin}
               addablePlayers={addablePlayers}
               isLoadingAddablePlayers={isLoadingClubPlayers}
               isAddablePlayersError={isClubPlayersError}
