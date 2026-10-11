@@ -15,6 +15,7 @@ import { SelectField } from '@basketeasy/ui/select-field';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
+import { Text } from '@basketeasy/ui/text';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { Gender, TeamPlayer } from '@basketeasy/types/teams';
@@ -37,6 +38,7 @@ export function TeamRosterTab({
   teamId,
   teamGender,
   canManageTeam,
+  canAddPlayers,
   addablePlayers,
   isLoadingAddablePlayers,
   isAddablePlayersError,
@@ -68,6 +70,11 @@ export function TeamRosterTab({
   teamId: string;
   teamGender: Gender;
   canManageTeam: boolean;
+  /**
+   * The picker lists the club's players, which only a club admin can read: a team
+   * manager who isn't one gets a hint instead of a button that opens an empty list.
+   */
+  canAddPlayers: boolean;
   addablePlayers: Player[];
   /** The club's players load when the dialog opens, so the picker has its own states. */
   isLoadingAddablePlayers: boolean;
@@ -99,7 +106,10 @@ export function TeamRosterTab({
   return (
     <div className="mt-4 flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        {canManageTeam && (
+        {canManageTeam && !canAddPlayers && (
+          <Text variant="meta">Pour ajouter un joueur, demandez à un administrateur du club.</Text>
+        )}
+        {canAddPlayers && (
           <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
             <DialogTrigger asChild>
               <Button className="self-start">Ajouter un joueur</Button>
@@ -180,10 +190,12 @@ export function TeamRosterTab({
               description={
                 isRosterFiltered
                   ? "Aucun joueur de l'effectif ne correspond à votre recherche."
-                  : "Ajoutez un joueur du club à l'effectif de cette équipe."
+                  : canManageTeam && !canAddPlayers
+                    ? "Un administrateur du club peut ajouter des joueurs à l'effectif de cette équipe."
+                    : "Ajoutez un joueur du club à l'effectif de cette équipe."
               }
               action={
-                canManageTeam && !isRosterFiltered ? (
+                canAddPlayers && !isRosterFiltered ? (
                   <Button onClick={() => setIsAddPlayerOpen(true)}>Ajouter un joueur</Button>
                 ) : undefined
               }
