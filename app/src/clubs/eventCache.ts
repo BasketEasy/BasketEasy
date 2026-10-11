@@ -187,8 +187,9 @@ export function invalidateTeamEvents(
 /**
  * Drops what a deleted event owned (its RSVPs, convocations, votes, duty,
  * scoresheet and share), so nothing refetches a route that now answers 404.
- * The detail entry itself stays for the caller's broad invalidation to
- * refetch: the page showing it has to find out the event is gone.
+ * The detail entry itself is left alone and not refetched: a single-event
+ * delete invalidates the lists only (`useEventDelete`), and a series scope
+ * the broad events prefix.
  */
 export function removeEventSubQueries(queryClient: QueryClient, ids: EventIds): void {
   queryClient.removeQueries({
