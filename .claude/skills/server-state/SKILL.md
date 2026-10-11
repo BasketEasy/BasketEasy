@@ -30,7 +30,7 @@ Work through this before writing a hook, and again on your own diff. The fronten
       never sent. Data for a tab or a dialog loads when it opens (`enabled: activeTab === …`); what
       the hero, a count badge or a permission check reads stays on every tab. Search for every
       reader of the query, its `total` included, before gating it.
-- [ ] **Signal.** `queryFn: ({ signal }) => apiClient.get(path, params, { signal })`.
+- [ ] **Signal.** `queryFn: ({ signal }) => apiClient.get(path, params, { signal })`. Not for an audited admin read (`ADMIN_PII_*`): no `signal`, so an abandoned read finishes and caches.
 - [ ] **Retry.** Leave the default (never on 4xx, twice on 5xx). Set `retry: false` only when the
       server call is expensive per attempt (the FFBB scrape).
 - [ ] **Branches.** Every consumer branches `error → loading → empty → data`. A gated or
