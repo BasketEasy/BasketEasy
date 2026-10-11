@@ -390,7 +390,7 @@ describe('TeamDetailPage', () => {
     expect(await screen.findByRole('tab', { name: 'Agenda', selected: true })).toBeInTheDocument();
   });
 
-  it('lets a TeamAdmin who is not a club admin manage the roster and events', async () => {
+  it('lets a TeamAdmin who is not a club admin manage the team, but not add players', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
@@ -422,8 +422,13 @@ describe('TeamDetailPage', () => {
     expect(screen.getByRole('button', { name: /^modifier l’équipe$/i })).toBeInTheDocument();
 
     // Team-day management is available to this TeamAdmin...
+    // ...except adding players: the picker lists the club's players, a club admin's
+    // read, so this TeamAdmin gets a hint instead of a button opening an empty list.
     await goToTab(user, /^effectif$/i);
-    expect(await screen.findByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Pour ajouter un joueur, demandez à un administrateur du club.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
 
     await goToTab(user, /^administrateurs$/i);
     expect(
