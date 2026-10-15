@@ -33,7 +33,7 @@ COPY app app
 RUN pnpm --filter @basketeasy/app build
 
 # --- runtime: static files served by nginx ---
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 COPY app/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /workspace/app/dist /usr/share/nginx/html
 
