@@ -1,0 +1,320 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors F1",
+    "category": "SENIORS",
+    "gender": "WOMEN",
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [
+      {
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "isOwner": true,
+        "linkedAt": "x"
+      },
+      {
+        "clubId": "club-2",
+        "clubName": "Rezé Basket",
+        "isOwner": false,
+        "linkedAt": "x"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [
+      {
+        "id": "tp-0",
+        "teamId": "team-1",
+        "playerId": "p0",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "clubId": "club-1",
+        "role": "COACH",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-1",
+        "teamId": "team-1",
+        "playerId": "p1",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-2",
+        "teamId": "team-1",
+        "playerId": "p2",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-3",
+        "teamId": "team-1",
+        "playerId": "p3",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-4",
+        "teamId": "team-1",
+        "playerId": "p4",
+        "firstName": "Camille",
+        "lastName": "Roussel",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-5",
+        "teamId": "team-1",
+        "playerId": "p5",
+        "firstName": "Jade",
+        "lastName": "Bernard",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-6",
+        "teamId": "team-1",
+        "playerId": "p6",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      },
+      {
+        "id": "tp-7",
+        "teamId": "team-1",
+        "playerId": "p7",
+        "firstName": "Chloé",
+        "lastName": "Robert",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "createdAt": "x",
+        "birthDate": null
+      }
+    ],
+    "total": 8,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/players": {
+    "items": [
+      {
+        "id": "p-new-1",
+        "clubId": "club-1",
+        "firstName": "Inès",
+        "lastName": "Garnier",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": null,
+        "birthDate": null,
+        "gender": null,
+        "licenseType": null,
+        "isMinor": false,
+        "parentalConsentGivenAt": null,
+        "guardianCount": 0,
+        "createdAt": "2026-01-01"
+      },
+      {
+        "id": "p-new-2",
+        "clubId": "club-1",
+        "firstName": "Jade",
+        "lastName": "Lefèvre",
+        "userId": null,
+        "nationalId": null,
+        "licenseNumber": null,
+        "birthDate": null,
+        "gender": null,
+        "licenseType": null,
+        "isMinor": false,
+        "parentalConsentGivenAt": null,
+        "guardianCount": 0,
+        "createdAt": "2026-01-01"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/events": {
+    "items": [
+      {
+        "id": "event-1",
+        "teamId": "team-1",
+        "type": "MATCH",
+        "startsAt": "2026-10-03T16:30:00.000Z",
+        "location": "Rue de la Trocardière, 44400 Rezé",
+        "locationName": "Gymnase de la Trocardière",
+        "notes": null,
+        "opponentName": "Carquefou",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "createdAt": "2026-09-01",
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "isImported": true,
+        "timeConfirmed": true,
+        "myConvocation": false,
+        "rsvpSummary": {
+          "rosterSize": 8,
+          "convoked": 0,
+          "answering": 8,
+          "going": 5,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 2,
+          "isConvocationScoped": false
+        },
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "meetingPlan": null,
+        "whatsAppShare": null,
+        "whatsAppSettings": null,
+        "myTravelMode": null
+      },
+      {
+        "id": "event-2",
+        "teamId": "team-1",
+        "type": "TRAINING",
+        "startsAt": "2026-10-06T18:30:00.000Z",
+        "location": "Salle Coubertin, Nantes",
+        "locationName": null,
+        "notes": null,
+        "opponentName": null,
+        "venue": null,
+        "recurrenceId": null,
+        "createdAt": "2026-09-01",
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "isImported": false,
+        "timeConfirmed": true,
+        "myConvocation": false,
+        "rsvpSummary": {
+          "rosterSize": 8,
+          "convoked": 0,
+          "answering": 8,
+          "going": 5,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 2,
+          "isConvocationScoped": false
+        },
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "meetingPlan": null,
+        "whatsAppShare": null,
+        "whatsAppSettings": null,
+        "myTravelMode": null
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [
+    {
+      "id": "link-1",
+      "ffbbEngagementLabel": "Seniors F · Régionale 2"
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/admins": [
+    {
+      "userId": "user-9",
+      "email": "marc.roux@example.fr",
+      "teamId": "team-1",
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors F1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": false,
+      "rosterRole": null
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/admins/eligible": [
+    {
+      "userId": "user-9",
+      "email": "marc.roux@example.fr",
+      "firstName": "Marc",
+      "lastName": "Roux"
+    },
+    {
+      "userId": "user-10",
+      "email": "nadia.perrin@example.fr",
+      "firstName": "Nadia",
+      "lastName": "Perrin"
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-shares/pending-cancellations": []
+}

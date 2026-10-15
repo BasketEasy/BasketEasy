@@ -1,4 +1,4 @@
 packages:
-  - "server"
-  - "app"
-  - "packages/@basketeasy/*"
+  - 'server'
+  - 'app'
+  - 'packages/@basketeasy/*'

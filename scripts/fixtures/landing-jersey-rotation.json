@@ -1,0 +1,426 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "id": "user-lea",
+    "email": "lea.moreau@example.fr",
+    "firstName": "Léa",
+    "lastName": "Moreau",
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "MEMBER"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ES Erdre Basket",
+      "ffbbClubCode": null,
+      "createdAt": "2025-06-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ES Erdre Basket",
+    "ffbbClubCode": null,
+    "createdAt": "2025-06-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 0
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors Filles 1",
+    "category": "SENIORS",
+    "gender": "WOMEN",
+    "createdAt": "2025-06-01T00:00:00.000Z",
+    "jerseyRotationEnabled": true
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [
+      {
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "isOwner": true,
+        "linkedAt": "2025-06-01T00:00:00.000Z"
+      },
+      {
+        "clubId": "club-2",
+        "clubName": "Avenir Basket Sucé",
+        "isOwner": false,
+        "linkedAt": "2025-06-02T00:00:00.000Z"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [
+      {
+        "id": "tp-lea",
+        "teamId": "team-1",
+        "playerId": "p-tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-sarah",
+        "teamId": "team-1",
+        "playerId": "p-tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-manon",
+        "teamId": "team-1",
+        "playerId": "p-tp-manon",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-amina",
+        "teamId": "team-1",
+        "playerId": "p-tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-chloe",
+        "teamId": "team-1",
+        "playerId": "p-tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-jade",
+        "teamId": "team-1",
+        "playerId": "p-tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-emma",
+        "teamId": "team-1",
+        "playerId": "p-tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-zoe",
+        "teamId": "team-1",
+        "playerId": "p-tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-clara",
+        "teamId": "team-1",
+        "playerId": "p-tp-clara",
+        "firstName": "Clara",
+        "lastName": "Fontaine",
+        "clubId": "club-1",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-maelys",
+        "teamId": "team-1",
+        "playerId": "p-tp-maelys",
+        "firstName": "Maëlys",
+        "lastName": "Perrin",
+        "clubId": "club-2",
+        "role": "PLAYER",
+        "jerseyDutyExempt": false,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      },
+      {
+        "id": "tp-ines",
+        "teamId": "team-1",
+        "playerId": "p-tp-ines",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "clubId": "club-1",
+        "role": "COACH",
+        "jerseyDutyExempt": true,
+        "createdAt": "2025-06-01T00:00:00.000Z",
+        "birthDate": null
+      }
+    ],
+    "total": 11,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/players": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 100
+  },
+  "GET /api/clubs/club-1/teams/team-1/events": {
+    "items": [
+      {
+        "teamId": "team-1",
+        "type": "MATCH",
+        "notes": null,
+        "recurrenceId": null,
+        "createdAt": "2026-09-01T00:00:00.000Z",
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "isImported": false,
+        "timeConfirmed": true,
+        "myConvocation": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "jerseyDuty": {
+          "holder": null,
+          "status": "UNASSIGNED",
+          "broughtBy": {
+            "teamPlayerId": "tp-amina",
+            "firstName": "Amina",
+            "lastName": "Traoré"
+          },
+          "isMine": false
+        },
+        "meetingPlan": {
+          "arrivalAt": "2026-10-10T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 22,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-10T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking du gymnase de la Jonelière",
+            "address": "Rue de la Jonelière, 44300 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "whatsAppShare": null,
+        "whatsAppSettings": null,
+        "myTravelMode": "MEETING_POINT",
+        "id": "event-1",
+        "startsAt": "2026-10-10T18:30:00.000Z",
+        "opponentName": "Rezé Trentemoult Basket",
+        "venue": "AWAY",
+        "location": "Rue des Trois-Moulins, 44400 Rezé",
+        "locationName": "Gymnase des Trois-Moulins",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        }
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [],
+  "GET /api/clubs/club-1/teams/team-1/admins": [],
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors Filles 1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "jerseyRotationEnabled": true,
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/jersey-rotation": {
+    "seasonYear": 2026,
+    "teamGender": "WOMEN",
+    "enabled": true,
+    "canManage": false,
+    "nextMatch": {
+      "eventId": "event-1",
+      "startsAt": "2026-10-10T18:30:00.000Z",
+      "holder": null,
+      "suggestion": {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall"
+      }
+    },
+    "rows": [
+      {
+        "teamPlayerId": "tp-chloe",
+        "firstName": "Chloé",
+        "lastName": "Le Gall",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-chloe",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-jade",
+        "firstName": "Jade",
+        "lastName": "Lambert",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-jade",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-emma",
+        "firstName": "Emma",
+        "lastName": "Marchand",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-emma",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-zoe",
+        "firstName": "Zoé",
+        "lastName": "Bernard",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-zoe",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-clara",
+        "firstName": "Clara",
+        "lastName": "Fontaine",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-clara",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-maelys",
+        "firstName": "Maëlys",
+        "lastName": "Perrin",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-maelys",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-lea",
+        "firstName": "Léa",
+        "lastName": "Moreau",
+        "turnsThisSeason": 1,
+        "lastTurnAt": "2026-09-12T18:30:00.000Z",
+        "playerId": "p-tp-lea",
+        "exempt": false,
+        "isMe": true
+      },
+      {
+        "teamPlayerId": "tp-sarah",
+        "firstName": "Sarah",
+        "lastName": "Diallo",
+        "turnsThisSeason": 1,
+        "lastTurnAt": "2026-09-19T18:30:00.000Z",
+        "playerId": "p-tp-sarah",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-manon",
+        "firstName": "Manon",
+        "lastName": "Guérin",
+        "turnsThisSeason": 1,
+        "lastTurnAt": "2026-09-26T18:30:00.000Z",
+        "playerId": "p-tp-manon",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-amina",
+        "firstName": "Amina",
+        "lastName": "Traoré",
+        "turnsThisSeason": 1,
+        "lastTurnAt": "2026-10-03T18:30:00.000Z",
+        "playerId": "p-tp-amina",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-ines",
+        "firstName": "Inès",
+        "lastName": "Petit",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-ines",
+        "exempt": true,
+        "isMe": false
+      }
+    ]
+  }
+}

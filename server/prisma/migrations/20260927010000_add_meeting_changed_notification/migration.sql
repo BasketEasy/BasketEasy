@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "NotificationType" ADD VALUE 'EVENT_MEETING_FIXED';
+ALTER TYPE "NotificationType" ADD VALUE 'EVENT_MEETING_CHANGED';

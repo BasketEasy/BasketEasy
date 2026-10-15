@@ -1,8 +1,10 @@
 name: Docker build
 
+# PR-only: a push to main re-built the very trees the PR already built, and
+# deploy.yml builds the server image there anyway. Only the paths a PR touches
+# are built (`changes`), not a workflow-level `paths:`, so a skipped job still
+# reports success to branch protection.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -11,15 +13,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            server:
+              - 'server/**'
+              - 'packages/@basketeasy/types/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.github/workflows/docker-build.yml'
+            app:
+              - 'app/**'
+              - 'packages/@basketeasy/types/**'
+              - 'packages/@basketeasy/ui/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - '.github/workflows/docker-build.yml'
+      - id: matrix
+        env:
+          SERVER: ${{ steps.filter.outputs.server }}
+          APP: ${{ steps.filter.outputs.app }}
+        run: |
+          items=()
+          if [ "$SERVER" = true ]; then items+=('{"name":"server","dockerfile":"server/Dockerfile"}'); fi
+          if [ "$APP" = true ]; then items+=('{"name":"app","dockerfile":"app/Dockerfile"}'); fi
+          echo "matrix={\"include\":[$(IFS=,; echo "${items[*]}")]}" >> "$GITHUB_OUTPUT"
+
   build-images:
+    needs: changes
+    if: needs.changes.outputs.matrix != '{"include":[]}'
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        include:
-          - name: server
-            dockerfile: server/Dockerfile
-          - name: app
-            dockerfile: app/Dockerfile
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v4
@@ -30,5 +67,5 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: false
           tags: basketeasy/${{ matrix.name }}:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

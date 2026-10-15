@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Joueuse acceptée</title>
+    <script src="./support.js"></script>
+  </head>
+  <body>
+    <x-dc>
+      <helmet>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Big+Shoulders+Display:wght@700;800&amp;display=swap"
+        />
+        <style>
+          body {
+            margin: 0;
+            font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
+            font-size: 16px;
+            line-height: 24px;
+            color: #23201c;
+            background: #efe4d4;
+          }
+          h1,
+          h2,
+          h3,
+          p {
+            margin: 0;
+          }
+          h1,
+          h2,
+          h3 {
+            line-height: 0.94;
+          }
+          button {
+            font-family: inherit;
+            cursor: pointer;
+          }
+          a {
+            color: inherit;
+            text-decoration: none;
+          }
+          .tabular {
+            font-variant-numeric: tabular-nums;
+          }
+          .ic {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+          }
+          .ic16 {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+          }
+          .t-sm {
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .t-xs {
+            font-size: 12px;
+            line-height: 16px;
+          }
+          .b {
+            font-weight: 700;
+          }
+          .muted {
+            color: #5b564f;
+          }
+          .structure {
+            color: #1e5f74;
+          }
+          .brand {
+            color: #aa4f22;
+          }
+          .eyebrow {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 12px;
+            line-height: 16px;
+            color: #5b564f;
+          }
+          .display {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            font-size: 24px;
+            line-height: 28px;
+            text-transform: uppercase;
+          }
+          .h1 {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 36px;
+          }
+          .sh {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+          .sh h2 {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.11em;
+            color: #1e5f74;
+          }
+          .sh span {
+            height: 2px;
+            flex-grow: 1;
+            border-radius: 2px;
+            background: rgba(30, 95, 116, 0.2);
+          }
+          .card {
+            border: 1px solid #e7decf;
+            border-radius: 14px;
+            background: #fffcf7;
+            box-shadow:
+              0 2px 6px rgba(59, 42, 24, 0.08),
+              0 1px 2px rgba(59, 42, 24, 0.05);
+          }
+          .inset {
+            border: 1px solid #e7decf;
+            border-radius: 14px;
+            background: #faf5ef;
+            padding: 12px;
+            box-shadow: 0 1px 2px rgba(59, 42, 24, 0.07);
+          }
+          .inset-brand {
+            border-color: rgba(212, 98, 42, 0.3);
+            background: #fbede4;
+          }
+          .inset-structure {
+            border-color: rgba(30, 95, 116, 0.2);
+            background: #eaf1f3;
+          }
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            line-height: 20px;
+            border: 1px solid transparent;
+            box-sizing: border-box;
+            height: 44px;
+            padding: 0 16px;
+          }
+          .btn-sm {
+            height: 36px;
+            padding: 0 12px;
+          }
+          .btn-primary {
+            background: #aa4f22;
+            color: #faf5ef;
+            box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+          }
+          .btn-outline {
+            border-color: #d6c8b2;
+            background: #faf5ef;
+            color: #23201c;
+          }
+          .btn-ghost {
+            background: transparent;
+            color: #23201c;
+          }
+          .btn-danger {
+            border-color: rgba(178, 58, 46, 0.35);
+            background: #faf5ef;
+            color: #b23a2e;
+          }
+          .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 999px;
+            font-size: 12px;
+            line-height: 16px;
+            padding: 2px 10px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            white-space: nowrap;
+          }
+          .bd-structure {
+            border-color: rgba(30, 95, 116, 0.25);
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .bd-brand {
+            border-color: rgba(212, 98, 42, 0.3);
+            background: #fbede4;
+            color: #aa4f22;
+          }
+          .bd-success {
+            border-color: rgba(47, 125, 92, 0.3);
+            background: #eaefe8;
+            color: #245f48;
+          }
+          .bd-muted {
+            border-color: #e7decf;
+            background: #faf5ef;
+            color: #5b564f;
+          }
+          .bd-danger {
+            border-color: rgba(178, 58, 46, 0.3);
+            background: #f7eae8;
+            color: #b23a2e;
+          }
+          .icb {
+            display: inline-flex;
+            height: 40px;
+            width: 40px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #eaf1f3;
+            color: #1e5f74;
+          }
+          .av {
+            display: inline-flex;
+            height: 32px;
+            width: 32px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            background: #1e5f74;
+            color: #faf5ef;
+            font-size: 12px;
+            font-weight: 700;
+          }
+          .av-me {
+            background: #d4622a;
+          }
+          .hair {
+            height: 1px;
+            background: #e7decf;
+          }
+          .select {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 44px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 10px;
+            border: 1px solid #d6c8b2;
+            background: #faf5ef;
+            padding: 0 12px;
+            font: inherit;
+            font-size: 16px;
+            color: #23201c;
+          }
+          .app-top {
+            display: flex;
+            height: 56px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 8px 0 16px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .wordmark {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 24px;
+            line-height: 32px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #aa4f22;
+          }
+          .page-bar {
+            display: flex;
+            height: 48px;
+            align-items: center;
+            gap: 4px;
+            padding: 0 16px 0 4px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .tabbar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            border-top: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .tab {
+            display: flex;
+            min-height: 56px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            font-size: 12px;
+            line-height: 16px;
+            font-weight: 700;
+            color: #5b564f;
+          }
+          .tab-active {
+            background: #fbede4;
+            color: #aa4f22;
+            box-shadow: inset 0 2px 0 #d4622a;
+          }
+          .persona {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #eaf1f3;
+            border-bottom: 1px solid rgba(30, 95, 116, 0.2);
+            color: #1e5f74;
+            font-size: 14px;
+            line-height: 20px;
+          }
+          .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(35, 32, 28, 0.5);
+          }
+          .sheet {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            box-sizing: border-box;
+            background: #fffcf7;
+            border-top: 1px solid #e7decf;
+            border-radius: 20px 20px 0 0;
+            padding: 28px 16px 24px;
+            box-shadow:
+              0 10px 28px rgba(59, 42, 24, 0.11),
+              0 2px 6px rgba(59, 42, 24, 0.06);
+          }
+          .handle {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            margin-left: -20px;
+            width: 40px;
+            height: 4px;
+            border-radius: 999px;
+            background: #d6c8b2;
+          }
+          .x {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            display: flex;
+            height: 44px;
+            width: 44px;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: 0;
+            color: rgba(35, 32, 28, 0.6);
+          }
+          .dtitle {
+            font-family: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+            font-size: 30px;
+            line-height: 36px;
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+          .radio {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid #d6c8b2;
+            border-radius: 10px;
+            background: #faf5ef;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: left;
+            font: inherit;
+            color: #23201c;
+          }
+          .radio-on {
+            border-color: #1e5f74;
+            background: #eaf1f3;
+            box-shadow: inset 0 0 0 1px #1e5f74;
+          }
+          .dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            border: 2px solid #d6c8b2;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            background: #fffcf7;
+          }
+          .dot-on {
+            border: 6px solid #1e5f74;
+          }
+          .row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+          }
+          .switch {
+            width: 40px;
+            height: 24px;
+            border-radius: 999px;
+            background: #d6c8b2;
+            position: relative;
+            flex-shrink: 0;
+            border: 0;
+            padding: 0;
+          }
+          .switch i {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: #fffcf7;
+          }
+          .switch-on {
+            background: #1e5f74;
+          }
+          .switch-on i {
+            left: 19px;
+          }
+          .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            border-radius: 14px;
+            border: 1px solid #2f7d5c;
+            background: #eaefe8;
+            color: #245f48;
+            padding: 14px 16px;
+            box-shadow: 0 10px 28px rgba(59, 42, 24, 0.11);
+          }
+          .timeblock {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
+            background: #1e5f74;
+            color: #faf5ef;
+            flex-shrink: 0;
+          }
+          .notif {
+            display: flex;
+            gap: 12px;
+            padding: 14px;
+            border-bottom: 1px solid #e7decf;
+            background: #fffcf7;
+          }
+          .notif-unread {
+            background: #fbede4;
+          }
+        </style>
+      </helmet>
+      <div
+        style="
+          width: 390px;
+          height: 844px;
+          position: relative;
+          overflow: hidden;
+          background: #efe4d4;
+        "
+      >
+        <header class="app-top">
+          <span class="wordmark">Kluvo</span
+          ><a
+            href="#"
+            class="btn btn-ghost"
+            aria-label="Notifications"
+            style="width: 44px; padding: 0"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7" />
+              <path d="M10 20a2 2 0 0 0 4 0" /></svg
+          ></a>
+        </header>
+        <div class="page-bar">
+          <a href="#" class="btn btn-ghost" aria-label="Retour" style="width: 44px; padding: 0"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m15 5-7 7 7 7" /></svg></a
+          ><span class="t-sm b">U13 F · Match</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: center; padding: 20px 16px 4px">
+          <div class="timeblock">
+            <span class="t-xs b">SAM.</span
+            ><span class="display tabular" style="font-size: 22px; line-height: 24px">14:00</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <span class="eyebrow">Match · Sam. 4 oct.</span>
+            <h1 class="h1" style="font-size: 32px">vs BC Rezé</h1>
+            <span class="t-sm muted">Extérieur · Gymnase Rezé-Ragon</span>
+          </div>
+        </div>
+        <section style="display: flex; flex-direction: column; gap: 12px; padding: 20px 16px 0">
+          <div class="sh">
+            <h2>Logistique</h2>
+            <span></span>
+          </div>
+          <div class="card" style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span class="icb"
+                ><svg
+                  class="ic"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M8 3 4 5.5 2.5 10l3 1.2V21h13V11.2l3-1.2L20 5.5 16 3a4 4 0 0 1-8 0Z"
+                  /></svg
+              ></span>
+              <div style="display: flex; flex-direction: column">
+                <span class="b">Lavage des maillots</span
+                ><span class="t-sm muted">Après le match</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px" class="t-sm muted">
+              <svg
+                class="ic16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 8h14l-1 12H6L5 8Z" />
+                <path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg
+              ><span>Maillots apportés par <strong style="color: #23201c">Lucas D.</strong></span>
+            </div>
+            <div class="hair"></div>
+            <div style="display: flex; align-items: center; gap: 12px">
+              <span class="av av-me">EM</span>
+              <div style="display: flex; flex-direction: column; flex-grow: 1">
+                <span class="b">Vous</span
+                ><span class="t-sm muted">Vous rapportez le sac propre au prochain match.</span>
+              </div>
+              <span class="badge bd-success"
+                ><svg
+                  class="ic16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m5 12 5 5 9-10" /></svg
+                >Noté</span
+              >
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+              <button class="btn btn-outline btn-sm">Je ne peux plus</button
+              ><button class="btn btn-outline btn-sm">
+                <svg
+                  class="ic16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M7 4 3 8l4 4" />
+                  <path d="M3 8h14" />
+                  <path d="m17 20 4-4-4-4" />
+                  <path d="M21 16H7" /></svg
+                >Échanger
+              </button>
+            </div>
+          </div>
+        </section>
+        <section style="padding: 12px 16px 0">
+          <div
+            class="card"
+            style="
+              padding: 14px 16px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+            "
+          >
+            <div style="display: flex; flex-direction: column">
+              <span class="b">Ballons</span
+              ><span class="t-sm muted">Qui apporte les ballons d'échauffement ?</span>
+            </div>
+            <span class="badge bd-muted">Non assigné</span>
+          </div>
+        </section>
+        <nav class="tabbar" aria-label="Navigation principale">
+          <a href="#" class="tab"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 11 12 4l8 7v9H4v-9Z" /></svg
+            ><span>Accueil</span></a
+          ><a href="#" class="tab tab-active"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            >
+              <rect x="4" y="5" width="16" height="15" rx="2" />
+              <path d="M4 10h16M9 3v4M15 3v4" /></svg
+            ><span>Agenda</span></a
+          ><a href="#" class="tab"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            >
+              <circle cx="9" cy="8" r="3" />
+              <circle cx="17" cy="9" r="2.5" />
+              <path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 14.5c3 0 6 2 6 5.5" /></svg
+            ><span>Équipes</span></a
+          ><a href="#" class="tab"
+            ><svg
+              class="ic"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg
+            ><span>Compte</span></a
+          >
+        </nav>
+        <div style="position: absolute; left: 16px; right: 16px; bottom: 72px">
+          <div class="toast">
+            <svg
+              class="ic16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m5 12 5 5 9-10" /></svg
+            ><span class="t-sm b">C'est noté, merci&nbsp;!</span>
+          </div>
+        </div>
+      </div>
+    </x-dc>
+    <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+      class Component extends DCLogic {
+      renderVals() { return {}; }
+      }
+    </script>
+  </body>
+</html>

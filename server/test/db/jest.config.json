@@ -1,0 +1,9 @@
+{
+  "rootDir": "../..",
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "testRegex": "test/db/.*\\.db-spec\\.ts$",
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "testEnvironment": "node",
+  "maxWorkers": 1,
+  "testTimeout": 30000
+}

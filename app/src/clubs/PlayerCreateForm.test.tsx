@@ -1,0 +1,383 @@
+import { describe, expect, it, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server';
+import { renderWithProviders } from '../testUtils';
+import { PlayerCreateForm } from './PlayerCreateForm';
+
+describe('PlayerCreateForm', () => {
+  it('shows validation errors and does not submit when fields are empty', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    expect(await screen.findByText(/prénom requis/i)).toBeInTheDocument();
+    expect(screen.getByText(/^nom requis$/i)).toBeInTheDocument();
+  });
+
+  it('submits valid names, clears the fields, and calls onSuccess', async () => {
+    let createCalled = false;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        createCalled = true;
+        const body = (await request.json()) as { firstName: string; lastName: string };
+        expect(body).toEqual({ firstName: 'Alex', lastName: 'Dupont' });
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: body.firstName,
+          lastName: body.lastName,
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const onSuccess = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(<PlayerCreateForm clubId="club-1" onSuccess={onSuccess} />);
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await screen.findByRole('button', { name: /^ajouter$/i });
+    expect(createCalled).toBe(true);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a submit-level error on a server failure', async () => {
+    server.use(
+      http.post('/api/clubs/club-1/players', () =>
+        HttpResponse.json({ message: 'error' }, { status: 500 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/erreur est survenue/i);
+  });
+
+  it('submits without a userId when no member is linked', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          userId: null,
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont' });
+  });
+
+  it('links the player to the selected member on submit', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Alex',
+          lastName: 'Dupont',
+          userId: 'user-2',
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: null,
+            lastName: null,
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
+  });
+
+  it('pre-fills firstName/lastName when selecting a linked member with a profile name', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: 'Bianca',
+            lastName: 'Martin',
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Bianca');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Martin');
+  });
+
+  it('leaves the name fields untouched when the selected member has no profile name', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: null,
+            lastName: null,
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+    await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Alex');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Dupont');
+  });
+
+  it('preserves a manual edit made after auto-fill when submitting', async () => {
+    let capturedBody: unknown;
+    server.use(
+      http.post('/api/clubs/club-1/players', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'Bianca',
+          lastName: 'Leblanc',
+          userId: 'user-2',
+          createdAt: '2026-01-01',
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <PlayerCreateForm
+        clubId="club-1"
+        linkableMembers={[
+          {
+            userId: 'user-2',
+            email: 'b@example.com',
+            firstName: 'Bianca',
+            lastName: 'Martin',
+            role: 'MEMBER',
+            joinedAt: 'x',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: /compte lié/i }));
+    await user.click(await screen.findByRole('option', { name: 'b@example.com' }));
+
+    expect(screen.getByLabelText(/prénom/i)).toHaveValue('Bianca');
+    expect(screen.getByLabelText(/^nom$/i)).toHaveValue('Martin');
+
+    const lastNameInput = screen.getByLabelText(/^nom$/i);
+    await user.clear(lastNameInput);
+    await user.type(lastNameInput, 'Leblanc');
+
+    await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+    await waitFor(() => expect(capturedBody).toBeDefined());
+    expect(capturedBody).toEqual({ firstName: 'Bianca', lastName: 'Leblanc', userId: 'user-2' });
+  });
+
+  describe('parental consent', () => {
+    // Old enough that the fixture stays a minor for years, so this suite
+    // can't start failing on a birthday.
+    const MINOR_BIRTH_DATE = '2015-04-03';
+    const ADULT_BIRTH_DATE = '1990-04-03';
+
+    it('shows no consent block for an adult birth date', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+
+      expect(screen.queryByText(/j’atteste détenir/i)).not.toBeInTheDocument();
+    });
+
+    it('reveals the consent block as soon as the birth date makes the player a minor', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+
+      expect(await screen.findByText(/j’atteste détenir/i)).toBeInTheDocument();
+      // The explainer answers "which form?" — the club's own, kept by the
+      // club, with nothing to upload here.
+      expect(screen.getByText(/rien à téléverser ici/i)).toBeInTheDocument();
+    });
+
+    it('blocks the submit when the attestation is left unticked', async () => {
+      let createCalled = false;
+      server.use(
+        http.post('/api/clubs/club-1/players', () => {
+          createCalled = true;
+          return HttpResponse.json({});
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      expect(await screen.findByText(/autorisation parentale requise/i)).toBeInTheDocument();
+      expect(createCalled).toBe(false);
+    });
+
+    it('sends the attestation with the player once it is ticked', async () => {
+      let capturedBody: unknown;
+      server.use(
+        http.post('/api/clubs/club-1/players', async ({ request }) => {
+          capturedBody = await request.json();
+          return HttpResponse.json({ id: 'p1', clubId: 'club-1', createdAt: '2026-01-01' });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), MINOR_BIRTH_DATE);
+      await user.click(await screen.findByRole('checkbox'));
+      await user.type(screen.getByLabelText(/nom de la personne qui atteste/i), 'Marie Durand');
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await waitFor(() => expect(capturedBody).toBeDefined());
+      expect(capturedBody).toEqual({
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        birthDate: MINOR_BIRTH_DATE,
+        parentalConsent: { attestedByName: 'Marie Durand' },
+      });
+    });
+
+    // The case client-side validation cannot cover: the API judged the player
+    // a minor and this form did not, so the consent block was never rendered
+    // and the submit went out without an attestation. The error code exists so
+    // the admin is pointed at the checkbox instead of being told
+    // "informations invalides" about a form that looks complete.
+    it('opens the consent block and points at the checkbox on a consent rejection', async () => {
+      server.use(
+        http.post('/api/clubs/club-1/players', () =>
+          HttpResponse.json(
+            {
+              message: 'Une autorisation parentale est requise pour un joueur mineur',
+              code: 'PARENTAL_CONSENT_REQUIRED',
+            },
+            { status: 400 },
+          ),
+        ),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      expect(await screen.findByText(/considère ce joueur comme mineur/i)).toBeInTheDocument();
+      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+      expect(screen.queryByText(/informations saisies sont invalides/i)).not.toBeInTheDocument();
+    });
+
+    it('sends the attestation the admin then ticks, rather than dropping it', async () => {
+      const bodies: unknown[] = [];
+      server.use(
+        http.post('/api/clubs/club-1/players', async ({ request }) => {
+          const body = await request.json();
+          bodies.push(body);
+          if (!(body as { parentalConsent?: unknown }).parentalConsent) {
+            return HttpResponse.json(
+              { message: 'Autorisation requise', code: 'PARENTAL_CONSENT_REQUIRED' },
+              { status: 400 },
+            );
+          }
+          return HttpResponse.json({ id: 'p1', clubId: 'club-1', createdAt: '2026-01-01' });
+        }),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<PlayerCreateForm clubId="club-1" />);
+
+      await user.type(screen.getByLabelText(/prénom/i), 'Alex');
+      await user.type(screen.getByLabelText(/^nom$/i), 'Dupont');
+      await user.type(screen.getByLabelText(/date de naissance/i), ADULT_BIRTH_DATE);
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await user.click(await screen.findByRole('checkbox'));
+      await user.type(screen.getByLabelText(/nom de la personne qui atteste/i), 'Marie Durand');
+      await user.click(screen.getByRole('button', { name: /^ajouter$/i }));
+
+      await waitFor(() => expect(bodies).toHaveLength(2));
+      expect(bodies[1]).toEqual({
+        firstName: 'Alex',
+        lastName: 'Dupont',
+        birthDate: ADULT_BIRTH_DATE,
+        parentalConsent: { attestedByName: 'Marie Durand' },
+      });
+    });
+  });
+});
