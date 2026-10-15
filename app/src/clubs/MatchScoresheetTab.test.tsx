@@ -299,6 +299,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     });
 
     renderWithProviders(
@@ -415,6 +416,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     });
 
     renderWithProviders(
@@ -448,6 +450,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     };
     mockExtraction(extraction);
     const user = userEvent.setup();
@@ -521,6 +524,7 @@ describe('MatchScoresheetTab', () => {
         reviewedByUserId: null,
         reviewedAt: null,
         suggestedRosterMapping: suggestions,
+        issues: [],
       });
     };
 
@@ -576,6 +580,7 @@ describe('MatchScoresheetTab', () => {
               reviewedByUserId: 'user-1',
               reviewedAt: '2026-01-02T10:00:00.000Z',
               suggestedRosterMapping: [],
+              issues: [],
             });
           },
         ),
@@ -609,6 +614,7 @@ describe('MatchScoresheetTab', () => {
               reviewedByUserId: 'user-1',
               reviewedAt: '2026-01-02T10:00:00.000Z',
               suggestedRosterMapping: [],
+              issues: [],
             });
           },
         ),
@@ -664,6 +670,7 @@ describe('MatchScoresheetTab', () => {
         reviewedByUserId: 'user-1',
         reviewedAt: '2026-01-02T10:00:00.000Z',
         suggestedRosterMapping: [{ jerseyNumber: 4, teamPlayerId: 'tp-4', sheetName: 'BELAID K.' }],
+        issues: [],
       });
 
       renderCard();
@@ -671,6 +678,66 @@ describe('MatchScoresheetTab', () => {
       expect(await screen.findByText('Feuille de match confirmée')).toBeInTheDocument();
       expect(screen.queryByText('Qui est qui')).not.toBeInTheDocument();
     });
+  });
+
+  it('lists what the validator found, errors first, for a manager only', async () => {
+    mockStatus(statusFor('NEEDS_REVIEW'));
+    mockExtraction({
+      status: 'NEEDS_REVIEW',
+      parsedData,
+      confidence: 0.9,
+      failureReason: null,
+      reviewedByUserId: null,
+      reviewedAt: null,
+      suggestedRosterMapping: [],
+      issues: [
+        {
+          code: 'NOTATION_DISAGREES',
+          severity: 'warning',
+          side: 'home',
+          runningScore: 16,
+          jerseyNumber: 7,
+          period: null,
+        },
+        {
+          code: 'SCORER_NOT_ON_ROSTER',
+          severity: 'error',
+          side: 'away',
+          runningScore: 42,
+          jerseyNumber: 99,
+          period: null,
+        },
+      ],
+    });
+
+    const { unmount } = renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={true}
+      />,
+    );
+
+    await screen.findByRole('heading', { name: 'À contrôler sur la feuille' });
+    const error = screen.getByText(/le n°99 marque le panier à 42/);
+    const warning = screen.getByText(/au panier à 16, le signe noté/);
+    expect(error.compareDocumentPosition(warning)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.getByText('Souvent sans conséquence')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={matchEvent}
+        isRostered={true}
+        canManage={false}
+      />,
+    );
+    await screen.findByText('vs ES Rezé');
+    expect(screen.queryByText('À contrôler sur la feuille')).not.toBeInTheDocument();
   });
 
   it('flags a quarter-score mismatch and disables confirm until it is fixed', async () => {
@@ -691,6 +758,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     });
     server.use(
       http.patch(
@@ -735,6 +803,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: 'user-1',
       reviewedAt: '2026-01-01T21:14:00.000Z',
       suggestedRosterMapping: [],
+      issues: [],
     });
 
     renderWithProviders(
@@ -762,6 +831,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     });
 
     renderWithProviders(
@@ -792,6 +862,7 @@ describe('MatchScoresheetTab', () => {
       reviewedByUserId: null,
       reviewedAt: null,
       suggestedRosterMapping: [],
+      issues: [],
     });
     let retried = false;
     server.use(

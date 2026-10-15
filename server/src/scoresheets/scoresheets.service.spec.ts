@@ -239,6 +239,7 @@ describe('ScoresheetsService', () => {
         reviewedByUserId: null,
         reviewedAt: null,
         suggestedRosterMapping: [],
+        issues: [],
       });
     });
 
@@ -265,7 +266,40 @@ describe('ScoresheetsService', () => {
         reviewedByUserId: null,
         reviewedAt: null,
         suggestedRosterMapping: [],
+        issues: [],
       });
+    });
+
+    it('reports what the validator finds in the stored read, recomputed on read', async () => {
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'NEEDS_REVIEW',
+        extraction: {
+          parsedData: {
+            homeScore: 2,
+            awayScore: null,
+            quarterScores: [],
+            players: [{ team: 'home', number: 7, name: null, points: 2, fouls: 0 }],
+            scoringPlays: [{ team: 'home', jerseyNumber: 99, points: 2, runningScore: 2 }],
+          },
+          confidence: 0.5,
+          failureReason: null,
+          reviewedByUserId: null,
+          reviewedAt: null,
+        },
+      });
+
+      const result = await service.getExtraction('club-1', 'team-1', 'event-1');
+
+      expect(result?.issues).toEqual([
+        {
+          code: 'SCORER_NOT_ON_ROSTER',
+          severity: 'error',
+          side: 'home',
+          runningScore: 2,
+          jerseyNumber: 99,
+          period: null,
+        },
+      ]);
     });
 
     // ScoresheetOcrProcessor's 'failed' listener writes `parsedData: {}` (the
@@ -294,6 +328,7 @@ describe('ScoresheetsService', () => {
         reviewedByUserId: null,
         reviewedAt: null,
         suggestedRosterMapping: [],
+        issues: [],
       });
     });
 

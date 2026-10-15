@@ -19,6 +19,7 @@
  * Calls are sequential on purpose: the provider's free tier rate-limits, and
  * a 429 midway would make a run incomparable with the previous one.
  */
+import type { ScoresheetValidationIssue } from '@basketeasy/types/scoresheet-extraction';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { ConfigService } from '@nestjs/config';
@@ -48,6 +49,7 @@ interface InputResult {
   input: string;
   error?: string;
   consistent?: boolean;
+  issues?: ScoresheetValidationIssue[];
   confidence?: number;
   score?: ExtractionScore;
 }
@@ -92,11 +94,12 @@ async function main(): Promise<void> {
           readFileSync(path),
           mimeType,
         );
-        const { parsedData, confidence, consistent } = postProcessScoresheet(visionData);
+        const { parsedData, confidence, consistent, issues } = postProcessScoresheet(visionData);
         results.push({
           golden: golden.id,
           input,
           consistent,
+          issues,
           confidence,
           score: scoreExtraction(golden.expected, parsedData),
         });
@@ -126,6 +129,13 @@ async function main(): Promise<void> {
       ]),
     );
     if (process.argv.includes('--mismatches')) {
+      for (const issue of r.issues ?? []) {
+        console.log(
+          `    ${issue.severity} ${issue.code} ${issue.side}` +
+            (issue.runningScore === null ? '' : ` @${issue.runningScore}`) +
+            (issue.jerseyNumber === null ? '' : ` #${issue.jerseyNumber}`),
+        );
+      }
       for (const m of r.score.mismatches) {
         console.log(`    ${m.category} ${m.field}: expected ${m.expected}, got ${m.actual}`);
       }

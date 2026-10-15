@@ -68,6 +68,35 @@ re-confirm; sheets confirmed before the mapping existed have no rows until re-co
   so a coach sees why a match is missing. The tab is hidden for a team that has never played.
 - One match's lines (`GET .../stats/matches/:eventId`) load only when « Après la rencontre » opens.
 
+## Validating a read
+
+- **Points are the gap between marked totals**, not the notation, whenever every box number of a
+  side was read: the 1…120 boxes are pre-printed, so which box was struck is far easier to read
+  than a circle or a dot around a handwritten number, and the gaps add up to the final score by
+  construction. The notation is kept (`notationPoints`) only when it disagrees, and the
+  disagreement is itself a check: a missed line makes the next basket's gap larger than its
+  notation. Without box numbers the notation is summed, as before.
+- Checks, each a typed `ScoresheetValidationIssue`: quarters vs final; last marked total vs final;
+  a gap of 0 (a total marked twice) or more than 3 (a missed line); each period's closing total
+  marked; every scorer read and present on that side's roster; at most 5 fouls; notation vs gap.
+- **A notation disagreement on a period's closing basket only warns.** On 2 of the 4 golden
+  sheets, e-Marque draws its end-of-period symbol on a 2-point basket in a way that reads as a free
+  throw: flagging it would send correct sheets to review.
+- Measured on the goldens by mutating every basket (`golden.spec.ts`, 280 baskets):
+
+  | Misread                              | Before (sum check)                                                                 | After                                                   |
+  | ------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
+  | scorer read as a number nobody wears | 100% silent                                                                        | 0% silent                                               |
+  | a basket's line missed               | caught, but the same sum also flags correct sheets on e-Marque's period-end symbol | 6/280 silent: only when the next basket closes a period |
+  | scorer read as a teammate's number   | 100% silent                                                                        | 100% silent: every total still holds                    |
+
+  The last row is the irreducible case for any validator; only a better read lowers it.
+
+- Issues are recomputed on every `GET`, not stored, so a validator change applies to sheets
+  already read. The review card lists them under « À contrôler sur la feuille » (errors first,
+  warnings marked « Souvent sans conséquence »): the running-score column isn't on the card, so
+  this is where a flagged basket is named.
+
 ## Measuring the read
 
 Prompt, model and validator changes are judged against **golden sheets**, not by eye.
@@ -123,9 +152,5 @@ Prompt, model and validator changes are judged against **golden sheets**, not by
 - The vision provider (`GeminiClient` behind `SCORESHEET_VISION_CLIENT`) has a harness for the
   accuracy bake-off `docs/backend-stack.md` asks for (« Measuring the read ») but no baseline run
   yet: it needs `GEMINI_API_KEY` and the private source files.
-- The validator does not yet use what the goldens show it could: the running-score gap as the
-  points of a play (the notation then only cross-checks), scorers present on the roster,
-  period-end marks matching the quarter scores. A misread jersey number nobody wears is `PARSED`
-  today.
 - Whether to run the deterministic reader in production for e-Marque PDFs (exact, but tied to the
   e-Marque renderer's fonts and images) waits on the Gemini baseline.

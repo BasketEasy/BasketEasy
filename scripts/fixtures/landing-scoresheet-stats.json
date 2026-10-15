@@ -1306,7 +1306,8 @@
         "teamPlayerId": "tp-clara",
         "sheetName": "FONTAINE"
       }
-    ]
+    ],
+    "issues": []
   },
   "GET /api/clubs/club-1/teams/team-1/guest-link": {
     "url": "https://kluvo.app/r/Qm4x2vJ9kT0aLw8e"
