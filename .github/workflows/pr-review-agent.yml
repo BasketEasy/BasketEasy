@@ -239,7 +239,7 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -269,7 +269,7 @@ jobs:
       checks: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.sha }}
           fetch-depth: 0
@@ -352,7 +352,7 @@ jobs:
       REVIEW_RESULT: ${{ needs.review.result }}
       OWNER: ${{ vars.REVIEW_AGENT_OWNER }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.base_sha }}
           persist-credentials: false
