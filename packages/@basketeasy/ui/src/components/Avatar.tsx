@@ -6,8 +6,7 @@ import { cn } from '../lib/cn';
 /**
  * The fallback's fill is a tone, not a caller-side colour. `structure` is the
  * default because an avatar is one of the blue-green structural accents;
- * `brand` marks a coach; `placeholder` is the dashed outline used where the
- * person is unknown (an opponent team with no roster).
+ * `brand` marks a coach.
  */
 /**
  * Size pairs the circle with its initials, because the two always co-vary.
@@ -38,11 +37,8 @@ const avatarFallbackVariants = cva(
       tone: {
         structure: 'bg-blue-green text-cream',
         brand: 'bg-orange text-cream',
-        placeholder: 'border-2 border-dashed border-border-strong bg-sunk text-muted',
         /**
          * A count rather than a person — AvatarGroup's "+N" overflow chip.
-         * Not `placeholder`: its dashed outline means "we don't know who
-         * this is", which is the opposite of what the chip says.
          */
         muted: 'bg-sunk text-muted',
         /** For an avatar sitting on a brand-filled surface, where the fill inverts. */

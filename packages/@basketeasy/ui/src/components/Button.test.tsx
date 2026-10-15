@@ -31,6 +31,21 @@ describe('Button', () => {
     expect(screen.getByRole('button')).toHaveClass('h-11', 'w-11');
   });
 
+  it('is square below md and gains its label width from md for icon-responsive', () => {
+    render(
+      <Button variant="outline" size="icon-responsive" aria-label="Modifier le lieu">
+        <span className="hidden md:inline">Modifier le lieu</span>
+      </Button>,
+    );
+    expect(screen.getByRole('button', { name: 'Modifier le lieu' })).toHaveClass(
+      'h-9',
+      'w-9',
+      'px-0',
+      'md:w-auto',
+      'md:px-3',
+    );
+  });
+
   it('shows a spinner and stays labelled while loading', () => {
     render(<Button loading>Enregistrer</Button>);
     const button = screen.getByRole('button', { name: /Enregistrer/ });
@@ -55,5 +70,10 @@ describe('Button', () => {
     expect(link).toHaveClass('border-border-strong');
     expect(link).not.toHaveAttribute('type');
     expect(link).not.toHaveAttribute('aria-busy');
+  });
+
+  it('fills with the surface on a structure band (inverseFilled)', () => {
+    render(<Button variant="inverseFilled">Créer mon équipe</Button>);
+    expect(screen.getByRole('button')).toHaveClass('bg-surface', 'text-blue-green');
   });
 });

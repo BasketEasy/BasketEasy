@@ -106,6 +106,25 @@ const TRAITEMENTS: Traitement[] = [
     securite:
       'HTTPS, contrôle d’accès par rôle, journal d’audit dédié aux évènements d’authentification, purge automatique nocturne au-delà de la durée de conservation',
   },
+  {
+    numero: 7,
+    titre: 'Traitement des demandes d’exercice des droits (outil interne)',
+    finalite:
+      'Répondre aux demandes d’accès, de portabilité et d’effacement (art. 15, 17 et 20 RGPD) et contrôler l’exécution de la politique de conservation',
+    baseLegale: 'Obligation légale (art. 6.1.c)',
+    personnes:
+      'Utilisateurs ayant exercé un droit, utilisateurs dont le compte approche de la suppression automatique, personnel Kluvo habilité',
+    donnees:
+      'Données du compte concerné et données qui lui sont rattachées ; motif de chaque demande ; journal des consultations, exports et effacements (date, adresse IP et user-agent de la personne habilitée)',
+    destinataires:
+      'Personnel Kluvo nommément habilité uniquement ; la personne concernée pour sa propre copie',
+    duree:
+      'Journal des consultations, exports et effacements : 12 mois, purge automatique nocturne. La copie remise à la personne est générée à la demande et n’est pas conservée sur les serveurs de Kluvo',
+    sousTraitants: 'Scaleway, Cloudflare',
+    transferts: 'Aucun',
+    securite:
+      'Habilitation individuelle attribuée hors application, double authentification par code à usage unique (TOTP), session limitée à 15 minutes, verrouillage après 5 échecs, restriction réseau optionnelle, deux niveaux d’accès (support sans donnée personnelle / délégué aux demandes), motif obligatoire avant tout export ou effacement, journalisation de chaque consultation',
+  },
 ];
 
 function TraitementSection({ t }: { t: Traitement }) {
@@ -134,7 +153,7 @@ export function RegistreTraitementsPage() {
   return (
     <LegalPageLayout
       title="Registre des activités de traitement"
-      lastUpdated="9 septembre 2026"
+      lastUpdated="28 septembre 2026"
       currentPath="/registre-traitements"
     >
       <P>Article 30 du RGPD.</P>
@@ -196,7 +215,11 @@ export function RegistreTraitementsPage() {
             ],
             [
               'Traçabilité',
-              'Journal d’audit dédié aux évènements d’authentification, conservé 12 mois',
+              'Journal d’audit dédié aux évènements d’authentification et aux accès internes (consultation, export, effacement d’un compte), conservé 12 mois',
+            ],
+            [
+              'Accès interne',
+              'Outil interne réservé à un personnel nommément habilité, protégé par une double authentification (TOTP) et limité à ce qu’exige le traitement d’une demande d’exercice des droits',
             ],
             [
               'Hébergement',

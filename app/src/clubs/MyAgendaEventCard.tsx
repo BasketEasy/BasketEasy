@@ -2,14 +2,55 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
+import { FactTile } from '@basketeasy/ui/fact-tile';
 import { focusRing } from '@basketeasy/ui/focus-ring';
+import { Heading } from '@basketeasy/ui/heading';
 import { ResponseMeter } from '@basketeasy/ui/response-meter';
 import { Text } from '@basketeasy/ui/text';
+import { TextLink } from '@basketeasy/ui/text-link';
 import { TimeBlock } from '@basketeasy/ui/time-block';
 import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
-import { formatEventDate } from './eventDateFormat';
+import { eventVenueLabel, isUnknownEventLocation } from '@basketeasy/types/events';
+import { EventTravelModeControl } from '../meeting-points/EventTravelModeControl';
+import { formatEventDate, formatEventDayFull, formatEventTime } from './eventDateFormat';
+import { MapPinIcon } from './eventDetailIcons';
 import { eventTypeLabel } from './eventLabels';
 import { EventRsvpControl } from './EventRsvpControl';
+import { EventVenueBadge } from './EventVenueBadge';
+
+const DASHBOARD_ORIGIN = { origin: { from: 'dashboard' } };
+
+/**
+ * The hero's venue detail: the RDV when the match has one (so the reader
+ * knows what « avec le groupe » means before answering), else the arrival
+ * time a match always has, else the address under a named gym.
+ */
+function heroVenueDetail(event: MyAgendaEvent): string | undefined {
+  const plan = event.meetingPlan;
+  if (plan?.meetingPoint) {
+    return plan.meetsAt
+      ? `RDV ${formatEventTime(plan.meetsAt)} · ${plan.meetingPoint.name}`
+      : 'RDV · horaire à confirmer';
+  }
+  if (plan) return `Arrivée ${formatEventTime(plan.arrivalAt)}`;
+  return event.locationName ? event.location : undefined;
+}
+
+/**
+ * The list card's one line about getting there, for a GOING answer to a
+ * match with a meeting point. The choice itself lives on the hero and on the
+ * event page: two radio cards on every list card would drown the agenda.
+ */
+function listTravelLine(event: MyAgendaEvent): string | null {
+  const plan = event.meetingPlan;
+  if (event.type !== 'MATCH' || event.myTravelMode === null || !plan?.meetingPoint) return null;
+  if (event.myTravelMode === 'DIRECT') {
+    return `Direct à la salle · arrivée ${formatEventTime(plan.arrivalAt)}`;
+  }
+  return plan.meetsAt
+    ? `RDV ${formatEventTime(plan.meetsAt)} · avec le groupe`
+    : 'RDV à confirmer · avec le groupe';
+}
 
 /**
  * One event on the cross-team home agenda. The manager's « Cette semaine »
@@ -23,14 +64,15 @@ import { EventRsvpControl } from './EventRsvpControl';
  * that breaks both keyboard activation and screen-reader semantics. The
  * title/meta block is the link, the RSVP control is its sibling.
  *
- * `size="default"` is the card phase 1 shipped inside `DashboardPage`
- * (`Card` `inset`, no `TimeBlock`) — kept byte-identical so the manager's
- * "Cette semaine" list is unaffected by this phase. `size="hero"` is new for
- * the player's "Prochain rendez-vous": the phase-0 `TimeBlock` at its larger
- * size, a `brand`-tone card when the viewer is actually called up (the same
- * tone the event page's decision band uses for "this is the thing on the
- * screen" — `Card`'s `tone` prop, per the phase-3 precedent), and a
- * full-width RSVP control since it is the one action on the card.
+ * The list card (`size="default"`) opens on a `TimeBlock` tile (solid for a
+ * match, outlined for a training). The hero (`size="hero"`, the player's
+ * « Prochain rendez-vous ») takes the page-hero grammar instead: badges, the
+ * team as eyebrow, the title as an `h2` (the greeting is the page's `h1`),
+ * the date line, then a venue `FactTile` with the RDV, the full-width RSVP
+ * control and, once the reader said « Présent » to a match with a meeting
+ * point, « Comment venez-vous ? » — the same `EventTravelModeControl` the
+ * event page's decision band renders. It takes the `brand` tone when the
+ * viewer is actually called up.
  *
  * `showRsvpSummary` renders the squad-wide `ResponseMeter` on the
  * `size="default"` card only — `ManagerHome`'s "Cette semaine" list opts in,
@@ -53,81 +95,128 @@ export function MyAgendaEventCard({
 }) {
   const isCalledUp = isRostered && event.myConvocation;
   const eventHref = `/clubs/${event.clubId}/teams/${event.teamId}/events/${event.eventId}`;
-  const rsvpEvent = { id: event.eventId, myRsvpStatus: event.myRsvpStatus };
+  const rsvpEvent = {
+    id: event.eventId,
+    myRsvpStatus: event.myRsvpStatus,
+    myRsvpRespondedBy: event.myRsvpRespondedBy,
+    myRsvpRespondedAt: event.myRsvpRespondedAt,
+  };
 
   if (size === 'hero') {
+    const isMatch = event.type === 'MATCH';
     return (
-      <Card variant="flush" tone={isCalledUp ? 'brand' : 'neutral'} className="flex w-full">
-        <TimeBlock
-          type={event.type}
-          startsAt={event.startsAt}
-          timeConfirmed={event.timeConfirmed}
-          size="md"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-2.5 p-3.5 sm:p-4">
-          <Link
-            to={eventHref}
-            state={{ origin: { from: 'dashboard' } }}
-            className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
-          >
-            <span className="flex flex-wrap items-center gap-2">
-              <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
-                {eventTypeLabel(event.type)}
-              </Badge>
-              {isCalledUp && <Badge>Convoqué</Badge>}
-            </span>
-            <Text
-              as="span"
-              variant="display"
-              size="lg"
-              className="group-hover:underline group-focus-visible:underline"
-            >
-              {event.type === 'MATCH' && event.opponentName
-                ? `vs ${event.opponentName}`
-                : event.teamName}
+      <Card
+        tone={isCalledUp ? 'brand' : 'neutral'}
+        className="flex w-full flex-col gap-3.5 p-4 md:gap-5 md:p-6"
+      >
+        {/* Who and where side by side from md; the answer spans the card
+            under both, so neither column is left half empty. */}
+        <div className="flex flex-col gap-3.5 md:grid md:grid-cols-2 md:items-center md:gap-6">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={isMatch ? 'brand' : 'structure'}>{eventTypeLabel(event.type)}</Badge>
+              {isCalledUp && (
+                <Badge variant="soft" tone="accent">
+                  Convoqué
+                </Badge>
+              )}
+              {isMatch && event.venue && <EventVenueBadge venue={event.venue} />}
+            </div>
+            <Text variant="eyebrow">{event.teamName}</Text>
+            {/* h2, not h1: the page's h1 is the greeting. */}
+            <Heading as="h2" size="hero" className="m-0">
+              <Link
+                to={eventHref}
+                state={DASHBOARD_ORIGIN}
+                className={cn('rounded-sm hover:underline', focusRing)}
+              >
+                {isMatch && event.opponentName ? `vs ${event.opponentName}` : 'Entraînement'}
+              </Link>
+            </Heading>
+            <Text variant="meta" className="tabular">
+              {formatEventDayFull(event.startsAt)} ·{' '}
+              {event.timeConfirmed ? formatEventTime(event.startsAt) : 'heure à confirmer'}
             </Text>
-            <Text as="span" variant="meta" size="sm">
-              {formatEventDate(event.startsAt)} · {event.location}
-            </Text>
-          </Link>
-          {isRostered && (
-            <EventRsvpControl
-              clubId={event.clubId}
-              teamId={event.teamId}
-              event={rsvpEvent}
-              fullWidth
-            />
-          )}
+          </div>
+          <FactTile
+            icon={<MapPinIcon size="lg" />}
+            label={
+              isUnknownEventLocation(event.location)
+                ? 'Lieu non communiqué'
+                : eventVenueLabel(event)
+            }
+            detail={heroVenueDetail(event)}
+          />
         </div>
+        {isRostered && (
+          <EventRsvpControl
+            clubId={event.clubId}
+            teamId={event.teamId}
+            event={rsvpEvent}
+            fullWidth
+          />
+        )}
+        {isRostered && event.myTravelMode !== null && (
+          <EventTravelModeControl
+            clubId={event.clubId}
+            teamId={event.teamId}
+            event={{ ...event, id: event.eventId }}
+            layout="split"
+          />
+        )}
       </Card>
     );
   }
 
+  const travelLine = isRostered ? listTravelLine(event) : null;
   return (
-    <Card variant="inset" className="flex w-full flex-col gap-2">
-      <Link
-        to={eventHref}
-        state={{ origin: { from: 'dashboard' } }}
-        className={cn('group flex flex-col gap-1 rounded-sm text-left', focusRing)}
-      >
-        <span className="flex flex-wrap items-center gap-2">
-          <Text
-            as="span"
-            variant="label"
-            className="group-hover:underline group-focus-visible:underline"
-          >
-            {event.teamName}
+    <Card className="flex w-full flex-col gap-3 p-3.5">
+      <div className="flex min-w-0 gap-3">
+        <TimeBlock
+          type={event.type}
+          startsAt={event.startsAt}
+          timeConfirmed={event.timeConfirmed}
+          size="sm"
+        />
+        <Link
+          to={eventHref}
+          state={DASHBOARD_ORIGIN}
+          className={cn(
+            'group flex min-w-0 flex-1 flex-col justify-center gap-1 rounded-sm text-left',
+            focusRing,
+          )}
+        >
+          <span className="flex flex-wrap items-center gap-2">
+            <Text
+              as="span"
+              variant="label"
+              className="group-hover:underline group-focus-visible:underline"
+            >
+              {event.teamName}
+            </Text>
+            <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
+              {eventTypeLabel(event.type)}
+            </Badge>
+            {isCalledUp && <Badge>Convoqué</Badge>}
+          </span>
+          <Text as="span" variant="meta">
+            {formatEventDate(event.startsAt)} · {eventVenueLabel(event)}
+            {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
           </Text>
-          <Badge tone={event.type === 'MATCH' ? 'brand' : 'structure'}>
-            {eventTypeLabel(event.type)}
-          </Badge>
-          {isCalledUp && <Badge>Convoqué</Badge>}
-        </span>
-        <Text as="span" variant="meta">
-          {formatEventDate(event.startsAt)} · {event.location}
-          {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
-        </Text>
-      </Link>
+        </Link>
+      </div>
+      {travelLine && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <Text as="span" variant="meta" size="xs" className="tabular">
+            {travelLine}
+          </Text>
+          <TextLink asChild tone="brand">
+            <Link to={`${eventHref}?tab=decision`} state={DASHBOARD_ORIGIN}>
+              Changer
+            </Link>
+          </TextLink>
+        </div>
+      )}
       {showRsvpSummary && event.rsvpSummary.rosterSize > 0 && (
         <ResponseMeter
           going={event.rsvpSummary.going}

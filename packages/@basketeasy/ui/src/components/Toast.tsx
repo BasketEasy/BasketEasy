@@ -30,8 +30,10 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        success: 'border-success bg-success/10 text-success',
-        destructive: 'border-error bg-error/10 text-error',
+        // Opaque tints, never `bg-*/10`: a toast floats over the page, and a
+        // translucent fill let whatever was under it read through the text.
+        success: 'border-success bg-success-tint text-success-text',
+        destructive: 'border-error bg-error-tint text-error',
       },
     },
     defaultVariants: { variant: 'success' },

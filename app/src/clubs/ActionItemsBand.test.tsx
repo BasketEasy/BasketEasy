@@ -37,8 +37,7 @@ describe('ActionItemsBand', () => {
     ];
     renderWithProviders(<ActionItemsBand items={items} />);
 
-    expect(screen.getByText(/à traiter/i)).toBeInTheDocument();
-    expect(screen.getByText(/\(2\)/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'À traiter (2)' })).toBeInTheDocument();
     expect(screen.getByText('Premier message')).toBeInTheDocument();
     expect(screen.getByText('Second message')).toBeInTheDocument();
   });

@@ -1,27 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventVoteCategory, TeamMemberRole } from '@prisma/client';
-import type { TeamSeasonPlayerStats, TeamSeasonStats } from '@basketeasy/types/team-stats';
+import type {
+  MatchStatLine,
+  MatchStats,
+  TeamSeasonPlayerStats,
+  TeamSeasonStats,
+} from '@basketeasy/types/team-stats';
 import { PrismaService } from '../prisma/prisma.service';
-
-// A French basketball season runs September to August, so a calendar year is
-// the wrong window: it would cut a season in half at Christmas. seasonYear is
-// the year the season *starts*, matching how the FFBB labels one ("saison
-// 2026-2027"). Derived from Event.startsAt rather than stored — nothing else
-// in the schema knows about seasons, and a stored column would need
-// backfilling and would drift from the event it describes.
-const SEASON_START_MONTH = 8; // September, zero-based.
-
-export function seasonYearFor(date: Date): number {
-  const year = date.getUTCFullYear();
-  return date.getUTCMonth() >= SEASON_START_MONTH ? year : year - 1;
-}
-
-export function seasonWindow(seasonYear: number): { start: Date; end: Date } {
-  return {
-    start: new Date(Date.UTC(seasonYear, SEASON_START_MONTH, 1, 0, 0, 0, 0)),
-    end: new Date(Date.UTC(seasonYear + 1, SEASON_START_MONTH, 1, 0, 0, 0, 0) - 1),
-  };
-}
+import { assertCanActForPlayer, resolveActingTeamPlayer } from '../common/acting-as';
+import { seasonWindow, seasonYearFor } from '../common/season';
 
 // One decimal, computed over known values only. A null denominator gives
 // null, never 0: "no measured average" and "averaged zero" are different
@@ -64,8 +51,12 @@ export class TeamStatsService {
     teamId: string,
     userId: string,
     seasonYear?: number,
+    forPlayerId?: string,
   ): Promise<TeamSeasonStats> {
     await this.assertTeamInClub(clubId, teamId);
+    if (forPlayerId) {
+      await assertCanActForPlayer(this.prisma, userId, forPlayerId);
+    }
     const year = seasonYear ?? seasonYearFor(new Date());
     const { start, end } = seasonWindow(year);
     const window = { gte: start, lte: end };
@@ -80,6 +71,7 @@ export class TeamStatsService {
         select: {
           id: true,
           role: true,
+          playerId: true,
           player: { select: { firstName: true, lastName: true, userId: true } },
         },
       }),
@@ -134,7 +126,9 @@ export class TeamStatsService {
             firstName: member.player.firstName,
             lastName: member.player.lastName,
             role: member.role,
-            isMe: member.player.userId === userId,
+            // The persona's row: a parent reading their child's team sees
+            // the child's line highlighted, not nothing.
+            isMe: forPlayerId ? member.playerId === forPlayerId : member.player.userId === userId,
           },
           rowsByPlayer.get(member.id) ?? [],
           awardsByPlayer.get(member.id) ?? { mvp: 0, worst: 0 },
@@ -150,6 +144,54 @@ export class TeamStatsService {
       availableSeasons,
       players,
     };
+  }
+
+  /**
+   * One match's lines from its confirmed scoresheet — the typed projection
+   * `MatchPlayerStat` holds, written at confirm time. Two queries after the
+   * route checks: the persona's roster slot (for `isMe`) and the rows.
+   * Nulls stay null: an unread total is unknown, never 0.
+   */
+  async getMatchStats(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    forPlayerId?: string,
+  ): Promise<MatchStats> {
+    await this.assertTeamInClub(clubId, teamId);
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, teamId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+    const [me, rows] = await Promise.all([
+      resolveActingTeamPlayer(this.prisma, { userId, teamId, forPlayerId }),
+      this.prisma.matchPlayerStat.findMany({
+        where: { eventId },
+        select: {
+          teamPlayerId: true,
+          jerseyNumber: true,
+          points: true,
+          fouls: true,
+          freeThrowPoints: true,
+          twoPointPoints: true,
+          threePointPoints: true,
+          teamPlayer: { select: { player: { select: { firstName: true, lastName: true } } } },
+        },
+      }),
+    ]);
+    const lines: MatchStatLine[] = rows
+      .map(({ teamPlayer, ...row }) => ({
+        ...row,
+        firstName: teamPlayer.player.firstName,
+        lastName: teamPlayer.player.lastName,
+        isMe: me !== null && row.teamPlayerId === me.id,
+      }))
+      .sort(byPointsThenName);
+    return { hasStats: lines.length > 0, lines };
   }
 
   // Seasons the selector can offer: those the team actually has confirmed
@@ -221,6 +263,17 @@ function byScoringThenName(a: TeamSeasonPlayerStats, b: TeamSeasonPlayerStats): 
     if (a.pointsPerGame === null) return 1;
     if (b.pointsPerGame === null) return -1;
     return b.pointsPerGame - a.pointsPerGame;
+  }
+  return a.lastName.localeCompare(b.lastName, 'fr');
+}
+
+// The match's top scorer first; an unread total sorts last rather than as a
+// zero, and ties fall back to the surname so the order is stable.
+function byPointsThenName(a: MatchStatLine, b: MatchStatLine): number {
+  if (a.points !== b.points) {
+    if (a.points === null) return 1;
+    if (b.points === null) return -1;
+    return b.points - a.points;
   }
   return a.lastName.localeCompare(b.lastName, 'fr');
 }

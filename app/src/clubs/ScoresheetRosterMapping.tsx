@@ -92,7 +92,7 @@ export function ScoresheetRosterMapping({
         variant="inset"
         className="flex items-center gap-2.5 border-blue-green/25 bg-blue-green-tint"
       >
-        <Check aria-hidden="true" tone="structure" className="h-4 w-4 shrink-0" />
+        <Check size="md" aria-hidden="true" tone="structure" className="shrink-0" />
         <Text variant="meta" tone="structure">
           <strong className="font-bold tabular">
             {recognized} numéro{recognized > 1 ? 's' : ''} sur {suggestions.length}
@@ -176,7 +176,7 @@ export function ScoresheetRosterMapping({
                   >
                     {isSuggestion ? (
                       <>
-                        <Check aria-hidden="true" className="h-3 w-3" />
+                        <Check size="xs" aria-hidden="true" />
                         Suggestion retenue
                       </>
                     ) : (

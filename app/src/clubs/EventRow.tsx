@@ -17,6 +17,7 @@ import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 import { EventConvocationModal } from './EventConvocationModal';
 import { EventConvocationBreakdown } from './EventConvocationBreakdown';
 import { TextLink } from '@basketeasy/ui/text-link';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 export function EventRow({
   clubId,
@@ -56,9 +57,14 @@ export function EventRow({
               Importé
             </Badge>
           )}
+          {canManage && event.whatsAppShare?.state === 'PENDING' && (
+            <Badge variant="soft" tone="brand">
+              À partager
+            </Badge>
+          )}
         </div>
       </TableCell>
-      <TableCell>{event.location}</TableCell>
+      <TableCell>{eventVenueLabel(event)}</TableCell>
       <TableCell>
         {event.type === 'MATCH' ? (
           <TextLink asChild size="md">
@@ -97,7 +103,11 @@ export function EventRow({
               Convoqué par le coach
             </Badge>
           )}
-          <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+          <EventLogisticsMiniChips
+            eventType={event.type}
+            logistics={event.logistics}
+            jerseyDuty={event.jerseyDuty}
+          />
           <EventVoteBadge event={event} />
           <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}

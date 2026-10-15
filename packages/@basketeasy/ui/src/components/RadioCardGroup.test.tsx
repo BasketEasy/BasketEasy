@@ -115,4 +115,23 @@ describe('RadioCardGroup', () => {
     render(<Ballot />);
     expect(screen.getAllByRole('radio')[0]).toHaveClass('focus-visible:outline-orange');
   });
+  it('draws a hidden radio dot per option when asked, filled only on the selected one', () => {
+    const { container } = render(
+      <RadioCardGroup
+        aria-label="Comment venez-vous ?"
+        tone="choice"
+        indicator
+        value="direct"
+        onChange={() => {}}
+        options={[
+          { value: 'rdv', render: () => 'Au RDV' },
+          { value: 'direct', render: () => 'Direct' },
+        ]}
+      />,
+    );
+    const dots = container.querySelectorAll('[role="radio"] > [aria-hidden="true"]');
+    expect(dots).toHaveLength(2);
+    expect(dots[0].childElementCount).toBe(0);
+    expect(dots[1].childElementCount).toBe(1);
+  });
 });

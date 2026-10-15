@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { VapidPublicKeyResponse } from '@basketeasy/types/notifications';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { pushPublicKeyQueryKey } from './queryKeys';
 
 const SERVICE_WORKER_URL = '/sw.js';
 
-export type PushSupport =
+type PushSupport =
   /** The browser has no Push API at all — notably iOS Safari outside an installed PWA. */
   | 'unsupported'
   /** Supported, but the deployment has no VAPID keys, so there is nothing to subscribe to. */
@@ -77,9 +78,12 @@ export function usePushSubscription(): PushSubscriptionState {
   // rather than offering a subscription nothing could ever deliver to.
   const { data: vapid } = useQuery({
     queryKey: pushPublicKeyQueryKey,
-    queryFn: () => apiClient.get<VapidPublicKeyResponse>('/me/push-subscriptions/public-key'),
+    queryFn: ({ signal }) =>
+      apiClient.get<VapidPublicKeyResponse>('/me/push-subscriptions/public-key', undefined, {
+        signal,
+      }),
     enabled: supported,
-    staleTime: Infinity,
+    staleTime: FRESHNESS.static,
   });
 
   useEffect(() => {

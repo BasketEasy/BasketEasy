@@ -1,7 +1,7 @@
 import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** A trophy: teams (Équipes, Mes équipes) and match results (Résultats). */
-export function TrophyIcon({ tone, className, ...props }: IconProps) {
+export function TrophyIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,7 +10,7 @@ export function TrophyIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z" />

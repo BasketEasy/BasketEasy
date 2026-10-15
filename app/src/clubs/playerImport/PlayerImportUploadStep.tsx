@@ -8,6 +8,7 @@ import {
   SpreadsheetParseError,
   type ParsedSpreadsheet,
 } from './parseSpreadsheet';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
 
 const ACCEPTED_EXTENSIONS = ['.csv', '.xls', '.xlsx'];
@@ -46,13 +47,9 @@ export function PlayerImportUploadStep({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="font-heading text-2xl font-bold text-charcoal outline-none"
-      >
-        Importer le fichier
-      </h2>
+      <SectionHeading as="h2" headingRef={headingRef}>
+        Choisir le fichier
+      </SectionHeading>
       <Text variant="meta">
         Sélectionnez l&apos;export FBI (Éditions → export Excel) ou tout fichier .csv/.xlsx listant
         vos licenciés.

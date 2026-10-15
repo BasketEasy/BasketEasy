@@ -57,10 +57,14 @@ function fakeResponse(
 describe('FfbbPageScrapeProvider', () => {
   let provider: FfbbPageScrapeProvider;
   let fetchSpy: jest.SpyInstance;
+  let pauseSpy: jest.SpyInstance;
 
   beforeEach(() => {
     const config = { get: jest.fn().mockReturnValue(undefined) } as unknown as ConfigService;
     provider = new FfbbPageScrapeProvider(config);
+    pauseSpy = jest
+      .spyOn(provider as unknown as { pause: (ms: number) => Promise<void> }, 'pause')
+      .mockResolvedValue(undefined);
     fetchSpy = jest.spyOn(global, 'fetch');
   });
 
@@ -250,7 +254,7 @@ describe('FfbbPageScrapeProvider', () => {
     // see PR description): rencontre rows in the page's own `data` array
     // never carry `idPoule` — only a sibling `dataEngagement.idPoule` object
     // does. `competitionId` (the phase id) IS still on the match row. See
-    // docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md.
+    // docs/decisions/ffbb.md.
     it('derives it from a match detail link, a raw match competitionId, and dataEngagement.idPoule', async () => {
       const html = pushChunkHtml({
         data: [
@@ -1069,6 +1073,110 @@ describe('FfbbPageScrapeProvider', () => {
       // 60 detail pages plus the fixture list itself.
       expect(fetchSpy).toHaveBeenCalledTimes(61);
       expect(result.matches.filter((m) => m.location !== null)).toHaveLength(60);
+    });
+
+    it('spends the fetch cap on matches with no known venue first, soonest first', async () => {
+      // 65 matches, the first 60 in fixture order already have a venue locally.
+      const matches = Array.from({ length: 65 }, (_, i) =>
+        rawMatch(`m-${i}`, {
+          date_rencontre: `2026-${String(10 + Math.floor(i / 28)).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}T14:00:00`,
+        }),
+      );
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-0"}`);
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({ libelle: 'Salle Mangin' }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+        knownVenueMatchIds: new Set(Array.from({ length: 60 }, (_, i) => `m-${i}`)),
+      });
+
+      const resolved = new Set(result.matches.filter((m) => m.location).map((m) => m.id));
+      for (const id of ['m-60', 'm-61', 'm-62', 'm-63', 'm-64'])
+        expect(resolved.has(id)).toBe(true);
+      // The five cut are the latest of the already-known ones.
+      for (const id of ['m-55', 'm-56', 'm-57', 'm-58', 'm-59'])
+        expect(resolved.has(id)).toBe(false);
+    });
+
+    it('reads a commune given as its own record', async () => {
+      const listHtml = pushChunkHtml({
+        data: [
+          rawMatch('m-1', {
+            salle: {
+              libelle: 'Gymnase de la Chesnaie',
+              adresse: '12 rue des Sports',
+              commune: { codePostal: '44115', libelle: 'Basse-Goulaine' },
+            },
+          }),
+        ],
+      });
+      routeFetch(fetchSpy, listHtml, () => detailPageHtml({}));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches[0].location).toBe(
+        'Gymnase de la Chesnaie, 12 rue des Sports, 44115 Basse-Goulaine',
+      );
+    });
+
+    it('loads detail pages one at a time, as a navigation from the fixture list', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      let inFlight = 0;
+      let maxInFlight = 0;
+      fetchSpy.mockImplementation(async (input: unknown) => {
+        if (String(input).endsWith(ENGAGEMENT_REF)) {
+          return fakeResponse({ text: async () => listHtml });
+        }
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => setImmediate(resolve));
+        inFlight -= 1;
+        return fakeResponse({ text: async () => detailPageHtml({ libelle: 'Salle Mangin' }) });
+      });
+
+      await provider.getMatchesForEngagement(ENGAGEMENT_REF, { resolveVenues: true });
+
+      expect(maxInFlight).toBe(1);
+      // Spaced out: a pause before every detail page but the first.
+      expect(pauseSpy).toHaveBeenCalledTimes(1);
+      const [, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers.Referer).toBe(`https://competitions.ffbb.com/${ENGAGEMENT_REF}`);
+      expect(headers['Sec-Fetch-Mode']).toBe('navigate');
+    });
+
+    it('stops loading detail pages once FFBB refuses one, and still imports the matches', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2'), rawMatch('m-3')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      routeFetch(fetchSpy, listHtml, () => fakeResponse({ ok: false, status: 403 }));
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      // The fixture list plus the one refused detail page, nothing after it.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(result.matches).toHaveLength(3);
+      expect(result.matches.every((m) => m.location === null)).toBe(true);
+    });
+
+    it('keeps going past a detail page that is simply missing', async () => {
+      const matches = [rawMatch('m-1'), rawMatch('m-2')];
+      const listHtml = pushChunkHtml({ data: matches }, `,{"href":"/${DETAIL_PREFIX}m-1"}`);
+      routeFetch(fetchSpy, listHtml, (url) =>
+        url.endsWith('m-1')
+          ? fakeResponse({ ok: false, status: 404 })
+          : detailPageHtml({ libelle: 'Salle Mangin' }),
+      );
+
+      const result = await provider.getMatchesForEngagement(ENGAGEMENT_REF, {
+        resolveVenues: true,
+      });
+
+      expect(result.matches.map((m) => m.location)).toEqual([null, 'Salle Mangin']);
     });
   });
 });

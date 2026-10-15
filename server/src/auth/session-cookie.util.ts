@@ -14,7 +14,7 @@ export const REFRESH_COOKIE_NAME = 'refresh_token';
 // hot-reload, but still development-mode), which would otherwise silently
 // ship the refresh cookie without `Secure`. Defaults to secure; only
 // docker-compose.dev.yml opts out for plain-HTTP local dev.
-export function isSecureCookie(config: ConfigService): boolean {
+function isSecureCookie(config: ConfigService): boolean {
   return config.get<string>('COOKIE_SECURE') !== 'false';
 }
 

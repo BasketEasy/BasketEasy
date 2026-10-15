@@ -207,7 +207,7 @@ export function TeamEventsTab({
             <SkeletonList rows={3} />
           ) : isEventsEmpty ? (
             <EmptyState
-              icon={<CalendarIcon tone="secondary" className="h-8 w-8" />}
+              icon={<CalendarIcon size="3xl" tone="secondary" />}
               title={
                 eventsViewMode === 'table' && isEventsFiltered
                   ? 'Aucun résultat'

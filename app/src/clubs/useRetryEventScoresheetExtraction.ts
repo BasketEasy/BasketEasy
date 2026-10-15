@@ -11,7 +11,9 @@ import { eventScoresheetExtractionQueryKey, eventScoresheetStatusQueryKey } from
  * On success the returned (QUEUED) EventScoresheet is written straight into
  * the status query's cache, which puts the tab back on its self-polling
  * "analyse en cours" frame without a second round trip, and the now-stale
- * FAILED extraction is invalidated so the finished read replaces it.
+ * FAILED extraction is marked stale so the finished read replaces it. It is not
+ * refetched now (`refetchType: 'none'`): that would fetch the same FAILED row
+ * again, and the answer would look fresh when the job ends.
  */
 export function useRetryEventScoresheetExtraction(clubId: string, teamId: string, eventId: string) {
   const queryClient = useQueryClient();
@@ -25,6 +27,7 @@ export function useRetryEventScoresheetExtraction(clubId: string, teamId: string
       queryClient.setQueryData(eventScoresheetStatusQueryKey(clubId, teamId, eventId), data);
       void queryClient.invalidateQueries({
         queryKey: eventScoresheetExtractionQueryKey(clubId, teamId, eventId),
+        refetchType: 'none',
       });
     },
   });

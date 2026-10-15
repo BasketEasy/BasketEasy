@@ -34,12 +34,12 @@ const TYPE_SHORT_LABELS: Record<TimeBlockEventType, string> = {
 const timeFormatter = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 const timeBlockVariants = cva(
-  'flex shrink-0 flex-col items-center justify-center gap-0.5 text-center',
+  'flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-md text-center',
   {
     variants: {
       type: {
         MATCH: 'bg-blue-green text-cream',
-        TRAINING: 'border-r border-border bg-surface-2 text-charcoal',
+        TRAINING: 'border border-border-strong bg-surface-2 text-charcoal',
       },
       size: {
         sm: 'w-16 py-3',
@@ -49,6 +49,17 @@ const timeBlockVariants = cva(
     defaultVariants: { size: 'md' },
   },
 );
+
+// The sm column is 64px: "ENTRAÎN." at wide-caps tracking is wider than that
+// and truncated to "ENTRA…" (even eyebrow tracking overflows by 2px when the
+// heading font falls back), so the compact block drops the tracking.
+const LABEL_TRACKING_CLASSES: Record<
+  NonNullable<VariantProps<typeof timeBlockVariants>['size']>,
+  string
+> = {
+  sm: 'tracking-normal',
+  md: 'tracking-wide-caps',
+};
 
 const TIME_SIZE_CLASSES: Record<
   NonNullable<VariantProps<typeof timeBlockVariants>['size']>,
@@ -103,12 +114,13 @@ export function TimeBlock({ type, startsAt, timeConfirmed, size, className }: Ti
         as="span"
         variant="eyebrow"
         tone="inherit"
-        className="min-w-0 max-w-full truncate tracking-wide-caps opacity-80"
+        className={cn(
+          'min-w-0 max-w-full truncate opacity-80',
+          LABEL_TRACKING_CLASSES[size ?? 'md'],
+        )}
       >
         {TYPE_SHORT_LABELS[type]}
       </Text>
     </div>
   );
 }
-
-export { timeBlockVariants };

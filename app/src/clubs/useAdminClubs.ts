@@ -8,7 +8,7 @@ import { useClubList } from './useClubList';
  * cross-referenced against the full club list. Extracted out of `AppHeader`
  * so both it (club switcher) and, later, the Dashboard's stat tiles can
  * derive "which clubs am I admin of" from one place instead of re-deriving
- * it independently — see `docs/ux-audit/scoping-plan.md`'s item 3.
+ * it independently.
  *
  * No explicit loading signal: today's `AppHeader` did nothing special while
  * `useClubList()`/`useAccount()` were loading (an empty array just renders

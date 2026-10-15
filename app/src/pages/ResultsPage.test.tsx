@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -68,9 +68,15 @@ describe('ResultsPage', () => {
     );
     renderLoggedIn();
 
-    expect(await screen.findByText('Résultats')).toBeInTheDocument();
     expect(await screen.findByText('Victoire')).toBeInTheDocument();
-    expect(screen.getByText('62–58')).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Résultats' })).toBeInTheDocument();
+    expect(screen.getByText('30 derniers jours')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Derniers résultats' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Après le match' })).not.toBeInTheDocument();
+    const row = screen.getByRole('link', { name: /vs ES Rezé/ });
+    expect(row).toHaveAttribute('href', '/clubs/club-1/teams/team-1/events/event-1');
+    expect(within(row).getByText('62–58')).toBeInTheDocument();
   });
 
   it('shows an empty state when there is nothing in the last 30 days', async () => {
@@ -82,5 +88,18 @@ describe('ResultsPage', () => {
     renderLoggedIn();
 
     expect(await screen.findByText('Aucun résultat récent')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Résultats' })).toBeInTheDocument();
+  });
+
+  it('shows an error instead of the empty state when the request fails', async () => {
+    server.use(
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({ message: 'Erreur serveur' }, { status: 500 }),
+      ),
+    );
+    renderLoggedIn();
+
+    expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun résultat récent')).not.toBeInTheDocument();
   });
 });

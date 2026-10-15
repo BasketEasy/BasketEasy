@@ -1,0 +1,20 @@
+name: Setup workspace
+description: pnpm + Node with the store cached, installing only the packages a job needs.
+
+inputs:
+  filter:
+    description: pnpm --filter selector; '...' suffix includes workspace dependencies.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9.7.0
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        cache: pnpm
+    - shell: bash
+      run: pnpm install --frozen-lockfile --prefer-offline --filter "${{ inputs.filter }}"

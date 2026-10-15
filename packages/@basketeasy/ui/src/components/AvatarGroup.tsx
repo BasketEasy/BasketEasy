@@ -6,7 +6,7 @@ import { cn } from '../lib/cn';
  * rest — « Qui vient ? » on an event, the convoked squad on an agenda card.
  *
  * It composes `Avatar`/`AvatarFallback` rather than drawing its own circles,
- * so the fallback tone, the size steps and the ring stay one definition. The
+ * so the fallback tone, the size and the ring stay one definition. The
  * only thing this adds is the overlap (a negative margin plus a 2px ring in
  * the surface colour, which is what makes the stack read as depth rather
  * than as touching discs) and the overflow arithmetic.
@@ -25,7 +25,6 @@ export interface AvatarGroupProps {
   people: ReadonlyArray<AvatarGroupPerson>;
   /** How many faces to draw before collapsing the rest into a `+N` chip. */
   max?: number;
-  size?: 'sm' | 'md';
   className?: string;
 }
 
@@ -42,7 +41,7 @@ function fullNameOf({ firstName, lastName }: AvatarGroupPerson): string {
   return `${firstName} ${lastName}`.trim();
 }
 
-export function AvatarGroup({ people, max = 4, size = 'sm', className }: AvatarGroupProps) {
+export function AvatarGroup({ people, max = 4, className }: AvatarGroupProps) {
   const shown = people.slice(0, Math.max(max, 0));
   const overflow = people.length - shown.length;
 
@@ -60,14 +59,14 @@ export function AvatarGroup({ people, max = 4, size = 'sm', className }: AvatarG
       {shown.map((person, index) => (
         <Avatar
           key={`${person.lastName}-${person.firstName}-${index}`}
-          size={size}
+          size="sm"
           className="-ml-1.5 ring-2 ring-surface first:ml-0"
         >
           <AvatarFallback>{initialsOf(person)}</AvatarFallback>
         </Avatar>
       ))}
       {overflow > 0 && (
-        <Avatar size={size} className="-ml-1.5 ring-2 ring-surface first:ml-0">
+        <Avatar size="sm" className="-ml-1.5 ring-2 ring-surface first:ml-0">
           <AvatarFallback tone="muted">{`+${overflow}`}</AvatarFallback>
         </Avatar>
       )}

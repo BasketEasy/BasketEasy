@@ -62,4 +62,28 @@ describe('FormField', () => {
     await user.type(input, 'a@b.com');
     expect(input).toHaveValue('a@b.com');
   });
+
+  it('renders a suffix beside the input, outside the input itself', () => {
+    render(<FormField label="Arrivée" id="buffer" type="number" suffix="minutes" />);
+    const input = screen.getByLabelText('Arrivée');
+    const suffix = screen.getByText('minutes');
+
+    expect(input).not.toContainElement(suffix);
+    // Same row as the input, not below it with the hint and error.
+    expect(input.parentElement).toContainElement(suffix);
+  });
+
+  it('keeps the suffix out of the label, so the accessible name is the label alone', () => {
+    render(<FormField label="Arrivée" id="buffer" suffix="minutes" />);
+
+    expect(screen.getByRole('textbox', { name: 'Arrivée' })).toBeInTheDocument();
+  });
+
+  it('renders no suffix wrapper when no suffix is given', () => {
+    render(<FormField label="Arrivée" id="buffer" />);
+    const input = screen.getByLabelText('Arrivée');
+
+    // The input sits directly in the field column, beside its label.
+    expect(input.parentElement).toContainElement(screen.getByText('Arrivée'));
+  });
 });

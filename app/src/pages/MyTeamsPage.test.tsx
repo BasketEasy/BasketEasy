@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
@@ -45,8 +45,78 @@ describe('MyTeamsPage', () => {
     expect(
       screen.getByText("Vous n'êtes membre d'aucune équipe pour le moment."),
     ).toBeInTheDocument();
-    // Read-only view — no "add" action of its own, so no CTA button.
+    // Not an admin of any club: no create trigger.
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Mes équipes' })).toBeInTheDocument();
+  });
+
+  it.each([1024, 375])('offers « Créer une équipe » to a club admin at %ipx', async (width) => {
+    setViewportWidth(width);
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs', () =>
+        HttpResponse.json([
+          { id: 'club-1', name: 'COC Basket', ffbbClubCode: null, createdAt: '2026-01-01' },
+        ]),
+      ),
+    );
+    renderWithProviders(<App />, { route: '/my-teams' });
+    expect(await screen.findByRole('button', { name: 'Créer une équipe' })).toBeInTheDocument();
+  });
+
+  it('groups teams under « Je gère » and « Je joue ou j’entraîne », a dual-role team once', async () => {
+    const base = { category: 'U15', gender: 'MEN', clubId: 'club-1', clubName: 'COC Basket' };
+    server.use(
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          { ...base, teamId: 't1', teamName: 'Seniors', isTeamAdmin: true, rosterRole: null },
+          { ...base, teamId: 't2', teamName: 'U15 Dual', isTeamAdmin: true, rosterRole: 'COACH' },
+          {
+            ...base,
+            teamId: 't3',
+            teamName: 'U13 Joueur',
+            isTeamAdmin: false,
+            rosterRole: 'PLAYER',
+          },
+        ]),
+      ),
+    );
+    renderWithProviders(<MyTeamsPage />);
+
+    const managed = (await screen.findByRole('heading', { name: 'Je gère (2)' })).closest(
+      'section',
+    ) as HTMLElement;
+    expect(within(managed).getByText('Seniors')).toBeInTheDocument();
+    expect(within(managed).getByText('U15 Dual')).toBeInTheDocument();
+    expect(within(managed).getByText('Admin · Entraîneur')).toBeInTheDocument();
+
+    const played = screen
+      .getByRole('heading', { name: 'Je joue ou j’entraîne (1)' })
+      .closest('section') as HTMLElement;
+    expect(within(played).getByText('U13 Joueur')).toBeInTheDocument();
+    expect(screen.getAllByText('U15 Dual')).toHaveLength(1);
+  });
+
+  it('renders no section for a group with no team', async () => {
+    server.use(
+      http.get('/api/me/teams', () =>
+        HttpResponse.json([
+          {
+            teamId: 't3',
+            teamName: 'U13 Joueur',
+            category: 'U13',
+            gender: 'MEN',
+            clubId: 'club-1',
+            clubName: 'COC Basket',
+            isTeamAdmin: false,
+            rosterRole: 'PLAYER',
+          },
+        ]),
+      ),
+    );
+    renderWithProviders(<MyTeamsPage />);
+    expect(await screen.findByRole('heading', { name: 'Je joue ou j’entraîne (1)' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: /Je gère/ })).not.toBeInTheDocument();
   });
 
   it('lists teams with the club, category, and the role badges that apply', async () => {
@@ -81,12 +151,12 @@ describe('MyTeamsPage', () => {
 
     expect(await screen.findByText('U15 Garçons')).toBeInTheDocument();
     expect(screen.getByText('COC Basket')).toBeInTheDocument();
-    expect(screen.getByText('Administrateur')).toBeInTheDocument();
-    expect(screen.getByText('Entraîneur')).toBeInTheDocument();
+    expect(screen.getByText('Admin · Entraîneur')).toBeInTheDocument();
 
     expect(screen.getByText('U11 Filles')).toBeInTheDocument();
     expect(screen.getByText('ASC Nantes')).toBeInTheDocument();
     expect(screen.getByText('Joueur')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Je gère (1)' })).toBeInTheDocument();
   });
 
   it('navigates to the team detail page when Voir is clicked', async () => {

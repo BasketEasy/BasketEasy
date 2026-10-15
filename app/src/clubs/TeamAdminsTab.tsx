@@ -29,6 +29,10 @@ export function TeamAdminsTab({
   isAddAdminOpen,
   setIsAddAdminOpen,
   addableAdmins,
+  isLoadingAddableAdmins,
+  isAddableAdminsError,
+  isAddableAdminsRefetching,
+  refetchAddableAdmins,
   isAdminsError,
   isLoadingAdmins,
   isAdminsRefetching,
@@ -41,6 +45,11 @@ export function TeamAdminsTab({
   isAddAdminOpen: boolean;
   setIsAddAdminOpen: (open: boolean) => void;
   addableAdmins: TeamAdminCandidate[];
+  /** The candidates load when the dialog opens, so the picker has its own states. */
+  isLoadingAddableAdmins: boolean;
+  isAddableAdminsError: boolean;
+  isAddableAdminsRefetching: boolean;
+  refetchAddableAdmins: () => void;
   isAdminsError: boolean;
   isLoadingAdmins: boolean;
   isAdminsRefetching: boolean;
@@ -61,12 +70,21 @@ export function TeamAdminsTab({
               faire un administrateur du club.
             </DialogDescription>
           </DialogHeader>
-          <TeamAdminAddForm
-            clubId={clubId}
-            teamId={teamId}
-            candidates={addableAdmins}
-            onSuccess={() => setIsAddAdminOpen(false)}
-          />
+          {isAddableAdminsError ? (
+            <QueryError
+              onRetry={() => refetchAddableAdmins()}
+              isRetrying={isAddableAdminsRefetching}
+            />
+          ) : isLoadingAddableAdmins ? (
+            <SkeletonList rows={2} />
+          ) : (
+            <TeamAdminAddForm
+              clubId={clubId}
+              teamId={teamId}
+              candidates={addableAdmins}
+              onSuccess={() => setIsAddAdminOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -78,7 +96,7 @@ export function TeamAdminsTab({
             <SkeletonList rows={3} />
           ) : (teamAdmins?.length ?? 0) === 0 ? (
             <EmptyState
-              icon={<ShieldIcon tone="secondary" className="h-8 w-8" />}
+              icon={<ShieldIcon size="3xl" tone="secondary" />}
               title="Aucun administrateur d'équipe"
               description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
               action={

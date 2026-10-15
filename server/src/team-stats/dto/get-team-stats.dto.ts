@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { ActingAsQueryDto } from '../../common/dto/acting-as-query.dto';
 
 // The app's first season and a ceiling far enough out that it will never
 // bite: the range exists to keep a typo (or a probe) from asking for a window
@@ -7,7 +8,7 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 const EARLIEST_SEASON_YEAR = 2000;
 const LATEST_SEASON_YEAR = 2100;
 
-export class GetTeamStatsDto {
+export class GetTeamStatsDto extends ActingAsQueryDto {
   /** The year the season starts: 2026 means "saison 2026-2027". */
   @IsOptional()
   @Type(() => Number)

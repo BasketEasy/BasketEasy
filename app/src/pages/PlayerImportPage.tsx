@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
+import { PageHeader } from '@basketeasy/ui/page-header';
+import { Text } from '@basketeasy/ui/text';
 import { Card, CardContent } from '@basketeasy/ui/card';
 import { Loader } from '@basketeasy/ui/loader';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { Button } from '@basketeasy/ui/button';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { ImportPlayersRow } from '@basketeasy/types/players';
+import { PageBackLink, PageBar } from '../components/PageBar';
+import { useClubShow } from '../clubs/useClubShow';
 import { usePlayerList } from '../clubs/usePlayerList';
 import { usePlayerImport } from '../clubs/usePlayerImport';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
@@ -60,6 +63,10 @@ export function PlayerImportPage() {
   } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
   const existingPlayers = useMemo(() => allPlayersResult?.items ?? [], [allPlayersResult]);
 
+  const { data: club } = useClubShow(clubId!);
+  const backTo = `/clubs/${clubId}/members?tab=players`;
+  const backTitle = club ? `Effectif · ${club.name}` : 'Effectif';
+
   const { mutate: importPlayers, isPending } = usePlayerImport(clubId!);
 
   const resolvedRows = useMemo(() => {
@@ -79,7 +86,7 @@ export function PlayerImportPage() {
           title: 'Import terminé',
           description: `${result.created} créé(s), ${result.updated} mis à jour, ${result.conflicts} conflit(s).`,
         });
-        navigate(`/clubs/${clubId}/members?tab=players`);
+        navigate(backTo);
       },
       onError: (err) =>
         toast({
@@ -91,68 +98,78 @@ export function PlayerImportPage() {
   };
 
   return (
-    <PageContainer size="lg">
-      <Heading as="h1" size="3xl">
-        Importer les licenciés
-      </Heading>
+    <>
+      <PageBar to={backTo} title={backTitle} />
+      <PageContainer size="lg" top="bar">
+        <PageBackLink to={backTo} title={backTitle} />
 
-      <PlayerImportSteps current={STEP_INDEX[step.name]} />
-
-      <Card>
-        <CardContent className="flex flex-col gap-4">
-          {step.name === 'upload' && (
-            <PlayerImportUploadStep
-              headingRef={headingRef}
-              onParsed={(parsed) => setStep({ name: 'map', parsed })}
-            />
+        <div className="flex flex-col gap-1.5">
+          {club && (
+            <Text variant="eyebrow" as="p">
+              {club.name}
+            </Text>
           )}
+          <PageHeader title="Importer les licenciés" />
+        </div>
 
-          {step.name === 'map' && (
-            <PlayerImportMappingStep
-              parsed={step.parsed}
-              initialMapping={lastMapping}
-              headingRef={headingRef}
-              onBack={() => setStep({ name: 'upload' })}
-              onConfirm={(mapping) => {
-                setLastMapping(mapping);
-                setStep({ name: 'preview', parsed: step.parsed, mapping });
-              }}
-            />
-          )}
+        <PlayerImportSteps current={STEP_INDEX[step.name]} />
 
-          {step.name === 'preview' && isPlayersError && (
-            <div className="flex flex-col gap-4">
-              <QueryError
-                onRetry={() => refetchPlayers()}
-                isRetrying={isPlayersRefetching}
-                description="L'effectif existant n'a pas pu être chargé, nécessaire pour détecter les doublons. Vérifiez votre connexion."
+        <Card>
+          <CardContent className="flex flex-col gap-4">
+            {step.name === 'upload' && (
+              <PlayerImportUploadStep
+                headingRef={headingRef}
+                onParsed={(parsed) => setStep({ name: 'map', parsed })}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="self-start"
-                onClick={() => setStep({ name: 'map', parsed: step.parsed })}
-              >
-                Retour
-              </Button>
-            </div>
-          )}
+            )}
 
-          {step.name === 'preview' && !isPlayersError && isPlayersLoading && (
-            <Loader>Chargement de l&apos;effectif existant…</Loader>
-          )}
+            {step.name === 'map' && (
+              <PlayerImportMappingStep
+                parsed={step.parsed}
+                initialMapping={lastMapping}
+                headingRef={headingRef}
+                onBack={() => setStep({ name: 'upload' })}
+                onConfirm={(mapping) => {
+                  setLastMapping(mapping);
+                  setStep({ name: 'preview', parsed: step.parsed, mapping });
+                }}
+              />
+            )}
 
-          {step.name === 'preview' && !isPlayersError && !isPlayersLoading && (
-            <PlayerImportPreviewStep
-              resolvedRows={resolvedRows}
-              isSubmitting={isPending}
-              headingRef={headingRef}
-              onBack={() => setStep({ name: 'map', parsed: step.parsed })}
-              onConfirm={handleConfirm}
-            />
-          )}
-        </CardContent>
-      </Card>
-    </PageContainer>
+            {step.name === 'preview' && isPlayersError && (
+              <div className="flex flex-col gap-4">
+                <QueryError
+                  onRetry={() => refetchPlayers()}
+                  isRetrying={isPlayersRefetching}
+                  description="L'effectif existant n'a pas pu être chargé, nécessaire pour détecter les doublons. Vérifiez votre connexion."
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="self-start"
+                  onClick={() => setStep({ name: 'map', parsed: step.parsed })}
+                >
+                  Retour
+                </Button>
+              </div>
+            )}
+
+            {step.name === 'preview' && !isPlayersError && isPlayersLoading && (
+              <Loader>Chargement de l&apos;effectif existant…</Loader>
+            )}
+
+            {step.name === 'preview' && !isPlayersError && !isPlayersLoading && (
+              <PlayerImportPreviewStep
+                resolvedRows={resolvedRows}
+                isSubmitting={isPending}
+                headingRef={headingRef}
+                onBack={() => setStep({ name: 'map', parsed: step.parsed })}
+                onConfirm={handleConfirm}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </PageContainer>
+    </>
   );
 }

@@ -21,6 +21,22 @@ describe('ActionItemRow', () => {
     expect(screen.getByText(base.message)).toBeInTheDocument();
   });
 
+  it('marks the kinds only the manager can fix as accent tiles, the others neutral', () => {
+    const tone = (kind: ActionItem['kind']) => {
+      const { container, unmount } = renderWithProviders(
+        <ActionItemRow item={{ ...base, kind }} />,
+      );
+      const value = container.querySelector('[data-tone]')?.getAttribute('data-tone');
+      unmount();
+      return value;
+    };
+
+    expect(tone('MATCH_WITHOUT_CONVOCATIONS')).toBe('accent');
+    expect(tone('MATCH_WITHOUT_CONFIRMED_SCORESHEET')).toBe('accent');
+    expect(tone('EVENT_PENDING_RSVPS')).toBe('neutral');
+    expect(tone('PLAYERS_WITHOUT_ACCOUNT')).toBe('neutral');
+  });
+
   it('embeds the convocation modal for MATCH_WITHOUT_CONVOCATIONS', () => {
     renderWithProviders(<ActionItemRow item={base} />);
 

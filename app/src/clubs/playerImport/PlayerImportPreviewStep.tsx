@@ -16,6 +16,7 @@ import { cn } from '@basketeasy/ui/cn';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type { ResolvedImportRow } from './resolveImportRows';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { Text } from '@basketeasy/ui/text';
 
 type ActionType = ResolvedImportRow['action']['type'];
@@ -99,13 +100,9 @@ export function PlayerImportPreviewStep({
   );
 
   const heading = (
-    <h2
-      ref={headingRef}
-      tabIndex={-1}
-      className="font-heading text-2xl font-bold text-charcoal outline-none"
-    >
-      Vérifier et confirmer
-    </h2>
+    <SectionHeading as="h2" headingRef={headingRef}>
+      Vérifier l’import
+    </SectionHeading>
   );
 
   if (resolvedRows.length === 0) {

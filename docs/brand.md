@@ -5,10 +5,11 @@
 - **Name:** Kluvo
 - **Tagline (FR):** _La gestion d'équipe, simplifiée._
 - **Landing headline (FR):** _Moins de tableurs, plus de terrain._
-- **Landing subhead (FR):** Kluvo centralise calendriers, convocations et présences pour les clubs de basket amateurs — y compris quand une équipe réunit plusieurs clubs. Pensé pour les bénévoles, pas pour les DSI. _(Changed from "résultats" to "convocations": no `Result`/score field exists anywhere in the `Event` data model — see `CLAUDE.md`'s Events module section — so the previous wording claimed a capability that isn't built. `CLAUDE.md` governs what we may claim ships; this doc follows.)_
+- **Landing subhead (FR):** Convocations, réponses, rendez-vous du samedi et stats de la saison : toute la semaine de votre équipe dans une seule app. Pensé pour les bénévoles, pas pour les DSI. _(Rewritten around the team's week when the landing page moved to real screenshots, canvas https://claude.ai/artifact/Wyx7QNTdD5AoFDq7prcHz5. It names only what ships: convocations and RSVP, the meeting point, and season stats from the AI-read scoresheet. `CLAUDE.md` governs what we may claim ships; this doc follows.)_
+- **Primary call to action (FR):** _Créer mon équipe gratuitement_ (« Créer mon équipe » in the header) — it names what the visitor gets, not the chore of creating an account.
 - **Footer line:** Données hébergées en France · RGPD
 
-The landing page deliberately doesn't name FBI/e-Marque V2/FFBB or lock the pitch to a region — that reads as internal competitive strategy, not a visitor-facing benefit (founder call on PR #21). The one differentiator surfaced above the fold is a plain "Pensé pour les CTC" badge; the fuller strategic framing below still holds internally, it just isn't recited verbatim on the page. The launch market itself (Loire-Atlantique/CD44-first) hasn't changed — only the marketing copy's framing has.
+The landing page deliberately doesn't name FBI/e-Marque V2/FFBB or lock the pitch to a region — that reads as internal competitive strategy, not a visitor-facing benefit (founder call on PR #21). The one differentiator surfaced above the fold is a plain "Pensé pour les CTC et les ententes" badge; the FAQ answers « Est-ce que ça remplace les outils de la fédération ? » without naming them; the fuller strategic framing below still holds internally, it just isn't recited verbatim on the page. The launch market itself (Loire-Atlantique/CD44-first) hasn't changed — only the marketing copy's framing has.
 
 ## Positioning
 

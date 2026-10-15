@@ -1,0 +1,452 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "U13 F",
+    "category": "U13",
+    "gender": "WOMEN",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking salle Coubertin",
+      "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": 60,
+    "clubDefaults": {
+      "clubName": "ASC Nantes",
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1": {
+    "id": "event-1",
+    "teamId": "team-1",
+    "type": "MATCH",
+    "startsAt": "2026-10-04T12:00:00.000Z",
+    "location": "Gymnase Rezé-Ragon, Rezé",
+    "locationName": null,
+    "notes": null,
+    "opponentName": "BC Rezé",
+    "venue": "AWAY",
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": null,
+    "myRsvpRespondedBy": null,
+    "myRsvpRespondedAt": null,
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": false,
+    "rsvpSummary": {
+      "rosterSize": 5,
+      "convoked": 5,
+      "answering": 5,
+      "going": 3,
+      "maybe": 1,
+      "notGoing": 0,
+      "pending": 1,
+      "isConvocationScoped": true
+    },
+    "logistics": {
+      "jerseys": null,
+      "balls": null
+    },
+    "result": null,
+    "myMatchStats": null,
+    "meetingPlan": {
+      "arrivalAt": "2026-10-04T11:15:00.000Z",
+      "arrivalBufferMinutes": 45,
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "meetingPointSource": "CLUB",
+      "travelMinutes": 23,
+      "travelMinutesSource": "COMPUTED",
+      "meetsAt": "2026-10-04T10:45:00.000Z",
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
+    },
+    "myTravelMode": "MEETING_POINT",
+    "jerseyDuty": {
+      "holder": null,
+      "status": "UNASSIGNED",
+      "broughtBy": {
+        "teamPlayerId": "tp-lucas",
+        "firstName": "Lucas",
+        "lastName": "Dupuis"
+      },
+      "isMine": false
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/convocations": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "p-tp-1",
+      "firstName": "Emma",
+      "lastName": "Martin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Inès",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Chloé",
+      "lastName": "Roux",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Thomas",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Jade",
+      "lastName": "Lopez",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-7",
+      "playerId": "p-tp-7",
+      "firstName": "Sarah",
+      "lastName": "Kone",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-8",
+      "playerId": "p-tp-8",
+      "firstName": "Lina",
+      "lastName": "Petit",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-10",
+      "playerId": "p-tp-10",
+      "firstName": "Zoé",
+      "lastName": "Faure",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-11",
+      "playerId": "p-tp-11",
+      "firstName": "Sarah",
+      "lastName": "Kaci",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "p-tp-1",
+      "firstName": "Emma",
+      "lastName": "Martin",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Inès",
+      "lastName": "Bernard",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Chloé",
+      "lastName": "Roux",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Thomas",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Jade",
+      "lastName": "Lopez",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-7",
+      "playerId": "p-tp-7",
+      "firstName": "Sarah",
+      "lastName": "Kone",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-8",
+      "playerId": "p-tp-8",
+      "firstName": "Lina",
+      "lastName": "Petit",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-10",
+      "playerId": "p-tp-10",
+      "firstName": "Zoé",
+      "lastName": "Faure",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "viaLink": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false
+    }
+  ],
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "U13 F",
+      "category": "U13",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": true,
+      "rosterRole": null
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/jersey-duty": {
+    "eventId": "event-1",
+    "teamGender": "WOMEN",
+    "locked": false,
+    "status": "UNASSIGNED",
+    "holder": null,
+    "acceptedBy": null,
+    "broughtBy": {
+      "teamPlayerId": "tp-lucas",
+      "firstName": "Lucas",
+      "lastName": "Dupuis"
+    },
+    "suggestion": {
+      "kind": "SUGGESTED",
+      "candidate": {
+        "teamPlayerId": "tp-1",
+        "firstName": "Emma",
+        "lastName": "Martin",
+        "turnsThisSeason": 1,
+        "lastTurnAt": null,
+        "gender": "WOMEN",
+        "reachable": true
+      },
+      "isFewest": true
+    },
+    "pool": {
+      "convokedGoingCount": 8,
+      "exemptedCount": 1
+    },
+    "swapCandidates": [],
+    "pendingSwap": null,
+    "nextMatchStartsAt": "2026-10-11T12:00:00.000Z",
+    "rights": {
+      "canAccept": false,
+      "canDecline": false,
+      "canSwap": false,
+      "canCancelSwap": false,
+      "canRespondToSwap": false,
+      "canManage": true
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/jersey-rotation": {
+    "seasonYear": 2026,
+    "teamGender": "WOMEN",
+    "enabled": true,
+    "canManage": true,
+    "nextMatch": null,
+    "rows": [
+      {
+        "teamPlayerId": "tp-1",
+        "firstName": "Emma",
+        "lastName": "Martin",
+        "turnsThisSeason": 1,
+        "lastTurnAt": null,
+        "playerId": "p-tp-1",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-2",
+        "firstName": "Inès",
+        "lastName": "Bernard",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-2",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-3",
+        "firstName": "Chloé",
+        "lastName": "Roux",
+        "turnsThisSeason": 1,
+        "lastTurnAt": null,
+        "playerId": "p-tp-3",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-4",
+        "firstName": "Manon",
+        "lastName": "Thomas",
+        "turnsThisSeason": 2,
+        "lastTurnAt": null,
+        "playerId": "p-tp-4",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-5",
+        "firstName": "Jade",
+        "lastName": "Lopez",
+        "turnsThisSeason": 2,
+        "lastTurnAt": null,
+        "playerId": "p-tp-5",
+        "exempt": false,
+        "isMe": false
+      },
+      {
+        "teamPlayerId": "tp-11",
+        "firstName": "Sarah",
+        "lastName": "Kaci",
+        "turnsThisSeason": 0,
+        "lastTurnAt": null,
+        "playerId": "p-tp-11",
+        "exempt": true,
+        "isMe": false
+      }
+    ]
+  }
+}

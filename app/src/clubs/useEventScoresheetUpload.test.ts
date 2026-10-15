@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
+import { createSeededCache } from './testCache';
 import { eventScoresheetStatusQueryKey } from './queryKeys';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
 
@@ -115,5 +116,34 @@ describe('useEventScoresheetUpload', () => {
     result.current.mutate(file);
 
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+
+  it('marks the read of an earlier upload stale without fetching it', async () => {
+    let extractionGets = 0;
+    server.use(
+      http.post('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet/upload-url', () =>
+        HttpResponse.json({ uploadUrl: 'https://r2.example/upload-target', storageKey: 'k' }),
+      ),
+      http.put('https://r2.example/upload-target', () => new HttpResponse(null, { status: 200 })),
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet', () =>
+        HttpResponse.json({ status: 'UPLOADED', uploadedByTeamPlayerId: 'tp-1', uploadedAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction', () => {
+        extractionGets += 1;
+        return HttpResponse.json(null);
+      }),
+    );
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useEventScoresheetUpload('club-1', 'team-1', 'event-1'), {
+      wrapper,
+    });
+
+    result.current.mutate(file);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    // It is held back behind the status poll while the new job runs, so it must
+    // not look fresh when it wakes up, and a fetch now would only re-read the old one.
+    expect(staleLabels()).toEqual(['scoresheet extraction']);
+    expect(extractionGets).toBe(0);
   });
 });

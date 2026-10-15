@@ -33,3 +33,33 @@ export const BrandTone: Story = {
     </Card>
   ),
 };
+
+export const EmptySettingSlot: Story = {
+  name: 'Empty setting slot (placeholder)',
+  render: () => (
+    <Card variant="placeholder" className="w-80">
+      <CardDescription>Aucun point de rendez-vous défini pour le club.</CardDescription>
+    </Card>
+  ),
+};
+
+export const FigureTile: Story = {
+  name: 'Figure tile (structure tone)',
+  render: () => (
+    <Card variant="inset" tone="structure" className="w-40">
+      <CardTitle>6</CardTitle>
+      <CardDescription>au RDV</CardDescription>
+    </Card>
+  ),
+};
+
+export const HeadsUpNote: Story = {
+  name: 'Heads-up note (accent tone)',
+  render: () => (
+    <Card variant="inset" tone="accent" className="w-80">
+      <CardDescription>
+        Les joueurs qui viennent au RDV seront prévenus du changement.
+      </CardDescription>
+    </Card>
+  ),
+};

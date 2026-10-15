@@ -1,8 +1,10 @@
 import type {
   EventConvocationRosterEntry,
+  EventRsvpRespondent,
   EventRsvpRosterEntry,
   EventRsvpStatus,
 } from '@basketeasy/types/events';
+import type { EventTravelMode } from '@basketeasy/types/meeting-points';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventRsvps } from './useEventRsvps';
 
@@ -13,6 +15,14 @@ export interface EventRosterRow {
   role: EventRsvpRosterEntry['role'];
   isMe: boolean;
   rsvpStatus: EventRsvpStatus | null;
+  /** Who answered — see EventRsvpRosterEntry.respondedBy. */
+  respondedBy: EventRsvpRespondent | null;
+  /** The answer came from one of the player's parents, not the player. */
+  respondedByGuardian: boolean;
+  /** The current answer came through the team's shared guest link. */
+  viaLink: boolean;
+  /** Null unless GOING to a match — see EventRsvpRosterEntry.travelMode. */
+  travelMode: EventTravelMode | null;
   convoked: boolean;
 }
 
@@ -34,6 +44,12 @@ export interface EventRosterCounts {
    * nothing twice.
    */
   isConvocationScoped: boolean;
+  /**
+   * Of those `going`, who meets the group and who goes straight to the gym.
+   * Meaningful for a MATCH only; a GOING row with no stored choice counts as
+   * meeting point, the same default the API applies.
+   */
+  travel: { meetingPoint: number; direct: number };
 }
 
 /**
@@ -53,25 +69,36 @@ function mergeRoster(
     role: rsvp.role,
     isMe: rsvp.isMe,
     rsvpStatus: rsvp.status,
+    respondedBy: rsvp.respondedBy,
+    respondedByGuardian: rsvp.respondedByGuardian,
+    viaLink: rsvp.viaLink,
+    travelMode: rsvp.travelMode,
     convoked: convocationByPlayer.get(rsvp.teamPlayerId)?.convoked ?? false,
   }));
 }
 
-export function countEventRoster(rows: EventRosterRow[]): EventRosterCounts {
+export function countEventRoster(
+  rows: Pick<EventRosterRow, 'convoked' | 'rsvpStatus' | 'travelMode'>[],
+): EventRosterCounts {
   const convoked = rows.filter((row) => row.convoked);
   const isConvocationScoped = convoked.length > 0;
   const answering = isConvocationScoped ? convoked : rows;
   const count = (status: EventRsvpStatus) =>
     answering.filter((row) => row.rsvpStatus === status).length;
+  const going = count('GOING');
+  const direct = answering.filter(
+    (row) => row.rsvpStatus === 'GOING' && row.travelMode === 'DIRECT',
+  ).length;
   return {
     rosterSize: rows.length,
     convoked: convoked.length,
     answering: answering.length,
-    going: count('GOING'),
+    going,
     maybe: count('MAYBE'),
     notGoing: count('NOT_GOING'),
     pending: answering.filter((row) => row.rsvpStatus === null).length,
     isConvocationScoped,
+    travel: { meetingPoint: going - direct, direct },
   };
 }
 

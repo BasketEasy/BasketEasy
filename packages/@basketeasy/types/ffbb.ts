@@ -18,10 +18,24 @@ export interface TeamFfbbLink {
 /** The two ways adding an FFBB link can fail, shared so the frontend can bind the error to the field rather than a generic message. */
 export type FfbbLinkErrorCode = 'FFBB_LINK_INVALID' | 'FFBB_LINK_UNREACHABLE';
 
+/** An upcoming imported match still on UNKNOWN_EVENT_LOCATION after an import. */
+export interface FfbbMissingVenueMatch {
+  eventId: string;
+  opponentName: string | null;
+  startsAt: string;
+}
+
+/** At most this many of `missingVenue` are listed; `missingVenueTotal` counts the rest. */
+export const FFBB_MISSING_VENUE_LIST_LIMIT = 20;
+
 export interface FfbbImportResult {
   created: number;
   updated: number;
   unchanged: number;
+  /** Upcoming imported matches of the team with no venue yet, soonest first, capped at FFBB_MISSING_VENUE_LIST_LIMIT. */
+  missingVenue: FfbbMissingVenueMatch[];
+  /** How many matches `missingVenue` would list without the cap. */
+  missingVenueTotal: number;
 }
 
 /** One team's row in a poule's standings table. */
@@ -53,7 +67,7 @@ export interface PouleMatchday {
 
 /**
  * A team's whole poule, read live from FFBB — never persisted (see
- * docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md). Empty
+ * docs/decisions/ffbb.md). Empty
  * `standings`/`matchdays` is not an error: it's the normal shape before a
  * poule's first journée has been played.
  */

@@ -127,7 +127,7 @@ export function TeamClubsTab({
             <SkeletonList rows={3} />
           ) : (teamClubsResult?.total ?? 0) === 0 ? (
             <EmptyState
-              icon={<BuildingIcon tone="secondary" className="h-8 w-8" />}
+              icon={<BuildingIcon size="3xl" tone="secondary" />}
               title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
               description={
                 isTeamClubsFiltered

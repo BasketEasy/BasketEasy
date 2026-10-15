@@ -17,8 +17,7 @@ import { Text } from './Text';
  * That is why the size is an enum and not a padding prop.
  *
  * The icon is a node rather than a component so the caller picks it; it
- * arrives sized (`h-4 w-4`) the way every other icon call site in the repo
- * sizes one, and takes its colour from the muted row it sits in.
+ * arrives sized through the icon's own `size` variant (`size="md"`), and takes its colour from the muted row it sits in.
  */
 export interface StatTileProps {
   icon: ReactNode;

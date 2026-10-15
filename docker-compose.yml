@@ -48,6 +48,9 @@ services:
       # Scoresheet OCR (Gemini vision) — like the R2_* vars above, unset
       # only fails an actual OCR job, not server boot.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Match meeting-point driving times (OpenRouteService). Empty answers
+      # "unknown" to every lookup; managers then type travel minutes by hand.
+      ORS_API_KEY: ${ORS_API_KEY:-}
       # Every e-mailed and pushed deep link is built from this: the app
       # stores notification links as frontend-relative paths and prefixes
       # them at send time. Without it, links in e-mail point at localhost.
@@ -68,6 +71,14 @@ services:
       # exercised; dry-run keeps it from erasing seed data.
       RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
       RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
+      JERSEY_DUTY_FREEZE_ENABLED: ${JERSEY_DUTY_FREEZE_ENABLED:-true}
+      # Platform back-office step-up token. Empty disables /admin/* entirely
+      # (503), which is the intended default — see .env.example.
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      PLATFORM_TOTP_ENCRYPTION_KEY: ${PLATFORM_TOTP_ENCRYPTION_KEY:-}
+      # Number of reverse proxies in front of this container — see
+      # .env.example. Wrong value = wrong client IP in every audit row.
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
     ports:
       - '3000:3000'
     depends_on:

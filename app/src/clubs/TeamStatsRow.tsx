@@ -23,13 +23,13 @@ export function AwardBadges({ player }: { player: TeamSeasonPlayerStats }) {
     <span className="flex flex-wrap items-center gap-1.5">
       {player.mvpAwards > 0 && (
         <Badge variant="soft" tone="accent" className="gap-1.5">
-          <TrophyIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          <TrophyIcon size="sm" aria-hidden="true" />
           <span className="tabular">MVP &times;{player.mvpAwards}</span>
         </Badge>
       )}
       {player.worstPlayerAwards > 0 && (
         <Badge variant="soft" tone="muted" className="gap-1.5">
-          <ShieldIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          <ShieldIcon size="sm" aria-hidden="true" />
           <span className="tabular">En difficulté &times;{player.worstPlayerAwards}</span>
         </Badge>
       )}

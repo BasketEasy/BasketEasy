@@ -1,7 +1,7 @@
 import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** Notification / reminder (« Relancer les sans-réponse »). */
-export function BellIcon({ tone, className, ...props }: IconProps) {
+export function BellIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,7 +10,7 @@ export function BellIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 13 6 9Z" />

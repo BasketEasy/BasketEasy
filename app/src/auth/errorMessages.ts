@@ -4,7 +4,7 @@
 // convention, they must not be shown to users directly. Keyed on HTTP status
 // rather than message text so it doesn't silently break if the backend's
 // wording changes.
-import { ApiError } from '../api/client';
+import { ApiError, IMPERSONATION_READ_ONLY_MESSAGE, isImpersonationReadOnly } from '../api/client';
 
 const GENERIC_ERROR = 'Une erreur est survenue. Merci de réessayer.';
 
@@ -32,6 +32,8 @@ export function getAuthErrorMessage(err: unknown): string {
  * these get their own map rather than an override on the one above.
  */
 export function getAccountSecurityErrorMessage(err: unknown): string {
+  // A write refused during a back-office impersonation, whatever the route.
+  if (isImpersonationReadOnly(err)) return IMPERSONATION_READ_ONLY_MESSAGE;
   if (err instanceof ApiError) {
     switch (err.status) {
       case 400:

@@ -27,7 +27,8 @@
 //     "GET /api/clubs/club-1/teams": { "items": [{ "id": "team-1", "name": "Seniors M" }], "total": 1, "page": 1, "pageSize": 25 }
 //   }
 // A fixture entry's value may also be { "status": 404, "body": { ... } } to
-// mock an error response.
+// mock an error response. A "GET /api/me/dashboard" fixture's upcomingEvents
+// are filtered to the request's from/to, as the real API does.
 
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -99,6 +100,20 @@ const routeDefs = [
   ['GET', '/api/clubs/:clubId/teams/:teamId/ffbb-links', () => []],
   [
     'GET',
+    '/api/clubs/:clubId/meeting-settings',
+    () => ({ meetingPoint: null, arrivalBufferMinutes: 45 }),
+  ],
+  [
+    'GET',
+    '/api/clubs/:clubId/teams/:teamId/meeting-settings',
+    () => ({
+      meetingPoint: null,
+      arrivalBufferMinutes: null,
+      clubDefaults: { clubName: '', meetingPoint: null, arrivalBufferMinutes: 45 },
+    }),
+  ],
+  [
+    'GET',
     '/api/clubs/:clubId/teams/:teamId/ffbb-poule-results',
     () => ({ status: 404, body: { message: 'No FFBB link on this team' } }),
   ],
@@ -113,11 +128,17 @@ const routeDefs = [
       myVote: { best: null, worst: null },
     }),
   ],
+  [
+    'GET',
+    '/api/clubs/:clubId/teams/:teamId/stats/matches/:eventId',
+    () => ({ hasStats: false, lines: [] }),
+  ],
   ['GET', '/api/me/teams', () => []],
   ['GET', '/api/me/dashboard', () => ({ totalPlayers: 0, upcomingEvents: [] })],
   // Polled on every protected page by the header bell, so it needs a default
   // even for screenshots that aren't about notifications.
   ['GET', '/api/me/notifications', () => ({ items: [], unreadCount: 0 })],
+  ['GET', '/api/me/personas', () => ({ self: null, children: [] })],
   ['PATCH', '/api/me/notifications/:notificationId/read', () => ({ status: 204, body: null })],
   ['POST', '/api/me/notifications/read-all', () => ({ status: 204, body: null })],
   // Null key = no VAPID configured, which is what a screenshot run has:
@@ -127,6 +148,54 @@ const routeDefs = [
   ['POST', '/api/auth/verify-email/confirm', () => ({ status: 204, body: null })],
   ['POST', '/api/auth/password-reset/request', () => ({ status: 204, body: null })],
   ['POST', '/api/auth/password-reset/confirm', () => ({ status: 204, body: null })],
+  // Back-office. The step-up succeeds by default so a screenshot run can get
+  // past the TOTP gate with any six digits; the reads default to empty.
+  [
+    'POST',
+    '/api/admin/login',
+    () => ({
+      platformAccessToken: 'platform-token',
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      role: 'DATA_OFFICER',
+    }),
+  ],
+  ['GET', '/api/admin/retention/runs', () => []],
+  ['GET', '/api/admin/users', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  [
+    'GET',
+    '/api/admin/search',
+    (_params, query) => ({
+      query: query.get('q') ?? '',
+      exactId: null,
+      unknownId: false,
+      groups: { club: [], team: [], user: [], player: [] },
+    }),
+  ],
+  ['GET', '/api/admin/clubs', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  ['GET', '/api/admin/teams', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  ['GET', '/api/admin/players', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  ['GET', '/api/admin/events', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  ['GET', '/api/admin/scoresheets', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  ['GET', '/api/admin/audit-log', () => ({ items: [], total: 0, page: 1, pageSize: 25 })],
+  [
+    'POST',
+    '/api/admin/users/:userId/export',
+    () => ({
+      generatedAt: new Date().toISOString(),
+      subjectUserId: 'user-1',
+      notice: { basis: 'articles 15 et 20 du RGPD', omissions: [] },
+      account: {},
+      clubMemberships: [],
+      playerRecords: [],
+      teamAdminGrants: [],
+      notifications: [],
+      guardian: { children: [], invitesAccepted: [], answersGivenForOthers: [] },
+      parentalConsents: { given: [], aboutThisPerson: [] },
+      pushSubscriptions: [],
+      reviewedScoresheets: [],
+      securityLog: [],
+    }),
+  ],
 ].map(([method, pattern, handler]) => ({ method, handler, ...compile(pattern) }));
 
 function send(res, status, body) {
@@ -143,6 +212,24 @@ function send(res, status, body) {
   res.end(json);
 }
 
+// The player home asks /me/dashboard for two windows (the next 14 days and
+// the last 30); like the real API, a dashboard fixture's upcomingEvents are
+// filtered to the request's from/to, so one fixture can hold both.
+function windowDashboard(body, query) {
+  const from = query.get('from');
+  const to = query.get('to');
+  if (!body || !Array.isArray(body.upcomingEvents) || (!from && !to)) return body;
+  const start = from ? new Date(from).getTime() : -Infinity;
+  const end = to ? new Date(to).getTime() : Infinity;
+  return {
+    ...body,
+    upcomingEvents: body.upcomingEvents.filter((event) => {
+      const at = new Date(event.startsAt).getTime();
+      return at >= start && at <= end;
+    }),
+  };
+}
+
 function main() {
   const { port, fixtures: fixturesPath } = parseArgs(process.argv.slice(2));
   const fixtures = loadFixtures(fixturesPath);
@@ -155,7 +242,12 @@ function main() {
       const entry = fixtures[key];
       const hasEnvelope =
         entry && typeof entry === 'object' && 'status' in entry && 'body' in entry;
-      return send(res, hasEnvelope ? entry.status : 200, hasEnvelope ? entry.body : entry);
+      const body = hasEnvelope ? entry.body : entry;
+      return send(
+        res,
+        hasEnvelope ? entry.status : 200,
+        key === 'GET /api/me/dashboard' ? windowDashboard(body, url.searchParams) : body,
+      );
     }
 
     for (const route of routeDefs) {

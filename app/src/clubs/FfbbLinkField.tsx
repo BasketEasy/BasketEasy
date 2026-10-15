@@ -13,8 +13,8 @@ const FFBB_TEAM_URL_PENDING = 'Vérification du lien auprès de la FFBB…';
 /**
  * Presentational label/input/helper for a pasted FFBB team URL — shared,
  * byte-for-byte identical copy, between TeamCreateForm's RHF-controlled
- * field and TeamFfbbLinkList's isolated add-row, per the design spec's
- * "same FfbbLinkAddRow reused in both places, not a reimplementation."
+ * field and TeamFfbbLinkList's isolated add-row: one component reused in
+ * both places, not a reimplementation.
  * Each embedding context owns its own submit button and mutation state;
  * this component only renders the field itself, plus an optional inline
  * `action` (TeamFfbbLinkList's "Ajouter" button) rendered in the same row

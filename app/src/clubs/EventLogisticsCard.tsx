@@ -4,7 +4,6 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
-import { RouteIcon } from '@basketeasy/ui/icons/route';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { EventLogisticsField, TeamEvent } from '@basketeasy/types/events';
@@ -12,11 +11,11 @@ import { getClubErrorMessage } from './clubErrorMessages';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
 import { eventLogisticsFieldLabel, eventLogisticsFieldQuestion } from './eventLogisticsLabels';
 import { getInitials } from './getInitials';
-import { MapPinIcon } from './eventDetailIcons';
-import { eventItineraryHref } from './eventItinerary';
 import { useEventConvocations } from './useEventConvocations';
 import { useEventLogisticsSet } from './useEventLogisticsSet';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
+import { EventMatchTimeline } from '../meeting-points/EventMatchTimeline';
 
 const FIELD_ICON: Record<EventLogisticsField, typeof JerseyIcon> = {
   JERSEYS: JerseyIcon,
@@ -80,16 +79,11 @@ function LogisticsFieldRow({
 
   return (
     <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <Text
-        as="span"
-        variant="body"
-        tone="structure"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-      >
-        <Icon size={19} />
-      </Text>
+      <IconBadge>
+        <Icon size="lg" />
+      </IconBadge>
       <div className="flex min-w-0 flex-col gap-px">
-        <Text as="span" variant="label" size="sm" className="font-bold">
+        <Text as="span" variant="label" size="sm">
           {fieldLabel}
         </Text>
         <Text as="span" variant="meta" size="xs">
@@ -120,7 +114,7 @@ function LogisticsFieldRow({
               tone="inverse"
               className="flex h-4 w-4 items-center justify-center rounded-full bg-success"
             >
-              <Check className="h-2.5 w-2.5" />
+              <Check size="2xs" />
             </Text>
             {canChange && (
               <Button variant="ghost" size="sm" onClick={() => setIsChanging(true)}>
@@ -146,52 +140,19 @@ function LogisticsFieldRow({
 }
 
 /**
- * The venue row that opens the card: where it is, and one tap to get there.
+ * Where the event is, and who brings what. Two layouts, chosen by the event
+ * type:
  *
- * `location` is free text, so this is one line and a search link — no
- * geocoding, no distance, no embedded map (`player-journey.md` §6.9 rules all
- * three out). « Comment j'y vais ? » is a player's third question and, until
- * this row existed, the address was a plain `InfoTile` of text with nothing
- * to tap.
- */
-function EventVenueRow({ event }: { event: TeamEvent }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3.5 border-b border-border p-3.5 last:border-b-0">
-      <Text
-        as="span"
-        variant="body"
-        tone="structure"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-green-tint"
-      >
-        <MapPinIcon size={19} />
-      </Text>
-      <div className="flex min-w-0 flex-col gap-px">
-        <Text as="span" variant="label" size="sm" className="break-words font-bold">
-          {event.location}
-        </Text>
-        <Text as="span" variant="meta" size="xs">
-          {event.type === 'MATCH' ? 'Lieu de la rencontre' : 'Lieu de la séance'}
-        </Text>
-      </div>
-      <div className="ml-auto">
-        <Button asChild variant="outline" size="sm">
-          <a
-            href={eventItineraryHref(event.location)}
-            target="_blank"
-            rel="noreferrer"
-            className="gap-1.5"
-          >
-            <RouteIcon className="h-4 w-4 shrink-0" />
-            Itinéraire
-          </a>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Where the event is, and who brings what — one card, three rows.
+ * - a TRAINING is one card, the kit's two rows;
+ * - a MATCH reads as its day — `EventMatchTimeline` (meeting point, arrival,
+ *   tip-off) beside a « Matériel » card with the kit.
+ *
+ * On a MATCH of a team with the jersey wash rotation on (`event.jerseyDuty`),
+ * the jersey row is gone: the duty has its own card, `EventJerseyDutyCard`,
+ * rendered above this one by the two event views.
+ *
+ * The venue and its directions live in the hero (`EventHeroLocation`) for
+ * both types, so this card has no venue row.
  *
  * It backs two blocks that ask the same question from opposite ends: the
  * player's « S'y rendre » (how do I get there, and is it me carrying the
@@ -218,12 +179,15 @@ export function EventLogisticsCard({
   event,
   canManage,
   isRostered,
+  stacked = false,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   canManage: boolean;
   isRostered: boolean;
+  /** Timeline above the kit even on a wide screen, for a half-width column. */
+  stacked?: boolean;
 }) {
   const { data: roster } = useEventConvocations(clubId, teamId, event.id, true);
 
@@ -233,19 +197,20 @@ export function EventLogisticsCard({
     label: `${r.firstName} ${r.lastName}`,
   }));
 
-  return (
-    <Card variant="flush">
-      <EventVenueRow event={event} />
-      <LogisticsFieldRow
-        clubId={clubId}
-        teamId={teamId}
-        event={event}
-        field="JERSEYS"
-        myTeamPlayerId={myTeamPlayerId}
-        canManage={canManage}
-        isRostered={isRostered}
-        rosterOptions={rosterOptions}
-      />
+  const kitRows = (
+    <>
+      {!event.jerseyDuty && (
+        <LogisticsFieldRow
+          clubId={clubId}
+          teamId={teamId}
+          event={event}
+          field="JERSEYS"
+          myTeamPlayerId={myTeamPlayerId}
+          canManage={canManage}
+          isRostered={isRostered}
+          rosterOptions={rosterOptions}
+        />
+      )}
       <LogisticsFieldRow
         clubId={clubId}
         teamId={teamId}
@@ -256,6 +221,37 @@ export function EventLogisticsCard({
         isRostered={isRostered}
         rosterOptions={rosterOptions}
       />
-    </Card>
+    </>
   );
+
+  // Keyed on the type, not on the plan being present: the plan is how a
+  // match is drawn, never what makes it one. The API sends a plan for every
+  // MATCH, so the second test only narrows the type.
+  if (event.type === 'MATCH' && event.meetingPlan) {
+    return (
+      <div
+        className={
+          stacked ? 'flex flex-1 flex-col gap-3.5' : 'grid items-start gap-3.5 lg:grid-cols-2'
+        }
+      >
+        <EventMatchTimeline
+          clubId={clubId}
+          teamId={teamId}
+          event={event}
+          plan={event.meetingPlan}
+          canManage={canManage}
+        />
+        <Card variant="flush" className={stacked ? 'flex-1' : undefined}>
+          {canManage && (
+            <div className="border-b border-border px-3.5 pt-4 pb-3">
+              <Text variant="label">Matériel</Text>
+            </div>
+          )}
+          {kitRows}
+        </Card>
+      </div>
+    );
+  }
+
+  return <Card variant="flush">{kitRows}</Card>;
 }

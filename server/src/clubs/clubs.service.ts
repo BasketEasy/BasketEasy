@@ -22,10 +22,17 @@ import {
   type ParentalConsent,
 } from '@basketeasy/types/parental-consent';
 import type { PaginatedResult, SortOrder } from '@basketeasy/types/pagination';
+import type { ParentalConsentSource } from '@basketeasy/types/guardians';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolvePagination } from '../common/pagination';
 import { hashToken } from '../common/token-hash';
 import { startParentalConsentRetention } from '../common/parental-consent-retention';
+import {
+  createClubWithAdmin,
+  removeClubMembership,
+  toFfbbClubCodeError,
+  writeParentalConsent,
+} from './club-writes';
 import { ListClubMembersDto } from './dto/list-club-members.dto';
 import { ListPlayersDto } from './dto/list-players.dto';
 
@@ -45,18 +52,7 @@ export class ClubsService {
   ) {}
 
   async createClub(userId: string, data: { name: string; ffbbClubCode?: string }): Promise<Club> {
-    try {
-      const club = await this.prisma.club.create({
-        data: {
-          name: data.name,
-          ffbbClubCode: data.ffbbClubCode ?? null,
-          memberships: { create: { userId, role: 'ADMIN' } },
-        },
-      });
-      return this.toClub(club);
-    } catch (err) {
-      throw this.toFfbbClubCodeError(err);
-    }
+    return this.toClub(await createClubWithAdmin(this.prisma, userId, data));
   }
 
   async listClubsForUser(userId: string): Promise<Club[]> {
@@ -76,14 +72,14 @@ export class ClubsService {
   }
 
   // ffbbClubCode is stored unvalidated — no working lookup exists to
-  // confirm a code is real (see docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md).
+  // confirm a code is real (see docs/decisions/ffbb.md).
   async setFfbbLink(clubId: string, ffbbClubCode: string): Promise<Club> {
     await this.assertClubExists(clubId);
     try {
       const club = await this.prisma.club.update({ where: { id: clubId }, data: { ffbbClubCode } });
       return this.toClub(club);
     } catch (err) {
-      throw this.toFfbbClubCodeError(err);
+      throw toFfbbClubCodeError(err);
     }
   }
 
@@ -97,16 +93,6 @@ export class ClubsService {
     if (!club) {
       throw new NotFoundException('Club not found');
     }
-  }
-
-  private toFfbbClubCodeError(err: unknown): unknown {
-    if (
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === UNIQUE_CONSTRAINT_VIOLATION
-    ) {
-      return new ConflictException('Ce code club FFBB est déjà utilisé par un autre club');
-    }
-    return err;
   }
 
   async addMember(clubId: string, email: string): Promise<ClubMember> {
@@ -199,34 +185,7 @@ export class ClubsService {
   }
 
   async removeMember(clubId: string, userId: string): Promise<void> {
-    const membership = await this.prisma.clubMembership.findUnique({
-      where: { userId_clubId: { userId, clubId } },
-    });
-    if (!membership) {
-      throw new NotFoundException('Membership not found');
-    }
-
-    if (membership.role === 'ADMIN') {
-      const adminCount = await this.prisma.clubMembership.count({
-        where: { clubId, role: 'ADMIN' },
-      });
-      if (adminCount <= 1) {
-        throw new BadRequestException('Cannot remove the last admin of a club');
-      }
-    }
-
-    // Unlink (not delete) any player tied to this account — the account no
-    // longer has club access, but the roster entry and its history (stats,
-    // attendance) are independent of that and should survive.
-    await this.prisma.$transaction([
-      this.prisma.player.updateMany({
-        where: { clubId, userId },
-        data: { userId: null },
-      }),
-      this.prisma.clubMembership.delete({
-        where: { userId_clubId: { userId, clubId } },
-      }),
-    ]);
+    await this.prisma.$transaction((tx) => removeClubMembership(tx, clubId, userId));
   }
 
   async listPlayers(clubId: string, query: ListPlayersDto): Promise<PaginatedResult<Player>> {
@@ -252,12 +211,17 @@ export class ClubsService {
     // One extra bounded query, and only for the minors actually on this page:
     // an adult can never need a consent record, so there is nothing to look
     // up for the usual case of a senior roster.
-    const consents = await this.latestConsentGivenAt(
-      players.filter((p) => isMinorBirthDate(p.birthDate?.toISOString())).map((p) => p.id),
-    );
+    const [consents, guardianCounts] = await Promise.all([
+      this.latestConsentGivenAt(
+        players.filter((p) => isMinorBirthDate(p.birthDate?.toISOString())).map((p) => p.id),
+      ),
+      this.guardianCounts(players.map((p) => p.id)),
+    ]);
 
     return {
-      items: players.map((p) => this.toPlayer(p, consents.get(p.id) ?? null)),
+      items: players.map((p) =>
+        this.toPlayer(p, consents.get(p.id) ?? null, guardianCounts.get(p.id) ?? 0),
+      ),
       total,
       page,
       pageSize,
@@ -286,6 +250,19 @@ export class ClubsService {
       }
     }
     return latest;
+  }
+
+  /** Linked parents per player, one groupBy for a whole page. */
+  private async guardianCounts(playerIds: string[]): Promise<Map<string, number>> {
+    if (playerIds.length === 0) {
+      return new Map();
+    }
+    const rows = await this.prisma.playerGuardian.groupBy({
+      by: ['playerId'],
+      where: { playerId: { in: playerIds } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((row) => [row.playerId, row._count._all]));
   }
 
   private playersOrderBy(
@@ -324,7 +301,7 @@ export class ClubsService {
     // federation data with nobody reading any individual one, so failing an
     // import because row 34 is sixteen would make the feature unusable —
     // those players surface in the roster as "autorisation manquante"
-    // instead. See the data-retention design doc.
+    // instead. See docs/decisions/rgpd-and-backoffice.md.
     const isMinor = isMinorBirthDate(data.birthDate);
     if (isMinor && !data.parentalConsent) {
       throw new BadRequestException({
@@ -394,35 +371,15 @@ export class ClubsService {
       );
     }
 
-    const consent = await this.prisma.$transaction(async (tx) => {
-      await tx.parentalConsent.updateMany({
-        where: { playerId, retentionExpiresAt: { not: null } },
-        data: { retentionExpiresAt: null },
-      });
-      return tx.parentalConsent.create({
-        data: {
-          playerId,
-          clubId,
-          playerFirstName: player.firstName,
-          playerLastName: player.lastName,
-          playerBirthDate: birthDate,
-          attestedByName,
-          attestedByUserId: attestedByUserId ?? null,
-        },
-      });
-    });
+    const consent = await this.prisma.$transaction((tx) =>
+      writeParentalConsent(
+        tx,
+        { ...player, birthDate },
+        { name: attestedByName, userId: attestedByUserId ?? null },
+      ),
+    );
 
     return this.toParentalConsent(consent);
-  }
-
-  /** The most recent attestation for a player, or null if there is none. */
-  async getParentalConsent(clubId: string, playerId: string): Promise<ParentalConsent | null> {
-    await this.findPlayerInClub(clubId, playerId);
-    const consent = await this.prisma.parentalConsent.findFirst({
-      where: { playerId },
-      orderBy: { consentGivenAt: 'desc' },
-    });
-    return consent ? this.toParentalConsent(consent) : null;
   }
 
   async updatePlayer(
@@ -458,10 +415,17 @@ export class ClubsService {
       });
       // Same "minors only" rule as listPlayers — an adult can never have a
       // consent record to report, so there is nothing to look up.
-      const consents = await this.latestConsentGivenAt(
-        isMinorBirthDate(player.birthDate?.toISOString()) ? [player.id] : [],
+      const [consents, guardianCounts] = await Promise.all([
+        this.latestConsentGivenAt(
+          isMinorBirthDate(player.birthDate?.toISOString()) ? [player.id] : [],
+        ),
+        this.guardianCounts([player.id]),
+      ]);
+      return this.toPlayer(
+        player,
+        consents.get(player.id) ?? null,
+        guardianCounts.get(player.id) ?? 0,
       );
-      return this.toPlayer(player, consents.get(player.id) ?? null);
     } catch (err) {
       throw this.toPlayerLinkError(err);
     }
@@ -633,6 +597,7 @@ export class ClubsService {
       createdAt: Date;
     },
     parentalConsentGivenAt: Date | null = null,
+    guardianCount = 0,
   ): Player {
     return {
       id: player.id,
@@ -647,6 +612,7 @@ export class ClubsService {
       licenseType: player.licenseType,
       isMinor: isMinorBirthDate(player.birthDate?.toISOString()),
       parentalConsentGivenAt: parentalConsentGivenAt ? parentalConsentGivenAt.toISOString() : null,
+      guardianCount,
       createdAt: player.createdAt.toISOString(),
     };
   }
@@ -654,12 +620,13 @@ export class ClubsService {
   private toParentalConsent(consent: {
     id: string;
     playerId: string | null;
-    clubId: string;
+    clubId: string | null;
     playerFirstName: string;
     playerLastName: string;
     playerBirthDate: Date;
     attestedByName: string;
     attestedByUserId: string | null;
+    source: ParentalConsentSource;
     consentGivenAt: Date;
     retentionExpiresAt: Date | null;
   }): ParentalConsent {
@@ -672,6 +639,7 @@ export class ClubsService {
       playerBirthDate: consent.playerBirthDate.toISOString(),
       attestedByName: consent.attestedByName,
       attestedByUserId: consent.attestedByUserId,
+      source: consent.source,
       consentGivenAt: consent.consentGivenAt.toISOString(),
       retentionExpiresAt: consent.retentionExpiresAt
         ? consent.retentionExpiresAt.toISOString()

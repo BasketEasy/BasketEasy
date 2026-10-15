@@ -1,40 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
-import { TeamStatsService, seasonWindow, seasonYearFor } from './team-stats.service';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { TeamStatsService } from './team-stats.service';
 import { PrismaService } from '../prisma/prisma.service';
-
-describe('seasonYearFor', () => {
-  // A French basketball season runs September to August, so the boundary is
-  // the one thing worth pinning down: 31 August still belongs to the season
-  // that started the previous September.
-  it.each([
-    ['2026-08-31T23:59:59.999Z', 2025],
-    ['2026-09-01T00:00:00.000Z', 2026],
-    ['2027-01-15T12:00:00.000Z', 2026],
-    ['2027-08-31T23:59:59.999Z', 2026],
-    ['2027-09-01T00:00:00.000Z', 2027],
-  ])('places %s in season %i', (iso, expected) => {
-    expect(seasonYearFor(new Date(iso))).toBe(expected);
-  });
-});
-
-describe('seasonWindow', () => {
-  it('spans 1 September to the last millisecond of 31 August', () => {
-    const { start, end } = seasonWindow(2026);
-
-    expect(start.toISOString()).toBe('2026-09-01T00:00:00.000Z');
-    expect(end.toISOString()).toBe('2027-08-31T23:59:59.999Z');
-  });
-});
 
 describe('TeamStatsService', () => {
   let service: TeamStatsService;
   let prisma: {
     clubTeam: { findUnique: jest.Mock };
-    teamPlayer: { findMany: jest.Mock };
+    teamPlayer: { findMany: jest.Mock; findFirst: jest.Mock };
     matchPlayerStat: { findMany: jest.Mock };
     eventVote: { groupBy: jest.Mock };
-    event: { findMany: jest.Mock };
+    event: { findMany: jest.Mock; findFirst: jest.Mock };
+    player: { findFirst: jest.Mock };
   };
 
   const rosterMember = (
@@ -45,6 +22,7 @@ describe('TeamStatsService', () => {
   ) => ({
     id,
     role: 'PLAYER',
+    playerId: `player-${id}`,
     player: { firstName, lastName, userId },
   });
 
@@ -72,10 +50,17 @@ describe('TeamStatsService', () => {
   beforeEach(async () => {
     prisma = {
       clubTeam: { findUnique: jest.fn().mockResolvedValue({ isOwner: true }) },
-      teamPlayer: { findMany: jest.fn().mockResolvedValue([]) },
+      teamPlayer: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       matchPlayerStat: { findMany: jest.fn().mockResolvedValue([]) },
       eventVote: { groupBy: jest.fn().mockResolvedValue([]) },
-      event: { findMany: jest.fn().mockResolvedValue([]) },
+      event: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      },
+      player: { findFirst: jest.fn().mockResolvedValue(null) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -314,5 +299,128 @@ describe('TeamStatsService', () => {
     );
 
     expect(result.players.every((player) => player.isMe === false)).toBe(true);
+  });
+
+  it('flags the child’s row for a parent reading their child’s team', async () => {
+    prisma.player.findFirst.mockResolvedValue({ id: 'player-tp-2' });
+    prisma.teamPlayer.findMany.mockResolvedValue([
+      rosterMember('tp-1', 'Dupont', 'Prénom', 'user-parent'),
+      rosterMember('tp-2', 'Martin', 'Léo', null),
+    ]);
+
+    const result = await service.getTeamSeasonStats(
+      'club-1',
+      'team-1',
+      'user-parent',
+      2026,
+      'player-tp-2',
+    );
+
+    expect(result.players.find((p) => p.isMe)?.teamPlayerId).toBe('tp-2');
+  });
+
+  it('refuses a player the caller may not act for', async () => {
+    await expect(
+      service.getTeamSeasonStats('club-1', 'team-1', 'stranger', 2026, 'player-tp-2'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  describe('getMatchStats', () => {
+    const line = (
+      teamPlayerId: string,
+      lastName: string,
+      points: number | null,
+      firstName = 'Prénom',
+    ) => ({
+      teamPlayerId,
+      jerseyNumber: 4,
+      points,
+      fouls: 2,
+      freeThrowPoints: null,
+      twoPointPoints: points,
+      threePointPoints: 0,
+      teamPlayer: { player: { firstName, lastName } },
+    });
+
+    it('404s an event on another team', async () => {
+      prisma.event.findFirst.mockResolvedValue(null);
+
+      await expect(service.getMatchStats('club-1', 'team-1', 'event-x', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.event.findFirst).toHaveBeenCalledWith({
+        where: { id: 'event-x', teamId: 'team-1' },
+        select: { id: true },
+      });
+    });
+
+    it('404s a team outside the route club', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue(null);
+
+      await expect(service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('has no stats before a sheet is confirmed', async () => {
+      await expect(service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1')).resolves.toEqual(
+        { hasStats: false, lines: [] },
+      );
+    });
+
+    it('orders by points, unknown totals last, then surname; nulls stay null', async () => {
+      prisma.matchPlayerStat.findMany.mockResolvedValue([
+        line('tp-1', 'Moreau', 8),
+        line('tp-2', 'Diallo', null),
+        line('tp-3', 'Bernard', 14),
+        line('tp-4', 'Albert', 8),
+      ]);
+
+      const result = await service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.hasStats).toBe(true);
+      expect(result.lines.map((l) => l.teamPlayerId)).toEqual(['tp-3', 'tp-4', 'tp-1', 'tp-2']);
+      expect(result.lines[3]).toMatchObject({ points: null, freeThrowPoints: null });
+      expect(result.lines[0]).not.toHaveProperty('teamPlayer');
+    });
+
+    it("marks the caller's own line", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-3' });
+      prisma.matchPlayerStat.findMany.mockResolvedValue([
+        line('tp-1', 'Moreau', 8),
+        line('tp-3', 'Bernard', 14),
+      ]);
+
+      const result = await service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledWith({
+        where: { teamId: 'team-1', player: { userId: 'user-1' } },
+      });
+      expect(result.lines.map((l) => l.isMe)).toEqual([true, false]);
+    });
+
+    it("marks a guardian's child's line", async () => {
+      prisma.teamPlayer.findFirst.mockResolvedValue({ id: 'tp-1' });
+      prisma.matchPlayerStat.findMany.mockResolvedValue([line('tp-1', 'Moreau', 8)]);
+
+      const result = await service.getMatchStats(
+        'club-1',
+        'team-1',
+        'event-1',
+        'parent-1',
+        'child-1',
+      );
+
+      expect(prisma.teamPlayer.findFirst).toHaveBeenCalledWith({
+        where: expect.objectContaining({ teamId: 'team-1', playerId: 'child-1' }),
+      });
+      expect(result.lines[0].isMe).toBe(true);
+    });
+
+    it('refuses a player the caller may not act for', async () => {
+      await expect(
+        service.getMatchStats('club-1', 'team-1', 'event-1', 'stranger', 'child-1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 });

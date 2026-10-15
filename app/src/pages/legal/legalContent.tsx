@@ -72,10 +72,12 @@ export function LegalTable({ columns, rows }: { columns: string[]; rows: ReactNo
   );
 }
 
-export function MailLink({ address = 'contact@kluvo.net' }: { address?: string }) {
+const CONTACT_ADDRESS = 'contact@kluvo.net';
+
+export function MailLink() {
   return (
     <TextLink asChild size="md">
-      <a href={`mailto:${address}`}>{address}</a>
+      <a href={`mailto:${CONTACT_ADDRESS}`}>{CONTACT_ADDRESS}</a>
     </TextLink>
   );
 }

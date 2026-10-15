@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Card } from './Card';
+import { ListItem } from './List';
 import { TableCell, TableRow } from './Table';
 import { ResponsiveTable, useTableLayout } from './ResponsiveTable';
 import { DESKTOP_BREAKPOINT_PX } from '../lib/useIsDesktopViewport';
@@ -35,6 +36,57 @@ describe('ResponsiveTable', () => {
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Nom' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'Camille' })).toBeInTheDocument();
+  });
+
+  it('renders the mobile layout as a list of ListItems with `list`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    function LinkRow({ name }: { name: string }) {
+      return <ListItem>{name}</ListItem>;
+    }
+    render(
+      <ResponsiveTable columns={['Nom']} list>
+        <LinkRow name="Camille" />
+      </ResponsiveTable>,
+    );
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('renders `columns` as an eyebrow row above the list with `listHeader`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable columns={['Joueuse', 'Lavages']} list listHeader>
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByText('Joueuse')).toBeInTheDocument();
+    expect(screen.getByText('Lavages')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('takes the mobile list header labels from an array', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable
+        columns={['Joueuse', 'Lavages', 'Dernier lavage']}
+        list
+        listHeader={['Joueuse', 'Lavages']}
+      >
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.getByText('Lavages')).toBeInTheDocument();
+    expect(screen.queryByText('Dernier lavage')).not.toBeInTheDocument();
+  });
+
+  it('renders no header on the mobile list without `listHeader`', () => {
+    setViewport(DESKTOP_BREAKPOINT_PX - 1);
+    render(
+      <ResponsiveTable columns={['Joueuse', 'Lavages']} list>
+        <ListItem>Camille</ListItem>
+      </ResponsiveTable>,
+    );
+    expect(screen.queryByText('Joueuse')).not.toBeInTheDocument();
   });
 
   it('renders a card stack with no table semantics below the breakpoint', () => {

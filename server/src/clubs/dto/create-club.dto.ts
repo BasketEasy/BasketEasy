@@ -10,7 +10,7 @@ export class CreateClubDto implements CreateClubRequest {
   name!: string;
 
   // Stored unvalidated — no working lookup exists to confirm a code is
-  // real. See docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md.
+  // real. See docs/decisions/ffbb.md.
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()

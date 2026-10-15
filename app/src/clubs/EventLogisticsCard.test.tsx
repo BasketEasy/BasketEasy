@@ -37,12 +37,15 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: '2026-08-30T18:00:00.000Z',
     location: 'Gymnase A',
+    locationName: null,
     notes: null,
     opponentName: 'ES Rezé',
     venue: 'HOME',
     recurrenceId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     myRsvpStatus: null,
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     myConvocation: false,
     rsvpSummary: {
       rosterSize: 0,
@@ -59,6 +62,11 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     logistics: { jerseys: null, balls: null },
     result: null,
     myMatchStats: null,
+    meetingPlan: null,
+    whatsAppShare: null,
+    whatsAppSettings: null,
+    myTravelMode: null,
+    jerseyDuty: null,
     ...overrides,
   };
 }
@@ -111,6 +119,23 @@ describe('EventLogisticsCard', () => {
     expect(screen.queryByText('Maillots')).not.toBeInTheDocument();
     // "Ballons" copy is identical for both event types.
     expect(screen.getAllByText('Ballons').length).toBeGreaterThan(0);
+  });
+
+  it('drops the jersey row when the match has a jersey duty, keeping the balls row', async () => {
+    mockRoster();
+    renderWithProviders(
+      <EventLogisticsCard
+        clubId="club-1"
+        teamId="team-1"
+        event={baseEvent({
+          jerseyDuty: { holder: null, status: 'UNASSIGNED', broughtBy: null, isMine: false },
+        })}
+        canManage={false}
+        isRostered
+      />,
+    );
+    expect(await screen.findByText('Ballons')).toBeInTheDocument();
+    expect(screen.queryByText('Maillots')).not.toBeInTheDocument();
   });
 
   it('shows the unassigned state with a self-assign button for a rostered member', async () => {

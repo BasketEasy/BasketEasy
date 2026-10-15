@@ -19,8 +19,10 @@ function wrapperWithUser(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER'
             memberships,
           },
           isLoading: false,
+          isError: false,
+          retry: () => {},
         }
-      : { user: null, isLoading: false };
+      : { user: null, isLoading: false, isError: false, retry: () => {} };
     return createElement(AccountContext.Provider, { value }, children);
   };
 }

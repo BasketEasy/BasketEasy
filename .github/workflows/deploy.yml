@@ -1,7 +1,18 @@
 # .github/workflows/deploy.yml
+# Only what ships in the server image redeploys it; a docs-only or app-only
+# merge (deployed by deploy-frontend.yml) would rebuild and restart the same
+# server. `workflow_dispatch` is the manual way to force one.
 on:
   push:
     branches: [main]
+    paths:
+      - 'server/**'
+      - 'packages/@basketeasy/types/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
 
 jobs:
   build:

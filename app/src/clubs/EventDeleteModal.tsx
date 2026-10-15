@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
 import { SelectField } from '@basketeasy/ui/select-field';
+import { Text } from '@basketeasy/ui/text';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,14 @@ export function EventDeleteModal({
           <DialogDescription>Cette action est irréversible.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
+          {event.whatsAppShare?.state === 'SENT' && (
+            // One line, no extra step: the cancellation to share is offered on
+            // the team page right after, since the event page will be gone.
+            <Text variant="meta" size="sm">
+              Le groupe WhatsApp a été prévenu de cet événement : vous pourrez partager
+              l&apos;annulation juste après.
+            </Text>
+          )}
           {isRecurring && (
             <SelectField
               label="Appliquer à"

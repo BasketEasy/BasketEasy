@@ -1,4 +1,8 @@
+import { eventRsvpStatusLabel } from './eventRsvpLabels';
+import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
+import { cn } from '@basketeasy/ui/cn';
+import { focusRing } from '@basketeasy/ui/focus-ring';
 import { Badge, type BadgeProps } from '@basketeasy/ui/badge';
 import { Card } from '@basketeasy/ui/card';
 import { EmptyState } from '@basketeasy/ui/empty-state';
@@ -7,6 +11,7 @@ import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Text } from '@basketeasy/ui/text';
+import { respondentName } from '../guardians/respondentLabel';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { EventRsvpStatus } from '@basketeasy/types/events';
 import { ConvocationIcon } from './eventDetailIcons';
@@ -14,6 +19,10 @@ import { eventRsvpAnswerLabel } from './eventRsvpLabels';
 import { getInitials } from './getInitials';
 import { teamMemberRoleLabel } from './teamLabels';
 import { useEventRoster, type EventRosterRow } from './useEventRoster';
+import type { EventMeetingPlan } from '@basketeasy/types/meeting-points';
+import { TravelModeBadge } from '../meeting-points/TravelModeBadge';
+import { formatEventTime } from './eventDateFormat';
+import { RsvpHistoryDialog } from '../guest-rsvp/RsvpHistoryDialog';
 
 // Meaning, not hue: the same three-value convention the RSVP breakdowns use,
 // expressed on Badge's own tone axis.
@@ -38,6 +47,62 @@ function RsvpBadge({ status }: { status: EventRsvpStatus | null }) {
   );
 }
 
+/**
+ * The answer, and — when a parent or the shared link gave it — who: « Sophie
+ * M. · parent », « via lien ». A coach chasing answers needs to know a
+ * child's « oui » came from home, and that one came from the link. The badge
+ * opens the answer's history.
+ */
+function RsvpCell({
+  row,
+  clubId,
+  teamId,
+  eventId,
+}: {
+  row: EventRosterRow;
+  clubId: string;
+  teamId: string;
+  eventId: string;
+}) {
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const playerName = `${row.firstName} ${row.lastName}`;
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          // The label replaces the badge's text for assistive tech, so it has to carry
+          // the status the badge shows.
+          aria-label={`Historique des réponses de ${playerName} (${eventRsvpStatusLabel(row.rsvpStatus)})`}
+          onClick={() => setIsHistoryOpen(true)}
+          className={cn('rounded-md', focusRing)}
+        >
+          <RsvpBadge status={row.rsvpStatus} />
+        </button>
+        {row.rsvpStatus !== null && row.viaLink && (
+          <Badge variant="soft" tone="neutral">
+            via lien
+          </Badge>
+        )}
+      </div>
+      {row.rsvpStatus !== null && row.respondedByGuardian && row.respondedBy && (
+        <Text as="span" variant="meta" size="xs">
+          {respondentName(row.respondedBy)} · parent
+        </Text>
+      )}
+      <RsvpHistoryDialog
+        clubId={clubId}
+        teamId={teamId}
+        eventId={eventId}
+        teamPlayerId={row.teamPlayerId}
+        playerName={playerName}
+        open={isHistoryOpen}
+        onOpenChange={setIsHistoryOpen}
+      />
+    </div>
+  );
+}
+
 function ConvocationMark({ convoked }: { convoked: boolean }) {
   if (!convoked) {
     return (
@@ -48,7 +113,7 @@ function ConvocationMark({ convoked }: { convoked: boolean }) {
   }
   return (
     <Badge variant="soft" tone="brand" className="gap-1.5">
-      <ConvocationIcon size={12} className="shrink-0" />
+      <ConvocationIcon size="xs" className="shrink-0" />
       Convoqué·e
     </Badge>
   );
@@ -82,7 +147,41 @@ function RosterIdentity({ row }: { row: EventRosterRow }) {
  * replaces the `EventRosterCard` / inline-`TableRow` pair the Effectif tab
  * carried.
  */
-function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
+/** The hour each travel mode is expected — « RDV 19:15 », « Direct 19:45 ». */
+interface TravelTimes {
+  meetingPoint: string | null;
+  direct: string;
+}
+
+function TravelCell({ row, times }: { row: EventRosterRow; times: TravelTimes }) {
+  if (row.travelMode === null) {
+    return (
+      <Text as="span" variant="meta">
+        —
+      </Text>
+    );
+  }
+  return (
+    <TravelModeBadge
+      travelMode={row.travelMode}
+      time={row.travelMode === 'DIRECT' ? times.direct : times.meetingPoint}
+    />
+  );
+}
+
+function EventRosterMemberRow({
+  row,
+  travel,
+  clubId,
+  teamId,
+  eventId,
+}: {
+  row: EventRosterRow;
+  travel: TravelTimes | null;
+  clubId: string;
+  teamId: string;
+  eventId: string;
+}) {
   if (useTableLayout() === 'row') {
     return (
       <TableRow>
@@ -93,8 +192,13 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
           <ConvocationMark convoked={row.convoked} />
         </TableCell>
         <TableCell>
-          <RsvpBadge status={row.rsvpStatus} />
+          <RsvpCell row={row} clubId={clubId} teamId={teamId} eventId={eventId} />
         </TableCell>
+        {travel && (
+          <TableCell>
+            <TravelCell row={row} times={travel} />
+          </TableCell>
+        )}
       </TableRow>
     );
   }
@@ -103,7 +207,8 @@ function EventRosterMemberRow({ row }: { row: EventRosterRow }) {
       <RosterIdentity row={row} />
       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
         <ConvocationMark convoked={row.convoked} />
-        <RsvpBadge status={row.rsvpStatus} />
+        <RsvpCell row={row} clubId={clubId} teamId={teamId} eventId={eventId} />
+        {travel && row.travelMode !== null && <TravelCell row={row} times={travel} />}
       </div>
     </Card>
   );
@@ -122,11 +227,20 @@ export function EventRosterList({
   clubId,
   teamId,
   eventId,
+  meetingPlan = null,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
+  /** A match with a meeting point gets a « Déplacement » column: RDV or direct, with the hour. */
+  meetingPlan?: EventMeetingPlan | null;
 }) {
+  const travel: TravelTimes | null = meetingPlan?.meetingPoint
+    ? {
+        meetingPoint: meetingPlan.meetsAt ? formatEventTime(meetingPlan.meetsAt) : null,
+        direct: formatEventTime(meetingPlan.arrivalAt),
+      }
+    : null;
   const { rows, isError, isLoading, retry } = useEventRoster(clubId, teamId, eventId);
 
   if (isError) {
@@ -140,7 +254,7 @@ export function EventRosterList({
   if (rows.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+        icon={<UsersIcon size="3xl" tone="secondary" />}
         title="Effectif vide"
         description="Cette équipe n’a pas encore de joueurs ou de staff à convoquer."
       />
@@ -148,9 +262,22 @@ export function EventRosterList({
   }
 
   return (
-    <ResponsiveTable columns={['Joueur', 'Convocation', 'Présence']}>
+    <ResponsiveTable
+      columns={
+        travel
+          ? ['Joueur', 'Convocation', 'Présence', 'Déplacement']
+          : ['Joueur', 'Convocation', 'Présence']
+      }
+    >
       {rows.map((row) => (
-        <EventRosterMemberRow key={row.teamPlayerId} row={row} />
+        <EventRosterMemberRow
+          key={row.teamPlayerId}
+          row={row}
+          travel={travel}
+          clubId={clubId}
+          teamId={teamId}
+          eventId={eventId}
+        />
       ))}
     </ResponsiveTable>
   );

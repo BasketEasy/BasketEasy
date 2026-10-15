@@ -3,6 +3,7 @@ import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -17,12 +18,11 @@ import { ConvocationIcon } from './eventDetailIcons';
 import { EventConvocationModal } from './EventConvocationModal';
 import { eventCountdownLabel } from './eventDateFormat';
 import { useEventRoster, type EventRosterCounts } from './useEventRoster';
+import { EVENT_SECTION_SCROLL_MARGIN } from './useEventSectionAnchor';
 
 /**
- * Nothing sends a reminder yet: no mailer and no scheduled job exist in
- * `server/src`, and the BullMQ "scheduled reminders" of
- * `docs/architecture.md` are unbuilt. That is `player-journey.md` §6.7 and
- * the implementation plan's phase 10+, deliberately *not* this phase.
+ * No reminder to non-responders exists yet (see « Open » in
+ * `docs/decisions/events.md`), so nothing here sends one.
  *
  * The button ships disabled rather than hidden because the gap it names is
  * the single most consequential one on this screen — a coach reading "2 sans
@@ -47,7 +47,7 @@ function ReminderAction({ pending }: { pending: number }) {
         <TooltipTrigger asChild>
           <span tabIndex={0} className={cn('inline-flex rounded-md', focusRing)}>
             <Button variant="outline" size="sm" disabled aria-describedby={hintId}>
-              <BellIcon className="h-4 w-4 shrink-0" />
+              <BellIcon size="md" className="shrink-0" />
               Relancer les {pending} sans réponse
             </Button>
           </span>
@@ -63,11 +63,12 @@ function ReminderAction({ pending }: { pending: number }) {
 
 function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: TeamEvent }) {
   const countdown = eventCountdownLabel(event.startsAt);
+  const travel = event.meetingPlan?.meetingPoint ? counts.travel : null;
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="solid" tone="structure" size="md" className="gap-1.5">
-          <ConvocationIcon size={13} className="shrink-0" />
+          <ConvocationIcon size="sm" className="shrink-0" />
           {counts.convoked} convoqué·es
         </Badge>
         {counts.pending > 0 && (
@@ -87,10 +88,20 @@ function PilotSummary({ counts, event }: { counts: EventRosterCounts; event: Tea
         notGoing={counts.notGoing}
         pending={counts.pending}
       />
-      <Text as="span" variant="meta" size="xs" className="tabular">
-        {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
-        sans réponse
-      </Text>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Text as="span" variant="meta" size="xs" className="tabular">
+          {counts.going} oui · {counts.maybe} peut-être · {counts.notGoing} non · {counts.pending}{' '}
+          sans réponse
+        </Text>
+        {travel && (
+          <>
+            <Divider orientation="vertical" className="h-4 self-center" />
+            <Text as="span" variant="label" size="xs" tone="structure" className="tabular">
+              {travel.meetingPoint} au RDV · {travel.direct} en direct
+            </Text>
+          </>
+        )}
+      </div>
     </>
   );
 }
@@ -133,7 +144,7 @@ export function EventPilotBand({
     if (rows.length === 0) {
       return (
         <EmptyState
-          icon={<UsersIcon tone="secondary" className="h-8 w-8" />}
+          icon={<UsersIcon size="3xl" tone="secondary" />}
           title="Effectif vide"
           description="Ajoutez des joueurs à l’équipe pour pouvoir composer un groupe."
         />
@@ -143,7 +154,11 @@ export function EventPilotBand({
   };
 
   return (
-    <Card id={id} variant="panel" className="flex scroll-mt-20 flex-col gap-2.5">
+    <Card
+      id={id}
+      variant="panel"
+      className={`flex flex-col gap-2.5 ${EVENT_SECTION_SCROLL_MARGIN}`}
+    >
       {summary()}
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <EventConvocationModal

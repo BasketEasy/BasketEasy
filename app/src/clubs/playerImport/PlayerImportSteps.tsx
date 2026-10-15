@@ -1,5 +1,6 @@
 import { Check } from '@basketeasy/ui/icons/check';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
 import { Text } from '@basketeasy/ui/text';
 
 const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
@@ -37,7 +38,7 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
                   !isDone && !isCurrent && 'border border-border-strong bg-sunk text-muted',
                 )}
               >
-                {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                {isDone ? <Check size="sm" /> : index + 1}
               </span>
               <Text as="span" variant="label" size="sm" tone={isCurrent ? 'primary' : 'secondary'}>
                 {label}
@@ -45,7 +46,7 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
               </Text>
             </div>
             {index < PLAYER_IMPORT_STEP_LABELS.length - 1 && (
-              <span aria-hidden="true" className="h-0.5 flex-grow rounded-sm bg-blue-green/20" />
+              <Divider tone="structure" weight="rule" className="w-auto flex-grow" />
             )}
           </li>
         );

@@ -12,12 +12,15 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     type: 'MATCH',
     startsAt: '2026-09-05T18:30:00.000Z',
     location: 'Gymnase du Vigneau',
+    locationName: null,
     notes: null,
     opponentName: 'ESB Rezé',
     venue: 'HOME',
     recurrenceId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     myRsvpStatus: null,
+    myRsvpRespondedBy: null,
+    myRsvpRespondedAt: null,
     myConvocation: false,
     rsvpSummary: {
       rosterSize: 0,
@@ -34,6 +37,11 @@ function baseEvent(overrides: Partial<TeamEvent> = {}): TeamEvent {
     logistics: { jerseys: null, balls: null },
     result: null,
     myMatchStats: null,
+    meetingPlan: null,
+    whatsAppShare: null,
+    whatsAppSettings: null,
+    myTravelMode: null,
+    jerseyDuty: null,
     ...overrides,
   };
 }
@@ -46,6 +54,10 @@ function counts(convokedCount: number) {
     role: 'PLAYER' as const,
     isMe: false,
     rsvpStatus: null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    viaLink: false,
+    travelMode: null,
     convoked: i < convokedCount,
   }));
   return countEventRoster(rows);

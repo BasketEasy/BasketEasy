@@ -21,6 +21,6 @@
     "mock-api": "node scripts/mock-api-server.mjs"
   },
   "devDependencies": {
-    "prettier": "^3.3.3"
+    "prettier": "3.9.6"
   }
 }

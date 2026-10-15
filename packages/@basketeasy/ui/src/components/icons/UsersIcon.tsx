@@ -1,7 +1,7 @@
 import { cn } from '../../lib/cn';
 import { iconVariants, type IconProps } from '../../lib/iconVariants';
 /** People / roster (Membres, Joueurs, Effectif). */
-export function UsersIcon({ tone, className, ...props }: IconProps) {
+export function UsersIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -10,7 +10,7 @@ export function UsersIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <circle cx="9" cy="8" r="3" />

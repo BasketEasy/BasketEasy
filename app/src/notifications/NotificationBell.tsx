@@ -14,20 +14,40 @@ import { TextLink } from '@basketeasy/ui/text-link';
 import { useNotifications } from './useNotifications';
 import { useNotificationsReadAll } from './useNotificationRead';
 import { NotificationList } from './NotificationList';
+import { BELL_PARAMS } from './queryKeys';
 
-// The bell shows the most recent handful; the full run lives on
-// /notifications. Small enough that the panel never needs its own scrollbar
-// on a laptop screen.
-const BELL_PARAMS = { limit: 6 } as const;
+/**
+ * The phone top bar's bell: a plain link to /notifications carrying the same
+ * unread pip. Not the desktop dropdown — a 24rem panel hanging off a 390px
+ * screen's corner would be the whole screen anyway, and the full page is one
+ * tap away.
+ */
+export function NotificationBellLink() {
+  const { data } = useNotifications(BELL_PARAMS);
+  const unreadCount = data?.unreadCount ?? 0;
+  return (
+    <Button
+      asChild
+      variant="ghost"
+      size="icon"
+      className="relative"
+      aria-label={unreadCount > 0 ? `Notifications (${unreadCount} non lues)` : 'Notifications'}
+    >
+      <Link to="/notifications">
+        <BellIcon size="lg" />
+        <CountBadge count={unreadCount} className="absolute right-1 top-1" />
+      </Link>
+    </Button>
+  );
+}
 
 /**
  * The header's notification bell — a sibling of `AccountMenu`, not an item
  * inside it: notifications are a destination of their own, and burying an
  * unread count behind an avatar defeats the point of having one.
  *
- * Desktop only, because `AppHeader` is: on a phone the bottom bar is
- * structurally fixed at four slots, so /notifications is reached from
- * `AccountPage` instead.
+ * Desktop only: on a phone `AppHeader`'s compact top bar renders
+ * `NotificationBellLink` instead.
  */
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -47,7 +67,7 @@ export function NotificationBell() {
           // assistive tech through this name instead.
           aria-label={unreadCount > 0 ? `Notifications (${unreadCount} non lues)` : 'Notifications'}
         >
-          <BellIcon className="h-5 w-5" />
+          <BellIcon size="lg" />
           <CountBadge count={unreadCount} className="absolute -right-0.5 -top-0.5" />
         </Button>
       </DropdownMenuTrigger>

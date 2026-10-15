@@ -45,7 +45,7 @@ export function AccountMenu() {
           <DropdownMenuItem asChild>
             {/* Out of the primary navigation, where it held a permanent slot
                 that never applied to a licensee and applies once in an admin's
-                lifetime — see docs/ux-audit/player-journey.md §4.2. Hidden for
+                lifetime — see docs/personas.md. Hidden for
                 a pure player (rostered somewhere, admin nowhere): they have no
                 use for it, see useShowCreateClub. */}
             <Link to="/clubs/new">Créer un club</Link>

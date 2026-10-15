@@ -20,6 +20,7 @@ const player = {
   licenseType: null,
   isMinor: false,
   parentalConsentGivenAt: null,
+  guardianCount: 0,
   createdAt: 'x',
 };
 

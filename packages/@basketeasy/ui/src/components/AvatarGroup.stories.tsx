@@ -42,8 +42,3 @@ export const EverybodyFits: Story = {
 export const TwoShown: Story = {
   args: { people: SQUAD, max: 2 },
 };
-
-/** The larger step, for a hero block. */
-export const Medium: Story = {
-  args: { people: SQUAD, size: 'md' },
-};

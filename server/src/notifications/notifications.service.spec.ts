@@ -91,6 +91,7 @@ describe('NotificationsService', () => {
             title: convocation.title,
             body: convocation.body,
             deepLink: convocation.deepLink,
+            subjectFirstName: null,
           },
         ],
       });

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { eventVoteResultsQueryKey } from './queryKeys';
+import { createSeededCache } from './testCache';
 import { useEventVoteCast } from './useEventVoteCast';
 
 function createWrapper() {
@@ -24,6 +25,7 @@ describe('useEventVoteCast', () => {
       totalVoters: 3,
       votesCast: 1,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     };
     server.use(
       http.patch('/api/clubs/club-1/teams/team-1/events/event-1/votes', async ({ request }) => {
@@ -42,5 +44,20 @@ describe('useEventVoteCast', () => {
     expect(
       queryClient.getQueryData(eventVoteResultsQueryKey('club-1', 'team-1', 'event-1')),
     ).toEqual(freshResults);
+  });
+
+  it('marks stale the dashboard (vote.hasVoted) and the season table (awards), nothing else', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/votes', () =>
+        HttpResponse.json({ best: [], worst: [], totalVoters: 1, votesCast: 1 }),
+      ),
+    );
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useEventVoteCast('club-1', 'team-1'), { wrapper });
+
+    result.current.mutate({ eventId: 'event-1', category: 'BEST', teamPlayerId: 'tp-2' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual(['dashboard', 'team stats']);
   });
 });

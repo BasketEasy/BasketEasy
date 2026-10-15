@@ -5,7 +5,7 @@ import { iconVariants, type IconProps } from '../../lib/iconVariants';
  * path, rather than a map pin: the action is "take me there", not "here is a
  * place".
  */
-export function RouteIcon({ tone, className, ...props }: IconProps) {
+export function RouteIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -14,7 +14,7 @@ export function RouteIcon({ tone, className, ...props }: IconProps) {
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn(iconVariants({ tone }), className)}
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <circle cx="6" cy="18" r="2.5" />

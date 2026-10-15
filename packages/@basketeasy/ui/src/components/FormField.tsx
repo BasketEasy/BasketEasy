@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, forwardRef, useId } from 'react';
+import { type InputHTMLAttributes, type ReactNode, forwardRef, useId } from 'react';
 import { Label } from './Label';
 import { Input } from './Input';
 import { FieldError } from './FieldError';
@@ -21,6 +21,14 @@ export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
    * at once and describe different things.
    */
   hint?: string;
+  /**
+   * A unit read after the input (« minutes »). Rendered beside it rather than
+   * inside, so a narrow numeric input keeps its full width for the digits.
+   * A string is set as meta text; a control (a unit `SelectField` with
+   * `hideLabel`) is rendered as is, so it lines up with the input rather than
+   * with the label above it.
+   */
+  suffix?: ReactNode;
   /** className applied to the wrapping <div>, not the <input>. */
   containerClassName?: string;
 }
@@ -31,24 +39,40 @@ export interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
  * forwards to the underlying <input>.
  */
 export const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
-  ({ label, error, hint, id, containerClassName, className, ...props }, ref) => {
+  ({ label, error, hint, suffix, id, containerClassName, className, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     const errorId = `${inputId}-error`;
     const hintId = `${inputId}-hint`;
     const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+    const input = (
+      <Input
+        ref={ref}
+        id={inputId}
+        aria-invalid={!!error}
+        aria-describedby={describedBy || undefined}
+        className={className}
+        {...props}
+      />
+    );
 
     return (
       <div className={cn('flex flex-col gap-1.5', containerClassName)}>
         <Label htmlFor={inputId}>{label}</Label>
-        <Input
-          ref={ref}
-          id={inputId}
-          aria-invalid={!!error}
-          aria-describedby={describedBy || undefined}
-          className={className}
-          {...props}
-        />
+        {suffix ? (
+          <div className="flex items-center gap-2">
+            {input}
+            {typeof suffix === 'string' ? (
+              <Text as="span" variant="meta">
+                {suffix}
+              </Text>
+            ) : (
+              suffix
+            )}
+          </div>
+        ) : (
+          input
+        )}
         {hint && (
           <Text id={hintId} variant="meta">
             {hint}

@@ -35,15 +35,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T;
   options: ReadonlyArray<SegmentedControlOption<T>>;
   onChange: (value: T) => void;
-  /** Pressed-state fill. `structure` is the organising blue-green; `brand` the rare sharp accent. */
-  tone?: 'structure' | 'brand';
   className?: string;
 }
-
-const PRESSED_CLASSES: Record<NonNullable<SegmentedControlProps<string>['tone']>, string> = {
-  structure: 'bg-blue-green text-cream shadow-segment-active',
-  brand: 'bg-orange-text text-cream shadow-segment-active',
-};
 
 const OPTION_SELECTOR = 'button[aria-pressed]';
 
@@ -52,7 +45,6 @@ export function SegmentedControl<T extends string>({
   value,
   options,
   onChange,
-  tone = 'structure',
   className,
 }: SegmentedControlProps<T>) {
   const groupRef = useRef<HTMLDivElement>(null);
@@ -110,10 +102,7 @@ export function SegmentedControl<T extends string>({
       role="group"
       aria-label={ariaLabel}
       onKeyDown={handleKeyDown}
-      className={cn(
-        'flex w-fit overflow-hidden rounded-md border border-border bg-sunk',
-        className,
-      )}
+      className={cn('flex w-fit gap-1 rounded-lg bg-sunk p-1', className)}
     >
       {options.map((option, index) => {
         const pressed = option.value === value;
@@ -127,10 +116,11 @@ export function SegmentedControl<T extends string>({
             tabIndex={tabbable ? 0 : -1}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex min-h-11 items-center justify-center whitespace-nowrap px-3.5 text-sm font-semibold transition-colors',
+              'flex min-h-11 items-center justify-center whitespace-nowrap rounded-md px-3.5 text-sm font-bold transition-colors',
               focusRing,
-              index > 0 && 'border-l border-border-strong',
-              pressed ? PRESSED_CLASSES[tone] : 'bg-surface text-muted hover:bg-sunk',
+              pressed
+                ? 'bg-blue-green text-cream shadow-segment-active'
+                : 'text-muted hover:bg-surface-2 hover:text-charcoal',
             )}
           >
             {option.label}

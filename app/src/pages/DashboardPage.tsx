@@ -1,13 +1,12 @@
-import { useMemo } from 'react';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
-import { Text } from '@basketeasy/ui/text';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { useAccount } from '../auth/useAccount';
 import { ManagerHome } from '../clubs/ManagerHome';
 import { PlayerHome } from '../clubs/PlayerHome';
 import { useHasManageRights } from '../clubs/useHasManageRights';
+import { useHomeAgendaParams } from '../clubs/useHomeAgendaParams';
 import { useMyAgenda } from '../clubs/useMyAgenda';
-import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
+import { useActingAs } from '../guardians/useActingAs';
 
 /**
  * `/dashboard` — one route, two screens, branching on `useHasManageRights()`.
@@ -16,13 +15,12 @@ import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
  * views share (`GET /me/dashboard`, windowed differently per role — see
  * below), and its `error → loading` handoff to whichever view renders.
  * Everything else — tiles, agenda blocks, team cards, the post-match
- * surface — lives in `ManagerHome`/`PlayerHome`
- * (`docs/ux-audit/player-first-implementation-plan.md` §2 Phase 4).
+ * surface — lives in `ManagerHome`/`PlayerHome`.
  *
  * A plain rostered player sees an agenda-first "Ma semaine": the previous
  * screen served two counters and a team-card grid that duplicated
  * `MyTeamsPage` — a status readout, not a to-do list
- * (`docs/ux-audit/player-journey.md` §3.3). A manager's four stat tiles and
+ * (`docs/personas.md`). A manager's four stat tiles and
  * team cards stay exactly as they were: nothing about them was found broken,
  * so nothing about them changes here, other than which file they live in.
  *
@@ -35,13 +33,9 @@ import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
 export function DashboardPage() {
   const { user } = useAccount();
   const { hasManageRights } = useHasManageRights();
-  // Computed once (not inline on every render): `playerAgendaWindowParams()`
-  // stamps `from` with `new Date()`, so recomputing it on each render would
-  // shift the query key by a few milliseconds every time and refetch forever.
-  const agendaParams = useMemo(
-    () => (hasManageRights ? undefined : playerAgendaWindowParams()),
-    [hasManageRights],
-  );
+  const { persona } = useActingAs();
+  // Shared with the bottom nav's badge, so both read one cache entry.
+  const agendaParams = useHomeAgendaParams();
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
@@ -54,21 +48,18 @@ export function DashboardPage() {
 
   return (
     <PageContainer size="lg">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Heading as="h1" className="m-0">
-            {greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
-          </Heading>
-          {/* The account e-mail line is manager-only now: a player's home
-              screen is about the week, not about the account
-              (`player-journey.md` §3.3). */}
-          {hasManageRights && user && (
-            <Text variant="meta" size="md" className="mt-1 break-all">
-              {user.email}
-            </Text>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
+        meta={
+          // The account e-mail line is manager-only: a player's home screen
+          // is about the week, not about the account (`player-journey.md` §3.3).
+          persona ? (
+            `Vous suivez ${persona.firstName} ${persona.lastName}`
+          ) : hasManageRights && user ? (
+            <span className="break-all">{user.email}</span>
+          ) : undefined
+        }
+      />
 
       {hasManageRights ? (
         <ManagerHome

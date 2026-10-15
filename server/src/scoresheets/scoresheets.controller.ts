@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { ScoresheetsService } from './scoresheets.service';
 import { ConfirmScoresheetExtractionDto } from './dto/confirm-scoresheet-extraction.dto';
@@ -30,6 +31,7 @@ export class ScoresheetsController {
   @Get()
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   async getExtraction(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

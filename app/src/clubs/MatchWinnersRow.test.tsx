@@ -14,12 +14,15 @@ const closedMatchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() - 6 * DAY_MS).toISOString(),
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
@@ -36,6 +39,11 @@ const closedMatchEvent: TeamEvent = {
   logistics: { jerseys: null, balls: null },
   result: null,
   myMatchStats: null,
+  meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
+  myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const openMatchEvent: TeamEvent = {
@@ -76,6 +84,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -97,6 +106,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 4,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -117,6 +127,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -138,6 +149,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 4,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(
@@ -162,6 +174,7 @@ describe('MatchWinnersRow', () => {
       totalVoters: 5,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(

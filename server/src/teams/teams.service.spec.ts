@@ -29,7 +29,7 @@ describe('TeamsService', () => {
       delete: jest.Mock;
       count: jest.Mock;
     };
-    player: { findUnique: jest.Mock };
+    player: { findUnique: jest.Mock; findFirst: jest.Mock; findUniqueOrThrow: jest.Mock };
     teamPlayer: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -39,6 +39,7 @@ describe('TeamsService', () => {
       deleteMany: jest.Mock;
       count: jest.Mock;
     };
+    eventJerseyDuty: { deleteMany: jest.Mock; updateMany: jest.Mock };
     user: { findUnique: jest.Mock };
     clubMembership: { findFirst: jest.Mock; findMany: jest.Mock };
     teamAdmin: {
@@ -76,7 +77,7 @@ describe('TeamsService', () => {
         delete: jest.fn(),
         count: jest.fn(),
       },
-      player: { findUnique: jest.fn() },
+      player: { findUnique: jest.fn(), findFirst: jest.fn(), findUniqueOrThrow: jest.fn() },
       teamPlayer: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -86,6 +87,7 @@ describe('TeamsService', () => {
         deleteMany: jest.fn(),
         count: jest.fn(),
       },
+      eventJerseyDuty: { deleteMany: jest.fn(), updateMany: jest.fn() },
       user: { findUnique: jest.fn() },
       clubMembership: { findFirst: jest.fn(), findMany: jest.fn() },
       teamAdmin: {
@@ -809,6 +811,22 @@ describe('TeamsService', () => {
 
       expect(prisma.teamPlayer.delete).toHaveBeenCalledWith({ where: { id: 'tp-1' } });
     });
+
+    it('drops the jersey wash turns of matches that have not started, in the same transaction', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findUnique.mockResolvedValue({ id: 'tp-1' });
+
+      await service.removeTeamPlayer('club-1', 'team-1', 'player-1');
+
+      expect(prisma.eventJerseyDuty.deleteMany).toHaveBeenCalledWith({
+        where: { teamPlayerId: 'tp-1', event: { startsAt: { gt: expect.any(Date) } } },
+      });
+      expect(prisma.eventJerseyDuty.updateMany).toHaveBeenCalledWith({
+        where: { swapToTeamPlayerId: 'tp-1' },
+        data: { swapToTeamPlayerId: null, swapRequestedAt: null },
+      });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('addTeamPlayer role', () => {
@@ -868,15 +886,47 @@ describe('TeamsService', () => {
     });
   });
 
-  describe('updateTeamPlayerRole', () => {
+  describe('updateTeamPlayer', () => {
     it('throws NotFoundException when the player is not on the team', async () => {
       prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
       prisma.teamPlayer.findUnique.mockResolvedValue(null);
 
-      await expect(service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH')).rejects.toThrow(
-        NotFoundException,
+      await expect(
+        service.updateTeamPlayer('club-1', 'team-1', 'p1', { role: 'COACH' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an empty body, writing nothing', async () => {
+      await expect(service.updateTeamPlayer('club-1', 'team-1', 'p1', {})).rejects.toThrow(
+        BadRequestException,
       );
       expect(prisma.teamPlayer.update).not.toHaveBeenCalled();
+    });
+
+    it('sets the jersey wash exemption alone, leaving the role untouched', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue({ isOwner: true });
+      prisma.teamPlayer.findUnique.mockResolvedValue({ id: 'tp1' });
+      prisma.teamPlayer.update.mockResolvedValue({
+        id: 'tp1',
+        teamId: 'team-1',
+        playerId: 'p1',
+        role: 'PLAYER',
+        jerseyDutyExempt: true,
+        createdAt: new Date('2026-01-01'),
+        player: { firstName: 'A', lastName: 'B', clubId: 'club-1' },
+      });
+
+      const result = await service.updateTeamPlayer('club-1', 'team-1', 'p1', {
+        jerseyDutyExempt: true,
+      });
+
+      expect(prisma.teamPlayer.update).toHaveBeenCalledWith({
+        where: { id: 'tp1' },
+        data: { jerseyDutyExempt: true },
+        include: { player: true },
+      });
+      expect(result.jerseyDutyExempt).toBe(true);
     });
 
     it('updates the role', async () => {
@@ -895,7 +945,7 @@ describe('TeamsService', () => {
         player: { firstName: 'A', lastName: 'B', clubId: 'club-1' },
       });
 
-      const result = await service.updateTeamPlayerRole('club-1', 'team-1', 'p1', 'COACH');
+      const result = await service.updateTeamPlayer('club-1', 'team-1', 'p1', { role: 'COACH' });
 
       expect(prisma.teamPlayer.update).toHaveBeenCalledWith({
         where: { id: 'tp1' },
@@ -1058,6 +1108,56 @@ describe('TeamsService', () => {
   });
 
   describe('listTeamsForUser', () => {
+    it('403s a player the caller neither is nor guards', async () => {
+      prisma.player.findFirst.mockResolvedValue(null);
+
+      await expect(service.listTeamsForUser('user-1', 'stranger')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.player.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(prisma.teamAdmin.findMany).not.toHaveBeenCalled();
+    });
+
+    it('lists only the child’s roster teams, through the child’s club, with no manager grant', async () => {
+      prisma.player.findFirst.mockResolvedValue({ id: 'leo' });
+      prisma.player.findUniqueOrThrow.mockResolvedValue({
+        clubId: 'club-2',
+        teamPlayers: [
+          {
+            role: 'PLAYER',
+            team: {
+              id: 'team-2',
+              name: 'U11',
+              category: 'U11',
+              gender: 'MEN',
+              clubTeams: [
+                { club: { id: 'club-1', name: 'COC Basket' } },
+                { club: { id: 'club-2', name: 'ASBC' } },
+              ],
+            },
+          },
+        ],
+      });
+
+      const result = await service.listTeamsForUser('parent-1', 'leo');
+
+      expect(result).toEqual([
+        {
+          teamId: 'team-2',
+          teamName: 'U11',
+          category: 'U11',
+          gender: 'MEN',
+          clubId: 'club-2',
+          clubName: 'ASBC',
+          isTeamAdmin: false,
+          rosterRole: 'PLAYER',
+        },
+      ]);
+      // The parent's own grants and rosters are never read for the child.
+      expect(prisma.teamAdmin.findMany).not.toHaveBeenCalled();
+      expect(prisma.teamPlayer.findMany).not.toHaveBeenCalled();
+    });
+
     it('returns a team where the user is only a TeamAdmin', async () => {
       prisma.teamAdmin.findMany.mockResolvedValue([
         {

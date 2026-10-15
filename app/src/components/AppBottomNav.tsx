@@ -10,8 +10,10 @@ import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { useActiveClub } from '../auth/useActiveClub';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useHasManageRights } from '../clubs/useHasManageRights';
+import { useHomeAgendaParams } from '../clubs/useHomeAgendaParams';
 import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useMyTeamList } from '../clubs/useMyTeamList';
+import { useActingAs } from '../guardians/useActingAs';
 
 /**
  * One routed item. `TabBarItem` owns the look and needs `active` as a
@@ -45,6 +47,12 @@ function BottomNavItem({
   );
 }
 
+/** « Mon équipe » / « Mes équipes », or « Son/Ses » when acting for a child. */
+function teamsLabel(teamCount: number, isChild: boolean): string {
+  if (teamCount > 1) return isChild ? 'Ses équipes' : 'Mes équipes';
+  return isChild ? 'Son équipe' : 'Mon équipe';
+}
+
 /**
  * The primary navigation on a phone, replacing the burger panel the header
  * used to hold.
@@ -63,9 +71,18 @@ export function AppBottomNav() {
   const isDesktop = useIsDesktopViewport();
   const { hasManageRights, isResolving } = useHasManageRights();
   const { data: teams } = useMyTeamList();
-  const { data: dashboard } = useMyAgenda();
+  // The badge counts what the player's home lists: same window, so the same
+  // cache entry and no second request. Only a phone renders the bar and only a
+  // player's tab carries the count, so nothing is fetched for anyone else.
+  const agendaParams = useHomeAgendaParams();
+  const { data: dashboard } = useMyAgenda(agendaParams, {
+    enabled: !isDesktop && !isResolving && !hasManageRights,
+  });
   const adminClubs = useAdminClubs();
   const { activeClubId: contextActiveClubId } = useActiveClub();
+  // Acting for a child, the possessives follow them: « Semaine », « Son
+  // équipe » — the screen is the child's, not the reader's.
+  const { persona } = useActingAs();
 
   // Same fallback the header's switcher uses: the first admin club covers the
   // one-render gap before ActiveClubProvider's default-selection effect runs,
@@ -91,8 +108,8 @@ export function AppBottomNav() {
     <TabBar ariaLabel="Navigation principale">
       <BottomNavItem
         to="/dashboard"
-        icon={<HomeIcon className="h-5 w-5" />}
-        label={hasManageRights ? 'Accueil' : 'Ma semaine'}
+        icon={<HomeIcon size="lg" />}
+        label={hasManageRights ? 'Accueil' : persona ? 'Semaine' : 'Ma semaine'}
         // The manager's pip counts what is waiting to be handled, which is
         // the « À traiter » band — phase 9, and no endpoint answers it yet.
         // Until then only the player's answers-owed count is real.
@@ -102,8 +119,8 @@ export function AppBottomNav() {
       {hasManageRights || !soleTeam ? (
         <BottomNavItem
           to="/my-teams"
-          icon={<UsersIcon className="h-5 w-5" />}
-          label={hasManageRights ? 'Équipes' : myTeams.length > 1 ? 'Mes équipes' : 'Mon équipe'}
+          icon={<UsersIcon size="lg" />}
+          label={hasManageRights ? 'Équipes' : teamsLabel(myTeams.length, persona !== null)}
         />
       ) : (
         // A player with exactly one team goes straight to it — /my-teams
@@ -112,15 +129,15 @@ export function AppBottomNav() {
         // to its stats tab, the screen a player opens this for most often.
         <BottomNavItem
           to={`/clubs/${soleTeam.clubId}/teams/${soleTeam.teamId}?tab=stats`}
-          icon={<UsersIcon className="h-5 w-5" />}
-          label="Mon équipe"
+          icon={<UsersIcon size="lg" />}
+          label={teamsLabel(1, persona !== null)}
         />
       )}
 
       {activeClubId ? (
         <BottomNavItem
           to={`/clubs/${activeClubId}/members`}
-          icon={<BuildingIcon className="h-5 w-5" />}
+          icon={<BuildingIcon size="lg" />}
           label="Club"
         />
       ) : (
@@ -129,10 +146,10 @@ export function AppBottomNav() {
         // — both personas get « Résultats » (phase 8's post-match surface,
         // /results) in this slot instead of a « Club » that would go
         // nowhere for them.
-        <BottomNavItem to="/results" icon={<TrophyIcon className="h-5 w-5" />} label="Résultats" />
+        <BottomNavItem to="/results" icon={<TrophyIcon size="lg" />} label="Résultats" />
       )}
 
-      <BottomNavItem to="/account" icon={<UserIcon className="h-5 w-5" />} label="Profil" />
+      <BottomNavItem to="/account" icon={<UserIcon size="lg" />} label="Profil" />
     </TabBar>
   );
 }

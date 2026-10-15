@@ -23,3 +23,11 @@ export const Destructive: Story = {
     </Alert>
   ),
 };
+
+export const Critical: Story = {
+  render: () => (
+    <Alert variant="critical">
+      <AlertDescription>Vue en tant que Jean Dupont · lecture seule</AlertDescription>
+    </Alert>
+  ),
+};

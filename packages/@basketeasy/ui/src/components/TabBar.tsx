@@ -55,9 +55,8 @@ TabBar.displayName = 'TabBar';
 
 export interface TabBarItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /**
-   * Sized by the caller (`h-5 w-5` in the bar), like every other icon call
-   * site in the repo — sizing is composition. Colour is not: the icon takes
-   * `tone="inherit"` and follows the item's active/idle text colour.
+   * Sized by the caller through the icon's `size` variant (`size="lg"` in the
+   * bar). Colour is closed too: the icon takes `tone="inherit"` and follows the item's active/idle text colour.
    */
   icon: ReactNode;
   label: string;

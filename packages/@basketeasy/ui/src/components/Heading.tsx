@@ -16,7 +16,7 @@ import { cn } from '../lib/cn';
 // break-words is in the base string, not left to call sites: an h1 whose
 // content can be a single unbroken token (an email address in the dashboard
 // greeting) otherwise widens the page rather than wrapping.
-const headingVariants = cva('break-words font-heading', {
+const headingVariants = cva('break-words font-heading uppercase', {
   variants: {
     /** Colour is a tone, never a caller-side text-* class. */
     tone: {
@@ -24,6 +24,14 @@ const headingVariants = cva('break-words font-heading', {
       inverse: 'text-cream',
     },
     size: {
+      /** The event page's h1: one step smaller on a phone. */
+      hero: 'text-4xl md:text-5xl',
+      /** A marketing page's h1 (the landing hero): the largest step, two smaller on a phone. */
+      display: 'text-5xl md:text-7xl',
+      /** A marketing page's section title (« Vous reconnaissez cette semaine ? »). */
+      section: 'text-4xl md:text-5xl',
+      /** A marketing page's feature title, under a section. */
+      feature: 'text-3xl md:text-4xl',
       '6xl': 'text-6xl',
       '5xl': 'text-5xl',
       '4xl': 'text-4xl',

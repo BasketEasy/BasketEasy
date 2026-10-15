@@ -5,7 +5,7 @@ import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { toast } from '@basketeasy/ui/toast-store';
 import type { TeamMemberRole, TeamPlayer } from '@basketeasy/types/teams';
 import { useTeamPlayerRemove } from './useTeamPlayerRemove';
-import { useTeamPlayerRoleUpdate } from './useTeamPlayerRoleUpdate';
+import { useTeamPlayerUpdate } from './useTeamPlayerUpdate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_MEMBER_ROLE_OPTIONS, teamMemberRoleLabel } from './teamLabels';
 
@@ -21,7 +21,7 @@ export function TeamPlayerRow({
   canManage: boolean;
 }) {
   const { mutate: removeTeamPlayer, isPending: isRemoving } = useTeamPlayerRemove(clubId, teamId);
-  const { mutate: updateRole, isPending: isUpdatingRole } = useTeamPlayerRoleUpdate(clubId, teamId);
+  const { mutate: updateRole, isPending: isUpdatingRole } = useTeamPlayerUpdate(clubId, teamId);
 
   return (
     <TableRow>

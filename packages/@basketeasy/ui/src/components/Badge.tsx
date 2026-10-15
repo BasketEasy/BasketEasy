@@ -15,7 +15,7 @@ import { cn } from '../lib/cn';
  * (orange), `structure` carries the blue-green that organises the UI. Nothing
  * here names a hue.
  */
-const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
+const badgeVariants = cva('inline-flex items-center whitespace-nowrap rounded-full text-xs', {
   variants: {
     /** Padding and weight together, so a call site never reaches for either. */
     size: {
@@ -70,7 +70,7 @@ const badgeVariants = cva('inline-flex items-center rounded-full text-xs', {
     { variant: 'outline', tone: 'accent', class: 'border-gold/40 text-gold-text' },
     { variant: 'outline', tone: 'success', class: 'border-success/40 text-success' },
   ],
-  defaultVariants: { variant: 'solid', tone: 'brand', size: 'sm' },
+  defaultVariants: { variant: 'soft', tone: 'brand', size: 'sm' },
 });
 
 export interface BadgeProps
@@ -79,5 +79,3 @@ export interface BadgeProps
 export function Badge({ className, variant, tone, size, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ variant, tone, size }), className)} {...props} />;
 }
-
-export { badgeVariants };

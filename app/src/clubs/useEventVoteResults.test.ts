@@ -14,6 +14,8 @@ function createWrapper() {
   return wrapper;
 }
 
+const STARTS_AT = '2026-01-05T18:00:00.000Z';
+
 describe('useEventVoteResults', () => {
   it('fetches both categories aggregated results plus myVote', async () => {
     server.use(
@@ -24,13 +26,17 @@ describe('useEventVoteResults', () => {
           totalVoters: 3,
           votesCast: 1,
           myVote: { best: 'tp-2', worst: null },
+          myVoteHidden: false,
         }),
       ),
     );
 
-    const { result } = renderHook(() => useEventVoteResults('club-1', 'team-1', 'event-1'), {
-      wrapper: createWrapper(),
-    });
+    const { result } = renderHook(
+      () => useEventVoteResults('club-1', 'team-1', 'event-1', STARTS_AT),
+      {
+        wrapper: createWrapper(),
+      },
+    );
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.best).toHaveLength(1);

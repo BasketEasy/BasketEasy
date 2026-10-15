@@ -27,6 +27,7 @@
         "title": "Vous êtes convoqué·e — U15 M",
         "body": "Vous êtes convoqué·e pour le match contre ASVEL du samedi 12 septembre à 20:30 à Gymnase Léo Lagrange. Merci d’indiquer votre présence.",
         "deepLink": "/clubs/club-1/teams/team-1/events/event-1",
+        "subjectFirstName": null,
         "readAt": null,
         "createdAt": "2026-09-04T11:48:00.000Z"
       },
@@ -36,6 +37,7 @@
         "title": "Feuille de match analysée",
         "body": "La feuille de match a été lue. Vérifiez les statistiques puis validez-les.",
         "deepLink": "/clubs/club-1/teams/team-1/events/event-2",
+        "subjectFirstName": null,
         "readAt": null,
         "createdAt": "2026-09-04T09:00:00.000Z"
       },
@@ -45,6 +47,7 @@
         "title": "3 séances annulées — U15 M",
         "body": "3 occurrences de cette série ont été annulées, à partir du mardi 8 septembre à 18:30.",
         "deepLink": "/clubs/club-1/teams/team-1",
+        "subjectFirstName": null,
         "readAt": null,
         "createdAt": "2026-09-03T09:00:00.000Z"
       },
@@ -54,6 +57,7 @@
         "title": "Échec de l’analyse de la feuille de match",
         "body": "Le service d'analyse était momentanément saturé. Relancez l'analyse dans quelques minutes.",
         "deepLink": "/clubs/club-1/teams/team-1/events/event-3",
+        "subjectFirstName": null,
         "readAt": "2026-08-26T14:00:00.000Z",
         "createdAt": "2026-08-26T13:30:00.000Z"
       }

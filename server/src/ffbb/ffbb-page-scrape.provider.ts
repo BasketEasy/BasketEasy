@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   FfbbEngagementFetchResult,
@@ -28,14 +28,14 @@ const TRAILING_ENGAGEMENT_ID_PATTERN = /\/equipes\/(\d+)\/?$/;
 // engagement ref (`.../clubs/<code>/equipes/<id>`), which is why detail
 // paths are always read off the fetched page rather than composed.
 // The match id is matched as an opaque token, not as digits: ids are FFBB's
-// to shape (see the parent spec's "never parse an FFBB identifier" rule).
+// to shape (docs/decisions/ffbb.md: never parse an FFBB identifier).
 const MATCH_DETAIL_PATH_PATTERN =
   /(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+\/match\/([A-Za-z0-9-]+))/g;
 
 // Strips a match detail path's own `/match/<id>` tail, leaving the
 // competition page's own path — the same prefix a poule standings page
 // resolves at, just with `?phase=<id>&poule=<id>` appended (see
-// docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md).
+// docs/decisions/ffbb.md).
 const COMPETITION_PATH_FROM_DETAIL_PATTERN = /^(.*)\/match\/[^/]+$/;
 
 // The poule standings/results page — confirmed against a real captured
@@ -48,9 +48,10 @@ const POULE_PAGE_PATTERN =
   /^(ligues\/[A-Za-z0-9-]+\/comites\/[A-Za-z0-9-]+\/competitions\/[A-Za-z0-9-]+)\?phase=(\d+)&poule=(\d+)$/;
 
 // Bounds on the extra page loads venue resolution costs us: FFBB publishes
-// no rate limit or terms, so an import of a full season stays a handful of
-// small sequential waves rather than one N-wide burst.
-const VENUE_FETCH_CONCURRENCY = 4;
+// no rate limit or terms. One at a time, because the CDN answered a burst of
+// four parallel detail-page loads with a 403 on every one (2026-09-30 logs)
+// while the fixture-list load just before it went through.
+const VENUE_FETCH_CONCURRENCY = 1;
 const MAX_VENUE_LOOKUPS = 60;
 const FETCH_TIMEOUT_MS = 10_000;
 // A per-request timeout alone doesn't bound the total: 60 slow pages four at
@@ -58,11 +59,20 @@ const FETCH_TIMEOUT_MS = 10_000;
 // timeout shows the admin a 504 for work that actually succeeded. Once the
 // budget is spent, the remaining matches simply keep location null.
 const VENUE_RESOLUTION_BUDGET_MS = 15_000;
+// One at a time was not enough: the CDN let the first detail page through
+// and refused the next one straight after (2026-09-30 logs), a per-address
+// rate limit. Spacing the loads trades pages per import for not being cut
+// off; matches left over are read first by the next import.
+const VENUE_FETCH_INTERVAL_MS = 1_500;
+/** A CDN refusal, not a missing page: every later request in the same import would be refused too. */
+const BLOCKED_STATUSES = new Set([403, 429]);
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 // Venue field names are unverified against a live detail page (this
 // design's sandbox has no egress to competitions.ffbb.com), so extraction
 // recognizes several plausible spellings instead of betting on one. See
-// docs/superpowers/specs/2026-09-01-ffbb-match-venue-address-design.md.
+// docs/decisions/ffbb.md.
 const VENUE_NAME_KEYS = [
   'nomSalle',
   'libelleSalle',
@@ -176,6 +186,12 @@ interface VenueCandidate {
   side?: 'home' | 'away';
 }
 
+type VenueFetchOutcome =
+  | { kind: 'venue'; location: string }
+  | { kind: 'unread' }
+  | { kind: 'failed' }
+  | { kind: 'blocked'; reason: string };
+
 /** Detail-page paths read off a fixture-list page: per match, plus the shared prefix so a row whose own link is missing can still be addressed by id. */
 interface DetailPathIndex {
   byMatchId: Map<string, string>;
@@ -183,8 +199,7 @@ interface DetailPathIndex {
 }
 
 // Best-effort candidate keys for a competition/poule display label — no
-// field for this was confirmed during research (see the design spec's
-// research notes); if FFBB's payload doesn't carry any of these, the label
+// field for this was confirmed during research (see docs/decisions/ffbb.md); if FFBB's payload doesn't carry any of these, the label
 // stays null and the frontend falls back to neutral copy ("Compétition
 // liée").
 const COMPETITION_LABEL_CANDIDATE_KEYS = [
@@ -217,7 +232,7 @@ interface RawFfbbMatch {
   [key: string]: unknown;
 }
 
-/** A poule's standings row — see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md, confirmed via Fimeo/ffbb-api-ts's Classement type since every classements array captured so far is empty (pre-season). */
+/** A poule's standings row — see docs/decisions/ffbb.md, confirmed via Fimeo/ffbb-api-ts's Classement type since every classements array captured so far is empty (pre-season). */
 interface RawFfbbClassement {
   id?: unknown;
   idEngagement?: { id?: unknown; nom?: unknown } | null;
@@ -252,13 +267,15 @@ interface RawFfbbPoule {
  * pages (2026-09-01 match detail, 2026-09-03 poule standings, 2026-09-04
  * team engagement — sandbox egress to competitions.ffbb.com is blocked, so
  * captures were taken outside it and copied in as literal fixture text, not
- * re-derived from the design spec's guessed shape). Any shape it doesn't
+ * re-derived from a guessed shape). Any shape it doesn't
  * recognize throws FfbbPageFormatError rather than guessing — this is
  * deliberately the one file expected to need updates when FFBB's frontend
  * changes.
  */
 @Injectable()
 export class FfbbPageScrapeProvider implements FfbbProvider {
+  private readonly logger = new Logger(FfbbPageScrapeProvider.name);
+
   constructor(private readonly config: ConfigService) {}
 
   parseEngagementRef(url: string): string | null {
@@ -285,7 +302,13 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     const pouleRef = this.derivePouleRef(rawMatches, chunks);
 
     if (options.resolveVenues) {
-      await this.resolveVenues(matches, rawMatches, chunks);
+      await this.resolveVenues(
+        engagementRef,
+        matches,
+        rawMatches,
+        chunks,
+        options.knownVenueMatchIds,
+      );
     }
 
     return { competitionLabel, matches, pouleRef };
@@ -316,7 +339,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
   /**
    * `ligues/<x>/comites/<y>/competitions/<code>?phase=<id>&poule=<id>` — the
    * whole poule standings reference, built entirely from data this same
-   * fetch already pulled (see docs/superpowers/specs/2026-09-03-poule-weekend-results-design.md):
+   * fetch already pulled (see docs/decisions/ffbb.md):
    * a match detail link anywhere in the page gives the competition prefix,
    * any one raw match's own competitionId gives the phase id, and the page's
    * `dataEngagement` object gives the poule id (see its own comment — a raw
@@ -399,8 +422,34 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return this.config.get<string>('FFBB_BASE_URL') ?? DEFAULT_FFBB_BASE_URL;
   }
 
-  private async fetchPage(path: string): Promise<string> {
+  /**
+   * `navigatedFrom` makes the request look like a click from that FFBB page:
+   * its URL as Referer, plus the headers a browser sends on a same-site
+   * navigation. Detail pages are loaded that way — they are the ones the
+   * CDN refused while the fixture list itself went through.
+   */
+  private async fetchPage(path: string, navigatedFrom?: string): Promise<string> {
     const url = `${this.baseUrl}/${path}`;
+    // The CDN in front of competitions.ffbb.com WAF-blocks requests with no
+    // Referer/Origin/browser User-Agent — confirmed during this design's
+    // research.
+    const headers: Record<string, string> = navigatedFrom
+      ? {
+          'User-Agent': USER_AGENT,
+          Referer: `${DEFAULT_FFBB_BASE_URL}/${navigatedFrom}`,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+        }
+      : {
+          'User-Agent': USER_AGENT,
+          Referer: 'https://competitions.ffbb.com/',
+          Origin: 'https://competitions.ffbb.com',
+        };
     let response: Response;
     try {
       response = await fetch(url, {
@@ -408,22 +457,23 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         // request open until the client gives up — and an import makes one
         // of these calls per match, not one per request.
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-        headers: {
-          // The CDN in front of competitions.ffbb.com WAF-blocks requests
-          // with no Referer/Origin/browser User-Agent — confirmed during
-          // this design's research.
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          Referer: 'https://competitions.ffbb.com/',
-          Origin: 'https://competitions.ffbb.com',
-        },
+        headers,
       });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       throw new FfbbPageFormatError(`Could not reach FFBB for "${path}": ${reason}`);
     }
     if (!response.ok) {
-      throw new FfbbPageFormatError(`FFBB returned ${response.status} for "${path}"`);
+      // Which layer refused is the one thing a 403 log line needs to say.
+      const server = response.headers?.get('server');
+      const mitigated = response.headers?.get('cf-mitigated');
+      const via = [server && `server=${server}`, mitigated && `cf-mitigated=${mitigated}`]
+        .filter(Boolean)
+        .join(', ');
+      throw new FfbbPageFormatError(
+        `FFBB returned ${response.status} for "${path}"${via ? ` (${via})` : ''}`,
+        response.status,
+      );
     }
     return response.text();
   }
@@ -763,9 +813,11 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
 
   /** Fills `location` in place on the matches we just built — they're local objects, not anything a caller has seen yet. */
   private async resolveVenues(
+    engagementRef: string,
     matches: FfbbMatch[],
     rawMatches: RawFfbbMatch[],
     chunks: string[],
+    knownVenueMatchIds: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     const detailIndex = this.buildDetailPathIndex(chunks);
     const pending: { match: FfbbMatch; raw: RawFfbbMatch }[] = [];
@@ -780,19 +832,74 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
         match.location = inline;
         continue;
       }
-      // `continue`, not `break`: a match past the fetch cap can still have a
-      // venue on its own row, and that costs nothing.
-      if (pending.length >= MAX_VENUE_LOOKUPS) continue;
       pending.push({ match, raw });
     }
 
+    // The fetch cap and the time budget cut the tail of this list, so the
+    // matches that need a page load most go first: no venue known yet, then
+    // the soonest. In fixture order, a season's last matches were never
+    // reached, and a re-sync spent its budget re-reading venues it had.
+    pending.sort(
+      (a, b) =>
+        Number(knownVenueMatchIds.has(a.match.id)) - Number(knownVenueMatchIds.has(b.match.id)) ||
+        a.match.startsAt.localeCompare(b.match.startsAt),
+    );
+    const queued = pending.slice(0, MAX_VENUE_LOOKUPS);
+
     const deadline = Date.now() + VENUE_RESOLUTION_BUDGET_MS;
-    await this.runWithConcurrency(pending, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
-      if (Date.now() >= deadline) return;
+    let resolved = 0;
+    let noPath = 0;
+    let outOfBudget = 0;
+    let unread = 0;
+    let failed = 0;
+    let blocked: string | null = null;
+    let fetched = 0;
+    await this.runWithConcurrency(queued, VENUE_FETCH_CONCURRENCY, async ({ match, raw }) => {
+      // Once the CDN refuses one detail page it refuses the rest: more
+      // requests only dig the block deeper, so the import stops asking.
+      if (blocked !== null || Date.now() >= deadline) {
+        outOfBudget += 1;
+        return;
+      }
       const path = this.resolveDetailPath(raw, match.id, detailIndex);
-      if (!path) return;
-      match.location = await this.fetchVenue(path);
+      if (!path) {
+        noPath += 1;
+        return;
+      }
+      if (fetched > 0) {
+        if (Date.now() + VENUE_FETCH_INTERVAL_MS >= deadline) {
+          outOfBudget += 1;
+          return;
+        }
+        await this.pause(VENUE_FETCH_INTERVAL_MS);
+      }
+      fetched += 1;
+      const outcome = await this.fetchVenue(path, engagementRef);
+      if (outcome.kind === 'venue') {
+        match.location = outcome.location;
+        resolved += 1;
+      } else if (outcome.kind === 'blocked') {
+        blocked = outcome.reason;
+      } else if (outcome.kind === 'failed') {
+        failed += 1;
+      } else {
+        unread += 1;
+      }
     });
+    const skipped = pending.length - queued.length + outOfBudget;
+    if (blocked !== null) {
+      this.logger.warn(`Venue resolution stopped, FFBB refused a detail page: ${blocked}`);
+    }
+    if (resolved < pending.length) {
+      // No venue on a page is often legit (not published yet), but a spike
+      // here is the only trace a changed FFBB page shape leaves.
+      this.logger.warn(
+        `Venue resolution: ${resolved}/${pending.length} resolved, ` +
+          `${unread} detail pages without a readable venue, ${failed} fetches failed, ` +
+          `${blocked !== null ? 1 : 0} refused (403/429), ${noPath} without a detail link, ` +
+          `${skipped} skipped (cap, time budget or refusal)`,
+      );
+    }
   }
 
   private buildDetailPathIndex(chunks: string[]): DetailPathIndex {
@@ -834,16 +941,26 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     return null;
   }
 
-  private async fetchVenue(path: string): Promise<string | null> {
+  private async fetchVenue(path: string, navigatedFrom: string): Promise<VenueFetchOutcome> {
+    let html: string;
     try {
-      const html = await this.fetchPage(path);
+      html = await this.fetchPage(path, navigatedFrom);
+    } catch (err: unknown) {
+      if (err instanceof FfbbPageFormatError && BLOCKED_STATUSES.has(err.status ?? 0)) {
+        return { kind: 'blocked', reason: err.message };
+      }
+      this.logger.warn(`Venue fetch failed for "${path}": ${String(err)}`);
+      return { kind: 'failed' };
+    }
+    try {
       const chunks = this.extractNextFPushChunks(html);
-      return (
+      const location =
         this.extractVenueFromInformationGroups(chunks) ??
-        this.pickVenue(this.collectVenueCandidatesFromChunks(chunks))
-      );
-    } catch {
-      return null;
+        this.pickVenue(this.collectVenueCandidatesFromChunks(chunks));
+      return location ? { kind: 'venue', location } : { kind: 'unread' };
+    } catch (err: unknown) {
+      this.logger.warn(`Venue parse failed for "${path}": ${String(err)}`);
+      return { kind: 'unread' };
     }
   }
 
@@ -1118,9 +1235,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // salle-ish key — elsewhere it's as likely to name a club.
       (venueParent && this.readString(object, VENUE_GENERIC_NAME_KEYS) !== null);
     const hasStreet = this.readStreet(object) !== null;
-    const hasLocality =
-      this.readString(object, VENUE_CITY_KEYS) !== null ||
-      this.readString(object, VENUE_POSTAL_KEYS) !== null;
+    const hasLocality = this.readLocality(object) !== null;
     return hasName || (hasStreet && (hasLocality || venueParent));
   }
 
@@ -1144,7 +1259,7 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
     if (parentKey !== null && VENUE_PARENT_KEY_PATTERN.test(parentKey)) score += 4;
     if (this.readString(object, VENUE_NAME_KEYS) !== null) score += 2;
     if (this.readStreet(object) !== null) score += 1;
-    if (this.readString(object, VENUE_CITY_KEYS) !== null) score += 1;
+    if (this.readLocality(object) !== null) score += 1;
     return score;
   }
 
@@ -1156,17 +1271,30 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       // On anything not already known to be a venue, `nom`/`libelle` is as
       // likely to be a club's name as a gym's.
       (venueParent ? this.readString(object, VENUE_GENERIC_NAME_KEYS) : null);
-    const locality = [
-      this.readString(object, VENUE_POSTAL_KEYS),
-      this.readString(object, VENUE_CITY_KEYS),
-    ]
-      .filter((part): part is string => part !== null)
-      .join(' ');
-
-    const parts = [name, this.readStreet(object), locality || null].filter(
+    const parts = [name, this.readStreet(object), this.readLocality(object)].filter(
       (part): part is string => part !== null && part.length > 0,
     );
     return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  /**
+   * « 44115 Basse-Goulaine ». The commune is either flat keys beside the
+   * street or its own record (`commune: { codePostal, libelle }`, the shape
+   * FFBB's own API types give a salle), so both are read.
+   */
+  private readLocality(object: Record<string, unknown>): string | null {
+    let postal = this.readString(object, VENUE_POSTAL_KEYS);
+    let city = this.readString(object, VENUE_CITY_KEYS);
+    for (const key of VENUE_CITY_KEYS) {
+      const nested = object[key];
+      if (!nested || typeof nested !== 'object' || Array.isArray(nested)) continue;
+      const commune = nested as Record<string, unknown>;
+      postal ??= this.readString(commune, VENUE_POSTAL_KEYS);
+      city ??= this.readString(commune, [...VENUE_GENERIC_NAME_KEYS, ...VENUE_CITY_KEYS]);
+      break;
+    }
+    const locality = [postal, city].filter((part): part is string => part !== null).join(' ');
+    return locality || null;
   }
 
   private readStreet(object: Record<string, unknown>): string | null {
@@ -1199,6 +1327,11 @@ export class FfbbPageScrapeProvider implements FfbbProvider {
       .replace(/\s+/g, ' ')
       .trim();
     return GENERIC_VENUE_WORDS.has(normalized);
+  }
+
+  /** Its own method so the spec can skip the wait. */
+  private pause(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async runWithConcurrency<T>(

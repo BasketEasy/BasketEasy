@@ -21,7 +21,7 @@ const MODEL_NAME = 'gemini-3.6-flash';
 // (no points column exists there), while every basket lives in the
 // right-hand running-score column. Spelling the marker's notation out is
 // what makes the 1/2/3-point distinction readable — see
-// docs/superpowers/specs/2026-09-02-scoresheet-points-parsing-design.md.
+// docs/decisions/scoresheets-and-stats.md.
 const PROMPT = `You are reading a French basketball e-Marque scoresheet (feuille de match). \
 The sheet has two halves and you must read both.
 

@@ -14,6 +14,7 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { MatchWinnersRow } from './MatchWinnersRow';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 /**
  * Two content columns to the right of the time block — left: venue/status
@@ -40,9 +41,9 @@ function AgendaEventCard({
   const isMatch = event.type === 'MATCH';
 
   return (
-    <Card variant="flush" className="flex flex-row">
+    <Card className="flex flex-row gap-3.5 p-3.5 sm:p-4">
       <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed={event.timeConfirmed} />
-      <div className="flex min-w-0 flex-grow flex-col gap-2.5 p-4">
+      <div className="flex min-w-0 flex-grow flex-col gap-2.5">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-4">
           {/* Left column: badge/logistics cluster on top, RSVP underneath.
               min-w-0 + flex-1 lets it shrink below its content's natural
@@ -81,7 +82,11 @@ function AgendaEventCard({
                   Heure à confirmer
                 </Badge>
               )}
-              <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+              <EventLogisticsMiniChips
+                eventType={event.type}
+                logistics={event.logistics}
+                jerseyDuty={event.jerseyDuty}
+              />
               <EventVoteBadge event={event} />
             </div>
             {event.rsvpSummary.rosterSize > 0 && (
@@ -108,7 +113,7 @@ function AgendaEventCard({
               row. */}
           <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:items-end sm:text-right">
             <Text as="span" variant="meta" className="min-w-0 max-w-full truncate">
-              {event.location}
+              {eventVenueLabel(event)}
               {isMatch ? ` · vs ${event.opponentName}` : ''}
             </Text>
             <TextLink asChild className="shrink-0">

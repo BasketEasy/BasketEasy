@@ -29,6 +29,7 @@ describe('EventsController', () => {
     getScoresheetUploadUrl: jest.Mock;
     confirmScoresheetUpload: jest.Mock;
     getScoresheetStatus: jest.Mock;
+    setMyTravelMode: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -50,6 +51,7 @@ describe('EventsController', () => {
       getScoresheetUploadUrl: jest.fn(),
       confirmScoresheetUpload: jest.fn(),
       getScoresheetStatus: jest.fn(),
+      setMyTravelMode: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -77,12 +79,40 @@ describe('EventsController', () => {
     expect(result.total).toBe(0);
   });
 
+  it('setMyTravelMode delegates the route ids, the caller id, and the chosen mode', async () => {
+    service.setMyTravelMode.mockResolvedValue({ id: 'event-1' });
+
+    await controller.setMyTravelMode(
+      'club-1',
+      'team-1',
+      'event-1',
+      { travelMode: 'DIRECT' },
+      { forPlayerId: 'child-1' },
+      user,
+    );
+
+    expect(service.setMyTravelMode).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      'DIRECT',
+      'child-1',
+    );
+  });
+
   it('getEvent delegates clubId, teamId, eventId, and the caller id', async () => {
     service.getEvent.mockResolvedValue({ id: 'event-1', teamId: 'team-1' });
 
-    const result = await controller.getEvent('club-1', 'team-1', 'event-1', user);
+    const result = await controller.getEvent('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.getEvent).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.getEvent).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result.id).toBe('event-1');
   });
 
@@ -211,6 +241,7 @@ describe('EventsController', () => {
       'team-1',
       'event-1',
       { status: 'GOING' },
+      { forPlayerId: 'child-1' },
       user,
     );
 
@@ -220,6 +251,7 @@ describe('EventsController', () => {
       'event-1',
       'user-1',
       'GOING',
+      'child-1',
     );
     expect(result.myRsvpStatus).toBe('GOING');
   });
@@ -238,9 +270,15 @@ describe('EventsController', () => {
       myRsvpStatus: null,
     });
 
-    const result = await controller.clearMyRsvp('club-1', 'team-1', 'event-1', user);
+    const result = await controller.clearMyRsvp('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.clearMyRsvp).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.clearMyRsvp).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result.myRsvpStatus).toBeNull();
   });
 
@@ -258,9 +296,15 @@ describe('EventsController', () => {
       },
     ]);
 
-    const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', user);
+    const result = await controller.listEventRsvps('club-1', 'team-1', 'event-1', {}, user);
 
-    expect(service.listEventRsvps).toHaveBeenCalledWith('club-1', 'team-1', 'event-1', 'user-1');
+    expect(service.listEventRsvps).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      undefined,
+    );
     expect(result[0].isMe).toBe(true);
   });
 
@@ -310,13 +354,14 @@ describe('EventsController', () => {
       },
     ]);
 
-    const result = await controller.listEventConvocations('club-1', 'team-1', 'event-1', user);
+    const result = await controller.listEventConvocations('club-1', 'team-1', 'event-1', {}, user);
 
     expect(service.listEventConvocations).toHaveBeenCalledWith(
       'club-1',
       'team-1',
       'event-1',
       'user-1',
+      undefined,
     );
     expect(result[0].isMe).toBe(true);
   });
@@ -350,6 +395,7 @@ describe('EventsController', () => {
       totalVoters: 2,
       votesCast: 1,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     };
     service.castVote.mockResolvedValue(results);
 
@@ -379,6 +425,7 @@ describe('EventsController', () => {
       totalVoters: 2,
       votesCast: 0,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     };
     service.getEventVoteResults.mockResolvedValue(results);
 
@@ -389,8 +436,26 @@ describe('EventsController', () => {
       'team-1',
       'event-1',
       'user-1',
+      false,
     );
     expect(result).toBe(results);
+  });
+
+  it("getEventVoteResults asks for the caller's vote to be hidden under impersonation", async () => {
+    service.getEventVoteResults.mockResolvedValue({});
+
+    await controller.getEventVoteResults('club-1', 'team-1', 'event-1', {
+      ...user,
+      impersonation: { sessionId: 'session-1', actorUserId: 'admin-1' },
+    });
+
+    expect(service.getEventVoteResults).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      true,
+    );
   });
 
   it('getScoresheetUploadUrl delegates clubId, teamId, eventId, the caller id, and contentType', async () => {

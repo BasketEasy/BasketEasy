@@ -10,7 +10,7 @@ export function TeamDeleteModal({
   clubId,
   teamId,
   teamName,
-  playerCount = 0,
+  playerCount,
   eventCount = 0,
 }: {
   clubId: string;
@@ -27,9 +27,9 @@ export function TeamDeleteModal({
     <ConfirmDialog
       open={open}
       onOpenChange={setOpen}
-      trigger={<Button variant="destructive">Supprimer</Button>}
+      trigger={<Button variant="outline">Supprimer l’équipe</Button>}
       title="Supprimer l’équipe ?"
-      description={`« ${teamName} » sera supprimée définitivement, avec son effectif (${playerCount}) et tous ses événements (${eventCount}). Cette action est irréversible.`}
+      description={`« ${teamName} » sera supprimée définitivement, avec son effectif${playerCount === undefined ? '' : ` (${playerCount})`} et tous ses événements (${eventCount}). Cette action est irréversible.`}
       confirmLabel="Supprimer définitivement"
       confirmWord={teamName}
       isPending={isPending}
