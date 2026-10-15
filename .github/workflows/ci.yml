@@ -24,7 +24,7 @@ jobs:
       server: ${{ github.event_name == 'push' || steps.filter.outputs.server == 'true' }}
       app: ${{ github.event_name == 'push' || steps.filter.outputs.app == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -46,7 +46,7 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: 'basketeasy'
@@ -58,7 +58,7 @@ jobs:
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/server...'
@@ -69,7 +69,7 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/app...'
@@ -80,7 +80,7 @@ jobs:
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/server...'
@@ -91,7 +91,7 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/app...'
@@ -122,7 +122,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
       NEON_DIRECT_URL: postgresql://postgres:postgres@localhost:5432/basketeasy_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/server...'
@@ -136,7 +136,7 @@ jobs:
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/server...'
@@ -147,7 +147,7 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           filter: '@basketeasy/app...'
@@ -157,5 +157,5 @@ jobs:
   test-review-agent:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: bash .github/review-agent/merge.test.sh
