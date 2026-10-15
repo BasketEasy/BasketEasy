@@ -1,20 +1,20 @@
-# BasketEasy
+# Kluvo
 
 **La gestion d'équipe, simplifiée.**
 
-BasketEasy centralizes calendars, gym slots (*créneaux*), and post-game scoresheets for amateur basketball clubs — starting with a Loire-Atlantique (CD44) first launch. It's a companion layer to the FFBB's official stack (FBI, e-Marque V2), not a replacement, purpose-built for volunteer-run clubs and the multi-club team (CTC/entente) reality of French grassroots basketball.
+Kluvo centralizes calendars, gym slots (_créneaux_), and post-game scoresheets for amateur basketball clubs — starting with a Loire-Atlantique (CD44) first launch. It's a companion layer to the FFBB's official stack (FBI, e-Marque V2), not a replacement, purpose-built for volunteer-run clubs and the multi-club team (CTC/entente) reality of French grassroots basketball.
 
 See [`CLAUDE.md`](./CLAUDE.md) for architecture, brand, positioning, and the full feature roadmap. Full reference docs live in [`docs/`](./docs).
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Backend | NestJS (TypeScript), PostgreSQL + Prisma, Redis + BullMQ |
-| Frontend | React 18 + Vite, TanStack Query, Tailwind + shadcn/ui |
+| Layer    | Choice                                                          |
+| -------- | --------------------------------------------------------------- |
+| Backend  | NestJS (TypeScript), PostgreSQL + Prisma, Redis + BullMQ        |
+| Frontend | React 18 + Vite, TanStack Query, Tailwind + shadcn/ui           |
 | Monorepo | pnpm workspaces (`server`, `app`, `packages/@basketeasy/types`) |
-| Infra | Docker, Scaleway (EU/RGPD-friendly hosting) |
-| CI | GitHub Actions (lint, format, test, build, Docker build) |
+| Infra    | Docker, Scaleway (EU/RGPD-friendly hosting)                     |
+| CI       | GitHub Actions (lint, format, test, build, Docker build)        |
 
 Full rationale and alternatives considered: [`docs/backend-stack.md`](./docs/backend-stack.md), [`docs/frontend-stack.md`](./docs/frontend-stack.md).
 
@@ -85,4 +85,4 @@ pnpm build          # build all workspace packages
 
 ## Status
 
-This is an initial scaffold: repo structure, Docker setup, CI, and a working `/api/health` round-trip from backend to frontend. Domain modules (Auth, Clubs/Teams, Scheduling, Scoresheet, Payments) are not implemented yet — see [`docs/feature-set.md`](./docs/feature-set.md) for what's next.
+This is an initial scaffold plus its first domain modules: repo structure, Docker setup, CI, a working `/api/health` round-trip from backend to frontend, an Auth module (register/login/refresh/logout/me, JWT access tokens + rotating refresh tokens with reuse detection, argon2 password hashing, club-role guards), a Clubs/Players module (club creation, membership, roster), and a Teams module (team CRUD, roster, and multi-club/CTC ownership so a team can be shared across clubs). Remaining domain modules (Scheduling, Scoresheet, Payments, Subvention, Volunteer/Role) are not implemented yet — see [`docs/feature-set.md`](./docs/feature-set.md) for what's next.

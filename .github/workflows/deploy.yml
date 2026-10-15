@@ -1,0 +1,50 @@
+# .github/workflows/deploy.yml
+# Only what ships in the server image redeploys it; a docs-only or app-only
+# merge (deployed by deploy-frontend.yml) would rebuild and restart the same
+# server. `workflow_dispatch` is the manual way to force one.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'packages/@basketeasy/types/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: ghcr.io/basketeasy/server:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/kluvo
+            docker compose pull server
+            docker compose up -d
+            docker system prune -af

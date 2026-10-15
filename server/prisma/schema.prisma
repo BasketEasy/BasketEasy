@@ -1,0 +1,1192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("NEON_DIRECT_URL")
+}
+
+model User {
+  id                            String                   @id @default(uuid())
+  email                         String                   @unique
+  passwordHash                  String
+  firstName                     String?
+  lastName                      String?
+  avatarUrl                     String?
+  // Null until the address is confirmed through an EmailVerificationToken.
+  // Only EmailVerifiedGuard's three gated routes read it (club creation and
+  // the two admin grants) — everything else works unverified, so a player
+  // invited to a roster who mistyped their address is never locked out of
+  // their own team.
+  emailVerifiedAt               DateTime?
+  // Opt-out for notification e-mails. In-app Notification rows are always
+  // written regardless: this is a delivery-channel preference, not a
+  // "don't tell me" one, so turning it off never loses a convocation.
+  emailNotificationsEnabled     Boolean                  @default(true)
+  // Refreshed on login, on refresh, and (debounced to at most once an hour
+  // per instance, see LastActiveInterceptor) on any authenticated request —
+  // the single signal the retention sweep reads to decide "inactive".
+  // Distinct from createdAt on purpose: an account that logged in once three
+  // years ago and never came back is inactive from that login, not from
+  // registration. Defaults to now() so existing rows start a fresh 12-month
+  // clock at migration time rather than being swept on the first night.
+  lastActiveAt                  DateTime                 @default(now())
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  memberships                   ClubMembership[]
+  refreshTokens                 RefreshToken[]
+  linkedPlayers                 Player[]
+  teamAdmins                    TeamAdmin[]
+  reviewedScoresheetExtractions ScoresheetExtraction[]
+  notifications                 Notification[]
+  emailVerificationTokens       EmailVerificationToken[]
+  passwordResetTokens           PasswordResetToken[]
+  pushSubscriptions             PushSubscription[]
+  auditLogs                     AuditLog[]
+  parentalConsentsAttested      ParentalConsent[]
+  guardianOf                    PlayerGuardian[]
+  guardianInvitesAccepted       GuardianInvite[]         @relation("GuardianInviteAcceptedBy")
+  guardianInvitesCreated        GuardianInvite[]         @relation("GuardianInviteCreatedBy")
+  rsvpsResponded                EventRsvp[]              @relation("EventRsvpRespondedBy")
+  rsvpChangesMade               EventRsvpChange[]        @relation("EventRsvpChangeRespondedBy")
+  guestLinksCreated             TeamGuestLink[]          @relation("TeamGuestLinkCreatedBy")
+  eventSharesSent               EventShare[]             @relation("EventShareSentBy")
+  jerseyDutiesAccepted          EventJerseyDuty[]        @relation("JerseyDutyAcceptedBy")
+  jerseyDutiesDone              EventJerseyDuty[]        @relation("JerseyDutyDoneBy")
+  jerseyDutiesVoided            EventJerseyDuty[]        @relation("JerseyDutyVoidedBy")
+  platformAdmin                 PlatformAdmin?
+  impersonationsActed           ImpersonationSession[]   @relation("ImpersonationActor")
+  impersonationsSubjected       ImpersonationSession[]   @relation("ImpersonationSubject")
+}
+
+// The two single-use links a user can be sent by e-mail. Both store only
+// `tokenHash` (never the raw token), the same convention as RefreshToken and
+// PlayerInvite: the raw value exists only inside the e-mailed URL and the
+// visitor's request, so a leaked database can't be used to take over an
+// account.
+//
+// They stay two tables rather than one `SingleUseToken` with a `purpose`
+// column: their lifetimes differ by an order of magnitude (24h vs 1h), a
+// consumed password reset revokes every RefreshToken while a consumed
+// verification doesn't, and a shared table would turn "consume a token for
+// purpose X" into a runtime check the type system can do instead.
+//
+// `consumedAt` rather than deleting the row keeps a *reused* link
+// distinguishable from an *expired* one, so the API can tell the visitor
+// which of the two happened.
+model EmailVerificationToken {
+  id         String    @id @default(uuid())
+  userId     String
+  // The address this token confirms, snapshotted at send time. A user who
+  // changes their e-mail before clicking an older link must not have that
+  // link verify the new address, so confirmEmail compares this against the
+  // account's current address and refuses on a mismatch.
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum NotificationType {
+  EVENT_CONVOCATION
+  EVENT_CANCELLED
+  SCORESHEET_READY
+  SCORESHEET_FAILED
+  EVENT_MEETING_FIXED
+  EVENT_MEETING_CHANGED
+  EVENT_VENUE_CHANGED
+  GUEST_INVITE_REQUESTED
+  WHATSAPP_SHARE_REQUESTED
+  JERSEY_DUTY_ASSIGNED
+  JERSEY_SWAP_REQUESTED
+}
+
+// One in-app notification addressed to one user.
+//
+// `title`/`body` are denormalised on purpose — finished French sentences
+// composed by whichever module emitted the notification, rendered verbatim,
+// the same contract as Dashboard's ActionItem.message. A notification about
+// an event that has since been deleted or renamed still reads correctly, and
+// no read path has to join across every domain module that can emit one.
+//
+// `deepLink` is a frontend-relative path (e.g.
+// /clubs/<id>/teams/<id>/events/<id>), never an absolute URL: the same value
+// is handed to react-router for an in-app click and prefixed with
+// FRONTEND_URL for the e-mailed and pushed copies. Storing the origin would
+// bake one deploy's hostname into rows that outlive it.
+model Notification {
+  id               String           @id @default(uuid())
+  userId           String
+  type             NotificationType
+  title            String
+  body             String?
+  deepLink         String?
+  // First name(s) of the child a guardian is told about (« Léo », « Léo et
+  // Emma »), denormalised like title/body so the « pour qui » tag still reads
+  // after a rename or deletion. Null on a notification about the reader.
+  subjectFirstName String?
+  readAt           DateTime?
+  createdAt        DateTime         @default(now())
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The list query ("my notifications, newest first") and the badge query
+  // ("how many of mine are unread") are the only two reads, and each gets
+  // its own composite index.
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  // `WhatsAppReminderScheduler.withdraw` clears every manager's unread row of
+  // one type, so it has no userId to lead with.
+  @@index([type, readAt])
+}
+
+// One browser's Web Push subscription. `endpoint` is globally unique (it is
+// the push service's own URL for that browser instance), so re-subscribing
+// from the same browser upserts this row rather than accumulating duplicates
+// — the same "@@unique on the natural key" convention as PlayerInvite.playerId.
+//
+// A subscription is deleted, not marked stale, when the push service answers
+// 404/410: that response means the browser is gone for good, and a row that
+// can never be delivered to has no value to keep.
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Player {
+  id               String            @id @default(uuid())
+  firstName        String
+  lastName         String
+  clubId           String
+  userId           String?
+  nationalId       String?           @unique
+  licenseNumber    String?
+  birthDate        DateTime?
+  gender           Gender?
+  licenseType      String?
+  createdAt        DateTime          @default(now())
+  club             Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user             User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  teamPlayers      TeamPlayer[]
+  invite           PlayerInvite?
+  parentalConsents ParentalConsent[]
+  guardians        PlayerGuardian[]
+  guardianInvites  GuardianInvite[]
+
+  @@unique([clubId, userId])
+  @@index([clubId])
+}
+
+// A one-time link an admin generates for a player with no linked account yet
+// (Player.userId: null), so the player can create their own account and get
+// linked to their existing roster entry instead of an admin having to do it
+// manually via PlayerEditForm's "compte lié" dropdown — see
+// docs/superpowers/specs/2026-09-03-player-invite-design.md. @@unique on
+// playerId means generating a new invite upserts this same row (a fresh
+// token/expiry, acceptedAt reset to null) rather than accumulating history,
+// same convention as EventScoresheet's @@unique on eventId. tokenHash (never
+// the raw token) is stored, mirroring RefreshToken's hashing convention — the
+// raw token only ever exists in the generated URL and the visitor's request.
+model PlayerInvite {
+  id         String    @id @default(uuid())
+  playerId   String    @unique
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+// A parent (or other legal guardian) who can act for a player: answer, pick
+// the travel mode, receive the player's notifications, edit their profile —
+// see docs/superpowers/specs/2026-09-27-parent-guardian-design.md. Being a
+// guardian is this row, not a ClubRole: ClubMembership is unique per user and
+// club, and a parent is often also a player, coach or admin of the same club.
+//
+// The pair is the identity (a duplicate link is a unique violation, not a
+// check), and both sides cascade: nothing of the club's history hangs off a
+// guardian link, so deleting either the player or the account removes the
+// link and nothing else.
+model PlayerGuardian {
+  playerId  String
+  userId    String
+  createdAt DateTime @default(now())
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([playerId, userId])
+  @@index([userId])
+}
+
+// A one-time link an admin sends to one parent. Not PlayerInvite with a flag:
+// that one is one-per-player and claims Player.userId, this one is
+// one-per-parent (several can be pending for the same player) and claims
+// nothing on the player. Same token convention (only the hash is stored) and
+// the same "reused vs expired" distinction through acceptedAt.
+model GuardianInvite {
+  id               String    @id @default(uuid())
+  playerId         String
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  player           Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  acceptedBy       User?     @relation("GuardianInviteAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  createdBy        User?     @relation("GuardianInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([playerId])
+}
+
+model Club {
+  id                   String            @id @default(uuid())
+  name                 String
+  ffbbClubCode         String?           @unique
+  createdAt            DateTime          @default(now())
+  memberships          ClubMembership[]
+  players              Player[]
+  clubTeams            ClubTeam[]
+  parentalConsents     ParentalConsent[]
+  // The club-wide default match meeting point (point de rendez-vous) and the
+  // arrival buffer before tip-off. Name and address are written together —
+  // both set or both null. See
+  // docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+  meetingPointName     String?
+  meetingPointAddress  String?
+  arrivalBufferMinutes Int               @default(45)
+}
+
+enum TeamCategory {
+  U9
+  U11
+  U13
+  U15
+  U18
+  U21
+  SENIORS
+}
+
+enum Gender {
+  MEN
+  WOMEN
+}
+
+enum TeamMemberRole {
+  COACH
+  PLAYER
+}
+
+model Team {
+  id                     String         @id @default(uuid())
+  name                   String
+  category               TeamCategory
+  gender                 Gender
+  createdAt              DateTime       @default(now())
+  clubTeams              ClubTeam[]
+  teamPlayers            TeamPlayer[]
+  events                 Event[]
+  teamAdmins             TeamAdmin[]
+  ffbbLinks              TeamFfbbLink[]
+  guestLink              TeamGuestLink?
+  // null = DEFAULT_REMINDER_TEMPLATE (@basketeasy/types/whatsapp-reminder).
+  waReminderTemplate     String?
+  waUpdateTemplate       String?
+  waCancellationTemplate String?
+  eventShares            EventShare[]
+  // Reminder scheduling: on/off and how long before an event the managers are
+  // asked to share it. Events inherit both unless they override (Event.wa*).
+  waReminderEnabled      Boolean        @default(false)
+  // Jersey wash rotation (docs/decisions/events.md). Off: a MATCH keeps the
+  // plain Event.jerseysTeamPlayerId slot and the freeze job skips the team.
+  jerseyRotationEnabled  Boolean        @default(true)
+  waDefaultOffsetMinutes Int            @default(4320)
+  // Team-level overrides of the owner club's meeting point and arrival
+  // buffer; null inherits (a CTC team inherits from its owner club only).
+  meetingPointName       String?
+  meetingPointAddress    String?
+  arrivalBufferMinutes   Int?
+}
+
+// One club's entry of one team into one FFBB competition for one season
+// (an "engagement" in FFBB's own vocabulary). A team can hold zero, one, or
+// several links — e.g. a championship plus a departmental cup in the same
+// season — so this is its own row rather than a scalar on Team. ffbbEngagementRef
+// is unique globally (not per-team): one FFBB engagement maps to at most one
+// Kluvo team. ffbbEngagementLabel is a display-name snapshot taken once
+// at link time (e.g. "Seniors M D3") from the validated page fetch — a link is
+// removed and re-added rather than edited, so there's no "stale after relink"
+// case. Cascade-deletes with its Team, same convention as TeamPlayer/ClubTeam.
+model TeamFfbbLink {
+  id                  String   @id @default(uuid())
+  teamId              String
+  ffbbEngagementRef   String   @unique
+  ffbbEngagementLabel String?
+  createdAt           DateTime @default(now())
+  team                Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId])
+}
+
+// Join between Club and Team: a team can be linked to several clubs at once
+// (a CTC/entente shared team). The club that created the team is the owner
+// (isOwner: true) and is the only one that can manage the partner-club list
+// or disband the team; partner clubs get full roster/detail access.
+// Deleting a club cascades its links; the teams it *owns* are deleted by
+// PlatformAdminActionsService.deleteClub, since Team reaches Club only through
+// this join and a team with no owner club has nobody left to manage it.
+model ClubTeam {
+  id        String   @id @default(uuid())
+  clubId    String
+  teamId    String
+  isOwner   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([clubId, teamId])
+  @@index([teamId])
+}
+
+// Team roster entry. A player can only be rostered on a team if their club
+// is one of the team's linked clubs (enforced in TeamsService, not the DB).
+// Cascades on both sides: deleting the team or the player should not be
+// blocked by leftover roster rows.
+model TeamPlayer {
+  id                    String               @id @default(uuid())
+  teamId                String
+  playerId              String
+  role                  TeamMemberRole       @default(PLAYER)
+  createdAt             DateTime             @default(now())
+  team                  Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player                Player               @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  rsvps                 EventRsvp[]
+  rsvpChanges           EventRsvpChange[]
+  convocations          EventConvocation[]
+  jerseysAssignedEvents Event[]              @relation("EventJerseysAssignee")
+  ballsAssignedEvents   Event[]              @relation("EventBallsAssignee")
+  votesCast             EventVote[]          @relation("EventVoteVoter")
+  votesReceived         EventVote[]          @relation("EventVoteVotedFor")
+  uploadedScoresheets   EventScoresheet[]
+  matchStats            MatchPlayerStat[]
+  // Never suggested for the jersey wash; a manager can still assign them.
+  jerseyDutyExempt      Boolean              @default(false)
+  jerseyDuties          EventJerseyDuty[]    @relation("JerseyDutyHolder")
+  jerseySwapRequests    EventJerseyDuty[]    @relation("JerseyDutySwapTarget")
+  jerseyDeclines        EventJerseyDecline[]
+
+  @@unique([teamId, playerId])
+  @@index([playerId])
+}
+
+// A user granted admin rights scoped to a single team (distinct from
+// club-level ClubRole.ADMIN). The first one for a team can only be created
+// by a club ADMIN of one of the team's linked clubs; once at least one
+// exists, any existing TeamAdmin can add/remove further ones for the same
+// team — club ADMINs keep the same power throughout, they don't lose it by
+// delegating. See docs/superpowers/specs/2026-08-10-team-roles-admin-setup-design.md.
+model TeamAdmin {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+enum EventType {
+  TRAINING
+  MATCH
+}
+
+enum EventVenue {
+  HOME
+  AWAY
+}
+
+// A single team-day event — a training session or a match against an
+// opponent outside the club graph (opponentName is a label, not a relation;
+// see CLAUDE.md's Events module section). recurrenceId links every
+// occurrence created together in one recurring POST so they can be
+// edited/deleted as a group; null for a plain single event.
+model Event {
+  id                  String               @id @default(uuid())
+  teamId              String
+  type                EventType            @default(TRAINING)
+  startsAt            DateTime
+  // The address: what is geocoded, what travelRouteKey hashes and what
+  // « Itinéraire » links to. UNKNOWN_EVENT_LOCATION while FFBB hasn't
+  // published a venue.
+  location            String
+  // The gym's label paired with `location` (« Gymnase de la Trocardière »),
+  // typed by a manager. Cleared whenever `location` changes without a new
+  // one, by an edit or the FFBB import.
+  locationName        String?
+  notes               String?
+  opponentName        String?
+  // Home/away for a MATCH event; required (non-null) whenever type is
+  // MATCH, forced to null whenever type is TRAINING — same validation path
+  // as opponentName (see EventsService).
+  venue               EventVenue?
+  // Equipment logistics — who's bringing the jerseys/balls (MATCH) or the
+  // scrimmage bibs/balls (TRAINING) for this event; valid for both types,
+  // the "jerseys" slot is just labeled differently per type on the frontend
+  // (eventLogisticsFieldLabel). Nullable self-relations directly on Event
+  // rather than a separate table: at most one assignee per item, so a join
+  // table would only add an unused-most-of-the-time row lifecycle.
+  // onDelete: SetNull (not Cascade) — removing a roster entry should clear
+  // the assignment, not delete the event.
+  jerseysTeamPlayerId String?
+  ballsTeamPlayerId   String?
+  jerseysAssignee     TeamPlayer?          @relation("EventJerseysAssignee", fields: [jerseysTeamPlayerId], references: [id], onDelete: SetNull)
+  ballsAssignee       TeamPlayer?          @relation("EventBallsAssignee", fields: [ballsTeamPlayerId], references: [id], onDelete: SetNull)
+  recurrenceId        String?
+  // The FFBB match id for an imported event, null for a manually-created one.
+  // Postgres treats each NULL as distinct, so plain events never collide on
+  // the compound unique below — same convention recurrenceId: null already
+  // uses. isImported is derived from this (externalId !== null) rather than
+  // stored separately.
+  externalId          String?
+  // False when FFBB's fetched kickoff time was its 00:00:00 "not yet
+  // confirmed" placeholder. Defaults true so every manually-created event is
+  // unaffected; only the FFBB import path ever sets it false.
+  timeConfirmed       Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  team                Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rsvps               EventRsvp[]
+  rsvpChanges         EventRsvpChange[]
+  convocations        EventConvocation[]
+  votes               EventVote[]
+  scoresheet          EventScoresheet?
+  playerStats         MatchPlayerStat[]
+  meeting             EventMeeting?
+  jerseyDuty          EventJerseyDuty?
+  jerseyDeclines      EventJerseyDecline[]
+  shares              EventShare[]
+  // null inherits the team's reminder setting / offset.
+  waReminderOverride  Boolean?
+  waOffsetMinutes     Int?
+
+  @@unique([teamId, externalId])
+  @@index([teamId])
+  @@index([recurrenceId])
+}
+
+// How a GOING player gets to a match: with the group from the meeting point,
+// or straight to the gym. Defaults to MEETING_POINT — a player who hasn't
+// chosen counts as coming to the meeting point.
+enum EventTravelMode {
+  MEETING_POINT
+  DIRECT
+}
+
+enum EventRsvpStatus {
+  GOING
+  NOT_GOING
+  MAYBE
+}
+
+// A roster member's self-reported attendance status for one event. Keyed on
+// TeamPlayer (the roster slot), not Player directly, so a status is scoped
+// to the team the event belongs to. No row means "no response yet" —
+// left implicit rather than a fourth enum value, same as recurrenceId: null
+// meaning "not part of a series" elsewhere in this schema.
+model EventRsvp {
+  id                String          @id @default(uuid())
+  eventId           String
+  teamPlayerId      String
+  status            EventRsvpStatus
+  // Only meaningful while status is GOING; reset to the default whenever the
+  // status changes away from GOING.
+  travelMode        EventTravelMode @default(MEETING_POINT)
+  respondedAt       DateTime        @default(now())
+  // Who gave the answer: the player themself or one of their guardians.
+  // Null on rows that predate guardians, and once the respondent's account
+  // is erased — both read as "no author known".
+  respondedByUserId String?
+  respondedBy       User?           @relation("EventRsvpRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+  // How the current answer was given. GUEST_LINK rows have respondedByUserId
+  // null: an anonymous link carries no author, even if the person holds an
+  // account.
+  source            EventRsvpSource @default(APP)
+  event             Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer        TeamPlayer      @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  // No separate @@index([eventId]) — the unique constraint below already
+  // provides a usable btree prefix index for eventId-only lookups.
+  @@unique([eventId, teamPlayerId])
+}
+
+enum EventRsvpSource {
+  APP
+  GUEST_LINK
+}
+
+// One shareable RSVP link per team — see
+// docs/superpowers/specs/2026-09-29-guest-rsvp-link-design.md. No row means
+// the link is off. Regenerating replaces `token`; disabling deletes the row.
+model TeamGuestLink {
+  teamId          String   @id
+  // Stored in clear, unlike PlayerInvite/PasswordResetToken: the whole point
+  // of this link is that a manager re-copies it any time (a pinned WhatsApp
+  // message, a new group). It grants less than any session, and regenerating
+  // is the kill switch. 32 random bytes, base64url.
+  token           String   @unique
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  team            Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy       User?    @relation("TeamGuestLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+}
+
+// Append-only log of every RSVP / travel-mode change, from any source — the
+// history a manager reads to spot someone answering for others through the
+// shared link. Cascades with its event and roster slot, like EventRsvp.
+model EventRsvpChange {
+  id                String           @id @default(uuid())
+  eventId           String
+  teamPlayerId      String
+  // Null when the answer was cleared.
+  status            EventRsvpStatus?
+  travelMode        EventTravelMode?
+  source            EventRsvpSource
+  // Which shared message the answer came through; null for a plain link or the app.
+  via               EventRsvpVia?
+  respondedByUserId String?
+  createdAt         DateTime         @default(now())
+  event             Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer        TeamPlayer       @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+  respondedBy       User?            @relation("EventRsvpChangeRespondedBy", fields: [respondedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, teamPlayerId, createdAt])
+}
+
+// A team manager's call-up of a specific roster member for one event —
+// "convoked" is true iff a row exists, the same "no row = no signal"
+// convention EventRsvp already established. Keyed on TeamPlayer (the roster
+// slot), not Player, for the same reason RSVP is: scoped to the team the
+// event belongs to. Independent of EventRsvp — setting a convocation never
+// reads or writes RSVP state, and vice versa.
+model EventConvocation {
+  id           String     @id @default(uuid())
+  eventId      String
+  teamPlayerId String
+  convokedAt   DateTime   @default(now())
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer   TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  // No separate @@index([eventId]) — same reasoning as EventRsvp above.
+  @@unique([eventId, teamPlayerId])
+}
+
+enum EventVoteCategory {
+  BEST
+  WORST
+}
+
+// A peer vote for "best player" or "joueur en difficulté" ("worst", softer
+// framing) on one MATCH event — one row per (event, category, voter), the
+// unique constraint doubling as the upsert key for "change my vote" (see
+// EventsService.castVote). voterTeamPlayerId exists only to enforce one vote
+// per person per category and to allow upserting on recast — it must never
+// be serialized in any API response: voting stays anonymous even though both
+// categories' aggregated results are public (see the match interface spec's
+// Voting visibility section). Cascades on both event and either TeamPlayer
+// side, same convention as EventRsvp/EventConvocation.
+model EventVote {
+  id                String            @id @default(uuid())
+  eventId           String
+  category          EventVoteCategory
+  voterTeamPlayerId String
+  votedTeamPlayerId String
+  createdAt         DateTime          @default(now())
+  event             Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  voter             TeamPlayer        @relation("EventVoteVoter", fields: [voterTeamPlayerId], references: [id], onDelete: Cascade)
+  votedFor          TeamPlayer        @relation("EventVoteVotedFor", fields: [votedTeamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, category, voterTeamPlayerId])
+  @@index([eventId, category])
+}
+
+// Extended once the AI-parsing module got a real writer (ScoresheetsService/
+// ScoresheetOcrProcessor): QUEUED/PROCESSING track the async BullMQ job,
+// PARSED means the LLM returned internally-consistent data, NEEDS_REVIEW
+// means it returned data but validation flagged an inconsistency (e.g.
+// quarter scores not summing to the total), CONFIRMED means a manager
+// approved the (possibly corrected) data, FAILED means the job exhausted its
+// retries. An upload-transport failure (network error, bad photo) is still
+// client-side-only and never persisted — nothing is written until the
+// direct-to-R2 upload actually succeeds, so "retry" just re-runs the
+// presigned-upload flow.
+enum EventScoresheetStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  PARSED
+  NEEDS_REVIEW
+  CONFIRMED
+  FAILED
+}
+
+// One row per MATCH event's e-Marque scoresheet capture (photo or PDF) —
+// @@unique on eventId means a retry or a better file upserts this same row
+// rather than accumulating history; v1 doesn't need scoresheet-file
+// versioning. Any rostered member can upload (not manager-only), same
+// self-service framing as EventRsvp. storageKey (not r2Key) so the column
+// stays meaningful if the backing object store ever changes.
+model EventScoresheet {
+  id                     String                @id @default(uuid())
+  eventId                String                @unique
+  status                 EventScoresheetStatus @default(UPLOADED)
+  storageKey             String
+  // Attribution, not ownership: the sheet belongs to the event's team, so it
+  // outlives its uploader (a player deleted, or their whole club when it
+  // uploaded on a partner's team).
+  uploadedByTeamPlayerId String?
+  uploadedAt             DateTime              @default(now())
+  event                  Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  uploadedBy             TeamPlayer?           @relation(fields: [uploadedByTeamPlayerId], references: [id], onDelete: SetNull)
+  extraction             ScoresheetExtraction?
+}
+
+// The LLM's read of one EventScoresheet's photo/PDF. Its own table (not
+// columns bolted onto EventScoresheet) because it's optional/derived data
+// with its own lifecycle — retried, overwritten, reviewed — distinct from
+// the upload record itself. rawResponse keeps the full LLM JSON as an audit
+// trail even after parsedData gets manager corrections; parsedData is the
+// structured box score consumed by the review endpoint and, later, the
+// frontend: { homeScore, awayScore, quarterScores: [{home, away}], players:
+// [{number, name?, points?, fouls?}] } — fields are nullable/loose since
+// scoresheet photo legibility varies, and validation checks internal
+// consistency rather than rejecting partial data. @@unique on
+// eventScoresheetId means a re-run of the OCR job upserts this same row.
+model ScoresheetExtraction {
+  id                String          @id @default(uuid())
+  eventScoresheetId String          @unique
+  rawResponse       Json
+  parsedData        Json
+  confidence        Float?
+  attemptCount      Int             @default(1)
+  failureReason     String?
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  eventScoresheet   EventScoresheet @relation(fields: [eventScoresheetId], references: [id], onDelete: Cascade)
+  reviewedBy        User?           @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([reviewedByUserId])
+}
+
+// One roster player's line in one match, resolved from a confirmed
+// ScoresheetExtraction. Its own table rather than a JSON field on the
+// extraction because it is the only place the sheet's jersey numbers have
+// been joined to real TeamPlayer rows — a typed, queryable projection of
+// parsedData, which itself stays the verbatim read and is never rewritten by
+// this flow. Only our own side of the sheet gets rows: the opposing squad
+// isn't in any roster this app manages. Rewritten wholesale (deleteMany +
+// createMany in one transaction) each time the extraction is re-confirmed,
+// so a corrected mapping never leaves stale rows behind.
+//
+// Every stat is nullable on the points-parsing spec's zero-vs-unknown rule:
+// an unread column must not report a squad as having scored nothing. A null
+// contributes to neither side of an average. See
+// docs/superpowers/specs/2026-09-02-team-season-stats-design.md.
+model MatchPlayerStat {
+  id               String     @id @default(uuid())
+  eventId          String
+  teamPlayerId     String
+  // The jersey number this row was read under, kept for traceability back to
+  // the sheet — clubs share jersey sets, so the same player can wear a
+  // different number next match. That instability is exactly why the number
+  // lives here per match rather than as a column on TeamPlayer.
+  jerseyNumber     Int?
+  points           Int?
+  fouls            Int?
+  // points split by play value; these three sum to `points` when all are
+  // known. Stored as counts, not percentages — a percentage of a sum of sums
+  // is not the average of per-match percentages.
+  freeThrowPoints  Int?
+  twoPointPoints   Int?
+  threePointPoints Int?
+  createdAt        DateTime   @default(now())
+  event            Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer       TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, teamPlayerId])
+  @@index([teamPlayerId])
+}
+
+enum ClubRole {
+  ADMIN
+  MEMBER
+}
+
+// userId cascades: erasing an account (retention sweep or back-office) must
+// be able to delete the User row. A RESTRICT here made every erasure of
+// anyone who ever joined a club fail with a foreign-key violation.
+model ClubMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  clubId    String
+  role      ClubRole
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+}
+
+// userId cascades for the same reason as ClubMembership: a session must not
+// block erasing the account it belongs to.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  familyId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+}
+
+// Security-relevant events, retained 12 months (CNIL's standard
+// recommendation for connection/security logs) by the nightly retention
+// sweep. Deliberately narrow — authentication activity only, not a general
+// application audit trail: broadening it to every mutation is a distinct,
+// much larger feature, and would multiply write volume on every request for
+// a compliance rule that only asks about authentication.
+enum AuditEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  REFRESH_TOKEN_REUSE_DETECTED
+  EMAIL_VERIFIED
+  GUARDIAN_INVITE_ACCEPTED
+  // A guardian link grants access to a minor's data, so issuing, cancelling
+  // and removing one are recorded beside its acceptance. `userId` is the
+  // actor; the player is `metadata.playerId`.
+  GUARDIAN_INVITE_CREATED
+  GUARDIAN_INVITE_CANCELLED
+  GUARDIAN_LINK_REMOVED
+  // A team's shared RSVP link opens roster names to anyone with the URL, so
+  // turning it on, replacing it and turning it off are recorded. `userId` is
+  // the actor; the team is `metadata.teamId`.
+  GUEST_LINK_ENABLED
+  GUEST_LINK_REGENERATED
+  GUEST_LINK_DISABLED
+  // Back-office actions (see the companion back-office spec). Their own event
+  // types rather than one generic ADMIN_ACTION, so a CNIL/DPO export can
+  // filter precisely on "who looked at this person's data". On one of these
+  // rows `userId`/`actorEmail` is the *acting admin*; the data subject they
+  // acted on is `metadata.subjectUserId`.
+  ADMIN_LOGIN_SUCCESS
+  ADMIN_LOGIN_FAILURE
+  ADMIN_PII_VIEWED
+  // A DATA_OFFICER's list, roster, event or search page (any role's search):
+  // metadata.view, the filters, and every person shown, by id.
+  ADMIN_PII_LISTED
+  ADMIN_USER_ERASED
+  ADMIN_EXPORT_GENERATED
+  // Every back-office support action (resend a verification e-mail, change a
+  // club role, retry an OCR…): one type, the action in metadata.action, the
+  // mandatory reason in metadata.reason. Written in the same transaction as
+  // the change it records.
+  ADMIN_SUPPORT_ACTION
+  // Read-only impersonation (see ImpersonationSession): a disclosure, like
+  // export, so its own types rather than a support-action kind.
+  ADMIN_IMPERSONATION_STARTED
+  ADMIN_IMPERSONATION_ENDED
+  // A grant, revoke or unlock run from the out-of-band CLI. No account acted
+  // (userId null); the operator is named in actorEmail as `cli:<os user>`,
+  // the grant's owner in metadata.subjectUserId.
+  ADMIN_GRANT_CHANGED
+}
+
+model AuditLog {
+  id         String         @id @default(uuid())
+  type       AuditEventType
+  // Nullable twice over: a LOGIN_FAILURE against an address with no matching
+  // account still has to be logged (repeated failures against unknown
+  // addresses are themselves a security signal) and has no user to attach
+  // to, and onDelete: SetNull keeps the entry when the account it describes
+  // is deleted.
+  userId     String?
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Denormalised, not read through the relation above, precisely so it
+  // survives that SetNull — an entry must still read "someone signed in as
+  // jean@example.com" after that account is gone. A security log outliving
+  // the account it describes is the whole point of keeping one.
+  actorEmail String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+
+  // The sweep deletes by age; the back-office (companion spec) reads one
+  // account's history.
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// The "easiest possible" parental-consent record: a staff attestation
+// captured once, when a club adds a player under 18 — not a parent-signed
+// flow (see the design doc's Scope).
+//
+// Deliberately NOT cascade-deleted with its Player or Club: the reason this
+// table exists is to outlive them. RGPD art. 17.3.b is the explicit carve-out
+// for a legal proof a data-subject erasure request doesn't erase. A missing
+// onDelete clause would give Prisma's default (Restrict) and block player
+// deletion entirely, which is the opposite of what is wanted — the record
+// must survive a deletion, not prevent one.
+enum ParentalConsentSource {
+  STAFF_ATTESTATION
+  GUARDIAN_IN_APP
+  // Recorded by Kluvo staff from the back-office on a club's behalf.
+  PLATFORM_STAFF
+}
+
+model ParentalConsent {
+  id                 String                @id @default(uuid())
+  playerId           String?
+  player             Player?               @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  // SetNull, not Cascade: deleting the club must not destroy the evidence
+  // (RGPD art. 17.3.b). The back-office club deletion snapshots the club's
+  // name into clubName and starts the retention clock first.
+  clubId             String?
+  club               Club?                 @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  // Null while the club exists (read it through the relation); written once,
+  // when the club is deleted, so the record still says which club held it.
+  clubName           String?
+  // Snapshot of the minor's identity at consent time, kept even once
+  // playerId goes null: a proof of consent that no longer says whose consent
+  // it was is worthless as evidence.
+  playerFirstName    String
+  playerLastName     String
+  playerBirthDate    DateTime
+  // Who attested the consent was obtained. Free text, not just a relation:
+  // the attester's own account may itself be deleted later (hence
+  // onDelete: SetNull on attestedByUserId), and this record must still name
+  // who claimed to have obtained it.
+  attestedByName     String
+  attestedByUserId   String?
+  attestedByUser     User?                 @relation(fields: [attestedByUserId], references: [id], onDelete: SetNull)
+  // A staff member ticking a box for a family, or the parent confirming it
+  // themself while accepting a guardian invite. attestedByUserId alone can't
+  // tell the two apart, and the difference matters as evidence.
+  source             ParentalConsentSource @default(STAFF_ATTESTATION)
+  consentGivenAt     DateTime              @default(now())
+  // Null while the player/account this documents is still live — the rule is
+  // "compte/joueur + 5 ans", so the clock only starts once there is a
+  // deletion to count five years from. Set by whichever path removes the
+  // link first: a club removing the player from its roster, or the retention
+  // sweep erasing the linked account. Cleared again if consent is re-recorded
+  // for the same player.
+  retentionExpiresAt DateTime?
+
+  @@index([playerId])
+  @@index([clubId])
+  @@index([retentionExpiresAt])
+}
+
+// Compliance evidence that the policy actually executes (RGPD art. 5.2,
+// accountability) — one row per sweep, dry-run included, holding each step's
+// outcome. Deliberately a table and not a log line: logs rotate and aren't
+// queryable, and "prove your retention policy ran" is a question asked months
+// after the fact. These rows are never swept themselves; a retention record
+// that expires defeats its own purpose, and it is a few hundred rows a year.
+model RetentionRun {
+  id                String   @id @default(uuid())
+  ranAt             DateTime @default(now())
+  dryRun            Boolean  @default(false)
+  // The DATA_OFFICER who asked for a manual dry run from the back-office;
+  // null for the nightly job. A plain id, not a relation: the run is
+  // evidence and must outlive the account.
+  triggeredByUserId String?
+  // One entry per independent step —
+  // { inactiveAccounts: { status, count, error? }, auditLogs: {...},
+  //   parentalConsents: {...}, geocodeCache: {...} } — so a step that threw
+  // stays visible next to the steps that succeeded instead of losing the
+  // whole run.
+  summary           Json
+
+  @@index([ranAt])
+}
+
+// Address → coordinates cache shared by every meeting point and match
+// location, so the same gym is geocoded once, not once per event. Null
+// coordinates cache a "not found" answer (retried after a week); a provider
+// failure is never cached. `query` is the normalised address text.
+model GeocodedAddress {
+  id         String   @id @default(uuid())
+  query      String   @unique
+  latitude   Float?
+  longitude  Float?
+  resolvedAt DateTime @default(now())
+  // Touched on a cache hit (at most daily); the nightly retention sweep drops
+  // rows nobody has looked up for a year, so the cache doesn't grow forever
+  // with every typo and every one-off away gym.
+  lastUsedAt DateTime @default(now())
+
+  @@index([lastUsedAt])
+}
+
+// A MATCH's meeting-point state, one row per event at most — kept off Event
+// so a TRAINING (which has none) needs no clearing and Event doesn't absorb
+// every match-day feature. Cascades with its Event.
+//
+// meetingPointName/Address override the team's, then the owner club's,
+// default (null inherits; both set or both null). travelRouteKey records
+// which origin → location route travelMinutes was computed (or typed) for; a
+// mismatch on read means the minutes are stale. meetingAnnouncedKey is the
+// last meeting place + time players were told about, so a change is
+// notified once. See docs/superpowers/specs/2026-09-27-match-meeting-point-design.md.
+model EventMeeting {
+  eventId             String    @id
+  meetingPointName    String?
+  meetingPointAddress String?
+  travelMinutes       Int?
+  travelMinutesManual Boolean   @default(false)
+  travelRouteKey      String?
+  meetsAtOverride     DateTime?
+  meetingAnnouncedKey String?
+  updatedAt           DateTime  @updatedAt
+  event               Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+enum JerseyDutySource {
+  SUGGESTION
+  SELF
+  MANAGER
+  SWAP
+  BACKFILL
+}
+
+// Who washes the team's jersey set after a MATCH and brings it to the next
+// one. 1-1 with a MATCH, same reasoning as EventMeeting. No row before
+// kickoff means « nobody yet »: suggestions are computed on read, never
+// stored; only an acceptance, a manager write, a swap or the kickoff freeze
+// writes a row. The *ByUserId columns are the caller, never the persona.
+model EventJerseyDuty {
+  eventId            String           @id
+  teamPlayerId       String?
+  source             JerseyDutySource
+  acceptedAt         DateTime?
+  acceptedByUserId   String?
+  doneAt             DateTime?
+  doneByUserId       String?
+  voidedAt           DateTime?
+  voidedByUserId     String?
+  swapToTeamPlayerId String?
+  swapRequestedAt    DateTime?
+  updatedAt          DateTime         @updatedAt
+  event              Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer         TeamPlayer?      @relation("JerseyDutyHolder", fields: [teamPlayerId], references: [id], onDelete: SetNull)
+  swapTo             TeamPlayer?      @relation("JerseyDutySwapTarget", fields: [swapToTeamPlayerId], references: [id], onDelete: SetNull)
+  acceptedBy         User?            @relation("JerseyDutyAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  doneBy             User?            @relation("JerseyDutyDoneBy", fields: [doneByUserId], references: [id], onDelete: SetNull)
+  voidedBy           User?            @relation("JerseyDutyVoidedBy", fields: [voidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([teamPlayerId])
+  @@index([swapToTeamPlayerId])
+}
+
+// A player who said « je ne peux pas » for one match, so the suggestion skips
+// them for that match only. Doesn't affect fairness.
+model EventJerseyDecline {
+  eventId      String
+  teamPlayerId String
+  declinedAt   DateTime   @default(now())
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  teamPlayer   TeamPlayer @relation(fields: [teamPlayerId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, teamPlayerId])
+  @@index([teamPlayerId])
+}
+
+// ---------------------------------------------------------------------------
+// Platform staff / back-office
+// See docs/superpowers/specs/2026-09-06-backoffice-design.md. It reads the
+// AuditLog and RetentionRun defined above by the data-retention policy; the
+// only table it owns is the grant below.
+// ---------------------------------------------------------------------------
+
+enum PlatformRole {
+  // Read-only: the retention sweep's run history and the *redacted* list of
+  // accounts nearing the inactivity cutoff. Cannot open a single record, and
+  // so cannot see PII at all. Day-to-day support staff level.
+  SUPPORT
+  // May open one named data subject's record while handling an RGPD
+  // access/erasure request, may generate their export, and may erase. Every
+  // one of those is its own AuditLog row.
+  DATA_OFFICER
+}
+
+// Platform-wide authority, deliberately its own table rather than a role enum
+// on User — the same shape TeamAdmin already uses for per-team authority. A
+// grant is an auditable row with its own createdAt and grantedByUserId, not a
+// boolean somebody can flip with no trace of who did it or when.
+//
+// Holding a row here is necessary but *not sufficient*: every /admin/* route
+// additionally requires a short-lived step-up token minted from totpSecret,
+// so a stolen ordinary session token belonging to an admin still opens
+// nothing. See PlatformAdminGuard.
+model PlatformAdmin {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role PlatformRole
+
+  // RFC 6238 shared secret, generated out-of-band by
+  // server/src/cli/platform-admin.ts and stored AES-256-GCM encrypted under
+  // PLATFORM_TOTP_ENCRYPTION_KEY (totp-secret-crypto.ts), never in clear: a
+  // database dump must not hand out the second factor. Nullable so a grant can exist in a
+  // half-provisioned state, which is treated exactly like no grant at all:
+  // with no secret there is no way to mint a step-up token, so the grant is
+  // inert rather than dangerous.
+  totpSecret String?
+
+  // Optional per-admin network restriction. Empty = unrestricted, the same
+  // graceful-degradation convention the optional integration credentials use
+  // (BREVO_API_KEY, VAPID_*): a deployment that wants an office-VPN
+  // restriction gets one, a deployment that doesn't isn't blocked on it.
+  allowedCidrs String[] @default([])
+
+  // Set by the 5-failures-in-15-minutes rule in PlatformAdminService and
+  // cleared only by an operator running `platform-admin.ts unlock` — a
+  // lockout that expires on its own is a rate limit an attacker waits out.
+  lockedUntil DateTime?
+
+  // The TOTP time step of the last accepted code. A code stays valid for up
+  // to ±1 step (90 s); refusing any step at or before this one makes each
+  // code single-use, so one read over a shoulder or out of a phishing page
+  // can't be replayed.
+  lastUsedTotpCounter Int?
+
+  grantedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// One read-only impersonation session: a DATA_OFFICER viewing the product as
+// another user. Operational state only (is this token still good?): the
+// record is the ADMIN_IMPERSONATION_STARTED/ENDED audit rows, which outlive
+// it. Checked on every impersonated request, which is what makes the token
+// revocable. Expiry is never written back: `expiresAt < now` is the state.
+// Design record: docs/superpowers/specs/2026-09-28-backoffice-impersonation-design.md.
+model ImpersonationSession {
+  id            String                  @id @default(uuid())
+  actorUserId   String
+  actor         User                    @relation("ImpersonationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  subjectUserId String
+  subject       User                    @relation("ImpersonationSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  reason        String
+  startedAt     DateTime                @default(now())
+  expiresAt     DateTime
+  endedAt       DateTime?
+  endReason     ImpersonationEndReason?
+
+  @@index([actorUserId, endedAt])
+  @@index([expiresAt])
+}
+
+enum ImpersonationEndReason {
+  // The admin clicked « Quitter ».
+  EXITED
+  // The admin started another session: one live session per admin.
+  REPLACED
+}
+
+enum EventRsvpVia {
+  WHATSAPP
+}
+
+// WhatsApp share of an event to the team group — see
+// docs/superpowers/specs/2026-09-29-whatsapp-reminder-design.md.
+enum EventShareType {
+  REMINDER
+  UPDATE
+  CANCELLATION
+}
+
+enum EventShareState {
+  SCHEDULED
+  PENDING
+  SENT
+  EXPIRED
+  VOID
+}
+
+enum EventSharePlatform {
+  SHARE_SHEET
+  WA_ME
+  COPY
+}
+
+model EventShare {
+  id              String              @id @default(uuid())
+  // Null once the event is deleted: a CANCELLATION share must outlive the
+  // event it is about (cancelling an event deletes it), so it reads from
+  // eventSnapshot and `teamId`, like Notification reads from its own copy.
+  eventId         String?
+  teamId          String
+  type            EventShareType
+  state           EventShareState
+  sentByUserId    String?
+  sentAt          DateTime?
+  platform        EventSharePlatform?
+  // contentKey() of the sent message's variables (link excluded).
+  sentContentKey  String?
+  // The variables of the message that was confirmed, for the « what moved » line.
+  sentVars        Json?
+  // WhatsAppTemplateVars minus the link, taken before the delete. CANCELLATION only.
+  eventSnapshot   Json?
+  // CANCELLATION: the deleted event's startsAt, after which it is no longer worth sharing.
+  expiresAt       DateTime?
+  firstNotifiedAt DateTime?
+  nudgedAt        DateTime?
+  // The send time the current SCHEDULED job was queued for.
+  dueAt           DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  event           Event?              @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  team            Team                @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  sentBy          User?               @relation("EventShareSentBy", fields: [sentByUserId], references: [id], onDelete: SetNull)
+
+  // Postgres treats NULLs as distinct, so many CANCELLATION rows may have a null eventId.
+  @@unique([eventId, type])
+  @@index([teamId, state])
+}
