@@ -40,6 +40,7 @@ describe('useConfirmEventScoresheetExtraction', () => {
             reviewedByUserId: 'user-1',
             reviewedAt: '2026-01-01T21:00:00.000Z',
             suggestedRosterMapping: [],
+            issues: [],
           });
         },
       ),
@@ -71,6 +72,7 @@ describe('useConfirmEventScoresheetExtraction', () => {
       reviewedByUserId: 'user-1',
       reviewedAt: '2026-01-01T21:00:00.000Z',
       suggestedRosterMapping: [],
+      issues: [],
     });
   });
 
@@ -89,6 +91,7 @@ describe('useConfirmEventScoresheetExtraction', () => {
             reviewedByUserId: 'user-1',
             reviewedAt: '2026-01-01T21:00:00.000Z',
             suggestedRosterMapping: [],
+            issues: [],
           });
         },
       ),

@@ -251,10 +251,14 @@ describe('ScoresheetOcrProcessor', () => {
       });
     });
 
-    it('does not sum-check a team whose running-score column was only partially read', async () => {
+    it('marks the scoresheet NEEDS_REVIEW when a basket\u2019s scorer was not read', async () => {
+      // The basket still counts toward the team, but some player's total is
+      // short of it, so a person has to say whose it was.
       vision.extractScoresheet.mockResolvedValue({
         parsedData: {
           ...consistentData,
+          homeScore: 4,
+          quarterScores: [],
           scoringPlays: [
             { team: 'home', jerseyNumber: 7, points: 2, runningScore: 2 },
             { team: 'home', jerseyNumber: null, points: null, runningScore: 4 },
@@ -267,7 +271,7 @@ describe('ScoresheetOcrProcessor', () => {
 
       expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
         where: { id: 'sheet-1' },
-        data: { status: 'PARSED' },
+        data: { status: 'NEEDS_REVIEW' },
       });
     });
 

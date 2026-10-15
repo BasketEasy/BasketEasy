@@ -65,6 +65,10 @@ class ScoresheetScoringPlayDto {
   @IsOptional()
   @IsNumber()
   runningScore!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  notationPoints?: number | null;
 }
 
 class ParsedScoresheetDataDto implements ParsedScoresheetData {

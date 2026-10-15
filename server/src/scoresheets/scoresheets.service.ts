@@ -21,6 +21,7 @@ import type { EventScoresheet } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
 import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
+import { validateScoresheet } from './scoresheet-postprocess';
 
 // BullMQ retries a failed job this many times (exponential backoff, set at
 // enqueue time) before the processor gives up and marks the scoresheet
@@ -438,8 +439,8 @@ export class ScoresheetsService {
     // the stats it implies, or none of them. Half-confirming would leave a
     // CONFIRMED sheet whose stats are the previous mapping's.
     const extraction = await this.prisma.$transaction(async (tx) => {
-      // Deliberately doesn't re-run ScoresheetOcrProcessor's isConsistent
-      // check on `corrections` — a manager confirming/editing the data is the
+      // Deliberately doesn't re-run validateScoresheet as a gate on
+      // `corrections` — a manager confirming/editing the data is the
       // human review step NEEDS_REVIEW exists to route to, so their corrected
       // values are trusted as ground truth rather than re-validated against
       // the same heuristic that flagged the original read.
@@ -532,6 +533,7 @@ export class ScoresheetsService {
       reviewedByUserId: extraction?.reviewedByUserId ?? null,
       reviewedAt: extraction?.reviewedAt?.toISOString() ?? null,
       suggestedRosterMapping,
+      issues: parsedData ? validateScoresheet(parsedData) : [],
     };
   }
 

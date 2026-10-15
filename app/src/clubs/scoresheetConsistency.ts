@@ -7,7 +7,7 @@ export interface QuarterMismatch {
 }
 
 /**
- * Mirrors the backend's isConsistent heuristic (scoresheet-ocr.processor.ts)
+ * Mirrors the backend's quarter-sum check (validateScoresheet, scoresheet-postprocess.ts)
  * client-side: flags a side whose quarter scores are all populated but don't
  * sum to the recorded total. A side with any null quarter is a missing-field
  * case (see findMissingQuarterFields below), not a mismatch — the backend

@@ -34,10 +34,58 @@ export interface ScoresheetScoringPlay {
   team: ScoresheetTeamSide;
   /** The jersey number written next to the box, not the box's own number. */
   jerseyNumber: number | null;
-  /** 1 (free throw), 2 or 3, per the marker's notation. */
+  /**
+   * 1 (free throw), 2 or 3. When the side's running scores were all read,
+   * this is the gap from the previous marked total (the box numbers are
+   * pre-printed, so they are the reliable part of the column); otherwise
+   * it is the marker's notation as read.
+   */
   points: number | null;
   /** The pre-printed cumulative total the marked box carries. */
   runningScore: number | null;
+  /**
+   * The notation as read (circled 3, plain 2, dotted 1), kept only when it
+   * disagrees with `points`, so the disagreement can be shown for review.
+   */
+  notationPoints?: number | null;
+}
+
+/**
+ * Why a read needs a person's eye. `error` flips the sheet to NEEDS_REVIEW;
+ * `warning` is shown but doesn't: the case it covers happens on correct
+ * sheets too (see docs/decisions/scoresheets-and-stats.md).
+ */
+export type ScoresheetIssueCode =
+  /** The side's quarters don't add up to its final score. */
+  | 'QUARTERS_DONT_SUM'
+  /** The side's last marked total isn't its final score. */
+  | 'FINAL_SCORE_NOT_REACHED'
+  /** Running totals unread, and the plays' notation doesn't add up to the final score. */
+  | 'PLAYS_DONT_SUM'
+  /** A marked total is not above the previous one. */
+  | 'RUNNING_SCORE_NOT_INCREASING'
+  /** A basket worth more than 3 (a missed line) or a notation outside 1–3. */
+  | 'IMPOSSIBLE_PLAY'
+  /** A quarter's closing total is never marked: a line around it was missed. */
+  | 'PERIOD_END_NOT_MARKED'
+  /** A basket whose scorer's number wasn't read. */
+  | 'UNREAD_SCORER'
+  /** A scorer's number nobody on that side's roster wears. */
+  | 'SCORER_NOT_ON_ROSTER'
+  /** The notation says another value than the gap between totals. */
+  | 'NOTATION_DISAGREES'
+  /** More fouls than the sheet's five cells hold. */
+  | 'TOO_MANY_FOULS';
+
+export interface ScoresheetValidationIssue {
+  code: ScoresheetIssueCode;
+  severity: 'error' | 'warning';
+  side: ScoresheetTeamSide;
+  /** The marked total the issue is about, when it is about one basket. */
+  runningScore: number | null;
+  jerseyNumber: number | null;
+  /** 1-based, when it is about one period. */
+  period: number | null;
 }
 
 /**
@@ -90,6 +138,11 @@ export interface ScoresheetExtraction {
    * order. Empty when there is no parsed data yet.
    */
   suggestedRosterMapping: SuggestedRosterMappingEntry[];
+  /**
+   * What the validator found in `parsedData`, recomputed on every read so a
+   * validator change applies to sheets already stored. Empty without data.
+   */
+  issues: ScoresheetValidationIssue[];
 }
 
 /**

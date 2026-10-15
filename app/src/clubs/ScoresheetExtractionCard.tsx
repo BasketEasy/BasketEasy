@@ -6,6 +6,7 @@ import { Card } from '@basketeasy/ui/card';
 import { cn } from '@basketeasy/ui/cn';
 import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 import { Input } from '@basketeasy/ui/input';
+import { List, ListItem } from '@basketeasy/ui/list';
 import { Check } from '@basketeasy/ui/icons/check';
 import { WarningIcon } from '@basketeasy/ui/icons/warning';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
@@ -23,9 +24,11 @@ import { toast } from '@basketeasy/ui/toast-store';
 import type {
   ParsedScoresheetData,
   ScoresheetExtraction,
+  ScoresheetValidationIssue,
 } from '@basketeasy/types/scoresheet-extraction';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { describeScoresheetIssue, type ScoresheetSideLabels } from './scoresheetIssueCopy';
 import { formatEventDate } from './eventDateFormat';
 import {
   findMissingPlayerFields,
@@ -80,6 +83,54 @@ function RowHeader({ children }: { children: ReactNode }) {
 
 function matchupLabel(event: TeamEvent): string {
   return event.opponentName ? `vs ${event.opponentName}` : 'Match';
+}
+
+function sideLabels(event: TeamEvent): ScoresheetSideLabels {
+  return event.venue === 'AWAY'
+    ? { home: event.opponentName ?? 'Extérieur', away: 'Mon équipe' }
+    : { home: 'Mon équipe', away: event.opponentName ?? 'Extérieur' };
+}
+
+/**
+ * What the server's validator found in the read, one sentence each, so a
+ * manager knows which lines of the paper sheet to check. The running-score
+ * column itself isn't on this card, so this is the only place a flagged
+ * basket is named. Errors first: they are why the sheet is « à vérifier ».
+ */
+function ScoresheetIssueList({
+  issues,
+  labels,
+}: {
+  issues: ScoresheetValidationIssue[];
+  labels: ScoresheetSideLabels;
+}) {
+  const sorted = [...issues].sort(
+    (a, b) => Number(a.severity === 'warning') - Number(b.severity === 'warning'),
+  );
+  return (
+    <Card variant="inset" className="flex flex-col gap-2">
+      <SectionHeading as="h3">À contrôler sur la feuille</SectionHeading>
+      <List variant="panel">
+        {sorted.map((issue, index) => (
+          <ListItem
+            key={index}
+            align="start"
+            leading={
+              <WarningIcon
+                size="md"
+                tone={issue.severity === 'error' ? 'accent' : 'secondary'}
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+              />
+            }
+            meta={issue.severity === 'warning' ? 'Souvent sans conséquence' : undefined}
+          >
+            {describeScoresheetIssue(issue, labels)}
+          </ListItem>
+        ))}
+      </List>
+    </Card>
+  );
 }
 
 function formatConfidence(confidence: number | null): string | null {
@@ -165,8 +216,7 @@ function BoxScore({
   canManage: boolean;
   onChange: (side: 'home' | 'away', value: number | null) => void;
 }) {
-  const homeLabel = event.venue === 'AWAY' ? (event.opponentName ?? 'Extérieur') : 'Mon équipe';
-  const awayLabel = event.venue === 'AWAY' ? 'Mon équipe' : (event.opponentName ?? 'Extérieur');
+  const { home: homeLabel, away: awayLabel } = sideLabels(event);
   return (
     <Card
       variant="inset"
@@ -309,8 +359,7 @@ function QuarterScoreTable({
   canManage: boolean;
   onChange: (quarterIndex: number, side: 'home' | 'away', value: number | null) => void;
 }) {
-  const homeLabel = event.venue === 'AWAY' ? (event.opponentName ?? 'Extérieur') : 'Mon équipe';
-  const awayLabel = event.venue === 'AWAY' ? 'Mon équipe' : (event.opponentName ?? 'Extérieur');
+  const { home: homeLabel, away: awayLabel } = sideLabels(event);
   const flaggedSides = new Set(mismatches.map((m) => m.side));
 
   if (data.quarterScores.length === 0) {
@@ -692,6 +741,10 @@ export function ScoresheetExtractionCard({
           </Card>
         )}
       </div>
+
+      {!isReadOnly && canManage && extraction.issues.length > 0 && (
+        <ScoresheetIssueList issues={extraction.issues} labels={sideLabels(event)} />
+      )}
 
       <BoxScore
         data={corrections}
