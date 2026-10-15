@@ -1,0 +1,569 @@
+{
+  "id": "emarque-03",
+  "inputs": ["emarque-03.pdf"],
+  "provenance": "FFBB e-Marque V2 PDF export. Labelled by a deterministic read of the PDF's vector glyphs and mark images, then cross-checked (quarters vs final, period-end markers, plays vs final, scorers on roster): all checks passed. Names and licence numbers removed; name is null and not graded.",
+  "expected": {
+    "homeScore": 77,
+    "awayScore": 63,
+    "quarterScores": [
+      {
+        "home": 16,
+        "away": 18
+      },
+      {
+        "home": 21,
+        "away": 12
+      },
+      {
+        "home": 18,
+        "away": 25
+      },
+      {
+        "home": 22,
+        "away": 8
+      }
+    ],
+    "players": [
+      {
+        "team": "home",
+        "number": 4,
+        "name": null,
+        "points": 24,
+        "fouls": 1
+      },
+      {
+        "team": "home",
+        "number": 5,
+        "name": null,
+        "points": 2,
+        "fouls": 3
+      },
+      {
+        "team": "home",
+        "number": 7,
+        "name": null,
+        "points": 0,
+        "fouls": 2
+      },
+      {
+        "team": "home",
+        "number": 8,
+        "name": null,
+        "points": 0,
+        "fouls": 2
+      },
+      {
+        "team": "home",
+        "number": 9,
+        "name": null,
+        "points": 22,
+        "fouls": 2
+      },
+      {
+        "team": "home",
+        "number": 11,
+        "name": null,
+        "points": 23,
+        "fouls": 3
+      },
+      {
+        "team": "home",
+        "number": 13,
+        "name": null,
+        "points": 6,
+        "fouls": 4
+      },
+      {
+        "team": "away",
+        "number": 4,
+        "name": null,
+        "points": 2,
+        "fouls": 1
+      },
+      {
+        "team": "away",
+        "number": 5,
+        "name": null,
+        "points": 4,
+        "fouls": 2
+      },
+      {
+        "team": "away",
+        "number": 7,
+        "name": null,
+        "points": 22,
+        "fouls": 3
+      },
+      {
+        "team": "away",
+        "number": 8,
+        "name": null,
+        "points": 5,
+        "fouls": 1
+      },
+      {
+        "team": "away",
+        "number": 10,
+        "name": null,
+        "points": 2,
+        "fouls": 1
+      },
+      {
+        "team": "away",
+        "number": 11,
+        "name": null,
+        "points": 7,
+        "fouls": 3
+      },
+      {
+        "team": "away",
+        "number": 12,
+        "name": null,
+        "points": 6,
+        "fouls": 1
+      },
+      {
+        "team": "away",
+        "number": 13,
+        "name": null,
+        "points": 9,
+        "fouls": 0
+      },
+      {
+        "team": "away",
+        "number": 14,
+        "name": null,
+        "points": 6,
+        "fouls": 2
+      }
+    ],
+    "scoringPlays": [
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 2
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 3
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 5
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 7
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 9
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 3,
+        "runningScore": 12
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 14
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 16
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 19
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 1,
+        "runningScore": 20
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 1,
+        "runningScore": 21
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 23
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 25
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 27
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 30
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 32
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 33
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 34
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 3,
+        "runningScore": 37
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 2,
+        "runningScore": 39
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 41
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 43
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 45
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 46
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 47
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 50
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 53
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 55
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 57
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 60
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 62
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 64
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 66
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 5,
+        "points": 2,
+        "runningScore": 68
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 70
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 9,
+        "points": 3,
+        "runningScore": 73
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 75
+      },
+      {
+        "team": "home",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 77
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 2
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 4
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 12,
+        "points": 2,
+        "runningScore": 6
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 12,
+        "points": 1,
+        "runningScore": 7
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 2,
+        "runningScore": 9
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 4,
+        "points": 2,
+        "runningScore": 11
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 5,
+        "points": 2,
+        "runningScore": 13
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 8,
+        "points": 3,
+        "runningScore": 16
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 18
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 10,
+        "points": 2,
+        "runningScore": 20
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 14,
+        "points": 2,
+        "runningScore": 22
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 12,
+        "points": 1,
+        "runningScore": 23
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 12,
+        "points": 1,
+        "runningScore": 24
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 1,
+        "runningScore": 25
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 11,
+        "points": 1,
+        "runningScore": 26
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 2,
+        "runningScore": 28
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 30
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 3,
+        "runningScore": 33
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 3,
+        "runningScore": 36
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 38
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 13,
+        "points": 1,
+        "runningScore": 39
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 2,
+        "runningScore": 41
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 3,
+        "runningScore": 44
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 3,
+        "runningScore": 47
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 5,
+        "points": 1,
+        "runningScore": 48
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 12,
+        "points": 1,
+        "runningScore": 49
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 14,
+        "points": 2,
+        "runningScore": 51
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 11,
+        "points": 2,
+        "runningScore": 53
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 13,
+        "points": 2,
+        "runningScore": 55
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 7,
+        "points": 3,
+        "runningScore": 58
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 8,
+        "points": 2,
+        "runningScore": 60
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 5,
+        "points": 1,
+        "runningScore": 61
+      },
+      {
+        "team": "away",
+        "jerseyNumber": 14,
+        "points": 2,
+        "runningScore": 63
+      }
+    ]
+  }
+}

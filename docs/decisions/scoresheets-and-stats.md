@@ -68,6 +68,33 @@ re-confirm; sheets confirmed before the mapping existed have no rows until re-co
   so a coach sees why a match is missing. The tab is hidden for a team that has never played.
 - One match's lines (`GET .../stats/matches/:eventId`) load only when « Après la rencontre » opens.
 
+## Measuring the read
+
+Prompt, model and validator changes are judged against **golden sheets**, not by eye.
+
+- A golden (`server/test/scoresheet-eval/golden/*.json`) is a sheet's correct `ParsedScoresheetData`
+  plus the input files it grades. Several renditions of one match (the e-Marque PDF, a phone photo of
+  its printout) share one truth, which is how photos get graded.
+- The first four come from FFBB e-Marque V2 PDF exports read **deterministically**: in these PDFs
+  text is drawn as vector outlines and running-score marks are embedded images, so a fingerprint
+  dictionary of glyph shapes and mark images reads them exactly, with no model. Each read passed
+  every cross-check (quarters vs final, period-end markers vs cumulative quarters, plays vs final,
+  scorers on the roster). That reader is a prototype outside the repo; it labels goldens, it does
+  not run in production.
+- **Goldens are pseudonymised**: names are `null` (and not graded), licence numbers are absent (the
+  product doesn't store them), ids are neutral. Source files are never committed: they carry third
+  parties' names and licence numbers. They live in a private local folder passed to the harness.
+- `pnpm --filter @basketeasy/server eval:scoresheets -- --inputs <dir>` runs the production read
+  (`GeminiClient` + `postProcessScoresheet`, so what is graded is what a club would see) and
+  reports per-category accuracy (`score`, `playFound`/`Jersey`/`Points`, `playerFound`/`Points`/
+  `Fouls`, `playerName`), invented lines, and **silent errors**: wrong reads the validator still
+  marked `PARSED`. That last number matters most: a flagged sheet costs a manager a minute, a
+  silent one puts wrong stats in a season table.
+- Plays are matched on `(side, runningScore)` because the pre-printed box number can't shift: a
+  missed line costs one line, not every line after it.
+- `golden.spec.ts` runs in CI without any provider: every golden must pass the production validator
+  and re-derive its player points from the running score alone.
+
 ## Storage: Cloudflare R2
 
 - Chosen over S3/Scaleway for **zero egress** (a sheet is re-read on every retry and by OCR), same
@@ -93,5 +120,12 @@ re-confirm; sheets confirmed before the mapping existed have no rows until re-co
 
 ## Open
 
-- The vision provider (`GeminiClient` behind `SCORESHEET_VISION_CLIENT`) was never put through the
-  accuracy bake-off `docs/backend-stack.md` asks for.
+- The vision provider (`GeminiClient` behind `SCORESHEET_VISION_CLIENT`) has a harness for the
+  accuracy bake-off `docs/backend-stack.md` asks for (« Measuring the read ») but no baseline run
+  yet: it needs `GEMINI_API_KEY` and the private source files.
+- The validator does not yet use what the goldens show it could: the running-score gap as the
+  points of a play (the notation then only cross-checks), scorers present on the roster,
+  period-end marks matching the quarter scores. A misread jersey number nobody wears is `PARSED`
+  today.
+- Whether to run the deterministic reader in production for e-Marque PDFs (exact, but tied to the
+  e-Marque renderer's fonts and images) waits on the Gemini baseline.
