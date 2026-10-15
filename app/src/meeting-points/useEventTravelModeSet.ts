@@ -3,14 +3,14 @@ import type { TeamEvent } from '@basketeasy/types/events';
 import type { EventTravelMode } from '@basketeasy/types/meeting-points';
 import { apiClient } from '../api/client';
 import {
-  eventRsvpsQueryKey,
-  myDashboardQueryKeyPrefix,
-  teamEventQueryKey,
-  teamEventsQueryKey,
-} from '../clubs/queryKeys';
+  invalidateDashboard,
+  invalidateEventLists,
+  invalidateEventParts,
+  storeTeamEvent,
+} from '../clubs/eventCache';
 import { actingAsQuery, useTeamActingAs } from '../guardians/useActingAs';
 
-/** Same invalidation set as useEventRsvpSet — the choice rides on the RSVP row. */
+/** The choice rides on the RSVP row: it moves the lists, the RSVP roster and the dashboard, not the roster summary. */
 export function useEventTravelModeSet(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
   const forPlayerId = useTeamActingAs(teamId);
@@ -24,10 +24,10 @@ export function useEventTravelModeSet(clubId: string, teamId: string) {
     onSuccess: (event, { eventId }) => {
       // The event the server answered with is the persona's, so it goes back
       // under the persona's key.
-      queryClient.setQueryData(teamEventQueryKey(clubId, teamId, eventId, forPlayerId), event);
-      queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });
-      queryClient.invalidateQueries({ queryKey: eventRsvpsQueryKey(clubId, teamId, eventId) });
-      queryClient.invalidateQueries({ queryKey: myDashboardQueryKeyPrefix });
+      storeTeamEvent(queryClient, { clubId, teamId }, forPlayerId, event);
+      invalidateEventLists(queryClient, { clubId, teamId });
+      invalidateEventParts(queryClient, { clubId, teamId, eventId }, ['rsvps']);
+      invalidateDashboard(queryClient);
     },
   });
 }

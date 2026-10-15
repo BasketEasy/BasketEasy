@@ -2,7 +2,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { subscribeToSessionExpiry } from '../api/client';
 import { AccountContext } from './useAccount';
-import { sessionQueryKey, useSession } from './session';
+import { replaceSession, useDropUserQueriesOnSessionEnd, useSession } from './session';
 
 // Named AccountContext (not AuthContext): it holds the current account's
 // identity/loading state for the app to read, not the auth *actions*
@@ -13,13 +13,15 @@ import { sessionQueryKey, useSession } from './session';
 export function AccountProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { data: user, isLoading, isError, refetch } = useSession();
+  useDropUserQueriesOnSessionEnd(user ?? null);
 
   useEffect(() => {
     // Any other API call's 401-after-refresh-failure (handled centrally in
     // api/client.ts) means the session is gone — reflect that in the query
-    // cache so every useAccount() consumer sees the logged-out state.
+    // cache so every useAccount() consumer sees the logged-out state, and
+    // drop the data of the user who just lost it.
     return subscribeToSessionExpiry(() => {
-      queryClient.setQueryData(sessionQueryKey, null);
+      replaceSession(queryClient, null);
     });
   }, [queryClient]);
 

@@ -15,6 +15,7 @@ import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import type { MyDashboardSummary } from '@basketeasy/types/my-dashboard';
 import type { MyTeamSummary } from '@basketeasy/types/my-teams';
+import { FRESHNESS } from '../api/freshness';
 import { useAdminClubs } from './useAdminClubs';
 import { useMyTeamList } from './useMyTeamList';
 import { teamCategoryLabel, teamMemberRoleLabel } from './teamLabels';
@@ -110,11 +111,9 @@ export function ManagerHome({
   );
   const isRostered = (teamId: string) => rosterRoleByTeamId.get(teamId) != null;
 
-  // Computed once per mount, not inline — see PlayerHome's identical comment:
-  // pastMatchesWindowParams() stamps from/to with new Date(), so recomputing
-  // it every render would shift the query key and refetch forever.
+  // Computed once per mount, not inline — see PlayerHome's identical comment.
   const pastWindow = useMemo(() => pastMatchesWindowParams(), []);
-  const pastMatchesQuery = useMyAgenda(pastWindow);
+  const pastMatchesQuery = useMyAgenda(pastWindow, { freshness: FRESHNESS.slow });
   const pastMatches = (pastMatchesQuery.data?.upcomingEvents ?? []).filter(
     (event) => event.type === 'MATCH',
   );

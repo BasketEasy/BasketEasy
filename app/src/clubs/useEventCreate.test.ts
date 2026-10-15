@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { useEventCreate } from './useEventCreate';
+import { createSeededCache, TEAM_EVENT_LABELS } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -57,5 +58,20 @@ describe('useEventCreate', () => {
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,
     ).toBe(true);
+  });
+
+  it('refreshes every event of the team, the rotation and the dashboard, and nothing else', async () => {
+    server.use(http.post('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json([])));
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useEventCreate('club-1', 'team-1'), { wrapper });
+
+    result.current.mutate({
+      type: 'TRAINING',
+      startsAt: '2026-01-05T18:00:00.000Z',
+      location: 'A',
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual([...TEAM_EVENT_LABELS, 'jersey rotation', 'dashboard'].sort());
   });
 });

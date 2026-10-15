@@ -45,7 +45,11 @@ function useOptimisticOverview(clubId: string, teamId: string) {
   };
 }
 
-/** The manager's « Exempté » switch on one row. */
+/**
+ * The manager's « Exempté » switch on one row. `useTeamPlayerUpdate` refreshes
+ * the rotation and the team's events once the write is accepted, so a refusal
+ * (already undone here) and a success each cost one set of requests, not two.
+ */
 export function useJerseyExemption(clubId: string, teamId: string, teamGender: Gender) {
   const overview = useOptimisticOverview(clubId, teamId);
   const update = useTeamPlayerUpdate(clubId, teamId);
@@ -69,8 +73,6 @@ export function useJerseyExemption(clubId: string, teamId: string, teamGender: G
         undo();
         toast({ variant: 'destructive', description: getClubErrorMessage(err) });
         return false;
-      } finally {
-        overview.refresh();
       }
     },
   };

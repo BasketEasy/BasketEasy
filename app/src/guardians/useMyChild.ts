@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MyChildProfile, UpdateMyChildRequest } from '@basketeasy/types/guardians';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { myChildQueryKey, personasQueryKey } from './queryKeys';
 
 export function useMyChild(playerId: string) {
   return useQuery({
     queryKey: myChildQueryKey(playerId),
-    queryFn: () => apiClient.get<MyChildProfile>(`/me/children/${playerId}`),
+    // Co-guardians and the club's admins edit the same profile.
+    staleTime: FRESHNESS.slow,
+    queryFn: ({ signal }) =>
+      apiClient.get<MyChildProfile>(`/me/children/${playerId}`, undefined, { signal }),
   });
 }
 

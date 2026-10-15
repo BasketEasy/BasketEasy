@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
@@ -189,6 +189,93 @@ describe('AppBottomNav', () => {
     // The pip itself is decorative — the number reaches a screen reader
     // through the name above, not through the graphic.
     expect(screen.getByText('2')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  describe('agenda request', () => {
+    // Records every `GET /me/dashboard` the bar makes, with its window.
+    function recordAgendaRequests() {
+      const requests: URLSearchParams[] = [];
+      server.use(
+        http.get('/api/me/dashboard', ({ request }) => {
+          requests.push(new URL(request.url).searchParams);
+          return HttpResponse.json({ totalPlayers: 0, upcomingEvents: [] });
+        }),
+      );
+      return requests;
+    }
+
+    it("asks for the player home's 14-day window, not the server's 7-day default, so the badge counts what the home lists", async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await screen.findByRole('link', { name: 'Profil' });
+      await waitFor(() => expect(requests).toHaveLength(1));
+      const from = new Date(requests[0].get('from')!).getTime();
+      const to = new Date(requests[0].get('to')!).getTime();
+      // 14 days, plus at most the quarter hour `to` is rounded up by.
+      expect(to - from).toBeGreaterThanOrEqual(14 * 24 * 60 * 60 * 1000);
+      expect(to - from).toBeLessThanOrEqual(14 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000);
+      // Snapped to a quarter hour: the home's own request lands on the same key.
+      expect(from % (15 * 60 * 1000)).toBe(0);
+    });
+
+    it('moves its window on the next navigation once the quarter hour has passed, as the home that mounts with it does', async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-10T15:01:00.000Z'));
+
+      try {
+        renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+        await waitFor(() => expect(requests).toHaveLength(1));
+        expect(requests[0].get('from')).toBe('2026-10-10T15:00:00.000Z');
+
+        vi.setSystemTime(new Date('2026-10-10T15:17:00.000Z'));
+        fireEvent.click(await screen.findByRole('link', { name: 'Profil' }));
+
+        await waitFor(() => expect(requests).toHaveLength(2));
+        expect(requests[1].get('from')).toBe('2026-10-10T15:15:00.000Z');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('makes no request above the desktop breakpoint, where it renders nothing', async () => {
+      setViewportWidth(1280);
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeams([team()]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('navigation', { name: 'Navigation principale' }),
+        ).not.toBeInTheDocument(),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests).toHaveLength(0);
+    });
+
+    it('makes no request for a manager, whose first tab carries no count', async () => {
+      setViewportWidth(390);
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockAdminClubs([{ id: 'club-1', name: 'COC Basket' }]);
+      mockTeams([team({ isTeamAdmin: true, rosterRole: null })]);
+      const requests = recordAgendaRequests();
+
+      renderWithProviders(<AppBottomNav />, { route: '/dashboard' });
+
+      await screen.findByRole('link', { name: 'Accueil' });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(requests).toHaveLength(0);
+    });
   });
 
   it('marks the item for the page being read, including a page nested under it', async () => {

@@ -9,6 +9,7 @@ import { useAccountUpdate } from '../account/useAccountUpdate';
 import { getAccountErrorMessage } from '../account/accountErrorMessages';
 import { useNotifications } from './useNotifications';
 import { usePushSubscription } from './usePushSubscription';
+import { BELL_PARAMS } from './queryKeys';
 
 /**
  * The body of the account page's « Notifications » fold (the accordion item
@@ -28,7 +29,9 @@ import { usePushSubscription } from './usePushSubscription';
 export function NotificationPreferencesCard() {
   const { user } = useAccount();
   const { mutate: updateAccount, isPending } = useAccountUpdate();
-  const { data } = useNotifications({ limit: 1 });
+  // The bell's own entry: only `unreadCount` is read here, and a `{ limit: 1 }`
+  // key would be a second 60 s poller for a number the bell already has.
+  const { data } = useNotifications(BELL_PARAMS);
   const push = usePushSubscription();
 
   const unreadCount = data?.unreadCount ?? 0;

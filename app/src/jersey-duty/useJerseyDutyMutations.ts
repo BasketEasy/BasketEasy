@@ -4,10 +4,12 @@ import type { JerseyDutyDetail, ProposeJerseySwapRequest } from '@basketeasy/typ
 import { ApiError, apiClient } from '../api/client';
 import { getClubErrorMessage } from '../clubs/clubErrorMessages';
 import {
-  jerseyDutyQueryKey,
-  jerseyRotationQueryKeyPrefix,
-  teamEventsQueryKeyPrefix,
-} from '../clubs/queryKeys';
+  invalidateEventDetails,
+  invalidateEventLists,
+  invalidateJerseyRotation,
+  invalidateOtherPersonas,
+} from '../clubs/eventCache';
+import { jerseyDutyQueryKey } from '../clubs/queryKeys';
 import { actingAsQuery, useTeamActingAs } from '../guardians/useActingAs';
 import { dutyPersonName } from './jerseyDutyCopy';
 
@@ -27,9 +29,10 @@ interface DutyAction<TVariables> {
 /**
  * Every jersey duty write answers with the whole `JerseyDutyDetail`, so each
  * one writes it straight into the duty's cache and invalidates what shows the
- * same fact elsewhere: the team's events (the agenda chip and
- * `TeamEvent.jerseyDuty`) and the rotation overview. The outcome is a toast,
- * not an inline message: the control that triggered it has usually gone.
+ * same fact elsewhere: the event lists (the agenda chip), the event's own
+ * detail (`TeamEvent.jerseyDuty`) and the rotation overview, but not the duty
+ * it has just written. The outcome is a toast, not an inline message: the
+ * control that triggered it has usually gone.
  */
 function useDutyAction<TVariables = void>(
   clubId: string,
@@ -47,10 +50,10 @@ function useDutyAction<TVariables = void>(
       action.request(base, action.actsForPersona ? actingAsQuery(actingFor) : '', variables),
     onSuccess: (detail, variables) => {
       queryClient.setQueryData(dutyKey, detail);
-      void queryClient.invalidateQueries({ queryKey: teamEventsQueryKeyPrefix(clubId, teamId) });
-      void queryClient.invalidateQueries({
-        queryKey: jerseyRotationQueryKeyPrefix(clubId, teamId),
-      });
+      invalidateOtherPersonas(queryClient, { clubId, teamId, eventId }, 'jersey-duty', actingFor);
+      invalidateEventLists(queryClient, { clubId, teamId });
+      invalidateEventDetails(queryClient, { clubId, teamId, eventId });
+      invalidateJerseyRotation(queryClient, { clubId, teamId });
       toast({ variant: 'success', description: action.success(detail, variables) });
     },
     onError: (err) => {

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
@@ -26,7 +25,6 @@ import type { MyTeamSummary } from '@basketeasy/types/my-teams';
 import { useAdminClubs } from '../clubs/useAdminClubs';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
-import { myTeamsQueryKey } from '../clubs/queryKeys';
 import { TeamCreateForm } from '../clubs/TeamCreateForm';
 import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
@@ -111,7 +109,6 @@ function TeamSection({ title, teams }: { title: string; teams: MyTeamSummary[] }
 export function MyTeamsPage() {
   const { data: teams, isLoading, isError, refetch, isRefetching } = useMyTeamList();
   const adminClubs = useAdminClubs();
-  const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | undefined>(undefined);
 
@@ -164,7 +161,6 @@ export function MyTeamsPage() {
                     key={clubId}
                     clubId={clubId}
                     onSuccess={() => {
-                      void queryClient.invalidateQueries({ queryKey: myTeamsQueryKey });
                       setIsCreateOpen(false);
                       setSelectedClubId(undefined);
                     }}

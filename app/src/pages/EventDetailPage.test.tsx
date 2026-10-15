@@ -614,7 +614,8 @@ describe('EventDetailPage — player accordion', () => {
 
   it('puts the answered count in the « Qui vient ? » trigger', async () => {
     setup(390);
-    expect(await trigger(/qui vient/i)).toHaveAccessibleName(/1 présents sur 2/);
+    const t = await trigger(/qui vient/i);
+    await waitFor(() => expect(t).toHaveAccessibleName(/1 présents sur 2/));
   });
 
   it('shows the first line of the notes as the summary', async () => {

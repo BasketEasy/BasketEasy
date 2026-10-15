@@ -7,7 +7,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
 import { apiClient, setAccessToken } from '../api/client';
-import { sessionQueryKey } from './session';
+import { replaceSession } from './session';
 
 export interface AuthCredentials {
   email: string;
@@ -22,7 +22,7 @@ export function useLogin() {
       apiClient.post<AccessTokenResponse>('/auth/login', credentials),
     onSuccess: (response) => {
       setAccessToken(response.accessToken);
-      queryClient.setQueryData(sessionQueryKey, response.user);
+      replaceSession(queryClient, response.user);
     },
   });
 }
@@ -35,7 +35,7 @@ export function useRegister() {
       apiClient.post<AccessTokenResponse>('/auth/register', credentials),
     onSuccess: (response) => {
       setAccessToken(response.accessToken);
-      queryClient.setQueryData(sessionQueryKey, response.user);
+      replaceSession(queryClient, response.user);
     },
   });
 }
@@ -51,7 +51,7 @@ export function useLogout() {
     // onSuccess.
     onSettled: () => {
       setAccessToken(null);
-      queryClient.setQueryData(sessionQueryKey, null);
+      replaceSession(queryClient, null);
     },
   });
 }

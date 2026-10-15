@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { useEventTimeUpdate } from './useEventTimeUpdate';
+import { createSeededCache, TEAM_EVENT_LABELS } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -59,5 +60,18 @@ describe('useEventTimeUpdate', () => {
       queryClient.getQueryState(['clubs', 'club-1', 'teams', 'team-1', 'events', {}])
         ?.isInvalidated,
     ).toBe(true);
+  });
+
+  it('refreshes every event of the team, the rotation and the dashboard, but not the season table', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/time', () => HttpResponse.json([])),
+    );
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => useEventTimeUpdate('club-1', 'team-1'), { wrapper });
+
+    result.current.mutate({ eventId: 'event-1', dto: { scope: 'ALL', hour: 20, minute: 0 } });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual([...TEAM_EVENT_LABELS, 'jersey rotation', 'dashboard'].sort());
   });
 });

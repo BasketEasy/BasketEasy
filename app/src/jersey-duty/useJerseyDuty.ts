@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { JerseyDutyDetail, JerseyRotationOverview } from '@basketeasy/types/jersey-duty';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { jerseyDutyQueryKey, jerseyRotationQueryKey } from '../clubs/queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -14,10 +15,12 @@ export function useJerseyDuty(clubId: string, teamId: string, eventId: string) {
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: jerseyDutyQueryKey(clubId, teamId, eventId, forPlayerId),
-    queryFn: () =>
+    staleTime: FRESHNESS.live,
+    queryFn: ({ signal }) =>
       apiClient.get<JerseyDutyDetail>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/jersey-duty`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: isReady,
   });
@@ -32,10 +35,13 @@ export function useJerseyRotation(clubId: string, teamId: string, enabled = true
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: jerseyRotationQueryKey(clubId, teamId, forPlayerId),
-    queryFn: () =>
+    // Built from the roster's RSVPs and call-ups, which teammates change all day.
+    staleTime: FRESHNESS.live,
+    queryFn: ({ signal }) =>
       apiClient.get<JerseyRotationOverview>(
         `/clubs/${clubId}/teams/${teamId}/jersey-rotation`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: enabled && isReady,
   });

@@ -16,6 +16,7 @@ import { useIsTeamManager } from '../clubs/useIsTeamManager';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamShow } from '../clubs/useTeamShow';
 import { useActingAs, useTeamActingAs } from '../guardians/useActingAs';
+import { useRefreshPersonasOnEntry } from '../guardians/usePersonas';
 
 /**
  * Shared detail page for both event types (MATCH and TRAINING) and both
@@ -83,6 +84,7 @@ export function EventDetailPage() {
     isError: isTeamError,
     refetch: refetchTeam,
   } = useTeamShow(clubId!, teamId!);
+  useRefreshPersonasOnEntry();
   const { data: myTeams } = useMyTeamList();
   const isRostered = myTeams?.some((t) => t.teamId === teamId && t.rosterRole !== null) ?? false;
   const isTeamManager = useIsTeamManager(clubId!, teamId!);

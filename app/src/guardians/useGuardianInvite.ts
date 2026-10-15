@@ -7,13 +7,16 @@ import type {
   GuardianInvitePreview,
 } from '@basketeasy/types/guardians';
 import { apiClient, setAccessToken } from '../api/client';
-import { sessionQueryKey } from '../auth/session';
+import { FRESHNESS } from '../api/freshness';
+import { replaceSession } from '../auth/session';
 import { guardianInvitePreviewQueryKey, personasQueryKey } from './queryKeys';
 
 export function useGuardianInvitePreview(token: string) {
   return useQuery({
     queryKey: guardianInvitePreviewQueryKey(token),
-    queryFn: () => apiClient.get<GuardianInvitePreview>(`/guardian-invites/${token}`),
+    staleTime: FRESHNESS.static,
+    queryFn: ({ signal }) =>
+      apiClient.get<GuardianInvitePreview>(`/guardian-invites/${token}`, undefined, { signal }),
     // A 404/409 here is a fact about the link, not a transient failure.
     retry: false,
   });
@@ -28,7 +31,7 @@ export function useAcceptGuardianInvite(token: string) {
       apiClient.post<AccessTokenResponse>(`/guardian-invites/${token}/accept`, dto),
     onSuccess: (response) => {
       setAccessToken(response.accessToken);
-      queryClient.setQueryData(sessionQueryKey, response.user);
+      replaceSession(queryClient, response.user);
     },
   });
 }

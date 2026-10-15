@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { EventConvocationRosterEntry } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { eventConvocationsQueryKey } from './queryKeys';
 import { useTeamPersona } from '../guardians/useActingAs';
 
@@ -18,10 +19,12 @@ export function useEventConvocations(
   const { forPlayerId, isReady } = useTeamPersona(teamId);
   const query = useQuery({
     queryKey: eventConvocationsQueryKey(clubId, teamId, eventId, forPlayerId),
-    queryFn: () =>
+    staleTime: FRESHNESS.live,
+    queryFn: ({ signal }) =>
       apiClient.get<EventConvocationRosterEntry[]>(
         `/clubs/${clubId}/teams/${teamId}/events/${eventId}/convocations`,
         forPlayerId ? { forPlayerId } : undefined,
+        { signal },
       ),
     enabled: enabled && isReady,
   });

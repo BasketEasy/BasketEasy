@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { TeamGuestLinkInfo } from '@basketeasy/types/guest-links';
 import { apiClient } from '../api/client';
-
-const guestLinkQueryKey = (clubId: string, teamId: string) =>
-  ['clubs', clubId, 'teams', teamId, 'guest-link'] as const;
+import { FRESHNESS } from '../api/freshness';
+import { guestLinkQueryKey } from '../clubs/queryKeys';
 
 const path = (clubId: string, teamId: string) => `/clubs/${clubId}/teams/${teamId}/guest-link`;
 
 export function useTeamGuestLink(clubId: string, teamId: string) {
   return useQuery({
     queryKey: guestLinkQueryKey(clubId, teamId),
-    queryFn: () => apiClient.get<TeamGuestLinkInfo>(path(clubId, teamId)),
+    staleTime: FRESHNESS.slow,
+    queryFn: ({ signal }) =>
+      apiClient.get<TeamGuestLinkInfo>(path(clubId, teamId), undefined, { signal }),
   });
 }
 

@@ -19,6 +19,29 @@ reasoning behind them.
   **original** 401 (the caller asked for that resource) and notifies the session-expiry listeners.
   Logout clears local state even when the network call fails: the user's intent is local.
 
+## The client cache resets when the user changes
+
+- **A cache that outlives a user switch shows the previous person's data to the next.** Product
+  query keys are written for « me » (`['me', 'teams']`, `['me', 'dashboard', {}]`,
+  `['me', 'personas']`, the notifications feed), so they are identical for every account on the same
+  tab. With a non-zero `staleTime` that cached copy renders as fresh, and it can hold a minor's name.
+- **One function, `replaceSession(queryClient, user | null)`**, is the only way the logged-in user
+  changes: login, register, logout, session expiry and accepting a player or guardian invite (which
+  logs the visitor in as the new account, even if someone else was logged in). Every query whose key
+  does not start with `auth` is removed, not invalidated: an invalidated entry still renders its old
+  data while it refetches. When a user takes over, the removal is immediate (the protected tree is
+  not mounted on the login and invite pages). When the session ends, `replaceSession` only sets it
+  to null and `AccountProvider` removes the entries in an effect, once `ProtectedRoute` has unmounted
+  the tree: removing the entries of still-mounted queries makes the next re-render of any of them
+  (the logout button's own mutation state re-renders its siblings) rebuild the entry and refetch it
+  as nobody. Accepting a guardian invite as an existing account keeps the user, so it keeps the
+  cache and only invalidates the personas.
+- Impersonation keeps `queryClient.clear()`: it must also drop the session entry, which then
+  refetches as the subject.
+- **Retry policy lives in the client factory.** A 4xx is a refusal of the request, not a transient
+  failure, so it is never retried (it used to cost four requests, repeated on every mount); a 5xx or
+  a network error is retried at most twice. A hook that sets `retry` itself keeps its value.
+
 ## Account security
 
 - E-mail verification and password reset are **two token tables**, not one with a `purpose`

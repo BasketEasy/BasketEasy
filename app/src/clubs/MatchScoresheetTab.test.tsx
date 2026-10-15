@@ -8,6 +8,7 @@ import type {
   ParsedScoresheetData,
   ScoresheetExtraction,
 } from '@basketeasy/types/scoresheet-extraction';
+import { FRESHNESS } from '../api/freshness';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { MatchScoresheetTab } from './MatchScoresheetTab';
@@ -474,6 +475,10 @@ describe('MatchScoresheetTab', () => {
         players: [{ ...parsedData.players[0], name: 'Karim B.' }, parsedData.players[1]],
       },
     });
+    // An unconfirmed read is `live` (30 s): a focus refetches it once that has
+    // passed, so move the clock past it rather than waiting.
+    const realNow = Date.now.bind(Date);
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + FRESHNESS.live + 1000);
     act(() => {
       focusManager.setFocused(false);
       focusManager.setFocused(true);
@@ -481,6 +486,7 @@ describe('MatchScoresheetTab', () => {
 
     expect(await screen.findByDisplayValue('Karim B.')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Corrigé à la main')).not.toBeInTheDocument();
+    clock.mockRestore();
     focusManager.setFocused(undefined);
   });
 

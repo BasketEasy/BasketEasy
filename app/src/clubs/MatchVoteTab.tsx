@@ -366,7 +366,7 @@ export function MatchVoteTab({
     isLoading: isLoadingResults,
     isError: isResultsError,
     refetch: refetchResults,
-  } = useEventVoteResults(clubId, teamId, event.id, hasOpened);
+  } = useEventVoteResults(clubId, teamId, event.id, event.startsAt, hasOpened);
   const { mutateAsync: castVote, isPending } = useEventVoteCast(clubId, teamId);
 
   useEffect(() => {

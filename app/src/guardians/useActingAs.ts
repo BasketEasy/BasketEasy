@@ -4,7 +4,6 @@
 // react-refresh reason.
 import { createContext, useContext } from 'react';
 import type { ChildPersona, MyPersonas } from '@basketeasy/types/guardians';
-import { usePersonas } from './usePersonas';
 
 export interface ActingAsContextValue {
   /** The child being acted for, or null for « Moi ». */
@@ -63,10 +62,6 @@ export function useTeamPersona(teamId: string): {
   isReady: boolean;
 } {
   const { forPlayerId, persona, isReady } = useActingAs();
-  // Mounting a team screen refetches a stale persona list: the child may
-  // have joined this team since it loaded, and a list that doesn't know it
-  // would have a parent who also plays here answer as themself.
-  usePersonas();
   if (!forPlayerId || !persona?.teams.some((team) => team.teamId === teamId)) {
     return { forPlayerId: undefined, isReady };
   }

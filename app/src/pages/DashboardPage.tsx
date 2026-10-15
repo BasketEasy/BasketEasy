@@ -1,12 +1,11 @@
-import { useMemo } from 'react';
 import { PageContainer } from '@basketeasy/ui/page-container';
 import { PageHeader } from '@basketeasy/ui/page-header';
 import { useAccount } from '../auth/useAccount';
 import { ManagerHome } from '../clubs/ManagerHome';
 import { PlayerHome } from '../clubs/PlayerHome';
 import { useHasManageRights } from '../clubs/useHasManageRights';
+import { useHomeAgendaParams } from '../clubs/useHomeAgendaParams';
 import { useMyAgenda } from '../clubs/useMyAgenda';
-import { playerAgendaWindowParams } from '../clubs/myAgendaWindow';
 import { useActingAs } from '../guardians/useActingAs';
 
 /**
@@ -35,13 +34,8 @@ export function DashboardPage() {
   const { user } = useAccount();
   const { hasManageRights } = useHasManageRights();
   const { persona } = useActingAs();
-  // Computed once (not inline on every render): `playerAgendaWindowParams()`
-  // stamps `from` with `new Date()`, so recomputing it on each render would
-  // shift the query key by a few milliseconds every time and refetch forever.
-  const agendaParams = useMemo(
-    () => (hasManageRights ? undefined : playerAgendaWindowParams()),
-    [hasManageRights],
-  );
+  // Shared with the bottom nav's badge, so both read one cache entry.
+  const agendaParams = useHomeAgendaParams();
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
