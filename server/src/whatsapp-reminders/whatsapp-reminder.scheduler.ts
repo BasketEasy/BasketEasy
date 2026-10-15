@@ -403,16 +403,13 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
   async send(shareId: string): Promise<void> {
     const share = await this.loadShareForJob(shareId);
     if (!share || share.state !== EventShareState.SCHEDULED) return;
-    // `dueAt` is the truth, the job a hint: a job queued for a time the share
-    // has since moved off (a data migration realigning a series after a DST
-    // change) fires early and does nothing; the sweep sends it once overdue.
-    if (share.dueAt && share.dueAt.getTime() > Date.now()) return;
     const { event } = share;
     // Only a REMINDER is ever SCHEDULED, and it always has its event.
     if (!event || event.startsAt <= new Date()) return;
     if (!resolveSettings(event, event.team).enabled) return;
     // The job is a hint, `dueAt` the truth: a delay left stale by a non-atomic
-    // re-queue must not prompt a manager early. Put it back where it belongs.
+    // re-queue, or a share a data migration moved after a DST change, must not
+    // prompt a manager early. Put it back where it belongs.
     if (share.dueAt && share.dueAt.getTime() - Date.now() > SEND_EARLY_SLACK_MS) {
       await this.queueSend(shareId, share.dueAt);
       return;
@@ -539,7 +536,6 @@ export class WhatsAppReminderScheduler implements OnModuleInit {
         nudgedAt: true,
         dueAt: true,
         expiresAt: true,
-        dueAt: true,
         event: {
           select: {
             id: true,
