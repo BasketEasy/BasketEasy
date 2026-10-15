@@ -40,6 +40,7 @@ describe('PublicOnlyRoute', () => {
         HttpResponse.json({
           id: 'user-1',
           email: 'a@b.com',
+          emailVerified: true,
           firstName: null,
           lastName: null,
           avatarUrl: null,
@@ -61,6 +62,7 @@ describe('PublicOnlyRoute', () => {
         HttpResponse.json({
           id: 'user-1',
           email: 'a@b.com',
+          emailVerified: true,
           firstName: 'Jean',
           lastName: 'Dupont',
           avatarUrl: null,

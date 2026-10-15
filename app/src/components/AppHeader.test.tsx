@@ -11,7 +11,7 @@ function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]
   server.use(
     http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
     http.get('/api/auth/me', () =>
-      HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships }),
+      HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships }),
     ),
   );
 }
@@ -46,7 +46,7 @@ function mockMembersEndpoint(clubId: string, memberEmail: string) {
 
 // jsdom's default innerWidth (1024) already lands above the desktop
 // breakpoint, so most tests exercise the inline-nav path for free; only the
-// burger-menu test below needs to override it. AppHeader only reads
+// narrow-screen tests below need to override it. AppHeader only reads
 // innerWidth at mount (its resize listener isn't under test here), so
 // setting the property is enough — no need to dispatch a resize event.
 function setViewportWidth(width: number) {
@@ -64,18 +64,35 @@ describe('AppHeader', () => {
 
   it('is not shown on public pages', () => {
     renderWithProviders(<App />, { route: '/' });
-    expect(screen.queryByLabelText(/menu/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /aller au contenu/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mon compte/i })).not.toBeInTheDocument();
   });
 
-  it('shows navigation links inline on a desktop-width screen, and Tableau de bord navigates there', async () => {
+  it('shows navigation links inline on a desktop-width screen, and Mes équipes navigates there', async () => {
     mockSession();
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
-    expect(screen.queryByLabelText(/menu/i)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: /créer un club/i }));
+    await user.click(screen.getByRole('link', { name: 'Mes équipes' }));
+    expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
+  });
+
+  it('no longer carries Créer un club in the primary nav — it lives in the account menu', async () => {
+    mockSession();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/dashboard' });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /mon compte/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /créer un club/i }));
     expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
   });
 
@@ -90,7 +107,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     const chip = await screen.findByRole('button', { name: /coc basket/i });
     expect(screen.queryByRole('menuitem')).not.toBeInTheDocument();
@@ -110,7 +129,7 @@ describe('AppHeader', () => {
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
 
     // Still on the dashboard — the chip never navigates.
-    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Réglages du club' })).not.toBeInTheDocument();
   });
 
   it('closes the switcher panel on Escape without navigating', async () => {
@@ -124,13 +143,15 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await user.click(await screen.findByRole('button', { name: /coc basket/i }));
     expect(await screen.findByRole('menuitem', { name: /coc basket/i })).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Réglages du club' })).not.toBeInTheDocument();
   });
 
   it('lists each admin club in the switcher panel with a checkmark on the active one, and clicking a row only switches the active club (no navigation, panel closes)', async () => {
@@ -152,7 +173,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     // Defaults to the first admin club.
     const chip = await screen.findByRole('button', { name: /coc basket/i });
@@ -167,7 +190,7 @@ describe('AppHeader', () => {
 
     // Panel closes and doesn't navigate — still on the dashboard.
     await waitFor(() => expect(screen.queryByRole('menuitem')).not.toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: /^effectif/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Réglages du club' })).not.toBeInTheDocument();
 
     // Checkmark moved: the chip now shows the newly active club.
     expect(await screen.findByRole('button', { name: /es nantes/i })).toBeInTheDocument();
@@ -185,10 +208,15 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-    await user.click(screen.getByRole('link', { name: /^effectif$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
+    // The link's target club comes from the resolved active club (GET
+    // /clubs, gated on the session), so wait for it rather than the account
+    // button alone before clicking.
+    await user.click(await screen.findByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Réglages du club' })).toBeInTheDocument();
     expect(await screen.findByText('member-club1@x.com')).toBeInTheDocument();
   });
 
@@ -211,19 +239,21 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
 
     await user.click(await screen.findByRole('button', { name: /coc basket/i }));
     await user.click(screen.getByRole('menuitem', { name: /es nantes/i }));
 
     await user.click(await screen.findByRole('link', { name: /^effectif$/i }));
 
-    expect(await screen.findByRole('heading', { name: /^effectif/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Réglages du club' })).toBeInTheDocument();
     expect(await screen.findByText('member-club2@x.com')).toBeInTheDocument();
     expect(screen.queryByText('member-club1@x.com')).not.toBeInTheDocument();
   });
 
-  it('does not list a club, or show the switcher or Effectif, when the user is only a MEMBER there — Créer un club still shows', async () => {
+  it('does not list a club, or show the switcher or Effectif, when the user is only a MEMBER there', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs', () =>
@@ -233,10 +263,11 @@ describe('AppHeader', () => {
 
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     expect(screen.queryByText('COC Basket')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /effectif/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
   });
 
   it('shows a Mes équipes link to a plain MEMBER (who has no Effectif entry) and it navigates to their teams', async () => {
@@ -261,7 +292,9 @@ describe('AppHeader', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await user.click(screen.getByRole('link', { name: /mes équipes/i }));
 
     expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
@@ -286,71 +319,28 @@ describe('AppHeader', () => {
 
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument(),
+    );
     await screen.findByRole('button', { name: /coc basket/i });
 
     expect(screen.getAllByRole('link', { name: /^effectif$/i })).toHaveLength(1);
   });
 
-  it('falls back to a burger menu on a narrow (mobile-width) screen', async () => {
+  it('renders nothing on a narrow screen — AppBottomNav is the only navigation there', async () => {
     setViewportWidth(375);
     mockSession();
-    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/dashboard' });
 
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText(/menu/i));
-
-    await user.click(screen.getByRole('link', { name: /créer un club/i }));
-    expect(await screen.findByRole('heading', { name: /créer un club/i })).toBeInTheDocument();
-  });
-
-  it('offers the account menu inside the mobile panel', async () => {
-    setViewportWidth(375);
-    mockSession();
-    const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
-
-    expect(screen.getByRole('button', { name: /mon compte/i })).toBeInTheDocument();
-  });
-
-  it('closes the mobile menu when the backdrop behind it is clicked', async () => {
-    setViewportWidth(375);
-    mockSession();
-    const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
-
-    await user.click(screen.getByTestId('mobile-menu-backdrop'));
-
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId('mobile-menu-backdrop')).not.toBeInTheDocument();
-  });
-
-  it('closes the mobile menu when Escape is pressed', async () => {
-    setViewportWidth(375);
-    mockSession();
-    const user = userEvent.setup();
-    renderWithProviders(<App />, { route: '/dashboard' });
-
-    await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument());
-
-    await user.click(screen.getByLabelText(/menu/i));
-    expect(screen.getByRole('link', { name: /créer un club/i })).toBeInTheDocument();
-
-    await user.keyboard('{Escape}');
-
-    expect(screen.queryByRole('link', { name: /créer un club/i })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('navigation', { name: 'Navigation principale' }),
+    ).toBeInTheDocument();
+    // No header at all: no account menu trigger, no brand link, no skip
+    // link — the club switcher, "Créer un club" and logout all moved to
+    // /account, reachable from the bottom bar's Profil tab.
+    expect(screen.queryByRole('button', { name: /mon compte/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tableau de bord' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /aller au contenu/i })).not.toBeInTheDocument();
   });
 
   it('renders navigation as links, not buttons', () => {

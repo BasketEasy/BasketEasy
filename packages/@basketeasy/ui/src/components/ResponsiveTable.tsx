@@ -1,0 +1,125 @@
+import { type ReactNode, createContext, useContext } from 'react';
+import { cn } from '../lib/cn';
+import { useIsDesktopViewport } from '../lib/useIsDesktopViewport';
+import { List } from './List';
+import { Text } from './Text';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from './Table';
+
+/**
+ * A table that becomes a stack of cards below the desktop breakpoint.
+ *
+ * The app had six of these built by hand, each as a *pair* of components — a
+ * `…Row` rendering `TableCell`s and a `…Card` rendering a `Card` — and each
+ * pair duplicated 75-90% of its file: the same mutation hook, the same error
+ * branching, the same toast copy, the same button labels. `TeamAdminRow` and
+ * `TeamAdminCard` were identical down to a mirrored code comment.
+ *
+ * The duplication was never in the *markup*, which genuinely differs between
+ * a table row and a card. It was in everything around it. So the fix is not a
+ * generic cell renderer that would flatten both layouts into one: it is to
+ * let a record component be written once, keep its behaviour once, and choose
+ * its own markup from `useTableLayout()`.
+ *
+ *   <ResponsiveTable columns={['E-mail', '']}>
+ *     {admins.map((a) => <TeamAdminRow key={a.userId} admin={a} … />)}
+ *   </ResponsiveTable>
+ *
+ * and inside that component:
+ *
+ *   return useTableLayout() === 'row'
+ *     ? <TableRow>…</TableRow>
+ *     : <Card variant="inset">…</Card>;
+ */
+export type TableLayout = 'row' | 'card';
+
+const TableLayoutContext = createContext<TableLayout>('row');
+
+/** The layout the nearest ResponsiveTable is currently rendering. */
+export function useTableLayout(): TableLayout {
+  return useContext(TableLayoutContext);
+}
+
+export interface ResponsiveTableProps {
+  /**
+   * Desktop header labels, in column order. Pass an empty string for a column
+   * that holds actions and needs no heading — the header cell is still
+   * rendered, so the column count stays right.
+   */
+  columns: ReadonlyArray<ReactNode>;
+  /** One record component per row. Each reads `useTableLayout()`. */
+  children: ReactNode;
+  /** Gap between cards in the mobile stack. */
+  className?: string;
+  /**
+   * Render the mobile layout as a `List` instead of a stack of cards, for a
+   * record whose card layout is a `ListItem` link row. Put the table inside a
+   * `Card variant="flush"`; `className` is not applied.
+   */
+  list?: boolean;
+  /**
+   * With `list`, an eyebrow row above the rows: `true` reuses `columns`, an
+   * array gives the mobile list its own labels when the desktop table has
+   * more columns than the list has places. The first label takes the free
+   * width, the others hug the right edge. Ignored without `list`.
+   */
+  listHeader?: boolean | ReadonlyArray<ReactNode>;
+}
+
+export function ResponsiveTable({
+  columns,
+  children,
+  className,
+  list = false,
+  listHeader = false,
+}: ResponsiveTableProps) {
+  const isDesktop = useIsDesktopViewport();
+
+  if (!isDesktop) {
+    return (
+      <TableLayoutContext.Provider value="card">
+        {list ? (
+          <>
+            {listHeader !== false && (
+              <div
+                role="presentation"
+                className="flex items-center gap-3 border-b border-border px-3.5 py-2.5"
+              >
+                {(listHeader === true ? columns : listHeader).map((label, index) => (
+                  <Text
+                    key={index}
+                    as="span"
+                    variant="eyebrow"
+                    className={index === 0 ? 'flex-1' : ''}
+                  >
+                    {label}
+                  </Text>
+                ))}
+              </div>
+            )}
+            <List>{children}</List>
+          </>
+        ) : (
+          <div className={cn('flex flex-col gap-3', className)}>{children}</div>
+        )}
+      </TableLayoutContext.Provider>
+    );
+  }
+
+  return (
+    <TableLayoutContext.Provider value="row">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {/* Header labels are static per call site, so the index is a
+                stable key here; the alternative would be forcing every caller
+                to invent ids for the empty action columns. */}
+            {columns.map((label, index) => (
+              <TableHead key={index}>{label}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>{children}</TableBody>
+      </Table>
+    </TableLayoutContext.Provider>
+  );
+}

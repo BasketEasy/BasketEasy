@@ -14,16 +14,36 @@ const trainingEvent: TeamEvent = {
   type: 'TRAINING',
   startsAt: '2026-01-05T18:00:00.000Z',
   location: 'Gymnase A',
+  locationName: null,
   notes: null,
   opponentName: null,
   venue: null,
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: false,
+  rsvpSummary: {
+    rosterSize: 0,
+    convoked: 0,
+    answering: 0,
+    going: 0,
+    maybe: 0,
+    notGoing: 0,
+    pending: 0,
+    isConvocationScoped: false,
+  },
   logistics: { jerseys: null, balls: null },
+  result: null,
+  myMatchStats: null,
+  meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
+  myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const recurringEvent: TeamEvent = {
@@ -42,6 +62,39 @@ function renderModal(event: TeamEvent) {
 }
 
 describe('EventDeleteModal', () => {
+  const shared = (state: 'SENT' | 'PENDING' | null): TeamEvent => ({
+    ...trainingEvent,
+    whatsAppShare: state
+      ? { type: 'REMINDER', state, dueAt: null, sentAt: null, sentBy: null, platform: null }
+      : null,
+  });
+
+  it('warns, in one line and no extra step, when the WhatsApp group was told about the event', async () => {
+    const user = userEvent.setup();
+    renderModal(shared('SENT'));
+
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+
+    expect(
+      await screen.findByText(/Le groupe WhatsApp a été prévenu de cet événement/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/partager l'annulation juste après/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmer la suppression/i })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['a share that was never sent', 'PENDING' as const],
+    ['no share at all', null],
+  ])('says nothing about WhatsApp for %s', async (_label, state) => {
+    const user = userEvent.setup();
+    renderModal(shared(state));
+
+    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    await screen.findByRole('heading', { name: /supprimer l.événement/i });
+
+    expect(screen.queryByText(/groupe WhatsApp/)).not.toBeInTheDocument();
+  });
+
   it('confirms deletion of a non-recurring event with no scope selector', async () => {
     let requestedUrl: string | undefined;
     server.use(

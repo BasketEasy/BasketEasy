@@ -32,9 +32,25 @@ describe('Tabs', () => {
       </Tabs>,
     );
     expect(screen.getByRole('tab', { name: 'Effectif' })).toHaveClass(
-      'focus-visible:ring-2',
-      'focus-visible:ring-orange',
-      'focus-visible:ring-offset-surface',
+      'focus-visible:outline-2',
+      'focus-visible:outline-orange',
+      'focus-visible:outline-offset-2',
     );
+  });
+
+  it('renders a count badge next to the label when given one', () => {
+    render(
+      <Tabs defaultValue="roster">
+        <TabsList>
+          <TabsTrigger value="roster" badge={18}>
+            Effectif
+          </TabsTrigger>
+          <TabsTrigger value="calendar">Calendrier</TabsTrigger>
+        </TabsList>
+        <TabsContent value="roster">Liste des joueurs</TabsContent>
+      </Tabs>,
+    );
+    expect(screen.getByText('18')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Calendrier' }).textContent).toBe('Calendrier');
   });
 });

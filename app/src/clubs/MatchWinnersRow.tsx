@@ -4,6 +4,7 @@ import { hasVoteWindowClosed } from './voteWindow';
 import { useEventVoteResults } from './useEventVoteResults';
 import { countTiedAtTop } from './voteTies';
 import { WorstIcon } from './voteIcons';
+import { Text } from '@basketeasy/ui/text';
 
 /**
  * "🏆 Player A - 67%          100% - Player B 🛡️" — a space-between row of
@@ -31,7 +32,7 @@ export function MatchWinnersRow({
   event: TeamEvent;
 }) {
   const eligible = event.type === 'MATCH' && hasVoteWindowClosed(event.startsAt);
-  const { data: results } = useEventVoteResults(clubId, teamId, event.id, eligible);
+  const { data: results } = useEventVoteResults(clubId, teamId, event.id, event.startsAt, eligible);
 
   if (!eligible || !results || results.best.length === 0) {
     return null;
@@ -53,19 +54,23 @@ export function MatchWinnersRow({
     // there's room for the mockup's actual space-between single row.
     <div className="flex flex-col gap-1.5 border-t border-border pt-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="flex min-w-0 items-center gap-1.5">
-        <TrophyIcon className="h-4 w-4 shrink-0 text-gold" />
-        <span className="truncate font-bold text-charcoal">
+        <TrophyIcon size="md" tone="accent" className="shrink-0" />
+        <Text as="span" variant="label" className="truncate">
           {winnerLabel(bestWinner, bestTiedCount)}
-        </span>
-        <span className="tabular shrink-0 font-bold text-gold-text">- {bestPct}%</span>
+        </Text>
+        <Text as="span" variant="label" tone="accent" className="tabular shrink-0">
+          - {bestPct}%
+        </Text>
       </span>
       {worstWinner && (
         <span className="flex min-w-0 items-center gap-1.5 sm:justify-end">
-          <span className="tabular shrink-0 font-bold text-blue-green-2">{worstPct}% -</span>
-          <span className="truncate font-bold text-charcoal">
+          <Text as="span" variant="label" tone="structure" className="tabular shrink-0">
+            {worstPct}% -
+          </Text>
+          <Text as="span" variant="label" className="truncate">
             {winnerLabel(worstWinner, worstTiedCount)}
-          </span>
-          <WorstIcon size={15} className="shrink-0 text-blue-green-2" />
+          </Text>
+          <WorstIcon size="md" tone="structure" className="shrink-0" />
         </span>
       )}
     </div>

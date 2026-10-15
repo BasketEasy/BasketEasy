@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
@@ -6,7 +6,9 @@ import { cn } from '@basketeasy/ui/cn';
 import { Check } from '@basketeasy/ui/icons/check';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { RadioCardGroup } from '@basketeasy/ui/radio-card-group';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
+import { Text } from '@basketeasy/ui/text';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
 import { UsersIcon } from '@basketeasy/ui/icons/users';
 import { toast } from '@basketeasy/ui/toast-store';
@@ -39,63 +41,44 @@ interface VoteCandidate {
   lastName: string;
 }
 
-function BallotRow({
+/**
+ * One candidate's card inside a ballot. Rendering only — the roles, the
+ * roving tabindex and the arrow-key model belong to RadioCardGroup.
+ */
+function BallotCandidate({
   candidate,
   selected,
   category,
-  onSelect,
 }: {
   candidate: VoteCandidate;
   selected: boolean;
   category: EventVoteCategory;
-  onSelect: (teamPlayerId: string) => void;
 }) {
-  const initials = getInitials(candidate.firstName, candidate.lastName);
-  const name = `${candidate.firstName} ${candidate.lastName}`;
-
+  const onBrandFill = selected && category === 'BEST';
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={() => onSelect(candidate.teamPlayerId)}
-      className={cn(
-        'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors',
-        selected
-          ? category === 'BEST'
-            ? 'bg-orange shadow-segment-active'
-            : 'border-2 border-blue-green-2 bg-sunk'
-          : 'border border-border bg-surface hover:bg-surface-2',
-      )}
-    >
-      <span
-        className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-          selected && category === 'BEST'
-            ? 'bg-surface-2 text-orange-text'
-            : 'bg-blue-green text-cream',
-        )}
+    <>
+      <Avatar size="sm" className="shrink-0">
+        <AvatarFallback tone={onBrandFill ? 'inverse' : 'structure'}>
+          {getInitials(candidate.firstName, candidate.lastName)}
+        </AvatarFallback>
+      </Avatar>
+      <Text
+        as="span"
+        variant="label"
+        size="sm"
+        tone={onBrandFill ? 'inverse' : 'primary'}
+        className={selected ? 'font-bold' : undefined}
       >
-        {initials}
-      </span>
-      <span
-        className={cn(
-          'text-sm',
-          selected ? 'font-bold' : 'font-semibold',
-          selected && category === 'BEST' ? 'text-cream' : 'text-charcoal',
-        )}
-      >
-        {name}
-      </span>
+        {candidate.firstName} {candidate.lastName}
+      </Text>
       {selected && (
         <Check
-          className={cn(
-            'ml-auto h-3.5 w-3.5 shrink-0',
-            category === 'BEST' ? 'text-cream' : 'text-blue-green-2',
-          )}
+          size="sm"
+          tone={category === 'BEST' ? 'inverse' : 'structure'}
+          className="ml-auto shrink-0"
         />
       )}
-    </button>
+    </>
   );
 }
 
@@ -114,21 +97,29 @@ function BallotSection({
   category: EventVoteCategory;
   onSelect: (teamPlayerId: string) => void;
 }) {
+  const titleId = useId();
   return (
-    <div className="flex flex-col gap-2" role="radiogroup" aria-label={title}>
-      <span className="text-xs font-bold uppercase tracking-eyebrow text-charcoal">{title}</span>
-      {helperText && <span className="text-xs leading-relaxed text-muted">{helperText}</span>}
-      <div className="flex flex-col gap-1.5">
-        {candidates.map((candidate) => (
-          <BallotRow
-            key={candidate.teamPlayerId}
-            candidate={candidate}
-            selected={selected === candidate.teamPlayerId}
-            category={category}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
+    <div className="flex flex-col gap-2">
+      <Text as="span" variant="eyebrow" tone="primary" id={titleId}>
+        {title}
+      </Text>
+      {helperText && (
+        <Text as="span" variant="meta" size="xs" className="leading-relaxed">
+          {helperText}
+        </Text>
+      )}
+      <RadioCardGroup
+        aria-labelledby={titleId}
+        tone={category === 'BEST' ? 'brand' : 'structure'}
+        value={selected}
+        onChange={onSelect}
+        options={candidates.map((candidate) => ({
+          value: candidate.teamPlayerId,
+          render: ({ selected: isSelected }) => (
+            <BallotCandidate candidate={candidate} selected={isSelected} category={category} />
+          ),
+        }))}
+      />
     </div>
   );
 }
@@ -152,26 +143,32 @@ function BestResultRow({
       >
         {rank}
       </span>
-      <Avatar className="h-7 w-7 text-xs">
+      <Avatar size="sm">
         <AvatarFallback>{getInitials(result.firstName, result.lastName)}</AvatarFallback>
       </Avatar>
-      <span
-        className={cn(
-          'w-24 shrink-0 truncate text-sm text-charcoal',
-          rank === 1 ? 'font-bold' : 'font-semibold',
-        )}
+      <Text
+        as="span"
+        variant="label"
+        size="sm"
+        className={cn('w-24 shrink-0 truncate', rank === 1 && 'font-bold')}
       >
         {result.firstName} {result.lastName}
-      </span>
+      </Text>
       <div className="h-2 flex-grow overflow-hidden rounded-full bg-gold-tint">
         <div
           className="h-full bg-gold"
           style={{ width: `${widthPct}%`, opacity: rankOpacity(rank - 1) }}
         />
       </div>
-      <span className="tabular w-6 shrink-0 text-right text-xs font-bold text-gold-text">
+      <Text
+        as="span"
+        variant="label"
+        size="xs"
+        tone="accent"
+        className="tabular w-6 shrink-0 text-right"
+      >
         {result.voteCount}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -187,18 +184,24 @@ function WorstResultRow({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-24 shrink-0 truncate text-sm font-semibold text-charcoal">
+      <Text as="span" variant="label" size="sm" className="w-24 shrink-0 truncate">
         {result.firstName} {result.lastName}
-      </span>
+      </Text>
       <div className="h-2 flex-grow overflow-hidden rounded-full bg-sunk">
         <div
           className="h-full rounded-full bg-blue-green-2"
           style={{ width: `${widthPct}%`, opacity: rankOpacity(rank - 1) }}
         />
       </div>
-      <span className="tabular w-5 shrink-0 text-right text-xs font-bold text-muted">
+      <Text
+        as="span"
+        variant="label"
+        size="xs"
+        tone="secondary"
+        className="tabular w-5 shrink-0 text-right"
+      >
         {result.voteCount}
-      </span>
+      </Text>
     </div>
   );
 }
@@ -230,21 +233,25 @@ function MatchVoteResultsCard({
   const bestTiedAtTop = countTiedAtTop(results.best);
 
   return (
-    <Card className="flex flex-col gap-4 p-5 shadow-md">
+    <Card variant="panel" className="flex flex-col gap-4">
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-semibold text-muted">
+        <Text as="span" variant="label" size="xs" tone="secondary">
           Résultats — visibles par toute l&apos;équipe
-        </span>
+        </Text>
         <div className="flex items-center gap-2">
-          <TrophyIcon className="h-5 w-5 text-gold" />
+          <TrophyIcon size="lg" tone="accent" />
           <h3 className="font-heading text-lg font-extrabold">Meilleur joueur</h3>
         </div>
       </div>
 
       {gateMessage ? (
-        <span className="text-sm text-muted">{gateMessage}</span>
+        <Text as="span" variant="meta">
+          {gateMessage}
+        </Text>
       ) : results.best.length === 0 ? (
-        <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+        <Text as="span" variant="meta">
+          Aucun vote pour l&apos;instant.
+        </Text>
       ) : (
         <div className="flex flex-col gap-2.5">
           {results.best.map((result, index) => (
@@ -257,7 +264,7 @@ function MatchVoteResultsCard({
           ))}
         </div>
       )}
-      <span className="text-xs text-muted">
+      <Text as="span" variant="meta" size="xs">
         {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
         {results.votesCast > 1 ? 's' : ''} sur {results.totalVoters}
         {/* A tie at rank 1 makes the numbered gold badge alone ambiguous
@@ -265,21 +272,28 @@ function MatchVoteResultsCard({
             aren't — the bar length already shows equality there, but a
             single "MVP" framing benefits from saying it outright. */}
         {!gateMessage && bestTiedAtTop > 1 && (
-          <span className="text-gold-text"> · Égalité en tête</span>
+          <Text as="span" variant="body" tone="accent">
+            {' '}
+            · Égalité en tête
+          </Text>
         )}
-      </span>
+      </Text>
 
       <div className="h-px bg-border" />
 
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
-          <WorstIcon size={16} className="text-blue-green-2" />
+          <WorstIcon size="md" tone="structure" />
           <h3 className="text-base font-extrabold">Joueur en difficulté — agrégé</h3>
         </div>
         {gateMessage ? (
-          <span className="text-sm text-muted">{gateMessage}</span>
+          <Text as="span" variant="meta">
+            {gateMessage}
+          </Text>
         ) : results.worst.length === 0 ? (
-          <span className="text-sm text-muted">Aucun vote pour l&apos;instant.</span>
+          <Text as="span" variant="meta">
+            Aucun vote pour l&apos;instant.
+          </Text>
         ) : (
           <div className="flex flex-col gap-2">
             {results.worst.map((result, index) => (
@@ -292,10 +306,10 @@ function MatchVoteResultsCard({
             ))}
           </div>
         )}
-        <span className="text-xs text-muted">
+        <Text as="span" variant="meta" size="xs">
           {results.votesCast} vote{results.votesCast > 1 ? 's' : ''} exprimé
           {results.votesCast > 1 ? 's' : ''} · réponse optionnelle
-        </span>
+        </Text>
       </div>
     </Card>
   );
@@ -304,9 +318,9 @@ function MatchVoteResultsCard({
 /**
  * Match detail page's Vote tab (`Vote.dc.html`) — a ballot (own vote, one
  * selection per category, WORST optional) alongside the results card, per
- * the match interface spec's Voting visibility section. No new roster
+ * the vote rules in `docs/decisions/events.md`. No new roster
  * endpoint: reuses useEventConvocations for the candidate list
- * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsSection.
+ * (teamPlayerId/firstName/lastName/isMe), same as EventLogisticsCard.
  *
  * Three states, keyed off the vote window (opens 1h after kickoff, closes
  * 5 days after — see voteWindow.ts):
@@ -352,7 +366,7 @@ export function MatchVoteTab({
     isLoading: isLoadingResults,
     isError: isResultsError,
     refetch: refetchResults,
-  } = useEventVoteResults(clubId, teamId, event.id, hasOpened);
+  } = useEventVoteResults(clubId, teamId, event.id, event.startsAt, hasOpened);
   const { mutateAsync: castVote, isPending } = useEventVoteCast(clubId, teamId);
 
   useEffect(() => {
@@ -366,7 +380,7 @@ export function MatchVoteTab({
   if (!hasOpened) {
     return (
       <EmptyState
-        icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+        icon={<TrophyIcon size="3xl" tone="secondary" />}
         title="Le vote ouvrira après le match"
         description="Le bulletin de vote ouvre 1h après le début de la rencontre."
       />
@@ -402,12 +416,33 @@ export function MatchVoteTab({
     return <SkeletonList rows={4} variant="card" />;
   }
 
+  // A back-office impersonation: whom the subject voted for is withheld by
+  // the server (the vote is anonymous, support included), so there is no
+  // ballot to show them filled in, and none to fill.
+  if (results.myVoteHidden) {
+    return (
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+        <Card variant="panel" className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <TrophyIcon size="lg" tone="secondary" />
+            <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
+          </div>
+          <Text variant="meta">Vote masqué (consultation support)</Text>
+        </Card>
+        <MatchVoteResultsCard
+          results={results}
+          gateMessage={results.best.length > 0 ? null : 'Votez pour voir les résultats.'}
+        />
+      </div>
+    );
+  }
+
   const candidates: VoteCandidate[] = roster.filter((r) => !r.isMe);
 
   if (candidates.length === 0) {
     return (
       <EmptyState
-        icon={<UsersIcon className="h-8 w-8 text-muted" />}
+        icon={<UsersIcon size="3xl" tone="secondary" />}
         title="Pas assez de joueurs à départager"
         description="Il faut au moins un·e autre coéquipier·ère sur l'effectif pour voter."
       />
@@ -432,15 +467,15 @@ export function MatchVoteTab({
 
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-      <Card className="flex flex-col gap-4 p-5 shadow-md">
+      <Card variant="panel" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <TrophyIcon className="h-5 w-5 text-orange-text" />
+            <TrophyIcon size="lg" tone="brand" />
             <h3 className="font-heading text-xl font-extrabold">Bulletin de vote</h3>
           </div>
-          <span className="text-xs text-muted">
+          <Text as="span" variant="meta" size="xs">
             Ouvert jusqu&apos;au {formatVoteWindowEnd(event.startsAt)} · un vote par catégorie
-          </span>
+          </Text>
         </div>
 
         <BallotSection
@@ -466,10 +501,16 @@ export function MatchVoteTab({
           Envoyer mon vote
         </Button>
         {hasVoted && (
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-success">
-            <Check className="h-3 w-3 shrink-0" />
+          <Text
+            as="span"
+            variant="label"
+            size="xs"
+            tone="success"
+            className="flex items-center gap-1.5"
+          >
+            <Check size="xs" className="shrink-0" />
             Vote envoyé — merci !
-          </span>
+          </Text>
         )}
       </Card>
 

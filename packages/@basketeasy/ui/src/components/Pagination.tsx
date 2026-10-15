@@ -37,7 +37,7 @@ export function Pagination({
     >
       <span>{total === 0 ? 'Aucun résultat' : `${rangeStart}–${rangeEnd} sur ${total}`}</span>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {onPageSizeChange && pageSizeOptions && (
           <div className="flex items-center gap-2">
             <Label htmlFor={pageSizeId}>Par page</Label>
@@ -63,7 +63,7 @@ export function Pagination({
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"

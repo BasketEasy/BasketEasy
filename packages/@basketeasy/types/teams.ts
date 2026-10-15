@@ -1,8 +1,10 @@
 import type { PaginationParams, SortOrder } from './pagination';
 
-export type TeamCategory = 'U9' | 'U11' | 'U13' | 'U15' | 'U18' | 'U21' | 'SENIORS';
+export const TEAM_CATEGORIES = ['U9', 'U11', 'U13', 'U15', 'U18', 'U21', 'SENIORS'] as const;
+export type TeamCategory = (typeof TEAM_CATEGORIES)[number];
 
-export type Gender = 'MEN' | 'WOMEN';
+export const GENDERS = ['MEN', 'WOMEN'] as const;
+export type Gender = (typeof GENDERS)[number];
 
 export type TeamMemberRole = 'COACH' | 'PLAYER';
 
@@ -12,6 +14,8 @@ export interface Team {
   category: TeamCategory;
   gender: Gender;
   createdAt: string;
+  /** The jersey wash rotation is on for this team (default). */
+  jerseyRotationEnabled: boolean;
 }
 
 export interface CreateTeamRequest {
@@ -26,6 +30,7 @@ export interface UpdateTeamRequest {
   name?: string;
   category?: TeamCategory;
   gender?: Gender;
+  jerseyRotationEnabled?: boolean;
 }
 
 export interface TeamClubLink {
@@ -48,6 +53,8 @@ export interface TeamPlayer {
   lastName: string;
   clubId: string;
   role: TeamMemberRole;
+  /** Never suggested for the jersey wash; a manager can still assign them. */
+  jerseyDutyExempt: boolean;
   createdAt: string;
 }
 
@@ -56,8 +63,10 @@ export interface AddTeamPlayerRequest {
   role?: TeamMemberRole;
 }
 
+/** At least one field is required. */
 export interface UpdateTeamPlayerRequest {
-  role: TeamMemberRole;
+  role?: TeamMemberRole;
+  jerseyDutyExempt?: boolean;
 }
 
 export type TeamSortBy = 'name' | 'category' | 'createdAt';

@@ -20,7 +20,7 @@ describe('EventRosterBreakdown', () => {
             lastName: 'Moreau',
             role: 'Joueur',
             statusLabel: 'Présente',
-            statusClassName: 'text-success',
+            statusTone: 'success',
             filled: true,
           },
         ]}

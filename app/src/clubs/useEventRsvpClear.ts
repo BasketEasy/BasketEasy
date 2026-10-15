@@ -1,18 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { apiClient } from '../api/client';
-import { eventRsvpsQueryKey, teamEventQueryKey, teamEventsQueryKey } from './queryKeys';
+import { applyRsvpWrite } from './eventCache';
+import { actingAsQuery, useTeamActingAs } from '../guardians/useActingAs';
 
 export function useEventRsvpClear(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
+  const forPlayerId = useTeamActingAs(teamId);
 
   return useMutation({
     mutationFn: ({ eventId }: { eventId: string }) =>
-      apiClient.delete<TeamEvent>(`/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp`),
-    onSuccess: (_data, { eventId }) => {
-      queryClient.invalidateQueries({ queryKey: teamEventQueryKey(clubId, teamId, eventId) });
-      queryClient.invalidateQueries({ queryKey: teamEventsQueryKey(clubId, teamId) });
-      queryClient.invalidateQueries({ queryKey: eventRsvpsQueryKey(clubId, teamId, eventId) });
-    },
+      apiClient.delete<TeamEvent>(
+        `/clubs/${clubId}/teams/${teamId}/events/${eventId}/rsvp${actingAsQuery(forPlayerId)}`,
+      ),
+    onSuccess: (event) => applyRsvpWrite(queryClient, { clubId, teamId }, forPlayerId, event),
   });
 }

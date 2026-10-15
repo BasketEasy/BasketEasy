@@ -1,11 +1,11 @@
 import { Badge } from '@basketeasy/ui/badge';
-import { cn } from '@basketeasy/ui/cn';
 import type {
   EventLogisticsAssignee,
   EventLogisticsField,
   EventType,
   TeamEvent,
 } from '@basketeasy/types/events';
+import type { EventJerseyDutySummary } from '@basketeasy/types/jersey-duty';
 import { BallIcon, JerseyIcon } from './eventLogisticsIcons';
 import { eventLogisticsFieldLabel } from './eventLogisticsLabels';
 
@@ -29,16 +29,29 @@ function LogisticsMiniChip({
 }) {
   const Icon = FIELD_ICON[field];
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'gap-1.5 bg-surface-2 font-semibold',
-        assignee ? 'border-border-strong text-charcoal' : 'border-border text-muted',
-      )}
-    >
-      <Icon size={12} className={cn('shrink-0', assignee ? 'text-blue-green' : 'text-muted')} />
+    <Badge variant="soft" tone={assignee ? 'neutral' : 'muted'} className="gap-1.5">
+      <Icon size="xs" tone={assignee ? 'structure' : 'secondary'} className="shrink-0" />
       {eventLogisticsFieldLabel(field, eventType)} :{' '}
       {assignee ? `${shortAssigneeName(assignee)} ✓` : 'non assigné'}
+    </Badge>
+  );
+}
+
+/**
+ * The jersey wash of a MATCH with the rotation on: « Vous lavez les maillots »
+ * when the reader holds it, the holder's name when someone does, « non
+ * assigné » otherwise. Same badge tones and icon as the other chips.
+ */
+function JerseyDutyMiniChip({ duty }: { duty: EventJerseyDutySummary }) {
+  const hasHolder = duty.holder !== null;
+  return (
+    <Badge variant="soft" tone={hasHolder ? 'neutral' : 'muted'} className="gap-1.5">
+      <JerseyIcon size="xs" tone={hasHolder ? 'structure' : 'secondary'} className="shrink-0" />
+      {duty.isMine
+        ? 'Vous lavez les maillots'
+        : duty.holder
+          ? `Lavage : ${shortAssigneeName(duty.holder)} ✓`
+          : 'Lavage : non assigné'}
     </Badge>
   );
 }
@@ -47,7 +60,7 @@ function LogisticsMiniChip({
  * The agenda card's jersey/ball mini-chip pair (`AgendaCard.dc.html:77-86`)
  * — shared between the table row (EventRow) and card (TeamEventsAgenda)
  * views of the agenda so the assigned/unassigned copy and icon branching
- * lives in one place, matching EventLogisticsSection's conventions
+ * lives in one place, matching EventLogisticsCard's conventions
  * ("Non assigné", the check mark on an assigned slot) rather than
  * re-deriving them per call site. Renders for both event types — `eventType`
  * only changes the jersey-slot label ("Maillots" vs "Chasubles"), the
@@ -56,13 +69,20 @@ function LogisticsMiniChip({
 export function EventLogisticsMiniChips({
   eventType,
   logistics,
+  jerseyDuty = null,
 }: {
   eventType: EventType;
   logistics: TeamEvent['logistics'];
+  /** `TeamEvent.jerseyDuty`: replaces the jersey chip on a MATCH of a team with the rotation on. */
+  jerseyDuty?: EventJerseyDutySummary | null;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <LogisticsMiniChip field="JERSEYS" eventType={eventType} assignee={logistics.jerseys} />
+      {eventType === 'MATCH' && jerseyDuty ? (
+        <JerseyDutyMiniChip duty={jerseyDuty} />
+      ) : (
+        <LogisticsMiniChip field="JERSEYS" eventType={eventType} assignee={logistics.jerseys} />
+      )}
       <LogisticsMiniChip field="BALLS" eventType={eventType} assignee={logistics.balls} />
     </div>
   );

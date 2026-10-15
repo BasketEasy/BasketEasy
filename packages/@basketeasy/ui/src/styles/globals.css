@@ -16,3 +16,20 @@ h3 {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* A <details> disclosure (the landing page's FAQ) draws its own +/- marker,
+   so the browser's triangle goes: list-style for Firefox and Chromium, the
+   pseudo-element for Safari. */
+summary {
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+
+/* DeviceFrame's phone mockup takes its colours as inline style values, not
+   classes: its safe-area strips (status bar, home indicator) read the surface
+   token through this property, the colour of the app's top bar and tab bar. */
+:root {
+  --device-safe-area: theme('colors.surface');
+}

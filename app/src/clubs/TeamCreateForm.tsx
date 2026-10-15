@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
 import { toast } from '@basketeasy/ui/toast-store';
-import type { TeamCategory, Gender } from '@basketeasy/types/teams';
+import { GENDERS, TEAM_CATEGORIES, type TeamCategory, type Gender } from '@basketeasy/types/teams';
 import { useTeamCreate } from './useTeamCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
@@ -15,10 +15,8 @@ import { isFfbbLinkError } from './ffbbLinkErrors';
 
 const teamSchema = z.object({
   name: z.string().min(1, "Nom de l'équipe requis"),
-  category: z.enum(['U9', 'U11', 'U13', 'U15', 'U18', 'U21', 'SENIORS'], {
-    error: 'Catégorie requise',
-  }),
-  gender: z.enum(['MEN', 'WOMEN'], { error: 'Genre requis' }),
+  category: z.enum(TEAM_CATEGORIES, { error: 'Catégorie requise' }),
+  gender: z.enum(GENDERS, { error: 'Genre requis' }),
   ffbbTeamUrl: z.string().optional(),
 });
 

@@ -18,6 +18,8 @@ import {
 } from '@basketeasy/ui/table';
 import type { ParsedSpreadsheet } from './parseSpreadsheet';
 import { IMPORT_TARGET_FIELDS, guessColumnMapping, type ImportTargetField } from './columnMapping';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
+import { Text } from '@basketeasy/ui/text';
 
 const UNMAPPED = '__unmapped__';
 const SAMPLE_ROW_COUNT = 2;
@@ -62,17 +64,13 @@ export function PlayerImportMappingStep({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2
-        ref={headingRef}
-        tabIndex={-1}
-        className="font-heading text-2xl font-bold text-charcoal outline-none"
-      >
-        Faire correspondre les colonnes
-      </h2>
-      <p className="text-sm text-muted">
+      <SectionHeading as="h2" headingRef={headingRef}>
+        Associer les colonnes
+      </SectionHeading>
+      <Text variant="meta">
         Associez chaque champ à une colonne du fichier. Seuls Prénom et Nom sont obligatoires,
         laissez les autres champs non mappés si le fichier ne les contient pas.
-      </p>
+      </Text>
 
       <div className="overflow-x-auto rounded-lg border border-border">
         <Table>
@@ -89,13 +87,15 @@ export function PlayerImportMappingStep({
               const isMissing = required && columnIndex === undefined;
               return (
                 <TableRow key={field}>
-                  <TableCell className="font-medium text-charcoal">
-                    {label}
+                  <TableCell>
+                    <Text as="span" variant="label">
+                      {label}
+                    </Text>
                     {required && (
-                      <span className="text-orange-text" aria-hidden="true">
+                      <Text as="span" variant="body" tone="brand" aria-hidden="true">
                         {' '}
                         *
-                      </span>
+                      </Text>
                     )}
                   </TableCell>
                   <TableCell>
@@ -126,8 +126,10 @@ export function PlayerImportMappingStep({
                       </SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="text-sm text-muted">
-                    {sampleValues(parsed, columnIndex)}
+                  <TableCell>
+                    <Text as="span" variant="meta">
+                      {sampleValues(parsed, columnIndex)}
+                    </Text>
                   </TableCell>
                 </TableRow>
               );

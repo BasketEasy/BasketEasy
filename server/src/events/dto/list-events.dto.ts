@@ -1,4 +1,4 @@
-import { IsIn, IsISO8601, IsOptional } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsUUID } from 'class-validator';
 import type { ListEventsParams } from '@basketeasy/types/events';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
@@ -17,4 +17,10 @@ export class ListEventsDto extends PaginationQueryDto implements ListEventsParam
   @IsOptional()
   @IsIn(SORT_ORDERS)
   sortOrder?: SortOrder;
+
+  // Same rule as ActingAsQueryDto, inlined because this DTO already extends
+  // the pagination one.
+  @IsOptional()
+  @IsUUID()
+  forPlayerId?: string;
 }

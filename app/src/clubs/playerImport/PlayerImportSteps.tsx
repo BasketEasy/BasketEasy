@@ -1,7 +1,9 @@
 import { Check } from '@basketeasy/ui/icons/check';
 import { cn } from '@basketeasy/ui/cn';
+import { Divider } from '@basketeasy/ui/divider';
+import { Text } from '@basketeasy/ui/text';
 
-export const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
+const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as const;
 
 /**
  * Three-stop step indicator for the import wizard. Kept local to this
@@ -15,7 +17,12 @@ export const PLAYER_IMPORT_STEP_LABELS = ['Fichier', 'Colonnes', 'Aperçu'] as c
  */
 export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
   return (
-    <ol aria-label="Étapes de l'import" className="flex list-none items-center gap-2">
+    <ol
+      aria-label="Étapes de l'import"
+      // flex-wrap: the three labels' min-content runs ~17px past a 320px
+      // viewport, so the strip wraps rather than widening the page.
+      className="flex list-none flex-wrap items-center gap-2"
+    >
       {PLAYER_IMPORT_STEP_LABELS.map((label, index) => {
         const isDone = index < current;
         const isCurrent = index === current;
@@ -31,17 +38,15 @@ export function PlayerImportSteps({ current }: { current: 0 | 1 | 2 }) {
                   !isDone && !isCurrent && 'border border-border-strong bg-sunk text-muted',
                 )}
               >
-                {isDone ? <Check className="h-3.5 w-3.5" /> : index + 1}
+                {isDone ? <Check size="sm" /> : index + 1}
               </span>
-              <span
-                className={cn('text-sm font-medium', isCurrent ? 'text-charcoal' : 'text-muted')}
-              >
+              <Text as="span" variant="label" size="sm" tone={isCurrent ? 'primary' : 'secondary'}>
                 {label}
                 {isCurrent && <span className="sr-only"> (étape actuelle)</span>}
-              </span>
+              </Text>
             </div>
             {index < PLAYER_IMPORT_STEP_LABELS.length - 1 && (
-              <span aria-hidden="true" className="h-0.5 flex-grow rounded-sm bg-blue-green/20" />
+              <Divider tone="structure" weight="rule" className="w-auto flex-grow" />
             )}
           </li>
         );

@@ -22,4 +22,17 @@ describe('Card', () => {
     render(<Card data-testid="card">Contenu</Card>);
     expect(screen.getByTestId('card')).toHaveClass('bg-surface');
   });
+
+  it('lets the brand tone override the variant background', () => {
+    render(
+      <Card variant="panel" tone="brand" data-testid="card">
+        Vous êtes convoqué·e
+      </Card>,
+    );
+    const card = screen.getByTestId('card');
+    expect(card).toHaveClass('bg-orange-tint');
+    expect(card).not.toHaveClass('bg-surface');
+    // The panel's own padding and elevation survive the tone.
+    expect(card).toHaveClass('p-5', 'shadow-md');
+  });
 });

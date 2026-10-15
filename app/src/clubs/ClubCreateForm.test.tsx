@@ -86,6 +86,7 @@ describe('ClubCreateForm', () => {
         HttpResponse.json({
           id: 'user-1',
           email: 'a@b.com',
+          emailVerified: true,
           firstName: null,
           lastName: null,
           avatarUrl: null,
@@ -117,7 +118,7 @@ describe('ClubCreateForm', () => {
     await user.click(screen.getByRole('button', { name: /créer le club/i }));
 
     expect(
-      await screen.findByRole('heading', { name: /effectif · coc basket/i }),
+      await screen.findByRole('heading', { level: 1, name: 'COC Basket' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /tableau de bord/i })).not.toBeInTheDocument();
   });

@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { Label } from '@basketeasy/ui/label';
 import { Input } from '@basketeasy/ui/input';
 import { FieldError } from '@basketeasy/ui/field-error';
-import { cn } from '@basketeasy/ui/cn';
+import { Text } from '@basketeasy/ui/text';
 
 const FFBB_TEAM_URL_PLACEHOLDER =
   'https://competitions.ffbb.com/ligues/pdl/comites/0044/clubs/pdl0044190/equipes/200000005346381';
@@ -13,8 +13,8 @@ const FFBB_TEAM_URL_PENDING = 'Vérification du lien auprès de la FFBB…';
 /**
  * Presentational label/input/helper for a pasted FFBB team URL — shared,
  * byte-for-byte identical copy, between TeamCreateForm's RHF-controlled
- * field and TeamFfbbLinkList's isolated add-row, per the design spec's
- * "same FfbbLinkAddRow reused in both places, not a reimplementation."
+ * field and TeamFfbbLinkList's isolated add-row: one component reused in
+ * both places, not a reimplementation.
  * Each embedding context owns its own submit button and mutation state;
  * this component only renders the field itself, plus an optional inline
  * `action` (TeamFfbbLinkList's "Ajouter" button) rendered in the same row
@@ -42,7 +42,10 @@ export function FfbbLinkField({
   return (
     <div>
       <Label htmlFor={id}>Lien FFBB de l'équipe (facultatif)</Label>
-      <div className="mt-1.5 flex items-center gap-2">
+      {/* min-w-0 on the Input: flex-1 sets flex-basis:0 but leaves
+          min-width:auto, and an input's automatic minimum size is its
+          intrinsic size=20 width (~233px) — which overflowed a 288px row. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <Input
           id={id}
           placeholder={FFBB_TEAM_URL_PLACEHOLDER}
@@ -51,7 +54,7 @@ export function FfbbLinkField({
           disabled={pending}
           aria-invalid={!!error}
           aria-describedby={error ? errorId : helpId}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
         {action}
       </div>
@@ -60,9 +63,15 @@ export function FfbbLinkField({
           {error}
         </FieldError>
       ) : (
-        <p id={helpId} className={cn('mt-1.5 text-xs', pending ? 'text-blue-green' : 'text-muted')}>
+        <Text
+          id={helpId}
+          variant="meta"
+          size="xs"
+          tone={pending ? 'structure' : 'secondary'}
+          className="mt-1.5"
+        >
           {pending ? FFBB_TEAM_URL_PENDING : FFBB_TEAM_URL_HELP}
-        </p>
+        </Text>
       )}
     </div>
   );

@@ -1,11 +1,18 @@
 import { useId } from 'react';
 import { Label } from './Label';
+import { FieldError } from './FieldError';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './Select';
 import { cn } from '../lib/cn';
 
 export interface SelectFieldOption {
   value: string;
   label: string;
+  /**
+   * Greys the option out and blocks selecting it. For a value that is
+   * legitimate in general but already taken elsewhere in the same form — the
+   * server rejects it anyway, so the field shouldn't offer it.
+   */
+  disabled?: boolean;
 }
 
 export interface SelectFieldProps {
@@ -23,6 +30,14 @@ export interface SelectFieldProps {
    */
   error?: string;
   disabled?: boolean;
+  /**
+   * Hides the label visually while keeping it for assistive tech. For a
+   * select whose meaning is already carried by adjacent content — a row whose
+   * left-hand cell names what the select is choosing for — where a repeated
+   * visible label would be noise on screen but is still the only accessible
+   * name the control has.
+   */
+  hideLabel?: boolean;
   /** className applied to the wrapping <div>, not the trigger. */
   containerClassName?: string;
 }
@@ -42,6 +57,7 @@ export function SelectField({
   placeholder,
   error,
   disabled,
+  hideLabel,
   containerClassName,
 }: SelectFieldProps) {
   const generatedId = useId();
@@ -50,7 +66,9 @@ export function SelectField({
 
   return (
     <div className={cn('flex flex-col gap-1.5', containerClassName)}>
-      <Label htmlFor={selectId}>{label}</Label>
+      <Label htmlFor={selectId} className={hideLabel ? 'sr-only' : undefined}>
+        {label}
+      </Label>
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger
           id={selectId}
@@ -62,17 +80,13 @@ export function SelectField({
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
               {option.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {error && (
-        <p id={errorId} role="alert" className="text-sm text-error">
-          {error}
-        </p>
-      )}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </div>
   );
 }

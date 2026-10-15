@@ -12,7 +12,14 @@ export const ToastViewport = forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Viewport
     ref={ref}
-    className={cn('fixed bottom-0 right-0 z-50 flex w-full max-w-sm flex-col gap-2 p-6', className)}
+    className={cn(
+      // Above every overlay in the app (Dialog/DropdownMenu/Select/Tooltip
+      // are all z-50): a toast fired while a modal is open — the common case,
+      // since most mutation error toasts fire from inside a still-open
+      // dialog — must never be washed out by the dialog's own z-50 overlay.
+      'fixed bottom-0 right-0 z-[60] flex w-full max-w-sm flex-col gap-2 p-6',
+      className,
+    )}
     {...props}
   />
 ));
@@ -23,8 +30,10 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        success: 'border-success bg-success/10 text-success',
-        destructive: 'border-error bg-error/10 text-error',
+        // Opaque tints, never `bg-*/10`: a toast floats over the page, and a
+        // translucent fill let whatever was under it read through the text.
+        success: 'border-success bg-success-tint text-success-text',
+        destructive: 'border-error bg-error-tint text-error',
       },
     },
     defaultVariants: { variant: 'success' },

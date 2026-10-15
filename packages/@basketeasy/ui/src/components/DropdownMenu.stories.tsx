@@ -17,11 +17,9 @@ export default meta;
 type Story = StoryObj<typeof DropdownMenu>;
 
 // Mirrors the header's actual club switcher shape (AppHeader.tsx): a labeled
-// section of clubs, with a checkmark on the active one. "Créer un club" stays
-// a top-level nav link outside the switcher (it must remain visible even for
-// a zero-admin-club user, who never sees this panel at all — see
-// docs/ux-audit/scoping-plan.md §3's "Frontend changes"), so it's not an item
-// here.
+// section of clubs, with a checkmark on the active one. "Créer un club" is
+// not an item here: a zero-admin-club user never sees this panel, so it
+// lives in the account menu instead.
 export const ClubSwitcher: Story = {
   render: () => (
     <DropdownMenu>

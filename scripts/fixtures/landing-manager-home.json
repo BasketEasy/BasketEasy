@@ -1,0 +1,265 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "id": "user-ines",
+    "email": "ines.petit@example.fr",
+    "firstName": "Inès",
+    "lastName": "Petit",
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ES Erdre Basket",
+      "ffbbClubCode": null,
+      "createdAt": "2025-06-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ES Erdre Basket",
+    "ffbbClubCode": null,
+    "createdAt": "2025-06-01"
+  },
+  "GET /api/me/notifications": {
+    "items": [],
+    "unreadCount": 0
+  },
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors Filles 1",
+      "category": "SENIORS",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "jerseyRotationEnabled": false,
+      "isTeamAdmin": true,
+      "rosterRole": "COACH"
+    },
+    {
+      "teamId": "team-2",
+      "teamName": "U15 Filles",
+      "category": "U15",
+      "gender": "WOMEN",
+      "clubId": "club-1",
+      "clubName": "ES Erdre Basket",
+      "isTeamAdmin": true,
+      "rosterRole": null,
+      "jerseyRotationEnabled": false
+    }
+  ],
+  "GET /api/me/dashboard": {
+    "totalPlayers": 86,
+    "actionItems": [
+      {
+        "kind": "MATCH_WITHOUT_CONVOCATIONS",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "teamId": "team-2",
+        "teamName": "U15 Filles",
+        "eventId": "event-u15",
+        "message": "Match contre Orvault Bois-Raguenet samedi — personne n'a encore été convoqué."
+      },
+      {
+        "kind": "EVENT_PENDING_RSVPS",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "eventId": "event-1",
+        "message": "Match contre Rezé Trentemoult Basket samedi — 1 joueur n'a pas encore répondu."
+      },
+      {
+        "kind": "MATCH_WITHOUT_CONFIRMED_SCORESHEET",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "eventId": "event-past",
+        "message": "Match contre Carquefou Renaudières BC samedi — feuille de match non confirmée."
+      },
+      {
+        "kind": "PLAYERS_WITHOUT_ACCOUNT",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "teamId": null,
+        "teamName": null,
+        "eventId": null,
+        "message": "Clara Fontaine (ES Erdre Basket) n'a pas encore de compte Kluvo."
+      }
+    ],
+    "upcomingEvents": [
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-training",
+        "type": "TRAINING",
+        "startsAt": "2026-10-08T18:00:00.000Z",
+        "opponentName": null,
+        "venue": null,
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 0,
+          "answering": 11,
+          "going": 9,
+          "maybe": 1,
+          "notGoing": 0,
+          "pending": 1,
+          "isConvocationScoped": false
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-1",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T18:30:00.000Z",
+        "opponentName": "Rezé Trentemoult Basket",
+        "venue": "AWAY",
+        "location": "Rue des Trois-Moulins, 44400 Rezé",
+        "locationName": "Gymnase des Trois-Moulins",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        }
+      },
+      {
+        "teamId": "team-2",
+        "teamName": "U15 Filles",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-u15",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T13:00:00.000Z",
+        "opponentName": "Orvault Bois-Raguenet",
+        "venue": "HOME",
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 0,
+          "answering": 12,
+          "going": 6,
+          "maybe": 2,
+          "notGoing": 1,
+          "pending": 3,
+          "isConvocationScoped": false
+        }
+      },
+      {
+        "teamId": "team-1",
+        "teamName": "Seniors Filles 1",
+        "clubId": "club-1",
+        "clubName": "ES Erdre Basket",
+        "notes": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null,
+        "eventId": "event-training-2",
+        "type": "TRAINING",
+        "startsAt": "2026-10-13T18:00:00.000Z",
+        "opponentName": null,
+        "venue": null,
+        "location": "Rue de la Jonelière, 44300 Nantes",
+        "locationName": "Gymnase de la Jonelière",
+        "rsvpSummary": {
+          "rosterSize": 11,
+          "convoked": 0,
+          "answering": 11,
+          "going": 4,
+          "maybe": 0,
+          "notGoing": 1,
+          "pending": 6,
+          "isConvocationScoped": false
+        }
+      }
+    ]
+  }
+}

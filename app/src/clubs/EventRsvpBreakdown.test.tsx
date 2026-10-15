@@ -16,6 +16,10 @@ const roster: EventRsvpRosterEntry[] = [
     role: 'PLAYER',
     status: 'GOING',
     respondedAt: '2026-01-02T00:00:00.000Z',
+    respondedBy: null,
+    respondedByGuardian: false,
+    viaLink: false,
+    travelMode: null,
     isMe: true,
   },
   {
@@ -26,6 +30,10 @@ const roster: EventRsvpRosterEntry[] = [
     role: 'COACH',
     status: null,
     respondedAt: null,
+    respondedBy: null,
+    respondedByGuardian: false,
+    viaLink: false,
+    travelMode: null,
     isMe: false,
   },
 ];

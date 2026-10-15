@@ -23,16 +23,36 @@ const openMatchEvent: TeamEvent = {
   type: 'MATCH',
   startsAt: new Date(Date.now() - 2 * DAY_MS).toISOString(),
   location: 'Gymnase Pierre de Coubertin',
+  locationName: null,
   notes: null,
   opponentName: 'ES Rezé',
   venue: 'HOME',
   recurrenceId: null,
   createdAt: 'x',
   myRsvpStatus: 'GOING',
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
   isImported: false,
   timeConfirmed: true,
   myConvocation: true,
+  rsvpSummary: {
+    rosterSize: 0,
+    convoked: 0,
+    answering: 0,
+    going: 0,
+    maybe: 0,
+    notGoing: 0,
+    pending: 0,
+    isConvocationScoped: false,
+  },
   logistics: { jerseys: null, balls: null },
+  result: null,
+  myMatchStats: null,
+  meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
+  myTravelMode: null,
+  jerseyDuty: null,
 };
 
 const futureMatchEvent: TeamEvent = {
@@ -84,6 +104,7 @@ const emptyResults: EventVoteResults = {
   totalVoters: 3,
   votesCast: 0,
   myVote: { best: null, worst: null },
+  myVoteHidden: false,
 };
 
 function mockData(results: EventVoteResults = emptyResults) {
@@ -152,6 +173,7 @@ describe('MatchVoteTab', () => {
         return HttpResponse.json({
           ...emptyResults,
           myVote: { best: 'tp-2', worst: null },
+          myVoteHidden: false,
         });
       }),
     );
@@ -184,6 +206,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 3,
       votesCast: 3,
       myVote: { best: null, worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -202,6 +225,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 3,
       votesCast: 3,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -210,6 +234,24 @@ describe('MatchVoteTab', () => {
     expect(screen.getByText('3 votes exprimés sur 3')).toBeInTheDocument();
     expect(screen.getByText('Joueur en difficulté — agrégé')).toBeInTheDocument();
     expect(screen.getByText('3 votes exprimés · réponse optionnelle')).toBeInTheDocument();
+    expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
+  });
+
+  it('under a back-office impersonation, shows no ballot and says the vote is masked', async () => {
+    mockData({
+      best: [{ teamPlayerId: 'tp-2', firstName: 'Nathan', lastName: 'Hubert', voteCount: 2 }],
+      worst: [],
+      totalVoters: 3,
+      votesCast: 2,
+      myVote: { best: null, worst: null },
+      myVoteHidden: true,
+    });
+
+    renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
+
+    expect(await screen.findByText('Vote masqué (consultation support)')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Envoyer mon vote' })).not.toBeInTheDocument();
+    expect(screen.getByText('Meilleur joueur')).toBeInTheDocument();
     expect(screen.queryByText('Votez pour voir les résultats.')).not.toBeInTheDocument();
   });
 
@@ -224,6 +266,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 5,
       votesCast: 5,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -248,6 +291,7 @@ describe('MatchVoteTab', () => {
       totalVoters: 5,
       votesCast: 3,
       myVote: { best: 'tp-2', worst: null },
+      myVoteHidden: false,
     });
 
     renderWithProviders(<MatchVoteTab clubId="club-1" teamId="team-1" event={openMatchEvent} />);
@@ -265,6 +309,7 @@ describe('MatchVoteTab', () => {
           totalVoters: 3,
           votesCast: 2,
           myVote: { best: null, worst: null },
+          myVoteHidden: false,
         }),
       ),
     );

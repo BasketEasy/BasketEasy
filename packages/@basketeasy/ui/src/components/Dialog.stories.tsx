@@ -31,3 +31,19 @@ export const Default: Story = {
     </Dialog>
   ),
 };
+
+export const Sheet: Story = {
+  render: () => (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>Choisir une personne</Button>
+      </DialogTrigger>
+      <DialogContent variant="sheet">
+        <DialogHeader>
+          <DialogTitle>Pour qui ?</DialogTitle>
+          <DialogDescription>Reste une feuille du bas, même sur desktop.</DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
+  ),
+};

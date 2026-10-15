@@ -1,0 +1,284 @@
+import { ShieldIcon } from '@basketeasy/ui/icons/shield';
+import { StatTile } from '@basketeasy/ui/stat-tile';
+import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
+import { UserIcon } from '@basketeasy/ui/icons/user';
+import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
+import { Card } from '@basketeasy/ui/card';
+import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
+import { useTableLayout } from '@basketeasy/ui/responsive-table';
+import { Text } from '@basketeasy/ui/text';
+import type { ClubRole } from '@basketeasy/types/club-members';
+import type {
+  AdminClubDetail,
+  AdminClubMember,
+  AdminClubRef,
+} from '@basketeasy/types/platform-admin-browse';
+import { useAdminClub, useAdminClubMembers } from './useAdminQueries';
+import { AdminTeamsList } from './AdminTeamsPage';
+import { AdminPlayersList } from './AdminPlayersPage';
+import { AdminEventsList } from './AdminEventsPage';
+import { AdminStatsPanel } from './stats/AdminStatsPanel';
+import { AdminMemberDialog } from './actions/AdminMemberDialog';
+import { AdminActionDialog } from './actions/AdminActionDialog';
+import { AdminActionRow, AdminActionsCard } from './actions/AdminActionsCard';
+import { usePlatformSession } from './platformSession';
+import { useAdminListParams } from './shared/useAdminListParams';
+import { AdminFilterBar, AdminSelectFilter } from './shared/AdminFilters';
+import { AdminPageHeader, AdminPagination, AdminStats, AdminTable } from './shared/AdminLayout';
+import { AdminPersonLink } from './shared/AdminLinks';
+import { AdminQueryBranch } from './shared/AdminQueryBranch';
+import { adminPaths } from './shared/adminPaths';
+import { CLUB_ROLE_LABELS, CLUB_ROLE_TONES, formatAdminDate } from './shared/adminFormat';
+
+type ClubTab = 'members' | 'teams' | 'players' | 'events' | 'stats';
+const TABS: ClubTab[] = ['members', 'teams', 'players', 'events', 'stats'];
+
+const MEMBER_FILTER_KEYS = ['role'] as const;
+const ROLE_OPTIONS = (Object.keys(CLUB_ROLE_LABELS) as ClubRole[]).map((role) => ({
+  value: role,
+  label: CLUB_ROLE_LABELS[role],
+}));
+
+function MemberRow({ member, club }: { member: AdminClubMember; club: AdminClubRef }) {
+  const layout = useTableLayout();
+  const role = (
+    <Badge variant="soft" tone={CLUB_ROLE_TONES[member.role]}>
+      {CLUB_ROLE_LABELS[member.role]}
+    </Badge>
+  );
+
+  const manage = <AdminMemberDialog clubId={club.id} clubName={club.name} member={member} />;
+
+  if (layout === 'card') {
+    return (
+      <Card variant="inset" className="flex flex-col gap-2">
+        <AdminPersonLink person={member.person} withContact />
+        <div className="flex flex-wrap items-center gap-2">
+          {role}
+          <Text as="span" variant="meta" size="sm" className="tabular">
+            Depuis le {formatAdminDate(member.joinedAt)}
+          </Text>
+        </div>
+        <div>{manage}</div>
+      </Card>
+    );
+  }
+
+  return (
+    <TableRow>
+      <TableCell>
+        <AdminPersonLink person={member.person} withContact />
+      </TableCell>
+      <TableCell>{role}</TableCell>
+      <TableCell className="tabular">{formatAdminDate(member.joinedAt)}</TableCell>
+      <TableCell className="text-right">{manage}</TableCell>
+    </TableRow>
+  );
+}
+
+function ClubMembers({ club }: { club: AdminClubRef }) {
+  const clubId = club.id;
+  const { filters, page, setFilters, setPage, pageSize } = useAdminListParams(
+    MEMBER_FILTER_KEYS,
+    'm.',
+  );
+  const members = useAdminClubMembers(clubId, {
+    role: filters.role as ClubRole | undefined,
+    page,
+    pageSize,
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <AdminFilterBar>
+        <AdminSelectFilter
+          label="Rôle"
+          allLabel="Tous"
+          options={ROLE_OPTIONS}
+          value={filters.role as ClubRole | undefined}
+          onChange={(role) => setFilters({ role })}
+        />
+      </AdminFilterBar>
+      <AdminQueryBranch
+        query={members}
+        isEmpty={(data) => data.items.length === 0}
+        emptyTitle="Aucun membre"
+        loadingLabel="Chargement des membres…"
+      >
+        {(data) => (
+          <div className="flex flex-col gap-4">
+            <AdminTable
+              columns={[
+                'Personne',
+                'Rôle',
+                'Membre depuis',
+                <span key="actions" className="sr-only">
+                  Actions
+                </span>,
+              ]}
+            >
+              {data.items.map((member) => (
+                <MemberRow key={member.person.id} member={member} club={club} />
+              ))}
+            </AdminTable>
+            <AdminPagination
+              page={page}
+              pageSize={pageSize}
+              total={data.total}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
+      </AdminQueryBranch>
+    </div>
+  );
+}
+
+/**
+ * DATA_OFFICER-only, like erasure (the route refuses SUPPORT): the one action
+ * that destroys a club's records instead of fixing them.
+ */
+function ClubDeleteAction({ club }: { club: AdminClubDetail }) {
+  const navigate = useNavigate();
+  return (
+    <AdminActionsCard>
+      <AdminActionRow
+        title="Supprimer le club"
+        detail="Définitif : membres, joueurs, équipes et tout leur historique"
+        action={
+          <AdminActionDialog
+            trigger={<Button variant="outline">Supprimer</Button>}
+            title={`Supprimer ${club.name} ?`}
+            description="Le club est supprimé définitivement avec ses adhésions, ses joueurs et les équipes dont il est propriétaire : événements, feuilles de marque, statistiques et points de rendez-vous compris. Une équipe partagée dont il n’est que partenaire reste à son propriétaire, sans les joueurs de ce club. S’il est propriétaire d’une équipe partagée, la suppression est refusée : transférez-en d’abord la propriété. Les autorisations parentales sont conservées cinq ans."
+            facts={[
+              { label: 'Membres', value: club.memberCount },
+              { label: 'Équipes liées', value: club.teamCount },
+              { label: 'Joueurs', value: club.playerCount },
+            ]}
+            confirmLabel="Supprimer définitivement"
+            danger
+            path={`clubs/${club.id}/delete`}
+            onDone={() => navigate(adminPaths.clubs, { replace: true })}
+          />
+        }
+      />
+    </AdminActionsCard>
+  );
+}
+
+function ClubDetail({ club }: { club: AdminClubDetail }) {
+  const { session } = usePlatformSession();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as ClubTab | null;
+  const tab: ClubTab = tabParam && TABS.includes(tabParam) ? tabParam : 'members';
+  const meetingPoint = club.meetingPointName
+    ? `RDV par défaut : ${club.meetingPointName}, ${club.arrivalBufferMinutes} min avant`
+    : 'Pas de point de rendez-vous par défaut';
+
+  return (
+    <div className="flex flex-col gap-6">
+      <AdminPageHeader
+        title={club.name}
+        eyebrow="Club"
+        parent={{ to: adminPaths.clubs, label: 'Clubs' }}
+        badges={
+          club.ffbbClubCode && (
+            <Badge variant="soft" tone="structure">
+              FFBB {club.ffbbClubCode}
+            </Badge>
+          )
+        }
+        subtitle={`Créé le ${formatAdminDate(club.createdAt)} · ${meetingPoint}`}
+        aside={
+          <AdminStats>
+            <StatTile
+              size="sm"
+              icon={<UserIcon size="md" />}
+              label="Membres"
+              value={club.memberCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<ShieldIcon size="md" />}
+              label="Admins"
+              value={club.adminCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<TrophyIcon size="md" />}
+              label="Équipes"
+              value={club.teamCount}
+            />
+            <StatTile
+              size="sm"
+              icon={<UsersIcon size="md" />}
+              label="Joueurs"
+              value={club.playerCount}
+            />
+          </AdminStats>
+        }
+      />
+
+      {/* `?tab=` triggers, the documented exception to "every URL-changing
+          control is a link": role="tab" is the right ARIA, and replace keeps
+          tab switches out of the history. */}
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          setSearchParams(
+            (previous) => {
+              const next = new URLSearchParams(previous);
+              next.set('tab', value);
+              return next;
+            },
+            { replace: true },
+          )
+        }
+      >
+        <TabsList>
+          <TabsTrigger value="members">Membres</TabsTrigger>
+          <TabsTrigger value="teams">Équipes</TabsTrigger>
+          <TabsTrigger value="players">Joueurs</TabsTrigger>
+          <TabsTrigger value="events">Événements</TabsTrigger>
+          <TabsTrigger value="stats">Statistiques</TabsTrigger>
+        </TabsList>
+        <TabsContent value="members" className="mt-4">
+          <ClubMembers club={club} />
+        </TabsContent>
+        <TabsContent value="teams" className="mt-4">
+          <AdminTeamsList clubId={club.id} prefix="t." />
+        </TabsContent>
+        <TabsContent value="players" className="mt-4">
+          <AdminPlayersList clubId={club.id} prefix="p." />
+        </TabsContent>
+        <TabsContent value="events" className="mt-4">
+          <AdminEventsList clubId={club.id} prefix="e." />
+        </TabsContent>
+        <TabsContent value="stats" className="mt-4">
+          <AdminStatsPanel clubId={club.id} prefix="s." />
+        </TabsContent>
+      </Tabs>
+
+      {session?.role === 'DATA_OFFICER' && <ClubDeleteAction club={club} />}
+    </div>
+  );
+}
+
+export function AdminClubDetailPage() {
+  const { clubId = '' } = useParams<{ clubId: string }>();
+  const club = useAdminClub(clubId);
+
+  return (
+    <AdminQueryBranch
+      query={club}
+      errorTitle="Club indisponible"
+      loadingLabel="Chargement du club…"
+    >
+      {(data) => <ClubDetail club={data} />}
+    </AdminQueryBranch>
+  );
+}

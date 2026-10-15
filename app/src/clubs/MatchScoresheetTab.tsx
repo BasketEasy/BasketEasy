@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, type RefObject, type SVGProps } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
+import { cn } from '@basketeasy/ui/cn';
+import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
 import { Check } from '@basketeasy/ui/icons/check';
@@ -6,9 +9,25 @@ import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamEvent } from '@basketeasy/types/events';
+import type { ScoresheetExtraction } from '@basketeasy/types/scoresheet-extraction';
 import { formatEventDate } from './eventDateFormat';
-import { useEventScoresheetStatus } from './useEventScoresheetStatus';
+import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
+import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
+import { isScoresheetPending, useEventScoresheetStatus } from './useEventScoresheetStatus';
 import { useEventScoresheetUpload } from './useEventScoresheetUpload';
+import { useRetryEventScoresheetExtraction } from './useRetryEventScoresheetExtraction';
+import { IconBadge } from '@basketeasy/ui/icon-badge';
+import { Text } from '@basketeasy/ui/text';
+import { toast } from '@basketeasy/ui/toast-store';
+import { getClubErrorMessage } from './clubErrorMessages';
+
+function extractionVersion(extraction: ScoresheetExtraction): string {
+  return JSON.stringify([
+    extraction.status,
+    extraction.parsedData,
+    extraction.suggestedRosterMapping,
+  ]);
+}
 
 // Must match the allowlist EventsService.getScoresheetUploadUrl enforces
 // server-side — kept in sync by hand since it's four literal strings, not
@@ -23,7 +42,7 @@ const ACCEPTED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'applic
 // (camera roll, files, cloud drive, or an actual camera where the device
 // offers one from its own picker UI). UploadIcon reuses the same glyph
 // PlayerImportUploadStep already uses for this exact "pick a file" moment.
-function UploadIcon(props: SVGProps<SVGSVGElement>) {
+function UploadIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -32,6 +51,7 @@ function UploadIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M12 16V4M12 4 7.5 8.5M12 4l4.5 4.5" />
@@ -40,7 +60,11 @@ function UploadIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function ClockIcon(props: SVGProps<SVGSVGElement>) {
+// Failure glyph for the NEEDS analysis-failed state — same shape already
+// used inline for the upload-transport failure banner, pulled out here so
+// the analysis-failure card (a distinct case: the upload succeeded, the OCR
+// job itself failed) can reuse it too.
+function AlertCircleIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -49,6 +73,25 @@ function ClockIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ size, tone }), className)}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9 9l6 6M15 9l-6 6" />
+    </svg>
+  );
+}
+
+function ClockIcon({ size, tone, className, ...props }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <circle cx="12" cy="12" r="9" />
@@ -60,7 +103,7 @@ function ClockIcon(props: SVGProps<SVGSVGElement>) {
 // Generic document glyph for the PDF preview placeholder — a PDF can't be
 // thumbnailed client-side without pulling in a rendering library, which
 // would be overkill for "show what you're about to send."
-function DocumentIcon(props: SVGProps<SVGSVGElement>) {
+function DocumentIcon({ size, tone, className, ...props }: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -69,6 +112,7 @@ function DocumentIcon(props: SVGProps<SVGSVGElement>) {
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={cn(iconVariants({ size, tone }), className)}
       {...props}
     >
       <path d="M14 3v4a1 1 0 0 0 1 1h4" />
@@ -117,11 +161,13 @@ export function MatchScoresheetTab({
   teamId,
   event,
   isRostered,
+  canManage,
 }: {
   clubId: string;
   teamId: string;
   event: TeamEvent;
   isRostered: boolean;
+  canManage: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -140,6 +186,16 @@ export function MatchScoresheetTab({
     error: uploadError,
     reset: resetUpload,
   } = useEventScoresheetUpload(clubId, teamId, event.id);
+  const { mutate: retryAnalysis, isPending: isRetryingAnalysis } =
+    useRetryEventScoresheetExtraction(clubId, teamId, event.id);
+  const {
+    data: extraction,
+    isLoading: isLoadingExtraction,
+    isError: isExtractionError,
+    refetch: refetchExtraction,
+  } = useEventScoresheetExtraction(clubId, teamId, event.id, {
+    enabled: status ? !isScoresheetPending(status.status) : false,
+  });
 
   // Revokes the previous object URL whenever a new file replaces it, and on
   // unmount — otherwise every selection leaks a blob URL for the page's
@@ -186,6 +242,16 @@ export function MatchScoresheetTab({
     });
   };
 
+  // Success needs no toast: the status cache flips to QUEUED, so the whole
+  // card is replaced by the "analyse en cours" frame — a visible outcome. A
+  // failure leaves the same card in place, and the button that triggered it
+  // can't say what went wrong on its own.
+  const handleRetryAnalysis = () => {
+    retryAnalysis(undefined, {
+      onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+    });
+  };
+
   if (isStatusError) {
     return <QueryError onRetry={() => refetchStatus()} />;
   }
@@ -200,7 +266,7 @@ export function MatchScoresheetTab({
   if (selectedFile) {
     const isPdf = selectedFile.type === 'application/pdf';
     return (
-      <Card className="flex max-w-sm flex-col gap-4 p-5 shadow-md md:max-w-lg">
+      <Card variant="panel" className="flex flex-col gap-4">
         {isUploadError && (
           <QueryError
             title="Échec de l'envoi"
@@ -215,10 +281,10 @@ export function MatchScoresheetTab({
         )}
         {isPdf ? (
           <div className="flex aspect-[3/4] flex-col items-center justify-center gap-2.5 rounded-lg border border-border-strong bg-surface-2 p-6 text-center">
-            <DocumentIcon className="h-10 w-10 text-muted" />
-            <span className="break-all text-sm font-semibold text-charcoal">
+            <DocumentIcon size="4xl" tone="secondary" />
+            <Text as="span" variant="label" size="sm" className="break-all">
               {selectedFile.name}
-            </span>
+            </Text>
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border-strong bg-surface-2">
@@ -248,21 +314,34 @@ export function MatchScoresheetTab({
     );
   }
 
-  if (status?.status === 'UPLOADED') {
+  if (
+    status?.status === 'UPLOADED' ||
+    status?.status === 'QUEUED' ||
+    status?.status === 'PROCESSING'
+  ) {
     return (
-      <Card className="flex max-w-sm flex-col items-center gap-3 p-5 text-center shadow-md md:max-w-lg">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success text-cream">
-          <Check className="h-6 w-6" />
-        </span>
-        <h3 className="font-heading text-lg font-extrabold">Fichier envoyé</h3>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-green/30 bg-blue-green-tint px-3 py-1 text-xs font-bold text-blue-green">
-          <ClockIcon className="h-3.5 w-3.5" />
-          En file d&apos;attente pour analyse
-        </span>
-        <p className="text-xs leading-relaxed text-muted">
+      <Card variant="panel" className="flex flex-col items-center gap-3 text-center">
+        <Text
+          as="span"
+          variant="body"
+          tone="inverse"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-success"
+        >
+          <Check size="xl" />
+        </Text>
+        <h3 className="font-heading text-lg font-extrabold">
+          {status.status === 'PROCESSING' ? 'Analyse en cours' : 'Fichier envoyé'}
+        </h3>
+        <Badge variant="soft" tone="structure" size="md" className="w-fit gap-1.5">
+          <ClockIcon size="sm" />
+          {status.status === 'PROCESSING'
+            ? "Analyse par l'IA en cours"
+            : "En file d'attente pour analyse"}
+        </Badge>
+        <Text variant="meta" size="xs" className="leading-relaxed">
           Envoyé le {formatEventDate(status.uploadedAt)}. Nous vous préviendrons une fois
           l&apos;analyse terminée.
-        </p>
+        </Text>
         {isRostered && (
           <>
             <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
@@ -275,10 +354,86 @@ export function MatchScoresheetTab({
     );
   }
 
+  if (status?.status === 'FAILED') {
+    if (isExtractionError) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
+    }
+    if (isLoadingExtraction) {
+      return <SkeletonList rows={3} variant="card" />;
+    }
+    return (
+      <Card variant="panel" className="flex flex-col items-center gap-3 text-center">
+        <IconBadge tone="danger" className="h-12 w-12">
+          <AlertCircleIcon size="xl" aria-hidden="true" />
+        </IconBadge>
+        <h3 className="font-heading text-lg font-extrabold">L&apos;analyse a échoué</h3>
+        {extraction?.failureReason && (
+          <div className="w-full rounded-lg border border-error/40 bg-error-tint p-3 text-left">
+            <Text variant="body" size="sm" tone="danger" className="leading-relaxed">
+              {extraction.failureReason}
+            </Text>
+          </div>
+        )}
+        <Text variant="meta" size="xs" className="leading-relaxed">
+          La photo originale reste archivée avec le match : vous pouvez relancer l&apos;analyse sans
+          renvoyer le fichier.
+        </Text>
+        {isRostered && (
+          <>
+            <Button onClick={handleRetryAnalysis} loading={isRetryingAnalysis} className="w-full">
+              Relancer l&apos;analyse
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isRetryingAnalysis}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Renvoyer le fichier
+            </Button>
+            <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
+          </>
+        )}
+      </Card>
+    );
+  }
+
+  if (
+    status?.status === 'PARSED' ||
+    status?.status === 'NEEDS_REVIEW' ||
+    status?.status === 'CONFIRMED'
+  ) {
+    if (isExtractionError) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
+    }
+    if (isLoadingExtraction) {
+      return <SkeletonList rows={3} variant="card" />;
+    }
+    // A terminal status with no extraction row is an inconsistent read, not
+    // a "still analysing" one — surface it as a retryable error instead of
+    // a skeleton that never resolves.
+    if (!extraction) {
+      return <QueryError onRetry={() => refetchExtraction()} />;
+    }
+    return (
+      <ScoresheetExtractionCard
+        // The card's form is seeded from the extraction once; a retry or a
+        // refetch that brings a different read remounts it, so corrections
+        // made against the old read can never be confirmed onto the new one.
+        key={extractionVersion(extraction)}
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        extraction={extraction}
+        canManage={canManage}
+      />
+    );
+  }
+
   if (!isRostered) {
     return (
       <EmptyState
-        icon={<UploadIcon className="h-8 w-8 text-muted" />}
+        icon={<UploadIcon size="3xl" tone="secondary" />}
         title="Aucune feuille de match pour le moment"
         description="Un membre de l'effectif peut l'ajouter après la rencontre."
       />
@@ -286,24 +441,25 @@ export function MatchScoresheetTab({
   }
 
   return (
-    <Card className="flex max-w-sm flex-col gap-5 p-5 shadow-md md:max-w-lg">
+    <Card variant="panel" className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-green-tint text-blue-green">
-          <UploadIcon className="h-7 w-7" />
-        </span>
-        <span className="text-sm font-bold text-charcoal">Ajoutez la feuille de marque</span>
-        <span className="text-xs leading-relaxed text-muted">
+        <IconBadge className="h-14 w-14">
+          <UploadIcon size="2xl" />
+        </IconBadge>
+        <Text as="span" variant="label" size="sm">
+          Ajoutez la feuille de marque
+        </Text>
+        <Text as="span" variant="meta" size="xs" className="leading-relaxed">
           Photo ou PDF de la feuille e-Marque.
-        </span>
+        </Text>
       </div>
       <Button onClick={() => fileInputRef.current?.click()}>
-        <UploadIcon className="h-4 w-4" />
+        <UploadIcon size="md" />
         Choisir un fichier
       </Button>
-      <span className="text-xs leading-relaxed text-muted">
-        L&apos;analyse automatique (IA) arrive bientôt. Pour l&apos;instant, le fichier est
-        simplement archivé avec le match.
-      </span>
+      <Text as="span" variant="meta" size="xs" className="leading-relaxed">
+        Une IA lit automatiquement le score et les statistiques une fois le fichier envoyé.
+      </Text>
       <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
     </Card>
   );

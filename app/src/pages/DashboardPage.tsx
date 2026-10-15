@@ -1,237 +1,83 @@
-import { useMemo, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { Badge } from '@basketeasy/ui/badge';
-import { Button } from '@basketeasy/ui/button';
-import { cn } from '@basketeasy/ui/cn';
-import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
-import { EmptyState } from '@basketeasy/ui/empty-state';
-import { Heading } from '@basketeasy/ui/heading';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { QueryError } from '@basketeasy/ui/query-error';
-import { SkeletonList } from '@basketeasy/ui/skeleton';
-import { BuildingIcon } from '@basketeasy/ui/icons/building';
-import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
-import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
-import { UsersIcon } from '@basketeasy/ui/icons/users';
-import type { MyAgendaEvent } from '@basketeasy/types/my-dashboard';
-import type { MyTeamSummary } from '@basketeasy/types/my-teams';
+import { PageHeader } from '@basketeasy/ui/page-header';
 import { useAccount } from '../auth/useAccount';
-import { useAdminClubs } from '../clubs/useAdminClubs';
-import { useMyTeamList } from '../clubs/useMyTeamList';
+import { ManagerHome } from '../clubs/ManagerHome';
+import { PlayerHome } from '../clubs/PlayerHome';
+import { useHasManageRights } from '../clubs/useHasManageRights';
+import { useHomeAgendaParams } from '../clubs/useHomeAgendaParams';
 import { useMyAgenda } from '../clubs/useMyAgenda';
-import { teamCategoryLabel, teamGenderLabel, teamMemberRoleLabel } from '../clubs/teamLabels';
-import { formatEventDate } from '../clubs/eventDateFormat';
-import { eventTypeLabel } from '../clubs/eventLabels';
-import { eventRsvpStatusLabel } from '../clubs/eventRsvpLabels';
+import { useActingAs } from '../guardians/useActingAs';
 
-function StatTile({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-1 pt-6">
-        <div className="flex items-center gap-2 text-muted">
-          {icon}
-          <span className="text-sm">{label}</span>
-        </div>
-        <span className="font-heading text-3xl font-bold text-charcoal">{value}</span>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AgendaRow({ event, isRostered }: { event: MyAgendaEvent; isRostered: boolean }) {
-  return (
-    <Link
-      to={`/clubs/${event.clubId}/teams/${event.teamId}?tab=events`}
-      state={{ origin: { from: 'dashboard' } }}
-      className="flex w-full flex-col gap-1 rounded-md border border-border bg-surface-2 p-3 text-left transition hover:border-orange"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold text-charcoal">{event.teamName}</span>
-        <Badge variant={event.type === 'MATCH' ? 'default' : 'secondary'}>
-          {eventTypeLabel(event.type)}
-        </Badge>
-        {isRostered && event.myConvocation && <Badge>Convoqué</Badge>}
-      </div>
-      <span className="text-sm text-muted">
-        {formatEventDate(event.startsAt)} · {event.location}
-        {event.type === 'MATCH' && event.opponentName ? ` · vs ${event.opponentName}` : ''}
-      </span>
-      {isRostered && (
-        <span
-          className={cn(
-            'text-sm font-semibold',
-            event.myRsvpStatus ? 'text-muted' : 'text-orange-text',
-          )}
-        >
-          Ma réponse : {eventRsvpStatusLabel(event.myRsvpStatus)}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-function TeamCard({ team }: { team: MyTeamSummary }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-2 pt-6">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-heading text-lg font-bold text-charcoal">{team.teamName}</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {team.rosterRole && (
-              <Badge variant="secondary">{teamMemberRoleLabel(team.rosterRole)}</Badge>
-            )}
-            {team.isTeamAdmin && <Badge>Administrateur</Badge>}
-          </div>
-        </div>
-        <p className="text-sm text-muted">
-          {team.clubName} · {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-        </p>
-        <Button asChild variant="outline">
-          <Link
-            to={`/clubs/${team.clubId}/teams/${team.teamId}`}
-            state={{ origin: { from: 'dashboard' } }}
-          >
-            Voir l&apos;équipe
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
+/**
+ * `/dashboard` — one route, two screens, branching on `useHasManageRights()`.
+ *
+ * This page owns exactly three things: the role branch, the one query both
+ * views share (`GET /me/dashboard`, windowed differently per role — see
+ * below), and its `error → loading` handoff to whichever view renders.
+ * Everything else — tiles, agenda blocks, team cards, the post-match
+ * surface — lives in `ManagerHome`/`PlayerHome`.
+ *
+ * A plain rostered player sees an agenda-first "Ma semaine": the previous
+ * screen served two counters and a team-card grid that duplicated
+ * `MyTeamsPage` — a status readout, not a to-do list
+ * (`docs/personas.md`). A manager's four stat tiles and
+ * team cards stay exactly as they were: nothing about them was found broken,
+ * so nothing about them changes here, other than which file they live in.
+ *
+ * **The 14-day agenda window is a player-only, client-side change**
+ * (ranked #4 in `player-journey.md` §5): the server still defaults to 7 days
+ * (`DEFAULT_AGENDA_WINDOW_DAYS`, `server/src/dashboard/dashboard.service.ts`,
+ * deliberately untouched) when no `from`/`to` is sent, which is exactly what
+ * the manager view keeps doing by passing no params at all.
+ */
 export function DashboardPage() {
   const { user } = useAccount();
-  const {
-    data: teams,
-    isLoading: isTeamsLoading,
-    isError: isTeamsError,
-    refetch: refetchTeams,
-    isRefetching: isTeamsRefetching,
-  } = useMyTeamList();
-  const adminClubs = useAdminClubs();
+  const { hasManageRights } = useHasManageRights();
+  const { persona } = useActingAs();
+  // Shared with the bottom nav's badge, so both read one cache entry.
+  const agendaParams = useHomeAgendaParams();
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
     isError: isDashboardError,
     refetch: refetchDashboard,
     isRefetching: isDashboardRefetching,
-  } = useMyAgenda();
+  } = useMyAgenda(agendaParams);
 
-  const managedTeamCount = teams?.filter((team) => team.isTeamAdmin).length ?? 0;
-  const upcomingEvents = dashboard?.upcomingEvents ?? [];
   const greetingName = user?.firstName ?? user?.email;
-  // A plain rostered player (no club-admin rights, no TeamAdmin grant
-  // anywhere) sees a leaner, agenda-first set of tiles instead of the
-  // manager-oriented ones, which would only ever read 0 for them.
-  const hasManageRights = managedTeamCount > 0 || adminClubs.length > 0;
-  const rosterRoleByTeamId = useMemo(
-    () => new Map((teams ?? []).map((team) => [team.teamId, team.rosterRole])),
-    [teams],
-  );
-  const isRostered = (teamId: string) => rosterRoleByTeamId.get(teamId) != null;
-  const awaitingResponseCount = upcomingEvents.filter(
-    (event) => isRostered(event.teamId) && event.myRsvpStatus === null,
-  ).length;
 
   return (
     <PageContainer size="lg">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Heading as="h1" className="m-0">
-            {greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
-          </Heading>
-          {user && <p className="mt-1 break-all text-muted">{user.email}</p>}
-        </div>
-      </div>
+      <PageHeader
+        title={greetingName ? `Bonjour, ${greetingName}` : 'Tableau de bord'}
+        meta={
+          // The account e-mail line is manager-only: a player's home screen
+          // is about the week, not about the account (`player-journey.md` §3.3).
+          persona ? (
+            `Vous suivez ${persona.firstName} ${persona.lastName}`
+          ) : hasManageRights && user ? (
+            <span className="break-all">{user.email}</span>
+          ) : undefined
+        }
+      />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {hasManageRights ? (
-          <>
-            <StatTile
-              icon={<TrophyIcon className="h-4 w-4" />}
-              label="Équipes gérées"
-              value={managedTeamCount}
-            />
-            <StatTile
-              icon={<CalendarIcon className="h-4 w-4" />}
-              label="Événements — 7 prochains jours"
-              value={upcomingEvents.length}
-            />
-            <StatTile
-              icon={<UsersIcon className="h-4 w-4" />}
-              label="Joueurs au total"
-              value={dashboard?.totalPlayers ?? 0}
-            />
-            <StatTile
-              icon={<BuildingIcon className="h-4 w-4" />}
-              label="Clubs administrés"
-              value={adminClubs.length}
-            />
-          </>
-        ) : (
-          <>
-            <StatTile
-              icon={<CalendarIcon className="h-4 w-4" />}
-              label="Événements — 7 prochains jours"
-              value={upcomingEvents.length}
-            />
-            <StatTile
-              icon={<CalendarIcon className="h-4 w-4" />}
-              label="En attente de réponse"
-              value={awaitingResponseCount}
-            />
-          </>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Cette semaine</CardTitle>
-          <Link to="/my-teams" className="text-sm font-semibold text-orange-text hover:underline">
-            Voir le calendrier →
-          </Link>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {isDashboardError ? (
-            <QueryError onRetry={() => refetchDashboard()} isRetrying={isDashboardRefetching} />
-          ) : isDashboardLoading ? (
-            <SkeletonList rows={3} />
-          ) : upcomingEvents.length > 0 ? (
-            upcomingEvents.map((event) => (
-              <AgendaRow key={event.eventId} event={event} isRostered={isRostered(event.teamId)} />
-            ))
-          ) : (
-            <EmptyState
-              icon={<CalendarIcon className="h-8 w-8 text-muted" />}
-              title="Rien de prévu cette semaine"
-              description="Aucun événement dans les 7 prochains jours pour vos équipes."
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      <div>
-        <Heading as="h2" className="mb-3">
-          Mes équipes
-        </Heading>
-        {isTeamsError ? (
-          <QueryError onRetry={() => refetchTeams()} isRetrying={isTeamsRefetching} />
-        ) : isTeamsLoading ? (
-          <SkeletonList rows={3} variant="card" />
-        ) : teams && teams.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {teams.map((team) => (
-              <TeamCard key={team.teamId} team={team} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<TrophyIcon className="h-8 w-8 text-muted" />}
-            title="Aucune équipe pour le moment"
-            description="Vous n'êtes membre d'aucune équipe pour le moment."
-          />
-        )}
-      </div>
+      {hasManageRights ? (
+        <ManagerHome
+          dashboard={dashboard}
+          isDashboardLoading={isDashboardLoading}
+          isDashboardError={isDashboardError}
+          refetchDashboard={refetchDashboard}
+          isDashboardRefetching={isDashboardRefetching}
+        />
+      ) : (
+        <PlayerHome
+          dashboard={dashboard}
+          isDashboardLoading={isDashboardLoading}
+          isDashboardError={isDashboardError}
+          refetchDashboard={refetchDashboard}
+          isDashboardRefetching={isDashboardRefetching}
+        />
+      )}
     </PageContainer>
   );
 }

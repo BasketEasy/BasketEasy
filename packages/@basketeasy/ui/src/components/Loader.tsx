@@ -12,7 +12,7 @@ export const Loader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>
       className={cn('flex items-center gap-2 text-sm text-muted', className)}
       {...props}
     >
-      <Spinner className="h-4 w-4 animate-spin" />
+      <Spinner size="md" className="animate-spin" />
       <span>{children}</span>
     </div>
   ),

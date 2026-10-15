@@ -1,0 +1,80 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors M",
+    "category": "SENIORS",
+    "gender": "MEN",
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/teams/team-1/players": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/clubs": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "pageSize": 25
+  },
+  "GET /api/clubs/club-1/teams/team-1/ffbb-links": [
+    {
+      "id": "link-1",
+      "ffbbEngagementLabel": "Seniors M D3"
+    }
+  ],
+  "POST /api/clubs/club-1/teams/team-1/ffbb-import": {
+    "created": 2,
+    "updated": 5,
+    "unchanged": 11,
+    "missingVenue": [
+      {
+        "eventId": "event-1",
+        "opponentName": "Rezé Basket",
+        "startsAt": "2026-10-04T13:30:00.000Z"
+      },
+      {
+        "eventId": "event-2",
+        "opponentName": "ES Vertou",
+        "startsAt": "2026-10-11T18:30:00.000Z"
+      },
+      {
+        "eventId": "event-3",
+        "opponentName": "Nantes Sully Basket",
+        "startsAt": "2026-10-18T13:00:00.000Z"
+      }
+    ],
+    "missingVenueTotal": 3
+  }
+}

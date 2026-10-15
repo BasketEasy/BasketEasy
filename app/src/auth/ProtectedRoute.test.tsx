@@ -7,24 +7,23 @@ import { PageContainer } from '@basketeasy/ui/page-container';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { AccountProvider } from './AccountContext';
-import { ActiveClubProvider } from './ActiveClubContext';
 import { ProtectedRoute } from './ProtectedRoute';
 
+// ActiveClubProvider is mounted by ProtectedRoute itself now (not a level
+// above it, the way this test used to wrap it) — see ProtectedRoute.tsx.
 function renderProtectedAt(initialPath: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <AccountProvider>
-        <ActiveClubProvider>
-          <MemoryRouter initialEntries={[initialPath]}>
-            <Routes>
-              <Route path="/login" element={<div>Page de connexion</div>} />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<PageContainer>Contenu protégé</PageContainer>} />
-              </Route>
-            </Routes>
-          </MemoryRouter>
-        </ActiveClubProvider>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/login" element={<div>Page de connexion</div>} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<PageContainer>Contenu protégé</PageContainer>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
       </AccountProvider>
     </QueryClientProvider>,
   );
@@ -42,7 +41,7 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
       ),
     );
 
@@ -55,7 +54,7 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
       http.get('/api/auth/me', () =>
-        HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships: [] }),
+        HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships: [] }),
       ),
     );
 
@@ -77,6 +76,6 @@ describe('ProtectedRoute', () => {
 
     renderWithProviders(<ProtectedRoute />, { route: '/dashboard' });
 
-    expect(screen.getByText('BasketEasy')).toBeInTheDocument();
+    expect(screen.getByText('Kluvo')).toBeInTheDocument();
   });
 });

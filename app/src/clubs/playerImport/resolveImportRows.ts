@@ -40,7 +40,7 @@ function normalizeBirthDate(raw: string): string | undefined {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
-export type ImportRowAction =
+type ImportRowAction =
   | { type: 'create' }
   | { type: 'update'; existingPlayer: Player }
   | { type: 'conflict'; existingPlayer: Player }

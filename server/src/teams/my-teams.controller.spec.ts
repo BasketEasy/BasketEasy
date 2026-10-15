@@ -35,9 +35,9 @@ describe('MyTeamsController', () => {
       },
     ]);
 
-    const result = await controller.listMyTeams({ id: 'user-1', email: 'a@b.com' });
+    const result = await controller.listMyTeams({ id: 'user-1', email: 'a@b.com' }, {});
 
-    expect(service.listTeamsForUser).toHaveBeenCalledWith('user-1');
+    expect(service.listTeamsForUser).toHaveBeenCalledWith('user-1', undefined);
     expect(result).toHaveLength(1);
   });
 });

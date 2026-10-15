@@ -2,8 +2,35 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BasketEasy — La gestion d'équipe, simplifiée.</title>
+    <!-- interactive-widget=resizes-content: the fixed bottom tab bar is
+         positioned against the layout viewport, which on-screen keyboards
+         used to leave untouched (the visual viewport shrank instead),
+         making the bar appear to float mid-screen or drift off-bottom
+         while a form field was focused. This tells supporting browsers to
+         resize the layout viewport itself when the keyboard opens, so
+         "bottom: 0" keeps meaning the actual visible bottom. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <title>Kluvo — La gestion d'équipe, simplifiée.</title>
+    <meta
+      name="description"
+      content="Kluvo centralise calendriers, convocations et présences pour les clubs de basket amateurs."
+    />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#D4622A" />
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- iOS "add to home screen" only reads these meta tags, not the manifest -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kluvo" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

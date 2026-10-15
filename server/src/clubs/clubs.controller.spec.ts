@@ -3,6 +3,7 @@ import { ClubsController } from './clubs.controller';
 import { ClubsService } from './clubs.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 
 describe('ClubsController', () => {
   let controller: ClubsController;
@@ -50,6 +51,8 @@ describe('ClubsController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ClubRolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(EmailVerifiedGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -146,9 +149,9 @@ describe('ClubsController', () => {
     });
 
     const dto = { firstName: 'A', lastName: 'B' };
-    const result = await controller.createPlayer('club-1', dto);
+    const result = await controller.createPlayer('club-1', dto, { id: 'u1', email: 'a@b.c' });
 
-    expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto);
+    expect(service.createPlayer).toHaveBeenCalledWith('club-1', dto, 'u1');
     expect(result.id).toBe('p1');
   });
 

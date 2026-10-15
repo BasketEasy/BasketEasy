@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { TeamCategory, Gender } from '@prisma/client';
 import type { UpdateTeamRequest } from '@basketeasy/types/teams';
 
@@ -18,4 +18,8 @@ export class UpdateTeamDto implements UpdateTeamRequest {
   @IsOptional()
   @IsEnum(Gender)
   gender?: Gender;
+
+  @IsOptional()
+  @IsBoolean()
+  jerseyRotationEnabled?: boolean;
 }

@@ -1,31 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@basketeasy/ui/table';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
-import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { cn } from '@basketeasy/ui/cn';
-import { focusRing } from '@basketeasy/ui/focus-ring';
-import { Card, CardContent } from '@basketeasy/ui/card';
 import { PageContainer } from '@basketeasy/ui/page-container';
-import { Heading } from '@basketeasy/ui/heading';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@basketeasy/ui/dialog';
-import { FormField } from '@basketeasy/ui/form-field';
-import { Input } from '@basketeasy/ui/input';
-import { useIsDesktopViewport } from '../hooks/useIsDesktopViewport';
-import { Pagination } from '@basketeasy/ui/pagination';
-import { SelectField } from '@basketeasy/ui/select-field';
+import { Badge } from '@basketeasy/ui/badge';
+import { PageHero } from '@basketeasy/ui/page-hero';
+import { SectionAccordion, SectionAccordionItem } from '@basketeasy/ui/section-accordion';
+import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { SkeletonList } from '@basketeasy/ui/skeleton';
-import type { TeamClubSortBy, TeamPlayerSortBy } from '@basketeasy/types/teams';
 import type { SortOrder } from '@basketeasy/types/pagination';
 import { useBackLink } from '../clubs/backLink';
 import { useTeamShow } from '../clubs/useTeamShow';
@@ -36,30 +20,34 @@ import { usePlayerList } from '../clubs/usePlayerList';
 import { useEventList } from '../clubs/useEventList';
 import { useIsClubAdmin } from '../clubs/useIsClubAdmin';
 import { useIsTeamManager } from '../clubs/useIsTeamManager';
+import { useTeamActingAs } from '../guardians/useActingAs';
+import { useRefreshPersonasOnEntry } from '../guardians/usePersonas';
 import { useMyTeamList } from '../clubs/useMyTeamList';
 import { useTeamAdminList } from '../clubs/useTeamAdminList';
 import { useTeamAdminCandidates } from '../clubs/useTeamAdminCandidates';
+import { useMyAgenda } from '../clubs/useMyAgenda';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
-import { TeamClubAddForm } from '../clubs/TeamClubAddForm';
-import { TeamClubRow } from '../clubs/TeamClubRow';
-import { TeamClubCard } from '../clubs/TeamClubCard';
-import { TeamPlayerAddForm } from '../clubs/TeamPlayerAddForm';
-import { TeamPlayerRow } from '../clubs/TeamPlayerRow';
-import { TeamRosterCards } from '../clubs/TeamRosterCards';
-import { EventCreateForm } from '../clubs/EventCreateForm';
-import { EventRow } from '../clubs/EventRow';
-import { TeamEventsAgenda } from '../clubs/TeamEventsAgenda';
-import { TeamAdminAddForm } from '../clubs/TeamAdminAddForm';
-import { TeamAdminRow } from '../clubs/TeamAdminRow';
-import { TeamAdminCard } from '../clubs/TeamAdminCard';
+import { TeamRosterTab } from '../clubs/TeamRosterTab';
+import { TeamClubsTab } from '../clubs/TeamClubsTab';
+import { TeamAdminsTab } from '../clubs/TeamAdminsTab';
+import { TeamEventsTab } from '../clubs/TeamEventsTab';
+import { TeamAgendaTab } from '../clubs/TeamAgendaTab';
+import { ROSTER_SORT_OPTIONS, TEAM_CLUB_SORT_OPTIONS } from '../clubs/teamFilterOptions';
+import { TeamJerseyRotationSection } from '../jersey-duty/TeamJerseyRotationSection';
+import { TeamSeasonStatsTab } from '../clubs/TeamSeasonStatsTab';
 import { TeamEditModal } from '../clubs/TeamEditModal';
 import { TeamFfbbLinkList } from '../clubs/TeamFfbbLinkList';
+import { PouleResultsPanel } from '../clubs/PouleResultsPanel';
 import { teamCategoryLabel, teamGenderLabel } from '../clubs/teamLabels';
-import { BuildingIcon } from '@basketeasy/ui/icons/building';
-import { CalendarIcon } from '@basketeasy/ui/icons/calendar';
-import { ShieldIcon } from '@basketeasy/ui/icons/shield';
 import { TrophyIcon } from '@basketeasy/ui/icons/trophy';
-import { UsersIcon } from '@basketeasy/ui/icons/users';
+import { TeamMeetingPointSettings } from '../meeting-points/TeamMeetingPointSettings';
+import { TeamGuestLinkSettings } from '../guest-rsvp/TeamGuestLinkSettings';
+import { TeamPendingCancellations } from '../whatsapp-reminders/TeamPendingCancellations';
+import { WhatsAppSettingsCard } from '../whatsapp-reminders/WhatsAppSettingsCard';
+import { PageBackLink, PageBar } from '../components/PageBar';
+import { PencilIcon } from '../clubs/eventDetailIcons';
+import { TeamNextEventTile } from '../clubs/TeamNextEventTile';
+import { useTeamFfbbLinks } from '../clubs/useTeamFfbbLinks';
 
 // Mirrors MembersPage's LINKING_PAGE_SIZE — the "which club players are not
 // yet on this roster" computation needs the full roster/player lists, not
@@ -68,113 +56,20 @@ const LINKING_PAGE_SIZE = 100;
 const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-/**
- * Two-option segmented control for a view-mode toggle (roster cards/table,
- * events agenda/table) — same visual/interaction pattern as
- * EventRsvpControl's segmented control (role="group" of buttons,
- * aria-pressed, shadow-segment-active on the pressed option), adapted for a
- * plain two-state toggle instead of a tri-state selectable value. Reuses the
- * existing toggleXViewMode callback as-is: since there are only ever two
- * states, clicking the inactive option is exactly what that toggle already
- * does (flip state, reset the table view's filters); clicking the active
- * option is a no-op.
- */
-function ViewModeToggle<T extends string>({
-  ariaLabel,
-  value,
-  options,
-  onToggle,
-}: {
-  ariaLabel: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onToggle: () => void;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={ariaLabel}
-      className="flex w-fit overflow-hidden rounded-md border border-border bg-sunk"
-    >
-      {options.map((option, index) => {
-        const active = option.value === value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => {
-              if (!active) onToggle();
-            }}
-            className={cn(
-              'flex min-h-11 items-center justify-center whitespace-nowrap px-3.5 text-sm font-semibold transition-colors',
-              focusRing,
-              index > 0 && 'border-l border-border-strong',
-              active
-                ? 'bg-blue-green text-cream shadow-segment-active'
-                : 'bg-surface text-muted hover:bg-sunk',
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const TEAM_CLUB_SORT_OPTIONS: {
-  value: string;
-  label: string;
-  sortBy: TeamClubSortBy;
-  sortOrder: SortOrder;
-}[] = [
-  { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
-  { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
-  {
-    value: 'linkedAt:desc',
-    label: 'Association la plus récente',
-    sortBy: 'linkedAt',
-    sortOrder: 'desc',
-  },
-  {
-    value: 'linkedAt:asc',
-    label: 'Association la plus ancienne',
-    sortBy: 'linkedAt',
-    sortOrder: 'asc',
-  },
-];
-
-const ROSTER_SORT_OPTIONS: {
-  value: string;
-  label: string;
-  sortBy: TeamPlayerSortBy;
-  sortOrder: SortOrder;
-}[] = [
-  { value: 'name:asc', label: 'Nom (A → Z)', sortBy: 'name', sortOrder: 'asc' },
-  { value: 'name:desc', label: 'Nom (Z → A)', sortBy: 'name', sortOrder: 'desc' },
-  {
-    value: 'createdAt:desc',
-    label: 'Ajout le plus récent',
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  },
-  { value: 'createdAt:asc', label: 'Ajout le plus ancien', sortBy: 'createdAt', sortOrder: 'asc' },
-];
-
-const EVENT_SORT_OPTIONS: { value: SortOrder; label: string }[] = [
-  { value: 'asc', label: 'Plus proche d’abord' },
-  { value: 'desc', label: 'Plus lointain d’abord' },
-];
-
-type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'events';
+type TeamDetailTab = 'roster' | 'clubs' | 'admins' | 'stats' | 'maillots' | 'events';
 
 export function TeamDetailPage() {
   const { clubId, teamId } = useParams<{ clubId: string; teamId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const isAdmin = useIsClubAdmin(clubId);
-  const canManageTeam = useIsTeamManager(clubId!, teamId!);
+  // Acting for a child on the child's team shows their player view: a
+  // guardian link never carries manager rights, whatever the reader holds as
+  // themself (same rule as EventDetailPage).
+  const isActingForChild = useTeamActingAs(teamId!) !== undefined;
+  const isClubAdmin = useIsClubAdmin(clubId);
+  const isTeamManager = useIsTeamManager(clubId!, teamId!);
+  const isAdmin = isClubAdmin && !isActingForChild;
+  const canManageTeam = isTeamManager && !isActingForChild;
   const requestedTab: TeamDetailTab =
     tabParam === 'roster'
       ? 'roster'
@@ -182,16 +77,21 @@ export function TeamDetailPage() {
         ? 'clubs'
         : tabParam === 'admins'
           ? 'admins'
-          : 'events';
-  // Clubs partenaires/Administrateurs are management-only tabs, hidden from
-  // a rostered player with no manage rights — fall back to Événements (the
-  // default for everyone) rather than rendering a tab that isn't in the list.
-  const activeTab: TeamDetailTab =
-    !canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')
-      ? 'events'
-      : requestedTab;
+          : tabParam === 'stats'
+            ? 'stats'
+            : tabParam === 'maillots'
+              ? 'maillots'
+              : 'events';
+  // Undefined means "the season containing today", which only the server can
+  // resolve — the September-to-August boundary is its rule, not the client's.
+  const [statsSeason, setStatsSeason] = useState<number | undefined>(undefined);
   const backLink = useBackLink();
-  const isDesktop = useIsDesktopViewport();
+  // Handed on to the event pages the hero links to, so their way back still
+  // resolves through this page to where the journey started.
+  const { state: navState } = useLocation();
+  // Settings folded by default: the calendar is what a manager came for.
+  const [openSettings, setOpenSettings] = useState<string[]>([]);
+  const [openPlayerSections, setOpenPlayerSections] = useState<string[]>([]);
   // Whether the viewer themselves has a roster row on this team (as PLAYER
   // or COACH) — gates the RSVP control, independent of canManageTeam: a
   // club admin who isn't personally rostered can manage the event but has
@@ -205,6 +105,43 @@ export function TeamDetailPage() {
     isError: isTeamError,
     refetch: refetchTeam,
   } = useTeamShow(clubId!, teamId!);
+  useRefreshPersonasOnEntry();
+
+  // Clubs partenaires/Administrateurs are management-only tabs, hidden from
+  // a rostered player with no manage rights — fall back to Événements (the
+  // default for everyone) rather than rendering a tab that isn't in the list.
+  // Maillots is the manager's always (the rotation switch lives there) and
+  // the team's only while the rotation is on.
+  const showJerseyTab = canManageTeam || (team?.jerseyRotationEnabled ?? false);
+  const activeTab: TeamDetailTab =
+    (!canManageTeam && (requestedTab === 'clubs' || requestedTab === 'admins')) ||
+    (!showJerseyTab && requestedTab === 'maillots')
+      ? 'events'
+      : requestedTab;
+
+  // Each tab's own data loads when the tab is the active one, not on every
+  // visit to the page: only what the hero, the tab list (its count badges) or
+  // a permission check reads is fetched whatever the tab. Every gated query
+  // below names the tab that reads it.
+  // « À traiter » (phase 9) — only a manager has anything here (the server
+  // gates actionItems on admin/TeamAdmin status), so the fetch is skipped
+  // entirely for a rostered player viewing the same page, and for a manager
+  // until the Événements tab, the only place it is shown. No custom from/to:
+  // the default 7-day window is also what every action-item kind's own window
+  // is bounded by (`DashboardService`), independent of it.
+  const { data: dashboard } = useMyAgenda(undefined, {
+    enabled: canManageTeam && activeTab === 'events',
+  });
+  const teamActionItems = useMemo(
+    () => (dashboard?.actionItems ?? []).filter((item) => item.teamId === teamId),
+    [dashboard, teamId],
+  );
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isAddClubOpen, setIsAddClubOpen] = useState(false);
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
 
   // Clubs partenaires (CTC) filters
   const [teamClubsSearch, setTeamClubsSearch] = useState('');
@@ -281,6 +218,23 @@ export function TeamDetailPage() {
     start.setHours(0, 0, 0, 0);
     return start.toISOString();
   }, []);
+  // The hero's next event reads the agenda's *upcoming* query with exactly
+  // its params: the same cache entry in the default state (no extra
+  // request), and the tile doesn't vanish when the agenda is switched to
+  // « Passés ».
+  const { data: upcomingEventsResult } = useEventList(clubId!, teamId!, {
+    from: agendaFrom,
+    sortOrder: 'asc',
+    pageSize: LINKING_PAGE_SIZE,
+  });
+  const nextEvent = useMemo(() => {
+    const now = Date.now();
+    return upcomingEventsResult?.items.find((e) => new Date(e.startsAt).getTime() >= now);
+  }, [upcomingEventsResult]);
+  // Lifted from TeamFfbbLinkList (same key, so the list reuses the cache):
+  // the hero's « FFBB » badge and the accordion's summary read it.
+  const { data: ffbbLinks } = useTeamFfbbLinks(clubId!, teamId!);
+  const ffbbLinkCount = ffbbLinks?.length ?? 0;
 
   const {
     data: teamClubsResult,
@@ -288,15 +242,22 @@ export function TeamDetailPage() {
     isError: isClubsError,
     refetch: refetchClubs,
     isRefetching: isClubsRefetching,
-  } = useTeamClubList(clubId!, teamId!, {
-    search: debouncedTeamClubsSearch || undefined,
-    sortBy: teamClubsSortOption.sortBy,
-    sortOrder: teamClubsSortOption.sortOrder,
-    page: teamClubsPage,
-    pageSize: teamClubsPageSize,
-  });
-  // Unfiltered, capped fetch used only to find the owning club below —
-  // independent of the paginated/filtered table view.
+  } = useTeamClubList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedTeamClubsSearch || undefined,
+      sortBy: teamClubsSortOption.sortBy,
+      sortOrder: teamClubsSortOption.sortOrder,
+      page: teamClubsPage,
+      pageSize: teamClubsPageSize,
+    },
+    // Read by the Clubs partenaires tab alone.
+    { enabled: activeTab === 'clubs' },
+  );
+  // Unfiltered, capped fetch: the owning club (hero eyebrow, « Entente CTC »
+  // badge, delete button) and the Clubs partenaires tab's count badge — so it
+  // stays on whatever the active tab is.
   const { data: allTeamClubsResult } = useTeamClubList(clubId!, teamId!, {
     pageSize: LINKING_PAGE_SIZE,
   });
@@ -307,16 +268,25 @@ export function TeamDetailPage() {
     isError: isPlayersError,
     refetch: refetchPlayers,
     isRefetching: isPlayersRefetching,
-  } = useTeamPlayerList(clubId!, teamId!, {
-    search: debouncedRosterSearch || undefined,
-    sortBy: rosterSortOption.sortBy,
-    sortOrder: rosterSortOption.sortOrder,
-    page: rosterPage,
-    pageSize: rosterPageSize,
-  });
+  } = useTeamPlayerList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedRosterSearch || undefined,
+      sortBy: rosterSortOption.sortBy,
+      sortOrder: rosterSortOption.sortOrder,
+      page: rosterPage,
+      pageSize: rosterPageSize,
+    },
+    // Read by the Effectif tab's table view alone (the card view reads the
+    // full roster below).
+    { enabled: activeTab === 'roster' && rosterViewMode === 'table' },
+  );
   // Unfiltered, capped fetch backing the "already rostered" computation below
   // — also backs the Effectif tab's card view, which shows the full roster
-  // rather than one paginated/filtered table page.
+  // rather than one paginated/filtered table page. Its `total` is the hero's
+  // « N joueurs », the tab's count badge and the delete dialog's count, so it
+  // stays on whatever the active tab is.
   // TODO: LINKING_PAGE_SIZE (100) is also the server's MAX_PAGE_SIZE
   // (server/src/common/pagination.ts), so a CTC/entente team's shared roster
   // — this app's own headline multi-club use case — could exceed it and
@@ -334,7 +304,20 @@ export function TeamDetailPage() {
   } = useTeamPlayerList(clubId!, teamId!, {
     pageSize: LINKING_PAGE_SIZE,
   });
-  const { data: clubPlayersResult } = usePlayerList(clubId!, { pageSize: LINKING_PAGE_SIZE });
+  // The club's player list is ADMIN-only on the server and only feeds the
+  // « Ajouter un joueur » picker, which is a club admin's control: for anyone
+  // else the call could only 403, and nobody reads it until the dialog opens.
+  const {
+    data: clubPlayersResult,
+    isLoading: isLoadingClubPlayers,
+    isError: isClubPlayersError,
+    refetch: refetchClubPlayers,
+    isRefetching: isClubPlayersRefetching,
+  } = usePlayerList(
+    clubId!,
+    { pageSize: LINKING_PAGE_SIZE },
+    { enabled: isAdmin && isAddPlayerOpen },
+  );
 
   const {
     data: eventsResult,
@@ -342,14 +325,22 @@ export function TeamDetailPage() {
     isError: isEventsError,
     refetch: refetchEvents,
     isRefetching: isEventsRefetching,
-  } = useEventList(clubId!, teamId!, {
-    search: debouncedEventsSearch || undefined,
-    from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
-    to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
-    sortOrder: eventsSortOrder,
-    page: eventsPage,
-    pageSize: eventsPageSize,
-  });
+  } = useEventList(
+    clubId!,
+    teamId!,
+    {
+      search: debouncedEventsSearch || undefined,
+      from: eventsFrom ? new Date(eventsFrom).toISOString() : undefined,
+      to: eventsTo ? new Date(eventsTo).toISOString() : undefined,
+      sortOrder: eventsSortOrder,
+      page: eventsPage,
+      pageSize: eventsPageSize,
+    },
+    // A player has no table view and no count to show. A manager's first
+    // page also gives the Événements tab's count badge and the delete dialog's
+    // count, so it is not tied to the tab or the view.
+    { enabled: canManageTeam },
+  );
   // Backs the agenda view — unpaginated, sorted ascending, bounded to
   // upcoming events only. Independent of the table view's own filters above,
   // same as the roster tab's card-view fetch is independent of its table.
@@ -359,11 +350,18 @@ export function TeamDetailPage() {
     isError: isAgendaEventsError,
     refetch: refetchAgendaEvents,
     isRefetching: isAgendaEventsRefetching,
-  } = useEventList(clubId!, teamId!, {
-    ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
-    sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
-    pageSize: LINKING_PAGE_SIZE,
-  });
+  } = useEventList(
+    clubId!,
+    teamId!,
+    {
+      ...(agendaPeriod === 'upcoming' ? { from: agendaFrom } : { to: agendaFrom }),
+      sortOrder: agendaPeriod === 'upcoming' ? 'asc' : 'desc',
+      pageSize: LINKING_PAGE_SIZE,
+    },
+    // Read by the Événements tab alone. « À venir » is the hero's own query
+    // (same key), so this only adds a request once « Passés » is picked.
+    { enabled: activeTab === 'events' },
+  );
 
   const {
     data: teamAdmins,
@@ -371,17 +369,23 @@ export function TeamDetailPage() {
     isError: isAdminsError,
     refetch: refetchAdmins,
     isRefetching: isAdminsRefetching,
-  } = useTeamAdminList(clubId!, teamId!);
-  const { data: teamAdminCandidatesResult } = useTeamAdminCandidates(clubId!, teamId!);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [isAddClubOpen, setIsAddClubOpen] = useState(false);
-  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
-  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-  const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
+  } = useTeamAdminList(clubId!, teamId!, canManageTeam);
+  // The admin list stays on every tab: it is the tab's count badge and, for a
+  // team admin who is not a club admin, the permission check itself. The
+  // candidates only feed the « Ajouter un administrateur » picker.
+  const {
+    data: teamAdminCandidatesResult,
+    isLoading: isLoadingAdminCandidates,
+    isError: isAdminCandidatesError,
+    refetch: refetchAdminCandidates,
+    isRefetching: isAdminCandidatesRefetching,
+  } = useTeamAdminCandidates(clubId!, teamId!, canManageTeam && isAddAdminOpen);
 
   const teamClubs = teamClubsResult?.items;
   const teamPlayers = teamPlayersResult?.items;
+  // `undefined` while loading or failed: never rendered as « 0 joueur ». `total`
+  // (not `items.length`) because the fetch is capped at one page.
+  const rosterTotal = allTeamPlayersResult?.total;
   const allTeamPlayers = useMemo(() => allTeamPlayersResult?.items ?? [], [allTeamPlayersResult]);
   const clubPlayers = useMemo(() => clubPlayersResult?.items ?? [], [clubPlayersResult]);
   const events = eventsResult?.items;
@@ -396,6 +400,10 @@ export function TeamDetailPage() {
   const refetchEventsView = eventsViewMode === 'agenda' ? refetchAgendaEvents : refetchEvents;
   const isEventsEmpty =
     (eventsViewMode === 'agenda' ? agendaEventsResult?.total : eventsResult?.total) === 0;
+  // The player's Agenda tab (TeamAgendaTab) always reads the agenda fetch,
+  // regardless of eventsViewMode/eventsViewMode's manager-only table state —
+  // it has no table view to fall back to.
+  const isAgendaEmpty = agendaEventsResult?.total === 0;
 
   // The card view reads the full unfiltered roster, the table view reads the
   // paginated/filtered one — so "is the roster empty" (and its loading
@@ -410,8 +418,11 @@ export function TeamDetailPage() {
   const isRosterEmpty =
     (rosterViewMode === 'cards' ? allTeamPlayersResult?.total : teamPlayersResult?.total) === 0;
 
-  const isOwner =
-    (allTeamClubsResult?.items ?? []).find((c) => c.clubId === clubId)?.isOwner ?? false;
+  const linkedClubs = allTeamClubsResult?.items ?? [];
+  const isOwner = linkedClubs.find((c) => c.clubId === clubId)?.isOwner ?? false;
+  const owningClubName =
+    linkedClubs.find((c) => c.isOwner)?.clubName ??
+    linkedClubs.find((c) => c.clubId === clubId)?.clubName;
 
   const addablePlayers = useMemo(() => {
     const rosteredPlayerIds = new Set(allTeamPlayers.map((tp) => tp.playerId));
@@ -443,7 +454,7 @@ export function TeamDetailPage() {
     return (
       <PageContainer size="lg">
         <EmptyState
-          icon={<TrophyIcon className="h-8 w-8 text-muted" />}
+          icon={<TrophyIcon size="3xl" tone="secondary" />}
           title="Équipe introuvable"
           description="Cette équipe n’existe plus ou a été supprimée."
           action={
@@ -457,586 +468,330 @@ export function TeamDetailPage() {
   }
 
   return (
-    <PageContainer size="lg">
-      <Button asChild variant="ghost" className="self-start">
-        <Link to={backLink.to}>{backLink.label}</Link>
-      </Button>
+    <>
+      {/* Depth 2: the bar is full-bleed under the header on a phone, so it
+          sits outside the container (the event page's pattern, one level up). */}
+      <PageBar to={backLink.to} state={null} title={backLink.label} />
+      <PageContainer size="lg" top="bar">
+        <PageBackLink to={backLink.to} state={null} title={backLink.label} />
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <Heading as="h1" className="m-0">
-            {team.name}
-          </Heading>
-          <p className="mt-1 text-muted">
-            {teamCategoryLabel(team.category)} · {teamGenderLabel(team.gender)}
-          </p>
-        </div>
-        {canManageTeam && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setIsEditing(true)}>
-              Modifier
-            </Button>
-            {isAdmin && isOwner && (
-              <TeamDeleteModal
+        <PageHero
+          badges={
+            (linkedClubs.length > 1 || ffbbLinkCount > 0) && (
+              <>
+                {linkedClubs.length > 1 && (
+                  <Badge variant="soft" tone="structure">
+                    Entente CTC
+                  </Badge>
+                )}
+                {ffbbLinkCount > 0 && (
+                  <Badge variant="outline" tone="neutral">
+                    FFBB
+                  </Badge>
+                )}
+              </>
+            )
+          }
+          eyebrow={owningClubName}
+          title={team.name}
+          titleAction={
+            canManageTeam && (
+              <Button
+                variant="outline"
+                size="icon-responsive"
+                aria-label="Modifier l’équipe"
+                onClick={() => setIsEditing(true)}
+              >
+                <PencilIcon />
+                <span className="hidden md:inline">Modifier</span>
+              </Button>
+            )
+          }
+          meta={`${teamCategoryLabel(team.category)} · ${teamGenderLabel(team.gender)}${rosterTotal === undefined ? '' : ` · ${rosterTotal} joueur${rosterTotal > 1 ? 's' : ''}`}`}
+          aside={
+            nextEvent && (
+              <TeamNextEventTile
                 clubId={clubId!}
                 teamId={teamId!}
-                teamName={team.name}
-                playerCount={allTeamPlayers.length}
-                eventCount={eventsResult?.total ?? 0}
+                event={nextEvent}
+                showMyAnswer={isRostered}
+                navState={navState}
               />
+            )
+          }
+        />
+
+        <TeamEditModal
+          clubId={clubId!}
+          teamId={teamId!}
+          team={team}
+          open={isEditing}
+          onOpenChange={setIsEditing}
+        />
+
+        {canManageTeam && <TeamPendingCancellations clubId={clubId!} teamId={teamId!} />}
+
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setSearchParams(
+              (previous) => {
+                const next = new URLSearchParams(previous);
+                next.set('tab', value);
+                return next;
+              },
+              { replace: true },
+            )
+          }
+        >
+          <TabsList>
+            {canManageTeam ? (
+              // Manager: the five tabs stay exactly as they are, in the order
+              // they've always been in — the desktop power view this revamp
+              // deliberately doesn't touch (docs/personas.md).
+              <>
+                <TabsTrigger value="roster" badge={rosterTotal}>
+                  Effectif
+                </TabsTrigger>
+                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0}>
+                  Clubs partenaires
+                </TabsTrigger>
+                <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
+                  Administrateurs
+                </TabsTrigger>
+                <TabsTrigger value="stats">Statistiques</TabsTrigger>
+                <TabsTrigger value="maillots">Maillots</TabsTrigger>
+                <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
+                  Événements
+                </TabsTrigger>
+              </>
+            ) : (
+              // Player: three tabs, agenda-first — the two management-only
+              // tabs (Clubs partenaires, Administrateurs) were never in this
+              // list. "Agenda" and "Mes stats" reuse the same "events"/"stats"
+              // tab ids as the manager view (so ?tab= and the default fallback
+              // keep working unchanged); only the label, order and — for
+              // "events" — the rendered content differ.
+              <>
+                <TabsTrigger value="events">Agenda</TabsTrigger>
+                <TabsTrigger value="roster" badge={rosterTotal}>
+                  Effectif
+                </TabsTrigger>
+                <TabsTrigger value="stats">Mes stats</TabsTrigger>
+                {showJerseyTab && <TabsTrigger value="maillots">Maillots</TabsTrigger>}
+              </>
             )}
-          </div>
-        )}
-      </div>
+          </TabsList>
 
-      <TeamEditModal
-        clubId={clubId!}
-        teamId={teamId!}
-        team={team}
-        open={isEditing}
-        onOpenChange={setIsEditing}
-      />
-
-      <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={canManageTeam} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) =>
-          setSearchParams(
-            (previous) => {
-              const next = new URLSearchParams(previous);
-              next.set('tab', value);
-              return next;
-            },
-            { replace: true },
-          )
-        }
-      >
-        <TabsList>
-          <TabsTrigger value="roster" className="gap-2">
-            Effectif
-            <Badge variant="outline" aria-hidden="true">
-              {allTeamPlayers.length}
-            </Badge>
-          </TabsTrigger>
-          {canManageTeam && (
-            <TabsTrigger value="clubs" className="gap-2">
-              Clubs partenaires
-              <Badge variant="outline" aria-hidden="true">
-                {teamClubsResult?.total ?? 0}
-              </Badge>
-            </TabsTrigger>
-          )}
-          {canManageTeam && (
-            <TabsTrigger value="admins" className="gap-2">
-              Administrateurs
-              <Badge variant="outline" aria-hidden="true">
-                {teamAdmins?.length ?? 0}
-              </Badge>
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="events" className="gap-2">
-            Événements
-            <Badge variant="outline" aria-hidden="true">
-              {eventsResult?.total ?? 0}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="roster" className="mt-4 flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {canManageTeam && (
-              <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
-                <DialogTrigger asChild>
-                  <Button className="self-start">Ajouter un joueur</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Ajouter un joueur à l'effectif</DialogTitle>
-                    <DialogDescription>
-                      Ajoutez un joueur du club à l'effectif de cette équipe.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <TeamPlayerAddForm
-                    clubId={clubId!}
-                    teamId={teamId!}
-                    addablePlayers={addablePlayers}
-                    onSuccess={() => setIsAddPlayerOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
-            <ViewModeToggle
-              ariaLabel="Affichage de l'effectif"
-              value={rosterViewMode}
-              onToggle={toggleRosterViewMode}
-              options={[
-                { value: 'cards', label: 'Cartes' },
-                { value: 'table', label: 'Tableau' },
-              ]}
-            />
-          </div>
-
-          {rosterViewMode === 'table' && (
-            <div className="flex flex-wrap items-end gap-3">
-              <Input
-                aria-label="Rechercher un joueur de l'effectif"
-                placeholder="Rechercher un joueur…"
-                value={rosterSearch}
-                onChange={(e) => {
-                  setRosterSearch(e.target.value);
-                  setRosterPage(1);
-                }}
-                className="max-w-xs"
-              />
-              <SelectField
-                label="Trier par"
-                containerClassName="w-56"
-                value={rosterSort}
-                onValueChange={(value) => {
-                  setRosterSort(value);
-                  setRosterPage(1);
-                }}
-                options={ROSTER_SORT_OPTIONS}
+          <TabsContent value="stats" className="mt-4">
+            <div className="flex flex-col gap-6">
+              <PouleResultsPanel clubId={clubId!} teamId={teamId!} />
+              <TeamSeasonStatsTab
+                clubId={clubId!}
+                teamId={teamId!}
+                season={statsSeason}
+                onSeasonChange={setStatsSeason}
               />
             </div>
-          )}
-
-          <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
-              {isRosterError ? (
-                <QueryError onRetry={() => refetchRoster()} isRetrying={isRosterRefetching} />
-              ) : isLoadingRoster ? (
-                <SkeletonList rows={3} />
-              ) : isRosterEmpty ? (
-                <EmptyState
-                  icon={<UsersIcon className="h-8 w-8 text-muted" />}
-                  title={isRosterFiltered ? 'Aucun résultat' : 'Effectif vide'}
-                  description={
-                    isRosterFiltered
-                      ? "Aucun joueur de l'effectif ne correspond à votre recherche."
-                      : "Ajoutez un joueur du club à l'effectif de cette équipe."
-                  }
-                  action={
-                    canManageTeam && !isRosterFiltered ? (
-                      <Button onClick={() => setIsAddPlayerOpen(true)}>Ajouter un joueur</Button>
-                    ) : undefined
-                  }
-                />
-              ) : rosterViewMode === 'cards' ? (
-                <TeamRosterCards players={allTeamPlayers} teamGender={team.gender} />
-              ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Prénom</TableHead>
-                        <TableHead>Nom</TableHead>
-                        <TableHead>Rôle</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamPlayers?.map((teamPlayer) => (
-                        <TeamPlayerRow
-                          key={teamPlayer.id}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          teamPlayer={teamPlayer}
-                          canManage={canManageTeam}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <Pagination
-                    page={teamPlayersResult?.page ?? 1}
-                    pageSize={teamPlayersResult?.pageSize ?? rosterPageSize}
-                    total={teamPlayersResult?.total ?? 0}
-                    onPageChange={setRosterPage}
-                    pageSizeOptions={PAGE_SIZE_OPTIONS}
-                    onPageSizeChange={(size) => {
-                      setRosterPageSize(size);
-                      setRosterPage(1);
-                    }}
-                  />
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {canManageTeam && (
-          <TabsContent value="clubs" className="mt-4 flex flex-col gap-4">
-            {isAdmin && isOwner && (
-              <Dialog open={isAddClubOpen} onOpenChange={setIsAddClubOpen}>
-                <DialogTrigger asChild>
-                  <Button className="self-start">Associer un club</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Associer un club partenaire</DialogTitle>
-                    <DialogDescription>
-                      Ajoutez un club partenaire à cette équipe CTC pour partager son effectif et
-                      son encadrement.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <TeamClubAddForm
-                    clubId={clubId!}
-                    teamId={teamId!}
-                    onSuccess={() => setIsAddClubOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
-
-            <div className="flex flex-wrap items-end gap-3">
-              <Input
-                aria-label="Rechercher un club partenaire"
-                placeholder="Rechercher un club…"
-                value={teamClubsSearch}
-                onChange={(e) => {
-                  setTeamClubsSearch(e.target.value);
-                  setTeamClubsPage(1);
-                }}
-                className="max-w-xs"
-              />
-              <SelectField
-                label="Trier par"
-                containerClassName="w-56"
-                value={teamClubsSort}
-                onValueChange={(value) => {
-                  setTeamClubsSort(value);
-                  setTeamClubsPage(1);
-                }}
-                options={TEAM_CLUB_SORT_OPTIONS}
-              />
-            </div>
-
-            <Card>
-              <CardContent className="pt-6 flex flex-col gap-4">
-                {isClubsError ? (
-                  <QueryError onRetry={() => refetchClubs()} isRetrying={isClubsRefetching} />
-                ) : isLoadingClubs ? (
-                  <SkeletonList rows={3} />
-                ) : (teamClubsResult?.total ?? 0) === 0 ? (
-                  <EmptyState
-                    icon={<BuildingIcon className="h-8 w-8 text-muted" />}
-                    title={isTeamClubsFiltered ? 'Aucun résultat' : 'Aucun club partenaire'}
-                    description={
-                      isTeamClubsFiltered
-                        ? 'Aucun club partenaire ne correspond à votre recherche.'
-                        : 'Associez un club partenaire pour gérer une équipe CTC à effectif partagé.'
-                    }
-                    action={
-                      isAdmin && isOwner && !isTeamClubsFiltered ? (
-                        <Button onClick={() => setIsAddClubOpen(true)}>Associer un club</Button>
-                      ) : undefined
-                    }
-                  />
-                ) : (
-                  <>
-                    {isDesktop ? (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Club</TableHead>
-                            <TableHead />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {teamClubs?.map((link) => (
-                            <TeamClubRow
-                              key={link.clubId}
-                              clubId={clubId!}
-                              teamId={teamId!}
-                              link={link}
-                              canManage={isAdmin && isOwner}
-                            />
-                          ))}
-                        </TableBody>
-                      </Table>
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {teamClubs?.map((link) => (
-                          <TeamClubCard
-                            key={link.clubId}
-                            clubId={clubId!}
-                            teamId={teamId!}
-                            link={link}
-                            canManage={isAdmin && isOwner}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <Pagination
-                      page={teamClubsResult?.page ?? 1}
-                      pageSize={teamClubsResult?.pageSize ?? teamClubsPageSize}
-                      total={teamClubsResult?.total ?? 0}
-                      onPageChange={setTeamClubsPage}
-                      pageSizeOptions={PAGE_SIZE_OPTIONS}
-                      onPageSizeChange={(size) => {
-                        setTeamClubsPageSize(size);
-                        setTeamClubsPage(1);
-                      }}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
-        )}
 
-        {canManageTeam && (
-          <TabsContent value="admins" className="mt-4 flex flex-col gap-4">
-            <Dialog open={isAddAdminOpen} onOpenChange={setIsAddAdminOpen}>
-              <DialogTrigger asChild>
-                <Button className="self-start">Ajouter un administrateur</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Ajouter un administrateur d'équipe</DialogTitle>
-                  <DialogDescription>
-                    Donnez à un membre du club la gestion de cette équipe (effectif, événements)
-                    sans en faire un administrateur du club.
-                  </DialogDescription>
-                </DialogHeader>
-                <TeamAdminAddForm
+          {showJerseyTab && (
+            <TabsContent value="maillots" className="mt-4">
+              <TeamJerseyRotationSection clubId={clubId!} teamId={teamId!} />
+            </TabsContent>
+          )}
+
+          <TabsContent value="roster">
+            <TeamRosterTab
+              clubId={clubId!}
+              teamId={teamId!}
+              teamGender={team.gender}
+              canManageTeam={canManageTeam}
+              canAddPlayers={isAdmin}
+              addablePlayers={addablePlayers}
+              isLoadingAddablePlayers={isLoadingClubPlayers}
+              isAddablePlayersError={isClubPlayersError}
+              isAddablePlayersRefetching={isClubPlayersRefetching}
+              refetchAddablePlayers={refetchClubPlayers}
+              isAddPlayerOpen={isAddPlayerOpen}
+              setIsAddPlayerOpen={setIsAddPlayerOpen}
+              rosterViewMode={rosterViewMode}
+              toggleRosterViewMode={toggleRosterViewMode}
+              rosterSearch={rosterSearch}
+              setRosterSearch={setRosterSearch}
+              rosterSort={rosterSort}
+              setRosterSort={setRosterSort}
+              setRosterPage={setRosterPage}
+              rosterPageSize={rosterPageSize}
+              setRosterPageSize={setRosterPageSize}
+              isRosterFiltered={isRosterFiltered}
+              isRosterError={isRosterError}
+              isLoadingRoster={isLoadingRoster}
+              isRosterRefetching={isRosterRefetching}
+              refetchRoster={refetchRoster}
+              isRosterEmpty={isRosterEmpty}
+              allTeamPlayers={allTeamPlayers}
+              teamPlayers={teamPlayers}
+              teamPlayersResult={teamPlayersResult}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          </TabsContent>
+
+          {canManageTeam && (
+            <TabsContent value="clubs">
+              <TeamClubsTab
+                clubId={clubId!}
+                teamId={teamId!}
+                isAdmin={isAdmin}
+                isOwner={isOwner}
+                isAddClubOpen={isAddClubOpen}
+                setIsAddClubOpen={setIsAddClubOpen}
+                teamClubsSearch={teamClubsSearch}
+                setTeamClubsSearch={setTeamClubsSearch}
+                teamClubsSort={teamClubsSort}
+                setTeamClubsSort={setTeamClubsSort}
+                setTeamClubsPage={setTeamClubsPage}
+                teamClubsPageSize={teamClubsPageSize}
+                setTeamClubsPageSize={setTeamClubsPageSize}
+                isTeamClubsFiltered={isTeamClubsFiltered}
+                isClubsError={isClubsError}
+                isLoadingClubs={isLoadingClubs}
+                isClubsRefetching={isClubsRefetching}
+                refetchClubs={refetchClubs}
+                teamClubs={teamClubs}
+                teamClubsResult={teamClubsResult}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
+              />
+            </TabsContent>
+          )}
+
+          {canManageTeam && (
+            <TabsContent value="admins">
+              <TeamAdminsTab
+                clubId={clubId!}
+                teamId={teamId!}
+                canManageTeam={canManageTeam}
+                isAddAdminOpen={isAddAdminOpen}
+                setIsAddAdminOpen={setIsAddAdminOpen}
+                addableAdmins={addableAdmins}
+                isLoadingAddableAdmins={isLoadingAdminCandidates}
+                isAddableAdminsError={isAdminCandidatesError}
+                isAddableAdminsRefetching={isAdminCandidatesRefetching}
+                refetchAddableAdmins={refetchAdminCandidates}
+                isAdminsError={isAdminsError}
+                isLoadingAdmins={isLoadingAdmins}
+                isAdminsRefetching={isAdminsRefetching}
+                refetchAdmins={refetchAdmins}
+                teamAdmins={teamAdmins}
+              />
+            </TabsContent>
+          )}
+
+          <TabsContent value="events">
+            <div className="flex flex-col gap-6">
+              {canManageTeam ? (
+                <TeamEventsTab
                   clubId={clubId!}
                   teamId={teamId!}
-                  candidates={addableAdmins}
-                  onSuccess={() => setIsAddAdminOpen(false)}
-                />
-              </DialogContent>
-            </Dialog>
-
-            <Card>
-              <CardContent className="pt-6">
-                {isAdminsError ? (
-                  <QueryError onRetry={() => refetchAdmins()} isRetrying={isAdminsRefetching} />
-                ) : isLoadingAdmins ? (
-                  <SkeletonList rows={3} />
-                ) : (teamAdmins?.length ?? 0) === 0 ? (
-                  <EmptyState
-                    icon={<ShieldIcon className="h-8 w-8 text-muted" />}
-                    title="Aucun administrateur d'équipe"
-                    description="Donnez à un membre du club la gestion de cette équipe (effectif, événements)."
-                    action={
-                      <Button onClick={() => setIsAddAdminOpen(true)}>
-                        Ajouter un administrateur
-                      </Button>
-                    }
-                  />
-                ) : isDesktop ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>E-mail</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamAdmins?.map((admin) => (
-                        <TeamAdminRow
-                          key={admin.userId}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          admin={admin}
-                          canManage={canManageTeam}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {teamAdmins?.map((admin) => (
-                      <TeamAdminCard
-                        key={admin.userId}
-                        clubId={clubId!}
-                        teamId={teamId!}
-                        admin={admin}
-                        canManage={canManageTeam}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-
-        <TabsContent value="events" className="mt-4 flex flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {canManageTeam && (
-              <Dialog open={isAddEventOpen} onOpenChange={setIsAddEventOpen}>
-                <DialogTrigger asChild>
-                  <Button className="self-start">Créer un événement</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Créer un événement</DialogTitle>
-                    <DialogDescription>
-                      Planifiez un entraînement ou un rendez-vous pour cette équipe.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <EventCreateForm
-                    clubId={clubId!}
-                    teamId={teamId!}
-                    onSuccess={() => setIsAddEventOpen(false)}
-                  />
-                </DialogContent>
-              </Dialog>
-            )}
-            <ViewModeToggle
-              ariaLabel="Affichage des événements"
-              value={eventsViewMode}
-              onToggle={toggleEventsViewMode}
-              options={[
-                { value: 'agenda', label: 'Agenda' },
-                { value: 'table', label: 'Liste' },
-              ]}
-            />
-          </div>
-
-          {eventsViewMode === 'agenda' && (
-            <ViewModeToggle
-              ariaLabel="Période"
-              value={agendaPeriod}
-              onToggle={toggleAgendaPeriod}
-              options={[
-                { value: 'upcoming', label: 'À venir' },
-                { value: 'past', label: 'Passés' },
-              ]}
-            />
-          )}
-
-          {eventsViewMode === 'table' && (
-            <div className="flex flex-wrap items-end gap-3">
-              <Input
-                aria-label="Rechercher un événement"
-                placeholder="Rechercher (lieu, notes)…"
-                value={eventsSearch}
-                onChange={(e) => {
-                  setEventsSearch(e.target.value);
-                  setEventsPage(1);
-                }}
-                className="max-w-xs"
-              />
-              <FormField
-                label="Du"
-                type="date"
-                value={eventsFrom}
-                onChange={(e) => {
-                  setEventsFrom(e.target.value);
-                  setEventsPage(1);
-                }}
-              />
-              <FormField
-                label="Au"
-                type="date"
-                value={eventsTo}
-                onChange={(e) => {
-                  setEventsTo(e.target.value);
-                  setEventsPage(1);
-                }}
-              />
-              <SelectField
-                label="Trier par"
-                containerClassName="w-56"
-                value={eventsSortOrder}
-                onValueChange={(value) => {
-                  setEventsSortOrder(value as SortOrder);
-                  setEventsPage(1);
-                }}
-                options={EVENT_SORT_OPTIONS}
-              />
-            </div>
-          )}
-
-          <Card>
-            <CardContent className="pt-6 flex flex-col gap-4">
-              {isEventsViewError ? (
-                <QueryError
-                  onRetry={() => refetchEventsView()}
-                  isRetrying={isEventsViewRefetching}
-                />
-              ) : isLoadingEventsView ? (
-                <SkeletonList rows={3} />
-              ) : isEventsEmpty ? (
-                <EmptyState
-                  icon={<CalendarIcon className="h-8 w-8 text-muted" />}
-                  title={
-                    eventsViewMode === 'table' && isEventsFiltered
-                      ? 'Aucun résultat'
-                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
-                        ? 'Aucun événement passé'
-                        : 'Aucun événement'
-                  }
-                  description={
-                    eventsViewMode === 'table' && isEventsFiltered
-                      ? 'Aucun événement ne correspond à ces critères.'
-                      : eventsViewMode === 'agenda' && agendaPeriod === 'past'
-                        ? 'Aucun entraînement ni match n’a encore eu lieu pour cette équipe.'
-                        : 'Planifiez un entraînement ou un match pour cette équipe.'
-                  }
-                  action={
-                    canManageTeam &&
-                    !(eventsViewMode === 'table' && isEventsFiltered) &&
-                    !(eventsViewMode === 'agenda' && agendaPeriod === 'past') ? (
-                      <Button onClick={() => setIsAddEventOpen(true)}>Créer un événement</Button>
-                    ) : undefined
-                  }
-                />
-              ) : eventsViewMode === 'agenda' ? (
-                <TeamEventsAgenda
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  events={agendaEvents}
+                  canManageTeam={canManageTeam}
                   isRostered={isRostered}
+                  teamActionItems={teamActionItems}
+                  isAddEventOpen={isAddEventOpen}
+                  setIsAddEventOpen={setIsAddEventOpen}
+                  eventsViewMode={eventsViewMode}
+                  toggleEventsViewMode={toggleEventsViewMode}
+                  agendaPeriod={agendaPeriod}
+                  toggleAgendaPeriod={toggleAgendaPeriod}
+                  eventsSearch={eventsSearch}
+                  setEventsSearch={setEventsSearch}
+                  eventsFrom={eventsFrom}
+                  setEventsFrom={setEventsFrom}
+                  eventsTo={eventsTo}
+                  setEventsTo={setEventsTo}
+                  eventsSortOrder={eventsSortOrder}
+                  setEventsSortOrder={setEventsSortOrder}
+                  setEventsPage={setEventsPage}
+                  eventsPageSize={eventsPageSize}
+                  setEventsPageSize={setEventsPageSize}
+                  isEventsFiltered={isEventsFiltered}
+                  isEventsViewError={isEventsViewError}
+                  isLoadingEventsView={isLoadingEventsView}
+                  isEventsViewRefetching={isEventsViewRefetching}
+                  refetchEventsView={refetchEventsView}
+                  isEventsEmpty={isEventsEmpty}
+                  agendaEvents={agendaEvents}
+                  events={events}
+                  eventsResult={eventsResult}
+                  pageSizeOptions={PAGE_SIZE_OPTIONS}
                 />
               ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Lieu</TableHead>
-                        <TableHead>Adversaire</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead>Réponse</TableHead>
-                        <TableHead />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {events?.map((event) => (
-                        <EventRow
-                          key={event.id}
-                          clubId={clubId!}
-                          teamId={teamId!}
-                          event={event}
-                          canManage={canManageTeam}
-                          isRostered={isRostered}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <Pagination
-                    page={eventsResult?.page ?? 1}
-                    pageSize={eventsResult?.pageSize ?? eventsPageSize}
-                    total={eventsResult?.total ?? 0}
-                    onPageChange={setEventsPage}
-                    pageSizeOptions={PAGE_SIZE_OPTIONS}
-                    onPageSizeChange={(size) => {
-                      setEventsPageSize(size);
-                      setEventsPage(1);
-                    }}
-                  />
-                </>
+                <TeamAgendaTab
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  isRostered={isRostered}
+                  agendaPeriod={agendaPeriod}
+                  toggleAgendaPeriod={toggleAgendaPeriod}
+                  isLoading={isLoadingAgendaEvents}
+                  isError={isAgendaEventsError}
+                  isRefetching={isAgendaEventsRefetching}
+                  refetch={refetchAgendaEvents}
+                  isEmpty={isAgendaEmpty}
+                  agendaEvents={agendaEvents}
+                />
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </PageContainer>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {canManageTeam ? (
+          <section className="flex flex-col gap-3.5">
+            <SectionHeading as="h2">Réglages de l’équipe</SectionHeading>
+            <SectionAccordion value={openSettings} onValueChange={setOpenSettings}>
+              <div className="grid gap-2.5 md:grid-cols-2 md:items-start">
+                <SectionAccordionItem
+                  value="ffbb"
+                  title="Calendrier FFBB"
+                  summary={
+                    ffbbLinkCount > 0
+                      ? `${ffbbLinkCount} lien${ffbbLinkCount > 1 ? 's' : ''}`
+                      : undefined
+                  }
+                >
+                  <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage />
+                </SectionAccordionItem>
+                <SectionAccordionItem value="rdv" title="RDV">
+                  <TeamMeetingPointSettings clubId={clubId!} teamId={teamId!} />
+                </SectionAccordionItem>
+                <SectionAccordionItem value="invite" title="Lien invité">
+                  <TeamGuestLinkSettings clubId={clubId!} teamId={teamId!} />
+                </SectionAccordionItem>
+                <SectionAccordionItem value="whatsapp" title="Message WhatsApp">
+                  <WhatsAppSettingsCard clubId={clubId!} teamId={teamId!} />
+                </SectionAccordionItem>
+              </div>
+            </SectionAccordion>
+            {isAdmin && isOwner && (
+              <div className="self-start">
+                <TeamDeleteModal
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  teamName={team.name}
+                  playerCount={rosterTotal}
+                  eventCount={eventsResult?.total ?? 0}
+                />
+              </div>
+            )}
+          </section>
+        ) : (
+          ffbbLinkCount > 0 && (
+            <SectionAccordion value={openPlayerSections} onValueChange={setOpenPlayerSections}>
+              <SectionAccordionItem value="ffbb" title="Compétitions FFBB">
+                <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={false} />
+              </SectionAccordionItem>
+            </SectionAccordion>
+          )
+        )}
+      </PageContainer>
+    </>
   );
 }

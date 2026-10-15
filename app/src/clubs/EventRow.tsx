@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@basketeasy/ui/badge';
+import { ResponseMeter } from '@basketeasy/ui/response-meter';
 import { TableCell, TableRow } from '@basketeasy/ui/table';
 import type { TeamEvent } from '@basketeasy/types/events';
 import { formatEventDate, formatEventDateOnly } from './eventDateFormat';
@@ -15,6 +16,8 @@ import { EventRsvpControl } from './EventRsvpControl';
 import { EventRsvpBreakdown } from './EventRsvpBreakdown';
 import { EventConvocationModal } from './EventConvocationModal';
 import { EventConvocationBreakdown } from './EventConvocationBreakdown';
+import { TextLink } from '@basketeasy/ui/text-link';
+import { eventVenueLabel } from '@basketeasy/types/events';
 
 export function EventRow({
   clubId,
@@ -39,7 +42,9 @@ export function EventRow({
         ) : (
           <div className="flex flex-col items-start gap-1">
             {formatEventDateOnly(event.startsAt)}
-            <Badge variant="outline">Heure à confirmer</Badge>
+            <Badge variant="outline" tone="neutral">
+              Heure à confirmer
+            </Badge>
           </div>
         )}
       </TableCell>
@@ -47,18 +52,26 @@ export function EventRow({
         <div className="flex flex-wrap items-center gap-2">
           {eventTypeLabel(event.type)}
           {event.type === 'MATCH' && event.venue && <EventVenueBadge venue={event.venue} />}
-          {event.isImported && <Badge variant="outline">Importé</Badge>}
+          {event.isImported && (
+            <Badge variant="outline" tone="neutral">
+              Importé
+            </Badge>
+          )}
+          {canManage && event.whatsAppShare?.state === 'PENDING' && (
+            <Badge variant="soft" tone="brand">
+              À partager
+            </Badge>
+          )}
         </div>
       </TableCell>
-      <TableCell>{event.location}</TableCell>
+      <TableCell>{eventVenueLabel(event)}</TableCell>
       <TableCell>
         {event.type === 'MATCH' ? (
-          <Link
-            to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}
-            className="font-semibold text-blue-green hover:underline"
-          >
-            vs {event.opponentName}
-          </Link>
+          <TextLink asChild size="md">
+            <Link to={`/clubs/${clubId}/teams/${teamId}/events/${event.id}`}>
+              vs {event.opponentName}
+            </Link>
+          </TextLink>
         ) : (
           '—'
         )}
@@ -73,7 +86,7 @@ export function EventRow({
             // control, previously read too easily as "attendance confirmed"
             // rather than "the coach picked you," a different, independent
             // signal (see EventConvocationBreakdown's matching icon).
-            <Badge variant="outline" className="w-fit gap-1">
+            <Badge variant="outline" tone="neutral" className="w-fit gap-1">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -90,10 +103,26 @@ export function EventRow({
               Convoqué par le coach
             </Badge>
           )}
-          <EventLogisticsMiniChips eventType={event.type} logistics={event.logistics} />
+          <EventLogisticsMiniChips
+            eventType={event.type}
+            logistics={event.logistics}
+            jerseyDuty={event.jerseyDuty}
+          />
           <EventVoteBadge event={event} />
           <MatchWinnersRow clubId={clubId} teamId={teamId} event={event} />
           {isRostered && <EventRsvpControl clubId={clubId} teamId={teamId} event={event} />}
+          {event.rsvpSummary.rosterSize > 0 && (
+            // At-a-glance now that rsvpSummary arrives on the event itself —
+            // the breakdowns below still lazy-fetch, but only for the names,
+            // not for these counts.
+            <ResponseMeter
+              going={event.rsvpSummary.going}
+              maybe={event.rsvpSummary.maybe}
+              notGoing={event.rsvpSummary.notGoing}
+              pending={event.rsvpSummary.pending}
+              size="sm"
+            />
+          )}
           <EventRsvpBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
           <EventConvocationBreakdown clubId={clubId} teamId={teamId} eventId={event.id} />
         </div>

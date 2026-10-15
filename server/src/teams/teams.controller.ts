@@ -14,13 +14,16 @@ import {
 import type { Team, TeamClubLink, TeamPlayer } from '@basketeasy/types/teams';
 import type { PaginatedResult } from '@basketeasy/types/pagination';
 import type { TeamAdmin, TeamAdminCandidate } from '@basketeasy/types/team-admins';
-import type { FfbbImportResult, TeamFfbbLink } from '@basketeasy/types/ffbb';
+import type { FfbbImportResult, PouleResults, TeamFfbbLink } from '@basketeasy/types/ffbb';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
+import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
+import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -39,6 +42,7 @@ export class TeamsController {
   constructor(
     private readonly teamsService: TeamsService,
     private readonly ffbbImportService: FfbbImportService,
+    private readonly ffbbPouleService: FfbbPouleService,
   ) {}
 
   @Post()
@@ -61,6 +65,7 @@ export class TeamsController {
   @Get(':teamId')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   getTeam(@Param('clubId') clubId: string, @Param('teamId') teamId: string): Promise<Team> {
     return this.teamsService.getTeam(clubId, teamId);
   }
@@ -86,6 +91,7 @@ export class TeamsController {
   @Get(':teamId/clubs')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listTeamClubs(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -120,6 +126,7 @@ export class TeamsController {
   @Get(':teamId/players')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listTeamPlayers(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -140,13 +147,13 @@ export class TeamsController {
 
   @Patch(':teamId/players/:playerId')
   @UseGuards(TeamManagerGuard)
-  updateTeamPlayerRole(
+  updateTeamPlayer(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
     @Param('playerId') playerId: string,
     @Body() dto: UpdateTeamPlayerDto,
   ): Promise<TeamPlayer> {
-    return this.teamsService.updateTeamPlayerRole(clubId, teamId, playerId, dto.role);
+    return this.teamsService.updateTeamPlayer(clubId, teamId, playerId, dto);
   }
 
   @Delete(':teamId/players/:playerId')
@@ -163,6 +170,7 @@ export class TeamsController {
   @Get(':teamId/ffbb-links')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
   listFfbbLinks(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,
@@ -200,6 +208,20 @@ export class TeamsController {
     return this.ffbbImportService.importSchedule(clubId, teamId);
   }
 
+  @Get(':teamId/ffbb-poule-results')
+  @UseGuards(ClubRolesGuard)
+  @ClubRoles('ADMIN', 'MEMBER')
+  @AllowGuardians()
+  getFfbbPouleResults(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<PouleResults> {
+    return this.ffbbPouleService.getPouleResults(clubId, teamId);
+  }
+
+  // Not @AllowGuardians(): TeamAdmin carries each coach's e-mail, and a
+  // parent who is nothing else in the club never sees other people's
+  // addresses (guardians design, decision 17).
   @Get(':teamId/admins')
   @UseGuards(ClubRolesGuard)
   @ClubRoles('ADMIN', 'MEMBER')
@@ -219,8 +241,10 @@ export class TeamsController {
     return this.teamsService.listEligibleAdmins(clubId, teamId);
   }
 
+  // Gated on a verified address: a TeamAdmin grant hands someone else the
+  // roster, the events and the team's info. See EmailVerifiedGuard.
   @Post(':teamId/admins')
-  @UseGuards(TeamManagerGuard)
+  @UseGuards(TeamManagerGuard, EmailVerifiedGuard)
   addTeamAdmin(
     @Param('clubId') clubId: string,
     @Param('teamId') teamId: string,

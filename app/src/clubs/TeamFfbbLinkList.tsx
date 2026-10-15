@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button } from '@basketeasy/ui/button';
-import { SectionHeading } from '@basketeasy/ui/section-heading';
 import { toast } from '@basketeasy/ui/toast-store';
 import { focusRing } from '@basketeasy/ui/focus-ring';
 import { cn } from '@basketeasy/ui/cn';
@@ -11,8 +10,10 @@ import { useFfbbLinkAdd } from './useFfbbLinkAdd';
 import { useFfbbLinkRemove } from './useFfbbLinkRemove';
 import { useFfbbImport } from './useFfbbImport';
 import { FfbbLinkField } from './FfbbLinkField';
+import { FfbbMissingVenueAlert } from './FfbbMissingVenueAlert';
 import { isFfbbLinkError } from './ffbbLinkErrors';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { Text } from '@basketeasy/ui/text';
 
 const MISSING_LABEL_FALLBACK = 'Compétition liée';
 
@@ -34,11 +35,12 @@ function importResultToast(result: FfbbImportResult) {
 
 /**
  * "Compétitions FFBB liées" — the team-detail section from
- * docs/superpowers/specs/2026-08-26-ffbb-calendar-import-design.md: chips +
+ * docs/decisions/ffbb.md: chips +
  * an add row (sharing FfbbLinkField's copy with TeamCreateForm) + the
  * import button, all in one component since they're all driven by the same
  * link list. Renders nothing when there's nothing to see and nothing to do
- * (no links, and the viewer can't manage the team).
+ * (no links, and the viewer can't manage the team). No heading of its own: it
+ * is the content of the team page's FFBB accordion item.
  */
 export function TeamFfbbLinkList({
   clubId,
@@ -52,7 +54,11 @@ export function TeamFfbbLinkList({
   const { data: links } = useTeamFfbbLinks(clubId, teamId);
   const { mutate: addLink, isPending: isAdding } = useFfbbLinkAdd(clubId, teamId);
   const { mutate: removeLink } = useFfbbLinkRemove(clubId, teamId);
-  const { mutate: importSchedule, isPending: isImporting } = useFfbbImport(clubId, teamId);
+  const {
+    mutate: importSchedule,
+    isPending: isImporting,
+    data: importResult,
+  } = useFfbbImport(clubId, teamId);
   const [newUrl, setNewUrl] = useState('');
   const [addError, setAddError] = useState<string | undefined>();
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -98,27 +104,32 @@ export function TeamFfbbLinkList({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading count={links.length}>Compétitions FFBB liées</SectionHeading>
-        {canManage && links.length > 0 && (
-          <Button variant="secondary" loading={isImporting} onClick={handleImport}>
-            Importer le calendrier FFBB
-          </Button>
-        )}
-      </div>
+      {canManage && links.length > 0 && (
+        <Button
+          variant="secondary"
+          loading={isImporting}
+          onClick={handleImport}
+          className="self-start"
+        >
+          Importer le calendrier FFBB
+        </Button>
+      )}
 
       {links.length === 0 ? (
-        <p className="text-sm text-muted">Aucune compétition FFBB liée pour l&apos;instant.</p>
+        <Text variant="meta">Aucune compétition FFBB liée pour l&apos;instant.</Text>
       ) : (
         <div className="flex flex-wrap gap-2">
           {links.map((link) => {
             const label = link.ffbbEngagementLabel ?? MISSING_LABEL_FALLBACK;
             return (
-              <span
+              <Text
+                as="span"
+                variant="body"
+                size="sm"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-3 pr-1.5 shadow-sm"
                 key={link.id}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-3 pr-1.5 text-sm text-charcoal shadow-sm"
               >
-                <TrophyIcon className="h-3.5 w-3.5 shrink-0 text-blue-green" aria-hidden="true" />
+                <TrophyIcon size="sm" tone="structure" className="shrink-0" aria-hidden="true" />
                 {label}
                 {canManage && (
                   <button
@@ -134,10 +145,14 @@ export function TeamFfbbLinkList({
                     ×
                   </button>
                 )}
-              </span>
+              </Text>
             );
           })}
         </div>
+      )}
+
+      {importResult && (
+        <FfbbMissingVenueAlert clubId={clubId} teamId={teamId} result={importResult} />
       )}
 
       {canManage && (

@@ -5,16 +5,12 @@ import { eventVenueLabel } from './eventLabels';
 /**
  * Domicile/Extérieur badge for a MATCH event — shared by the match detail
  * hero and the agenda card so both surfaces render the identical tint/icon
- * treatment (per docs/superpowers/specs/assets/2026-08-27-match-interface/
- * AgendaCard.dc.html and Main.dc.html) instead of re-deriving it per call site.
+ * treatment instead of re-deriving it per call site.
  */
 export function EventVenueBadge({ venue }: { venue: EventVenue }) {
   if (venue === 'HOME') {
     return (
-      <Badge
-        variant="outline"
-        className="gap-1 border-blue-green/25 bg-blue-green-tint text-blue-green"
-      >
+      <Badge variant="soft" tone="structure" className="gap-1">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -31,5 +27,9 @@ export function EventVenueBadge({ venue }: { venue: EventVenue }) {
       </Badge>
     );
   }
-  return <Badge variant="outline">{eventVenueLabel('AWAY')}</Badge>;
+  return (
+    <Badge variant="outline" tone="neutral">
+      {eventVenueLabel('AWAY')}
+    </Badge>
+  );
 }

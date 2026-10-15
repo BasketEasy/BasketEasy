@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 import { FfbbImportService } from '../ffbb/ffbb-import.service';
+import { FfbbPouleService } from '../ffbb/ffbb-poule.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
 import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import { EmailVerifiedGuard } from '../auth/guards/email-verified.guard';
 
 describe('TeamsController', () => {
   let controller: TeamsController;
@@ -20,7 +22,7 @@ describe('TeamsController', () => {
     listTeamPlayers: jest.Mock;
     addTeamPlayer: jest.Mock;
     removeTeamPlayer: jest.Mock;
-    updateTeamPlayerRole: jest.Mock;
+    updateTeamPlayer: jest.Mock;
     listTeamAdmins: jest.Mock;
     listEligibleAdmins: jest.Mock;
     addTeamAdmin: jest.Mock;
@@ -30,6 +32,7 @@ describe('TeamsController', () => {
     removeFfbbLink: jest.Mock;
   };
   let ffbbImportService: { importSchedule: jest.Mock };
+  let ffbbPouleService: { getPouleResults: jest.Mock };
 
   beforeEach(async () => {
     service = {
@@ -44,7 +47,7 @@ describe('TeamsController', () => {
       listTeamPlayers: jest.fn(),
       addTeamPlayer: jest.fn(),
       removeTeamPlayer: jest.fn(),
-      updateTeamPlayerRole: jest.fn(),
+      updateTeamPlayer: jest.fn(),
       listTeamAdmins: jest.fn(),
       listEligibleAdmins: jest.fn(),
       addTeamAdmin: jest.fn(),
@@ -54,12 +57,14 @@ describe('TeamsController', () => {
       removeFfbbLink: jest.fn(),
     };
     ffbbImportService = { importSchedule: jest.fn() };
+    ffbbPouleService = { getPouleResults: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TeamsController],
       providers: [
         { provide: TeamsService, useValue: service },
         { provide: FfbbImportService, useValue: ffbbImportService },
+        { provide: FfbbPouleService, useValue: ffbbPouleService },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -67,6 +72,8 @@ describe('TeamsController', () => {
       .overrideGuard(ClubRolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(TeamManagerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(EmailVerifiedGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -189,23 +196,26 @@ describe('TeamsController', () => {
     expect(service.removeTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'player-1');
   });
 
-  it('updateTeamPlayerRole delegates clubId, teamId, playerId, role', async () => {
-    service.updateTeamPlayerRole.mockResolvedValue({
+  it('updateTeamPlayer delegates clubId, teamId, playerId, role', async () => {
+    service.updateTeamPlayer.mockResolvedValue({
       id: 'tp1',
       teamId: 'team-1',
       playerId: 'p1',
       role: 'COACH',
+      jerseyDutyExempt: false,
       firstName: 'A',
       lastName: 'B',
       clubId: 'club-1',
       createdAt: 'x',
     });
 
-    const result = await controller.updateTeamPlayerRole('club-1', 'team-1', 'p1', {
+    const result = await controller.updateTeamPlayer('club-1', 'team-1', 'p1', {
       role: 'COACH',
     });
 
-    expect(service.updateTeamPlayerRole).toHaveBeenCalledWith('club-1', 'team-1', 'p1', 'COACH');
+    expect(service.updateTeamPlayer).toHaveBeenCalledWith('club-1', 'team-1', 'p1', {
+      role: 'COACH',
+    });
     expect(result.role).toBe('COACH');
   });
 
@@ -289,5 +299,18 @@ describe('TeamsController', () => {
 
     expect(ffbbImportService.importSchedule).toHaveBeenCalledWith('club-1', 'team-1');
     expect(result.created).toBe(8);
+  });
+
+  it('getFfbbPouleResults delegates clubId and teamId to the poule service', async () => {
+    ffbbPouleService.getPouleResults.mockResolvedValue({
+      competitionLabel: 'Seniors M D3',
+      standings: [],
+      matchdays: [],
+    });
+
+    const result = await controller.getFfbbPouleResults('club-1', 'team-1');
+
+    expect(ffbbPouleService.getPouleResults).toHaveBeenCalledWith('club-1', 'team-1');
+    expect(result.competitionLabel).toBe('Seniors M D3');
   });
 });
