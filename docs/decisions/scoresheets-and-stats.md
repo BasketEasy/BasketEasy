@@ -97,6 +97,33 @@ re-confirm; sheets confirmed before the mapping existed have no rows until re-co
   warnings marked « Souvent sans conséquence »): the running-score column isn't on the card, so
   this is where a flagged basket is named.
 
+## The deterministic reader
+
+- **e-Marque V2 PDF exports are read without a model.** Their text is drawn as vector outlines and
+  every running-score mark is an embedded image, both exactly repeated from one export to the next.
+  `sheet-reader/` fingerprints them (glyph contour + counters, normalised to the glyph's box; image
+  stream SHA-1 + width) against the `emarque_v2` template: a glyph dictionary (bootstrapped once by
+  letting tesseract vote on each fingerprint), an accent table, the mark table and the page layout
+  (zones in PDF points). Measured with the eval harness: **4/4 golden sheets exact, 0 silent
+  errors**, about 8 s a read (7 s of it pdfplumber extracting ~3,000 paths).
+- **It runs first, the vision model second** (`RoutingVisionClient`): a photo, a PDF it declines
+  (422: not a PDF, no e-Marque results block, an unknown mark image) or a read the validator flags
+  goes to Gemini; the deterministic read is kept when Gemini fails or does no better. Reading a PDF
+  ourselves also keeps it off a model provider, which the open Gemini compliance flag cares about.
+- **Fragility is bounded, not hidden.** The template is tied to e-Marque's renderer: a new mark
+  image declines (and falls back), a changed font yields `?` characters, unread numbers and a
+  validator error (and falls back). Rebuild `glyphs.json` with `tools/build_glyph_dict.py`, run the
+  golden test with the private PDFs, then commit.
+- Licence numbers are on the sheet and deliberately not returned; captain markers (« (CAP) ») are
+  stripped from names. Plays carry the drawn notation (dot 1, circled number 3, else 2), so the
+  server's gap rule and notation check apply exactly as to a model read.
+- **Sport-agnostic split.** `vectors.py` knows nothing of basketball or layouts (glyph atoms, image
+  fingerprints, text lines in a zone); a form is a template folder plus one assembly module
+  (`emarque_basketball.py`). Another sport's digital sheet is a new template and assembly, graded by
+  the same harness.
+- Python, not a port to TypeScript: the validated prototype and pdfplumber's direct access to
+  curves and image streams (see `docs/backend-stack.md`).
+
 ## Measuring the read
 
 Prompt, model and validator changes are judged against **golden sheets**, not by eye.
@@ -152,5 +179,8 @@ Prompt, model and validator changes are judged against **golden sheets**, not by
 - The vision provider (`GeminiClient` behind `SCORESHEET_VISION_CLIENT`) has a harness for the
   accuracy bake-off `docs/backend-stack.md` asks for (« Measuring the read ») but no baseline run
   yet: it needs `GEMINI_API_KEY` and the private source files.
-- Whether to run the deterministic reader in production for e-Marque PDFs (exact, but tied to the
-  e-Marque renderer's fonts and images) waits on the Gemini baseline.
+- Production deploy of `sheet-reader`: the image builds in CI, but the production compose file
+  (`/opt/kluvo`, outside the repo) needs the service added and `SCORESHEET_READER_URL` set; until
+  then every scoresheet goes to Gemini, as before.
+- Overtime: the results-block pattern reads `QT<n>` lines; no golden sheet went to overtime, so
+  how e-Marque prints a prolongation is unverified.

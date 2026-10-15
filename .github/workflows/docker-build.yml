@@ -33,6 +33,9 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'package.json'
               - '.github/workflows/docker-build.yml'
+            sheet-reader:
+              - 'sheet-reader/**'
+              - '.github/workflows/docker-build.yml'
             app:
               - 'app/**'
               - 'packages/@basketeasy/types/**'
@@ -45,10 +48,12 @@ jobs:
         env:
           SERVER: ${{ steps.filter.outputs.server }}
           APP: ${{ steps.filter.outputs.app }}
+          SHEET_READER: ${{ steps.filter.outputs.sheet-reader }}
         run: |
           items=()
           if [ "$SERVER" = true ]; then items+=('{"name":"server","dockerfile":"server/Dockerfile"}'); fi
           if [ "$APP" = true ]; then items+=('{"name":"app","dockerfile":"app/Dockerfile"}'); fi
+          if [ "$SHEET_READER" = true ]; then items+=('{"name":"sheet-reader","dockerfile":"sheet-reader/Dockerfile"}'); fi
           echo "matrix={\"include\":[$(IFS=,; echo "${items[*]}")]}" >> "$GITHUB_OUTPUT"
 
   build-images:

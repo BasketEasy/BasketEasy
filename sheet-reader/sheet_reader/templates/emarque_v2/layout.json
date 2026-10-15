@@ -1,0 +1,33 @@
+{
+  "_comment": "PDF points, origin top-left, as pdfplumber reports them. Measured on e-Marque V2 exports (DM3, 2025-2026).",
+  "rosterZones": {
+    "home": {
+      "top": 210,
+      "bottom": 376,
+      "left": 0,
+      "right": 355
+    },
+    "away": {
+      "top": 515,
+      "bottom": 682,
+      "left": 0,
+      "right": 355
+    }
+  },
+  "resultsZone": {
+    "top": 703,
+    "bottom": 800,
+    "left": 0,
+    "right": 600
+  },
+  "runningScore": {
+    "blockLeft": [360.5, 436.5, 512.5],
+    "blockSplit": [434, 510],
+    "left": 360,
+    "right": 590,
+    "columnWidth": 18.0,
+    "firstRowTop": 142.5,
+    "rowHeight": 14.0,
+    "rowsPerBlock": 40
+  }
+}

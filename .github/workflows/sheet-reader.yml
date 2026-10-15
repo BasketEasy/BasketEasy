@@ -1,0 +1,41 @@
+name: Sheet reader
+
+# The Python e-Marque reader (sheet-reader/): lint, format, tests. Its own
+# workflow because it shares no toolchain with ci.yml's pnpm jobs. The golden
+# test against real PDFs is skipped here: the PDFs are private and never
+# committed (see docs/decisions/scoresheets-and-stats.md).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sheet-reader/**'
+      - 'server/test/scoresheet-eval/golden/**'
+      - '.github/workflows/sheet-reader.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sheet-reader/**'
+      - 'server/test/scoresheet-eval/golden/**'
+      - '.github/workflows/sheet-reader.yml'
+
+concurrency:
+  group: sheet-reader-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sheet-reader
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: sheet-reader/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m pytest -q

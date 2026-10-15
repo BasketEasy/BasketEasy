@@ -1,0 +1,52 @@
+[
+  {
+    "fingerprint": "5f7275e8a89de5ee:13",
+    "kind": "circled_no",
+    "red": false
+  },
+  {
+    "fingerprint": "7f8ddc1675fc21ea:13",
+    "kind": "circled_no",
+    "red": true
+  },
+  {
+    "fingerprint": "a9abc1609c70e23e:8",
+    "kind": "dot",
+    "red": false
+  },
+  {
+    "fingerprint": "0569759252ca6802:8",
+    "kind": "dot",
+    "red": true
+  },
+  {
+    "fingerprint": "a0c70fc96fc6fed9:13",
+    "kind": "end_dot",
+    "red": false
+  },
+  {
+    "fingerprint": "ae60e2aeeb2ecd31:13",
+    "kind": "end_dot",
+    "red": true
+  },
+  {
+    "fingerprint": "b23a7f5c59f318ba:13",
+    "kind": "end_slash",
+    "red": false
+  },
+  {
+    "fingerprint": "04717d5d91c98531:13",
+    "kind": "end_slash",
+    "red": true
+  },
+  {
+    "fingerprint": "b23a7f5c59f318ba:17",
+    "kind": "slash",
+    "red": false
+  },
+  {
+    "fingerprint": "19586215696d8d0b:17",
+    "kind": "slash",
+    "red": true
+  }
+]

@@ -27,6 +27,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Internal only: no ports published and no auth. Reached by the server's
+  # OCR worker at http://sheet-reader:8000 (see sheet-reader/sheet_reader/app.py).
+  sheet-reader:
+    build:
+      context: .
+      dockerfile: sheet-reader/Dockerfile
+    restart: unless-stopped
+
   server:
     build:
       context: .
@@ -48,6 +56,10 @@ services:
       # Scoresheet OCR (Gemini vision) — like the R2_* vars above, unset
       # only fails an actual OCR job, not server boot.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Deterministic reader for e-Marque PDF exports (the sheet-reader service
+      # below). Empty sends every scoresheet to Gemini; a PDF it declines goes
+      # there anyway.
+      SCORESHEET_READER_URL: ${SCORESHEET_READER_URL:-http://sheet-reader:8000}
       # Match meeting-point driving times (OpenRouteService). Empty answers
       # "unknown" to every lookup; managers then type travel minutes by hand.
       ORS_API_KEY: ${ORS_API_KEY:-}
