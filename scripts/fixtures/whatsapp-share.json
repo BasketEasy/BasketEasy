@@ -1,0 +1,381 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "admin@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "ADMIN"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/clubs/club-1/meeting-settings": {
+    "meetingPoint": {
+      "name": "Parking salle Coubertin",
+      "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+    },
+    "arrivalBufferMinutes": 45
+  },
+  "GET /api/clubs/club-1/teams/team-1": {
+    "id": "team-1",
+    "name": "Seniors M",
+    "category": "SENIORS",
+    "gender": "MEN",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  "GET /api/clubs/club-1/teams/team-1/meeting-settings": {
+    "meetingPoint": null,
+    "arrivalBufferMinutes": 60,
+    "clubDefaults": {
+      "clubName": "ASC Nantes",
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "arrivalBufferMinutes": 45
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1": {
+    "id": "event-1",
+    "teamId": "team-1",
+    "type": "MATCH",
+    "startsAt": "2026-10-10T18:30:00.000Z",
+    "location": "Salle des Sports de la Trocardière, Rezé",
+    "notes": null,
+    "opponentName": "Rezé Basket",
+    "venue": "AWAY",
+    "recurrenceId": null,
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "myRsvpStatus": "GOING",
+    "myRsvpRespondedBy": null,
+    "myRsvpRespondedAt": null,
+    "isImported": false,
+    "timeConfirmed": true,
+    "myConvocation": true,
+    "rsvpSummary": {
+      "rosterSize": 5,
+      "convoked": 5,
+      "answering": 5,
+      "going": 3,
+      "maybe": 1,
+      "notGoing": 0,
+      "pending": 1,
+      "isConvocationScoped": true
+    },
+    "logistics": {
+      "jerseys": null,
+      "balls": null
+    },
+    "result": null,
+    "myMatchStats": null,
+    "meetingPlan": {
+      "arrivalAt": "2026-10-10T17:45:00.000Z",
+      "arrivalBufferMinutes": 45,
+      "meetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "meetingPointSource": "CLUB",
+      "travelMinutes": 23,
+      "travelMinutesSource": "COMPUTED",
+      "meetsAt": "2026-10-10T17:15:00.000Z",
+      "meetsAtSource": "COMPUTED",
+      "defaultMeetingPoint": {
+        "name": "Parking salle Coubertin",
+        "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+      },
+      "defaultMeetingPointSource": "CLUB"
+    },
+    "myTravelMode": "MEETING_POINT",
+    "whatsAppShare": {
+      "type": "UPDATE",
+      "state": "PENDING",
+      "dueAt": null,
+      "sentAt": null,
+      "sentBy": null,
+      "platform": null
+    },
+    "whatsAppSettings": {
+      "override": null,
+      "offsetMinutes": null,
+      "effective": {
+        "enabled": true,
+        "offsetMinutes": 4320
+      }
+    }
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "p-tp-1",
+      "firstName": "Camille",
+      "lastName": "Roussel",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": true,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "DIRECT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "status": "GOING",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": "MEETING_POINT",
+      "isMe": false,
+      "viaLink": true
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "status": "MAYBE",
+      "respondedAt": "2026-10-01T00:00:00.000Z",
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "status": null,
+      "respondedAt": null,
+      "respondedBy": null,
+      "respondedByGuardian": false,
+      "travelMode": null,
+      "isMe": false,
+      "viaLink": false
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/convocations": [
+    {
+      "teamPlayerId": "tp-1",
+      "playerId": "p-tp-1",
+      "firstName": "Camille",
+      "lastName": "Roussel",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": true
+    },
+    {
+      "teamPlayerId": "tp-2",
+      "playerId": "p-tp-2",
+      "firstName": "Sarah",
+      "lastName": "Diallo",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-3",
+      "playerId": "p-tp-3",
+      "firstName": "Léa",
+      "lastName": "Moreau",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-4",
+      "playerId": "p-tp-4",
+      "firstName": "Manon",
+      "lastName": "Guérin",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    },
+    {
+      "teamPlayerId": "tp-5",
+      "playerId": "p-tp-5",
+      "firstName": "Amina",
+      "lastName": "Traoré",
+      "role": "PLAYER",
+      "convoked": true,
+      "convokedAt": "2026-10-01T00:00:00.000Z",
+      "isMe": false
+    }
+  ],
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors M",
+      "category": "SENIORS",
+      "gender": "MEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ],
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/scoresheet": {
+    "status": 200,
+    "body": null
+  },
+  "GET /api/clubs/club-1/teams/team-1/guest-link": {
+    "url": "https://kluvo.net/r/Qm4x2vJ9kT0aLw8e1nZpR7cYbH5sUdGf3iOxVtNa6Ek"
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/rsvps/tp-2/history": [
+    {
+      "status": "GOING",
+      "travelMode": "DIRECT",
+      "source": "GUEST_LINK",
+      "respondedBy": null,
+      "createdAt": "2026-10-03T12:32:00.000Z"
+    },
+    {
+      "status": "NOT_GOING",
+      "travelMode": null,
+      "source": "APP",
+      "respondedBy": {
+        "firstName": "Sarah",
+        "lastInitial": "D",
+        "isMe": false
+      },
+      "createdAt": "2026-10-02T18:10:00.000Z"
+    }
+  ],
+  "POST /api/clubs/club-1/teams/team-1/guest-link/regenerate": {
+    "url": "https://kluvo.net/r/new"
+  },
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-settings": {
+    "reminderTemplate": null,
+    "reminderEnabled": true,
+    "defaultOffsetMinutes": 4320,
+    "hasReachableManager": false,
+    "updateTemplate": null,
+    "cancellationTemplate": null
+  },
+  "GET /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share": {
+    "guestLinkActive": true,
+    "shares": [
+      {
+        "type": "UPDATE",
+        "state": "PENDING",
+        "dueAt": null,
+        "sentAt": null,
+        "sentBy": null,
+        "platform": null,
+        "message": "⚠️ Changement : Match contre Rezé Basket, sam. 10 oct. !\nNouveau RDV 19:45 – Parking salle Coubertin.\nOn commence à 21:00 (Salle des Sports de la Trocardière, Rezé).\nRedis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa",
+        "changes": [
+          {
+            "label": "Heure de début",
+            "from": "20:30",
+            "to": "21:00"
+          },
+          {
+            "label": "Heure de RDV",
+            "from": "19:15",
+            "to": "19:45"
+          }
+        ]
+      },
+      {
+        "type": "REMINDER",
+        "state": "SENT",
+        "sentAt": "2026-09-29T18:12:00.000Z",
+        "sentBy": {
+          "firstName": "Sophie",
+          "lastInitial": "M",
+          "isMe": false
+        },
+        "platform": "WA_ME",
+        "message": "🏀 Match contre Rezé Basket, sam. 10 oct. !\nRDV 19:15 – Parking salle Coubertin.\nOn commence à 20:30 (Salle des Sports de la Trocardière, Rezé).\nDis-nous si tu viens 👉 https://kluvo.test/r/token-a?src=wa",
+        "dueAt": "2026-10-07T18:30:00.000Z",
+        "changes": []
+      }
+    ]
+  },
+  "POST /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share/REMINDER/confirm": {
+    "type": "REMINDER",
+    "state": "SENT",
+    "sentAt": "2026-09-29T18:12:00.000Z",
+    "sentBy": {
+      "firstName": "Camille",
+      "lastInitial": "M",
+      "isMe": true
+    },
+    "platform": "WA_ME"
+  },
+  "POST GET /api/clubs/club-1/teams/team-1/events/event-1/whatsapp-share/UPDATE/confirm": {
+    "type": "UPDATE",
+    "state": "SENT",
+    "sentAt": "2026-09-30T09:00:00.000Z",
+    "sentBy": {
+      "firstName": "Camille",
+      "lastInitial": "M",
+      "isMe": true
+    },
+    "platform": "WA_ME"
+  },
+  "GET /api/clubs/club-1/teams/team-1/whatsapp-shares/pending-cancellations": [
+    {
+      "shareId": "share-c1",
+      "eventName": "Entraînement",
+      "eventDate": "mer. 1 oct.",
+      "message": "❌ Entraînement du mer. 1 oct. : c'est annulé. On te tient au courant !",
+      "status": {
+        "type": "CANCELLATION",
+        "state": "PENDING",
+        "dueAt": null,
+        "sentAt": null,
+        "sentBy": null,
+        "platform": null
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Table, TableBody } from '@basketeasy/ui/table';
+import { Toaster } from '@basketeasy/ui/toaster';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import { PlayerRow } from './PlayerRow';
@@ -13,27 +14,38 @@ const player = {
   firstName: 'Alex',
   lastName: 'Dupont',
   userId: null,
+  nationalId: null,
+  licenseNumber: null,
+  birthDate: null,
+  gender: null,
+  licenseType: null,
+  isMinor: false,
+  parentalConsentGivenAt: null,
+  guardianCount: 0,
   createdAt: 'x',
 };
 
 function renderRow(isAdmin = true) {
   return renderWithProviders(
-    <Table>
-      <TableBody>
-        <PlayerRow
-          clubId="club-1"
-          player={player}
-          isAdmin={isAdmin}
-          linkedMemberEmail={null}
-          linkableMembers={[]}
-        />
-      </TableBody>
-    </Table>,
+    <>
+      <Table>
+        <TableBody>
+          <PlayerRow
+            clubId="club-1"
+            player={player}
+            isAdmin={isAdmin}
+            linkedMemberEmail={null}
+            linkableMembers={[]}
+          />
+        </TableBody>
+      </Table>
+      <Toaster />
+    </>,
   );
 }
 
 describe('PlayerRow', () => {
-  it('discards an edited draft when Annuler is clicked, instead of keeping it for next time', async () => {
+  it('discards an edited draft when the dialog is closed, instead of keeping it for next time', async () => {
     const user = userEvent.setup();
     renderRow();
 
@@ -41,15 +53,16 @@ describe('PlayerRow', () => {
     const firstNameInput = screen.getAllByRole('textbox')[0];
     await user.clear(firstNameInput);
     await user.type(firstNameInput, 'Alexandre');
-    await user.click(screen.getByRole('button', { name: /annuler/i }));
+    await user.click(screen.getByRole('button', { name: /fermer/i }));
 
-    // Re-enter edit mode: the input should show the original name, not the
-    // discarded 'Alexandre' draft.
+    // Re-open the dialog: the input should show the original name, not the
+    // discarded 'Alexandre' draft — Radix unmounts the dialog content (and
+    // with it the form's local state) when it closes.
     await user.click(screen.getByRole('button', { name: /modifier/i }));
     expect(screen.getAllByRole('textbox')[0]).toHaveValue('Alex');
   });
 
-  it('shows an error and stays in edit mode when saving fails', async () => {
+  it('shows an error and stays open when saving fails', async () => {
     server.use(
       http.patch('/api/clubs/club-1/players/p1', () =>
         HttpResponse.json({ message: 'error' }, { status: 500 }),
@@ -150,6 +163,84 @@ describe('PlayerRow', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /enregistrer/i })).not.toBeInTheDocument(),
     );
-    expect(capturedBody).toEqual({ firstName: 'Alex', lastName: 'Dupont', userId: 'user-2' });
+    expect(capturedBody).toEqual({
+      firstName: 'Alex',
+      lastName: 'Dupont',
+      userId: 'user-2',
+      nationalId: null,
+      licenseNumber: null,
+      birthDate: null,
+      gender: null,
+      licenseType: null,
+    });
+  });
+
+  describe('parental consent', () => {
+    const minor = { ...player, isMinor: true, parentalConsentGivenAt: null };
+
+    it('flags a minor with no attestation on file', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={minor}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.getByText(/autorisation manquante/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /autorisation parentale/i })).toBeInTheDocument();
+    });
+
+    it('drops the flag once an attestation exists, keeping the action', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={{ ...minor, parentalConsentGivenAt: '2026-02-03T00:00:00.000Z' }}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.queryByText(/autorisation manquante/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /autorisation parentale/i })).toBeInTheDocument();
+    });
+
+    it('shows nothing about consent for an adult', () => {
+      renderWithProviders(
+        <>
+          <Table>
+            <TableBody>
+              <PlayerRow
+                clubId="club-1"
+                player={player}
+                isAdmin
+                linkedMemberEmail={null}
+                linkableMembers={[]}
+              />
+            </TableBody>
+          </Table>
+          <Toaster />
+        </>,
+      );
+
+      expect(screen.queryByText(/autorisation/i)).not.toBeInTheDocument();
+    });
   });
 });

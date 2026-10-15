@@ -24,3 +24,14 @@ export const WithError: Story = {
 export const Disabled: Story = {
   args: { label: 'Adresse e-mail', id: 'email-disabled', disabled: true },
 };
+
+export const WithSuffix: Story = {
+  args: {
+    label: 'Arrivée à la salle avant le match',
+    id: 'buffer',
+    type: 'number',
+    defaultValue: 45,
+    className: 'w-24',
+    suffix: 'minutes',
+  },
+};

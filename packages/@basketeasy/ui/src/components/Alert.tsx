@@ -6,7 +6,15 @@ const alertVariants = cva('relative w-full rounded-lg border p-4', {
   variants: {
     variant: {
       default: 'border-border bg-cream text-charcoal',
-      destructive: 'border-red-600 bg-red-50 text-red-900',
+      destructive: 'border-error bg-error/10 text-error',
+      /** Something the reader should act on that isn't an error (matches left without a venue). */
+      warning: 'border-gold bg-gold-tint text-charcoal',
+      /**
+       * A full-bleed banner for a standing state that must never read as
+       * product chrome (read-only impersonation): solid fill, edge to edge.
+       */
+      critical:
+        'rounded-none border-x-0 border-t-0 border-error bg-error px-4 py-2 text-cream md:px-8',
     },
   },
   defaultVariants: { variant: 'default' },
@@ -21,17 +29,6 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
   ),
 );
 Alert.displayName = 'Alert';
-
-export const AlertTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h5
-      ref={ref}
-      className={cn('mb-1 font-heading text-base font-bold leading-none', className)}
-      {...props}
-    />
-  ),
-);
-AlertTitle.displayName = 'AlertTitle';
 
 export const AlertDescription = forwardRef<
   HTMLParagraphElement,

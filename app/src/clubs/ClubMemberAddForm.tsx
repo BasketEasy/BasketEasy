@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
+import { toast } from '@basketeasy/ui/toast-store';
 import { ApiError } from '../api/client';
 import { useClubMemberAdd } from './useClubMemberAdd';
 import { getClubErrorMessage } from './clubErrorMessages';
@@ -33,6 +34,7 @@ export function ClubMemberAddForm({
   const onSubmit = (values: MemberFormValues) => {
     addMember(values, {
       onSuccess: () => {
+        toast({ variant: 'success', title: 'Membre ajouté au club' });
         reset();
         onSuccess?.();
       },
@@ -68,7 +70,7 @@ export function ClubMemberAddForm({
         {...register('email')}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Ajouter
       </Button>
     </form>

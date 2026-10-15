@@ -3,7 +3,11 @@ import { cn } from '../lib/cn';
 
 export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
-    <label ref={ref} className={cn('text-sm font-medium text-charcoal', className)} {...props} />
+    <label
+      ref={ref}
+      className={cn('cursor-pointer text-sm font-medium text-charcoal', className)}
+      {...props}
+    />
   ),
 );
 Label.displayName = 'Label';

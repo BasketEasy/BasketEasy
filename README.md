@@ -1,8 +1,8 @@
-# BasketEasy
+# Kluvo
 
 **La gestion d'équipe, simplifiée.**
 
-BasketEasy centralizes calendars, gym slots (_créneaux_), and post-game scoresheets for amateur basketball clubs — starting with a Loire-Atlantique (CD44) first launch. It's a companion layer to the FFBB's official stack (FBI, e-Marque V2), not a replacement, purpose-built for volunteer-run clubs and the multi-club team (CTC/entente) reality of French grassroots basketball.
+Kluvo centralizes calendars, gym slots (_créneaux_), and post-game scoresheets for amateur basketball clubs — starting with a Loire-Atlantique (CD44) first launch. It's a companion layer to the FFBB's official stack (FBI, e-Marque V2), not a replacement, purpose-built for volunteer-run clubs and the multi-club team (CTC/entente) reality of French grassroots basketball.
 
 See [`CLAUDE.md`](./CLAUDE.md) for architecture, brand, positioning, and the full feature roadmap. Full reference docs live in [`docs/`](./docs).
 

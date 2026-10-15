@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { ClubsService } from './clubs.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('ClubsService', () => {
   let service: ClubsService;
   let prisma: {
-    club: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock };
+    club: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     clubMembership: {
       findUnique: jest.Mock;
       findMany: jest.Mock;
@@ -18,18 +19,29 @@ describe('ClubsService', () => {
     user: { findUnique: jest.Mock };
     player: {
       findMany: jest.Mock;
+      findFirst: jest.Mock;
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
       delete: jest.Mock;
+      count: jest.Mock;
     };
+    playerInvite: { findUnique: jest.Mock; upsert: jest.Mock };
+    parentalConsent: {
+      findMany: jest.Mock;
+      findFirst: jest.Mock;
+      create: jest.Mock;
+      updateMany: jest.Mock;
+    };
+    playerGuardian: { groupBy: jest.Mock };
+    $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
 
   beforeEach(async () => {
     prisma = {
-      club: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn() },
+      club: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       clubMembership: {
         findUnique: jest.fn(),
         findMany: jest.fn(),
@@ -40,17 +52,36 @@ describe('ClubsService', () => {
       user: { findUnique: jest.fn() },
       player: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
         delete: jest.fn(),
+        count: jest.fn(),
       },
-      $transaction: jest.fn((ops: unknown[]) => Promise.all(ops)),
+      playerInvite: { findUnique: jest.fn(), upsert: jest.fn() },
+      parentalConsent: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      playerGuardian: { groupBy: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      $transaction: jest.fn((arg: unknown) =>
+        typeof arg === 'function'
+          ? (arg as (tx: unknown) => Promise<unknown>)(prisma)
+          : Promise.all(arg as unknown[]),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ClubsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ClubsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
     }).compile();
 
     service = module.get<ClubsService>(ClubsService);
@@ -61,22 +92,124 @@ describe('ClubsService', () => {
       prisma.club.create.mockResolvedValue({
         id: 'club-1',
         name: 'COC Basket',
+        ffbbClubCode: null,
         createdAt: new Date('2026-01-01'),
       });
 
-      const result = await service.createClub('user-1', 'COC Basket');
+      const result = await service.createClub('user-1', { name: 'COC Basket' });
 
       expect(prisma.club.create).toHaveBeenCalledWith({
         data: {
           name: 'COC Basket',
+          ffbbClubCode: null,
           memberships: { create: { userId: 'user-1', role: 'ADMIN' } },
         },
       });
       expect(result).toEqual({
         id: 'club-1',
         name: 'COC Basket',
+        ffbbClubCode: null,
         createdAt: '2026-01-01T00:00:00.000Z',
       });
+    });
+
+    it('persists an optional FFBB club code unvalidated', async () => {
+      prisma.club.create.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC Basket',
+        ffbbClubCode: 'pdl0044190',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createClub('user-1', {
+        name: 'COC Basket',
+        ffbbClubCode: 'pdl0044190',
+      });
+
+      expect(prisma.club.create).toHaveBeenCalledWith({
+        data: {
+          name: 'COC Basket',
+          ffbbClubCode: 'pdl0044190',
+          memberships: { create: { userId: 'user-1', role: 'ADMIN' } },
+        },
+      });
+      expect(result.ffbbClubCode).toBe('pdl0044190');
+    });
+
+    it('rejects a duplicate FFBB club code with a conflict', async () => {
+      prisma.club.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(
+        service.createClub('user-1', { name: 'COC Basket', ffbbClubCode: 'pdl0044190' }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('setFfbbLink', () => {
+    it('updates the club with the given code', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC',
+        ffbbClubCode: 'pdl0044190',
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.setFfbbLink('club-1', 'pdl0044190');
+
+      expect(prisma.club.update).toHaveBeenCalledWith({
+        where: { id: 'club-1' },
+        data: { ffbbClubCode: 'pdl0044190' },
+      });
+      expect(result.ffbbClubCode).toBe('pdl0044190');
+    });
+
+    it('404s when the club does not exist', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(service.setFfbbLink('missing', 'pdl0044190')).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a code already used by another club', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'x',
+        }),
+      );
+
+      await expect(service.setFfbbLink('club-1', 'pdl0044190')).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('removeFfbbLink', () => {
+    it('clears the club code', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'club-1' });
+      prisma.club.update.mockResolvedValue({
+        id: 'club-1',
+        name: 'COC',
+        ffbbClubCode: null,
+        createdAt: new Date('2026-01-01'),
+      });
+
+      await service.removeFfbbLink('club-1');
+
+      expect(prisma.club.update).toHaveBeenCalledWith({
+        where: { id: 'club-1' },
+        data: { ffbbClubCode: null },
+      });
+    });
+
+    it('404s when the club does not exist', async () => {
+      prisma.club.findUnique.mockResolvedValue(null);
+
+      await expect(service.removeFfbbLink('missing')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -128,7 +261,7 @@ describe('ClubsService', () => {
   });
 
   describe('listMembers', () => {
-    it('returns members with names sourced from the related user record', async () => {
+    it('returns members with names sourced from the related user record, ordered by name by default', async () => {
       prisma.clubMembership.findMany.mockResolvedValue([
         {
           userId: 'user-2',
@@ -137,24 +270,102 @@ describe('ClubsService', () => {
           user: { email: 'a@b.com', firstName: 'Alex', lastName: 'Dupont' },
         },
       ]);
+      prisma.clubMembership.count.mockResolvedValue(1);
 
-      const result = await service.listMembers('club-1');
+      const result = await service.listMembers('club-1', {});
 
       expect(prisma.clubMembership.findMany).toHaveBeenCalledWith({
         where: { clubId: 'club-1' },
         include: { user: true },
-        orderBy: { createdAt: 'asc' },
+        orderBy: [{ user: { lastName: 'asc' } }, { user: { firstName: 'asc' } }],
+        skip: 0,
+        take: 25,
       });
-      expect(result).toEqual([
-        {
-          userId: 'user-2',
-          email: 'a@b.com',
-          firstName: 'Alex',
-          lastName: 'Dupont',
-          role: 'MEMBER',
-          joinedAt: '2026-01-02T00:00:00.000Z',
-        },
-      ]);
+      expect(prisma.clubMembership.count).toHaveBeenCalledWith({ where: { clubId: 'club-1' } });
+      expect(result).toEqual({
+        items: [
+          {
+            userId: 'user-2',
+            email: 'a@b.com',
+            firstName: 'Alex',
+            lastName: 'Dupont',
+            role: 'MEMBER',
+            joinedAt: '2026-01-02T00:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+      });
+    });
+
+    it('filters by role', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+      prisma.clubMembership.count.mockResolvedValue(0);
+
+      await service.listMembers('club-1', { role: 'ADMIN' });
+
+      const expectedWhere = { clubId: 'club-1', role: 'ADMIN' };
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(prisma.clubMembership.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('filters by search across email, first name, and last name', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+      prisma.clubMembership.count.mockResolvedValue(0);
+
+      await service.listMembers('club-1', { search: 'dup' });
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            clubId: 'club-1',
+            user: {
+              OR: [
+                { email: { contains: 'dup', mode: 'insensitive' } },
+                { firstName: { contains: 'dup', mode: 'insensitive' } },
+                { lastName: { contains: 'dup', mode: 'insensitive' } },
+              ],
+            },
+          },
+        }),
+      );
+    });
+
+    it('sorts by joinedAt descending', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+      prisma.clubMembership.count.mockResolvedValue(0);
+
+      await service.listMembers('club-1', { sortBy: 'joinedAt', sortOrder: 'desc' });
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ createdAt: 'desc' }] }),
+      );
+    });
+
+    it('sorts by email', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+      prisma.clubMembership.count.mockResolvedValue(0);
+
+      await service.listMembers('club-1', { sortBy: 'email' });
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ user: { email: 'asc' } }] }),
+      );
+    });
+
+    it('computes skip/take for page 2', async () => {
+      prisma.clubMembership.findMany.mockResolvedValue([]);
+      prisma.clubMembership.count.mockResolvedValue(30);
+
+      const result = await service.listMembers('club-1', { page: 2, pageSize: 10 });
+
+      expect(prisma.clubMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+      expect(result).toEqual(expect.objectContaining({ page: 2, pageSize: 10, total: 30 }));
     });
   });
 
@@ -167,10 +378,13 @@ describe('ClubsService', () => {
 
     it('throws BadRequestException when removing the last admin', async () => {
       prisma.clubMembership.findUnique.mockResolvedValue({ role: 'ADMIN' });
-      prisma.clubMembership.count.mockResolvedValue(1);
+      prisma.$queryRaw.mockResolvedValue([{ id: 'm-1' }]);
 
       await expect(service.removeMember('club-1', 'user-1')).rejects.toThrow(BadRequestException);
       expect(prisma.clubMembership.delete).not.toHaveBeenCalled();
+      // Counted under a row lock, so two concurrent removals can't both pass.
+      const [sql] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+      expect(sql.join('?')).toContain('FOR UPDATE');
     });
 
     it('removes a non-last-admin membership', async () => {
@@ -201,7 +415,7 @@ describe('ClubsService', () => {
   });
 
   describe('players', () => {
-    it('lists players for a club, ordered by name', async () => {
+    it('lists players for a club, ordered by name by default', async () => {
       prisma.player.findMany.mockResolvedValue([
         {
           id: 'p1',
@@ -209,26 +423,97 @@ describe('ClubsService', () => {
           firstName: 'A',
           lastName: 'B',
           userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: null,
+          gender: null,
+          licenseType: null,
           createdAt: new Date('2026-01-01'),
         },
       ]);
+      prisma.player.count.mockResolvedValue(1);
 
-      const result = await service.listPlayers('club-1');
+      const result = await service.listPlayers('club-1', {});
 
       expect(prisma.player.findMany).toHaveBeenCalledWith({
         where: { clubId: 'club-1' },
         orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip: 0,
+        take: 25,
       });
-      expect(result).toEqual([
-        {
-          id: 'p1',
-          clubId: 'club-1',
-          firstName: 'A',
-          lastName: 'B',
-          userId: null,
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
+      expect(prisma.player.count).toHaveBeenCalledWith({ where: { clubId: 'club-1' } });
+      expect(result).toEqual({
+        items: [
+          {
+            id: 'p1',
+            clubId: 'club-1',
+            firstName: 'A',
+            lastName: 'B',
+            userId: null,
+            nationalId: null,
+            licenseNumber: null,
+            birthDate: null,
+            gender: null,
+            licenseType: null,
+            isMinor: false,
+            parentalConsentGivenAt: null,
+            guardianCount: 0,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+      });
+    });
+
+    it('counts each player’s linked parents in one groupBy for the page', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: new Date() },
+        { id: 'p2', clubId: 'club-1', firstName: 'C', lastName: 'D', createdAt: new Date() },
       ]);
+      prisma.player.count.mockResolvedValue(2);
+      prisma.playerGuardian.groupBy.mockResolvedValue([{ playerId: 'p1', _count: { _all: 2 } }]);
+
+      const result = await service.listPlayers('club-1', {});
+
+      expect(prisma.playerGuardian.groupBy).toHaveBeenCalledTimes(1);
+      expect(prisma.playerGuardian.groupBy).toHaveBeenCalledWith({
+        by: ['playerId'],
+        where: { playerId: { in: ['p1', 'p2'] } },
+        _count: { _all: true },
+      });
+      expect(result.items.map((p) => p.guardianCount)).toEqual([2, 0]);
+    });
+
+    it('filters players by search on first/last name', async () => {
+      prisma.player.findMany.mockResolvedValue([]);
+      prisma.player.count.mockResolvedValue(0);
+
+      await service.listPlayers('club-1', { search: 'al' });
+
+      const expectedWhere = {
+        clubId: 'club-1',
+        OR: [
+          { firstName: { contains: 'al', mode: 'insensitive' } },
+          { lastName: { contains: 'al', mode: 'insensitive' } },
+        ],
+      };
+      expect(prisma.player.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(prisma.player.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('sorts players by createdAt', async () => {
+      prisma.player.findMany.mockResolvedValue([]);
+      prisma.player.count.mockResolvedValue(0);
+
+      await service.listPlayers('club-1', { sortBy: 'createdAt', sortOrder: 'desc' });
+
+      expect(prisma.player.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ createdAt: 'desc' }] }),
+      );
     });
 
     it('creates a player scoped to the club', async () => {
@@ -368,6 +653,371 @@ describe('ClubsService', () => {
       await service.deletePlayer('club-1', 'p1');
 
       expect(prisma.player.delete).toHaveBeenCalledWith({ where: { id: 'p1' } });
+    });
+
+    it('starts the parental-consent clock before deleting the player', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.player.delete.mockResolvedValue({});
+
+      await service.deletePlayer('club-1', 'p1');
+
+      // Before, not after: the consent rows are found by playerId and the FK
+      // is SetNull, so a record whose clock hadn't started would be orphaned.
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { playerId: { in: ['p1'] }, retentionExpiresAt: null },
+        data: { retentionExpiresAt: expect.any(Date) },
+      });
+      expect(prisma.parentalConsent.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.player.delete.mock.invocationCallOrder[0],
+      );
+    });
+  });
+
+  describe('parental consent', () => {
+    const minorBirthDate = '2012-05-04';
+
+    it('refuses to create a minor with no consent attestation', async () => {
+      await expect(
+        service.createPlayer('club-1', {
+          firstName: 'A',
+          lastName: 'B',
+          birthDate: minorBirthDate,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.player.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a minor together with the consent record', async () => {
+      prisma.player.create.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: null,
+        birthDate: new Date(minorBirthDate),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createPlayer(
+        'club-1',
+        {
+          firstName: 'A',
+          lastName: 'B',
+          birthDate: minorBirthDate,
+          parentalConsent: { attestedByName: 'Marie Durand' },
+        },
+        'admin-1',
+      );
+
+      expect(prisma.parentalConsent.create).toHaveBeenCalledWith({
+        data: {
+          playerId: 'p1',
+          clubId: 'club-1',
+          playerFirstName: 'A',
+          playerLastName: 'B',
+          playerBirthDate: new Date(minorBirthDate),
+          attestedByName: 'Marie Durand',
+          attestedByUserId: 'admin-1',
+        },
+      });
+      expect(result.isMinor).toBe(true);
+      expect(result.parentalConsentGivenAt).not.toBeNull();
+    });
+
+    it('never asks for consent for an adult', async () => {
+      prisma.player.create.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        userId: null,
+        birthDate: new Date('1990-01-01'),
+        createdAt: new Date('2026-01-01'),
+      });
+
+      const result = await service.createPlayer('club-1', {
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: '1990-01-01',
+      });
+
+      expect(prisma.parentalConsent.create).not.toHaveBeenCalled();
+      expect(result.isMinor).toBe(false);
+    });
+
+    it('records consent for an existing player and clears any running clock', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: new Date(minorBirthDate),
+      });
+      prisma.parentalConsent.create.mockResolvedValue({
+        id: 'consent-1',
+        playerId: 'p1',
+        clubId: 'club-1',
+        playerFirstName: 'A',
+        playerLastName: 'B',
+        playerBirthDate: new Date(minorBirthDate),
+        attestedByName: 'Marie Durand',
+        attestedByUserId: 'admin-1',
+        consentGivenAt: new Date('2026-09-06'),
+        retentionExpiresAt: null,
+      });
+
+      const consent = await service.recordParentalConsent(
+        'club-1',
+        'p1',
+        'Marie Durand',
+        'admin-1',
+      );
+
+      expect(prisma.parentalConsent.updateMany).toHaveBeenCalledWith({
+        where: { playerId: 'p1', retentionExpiresAt: { not: null } },
+        data: { retentionExpiresAt: null },
+      });
+      expect(consent.id).toBe('consent-1');
+      expect(consent.retentionExpiresAt).toBeNull();
+    });
+
+    it('refuses to record consent for a player with no birth date', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        firstName: 'A',
+        lastName: 'B',
+        birthDate: null,
+      });
+
+      await expect(service.recordParentalConsent('club-1', 'p1', 'Marie Durand')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('reports a minor’s consent date on the roster listing', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'A',
+          lastName: 'B',
+          userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: new Date(minorBirthDate),
+          gender: null,
+          licenseType: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.player.count.mockResolvedValue(1);
+      prisma.parentalConsent.findMany.mockResolvedValue([
+        { playerId: 'p1', consentGivenAt: new Date('2026-02-03') },
+      ]);
+
+      const result = await service.listPlayers('club-1', {});
+
+      expect(result.items[0].isMinor).toBe(true);
+      expect(result.items[0].parentalConsentGivenAt).toBe('2026-02-03T00:00:00.000Z');
+    });
+
+    it('does not query consents at all for a roster of adults', async () => {
+      prisma.player.findMany.mockResolvedValue([
+        {
+          id: 'p1',
+          clubId: 'club-1',
+          firstName: 'A',
+          lastName: 'B',
+          userId: null,
+          nationalId: null,
+          licenseNumber: null,
+          birthDate: new Date('1990-01-01'),
+          gender: null,
+          licenseType: null,
+          createdAt: new Date('2026-01-01'),
+        },
+      ]);
+      prisma.player.count.mockResolvedValue(1);
+
+      await service.listPlayers('club-1', {});
+
+      expect(prisma.parentalConsent.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('importPlayers', () => {
+    it('creates a new player when nothing matches', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.findFirst.mockResolvedValue(null);
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ clubId: 'club-1', firstName: 'Léa', lastName: 'Martin' }),
+      });
+      expect(result).toEqual({ created: 1, updated: 0, conflicts: 0 });
+    });
+
+    it('updates an existing player at the same club matched by nationalId', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1' });
+      prisma.player.update.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: expect.objectContaining({ firstName: 'Léa' }),
+      });
+      expect(result).toEqual({ created: 0, updated: 1, conflicts: 0 });
+    });
+
+    it('flags a nationalId match at a different club as a conflict and does not write', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'other-club' });
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+      ]);
+
+      expect(prisma.player.update).not.toHaveBeenCalled();
+      expect(prisma.player.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ created: 0, updated: 0, conflicts: 1 });
+    });
+
+    it('matches an existing player by name + birthDate when nationalId is absent', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.findFirst.mockResolvedValue({ id: 'p2', clubId: 'club-1' });
+      prisma.player.update.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Théo', lastName: 'Dupont', birthDate: '2009-11-04' },
+      ]);
+
+      expect(prisma.player.findFirst).toHaveBeenCalledWith({
+        where: {
+          clubId: 'club-1',
+          firstName: 'Théo',
+          lastName: 'Dupont',
+          birthDate: new Date('2009-11-04'),
+        },
+      });
+      expect(prisma.player.update).toHaveBeenCalledWith({
+        where: { id: 'p2' },
+        data: expect.anything(),
+      });
+      expect(result).toEqual({ created: 0, updated: 1, conflicts: 0 });
+    });
+
+    it('does not attempt a name+birthDate match when birthDate is missing, and creates instead', async () => {
+      prisma.player.findUnique.mockResolvedValue(null);
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Théo', lastName: 'Dupont' },
+      ]);
+
+      expect(prisma.player.findFirst).not.toHaveBeenCalled();
+      expect(result).toEqual({ created: 1, updated: 0, conflicts: 0 });
+    });
+
+    it('processes a mixed batch of rows in one transaction', async () => {
+      prisma.player.findUnique
+        .mockResolvedValueOnce({ id: 'p1', clubId: 'club-1' })
+        .mockResolvedValueOnce(null);
+      prisma.player.findFirst.mockResolvedValue(null);
+      prisma.player.update.mockResolvedValue({});
+      prisma.player.create.mockResolvedValue({});
+
+      const result = await service.importPlayers('club-1', [
+        { firstName: 'Léa', lastName: 'Martin', nationalId: '1234567A' },
+        { firstName: 'Théo', lastName: 'Dupont' },
+      ]);
+
+      expect(result).toEqual({ created: 1, updated: 1, conflicts: 0 });
+    });
+  });
+
+  describe('createPlayerInvite', () => {
+    it('rejects a player already linked to an account', async () => {
+      prisma.player.findUnique.mockResolvedValue({
+        id: 'p1',
+        clubId: 'club-1',
+        userId: 'user-1',
+      });
+
+      await expect(service.createPlayerInvite('club-1', 'p1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(prisma.playerInvite.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts an invite for an unlinked player and returns its link', async () => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1', userId: null });
+      prisma.playerInvite.upsert.mockResolvedValue({});
+
+      const result = await service.createPlayerInvite('club-1', 'p1');
+
+      expect(prisma.playerInvite.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { playerId: 'p1' },
+          create: expect.objectContaining({ playerId: 'p1' }),
+          update: expect.objectContaining({ acceptedAt: null }),
+        }),
+      );
+      expect(result.token).toEqual(expect.any(String));
+      expect(result.url).toContain(`/invite/${result.token}`);
+    });
+  });
+
+  describe('getPlayerInviteStatus', () => {
+    beforeEach(() => {
+      prisma.player.findUnique.mockResolvedValue({ id: 'p1', clubId: 'club-1', userId: null });
+    });
+
+    it('reports NONE when no invite has ever been generated', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue(null);
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'NONE',
+        expiresAt: null,
+      });
+    });
+
+    it('reports ACCEPTED once the invite has been claimed', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue({
+        acceptedAt: new Date(),
+        expiresAt: new Date(Date.now() + 1000),
+      });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'ACCEPTED',
+        expiresAt: null,
+      });
+    });
+
+    it('reports EXPIRED once the invite is past its expiry', async () => {
+      const expiresAt = new Date(Date.now() - 1000);
+      prisma.playerInvite.findUnique.mockResolvedValue({ acceptedAt: null, expiresAt });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'EXPIRED',
+        expiresAt: expiresAt.toISOString(),
+      });
+    });
+
+    it('reports PENDING for a live, unclaimed invite', async () => {
+      const expiresAt = new Date(Date.now() + 1000);
+      prisma.playerInvite.findUnique.mockResolvedValue({ acceptedAt: null, expiresAt });
+
+      await expect(service.getPlayerInviteStatus('club-1', 'p1')).resolves.toEqual({
+        status: 'PENDING',
+        expiresAt: expiresAt.toISOString(),
+      });
     });
   });
 });

@@ -21,4 +21,36 @@ describe('Tabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Calendrier' }));
     expect(screen.getByText('Prochains matchs')).toBeInTheDocument();
   });
+
+  it('gives every trigger a visible focus ring', () => {
+    render(
+      <Tabs defaultValue="a">
+        <TabsList>
+          <TabsTrigger value="a">Effectif</TabsTrigger>
+        </TabsList>
+        <TabsContent value="a">Contenu</TabsContent>
+      </Tabs>,
+    );
+    expect(screen.getByRole('tab', { name: 'Effectif' })).toHaveClass(
+      'focus-visible:outline-2',
+      'focus-visible:outline-orange',
+      'focus-visible:outline-offset-2',
+    );
+  });
+
+  it('renders a count badge next to the label when given one', () => {
+    render(
+      <Tabs defaultValue="roster">
+        <TabsList>
+          <TabsTrigger value="roster" badge={18}>
+            Effectif
+          </TabsTrigger>
+          <TabsTrigger value="calendar">Calendrier</TabsTrigger>
+        </TabsList>
+        <TabsContent value="roster">Liste des joueurs</TabsContent>
+      </Tabs>,
+    );
+    expect(screen.getByText('18')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Calendrier' }).textContent).toBe('Calendrier');
+  });
 });

@@ -1,4 +1,4 @@
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import type { TeamCategory, Gender, TeamMemberRole } from '@basketeasy/types/teams';
 
 export const TEAM_CATEGORY_OPTIONS: { value: TeamCategory; label: string }[] = [
   { value: 'U9', label: 'U9' },
@@ -10,7 +10,7 @@ export const TEAM_CATEGORY_OPTIONS: { value: TeamCategory; label: string }[] = [
   { value: 'SENIORS', label: 'Séniors' },
 ];
 
-export const TEAM_GENDER_OPTIONS: { value: TeamGender; label: string }[] = [
+export const TEAM_GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: 'MEN', label: 'Masculin' },
   { value: 'WOMEN', label: 'Féminin' },
 ];
@@ -22,6 +22,17 @@ export function teamCategoryLabel(category: TeamCategory): string {
   return categoryLabels.get(category) ?? category;
 }
 
-export function teamGenderLabel(gender: TeamGender): string {
+export function teamGenderLabel(gender: Gender): string {
   return genderLabels.get(gender) ?? gender;
+}
+
+export const TEAM_MEMBER_ROLE_OPTIONS: { value: TeamMemberRole; label: string }[] = [
+  { value: 'PLAYER', label: 'Joueur' },
+  { value: 'COACH', label: 'Entraîneur' },
+];
+
+const teamMemberRoleLabels = new Map(TEAM_MEMBER_ROLE_OPTIONS.map((o) => [o.value, o.label]));
+
+export function teamMemberRoleLabel(role: TeamMemberRole): string {
+  return teamMemberRoleLabels.get(role) ?? role;
 }

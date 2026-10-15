@@ -1,6 +1,17 @@
 import { Transform } from 'class-transformer';
-import { IsString, IsUUID, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import {
+  IsIn,
+  IsISO8601,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+import type { Gender } from '@basketeasy/types/teams';
 import type { UpdatePlayerRequest } from '@basketeasy/types/players';
+
+const GENDERS: Gender[] = ['MEN', 'WOMEN'];
 
 export class UpdatePlayerDto implements UpdatePlayerRequest {
   // ValidateIf (not IsOptional) so an explicit `null` is still validated and
@@ -26,4 +37,29 @@ export class UpdatePlayerDto implements UpdatePlayerRequest {
   @ValidateIf((_object, value) => value !== undefined && value !== null)
   @IsUUID()
   userId?: string | null;
+
+  // The remaining fields all follow the same "null clears, undefined leaves
+  // unchanged" convention as userId.
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(40)
+  nationalId?: string | null;
+
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(40)
+  licenseNumber?: string | null;
+
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsISO8601()
+  birthDate?: string | null;
+
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsIn(GENDERS)
+  gender?: Gender | null;
+
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(20)
+  licenseType?: string | null;
 }

@@ -5,17 +5,19 @@ import { Button } from '@basketeasy/ui/button';
 import { Alert, AlertDescription } from '@basketeasy/ui/alert';
 import { FormField } from '@basketeasy/ui/form-field';
 import { SelectField } from '@basketeasy/ui/select-field';
-import type { TeamCategory, TeamGender } from '@basketeasy/types/teams';
+import { toast } from '@basketeasy/ui/toast-store';
+import { GENDERS, TEAM_CATEGORIES, type TeamCategory, type Gender } from '@basketeasy/types/teams';
 import { useTeamCreate } from './useTeamCreate';
 import { getClubErrorMessage } from './clubErrorMessages';
 import { TEAM_CATEGORY_OPTIONS, TEAM_GENDER_OPTIONS } from './teamLabels';
+import { FfbbLinkField } from './FfbbLinkField';
+import { isFfbbLinkError } from './ffbbLinkErrors';
 
 const teamSchema = z.object({
   name: z.string().min(1, "Nom de l'équipe requis"),
-  category: z.enum(['U9', 'U11', 'U13', 'U15', 'U18', 'U21', 'SENIORS'], {
-    error: 'Catégorie requise',
-  }),
-  gender: z.enum(['MEN', 'WOMEN'], { error: 'Genre requis' }),
+  category: z.enum(TEAM_CATEGORIES, { error: 'Catégorie requise' }),
+  gender: z.enum(GENDERS, { error: 'Genre requis' }),
+  ffbbTeamUrl: z.string().optional(),
 });
 
 type TeamFormValues = z.infer<typeof teamSchema>;
@@ -31,18 +33,30 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
     formState: { errors, isSubmitting },
   } = useForm<TeamFormValues>({
     resolver: zodResolver(teamSchema),
-    defaultValues: { name: '', category: undefined, gender: undefined },
+    defaultValues: { name: '', category: undefined, gender: undefined, ffbbTeamUrl: '' },
   });
 
   const onSubmit = (values: TeamFormValues) => {
     createTeam(
-      { name: values.name, category: values.category, gender: values.gender },
+      {
+        name: values.name,
+        category: values.category,
+        gender: values.gender,
+        ffbbTeamUrl: values.ffbbTeamUrl?.trim() || undefined,
+      },
       {
         onSuccess: () => {
+          toast({ variant: 'success', title: 'Équipe créée' });
           reset();
           onSuccess?.();
         },
-        onError: (err) => setError('root', { message: getClubErrorMessage(err) }),
+        onError: (err) => {
+          if (isFfbbLinkError(err)) {
+            setError('ffbbTeamUrl', { message: err.message });
+            return;
+          }
+          setError('root', { message: getClubErrorMessage(err) });
+        },
       },
     );
   };
@@ -93,14 +107,28 @@ export function TeamCreateForm({ clubId, onSuccess }: { clubId: string; onSucces
             id="team-gender-select"
             options={TEAM_GENDER_OPTIONS}
             value={field.value}
-            onValueChange={(value) => field.onChange(value as TeamGender)}
+            onValueChange={(value) => field.onChange(value as Gender)}
             placeholder="Choisir un genre"
             error={errors.gender?.message}
           />
         )}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Controller
+        control={control}
+        name="ffbbTeamUrl"
+        render={({ field }) => (
+          <FfbbLinkField
+            id="team-ffbb-url"
+            value={field.value ?? ''}
+            onChange={field.onChange}
+            error={errors.ffbbTeamUrl?.message}
+            pending={isSubmitting || isPending}
+          />
+        )}
+      />
+
+      <Button type="submit" loading={isSubmitting || isPending}>
         Créer l'équipe
       </Button>
     </form>

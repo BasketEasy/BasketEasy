@@ -1,0 +1,407 @@
+{
+  "POST /api/auth/refresh": {
+    "accessToken": "access-1"
+  },
+  "GET /api/auth/me": {
+    "id": "user-1",
+    "email": "camille@asc-nantes.fr",
+    "firstName": "Camille",
+    "lastName": "Martin",
+    "avatarUrl": null,
+    "emailVerified": true,
+    "emailNotificationsEnabled": true,
+    "memberships": [
+      {
+        "clubId": "club-1",
+        "role": "MEMBER"
+      }
+    ]
+  },
+  "GET /api/clubs": [
+    {
+      "id": "club-1",
+      "name": "ASC Nantes",
+      "ffbbClubCode": null,
+      "createdAt": "2026-01-01"
+    }
+  ],
+  "GET /api/clubs/club-1": {
+    "id": "club-1",
+    "name": "ASC Nantes",
+    "ffbbClubCode": null,
+    "createdAt": "2026-01-01"
+  },
+  "GET /api/me/teams": [
+    {
+      "teamId": "team-1",
+      "teamName": "Seniors M",
+      "category": "SENIORS",
+      "gender": "MEN",
+      "clubId": "club-1",
+      "clubName": "ASC Nantes",
+      "isTeamAdmin": false,
+      "rosterRole": "PLAYER"
+    }
+  ],
+  "GET /api/me/dashboard": {
+    "totalPlayers": 0,
+    "upcomingEvents": [
+      {
+        "eventId": "event-past-3",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-09-13T18:00:00.000Z",
+        "location": "Rue de la Trocardière, 44400 Rezé",
+        "locationName": "Gymnase de la Trocardière",
+        "notes": null,
+        "opponentName": "Vertou",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 51,
+          "theirScore": 60,
+          "outcome": "LOSS"
+        },
+        "myMatchStats": {
+          "points": 8,
+          "fouls": 3
+        },
+        "vote": {
+          "canVote": false,
+          "hasVoted": true,
+          "closesAt": "2026-09-18T18:00:00.000Z",
+          "votesCast": 9,
+          "totalVoters": 12,
+          "mvp": [
+            {
+              "firstName": "Sarah",
+              "lastInitial": "D",
+              "isMe": false
+            }
+          ]
+        },
+        "meetingPlan": null,
+        "myTravelMode": null
+      },
+      {
+        "eventId": "event-past-2",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-09-20T18:00:00.000Z",
+        "location": "Rue de la Trocardière, 44400 Rezé",
+        "locationName": "Gymnase de la Trocardière",
+        "notes": null,
+        "opponentName": "Orvault",
+        "venue": "HOME",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 70,
+          "theirScore": 55,
+          "outcome": "WIN"
+        },
+        "myMatchStats": {
+          "points": 19,
+          "fouls": 1
+        },
+        "vote": {
+          "canVote": false,
+          "hasVoted": true,
+          "closesAt": "2026-09-25T18:00:00.000Z",
+          "votesCast": 10,
+          "totalVoters": 12,
+          "mvp": [
+            {
+              "firstName": "Camille",
+              "lastInitial": "M",
+              "isMe": true
+            }
+          ]
+        },
+        "meetingPlan": null,
+        "myTravelMode": null
+      },
+      {
+        "eventId": "event-past-1",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-09-27T18:00:00.000Z",
+        "location": "Rue de la Trocardière, 44400 Rezé",
+        "locationName": "Gymnase de la Trocardière",
+        "notes": null,
+        "opponentName": "Carquefou",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": {
+          "ourScore": 62,
+          "theirScore": 58,
+          "outcome": "WIN"
+        },
+        "myMatchStats": {
+          "points": 14,
+          "fouls": 2
+        },
+        "vote": {
+          "canVote": true,
+          "hasVoted": false,
+          "closesAt": "2026-10-02T18:00:00.000Z",
+          "votesCast": 6,
+          "totalVoters": 12,
+          "mvp": null
+        },
+        "meetingPlan": null,
+        "myTravelMode": null
+      },
+      {
+        "eventId": "event-1",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-10-03T18:30:00.000Z",
+        "location": "Rue de la Trocardière, 44400 Rezé",
+        "locationName": "Gymnase de la Trocardière",
+        "notes": null,
+        "opponentName": "Rezé Basket",
+        "venue": "AWAY",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-03T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 23,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-03T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "myTravelMode": "MEETING_POINT"
+      },
+      {
+        "eventId": "event-2",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "TRAINING",
+        "startsAt": "2026-10-06T18:30:00.000Z",
+        "location": "Salle Coubertin, Nantes",
+        "locationName": null,
+        "notes": null,
+        "opponentName": null,
+        "venue": null,
+        "recurrenceId": null,
+        "myRsvpStatus": null,
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": false,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": null,
+        "myTravelMode": null
+      },
+      {
+        "eventId": "event-3",
+        "teamId": "team-1",
+        "teamName": "Seniors M",
+        "clubId": "club-1",
+        "clubName": "ASC Nantes",
+        "type": "MATCH",
+        "startsAt": "2026-10-10T18:30:00.000Z",
+        "location": "Salle Coubertin, Nantes",
+        "locationName": null,
+        "notes": null,
+        "opponentName": "Saint-Herblain",
+        "venue": "HOME",
+        "recurrenceId": null,
+        "myRsvpStatus": "GOING",
+        "myRsvpRespondedBy": null,
+        "myRsvpRespondedAt": null,
+        "myConvocation": true,
+        "rsvpSummary": {
+          "rosterSize": 12,
+          "convoked": 10,
+          "answering": 10,
+          "going": 7,
+          "maybe": 1,
+          "notGoing": 1,
+          "pending": 1,
+          "isConvocationScoped": true
+        },
+        "isImported": false,
+        "timeConfirmed": true,
+        "logistics": {
+          "jerseys": null,
+          "balls": null
+        },
+        "result": null,
+        "myMatchStats": null,
+        "vote": null,
+        "meetingPlan": {
+          "arrivalAt": "2026-10-10T17:45:00.000Z",
+          "arrivalBufferMinutes": 45,
+          "meetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "meetingPointSource": "CLUB",
+          "travelMinutes": 23,
+          "travelMinutesSource": "COMPUTED",
+          "meetsAt": "2026-10-10T17:15:00.000Z",
+          "meetsAtSource": "COMPUTED",
+          "defaultMeetingPoint": {
+            "name": "Parking salle Coubertin",
+            "address": "12 rue Pierre de Coubertin, 44000 Nantes"
+          },
+          "defaultMeetingPointSource": "CLUB"
+        },
+        "myTravelMode": "DIRECT"
+      }
+    ],
+    "actionItems": []
+  },
+  "GET /api/clubs/club-1/teams/team-1/stats": {
+    "seasonYear": 2026,
+    "seasonStart": "2026-09-01T00:00:00.000Z",
+    "seasonEnd": "2027-08-31T23:59:59.999Z",
+    "matchesPlayed": 3,
+    "availableSeasons": [2026],
+    "players": [
+      {
+        "teamPlayerId": "tp-me",
+        "firstName": "Camille",
+        "lastName": "Martin",
+        "role": "PLAYER",
+        "gamesPlayed": 3,
+        "pointsPerGame": 13.7,
+        "foulsPerGame": 2,
+        "seasonHighPoints": 19,
+        "seasonHighFouls": 3,
+        "freeThrowPoints": 5,
+        "twoPointPoints": 24,
+        "threePointPoints": 12,
+        "totalPoints": 41,
+        "mvpAwards": 1,
+        "worstPlayerAwards": 0,
+        "isMe": true
+      }
+    ]
+  }
+}

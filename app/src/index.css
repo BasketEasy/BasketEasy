@@ -1,31 +1,26 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --be-orange: #d4622a;
-  --be-blue-green: #1e5f74;
-  --be-cream: #faf5ef;
-  --be-charcoal: #23201c;
-  --be-muted: #5b564f;
-  --be-border: #e7decf;
-}
+@import '@basketeasy/ui/styles/globals.css';
 
 * {
   box-sizing: border-box;
 }
 
 body {
+  @apply bg-ground text-charcoal;
   margin: 0;
-  background: var(--be-cream);
-  color: var(--be-charcoal);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Atkinson Hyperlegible', Verdana, system-ui, sans-serif;
 }
 
-h1,
-h2,
-h3 {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+/* Installed as a standalone PWA (viewport-fit=cover in index.html), the app
+   draws under the iOS status bar/notch unless something pads for it — the
+   fixed/sticky headers are the only elements that sit at the very top of
+   the viewport, so they're the ones that need the inset. */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* The mirror of the above for the bottom tab bar (TabBar), which is fixed to
+   the bottom of the viewport and would otherwise sit under the iOS home
+   indicator. */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

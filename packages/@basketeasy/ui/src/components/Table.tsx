@@ -6,9 +6,14 @@ import {
 } from 'react';
 import { cn } from '../lib/cn';
 
-export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="w-full overflow-auto">
+export interface TableProps extends HTMLAttributes<HTMLTableElement> {
+  /** className applied to the wrapping scroll <div>, not the <table> — e.g. to cap height for a sticky header. */
+  containerClassName?: string;
+}
+
+export const Table = forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div className={cn('w-full overflow-auto', containerClassName)}>
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
@@ -19,7 +24,7 @@ export const TableHeader = forwardRef<
   HTMLTableSectionElement,
   HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn('border-b border-border', className)} {...props} />
+  <thead ref={ref} className={cn('bg-surface border-b border-border', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 
@@ -30,14 +35,6 @@ export const TableBody = forwardRef<
   <tbody ref={ref} className={cn('divide-y divide-border', className)} {...props} />
 ));
 TableBody.displayName = 'TableBody';
-
-export const TableFooter = forwardRef<
-  HTMLTableSectionElement,
-  HTMLAttributes<HTMLTableSectionElement>
->(({ className, ...props }, ref) => (
-  <tfoot ref={ref} className={cn('border-t border-border font-medium', className)} {...props} />
-));
-TableFooter.displayName = 'TableFooter';
 
 export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(
   ({ className, ...props }, ref) => (

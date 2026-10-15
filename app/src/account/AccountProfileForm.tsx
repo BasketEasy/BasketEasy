@@ -96,7 +96,7 @@ export function AccountProfileForm() {
         {...register('avatarUrl')}
       />
 
-      <Button type="submit" disabled={isSubmitting || isPending}>
+      <Button type="submit" loading={isSubmitting || isPending}>
         Enregistrer
       </Button>
     </form>

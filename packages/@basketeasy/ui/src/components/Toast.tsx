@@ -2,6 +2,7 @@ import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from 'reac
 import * as ToastPrimitive from '@radix-ui/react-toast';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
+import { focusRing } from '../lib/focusRing';
 
 export const ToastProvider = ToastPrimitive.Provider;
 
@@ -11,7 +12,14 @@ export const ToastViewport = forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitive.Viewport
     ref={ref}
-    className={cn('fixed bottom-0 right-0 z-50 flex w-full max-w-sm flex-col gap-2 p-6', className)}
+    className={cn(
+      // Above every overlay in the app (Dialog/DropdownMenu/Select/Tooltip
+      // are all z-50): a toast fired while a modal is open — the common case,
+      // since most mutation error toasts fire from inside a still-open
+      // dialog — must never be washed out by the dialog's own z-50 overlay.
+      'fixed bottom-0 right-0 z-[60] flex w-full max-w-sm flex-col gap-2 p-6',
+      className,
+    )}
     {...props}
   />
 ));
@@ -22,8 +30,10 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        success: 'border-green-600 bg-green-50 text-green-900',
-        destructive: 'border-red-600 bg-red-50 text-red-900',
+        // Opaque tints, never `bg-*/10`: a toast floats over the page, and a
+        // translucent fill let whatever was under it read through the text.
+        success: 'border-success bg-success-tint text-success-text',
+        destructive: 'border-error bg-error-tint text-error',
       },
     },
     defaultVariants: { variant: 'success' },
@@ -73,7 +83,11 @@ export const ToastClose = forwardRef<
   <ToastPrimitive.Close
     ref={ref}
     aria-label="Fermer"
-    className={cn('ml-auto shrink-0 text-current/60 hover:text-current', className)}
+    className={cn(
+      '-mr-2 -mt-2 ml-auto flex h-11 w-11 shrink-0 items-center justify-center text-lg text-current/60 hover:text-current',
+      focusRing,
+      className,
+    )}
     {...props}
   >
     ×

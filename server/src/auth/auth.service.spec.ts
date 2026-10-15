@@ -5,10 +5,12 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from './auth.service';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let audit: { record: jest.Mock };
   let prisma: {
     user: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     refreshToken: {
@@ -20,6 +22,7 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    audit = { record: jest.fn() };
     prisma = {
       user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       refreshToken: {
@@ -34,6 +37,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: PrismaService, useValue: prisma },
+        { provide: AuditService, useValue: audit },
         {
           provide: JwtService,
           useValue: { signAsync: jest.fn().mockResolvedValue('signed.jwt.token') },
@@ -61,6 +65,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
       });
       prisma.refreshToken.create.mockResolvedValue({});
 
@@ -80,6 +86,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
     });
@@ -128,6 +136,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
       prisma.refreshToken.create.mockResolvedValue({});
@@ -141,8 +151,74 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
+    });
+
+    it('records the sign-in and refreshes the activity clock', async () => {
+      const passwordHash = await argon2.hash('password123');
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        passwordHash,
+        firstName: null,
+        lastName: null,
+        avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
+        memberships: [],
+      });
+      prisma.refreshToken.create.mockResolvedValue({});
+      prisma.user.update.mockResolvedValue({});
+
+      await service.login('a@b.com', 'password123', { ipAddress: '10.0.0.1', userAgent: 'jest' });
+
+      expect(audit.record).toHaveBeenCalledWith({
+        type: 'LOGIN_SUCCESS',
+        userId: 'user-1',
+        actorEmail: 'a@b.com',
+        context: { ipAddress: '10.0.0.1', userAgent: 'jest' },
+      });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { lastActiveAt: expect.any(Date) },
+      });
+    });
+
+    it('records a failure against an unknown address with no user attached', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.login('nobody@b.com', 'password123')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'LOGIN_FAILURE',
+          userId: null,
+          actorEmail: 'nobody@b.com',
+        }),
+      );
+    });
+
+    it('records a failure against a known address with the user attached', async () => {
+      const passwordHash = await argon2.hash('password123');
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-1',
+        email: 'a@b.com',
+        passwordHash,
+        memberships: [],
+      });
+
+      await expect(service.login('a@b.com', 'wrong-password')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'LOGIN_FAILURE', userId: 'user-1' }),
+      );
     });
 
     it('throws UnauthorizedException for an unknown email', async () => {
@@ -217,14 +293,14 @@ describe('AuthService', () => {
       await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
     });
 
-    it('revokes the whole family and throws when a revoked token is reused', async () => {
+    it('revokes the whole family and throws when a token revoked long ago is reused', async () => {
       prisma.refreshToken.findUnique.mockResolvedValue({
         id: 'rt-1',
         userId: 'user-1',
         familyId: 'family-1',
         tokenHash: 'hash-1',
         expiresAt: new Date(Date.now() + 1000 * 60 * 60),
-        revokedAt: new Date(),
+        revokedAt: new Date(Date.now() - 60 * 1000),
       });
       // CAS claim on the (already-revoked) row matches nothing.
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -240,12 +316,22 @@ describe('AuthService', () => {
         where: { familyId: 'family-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'REFRESH_TOKEN_REUSE_DETECTED',
+          userId: 'user-1',
+          metadata: { familyId: 'family-1' },
+        }),
+      );
     });
 
-    it('revokes the whole family and throws when two concurrent requests race on the same token', async () => {
-      // Simulates the race: the row is still unrevoked when read, but the CAS
-      // claim loses (another request already claimed it), so this must be
-      // treated as reuse rather than silently issuing a second token pair.
+    it('issues a fresh token pair instead of logging out when two concurrent requests race on the same token', async () => {
+      // Simulates two tabs (or a tab plus an installed PWA) restoring a
+      // session at once: the row is still unrevoked when read, but the CAS
+      // claim loses because the other request claimed it a moment earlier.
+      // This must NOT revoke the family or log the user out — that was the
+      // bug reported ("leave the page and come back and I'm logged out").
       prisma.refreshToken.findUnique.mockResolvedValue({
         id: 'rt-1',
         userId: 'user-1',
@@ -255,6 +341,36 @@ describe('AuthService', () => {
         revokedAt: null,
       });
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      const result = await service.refresh('raw-token');
+
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ familyId: 'family-1', userId: 'user-1' }),
+        }),
+      );
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(result.refreshToken).toEqual(expect.any(String));
+    });
+
+    it('revokes the family for a token already revoked at read time, however recently', async () => {
+      // The regression this pins: a token rotated away one second ago and
+      // presented again is indistinguishable, by timing alone, from a stolen
+      // token replayed immediately after the legitimate client rotated it.
+      // Reuse detection is a fail-secure control, so recency buys nothing —
+      // this must kill the family rather than mint a fresh pair.
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        revokedAt: new Date(Date.now() - 1000),
+      });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
       prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 2 });
 
       await expect(service.refresh('raw-token')).rejects.toThrow(UnauthorizedException);
@@ -262,7 +378,30 @@ describe('AuthService', () => {
         where: { familyId: 'family-1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'REFRESH_TOKEN_REUSE_DETECTED' }),
+      );
+    });
+
+    it('does not log a lost race as a reuse — a client racing itself is not a security event', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        familyId: 'family-1',
+        tokenHash: 'hash-1',
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+        revokedAt: null,
+      });
+      prisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 0 });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'a@b.com' });
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      await service.refresh('raw-token');
+
+      expect(audit.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'REFRESH_TOKEN_REUSE_DETECTED' }),
+      );
     });
 
     it('throws UnauthorizedException when the CAS claim succeeds but the owning user no longer exists', async () => {
@@ -303,6 +442,22 @@ describe('AuthService', () => {
 
       await expect(service.logout('unknown')).resolves.toBeUndefined();
       expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('records the sign-out when a session was actually revoked', async () => {
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'user-1',
+        revokedAt: null,
+      });
+      prisma.refreshToken.update.mockResolvedValue({});
+
+      await service.logout('raw-token');
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'LOGOUT', userId: 'user-1' }),
+      );
     });
   });
 
@@ -314,6 +469,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: 'https://example.com/avatar.png',
+        emailVerifiedAt: new Date('2026-09-01T10:00:00.000Z'),
+        emailNotificationsEnabled: true,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
 
@@ -325,6 +482,9 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: 'https://example.com/avatar.png',
+        // A confirmed address is projected as a boolean, never the timestamp.
+        emailVerified: true,
+        emailNotificationsEnabled: true,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
     });
@@ -344,6 +504,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: false,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
 
@@ -363,6 +525,8 @@ describe('AuthService', () => {
         firstName: 'Alex',
         lastName: 'Dupont',
         avatarUrl: null,
+        emailVerified: false,
+        emailNotificationsEnabled: false,
         memberships: [{ clubId: 'club-1', role: 'ADMIN' }],
       });
     });
@@ -374,6 +538,8 @@ describe('AuthService', () => {
         firstName: null,
         lastName: null,
         avatarUrl: null,
+        emailVerifiedAt: null,
+        emailNotificationsEnabled: true,
         memberships: [],
       });
 

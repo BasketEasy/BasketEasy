@@ -1,18 +1,41 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { renderWithProviders } from '../testUtils';
 import App from '../App';
 
+// jsdom's default innerWidth (1024) lands above the desktop breakpoint, so
+// every other test in this file exercises the table path for free; only the
+// mobile-card test below needs to override it.
+function setViewportWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', {
+    writable: true,
+    configurable: true,
+    value: width,
+  });
+}
+
 function mockSession(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER' }[]) {
   server.use(
     http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
     http.get('/api/auth/me', () =>
-      HttpResponse.json({ id: 'user-1', email: 'a@b.com', memberships }),
+      HttpResponse.json({ id: 'user-1', email: 'a@b.com', emailVerified: true, memberships }),
     ),
   );
+}
+
+function paginated<T>(
+  items: T[],
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
+  return {
+    items,
+    total: overrides.total ?? items.length,
+    page: overrides.page ?? 1,
+    pageSize: overrides.pageSize ?? 25,
+  };
 }
 
 const baseTeam = {
@@ -23,54 +46,215 @@ const baseTeam = {
   createdAt: 'x',
 };
 
+const alexRoster = [
+  {
+    id: 'tp-1',
+    teamId: 'team-1',
+    playerId: 'p1',
+    firstName: 'Alex',
+    lastName: 'Dupont',
+    clubId: 'club-1',
+    role: 'PLAYER',
+    createdAt: 'x',
+  },
+];
+
+async function goToTab(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
+  await user.click(await screen.findByRole('tab', { name }));
+}
+
+// The Événements tab's agenda view (item 5a) filters to startsAt >= today,
+// so event fixtures for it must float relative to the actual clock instead
+// of a fixed calendar date — otherwise this suite would start failing the
+// moment "today" catches up to a hardcoded date.
+function futureIso(daysFromNow: number, hour = 18): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysFromNow);
+  date.setUTCHours(hour, 0, 0, 0);
+  return date.toISOString();
+}
+
+function futureDateTimeLocal(daysFromNow: number, hour = 18): string {
+  return futureIso(daysFromNow, hour).slice(0, 16);
+}
+
 describe('TeamDetailPage', () => {
-  it('shows the team, its owning club, and its roster, with admin controls for the owning club', async () => {
+  afterEach(() => {
+    setViewportWidth(1024);
+  });
+
+  it('collapses the Clubs partenaires table to cards below the desktop breakpoint', async () => {
+    setViewportWidth(375);
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'tp-1',
-            teamId: 'team-1',
-            playerId: 'p1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            clubId: 'club-1',
-            createdAt: 'x',
-          },
-        ]),
-      ),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
+
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('shows the team header above the tabs, defaults to the Événements tab, and shows the Effectif tab as a card view once selected', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(alexRoster)),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.getByText('U15 · Masculin')).toBeInTheDocument();
-    expect(screen.getByText('COC Basket')).toBeInTheDocument();
-    expect(screen.getByText('Propriétaire')).toBeInTheDocument();
-    expect(screen.getByText('Alex')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /associer un club/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^supprimer$/i })).toBeInTheDocument();
+    expect(screen.getByText(/^U15 · Masculin/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^supprimer l’équipe$/i })).toBeInTheDocument();
+
+    // Événements is the default tab.
+    expect(screen.getByRole('tab', { name: 'Événements', selected: true })).toBeInTheDocument();
+
+    // Effectif: card view — grouped by role, initials + name, no sortable
+    // table/rôle <select> visible yet.
+    await goToTab(user, /^effectif$/i);
+    expect(screen.getByText('Joueurs (1)')).toBeInTheDocument();
+    expect(screen.getByText('AD')).toBeInTheDocument();
+    expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /^rôle$/i })).not.toBeInTheDocument();
   });
 
-  it('lets an admin change the category and gender', async () => {
+  it('switches tabs via their trigger, reflected in the ?tab= URL param', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/admins', () =>
         HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
+          { userId: 'user-1', email: 'a@b.com', teamId: 'team-1', createdAt: 'x' },
         ]),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+
+    // Reaching Administrateurs is a single click, no scrolling past the
+    // other three sections — they aren't even in the DOM at the same time.
+    await goToTab(user, /^administrateurs$/i);
+    expect(await screen.findByText('a@b.com')).toBeInTheDocument();
+    expect(within(screen.getByRole('tabpanel')).queryByText('COC Basket')).not.toBeInTheDocument();
+
+    await goToTab(user, /clubs partenaires/i);
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('a@b.com')).not.toBeInTheDocument();
+  });
+
+  it('opens the Statistiques tab from the URL and renders the season', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/stats', () =>
+        HttpResponse.json({
+          seasonYear: 2026,
+          seasonStart: '2026-09-01T00:00:00.000Z',
+          seasonEnd: '2027-08-31T23:59:59.999Z',
+          matchesPlayed: 3,
+          availableSeasons: [2026],
+          players: [
+            {
+              teamPlayerId: 'tp-1',
+              firstName: 'Camille',
+              lastName: 'Roy',
+              role: 'PLAYER',
+              gamesPlayed: 3,
+              pointsPerGame: 9.5,
+              foulsPerGame: 1,
+              seasonHighPoints: 14,
+              seasonHighFouls: 2,
+              freeThrowPoints: 3,
+              twoPointPoints: 20,
+              threePointPoints: 6,
+              totalPoints: 29,
+              mvpAwards: 1,
+              worstPlayerAwards: 0,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=stats' });
+
+    expect(await screen.findByText('Camille Roy')).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: /^statistiques$/i, selected: true }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Calculé sur 3 matchs analysés.')).toBeInTheDocument();
+  });
+
+  it('lands on the tab named by the ?tab= URL param on initial load', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
+
+    expect(
+      await within(await screen.findByRole('tabpanel')).findByText('COC Basket'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: /clubs partenaires/i, selected: true }),
+    ).toBeInTheDocument();
+  });
+
+  it('lets an admin change the category and gender from the header, above the tabs', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.patch('/api/clubs/club-1/teams/team-1', async ({ request }) => {
         const body = (await request.json()) as { name: string; category: string; gender: string };
         return HttpResponse.json({ ...baseTeam, ...body });
@@ -80,35 +264,218 @@ describe('TeamDetailPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
-    await waitFor(() => expect(screen.getByText('U15 · Masculin')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /modifier/i }));
+    await waitFor(() => expect(screen.getByText(/^U15 · Masculin/)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^modifier l’équipe$/i }));
 
     await user.click(screen.getByRole('combobox', { name: /^genre$/i }));
     await user.click(await screen.findByRole('option', { name: 'Féminin' }));
     await user.click(screen.getByRole('button', { name: /enregistrer/i }));
 
-    await waitFor(() => expect(screen.getByText('U15 · Féminin')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/^U15 · Féminin/)).toBeInTheDocument());
   });
 
-  it('hides all admin controls for a MEMBER', async () => {
+  it('always shows the Maillots tab to a manager, even with the rotation off', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () =>
+        HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: false }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+        HttpResponse.json({
+          seasonYear: 2026,
+          teamGender: 'MEN',
+          enabled: false,
+          canManage: true,
+          nextMatch: null,
+          rows: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+    expect(
+      await screen.findByRole('tab', { name: 'Maillots', selected: true }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('switch', { name: 'Rotation activée' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('hides all admin controls for a MEMBER, and hides the Clubs partenaires/Administrateurs tabs entirely', async () => {
     mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
     );
 
+    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
+
+    // A plain roster MEMBER (no club-admin rights, no TeamAdmin grant) never
+    // sees the management-only tabs at all.
+    expect(screen.queryByRole('tab', { name: /clubs partenaires/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^administrateurs$/i })).not.toBeInTheDocument();
+
+    await goToTab(user, /^effectif$/i);
     expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+  });
+
+  it("only reads the club's player list for a club admin who opens the picker, since the route refuses everyone else", async () => {
+    const clubPlayerReads: string[] = [];
+    function mockTeamPage() {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', ({ request }) => {
+          clubPlayerReads.push(request.url);
+          return HttpResponse.json(paginated([]));
+        }),
+      );
+    }
+
+    // A MEMBER: the route is ADMIN-only, so the call could only 403.
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    mockTeamPage();
+    const member = renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(clubPlayerReads).toHaveLength(0);
+    member.unmount();
+
+    // A club ADMIN reads it for the « Ajouter un joueur » picker, once it opens
+    // and not before.
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    mockTeamPage();
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=roster' });
+    await screen.findAllByRole('button', { name: /ajouter un joueur/i });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(clubPlayerReads).toHaveLength(0);
+    await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
+    await waitFor(() => expect(clubPlayerReads).toHaveLength(1));
+  });
+
+  it('falls back to Agenda when a MEMBER requests the Clubs/Administrateurs tab directly via the URL', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=clubs' });
+
+    // The "clubs" tab isn't in this MEMBER's (player's) tab list at all, so
+    // the underlying "events" tab is selected — labelled "Agenda", not
+    // "Événements", for a player (§4.4 of the player-journey doc).
+    expect(await screen.findByRole('tab', { name: 'Agenda', selected: true })).toBeInTheDocument();
+  });
+
+  it('lets a TeamAdmin who is not a club admin manage the team, but not add players', async () => {
+    mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(alexRoster)),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/admins', () =>
+        HttpResponse.json([
+          { userId: 'user-1', email: 'a@b.com', teamId: 'team-1', createdAt: 'x' },
+        ]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    // Événements is the default tab, empty by default (no explicit mock
+    // above), so the header button and the empty state's own CTA both
+    // render — either opens the same "Créer un événement" dialog.
+    expect(
+      (await screen.findAllByRole('button', { name: /créer un événement/i })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /^modifier l’équipe$/i })).toBeInTheDocument();
+
+    // Team-day management is available to this TeamAdmin...
+    // ...except adding players: the picker lists the club's players, a club admin's
+    // read, so this TeamAdmin gets a hint instead of a button opening an empty list.
+    await goToTab(user, /^effectif$/i);
+    expect(
+      await screen.findByText('Pour ajouter un joueur, demandez à un administrateur du club.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+
+    await goToTab(user, /^administrateurs$/i);
+    expect(
+      await screen.findByRole('button', { name: /ajouter un administrateur/i }),
+    ).toBeInTheDocument();
+
+    // ...but CTC governance and team deletion stay owner-club-ADMIN-only.
+    await goToTab(user, /clubs partenaires/i);
+    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
+  });
+
+  it('shows an empty state on each tab when the team has nothing yet', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/admins', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    // Événements (default tab): empty state, with the header button and the
+    // empty state's own CTA sharing the "Créer un événement" name.
+    expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /créer un événement/i })).toHaveLength(2);
+
+    // Effectif: card view's empty branch is the same EmptyState the table
+    // view would show, with the header button and the empty state's own
+    // CTA sharing the "Ajouter un joueur" name.
+    await goToTab(user, /^effectif$/i);
+    expect(await screen.findByText('Effectif vide')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(2);
+
+    await goToTab(user, /clubs partenaires/i);
+    expect(await screen.findByText('Aucun club partenaire')).toBeInTheDocument();
+    // With no linked clubs at all, this club can't be confirmed as the CTC
+    // owner, so isOwner is false and neither CTA renders.
+    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
+
+    await goToTab(user, /^administrateurs$/i);
+    expect(await screen.findByText("Aucun administrateur d'équipe")).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /ajouter un administrateur/i })).toHaveLength(2);
   });
 
   it('does not let a non-owning (partner) club admin manage partner clubs or delete the team', async () => {
@@ -116,43 +483,53 @@ describe('TeamDetailPage', () => {
     server.use(
       http.get('/api/clubs/club-2/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-2/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-          { clubId: 'club-2', clubName: 'Club B', isOwner: false, linkedAt: 'y' },
-        ]),
+        HttpResponse.json(
+          paginated([
+            { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
+            { clubId: 'club-2', clubName: 'Club B', isOwner: false, linkedAt: 'y' },
+          ]),
+        ),
       ),
-      http.get('/api/clubs/club-2/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-2/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-2/teams/team-1/players', () =>
+        HttpResponse.json(paginated([{ ...alexRoster[0], clubId: 'club-2' }])),
+      ),
+      http.get('/api/clubs/club-2/players', () => HttpResponse.json(paginated([]))),
     );
 
+    const user = userEvent.setup();
     renderWithProviders(<App />, { route: '/clubs/club-2/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^supprimer$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^supprimer l’équipe$/i })).not.toBeInTheDocument();
+
     // Roster management stays available to any linked club's admin.
+    await goToTab(user, /^effectif$/i);
     expect(screen.getByRole('button', { name: /ajouter un joueur/i })).toBeInTheDocument();
+
+    await goToTab(user, /clubs partenaires/i);
+    expect(screen.queryByRole('button', { name: /associer un club/i })).not.toBeInTheDocument();
   });
 
   it('lets the owning club link a partner club (CTC)', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let teamClubs = [{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }];
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(paginated(teamClubs)),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
       http.post('/api/clubs/club-1/teams/team-1/clubs', async ({ request }) => {
         const body = (await request.json()) as { clubId: string };
-        return HttpResponse.json({
+        const created = {
           clubId: body.clubId,
           clubName: 'Club B',
           isOwner: false,
           linkedAt: '2026-01-02',
-        });
+        };
+        teamClubs = [...teamClubs, created];
+        return HttpResponse.json(created);
       }),
     );
 
@@ -160,7 +537,8 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /associer un club/i }));
+    await goToTab(user, /clubs partenaires/i);
+    await user.click(await screen.findByRole('button', { name: /associer un club/i }));
 
     await user.type(screen.getByLabelText(/identifiant du club partenaire/i), 'club-2');
     await user.click(screen.getByRole('button', { name: /^associer$/i }));
@@ -168,39 +546,47 @@ describe('TeamDetailPage', () => {
     await waitFor(() => expect(screen.getByText('Club B')).toBeInTheDocument());
   });
 
-  it('adds a player from the current club to the roster', async () => {
+  it('adds a player from the current club to the roster, and shows it in card view', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let teamPlayers: unknown[] = [];
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(teamPlayers)),
+      ),
       http.get('/api/clubs/club-1/players', () =>
-        HttpResponse.json([
-          {
-            id: 'p1',
-            clubId: 'club-1',
-            firstName: 'Alex',
-            lastName: 'Dupont',
-            userId: null,
-            createdAt: 'x',
-          },
-        ]),
+        HttpResponse.json(
+          paginated([
+            {
+              id: 'p1',
+              clubId: 'club-1',
+              firstName: 'Alex',
+              lastName: 'Dupont',
+              userId: null,
+              createdAt: 'x',
+            },
+          ]),
+        ),
       ),
       http.post('/api/clubs/club-1/teams/team-1/players', async ({ request }) => {
-        const body = (await request.json()) as { playerId: string };
-        return HttpResponse.json({
+        const body = (await request.json()) as { playerId: string; role: string };
+        const created = {
           id: 'tp-1',
           teamId: 'team-1',
           playerId: body.playerId,
           firstName: 'Alex',
           lastName: 'Dupont',
           clubId: 'club-1',
+          role: body.role,
           createdAt: '2026-01-01',
-        });
+        };
+        teamPlayers = [...teamPlayers, created];
+        return HttpResponse.json(created);
       }),
     );
 
@@ -208,28 +594,542 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /ajouter un joueur/i }));
+    await goToTab(user, /^effectif$/i);
+    // The roster starts empty, so the header button and the empty state's
+    // CTA both render — either opens the same "Ajouter un joueur" dialog.
+    await user.click(screen.getAllByRole('button', { name: /ajouter un joueur/i })[0]);
 
-    await user.click(screen.getByRole('combobox', { name: /joueur/i }));
+    await user.click(await screen.findByRole('combobox', { name: /joueur/i }));
     await user.click(await screen.findByRole('option', { name: 'Alex Dupont' }));
     await user.click(screen.getByRole('button', { name: /ajouter à l'effectif/i }));
 
-    await waitFor(() => expect(screen.getByText('Alex')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
+    expect(screen.getByText('Joueurs (1)')).toBeInTheDocument();
   });
 
-  it('deletes the team and navigates back to the roster page', async () => {
+  it('shows the team events and lets an admin create one', async () => {
     mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
-    let deleteCalled = false;
+    let events = [
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: futureIso(1),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+      },
+    ];
+    let createCalled = false;
     server.use(
       http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
       http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
-        HttpResponse.json([
-          { clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' },
-        ]),
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
       ),
-      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/players', () => HttpResponse.json([])),
-      http.get('/api/clubs/club-1/members', () => HttpResponse.json([])),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated(events))),
+      http.post('/api/clubs/club-1/teams/team-1/events', async ({ request }) => {
+        createCalled = true;
+        const body = (await request.json()) as { startsAt: string; location: string };
+        const created = {
+          id: 'event-2',
+          teamId: 'team-1',
+          type: 'TRAINING',
+          startsAt: body.startsAt,
+          location: body.location,
+          notes: null,
+          opponentName: null,
+          venue: null,
+          recurrenceId: null,
+          createdAt: 'x',
+          myRsvpStatus: null,
+          isImported: false,
+          timeConfirmed: true,
+          myConvocation: false,
+          rsvpSummary: {
+            rosterSize: 0,
+            convoked: 0,
+            answering: 0,
+            going: 0,
+            maybe: 0,
+            notGoing: 0,
+            pending: 0,
+            isConvocationScoped: false,
+          },
+          logistics: { jerseys: null, balls: null },
+          result: null,
+          myMatchStats: null,
+        };
+        events = [...events, created];
+        return HttpResponse.json([created]);
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /événements/i);
+
+    expect(await screen.findByText('Gymnase A')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /créer un événement/i }));
+    await user.type(screen.getByLabelText(/date et heure/i), futureDateTimeLocal(2));
+    await user.type(screen.getByLabelText(/^adresse$/i), 'Gymnase B');
+    await user.click(screen.getByRole('button', { name: /créer l'événement/i }));
+
+    await waitFor(() => expect(createCalled).toBe(true));
+    expect(await screen.findByText('Gymnase B')).toBeInTheDocument();
+  });
+
+  it('shows the à traiter band on the manager Événements tab, scoped to this team’s own items', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      http.get('/api/me/dashboard', () =>
+        HttpResponse.json({
+          totalPlayers: 0,
+          upcomingEvents: [],
+          actionItems: [
+            {
+              kind: 'MATCH_WITHOUT_CONVOCATIONS',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-1',
+              teamName: 'U15 Garçons',
+              eventId: 'event-1',
+              message: "Match contre l'ES Rezé samedi — personne n'a encore été convoqué.",
+            },
+            // A different team's item must never leak onto this team's page.
+            {
+              kind: 'PLAYERS_WITHOUT_ACCOUNT',
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              teamId: 'team-2',
+              teamName: 'Autre équipe',
+              eventId: null,
+              message: "Jeanne Martin n'a pas encore de compte Kluvo.",
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText(/personne n'a encore été convoqué/)).toBeInTheDocument();
+    expect(screen.queryByText(/jeanne martin/i)).not.toBeInTheDocument();
+  });
+
+  it('toggles the Événements tab between agenda view and table view, resetting the table filters on each switch', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    const events = [
+      {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: futureIso(1),
+        location: 'Gymnase A',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+      },
+    ];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(paginated(events));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /événements/i);
+
+    // Defaults to agenda view — no search input, no sortable table, but a
+    // day heading and the event's details render as a card.
+    expect(await screen.findByText('Gymnase A')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Date' })).not.toBeInTheDocument();
+
+    const agendaOption = screen.getByRole('button', { name: 'Agenda' });
+    const listOption = screen.getByRole('button', { name: 'Liste' });
+    expect(agendaOption).toHaveAttribute('aria-pressed', 'true');
+    expect(listOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(listOption);
+
+    // Table view: the existing sortable/searchable/paginated table.
+    expect(screen.getByRole('columnheader', { name: 'Date' })).toBeInTheDocument();
+    expect(screen.getByText('Gymnase A')).toBeInTheDocument();
+    expect(listOption).toHaveAttribute('aria-pressed', 'true');
+    expect(agendaOption).toHaveAttribute('aria-pressed', 'false');
+    const searchInput = screen.getByLabelText('Rechercher un événement');
+    expect(searchInput).toHaveValue('');
+
+    await user.type(searchInput, 'gym');
+    await waitFor(() => expect(requestedSearches).toContain('gym'), { timeout: 2000 });
+
+    // Toggling back to agenda resets the search that was active in table view.
+    await user.click(agendaOption);
+    expect(screen.queryByLabelText('Rechercher un événement')).not.toBeInTheDocument();
+    expect(screen.getByText('Gymnase A')).toBeInTheDocument();
+    // The unfiltered list is still fresh in the cache, so going back asks for
+    // nothing: the reset shows in the table coming back empty-handed.
+    expect(requestedSearches[requestedSearches.length - 1]).toBe('gym');
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    expect(screen.getByLabelText('Rechercher un événement')).toHaveValue('');
+  });
+
+  it('toggles the agenda between upcoming and past events, and resets to upcoming when leaving agenda view', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const upcomingEvent = {
+      id: 'event-future',
+      teamId: 'team-1',
+      type: 'TRAINING',
+      startsAt: futureIso(1),
+      location: 'Gymnase Futur',
+      notes: null,
+      opponentName: null,
+      venue: null,
+      recurrenceId: null,
+      createdAt: 'x',
+      myRsvpStatus: null,
+      isImported: false,
+      timeConfirmed: true,
+      myConvocation: false,
+      rsvpSummary: {
+        rosterSize: 0,
+        convoked: 0,
+        answering: 0,
+        going: 0,
+        maybe: 0,
+        notGoing: 0,
+        pending: 0,
+        isConvocationScoped: false,
+      },
+      logistics: { jerseys: null, balls: null },
+      result: null,
+      myMatchStats: null,
+    };
+    const pastEvent = {
+      ...upcomingEvent,
+      id: 'event-past',
+      startsAt: futureIso(-7),
+      location: 'Gymnase Passé',
+    };
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+        const url = new URL(request.url);
+        const items = url.searchParams.has('to') ? [pastEvent] : [upcomingEvent];
+        return HttpResponse.json(paginated(items));
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    await goToTab(user, /événements/i);
+
+    // Defaults to "À venir" and shows the upcoming event only.
+    expect(await screen.findByText('Gymnase Futur')).toBeInTheDocument();
+    const upcomingOption = screen.getByRole('button', { name: 'À venir' });
+    const pastOption = screen.getByRole('button', { name: 'Passés' });
+    expect(upcomingOption).toHaveAttribute('aria-pressed', 'true');
+    expect(pastOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(pastOption);
+    expect(await screen.findByText('Gymnase Passé')).toBeInTheDocument();
+    expect(screen.queryByText('Gymnase Futur')).not.toBeInTheDocument();
+    expect(pastOption).toHaveAttribute('aria-pressed', 'true');
+    expect(upcomingOption).toHaveAttribute('aria-pressed', 'false');
+
+    // Switching to table view and back to agenda resets the period to upcoming.
+    await user.click(screen.getByRole('button', { name: 'Liste' }));
+    await user.click(screen.getByRole('button', { name: 'Agenda' }));
+    expect(screen.getByRole('button', { name: 'À venir' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('toggles the Effectif tab between card view and table view, resetting search/sort/page on each switch', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(paginated(alexRoster));
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
+
+    // Defaults to card view — no search input, no sortable table.
+    expect(await screen.findByText('Alex Dupont')).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rechercher un joueur de l'effectif")).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Prénom' })).not.toBeInTheDocument();
+
+    const cardsOption = screen.getByRole('button', { name: 'Cartes' });
+    const tableOption = screen.getByRole('button', { name: 'Tableau' });
+    expect(cardsOption).toHaveAttribute('aria-pressed', 'true');
+    expect(tableOption).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(tableOption);
+
+    // Table view: the existing sortable/searchable table is revealed.
+    expect(screen.getByRole('columnheader', { name: 'Prénom' })).toBeInTheDocument();
+    expect(screen.getByText('Alex')).toBeInTheDocument();
+    expect(tableOption).toHaveAttribute('aria-pressed', 'true');
+    expect(cardsOption).toHaveAttribute('aria-pressed', 'false');
+    const searchInput = screen.getByLabelText("Rechercher un joueur de l'effectif");
+    expect(searchInput).toHaveValue('');
+
+    await user.type(searchInput, 'dup');
+    await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
+
+    // Toggling back to cards resets the search that was active in table view.
+    await user.click(cardsOption);
+    expect(screen.queryByLabelText("Rechercher un joueur de l'effectif")).not.toBeInTheDocument();
+    expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
+    // The unfiltered roster is still fresh in the cache, so going back asks for
+    // nothing: the reset shows in the table coming back empty-handed.
+    expect(requestedSearches[requestedSearches.length - 1]).toBe('dup');
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
+    expect(screen.getByLabelText("Rechercher un joueur de l'effectif")).toHaveValue('');
+  });
+
+  it('groups the card view by role, with a Joueuses heading for a WOMEN team', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () =>
+        HttpResponse.json({ ...baseTeam, gender: 'WOMEN' }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(
+          paginated([
+            alexRoster[0],
+            {
+              id: 'tp-2',
+              teamId: 'team-1',
+              playerId: 'p2',
+              firstName: 'Sam',
+              lastName: 'Martin',
+              clubId: 'club-1',
+              role: 'COACH',
+              createdAt: 'x',
+            },
+          ]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
+
+    expect(await screen.findByText('Joueuses (1)')).toBeInTheDocument();
+    expect(screen.getByText('Staff (1)')).toBeInTheDocument();
+    expect(screen.getByText('Alex Dupont')).toBeInTheDocument();
+    expect(screen.getByText('AD')).toBeInTheDocument();
+    expect(screen.getByText('Sam Martin')).toBeInTheDocument();
+    expect(screen.getByText('SM')).toBeInTheDocument();
+  });
+
+  it('filters the roster by search text, debounced, in table view', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedSearches: string[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        requestedSearches.push(url.searchParams.get('search') ?? '');
+        return HttpResponse.json(paginated(alexRoster));
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
+
+    await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
+    await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'dup');
+
+    await waitFor(() => expect(requestedSearches).toContain('dup'), { timeout: 2000 });
+  });
+
+  it('shows a filtered empty state (no add CTA) when the table-view roster search matches no one', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        return HttpResponse.json(paginated(search ? [] : alexRoster));
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
+
+    await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
+    await user.type(screen.getByLabelText("Rechercher un joueur de l'effectif"), 'zzz');
+
+    expect(await screen.findByText('Aucun résultat')).toBeInTheDocument();
+    // Only the header's own button remains — the empty state's CTA is
+    // suppressed while a search filter is active.
+    expect(screen.getAllByRole('button', { name: /ajouter un joueur/i })).toHaveLength(1);
+  });
+
+  it('paginates the roster in table view', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    const requestedPages: (string | null)[] = [];
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', ({ request }) => {
+        const url = new URL(request.url);
+        requestedPages.push(url.searchParams.get('page'));
+        return HttpResponse.json(paginated(alexRoster, { total: 60 }));
+      }),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+    await goToTab(user, /^effectif$/i);
+
+    await waitFor(() => expect(screen.getByText('Alex Dupont')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Tableau' }));
+
+    expect(screen.getByText('Page 1 / 3')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Suivant' }));
+
+    await waitFor(() => expect(requestedPages).toContain('2'));
+  });
+
+  it('does not read a failed roster load as « 0 joueur », and counts from the total', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await screen.findByRole('tab', { name: /^effectif$/i });
+    expect(screen.queryByText(/\bjoueurs?\b/)).not.toBeInTheDocument();
+  });
+
+  it('shows the roster total, not the first page length, in the hero', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () =>
+        HttpResponse.json(paginated(alexRoster, { total: 130 })),
+      ),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByText(/· 130 joueurs/)).toBeInTheDocument();
+  });
+
+  it('deletes the team and navigates back to the club roster page', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    let deleteCalled = false;
+    server.use(
+      http.get('/api/clubs/club-1', () =>
+        HttpResponse.json({ id: 'club-1', name: 'COC Basket', createdAt: 'x' }),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+        HttpResponse.json(
+          paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+        ),
+      ),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/members', () => HttpResponse.json(paginated([]))),
       http.delete('/api/clubs/club-1/teams/team-1', () => {
         deleteCalled = true;
         return new HttpResponse(null, { status: 204 });
@@ -240,9 +1140,675 @@ describe('TeamDetailPage', () => {
     renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
 
     await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /^supprimer$/i }));
+    await user.click(screen.getByRole('button', { name: /^supprimer l’équipe$/i }));
+    // Deletion is now gated behind typing the team name to confirm — a
+    // single click no longer suffices (see Task 9 of the Parquet revamp).
+    await user.type(await screen.findByLabelText(/Saisissez/), 'U15 Garçons');
+    await user.click(screen.getByRole('button', { name: /supprimer définitivement/i }));
 
     await waitFor(() => expect(deleteCalled).toBe(true));
-    expect(await screen.findByRole('heading', { name: /effectif du club/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'COC Basket' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a « Mes équipes » back link that navigates to /my-teams', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams', () => HttpResponse.json(paginated([]))),
+      http.get('/api/me/teams', () => HttpResponse.json([])),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    await waitFor(() => expect(screen.getByText('U15 Garçons')).toBeInTheDocument());
+    // The main nav carries a « Mes équipes » link too; the back link is in main.
+    await user.click(
+      within(screen.getByRole('main')).getByRole('link', { name: /^mes équipes$/i }),
+    );
+
+    expect(await screen.findByRole('heading', { name: /mes équipes/i })).toBeInTheDocument();
+  });
+
+  it('names the page bar’s back link after where it goes (the mobile bar, depth 2)', async () => {
+    mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+      http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+      http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+    );
+
+    renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+    expect(await screen.findByRole('link', { name: 'Retour à Mes équipes' })).toHaveAttribute(
+      'href',
+      '/my-teams',
+    );
+  });
+
+  describe('loads only the active tab’s data', () => {
+    // Every request the page makes, as "path?query" without the /api prefix.
+    function recordRequests() {
+      const seen: string[] = [];
+      const onStart = ({ request }: { request: Request }) => {
+        const url = new URL(request.url);
+        if (request.method === 'GET') seen.push(url.pathname.replace('/api', '') + url.search);
+      };
+      server.events.on('request:start', onStart);
+      afterEachCleanup.push(() => server.events.removeListener('request:start', onStart));
+      return seen;
+    }
+    const afterEachCleanup: (() => void)[] = [];
+    afterEach(() => {
+      afterEachCleanup.splice(0).forEach((fn) => fn());
+    });
+
+    const TEAM = '/clubs/club-1/teams/team-1';
+    const countOf = (seen: string[], pattern: RegExp) => seen.filter((r) => pattern.test(r)).length;
+    // The tab-owned reads, told apart by their query string.
+    const PAGED_PLAYERS = /^\/clubs\/club-1\/teams\/team-1\/players\?.*page=1/;
+    const PAGED_CLUBS = /^\/clubs\/club-1\/teams\/team-1\/clubs\?.*page=1/;
+    const EVENTS_TABLE = /^\/clubs\/club-1\/teams\/team-1\/events\?.*page=1/;
+    const CLUB_PLAYERS = /^\/clubs\/club-1\/players/;
+    const CANDIDATES = /\/admins\/eligible/;
+    const ME_DASHBOARD = /^\/me\/dashboard/;
+
+    function mockManagerTeam() {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () =>
+          HttpResponse.json(
+            paginated([{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }]),
+          ),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/admins', () => HttpResponse.json([])),
+        http.get('/api/clubs/club-1/teams/team-1/admins/eligible', () => HttpResponse.json([])),
+      );
+    }
+
+    it('keeps the other tabs’ reads off a manager’s Événements tab, and loads each when its tab opens', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: TEAM });
+
+      // Événements: the hero, the tab badges and the permission read only.
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      await waitFor(() => expect(countOf(seen, ME_DASHBOARD)).toBe(1));
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, PAGED_CLUBS)).toBe(0);
+      expect(countOf(seen, CLUB_PLAYERS)).toBe(0);
+      expect(countOf(seen, CANDIDATES)).toBe(0);
+      // The roster total (hero + badge), the owner club and the first events page
+      // are what the hero and the tab list read: they stay.
+      expect(countOf(seen, /\/players\?pageSize=100$/)).toBe(1);
+      expect(countOf(seen, /\/clubs\?pageSize=100$/)).toBe(1);
+      expect(countOf(seen, EVENTS_TABLE)).toBe(1);
+
+      // Effectif, cards: the full roster is already there; the table's page is not read.
+      await goToTab(user, /^effectif$/i);
+      expect(await screen.findByText('Joueurs (1)')).toBeInTheDocument();
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, ME_DASHBOARD)).toBe(1);
+
+      // Effectif, table: now the paginated page is read, once.
+      await user.click(screen.getByRole('button', { name: /^tableau$/i }));
+      expect(await screen.findByText('Dupont')).toBeInTheDocument();
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(1);
+
+      // Clubs partenaires: the paginated list is read when the tab opens.
+      await goToTab(user, /clubs partenaires/i);
+      await waitFor(() => expect(countOf(seen, PAGED_CLUBS)).toBe(1));
+
+      // Administrateurs: the list was read for the badge; the candidates wait for the dialog.
+      await goToTab(user, /^administrateurs$/i);
+      expect(await screen.findByText("Aucun administrateur d'équipe")).toBeInTheDocument();
+      expect(countOf(seen, CANDIDATES)).toBe(0);
+      await user.click(screen.getAllByRole('button', { name: /ajouter un administrateur/i })[0]);
+      await waitFor(() => expect(countOf(seen, CANDIDATES)).toBe(1));
+
+      // Back on Événements, the dashboard read is still the cached one.
+      await user.keyboard('{Escape}');
+      await goToTab(user, /^événements/i);
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      expect(countOf(seen, ME_DASHBOARD)).toBe(1);
+    });
+
+    it('reads a team page opened on another tab for that tab only', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=clubs` });
+
+      await waitFor(() => expect(countOf(seen, PAGED_CLUBS)).toBe(1));
+      expect(countOf(seen, ME_DASHBOARD)).toBe(0);
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+    });
+
+    it('does not read a table view or a table of clubs for a player', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockManagerTeam();
+      const seen = recordRequests();
+      renderWithProviders(<App />, { route: TEAM });
+
+      expect(await screen.findByText('Aucun événement')).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(countOf(seen, EVENTS_TABLE)).toBe(0);
+      expect(countOf(seen, PAGED_PLAYERS)).toBe(0);
+      expect(countOf(seen, PAGED_CLUBS)).toBe(0);
+      expect(countOf(seen, ME_DASHBOARD)).toBe(0);
+    });
+
+    it('shows a retry, not an empty picker, when the club players fail to load in the add-player dialog', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      server.use(
+        http.get('/api/clubs/club-1/players', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=roster` });
+
+      await user.click((await screen.findAllByRole('button', { name: /ajouter un joueur/i }))[0]);
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        await within(dialog).findByText('Chargement impossible', {}, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    });
+
+    it('shows a retry, not an empty picker, when the candidates fail to load in the add-admin dialog', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockManagerTeam();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/admins/eligible', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: `${TEAM}?tab=admins` });
+
+      await user.click(
+        (await screen.findAllByRole('button', { name: /ajouter un administrateur/i }))[0],
+      );
+      const dialog = await screen.findByRole('dialog');
+      expect(
+        await within(dialog).findByText('Chargement impossible', {}, { timeout: 5000 }),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('player role (no manage rights)', () => {
+    function mockRostered() {
+      server.use(
+        http.get('/api/me/teams', () =>
+          HttpResponse.json([
+            {
+              teamId: 'team-1',
+              teamName: baseTeam.name,
+              category: baseTeam.category,
+              gender: baseTeam.gender,
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              isTeamAdmin: false,
+              rosterRole: 'PLAYER',
+            },
+          ]),
+        ),
+      );
+    }
+
+    it('shows a Maillots tab while the rotation is on, and opens the rotation from ?tab=maillots', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () =>
+          HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: true }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/jersey-rotation', () =>
+          HttpResponse.json({
+            seasonYear: 2026,
+            teamGender: 'MEN',
+            enabled: true,
+            canManage: false,
+            nextMatch: null,
+            rows: [],
+          }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Maillots', selected: true }),
+      ).toBeInTheDocument();
+      expect(await screen.findByText('Aucun joueur dans l’effectif.')).toBeInTheDocument();
+    });
+
+    it('hides the Maillots tab while the rotation is off, falling back to Agenda from the URL', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () =>
+          HttpResponse.json({ ...baseTeam, jerseyRotationEnabled: false }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=maillots' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Agenda', selected: true }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Maillots' })).not.toBeInTheDocument();
+    });
+
+    it('shows three tabs — Agenda (default), Effectif, Mes stats — with no Agenda/Liste toggle', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () => HttpResponse.json(paginated([]))),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      // Agenda is the default, selected tab — same route as the manager's
+      // Événements default, just relabelled and reordered first.
+      expect(
+        await screen.findByRole('tab', { name: 'Agenda', selected: true }),
+      ).toBeInTheDocument();
+      // Trailing digit is the (aria-hidden) roster-count badge's text —
+      // stripped so this compares labels, not label+badge.
+      const tabs = (await screen.findAllByRole('tab')).map((tab) =>
+        tab.textContent?.replace(/\d+$/, ''),
+      );
+      expect(tabs).toEqual(['Agenda', 'Effectif', 'Mes stats']);
+      expect(screen.queryByRole('tab', { name: /clubs partenaires/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /^administrateurs$/i })).not.toBeInTheDocument();
+
+      // No Agenda/Liste power-view toggle — a player never gets the manager's
+      // paginated table.
+      expect(screen.queryByRole('button', { name: 'Liste' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Agenda' })).not.toBeInTheDocument();
+      // À venir/Passés stays — real content-scoping, not a power-user escape
+      // hatch.
+      expect(screen.getByRole('button', { name: 'À venir' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Passés' })).toBeInTheDocument();
+    });
+
+    it('carries an inline RSVP control on each agenda card for a rostered player', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      const upcomingEvent = {
+        id: 'event-1',
+        teamId: 'team-1',
+        type: 'TRAINING',
+        startsAt: futureIso(1),
+        location: 'Gymnase du Vigneau',
+        notes: null,
+        opponentName: null,
+        venue: null,
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+      };
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () =>
+          HttpResponse.json(paginated([upcomingEvent])),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Gymnase du Vigneau')).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Ma réponse' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Présent' })).toBeInTheDocument();
+    });
+
+    it('shows an error state (not an empty state) when the player Agenda tab fails to load', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/events', () =>
+          HttpResponse.json({ message: 'boom' }, { status: 500 }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Chargement impossible')).toBeInTheDocument();
+      expect(screen.queryByText('Aucun événement')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /réessayer/i })).toBeInTheDocument();
+    });
+
+    it('labels the Statistiques tab "Mes stats" for a player and still renders the season table', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/stats', () =>
+          HttpResponse.json({
+            seasonYear: 2026,
+            seasonStart: '2026-09-01T00:00:00.000Z',
+            seasonEnd: '2027-08-31T23:59:59.999Z',
+            matchesPlayed: 1,
+            availableSeasons: [2026],
+            players: [
+              {
+                teamPlayerId: 'tp-1',
+                firstName: 'Léa',
+                lastName: 'Moreau',
+                role: 'PLAYER',
+                gamesPlayed: 1,
+                pointsPerGame: 11,
+                foulsPerGame: 2,
+                seasonHighPoints: 11,
+                seasonHighFouls: 2,
+                freeThrowPoints: 2,
+                twoPointPoints: 6,
+                threePointPoints: 3,
+                totalPoints: 11,
+                mvpAwards: 1,
+                worstPlayerAwards: 0,
+              },
+            ],
+          }),
+        ),
+      );
+
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1?tab=stats' });
+
+      expect(
+        await screen.findByRole('tab', { name: 'Mes stats', selected: true }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /^statistiques$/i })).not.toBeInTheDocument();
+      // The squad-ranking table renders regardless of role. This fixture's
+      // row carries no isMe (the field a real server always sends, per
+      // phase 6) so there is nothing to mark as "vous" and no personal card
+      // above it — the graceful case of a response with no caller-owned row.
+      expect(await screen.findByText('Léa Moreau')).toBeInTheDocument();
+      expect(screen.queryByText('vous')).not.toBeInTheDocument();
+    });
+
+    it('still shows the Effectif tab for a player, with no roster-management controls', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockRostered();
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+      );
+
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await goToTab(user, /^effectif$/i);
+      expect(await screen.findByText('Alex Dupont')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /ajouter un joueur/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('hero and settings (page grammar)', () => {
+    function nextMatch(daysFromNow: number, overrides: Record<string, unknown> = {}) {
+      return {
+        id: `event-${daysFromNow}`,
+        teamId: 'team-1',
+        type: 'MATCH',
+        startsAt: futureIso(daysFromNow),
+        location: 'Gymnase A',
+        locationName: null,
+        notes: null,
+        opponentName: 'Carquefou',
+        venue: 'AWAY',
+        recurrenceId: null,
+        createdAt: 'x',
+        myRsvpStatus: null,
+        isImported: false,
+        timeConfirmed: true,
+        myConvocation: false,
+        rsvpSummary: {
+          rosterSize: 0,
+          convoked: 0,
+          answering: 0,
+          going: 0,
+          maybe: 0,
+          notGoing: 0,
+          pending: 0,
+          isConvocationScoped: false,
+        },
+        logistics: { jerseys: null, balls: null },
+        result: null,
+        myMatchStats: null,
+        meetingPlan: null,
+        myTravelMode: null,
+        ...overrides,
+      };
+    }
+
+    function mockTeam({
+      clubs = [{ clubId: 'club-1', clubName: 'COC Basket', isOwner: true, linkedAt: 'x' }],
+      upcoming = [] as unknown[],
+      past = [] as unknown[],
+      ffbbLinks = [] as unknown[],
+    } = {}) {
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1', () => HttpResponse.json(baseTeam)),
+        http.get('/api/clubs/club-1/teams/team-1/clubs', () => HttpResponse.json(paginated(clubs))),
+        http.get('/api/clubs/club-1/teams/team-1/players', () =>
+          HttpResponse.json(paginated(alexRoster)),
+        ),
+        http.get('/api/clubs/club-1/players', () => HttpResponse.json(paginated([]))),
+        http.get('/api/clubs/club-1/teams/team-1/ffbb-links', () => HttpResponse.json(ffbbLinks)),
+        http.get('/api/clubs/club-1/teams/team-1/events', ({ request }) => {
+          const url = new URL(request.url);
+          return HttpResponse.json(paginated(url.searchParams.has('to') ? past : upcoming));
+        }),
+      );
+    }
+
+    it('titles the page with the team, the owning club as eyebrow, and the roster size', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({
+        clubs: [
+          { clubId: 'club-2', clubName: 'Rezé Basket', isOwner: true, linkedAt: 'x' },
+          { clubId: 'club-1', clubName: 'COC Basket', isOwner: false, linkedAt: 'x' },
+        ],
+      });
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' }),
+      ).toBeInTheDocument();
+      expect(await screen.findByText('Rezé Basket')).toBeInTheDocument();
+      expect(screen.getByText('Entente CTC')).toBeInTheDocument();
+      expect(await screen.findByText('U15 · Masculin · 1 joueur')).toBeInTheDocument();
+    });
+
+    it('shows « Entente CTC » only when the team is linked to more than one club', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await screen.findByText('COC Basket');
+      expect(screen.queryByText('Entente CTC')).not.toBeInTheDocument();
+      expect(screen.queryByText('FFBB')).not.toBeInTheDocument();
+    });
+
+    it('links the hero to the next event, and keeps it when the agenda shows past events', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({
+        upcoming: [nextMatch(3), nextMatch(10, { opponentName: 'Vertou' })],
+        past: [nextMatch(-7, { opponentName: 'Orvault' })],
+      });
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Prochain : vs Carquefou')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Voir le match' })).toHaveAttribute(
+        'href',
+        '/clubs/club-1/teams/team-1/events/event-3',
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Passés' }));
+      await screen.findAllByText(/Orvault/);
+      expect(screen.getByText('Prochain : vs Carquefou')).toBeInTheDocument();
+    });
+
+    it('has no next-event tile when nothing is upcoming', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await waitFor(() => expect(screen.queryAllByRole('status')).toHaveLength(0));
+      expect(screen.queryByText(/^Prochain :/)).not.toBeInTheDocument();
+    });
+
+    it('gives a rostered player their own answer on the next-event tile', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      server.use(
+        http.get('/api/me/teams', () =>
+          HttpResponse.json([
+            {
+              teamId: 'team-1',
+              teamName: baseTeam.name,
+              category: baseTeam.category,
+              gender: baseTeam.gender,
+              clubId: 'club-1',
+              clubName: 'COC Basket',
+              isTeamAdmin: false,
+              rosterRole: 'PLAYER',
+            },
+          ]),
+        ),
+      );
+      mockTeam({ upcoming: [nextMatch(3, { myRsvpStatus: 'GOING' })] });
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(await screen.findByText('Prochain : vs Carquefou · Présent')).toBeInTheDocument();
+    });
+
+    it('folds the four team settings for a manager, each opening its own content', async () => {
+      mockSession([{ clubId: 'club-1', role: 'ADMIN' }]);
+      mockTeam({ ffbbLinks: [{ id: 'link-1', ffbbEngagementLabel: 'U15 D2' }] });
+      server.use(
+        http.get('/api/clubs/club-1/teams/team-1/meeting-settings', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/guest-link', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+        http.get('/api/clubs/club-1/teams/team-1/whatsapp-settings', () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      expect(
+        await screen.findByRole('heading', { name: 'Réglages de l’équipe' }),
+      ).toBeInTheDocument();
+      const trigger = (name: RegExp) =>
+        within(screen.getByRole('heading', { name })).getByRole('button');
+      await screen.findByText('1 lien');
+      for (const name of [/calendrier ffbb/i, /^rdv$/i, /lien invité/i, /message whatsapp/i]) {
+        expect(trigger(name)).toHaveAttribute('aria-expanded', 'false');
+      }
+      expect(screen.getByText('FFBB')).toBeInTheDocument();
+
+      await user.click(trigger(/calendrier ffbb/i));
+      expect(await screen.findByText('U15 D2')).toBeInTheDocument();
+      await user.click(trigger(/^rdv$/i));
+      await user.click(trigger(/lien invité/i));
+      await user.click(trigger(/message whatsapp/i));
+      expect(await screen.findByText('Lien indisponible')).toBeInTheDocument();
+      expect(await screen.findByText('Message indisponible')).toBeInTheDocument();
+      expect(screen.getAllByRole('alert').length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('shows a player no settings, only « Compétitions FFBB » when the team has links', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeam({ ffbbLinks: [{ id: 'link-1', ffbbEngagementLabel: 'U15 D2' }] });
+      const user = userEvent.setup();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      const heading = await screen.findByRole('heading', { name: /compétitions ffbb/i });
+      expect(
+        screen.queryByRole('heading', { name: 'Réglages de l’équipe' }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /^rdv$/i })).not.toBeInTheDocument();
+
+      await user.click(within(heading).getByRole('button'));
+      expect(await screen.findByText('U15 D2')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /importer le calendrier ffbb/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows a player without FFBB links no accordion at all', async () => {
+      mockSession([{ clubId: 'club-1', role: 'MEMBER' }]);
+      mockTeam();
+      renderWithProviders(<App />, { route: '/clubs/club-1/teams/team-1' });
+
+      await screen.findByRole('heading', { level: 1, name: 'U15 Garçons' });
+      await waitFor(() => expect(screen.queryAllByRole('status')).toHaveLength(0));
+      expect(screen.queryByRole('heading', { name: /compétitions ffbb/i })).not.toBeInTheDocument();
+    });
   });
 });

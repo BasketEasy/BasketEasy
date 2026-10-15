@@ -32,7 +32,7 @@ describe('RegisterPage', () => {
     const user = userEvent.setup();
     renderRegisterPage();
 
-    await user.click(screen.getByRole('button', { name: /j'ai déjà un compte/i }));
+    await user.click(screen.getByRole('link', { name: /j'ai déjà un compte/i }));
 
     expect(screen.getByText('Page de connexion')).toBeInTheDocument();
   });

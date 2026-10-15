@@ -3,7 +3,7 @@ import '../src/styles/globals.css';
 
 const preview: Preview = {
   parameters: {
-    backgrounds: { default: 'cream', values: [{ name: 'cream', value: '#FAF5EF' }] },
+    backgrounds: { default: 'ground', values: [{ name: 'ground', value: '#EFE4D4' }] },
   },
 };
 

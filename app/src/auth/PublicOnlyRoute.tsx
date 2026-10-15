@@ -7,6 +7,10 @@ import { useAccount } from './useAccount';
 export function PublicOnlyRoute() {
   const { user, isLoading } = useAccount();
 
+  // Unlike ProtectedRoute, this stays a bare `null` while loading —
+  // deliberately asymmetric. /login has no app shell worth preserving
+  // (no nav, no brand-plus-skeleton state to paint early); the auth form
+  // itself is the only content on this route.
   if (isLoading) {
     return null;
   }

@@ -14,11 +14,15 @@ function wrapperWithUser(memberships: { clubId: string; role: 'ADMIN' | 'MEMBER'
             firstName: null,
             lastName: null,
             avatarUrl: null,
+            emailVerified: true,
+            emailNotificationsEnabled: true,
             memberships,
           },
           isLoading: false,
+          isError: false,
+          retry: () => {},
         }
-      : { user: null, isLoading: false };
+      : { user: null, isLoading: false, isError: false, retry: () => {} };
     return createElement(AccountContext.Provider, { value }, children);
   };
 }

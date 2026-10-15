@@ -1,0 +1,51 @@
+name: Deploy Frontend (Cloudflare Workers static assets)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'packages/@basketeasy/types/**'
+      - 'packages/@basketeasy/ui/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/deploy-frontend.yml'
+
+env:
+  PNPM_VERSION: 9.7.0
+  NODE_VERSION: 24
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @basketeasy/app build
+        env:
+          VITE_API_BASE_URL: https://api.kluvo.net/api
+
+      # wrangler-action tries "pnpm add wrangler" if it can't find an existing
+      # install, which fails in a pnpm workspace (adds to root, needs -w).
+      # Installing it globally first avoids that auto-install path entirely.
+      - run: npm install -g wrangler
+
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 403b067b71c882785373b8b329d2bccc
+          workingDirectory: app
+          command: deploy

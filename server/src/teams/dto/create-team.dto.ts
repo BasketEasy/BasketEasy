@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
-import { TeamCategory, TeamGender } from '@prisma/client';
+import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TeamCategory, Gender } from '@prisma/client';
 import type { CreateTeamRequest } from '@basketeasy/types/teams';
 
 export class CreateTeamDto implements CreateTeamRequest {
@@ -13,6 +13,14 @@ export class CreateTeamDto implements CreateTeamRequest {
   @IsEnum(TeamCategory)
   category!: TeamCategory;
 
-  @IsEnum(TeamGender)
-  gender!: TeamGender;
+  @IsEnum(Gender)
+  gender!: Gender;
+
+  // Shape/reachability validated live against FFBB in TeamsService, not here
+  // — this DTO only guards against an empty/oversized string.
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(300)
+  ffbbTeamUrl?: string;
 }

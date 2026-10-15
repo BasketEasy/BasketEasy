@@ -65,6 +65,21 @@ export function dismissToast(id: string): void {
   emit();
 }
 
+/**
+ * Test-only escape hatch: the toast queue is module-level state, shared
+ * across every test in a file (and every `<Toaster />` instance in a run)
+ * since it isn't reset by a fresh QueryClient/render like the rest of a
+ * test's providers. Without clearing it between tests, a toast fired in one
+ * test (real 5s auto-dismiss timer, rarely elapsed within a test) is still
+ * queued when the next test's `<Toaster />` mounts, so two tests asserting
+ * on `role="alert"`/`role="status"` in the same file can collide with
+ * "found multiple elements". Call from `afterEach` in test setup.
+ */
+export function __resetToastsForTests(): void {
+  toasts = [];
+  emit();
+}
+
 export function useToasts(): ToastItem[] {
   return useSyncExternalStore(
     (listener) => {

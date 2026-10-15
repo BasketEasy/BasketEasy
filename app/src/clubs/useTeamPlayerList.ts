@@ -1,11 +1,26 @@
-import { useQuery } from '@tanstack/react-query';
-import type { TeamPlayer } from '@basketeasy/types/teams';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { ListTeamPlayersParams, TeamPlayer } from '@basketeasy/types/teams';
+import type { PaginatedResult } from '@basketeasy/types/pagination';
 import { apiClient } from '../api/client';
+import { FRESHNESS } from '../api/freshness';
 import { teamPlayersQueryKey } from './queryKeys';
 
-export function useTeamPlayerList(clubId: string, teamId: string) {
+export function useTeamPlayerList(
+  clubId: string,
+  teamId: string,
+  params?: ListTeamPlayersParams,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
-    queryKey: teamPlayersQueryKey(clubId, teamId),
-    queryFn: () => apiClient.get<TeamPlayer[]>(`/clubs/${clubId}/teams/${teamId}/players`),
+    queryKey: teamPlayersQueryKey(clubId, teamId, params),
+    staleTime: FRESHNESS.slow,
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResult<TeamPlayer>>(
+        `/clubs/${clubId}/teams/${teamId}/players`,
+        params,
+        { signal },
+      ),
+    enabled: options?.enabled,
+    placeholderData: keepPreviousData,
   });
 }

@@ -1,22 +1,29 @@
 import { useState } from 'react';
+import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
-import { Input } from '@basketeasy/ui/input';
-import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { Card } from '@basketeasy/ui/card';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@basketeasy/ui/select';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@basketeasy/ui/dialog';
+import { TableCell, TableRow } from '@basketeasy/ui/table';
+import { Text } from '@basketeasy/ui/text';
+import { toast } from '@basketeasy/ui/toast-store';
+import { useTableLayout } from '@basketeasy/ui/responsive-table';
 import type { Player } from '@basketeasy/types/players';
 import type { ClubMember } from '@basketeasy/types/club-members';
-import { usePlayerUpdate } from './usePlayerUpdate';
+import { PlayerEditForm } from './PlayerEditForm';
+import { PlayerInviteDialog } from './PlayerInviteDialog';
+import { GuardiansDialog } from './GuardiansDialog';
+import { ParentalConsentDialog } from './ParentalConsentDialog';
 import { usePlayerDelete } from './usePlayerDelete';
 import { getClubErrorMessage } from './clubErrorMessages';
 
-const UNLINKED = 'none';
-
+/** One row of the Joueurs tab — a table row on desktop, a card below it. */
 export function PlayerRow({
   clubId,
   player,
@@ -32,115 +39,90 @@ export function PlayerRow({
   /** Club members this player can be linked to: unlinked ones, plus its own current link. */
   linkableMembers: ClubMember[];
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [firstName, setFirstName] = useState(player.firstName);
-  const [lastName, setLastName] = useState(player.lastName);
-  const [userId, setUserId] = useState(player.userId ?? UNLINKED);
-  const [error, setError] = useState<string | null>(null);
-  const { mutate: updatePlayer, isPending: isUpdating } = usePlayerUpdate(clubId);
+  const layout = useTableLayout();
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const { mutate: deletePlayer, isPending: isDeleting } = usePlayerDelete(clubId);
 
-  const startEditing = () => {
-    setFirstName(player.firstName);
-    setLastName(player.lastName);
-    setUserId(player.userId ?? UNLINKED);
-    setError(null);
-    setIsEditing(true);
-  };
+  // A minor imported in bulk has no attestation yet — bulk import is exempt
+  // from the create-time requirement, so this is where those players surface.
+  const needsConsent = player.isMinor && player.parentalConsentGivenAt === null;
+  const consentBadge = needsConsent ? (
+    <Badge variant="soft" tone="danger">
+      Autorisation manquante
+    </Badge>
+  ) : null;
 
-  const cancelEditing = () => {
-    setFirstName(player.firstName);
-    setLastName(player.lastName);
-    setUserId(player.userId ?? UNLINKED);
-    setError(null);
-    setIsEditing(false);
-  };
+  // Its own table column (the admin scans who has parents linked), folded
+  // into the action row on a card.
+  const guardians = isAdmin ? <GuardiansDialog clubId={clubId} player={player} /> : null;
 
-  if (isEditing) {
+  const adminActions = isAdmin ? (
+    <div className="flex flex-wrap gap-2">
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">Modifier</Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier le joueur</DialogTitle>
+            <DialogDescription>
+              Mettez à jour la fiche joueur, comme lors d&apos;un import.
+            </DialogDescription>
+          </DialogHeader>
+          <PlayerEditForm
+            clubId={clubId}
+            player={player}
+            linkableMembers={linkableMembers}
+            onSuccess={() => setIsEditOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+      {!player.userId && <PlayerInviteDialog clubId={clubId} player={player} />}
+      {player.isMinor && <ParentalConsentDialog clubId={clubId} player={player} />}
+      <Button
+        variant="destructive"
+        loading={isDeleting}
+        onClick={() =>
+          deletePlayer(player.id, {
+            onSuccess: () => toast({ variant: 'success', title: 'Joueur supprimé' }),
+            onError: (err) =>
+              toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
+          })
+        }
+      >
+        Supprimer
+      </Button>
+    </div>
+  ) : null;
+
+  if (layout === 'card') {
     return (
-      <TableRow>
-        <TableCell>
-          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-        </TableCell>
-        <TableCell>
-          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
-        </TableCell>
-        <TableCell>
-          <Select value={userId} onValueChange={setUserId}>
-            <SelectTrigger aria-label="Compte lié (optionnel)">
-              <SelectValue placeholder="Aucun compte lié" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={UNLINKED}>Aucun compte lié</SelectItem>
-              {linkableMembers.map((member) => (
-                <SelectItem key={member.userId} value={member.userId}>
-                  {member.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </TableCell>
-        <TableCell className="flex flex-col gap-2">
-          {error && (
-            <p role="alert" className="text-sm text-error">
-              {error}
-            </p>
-          )}
-          <div className="flex gap-2">
-            <Button
-              disabled={isUpdating}
-              onClick={() =>
-                updatePlayer(
-                  {
-                    playerId: player.id,
-                    dto: { firstName, lastName, userId: userId === UNLINKED ? null : userId },
-                  },
-                  {
-                    onSuccess: () => setIsEditing(false),
-                    onError: (err) => setError(getClubErrorMessage(err)),
-                  },
-                )
-              }
-            >
-              Enregistrer
-            </Button>
-            <Button variant="ghost" onClick={cancelEditing}>
-              Annuler
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
+      <Card variant="inset" className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Text as="span" variant="label">
+            {player.firstName} {player.lastName}
+          </Text>
+          {consentBadge}
+        </div>
+        <Text as="span" variant="meta" className="break-all">
+          Compte lié : {linkedMemberEmail ?? '—'}
+        </Text>
+        {guardians}
+        {adminActions}
+      </Card>
     );
   }
 
   return (
     <TableRow>
       <TableCell>{player.firstName}</TableCell>
-      <TableCell>{player.lastName}</TableCell>
-      <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
-      <TableCell className="flex flex-col gap-2">
-        {error && (
-          <p role="alert" className="text-sm text-error">
-            {error}
-          </p>
-        )}
-        {isAdmin && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={startEditing}>
-              Modifier
-            </Button>
-            <Button
-              variant="outline"
-              disabled={isDeleting}
-              onClick={() =>
-                deletePlayer(player.id, { onError: (err) => setError(getClubErrorMessage(err)) })
-              }
-            >
-              Supprimer
-            </Button>
-          </div>
-        )}
+      <TableCell className="flex flex-wrap items-center gap-2">
+        {player.lastName}
+        {consentBadge}
       </TableCell>
+      <TableCell>{linkedMemberEmail ?? '—'}</TableCell>
+      {isAdmin && <TableCell>{guardians}</TableCell>}
+      {isAdmin && <TableCell className="flex flex-col gap-2">{adminActions}</TableCell>}
     </TableRow>
   );
 }

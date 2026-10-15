@@ -14,6 +14,7 @@ function renderLoggedIn(overrides: Partial<Record<string, unknown>> = {}) {
       HttpResponse.json({
         id: 'user-1',
         email: 'a@b.com',
+        emailVerified: true,
         firstName: 'Alix',
         lastName: 'Martin',
         avatarUrl: 'https://example.com/avatar.png',

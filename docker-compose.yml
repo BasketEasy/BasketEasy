@@ -36,8 +36,49 @@ services:
       PORT: 3000
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
+      # Neon (prod) needs a separate unpooled connection for migrations; the
+      # local postgres container has no pooling, so the two are just the same.
+      NEON_DIRECT_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-secret-change-me-please-use-something-random}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      # Scoresheet OCR (Gemini vision) — like the R2_* vars above, unset
+      # only fails an actual OCR job, not server boot.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Match meeting-point driving times (OpenRouteService). Empty answers
+      # "unknown" to every lookup; managers then type travel minutes by hand.
+      ORS_API_KEY: ${ORS_API_KEY:-}
+      # Every e-mailed and pushed deep link is built from this: the app
+      # stores notification links as frontend-relative paths and prefixes
+      # them at send time. Without it, links in e-mail point at localhost.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Brevo transactional e-mail. Empty binds the logging mail client, so
+      # verification/reset links land in the server log instead of an inbox —
+      # which is how these flows are exercised locally.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      # From stays no-reply; replies go to the monitored mailbox instead.
+      MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@kluvo.net}
+      MAIL_REPLY_TO_EMAIL: ${MAIL_REPLY_TO_EMAIL:-contact@kluvo.net}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Kluvo}
+      # Web Push. Empty disables push; the frontend then hides its toggle.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:contact@kluvo.net}
+      # Nightly retention sweep. Left on in local dev so the schedule is
+      # exercised; dry-run keeps it from erasing seed data.
+      RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
+      RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
+      JERSEY_DUTY_FREEZE_ENABLED: ${JERSEY_DUTY_FREEZE_ENABLED:-true}
+      # Platform back-office step-up token. Empty disables /admin/* entirely
+      # (503), which is the intended default — see .env.example.
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      PLATFORM_TOTP_ENCRYPTION_KEY: ${PLATFORM_TOTP_ENCRYPTION_KEY:-}
+      # Number of reverse proxies in front of this container — see
+      # .env.example. Wrong value = wrong client IP in every audit row.
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
     ports:
       - '3000:3000'
     depends_on:

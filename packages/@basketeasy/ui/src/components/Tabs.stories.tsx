@@ -20,3 +20,31 @@ export const Default: Story = {
     </Tabs>
   ),
 };
+
+// Mirrors TeamDetailPage's tab bar (four count-badged triggers) narrowed to
+// a phone-width container, where the triggers overflow the track — the
+// scenario the edge fades, hidden scrollbar and snap points in Tabs.tsx
+// exist for.
+export const OverflowingWithBadges: Story = {
+  render: () => (
+    <Tabs defaultValue="roster" className="w-[320px]">
+      <TabsList>
+        <TabsTrigger value="roster" badge={18}>
+          Effectif
+        </TabsTrigger>
+        <TabsTrigger value="clubs" badge={2}>
+          Clubs partenaires
+        </TabsTrigger>
+        <TabsTrigger value="admins" badge={3}>
+          Administrateurs
+        </TabsTrigger>
+        <TabsTrigger value="events" badge={12}>
+          Événements
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="roster" className="mt-4">
+        Liste des joueurs
+      </TabsContent>
+    </Tabs>
+  ),
+};

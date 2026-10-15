@@ -51,8 +51,34 @@ services:
       NODE_ENV: development
       COOKIE_SECURE: 'false'
       DATABASE_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
+      # Neon (prod) needs a separate unpooled connection for migrations; the
+      # local postgres container has no pooling, so the two are just the same.
+      NEON_DIRECT_URL: postgresql://${POSTGRES_USER:-basketeasy}:${POSTGRES_PASSWORD:-basketeasy}@postgres:5432/${POSTGRES_DB:-basketeasy}
       REDIS_URL: redis://redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-secret-change-me}
+      # Dev only gets what dev needs (no R2/Gemini here, same convention),
+      # but FRONTEND_URL matters even locally: it is the origin of every
+      # verification and password-reset link, and with no BREVO_API_KEY set
+      # those links are printed to this container's log rather than sent —
+      # which is how both flows are exercised without a Brevo account.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # Retention sweep runs in dry-run locally: the nightly schedule is
+      # exercised and the RetentionRun rows are written, but seed data is
+      # never erased out from under a dev database.
+      RETENTION_SWEEP_ENABLED: ${RETENTION_SWEEP_ENABLED:-true}
+      RETENTION_SWEEP_DRY_RUN: ${RETENTION_SWEEP_DRY_RUN:-true}
+      # Back-office step-up secret. Empty by default here too, so /admin/* is
+      # 503 until an operator opts in — but it has to be *passthrough-able*,
+      # or a developer working on the back-office has no way to turn it on
+      # without editing this file.
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      PLATFORM_TOTP_ENCRYPTION_KEY: ${PLATFORM_TOTP_ENCRYPTION_KEY:-}
+      # No proxy in front of the API in local dev, so X-Forwarded-For is
+      # never trustworthy here. See .env.example — this is a hop count, not a
+      # boolean.
+      # Number of reverse proxies in front of this container — see
+      # .env.example. Wrong value = wrong client IP in every audit row.
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
     ports:
       - '3000:3000'
     volumes:

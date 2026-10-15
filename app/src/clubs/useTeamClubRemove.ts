@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { TeamClubLink } from '@basketeasy/types/teams';
 import { apiClient } from '../api/client';
-import { teamClubsQueryKey } from './queryKeys';
+import { teamAdminCandidatesQueryKey, teamClubsQueryKey } from './queryKeys';
 
 export function useTeamClubRemove(clubId: string, teamId: string) {
   const queryClient = useQueryClient();
@@ -9,10 +8,10 @@ export function useTeamClubRemove(clubId: string, teamId: string) {
   return useMutation({
     mutationFn: (partnerClubId: string) =>
       apiClient.delete(`/clubs/${clubId}/teams/${teamId}/clubs/${partnerClubId}`),
-    onSuccess: (_data, partnerClubId) => {
-      queryClient.setQueryData<TeamClubLink[]>(teamClubsQueryKey(clubId, teamId), (prev) =>
-        (prev ?? []).filter((c) => c.clubId !== partnerClubId),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: teamClubsQueryKey(clubId, teamId) });
+      // The candidates for the team's admin are the members of its linked clubs.
+      queryClient.invalidateQueries({ queryKey: teamAdminCandidatesQueryKey(clubId, teamId) });
     },
   });
 }

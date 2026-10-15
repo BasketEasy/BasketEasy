@@ -1,0 +1,228 @@
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { Toaster } from '@basketeasy/ui/toaster';
+import type { TeamEvent } from '@basketeasy/types/events';
+import { server } from '../mocks/server';
+import { renderWithProviders } from '../testUtils';
+import { EventRsvpControl } from './EventRsvpControl';
+import { ActingAsContext, type ActingAsContextValue } from '../guardians/useActingAs';
+
+const actingForLeo: ActingAsContextValue = {
+  forPlayerId: 'leo',
+  persona: {
+    playerId: 'leo',
+    firstName: 'Léo',
+    lastName: 'Martin',
+    clubId: 'club-1',
+    clubName: 'ASBC',
+    teams: [{ teamId: 'team-1', teamName: 'U11' }],
+    pendingCount: 0,
+  },
+  personas: undefined,
+  isReady: true,
+  setForPlayerId: () => undefined,
+  isSwitcherOpen: false,
+  setSwitcherOpen: () => undefined,
+};
+
+const baseEvent: TeamEvent = {
+  id: 'event-1',
+  teamId: 'team-1',
+  type: 'TRAINING',
+  startsAt: '2026-01-05T18:00:00.000Z',
+  location: 'Gymnase A',
+  locationName: null,
+  notes: null,
+  opponentName: null,
+  venue: null,
+  recurrenceId: null,
+  createdAt: 'x',
+  myRsvpStatus: null,
+  myRsvpRespondedBy: null,
+  myRsvpRespondedAt: null,
+  isImported: false,
+  timeConfirmed: true,
+  myConvocation: false,
+  rsvpSummary: {
+    rosterSize: 0,
+    convoked: 0,
+    answering: 0,
+    going: 0,
+    maybe: 0,
+    notGoing: 0,
+    pending: 0,
+    isConvocationScoped: false,
+  },
+  logistics: { jerseys: null, balls: null },
+  result: null,
+  myMatchStats: null,
+  meetingPlan: null,
+  whatsAppShare: null,
+  whatsAppSettings: null,
+  myTravelMode: null,
+  jerseyDuty: null,
+};
+
+describe('EventRsvpControl', () => {
+  it('exposes the selected response to assistive tech, not just by colour', () => {
+    renderWithProviders(
+      <EventRsvpControl
+        clubId="club-1"
+        teamId="team-1"
+        event={{ ...baseEvent, myRsvpStatus: 'GOING' }}
+      />,
+    );
+
+    const group = screen.getByRole('group', { name: 'Ma réponse' });
+    expect(
+      within(group).getByRole('button', { name: 'Présent', pressed: true }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole('button', { name: 'Absent', pressed: false }),
+    ).toBeInTheDocument();
+  });
+
+  it('highlights the current status as pressed', () => {
+    renderWithProviders(
+      <EventRsvpControl
+        clubId="club-1"
+        teamId="team-1"
+        event={{ ...baseEvent, myRsvpStatus: 'GOING' }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /présent/i, pressed: true })).toHaveClass(
+      'bg-success',
+    );
+    expect(screen.getByRole('button', { name: /absent/i, pressed: false })).not.toHaveClass(
+      'bg-error',
+    );
+  });
+
+  it('sets a new status when a different option is clicked', async () => {
+    let requestBody: unknown;
+    server.use(
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', async ({ request }) => {
+        requestBody = await request.json();
+        return HttpResponse.json({ ...baseEvent, myRsvpStatus: 'GOING' });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />);
+
+    await user.click(screen.getByRole('button', { name: /présent/i }));
+
+    await waitFor(() => expect(requestBody).toEqual({ status: 'GOING' }));
+  });
+
+  it('clears the status when the already-active option is clicked again', async () => {
+    let cleared = false;
+    server.use(
+      http.delete('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', () => {
+        cleared = true;
+        return HttpResponse.json({ ...baseEvent, myRsvpStatus: null });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <EventRsvpControl
+        clubId="club-1"
+        teamId="team-1"
+        event={{ ...baseEvent, myRsvpStatus: 'MAYBE' }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /incertain/i }));
+
+    await waitFor(() => expect(cleared).toBe(true));
+  });
+
+  it('shows an error message when the request fails', async () => {
+    server.use(
+      http.patch('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', () =>
+        HttpResponse.json({ message: 'Erreur serveur' }, { status: 500 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <EventRsvpControl clubId="club-1" teamId="team-1" event={baseEvent} />
+        <Toaster />
+      </>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /absent/i }));
+
+    expect(await screen.findByText(/une erreur est survenue/i)).toBeInTheDocument();
+  });
+
+  describe('who answered', () => {
+    const sophie = { firstName: 'Sophie', lastInitial: 'M', isMe: false };
+
+    it('names a parent who answered for the player', () => {
+      renderWithProviders(
+        <EventRsvpControl
+          clubId="club-1"
+          teamId="team-1"
+          event={{
+            ...baseEvent,
+            myRsvpStatus: 'GOING',
+            myRsvpRespondedBy: sophie,
+            myRsvpRespondedAt: '2026-01-01T18:12:00.000Z',
+          }}
+        />,
+      );
+      expect(screen.getByText(/^Répondu par Sophie M\. · /)).toBeInTheDocument();
+    });
+
+    it('stays quiet about a player’s own answer', () => {
+      renderWithProviders(
+        <EventRsvpControl
+          clubId="club-1"
+          teamId="team-1"
+          event={{
+            ...baseEvent,
+            myRsvpStatus: 'GOING',
+            myRsvpRespondedBy: { ...sophie, isMe: true },
+            myRsvpRespondedAt: '2026-01-01T18:12:00.000Z',
+          }}
+        />,
+      );
+      expect(screen.queryByText(/répondu par/i)).not.toBeInTheDocument();
+    });
+
+    it('answers for the child on the child’s team, and says so', async () => {
+      let url = '';
+      server.use(
+        http.patch('/api/clubs/club-1/teams/team-1/events/event-1/rsvp', ({ request }) => {
+          url = request.url;
+          return HttpResponse.json(baseEvent);
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <ActingAsContext.Provider value={actingForLeo}>
+          <EventRsvpControl
+            clubId="club-1"
+            teamId="team-1"
+            event={{
+              ...baseEvent,
+              myRsvpStatus: 'MAYBE',
+              myRsvpRespondedBy: { ...sophie, isMe: true },
+              myRsvpRespondedAt: '2026-01-01T18:12:00.000Z',
+            }}
+          />
+        </ActingAsContext.Provider>,
+      );
+
+      expect(screen.getByText(/^Répondu par vous · /)).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /présent/i }));
+      await waitFor(() => expect(new URL(url).searchParams.get('forPlayerId')).toBe('leo'));
+    });
+  });
+});

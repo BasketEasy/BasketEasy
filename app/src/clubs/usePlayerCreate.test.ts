@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { server } from '../mocks/server';
 import { usePlayerCreate } from './usePlayerCreate';
+import { createSeededCache } from './testCache';
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -15,7 +16,7 @@ function createWrapper() {
 }
 
 describe('usePlayerCreate', () => {
-  it('posts to /clubs/:clubId/players and caches the new player in the players list', async () => {
+  it('posts to /clubs/:clubId/players and invalidates the players list cache on success', async () => {
     server.use(
       http.post('/api/clubs/club-1/players', async ({ request }) => {
         const body = (await request.json()) as { firstName: string; lastName: string };
@@ -30,13 +31,28 @@ describe('usePlayerCreate', () => {
     );
 
     const { wrapper, queryClient } = createWrapper();
+    queryClient.setQueryData(['clubs', 'club-1', 'players', {}], {
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 25,
+    });
     const { result } = renderHook(() => usePlayerCreate('club-1'), { wrapper });
 
     result.current.mutate({ firstName: 'A', lastName: 'B' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(queryClient.getQueryData(['clubs', 'club-1', 'players'])).toEqual([
-      { id: 'p1', clubId: 'club-1', firstName: 'A', lastName: 'B', createdAt: '2026-01-01' },
-    ]);
+    expect(queryClient.getQueryState(['clubs', 'club-1', 'players', {}])?.isInvalidated).toBe(true);
+  });
+
+  it('refreshes the home, which counts players and lists those without an account', async () => {
+    server.use(http.post('/api/clubs/club-1/players', () => HttpResponse.json({ id: 'p1' })));
+    const { wrapper, staleLabels } = createSeededCache();
+    const { result } = renderHook(() => usePlayerCreate('club-1'), { wrapper });
+
+    result.current.mutate({ firstName: 'A', lastName: 'B' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(staleLabels()).toEqual(['club players', 'dashboard']);
   });
 });

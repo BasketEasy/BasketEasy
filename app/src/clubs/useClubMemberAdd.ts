@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AddClubMemberRequest, ClubMember } from '@basketeasy/types/club-members';
 import { apiClient } from '../api/client';
-import { clubMembersQueryKey } from './queryKeys';
+import { clubMembersQueryKey, isTeamAdminCandidatesQuery } from './queryKeys';
 
 export function useClubMemberAdd(clubId: string) {
   const queryClient = useQueryClient();
@@ -9,11 +9,14 @@ export function useClubMemberAdd(clubId: string) {
   return useMutation({
     mutationFn: (dto: AddClubMemberRequest) =>
       apiClient.post<ClubMember>(`/clubs/${clubId}/members`, dto),
-    onSuccess: (member) => {
-      queryClient.setQueryData<ClubMember[]>(clubMembersQueryKey(clubId), (prev) => [
-        ...(prev ?? []),
-        member,
-      ]);
+    // The members list is paginated/filtered/sorted, so the new member's
+    // correct position across every cached (page, search, role, sortBy, …)
+    // combination isn't derivable from the mutation response alone —
+    // refetch every cached variant instead (see docs/frontend-stack.md).
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clubMembersQueryKey(clubId) });
+      // The candidates for a team's admin are the members of its linked clubs.
+      queryClient.invalidateQueries({ predicate: isTeamAdminCandidatesQuery });
     },
   });
 }

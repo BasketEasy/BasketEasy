@@ -5,6 +5,21 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ClubsModule } from './clubs/clubs.module';
 import { TeamsModule } from './teams/teams.module';
+import { EventsModule } from './events/events.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { StorageModule } from './storage/storage.module';
+import { ScoresheetsModule } from './scoresheets/scoresheets.module';
+import { TeamStatsModule } from './team-stats/team-stats.module';
+import { InvitesModule } from './invites/invites.module';
+import { MailModule } from './mail/mail.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { AuditModule } from './audit/audit.module';
+import { RetentionModule } from './retention/retention.module';
+import { MeetingPointsModule } from './meeting-points/meeting-points.module';
+import { GuardiansModule } from './guardians/guardians.module';
+import { GuestLinksModule } from './guest-links/guest-links.module';
+import { WhatsAppRemindersModule } from './whatsapp-reminders/whatsapp-reminders.module';
+import { PlatformAdminModule } from './platform-admin/platform-admin.module';
 
 // Minimum acceptable length for JWT_ACCESS_SECRET. 32 chars gives an HMAC-SHA256
 // signature a reasonable amount of entropy to resist brute force; this is a
@@ -37,6 +52,21 @@ function validateEnv(config: Record<string, unknown>): Record<string, unknown> {
     AuthModule,
     ClubsModule,
     TeamsModule,
+    EventsModule,
+    DashboardModule,
+    StorageModule,
+    ScoresheetsModule,
+    TeamStatsModule,
+    InvitesModule,
+    MailModule,
+    NotificationsModule,
+    AuditModule,
+    RetentionModule,
+    MeetingPointsModule,
+    GuardiansModule,
+    GuestLinksModule,
+    WhatsAppRemindersModule,
+    PlatformAdminModule,
   ],
 })
 export class AppModule {}
