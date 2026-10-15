@@ -1,0 +1,15 @@
+[project]
+name = "kluvo-sheet-reader"
+version = "0.1.0"
+description = "Deterministic reader for FFBB e-Marque V2 PDF scoresheets (internal service)."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

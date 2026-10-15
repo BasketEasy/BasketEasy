@@ -3,7 +3,13 @@
  * Scoresheet eval: runs the production vision read over every golden sheet
  * and grades it field by field (src/scoresheets/eval/score-extraction.ts).
  *
- *   GEMINI_API_KEY=… pnpm --filter @basketeasy/server eval:scoresheets -- --inputs <dir> [--out report.json] [--mismatches]
+ *   pnpm --filter @basketeasy/server eval:scoresheets -- --inputs <dir> [--reader routing|gemini|sheet-reader] [--out report.json] [--mismatches]
+ *
+ * `--reader` picks what is graded: `routing` (the default) is the production
+ * binding, the deterministic reader on PDFs then the vision model; `gemini`
+ * and `sheet-reader` grade one path alone. `gemini` and `routing` read
+ * GEMINI_API_KEY, `sheet-reader` and `routing` read SCORESHEET_READER_URL
+ * (e.g. http://localhost:8000 with sheet-reader/ running under uvicorn).
  *
  * `<dir>` is a private, local folder holding the source files the goldens
  * name in `inputs` (e.g. emarque-01.pdf). They are never committed: they
@@ -24,6 +30,9 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { extname, join } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { GeminiClient } from '../../src/scoresheets/gemini-client';
+import { SheetReaderClient } from '../../src/scoresheets/sheet-reader-client';
+import { RoutingVisionClient } from '../../src/scoresheets/routing-vision-client';
+import type { ScoresheetVisionClient } from '../../src/scoresheets/scoresheet-vision-client';
 import { postProcessScoresheet } from '../../src/scoresheets/scoresheet-postprocess';
 import { loadGoldenScoresheets } from '../../src/scoresheets/eval/golden';
 import {
@@ -69,15 +78,41 @@ function row(cells: string[]): string {
   return cells.map((c, i) => (i < 2 ? c.padEnd(18) : c.padStart(12))).join(' ');
 }
 
+function buildReader(name: string): ScoresheetVisionClient {
+  const config = new ConfigService();
+  const sheetReader = new SheetReaderClient(config);
+  if (name !== 'gemini' && !process.env.SCORESHEET_READER_URL) {
+    throw new Error('SCORESHEET_READER_URL is not set.');
+  }
+  if (name !== 'sheet-reader' && !process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not set.');
+  }
+  switch (name) {
+    case 'gemini':
+      return new GeminiClient(config);
+    case 'routing':
+      return new RoutingVisionClient(sheetReader, new GeminiClient(config));
+    case 'sheet-reader':
+      return {
+        async extractScoresheet(buffer) {
+          const parsedData = await sheetReader.readEmarqueBasketball(buffer);
+          if (!parsedData) {
+            throw new Error('declined by the sheet reader');
+          }
+          return { parsedData, rawResponse: parsedData };
+        },
+      };
+    default:
+      throw new Error(`Unknown --reader ${name}.`);
+  }
+}
+
 async function main(): Promise<void> {
   const inputsDir = argValue('--inputs') ?? process.env.SCORESHEET_EVAL_INPUTS;
   if (!inputsDir) {
     throw new Error('Pass --inputs <dir> (or set SCORESHEET_EVAL_INPUTS).');
   }
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not set.');
-  }
-  const vision = new GeminiClient(new ConfigService());
+  const vision = buildReader(argValue('--reader') ?? 'routing');
   const results: InputResult[] = [];
 
   for (const golden of loadGoldenScoresheets(GOLDEN_DIR)) {
