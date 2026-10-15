@@ -41,7 +41,7 @@ function AgendaEventCard({
   const isMatch = event.type === 'MATCH';
 
   return (
-    <Card className="flex flex-row gap-3.5 p-3.5 sm:p-4">
+    <Card variant="record" className="flex flex-row gap-3.5">
       <TimeBlock type={event.type} startsAt={event.startsAt} timeConfirmed={event.timeConfirmed} />
       <div className="flex min-w-0 flex-grow flex-col gap-2.5">
         <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-4">

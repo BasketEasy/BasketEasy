@@ -43,7 +43,7 @@ export function GuestAttendance({
       summary={`${counts.going}/${counts.answering} présents`}
       meterValue={counts.going}
       meterMax={counts.answering}
-      meterClassName="bg-success"
+      meterTone="success"
       entries={roster.map((member) => {
         const entry = byPlayer.get(member.teamPlayerId);
         const status = entry?.status ?? null;
