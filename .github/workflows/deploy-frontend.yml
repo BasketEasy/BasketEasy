@@ -43,7 +43,7 @@ jobs:
       # Installing it globally first avoids that auto-install path entirely.
       - run: npm install -g wrangler
 
-      - uses: cloudflare/wrangler-action@v3
+      - uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 403b067b71c882785373b8b329d2bccc
