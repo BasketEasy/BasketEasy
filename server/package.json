@@ -32,7 +32,7 @@
     "pretest:db": "pnpm --filter @basketeasy/types build"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1120.0",
+    "@aws-sdk/client-s3": "3.1150.0",
     "@aws-sdk/s3-request-presigner": "3.1120.0",
     "@basketeasy/types": "workspace:*",
     "@google/generative-ai": "^0.24.1",
