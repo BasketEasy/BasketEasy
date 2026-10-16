@@ -325,7 +325,7 @@ jobs:
                 "summary":"ONE complete sentence, max 130 chars, plain, no markdown","blocking":<int 🔴 count>,"escalationReasons":["..."]}
             Do not approve, merge, label or comment any other way. The workflow does that.
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: verdict
           path: verdict.json
