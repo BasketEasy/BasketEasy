@@ -70,14 +70,16 @@ describe('EventsModule.onModuleInit (jersey duty freeze schedule)', () => {
 
 describe('JerseyDutyFreezeProcessor', () => {
   it('delegates to the service with the current time and returns its summary', async () => {
-    const service = { freezeDue: jest.fn().mockResolvedValue({ considered: 3, frozen: 2 }) };
+    const service = {
+      freezeDue: jest.fn().mockResolvedValue({ considered: 3, frozen: 2, emptyPool: 1 }),
+    };
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     const processor = new JerseyDutyFreezeProcessor(service as unknown as JerseyDutyService);
 
     const result = await processor.process({ id: 'job-1' } as never);
 
     expect(service.freezeDue).toHaveBeenCalledWith(expect.any(Date));
-    expect(result).toEqual({ considered: 3, frozen: 2 });
+    expect(result).toEqual({ considered: 3, frozen: 2, emptyPool: 1 });
     jest.restoreAllMocks();
   });
 });

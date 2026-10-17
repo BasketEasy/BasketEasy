@@ -21,11 +21,11 @@ export class JerseyDutyFreezeProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<{ considered: number; frozen: number }> {
+  async process(job: Job): Promise<{ considered: number; frozen: number; emptyPool: number }> {
     const summary = await this.jerseyDuty.freezeDue(new Date());
-    if (summary.frozen > 0) {
+    if (summary.frozen > 0 || summary.emptyPool > 0) {
       this.logger.log(
-        `Jersey duty freeze (job ${job.id ?? 'unknown'}): ${summary.frozen} of ${summary.considered} matches frozen`,
+        `Jersey duty freeze (job ${job.id ?? 'unknown'}): ${summary.frozen} of ${summary.considered} matches frozen, ${summary.emptyPool} left with no holder (empty pool)`,
       );
     }
     return summary;

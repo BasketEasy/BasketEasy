@@ -1136,7 +1136,7 @@ describe('JerseyDutyService', () => {
         data: [{ eventId: 'event-1', teamPlayerId: 'tp-c', source: 'SUGGESTION' }],
         skipDuplicates: true,
       });
-      expect(summary).toEqual({ considered: 1, frozen: 1 });
+      expect(summary).toEqual({ considered: 1, frozen: 1, emptyPool: 0 });
     });
 
     it('records an empty pool as a holder-less SUGGESTION row, notifying nobody', async () => {
@@ -1150,14 +1150,18 @@ describe('JerseyDutyService', () => {
         skipDuplicates: true,
       });
       expect(notifications.notify).not.toHaveBeenCalled();
-      expect(summary).toEqual({ considered: 1, frozen: 0 });
+      expect(summary).toEqual({ considered: 1, frozen: 0, emptyPool: 1 });
     });
 
     it('does not count a row a manager wrote first', async () => {
       prisma.event.findMany.mockResolvedValue(due);
       prisma.eventJerseyDuty.createMany.mockResolvedValue({ count: 0 });
 
-      expect(await service.freezeDue(NOW)).toEqual({ considered: 1, frozen: 0 });
+      expect(await service.freezeDue(NOW)).toEqual({
+        considered: 1,
+        frozen: 0,
+        emptyPool: 0,
+      });
     });
   });
   describe('notifications', () => {

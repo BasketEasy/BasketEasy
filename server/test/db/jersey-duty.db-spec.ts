@@ -342,7 +342,7 @@ describe('jersey wash rotation against Postgres', () => {
       const summary = await dutyService().freezeDue(new Date());
 
       // `cleared` already has a row (no holder), so it is never even considered.
-      expect(summary).toEqual({ considered: 1, frozen: 1 });
+      expect(summary).toEqual({ considered: 1, frozen: 1, emptyPool: 0 });
       expect(
         await prisma.eventJerseyDuty.findUniqueOrThrow({ where: { eventId: fresh.id } }),
       ).toMatchObject({ teamPlayerId: b.id, source: 'SUGGESTION' });
@@ -385,7 +385,11 @@ describe('jersey wash rotation against Postgres', () => {
         data: { eventId: event.id, teamPlayerId: a.id, status: 'GOING' },
       });
 
-      expect(await dutyService().freezeDue(new Date())).toEqual({ considered: 0, frozen: 0 });
+      expect(await dutyService().freezeDue(new Date())).toEqual({
+        considered: 0,
+        frozen: 0,
+        emptyPool: 0,
+      });
     });
   });
 
