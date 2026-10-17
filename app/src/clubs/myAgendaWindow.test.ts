@@ -27,6 +27,12 @@ describe('agenda windows', () => {
     expect(new Date(pastMatchesWindowParams().to!).getTime() % QUARTER_HOUR_IN_MS).toBe(0);
   });
 
+  it('never lets the past window reach into the future', () => {
+    const now = new Date('2026-10-02T13:44:58.123Z');
+
+    expect(new Date(pastMatchesWindowParams(now).to!).getTime()).toBeLessThanOrEqual(now.getTime());
+  });
+
   it('keeps the player window 14 days and the past window 30 days wide on a quarter-hour bound', () => {
     const now = new Date('2026-10-02T13:30:00.000Z');
     const player = playerAgendaWindowParams(now);

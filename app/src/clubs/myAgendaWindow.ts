@@ -5,7 +5,7 @@ const SNAP_IN_MS = 15 * 60 * 1000;
 
 // Bounds are snapped to a quarter hour so every mount inside it builds the
 // same query key and hits the cache, instead of a fresh `new Date()` key (and
-// request) per visit. `from` rounds down and `to` up, so the window only grows.
+// request) per visit. `from` rounds down and `to` up, so the agenda window only grows.
 const floorToSnap = (ms: number) => Math.floor(ms / SNAP_IN_MS) * SNAP_IN_MS;
 const ceilToSnap = (ms: number) => Math.ceil(ms / SNAP_IN_MS) * SNAP_IN_MS;
 
@@ -37,10 +37,14 @@ export function playerAgendaWindowParams(now: Date = new Date()): GetDashboardPa
   };
 }
 
-/** `now − 30 days → now`. */
+/**
+ * `now − 30 days → now`. `to` rounds *down* (unlike the agenda's), so a match
+ * kicking off within the next quarter hour is still « à venir » and never shows
+ * in « Après le match » as well.
+ */
 export function pastMatchesWindowParams(now: Date = new Date()): GetDashboardParams {
   return {
     from: new Date(floorToSnap(now.getTime()) - PAST_MATCHES_WINDOW_DAYS * DAY_IN_MS).toISOString(),
-    to: new Date(ceilToSnap(now.getTime())).toISOString(),
+    to: new Date(floorToSnap(now.getTime())).toISOString(),
   };
 }
