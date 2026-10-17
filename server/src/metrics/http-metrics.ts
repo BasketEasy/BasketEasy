@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { collectDefaultMetrics, Counter, Histogram, register } from 'prom-client';
 
@@ -36,7 +37,23 @@ export function httpMetrics(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-export async function metricsHandler(_req: Request, res: Response) {
+// With METRICS_TOKEN set, the scraper (Grafana Alloy) must send it as a bearer
+// token; unset, /metrics stays open and relies on the port not being published.
+// Read per request so a test or a restart-free secret rotation sees the change.
+function isAuthorized(req: Request): boolean {
+  const expected = process.env.METRICS_TOKEN;
+  if (!expected) return true;
+  const header = req.get('authorization') ?? '';
+  const given = Buffer.from(header.startsWith('Bearer ') ? header.slice(7) : '');
+  const wanted = Buffer.from(expected);
+  return given.length === wanted.length && timingSafeEqual(given, wanted);
+}
+
+export async function metricsHandler(req: Request, res: Response) {
+  if (!isAuthorized(req)) {
+    res.status(401).set('WWW-Authenticate', 'Bearer').end();
+    return;
+  }
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 }
