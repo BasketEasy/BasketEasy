@@ -610,7 +610,7 @@ export class JerseyDutyService {
    * `skipDuplicates` lets a manager's concurrent write win. Capped per run; the
    * rest waits ten minutes.
    */
-  async freezeDue(now: Date): Promise<{ considered: number; frozen: number }> {
+  async freezeDue(now: Date): Promise<{ considered: number; frozen: number; emptyPool: number }> {
     const matches = await this.prisma.event.findMany({
       where: {
         type: EventType.MATCH,
@@ -624,6 +624,7 @@ export class JerseyDutyService {
     });
 
     let frozen = 0;
+    let emptyPool = 0;
     // In kickoff order, so a team's earlier match is frozen (and counts) before
     // the next one's pool is ordered.
     for (const match of matches) {
@@ -646,6 +647,7 @@ export class JerseyDutyService {
         skipDuplicates: true,
       });
       if (first) frozen += count;
+      else emptyPool += count;
       // Only a row this run actually created: a concurrent write won otherwise.
       if (count > 0 && first) {
         await this.bestEffort(() =>
@@ -658,7 +660,7 @@ export class JerseyDutyService {
         );
       }
     }
-    return { considered: matches.length, frozen };
+    return { considered: matches.length, frozen, emptyPool };
   }
 
   // -------------------------------------------------------------- internals
