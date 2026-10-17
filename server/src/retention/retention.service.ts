@@ -8,6 +8,7 @@ import {
   GEOCODE_CACHE_RETENTION_MONTHS,
   INACTIVE_ACCOUNT_RETENTION_MONTHS,
   MAX_ACCOUNTS_PER_SWEEP,
+  MAX_EVENT_SHARES_PER_SWEEP,
   subMonths,
 } from './retention.constants';
 
@@ -352,7 +353,17 @@ export class RetentionService {
     if (dryRun) {
       return { status: 'ok', count: await this.prisma.eventShare.count({ where }) };
     }
-    const { count } = await this.prisma.eventShare.deleteMany({ where });
+    // Ids first, then a delete by id: `deleteMany` takes no `take`, and the cap
+    // is what keeps the first run after a deploy from deleting a year at once.
+    const batch = await this.prisma.eventShare.findMany({
+      where,
+      select: { id: true },
+      take: MAX_EVENT_SHARES_PER_SWEEP,
+    });
+    if (batch.length === 0) return { status: 'ok', count: 0 };
+    const { count } = await this.prisma.eventShare.deleteMany({
+      where: { id: { in: batch.map((share) => share.id) } },
+    });
     return { status: 'ok', count };
   }
 }

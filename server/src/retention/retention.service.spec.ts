@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { RetentionService } from './retention.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { MAX_ACCOUNTS_PER_SWEEP, subMonths } from './retention.constants';
+import {
+  MAX_ACCOUNTS_PER_SWEEP,
+  MAX_EVENT_SHARES_PER_SWEEP,
+  subMonths,
+} from './retention.constants';
 
 describe('RetentionService', () => {
   let service: RetentionService;
@@ -12,7 +16,7 @@ describe('RetentionService', () => {
     parentalConsent: { updateMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     auditLog: { create: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; count: jest.Mock };
     geocodedAddress: { deleteMany: jest.Mock; count: jest.Mock };
-    eventShare: { deleteMany: jest.Mock; count: jest.Mock };
+    eventShare: { deleteMany: jest.Mock; count: jest.Mock; findMany: jest.Mock };
     impersonationSession: { deleteMany: jest.Mock; findMany: jest.Mock };
     retentionRun: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
@@ -46,6 +50,7 @@ describe('RetentionService', () => {
       eventShare: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
         count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       impersonationSession: {
         deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -336,13 +341,28 @@ describe('RetentionService', () => {
       OR: [{ eventId: null }, { event: { startsAt: { lt: subMonths(now, 12) } } }],
     };
 
-    it('drops finished shares untouched for 12 months, never live ones', async () => {
-      prisma.eventShare.deleteMany.mockResolvedValue({ count: 6 });
+    it('drops finished shares untouched for 12 months, never live ones, one capped batch a night', async () => {
+      prisma.eventShare.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
+      prisma.eventShare.deleteMany.mockResolvedValue({ count: 2 });
 
       const summary = await service.run();
 
-      expect(prisma.eventShare.deleteMany).toHaveBeenCalledWith({ where });
-      expect(summary.eventShares).toEqual({ status: 'ok', count: 6 });
+      expect(prisma.eventShare.findMany).toHaveBeenCalledWith({
+        where,
+        select: { id: true },
+        take: MAX_EVENT_SHARES_PER_SWEEP,
+      });
+      expect(prisma.eventShare.deleteMany).toHaveBeenCalledWith({
+        where: { id: { in: ['s1', 's2'] } },
+      });
+      expect(summary.eventShares).toEqual({ status: 'ok', count: 2 });
+    });
+
+    it('deletes nothing when no share is old enough', async () => {
+      const summary = await service.run();
+
+      expect(prisma.eventShare.deleteMany).not.toHaveBeenCalled();
+      expect(summary.eventShares).toEqual({ status: 'ok', count: 0 });
     });
 
     it('only counts in a dry run', async () => {
