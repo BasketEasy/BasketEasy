@@ -242,6 +242,7 @@ describe('auth mutations', () => {
       queryClient.setQueryData(['clubs'], [{ id: 'club-a' }]);
       queryClient.setQueryData(['clubs', 'club-a', 'teams'], []);
       queryClient.setQueryData(['notifications', {}], []);
+      queryClient.setQueryData(['auth', 'other'], { owner: 'a' });
 
       replaceSession(queryClient, userB);
 

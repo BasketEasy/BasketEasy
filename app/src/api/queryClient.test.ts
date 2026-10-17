@@ -14,8 +14,16 @@ describe('createQueryClient', () => {
     expect(createQueryClient().getDefaultOptions().queries?.staleTime).toBe(FRESHNESS.live);
   });
 
-  it.each([400, 401, 403, 404, 409, 429])('never retries a %i', (status) => {
+  it.each([400, 401, 403, 404, 409])('never retries a %i', (status) => {
     expect(retryFn()(0, new ApiError('refused', status))).toBe(false);
+  });
+
+  it.each([408, 429])('retries a %i twice, then gives up', (status) => {
+    const retry = retryFn();
+    const error = new ApiError('try later', status);
+    expect(retry(0, error)).toBe(true);
+    expect(retry(1, error)).toBe(true);
+    expect(retry(2, error)).toBe(false);
   });
 
   it('retries a 500 twice, then gives up', () => {

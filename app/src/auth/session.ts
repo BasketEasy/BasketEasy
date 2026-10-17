@@ -11,7 +11,7 @@
 // refresh token is single-use/rotating — a genuine second concurrent call to
 // /auth/refresh would always 401 and discard a valid session.
 import { useEffect, useRef } from 'react';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { matchQuery, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { User } from '@basketeasy/types/auth';
 import { ApiError, apiClient, refreshAccessToken, setAccessToken } from '../api/client';
 import { FRESHNESS } from '../api/freshness';
@@ -41,7 +41,9 @@ export function replaceSession(queryClient: QueryClient, user: User | null): voi
 }
 
 function dropUserQueries(queryClient: QueryClient): void {
-  queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== sessionQueryKey[0] });
+  queryClient.removeQueries({
+    predicate: (query) => !matchQuery({ queryKey: sessionQueryKey, exact: true }, query),
+  });
 }
 
 // Runs in an effect, i.e. after the render that saw the session end has
