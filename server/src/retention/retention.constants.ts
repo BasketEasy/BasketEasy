@@ -28,6 +28,14 @@ export const GEOCODE_CACHE_RETENTION_MONTHS = 12;
 export const EVENT_SHARE_RETENTION_MONTHS = 12;
 
 /**
+ * Ceiling on how many finished shares one nightly run deletes, for the same
+ * reason as `MAX_ACCOUNTS_PER_SWEEP`: the first run after deploy can face a
+ * year of backlog, and one unbounded `DELETE` holds locks for as long as it
+ * takes. The remainder is picked up the next night.
+ */
+export const MAX_EVENT_SHARES_PER_SWEEP = 5000;
+
+/**
  * Ceiling on how many accounts one nightly run erases. The first real run
  * after a deployment has been observing in dry-run mode can have a large
  * backlog, and deleting it in one unbounded burst of transactions is how a
