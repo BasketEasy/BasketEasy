@@ -1189,4 +1189,6 @@ model EventShare {
   // Postgres treats NULLs as distinct, so many CANCELLATION rows may have a null eventId.
   @@unique([eventId, type])
   @@index([teamId, state])
+  // The nightly retention sweep filters on state + updatedAt.
+  @@index([state, updatedAt])
 }
