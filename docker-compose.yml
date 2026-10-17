@@ -79,6 +79,8 @@ services:
       # Number of reverse proxies in front of this container — see
       # .env.example. Wrong value = wrong client IP in every audit row.
       TRUSTED_PROXY: ${TRUSTED_PROXY:-false}
+      # Bearer token required on GET /metrics when set — see .env.example.
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     ports:
       - '3000:3000'
     depends_on:
