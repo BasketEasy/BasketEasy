@@ -119,6 +119,16 @@ export function TeamDetailPage() {
       ? 'events'
       : requestedTab;
 
+  const selectTab = (value: string) =>
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('tab', value);
+        return next;
+      },
+      { replace: true },
+    );
+
   // Each tab's own data loads when the tab is the active one, not on every
   // visit to the page: only what the hero, the tab list (its count badges) or
   // a permission check reads is fetched whatever the tab. Every gated query
@@ -472,97 +482,108 @@ export function TeamDetailPage() {
       {/* Depth 2: the bar is full-bleed under the header on a phone, so it
           sits outside the container (the event page's pattern, one level up). */}
       <PageBar to={backLink.to} state={null} title={backLink.label} />
-      <PageContainer size="lg" top="bar">
-        <PageBackLink to={backLink.to} state={null} title={backLink.label} />
+      {/* The Tabs root is the page container itself (asChild), so the tab bar is
+          a direct flex child of it: below md `edge` pulls it up under the
+          PageBar, full-bleed; from md up it stays under the hero. */}
+      <Tabs value={activeTab} onValueChange={selectTab} asChild>
+        <PageContainer size="lg" top="bar">
+          <PageBackLink to={backLink.to} state={null} title={backLink.label} />
 
-        <PageHero
-          badges={
-            (linkedClubs.length > 1 || ffbbLinkCount > 0) && (
-              <>
-                {linkedClubs.length > 1 && (
-                  <Badge variant="soft" tone="structure">
-                    Entente CTC
-                  </Badge>
-                )}
-                {ffbbLinkCount > 0 && (
-                  <Badge variant="outline" tone="neutral">
-                    FFBB
-                  </Badge>
-                )}
-              </>
-            )
-          }
-          eyebrow={owningClubName}
-          title={team.name}
-          titleAction={
-            canManageTeam && (
-              <Button
-                variant="outline"
-                size="icon-responsive"
-                aria-label="Modifier l’équipe"
-                onClick={() => setIsEditing(true)}
-              >
-                <PencilIcon />
-                <span className="hidden md:inline">Modifier</span>
-              </Button>
-            )
-          }
-          meta={`${teamCategoryLabel(team.category)} · ${teamGenderLabel(team.gender)}${rosterTotal === undefined ? '' : ` · ${rosterTotal} joueur${rosterTotal > 1 ? 's' : ''}`}`}
-          aside={
-            nextEvent && (
-              <TeamNextEventTile
-                clubId={clubId!}
-                teamId={teamId!}
-                event={nextEvent}
-                showMyAnswer={isRostered}
-                navState={navState}
-              />
-            )
-          }
-        />
+          <PageHero
+            badges={
+              (linkedClubs.length > 1 || ffbbLinkCount > 0) && (
+                <>
+                  {linkedClubs.length > 1 && (
+                    <Badge variant="soft" tone="structure">
+                      Entente CTC
+                    </Badge>
+                  )}
+                  {ffbbLinkCount > 0 && (
+                    <Badge variant="outline" tone="neutral">
+                      FFBB
+                    </Badge>
+                  )}
+                </>
+              )
+            }
+            eyebrow={owningClubName}
+            title={team.name}
+            titleAction={
+              canManageTeam && (
+                <Button
+                  variant="outline"
+                  size="icon-responsive"
+                  aria-label="Modifier l’équipe"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <PencilIcon />
+                  <span className="hidden md:inline">Modifier</span>
+                </Button>
+              )
+            }
+            meta={`${teamCategoryLabel(team.category)} · ${teamGenderLabel(team.gender)}${rosterTotal === undefined ? '' : ` · ${rosterTotal} joueur${rosterTotal > 1 ? 's' : ''}`}`}
+            aside={
+              nextEvent && (
+                <TeamNextEventTile
+                  clubId={clubId!}
+                  teamId={teamId!}
+                  event={nextEvent}
+                  showMyAnswer={isRostered}
+                  navState={navState}
+                />
+              )
+            }
+          />
 
-        <TeamEditModal
-          clubId={clubId!}
-          teamId={teamId!}
-          team={team}
-          open={isEditing}
-          onOpenChange={setIsEditing}
-        />
+          <TeamEditModal
+            clubId={clubId!}
+            teamId={teamId!}
+            team={team}
+            open={isEditing}
+            onOpenChange={setIsEditing}
+          />
 
-        {canManageTeam && <TeamPendingCancellations clubId={clubId!} teamId={teamId!} />}
+          {canManageTeam && <TeamPendingCancellations clubId={clubId!} teamId={teamId!} />}
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) =>
-            setSearchParams(
-              (previous) => {
-                const next = new URLSearchParams(previous);
-                next.set('tab', value);
-                return next;
-              },
-              { replace: true },
-            )
-          }
-        >
-          <TabsList>
+          <TabsList
+            edge
+            more={
+              canManageTeam
+                ? {
+                    activeValue: activeTab,
+                    onSelect: selectTab,
+                    items: [
+                      { value: 'maillots', label: 'Maillots' },
+                      {
+                        value: 'clubs',
+                        label: 'Clubs partenaires',
+                        badge: allTeamClubsResult?.total ?? 0,
+                      },
+                      { value: 'admins', label: 'Administrateurs', badge: teamAdmins?.length ?? 0 },
+                    ],
+                  }
+                : undefined
+            }
+          >
             {canManageTeam ? (
-              // Manager: the five tabs stay exactly as they are, in the order
-              // they've always been in — the desktop power view this revamp
-              // deliberately doesn't touch (docs/personas.md).
+              // Manager: six sections. Below md only the first three stay in the
+              // bar and the `secondary` ones move into the « Plus » sheet.
               <>
+                <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
+                  Événements
+                </TabsTrigger>
                 <TabsTrigger value="roster" badge={rosterTotal}>
                   Effectif
                 </TabsTrigger>
-                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0}>
+                <TabsTrigger value="stats">Statistiques</TabsTrigger>
+                <TabsTrigger value="maillots" secondary>
+                  Maillots
+                </TabsTrigger>
+                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0} secondary>
                   Clubs partenaires
                 </TabsTrigger>
-                <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
+                <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0} secondary>
                   Administrateurs
-                </TabsTrigger>
-                <TabsTrigger value="stats">Statistiques</TabsTrigger>
-                <TabsTrigger value="maillots">Maillots</TabsTrigger>
-                <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
-                  Événements
                 </TabsTrigger>
               </>
             ) : (
@@ -741,57 +762,57 @@ export function TeamDetailPage() {
               )}
             </div>
           </TabsContent>
-        </Tabs>
 
-        {canManageTeam ? (
-          <section className="flex flex-col gap-3.5">
-            <SectionHeading as="h2">Réglages de l’équipe</SectionHeading>
-            <SectionAccordion value={openSettings} onValueChange={setOpenSettings}>
-              <div className="grid gap-2.5 md:grid-cols-2 md:items-start">
-                <SectionAccordionItem
-                  value="ffbb"
-                  title="Calendrier FFBB"
-                  summary={
-                    ffbbLinkCount > 0
-                      ? `${ffbbLinkCount} lien${ffbbLinkCount > 1 ? 's' : ''}`
-                      : undefined
-                  }
-                >
-                  <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage />
+          {canManageTeam ? (
+            <section className="flex flex-col gap-3.5">
+              <SectionHeading as="h2">Réglages de l’équipe</SectionHeading>
+              <SectionAccordion value={openSettings} onValueChange={setOpenSettings}>
+                <div className="grid gap-2.5 md:grid-cols-2 md:items-start">
+                  <SectionAccordionItem
+                    value="ffbb"
+                    title="Calendrier FFBB"
+                    summary={
+                      ffbbLinkCount > 0
+                        ? `${ffbbLinkCount} lien${ffbbLinkCount > 1 ? 's' : ''}`
+                        : undefined
+                    }
+                  >
+                    <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage />
+                  </SectionAccordionItem>
+                  <SectionAccordionItem value="rdv" title="RDV">
+                    <TeamMeetingPointSettings clubId={clubId!} teamId={teamId!} />
+                  </SectionAccordionItem>
+                  <SectionAccordionItem value="invite" title="Lien invité">
+                    <TeamGuestLinkSettings clubId={clubId!} teamId={teamId!} />
+                  </SectionAccordionItem>
+                  <SectionAccordionItem value="whatsapp" title="Message WhatsApp">
+                    <WhatsAppSettingsCard clubId={clubId!} teamId={teamId!} />
+                  </SectionAccordionItem>
+                </div>
+              </SectionAccordion>
+              {isAdmin && isOwner && (
+                <div className="self-start">
+                  <TeamDeleteModal
+                    clubId={clubId!}
+                    teamId={teamId!}
+                    teamName={team.name}
+                    playerCount={rosterTotal}
+                    eventCount={eventsResult?.total ?? 0}
+                  />
+                </div>
+              )}
+            </section>
+          ) : (
+            ffbbLinkCount > 0 && (
+              <SectionAccordion value={openPlayerSections} onValueChange={setOpenPlayerSections}>
+                <SectionAccordionItem value="ffbb" title="Compétitions FFBB">
+                  <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={false} />
                 </SectionAccordionItem>
-                <SectionAccordionItem value="rdv" title="RDV">
-                  <TeamMeetingPointSettings clubId={clubId!} teamId={teamId!} />
-                </SectionAccordionItem>
-                <SectionAccordionItem value="invite" title="Lien invité">
-                  <TeamGuestLinkSettings clubId={clubId!} teamId={teamId!} />
-                </SectionAccordionItem>
-                <SectionAccordionItem value="whatsapp" title="Message WhatsApp">
-                  <WhatsAppSettingsCard clubId={clubId!} teamId={teamId!} />
-                </SectionAccordionItem>
-              </div>
-            </SectionAccordion>
-            {isAdmin && isOwner && (
-              <div className="self-start">
-                <TeamDeleteModal
-                  clubId={clubId!}
-                  teamId={teamId!}
-                  teamName={team.name}
-                  playerCount={rosterTotal}
-                  eventCount={eventsResult?.total ?? 0}
-                />
-              </div>
-            )}
-          </section>
-        ) : (
-          ffbbLinkCount > 0 && (
-            <SectionAccordion value={openPlayerSections} onValueChange={setOpenPlayerSections}>
-              <SectionAccordionItem value="ffbb" title="Compétitions FFBB">
-                <TeamFfbbLinkList clubId={clubId!} teamId={teamId!} canManage={false} />
-              </SectionAccordionItem>
-            </SectionAccordion>
-          )
-        )}
-      </PageContainer>
+              </SectionAccordion>
+            )
+          )}
+        </PageContainer>
+      </Tabs>
     </>
   );
 }

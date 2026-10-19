@@ -21,30 +21,39 @@ export const Default: Story = {
   ),
 };
 
-// Mirrors TeamDetailPage's tab bar (four count-badged triggers) narrowed to
-// a phone-width container, where the triggers overflow the track — the
-// scenario the edge fades, hidden scrollbar and snap points in Tabs.tsx
-// exist for.
-export const OverflowingWithBadges: Story = {
+// TeamDetailPage's manager bar: six sections, three in the bar below md and
+// the rest behind « Plus ».
+export const WithMoreSheet: Story = {
   render: () => (
-    <Tabs defaultValue="roster" className="w-[320px]">
-      <TabsList>
-        <TabsTrigger value="roster" badge={18}>
-          Effectif
-        </TabsTrigger>
-        <TabsTrigger value="clubs" badge={2}>
-          Clubs partenaires
-        </TabsTrigger>
-        <TabsTrigger value="admins" badge={3}>
-          Administrateurs
-        </TabsTrigger>
+    <Tabs defaultValue="events" className="w-[390px]">
+      <TabsList
+        more={{
+          activeValue: 'events',
+          onSelect: () => undefined,
+          items: [
+            { value: 'maillots', label: 'Maillots' },
+            { value: 'clubs', label: 'Clubs partenaires', badge: 2 },
+            { value: 'admins', label: 'Administrateurs', badge: 3 },
+          ],
+        }}
+      >
         <TabsTrigger value="events" badge={12}>
           Événements
         </TabsTrigger>
+        <TabsTrigger value="roster" badge={18}>
+          Effectif
+        </TabsTrigger>
+        <TabsTrigger value="stats">Statistiques</TabsTrigger>
+        <TabsTrigger value="maillots" secondary>
+          Maillots
+        </TabsTrigger>
+        <TabsTrigger value="clubs" badge={2} secondary>
+          Clubs partenaires
+        </TabsTrigger>
+        <TabsTrigger value="admins" badge={3} secondary>
+          Administrateurs
+        </TabsTrigger>
       </TabsList>
-      <TabsContent value="roster" className="mt-4">
-        Liste des joueurs
-      </TabsContent>
     </Tabs>
   ),
 };
