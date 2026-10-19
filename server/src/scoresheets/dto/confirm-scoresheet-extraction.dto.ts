@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -114,4 +115,8 @@ export class ConfirmScoresheetExtractionDto implements ConfirmScoresheetExtracti
   @ValidateNested({ each: true })
   @Type(() => ScoresheetRosterMappingEntryDto)
   rosterMapping!: ScoresheetRosterMappingEntryDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  overrideManualEdits?: boolean;
 }

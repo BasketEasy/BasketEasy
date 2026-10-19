@@ -1,12 +1,14 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
 import type { MatchStats, TeamSeasonStats } from '@basketeasy/types/team-stats';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
 import { ClubRoles } from '../auth/decorators/club-roles.decorator';
 import { AllowGuardians } from '../auth/decorators/allow-guardians.decorator';
 import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { TeamStatsService } from './team-stats.service';
 import { GetTeamStatsDto } from './dto/get-team-stats.dto';
+import { UpdateMatchStatsDto } from './dto/update-match-stats.dto';
 import { ActingAsQueryDto } from '../common/dto/acting-as-query.dto';
 
 @Controller('clubs/:clubId/teams/:teamId/stats')
@@ -49,5 +51,19 @@ export class TeamStatsController {
     @CurrentUser() user: RequestUser,
   ): Promise<MatchStats> {
     return this.teamStatsService.getMatchStats(clubId, teamId, eventId, user.id, query.forPlayerId);
+  }
+
+  // A team manager's correction of a played match, after its sheet was
+  // confirmed or with no sheet at all. Never a guardian route: managers only.
+  @Put('matches/:eventId')
+  @UseGuards(TeamManagerGuard)
+  updateMatchStats(
+    @Param('clubId') clubId: string,
+    @Param('teamId') teamId: string,
+    @Param('eventId') eventId: string,
+    @Body() dto: UpdateMatchStatsDto,
+    @CurrentUser() user: RequestUser,
+  ): Promise<MatchStats> {
+    return this.teamStatsService.updateMatchStats(clubId, teamId, eventId, user.id, dto);
   }
 }

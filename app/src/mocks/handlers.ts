@@ -162,7 +162,7 @@ export const handlers = [
   // Default: no confirmed scoresheet yet. MatchStatsTable fetches this for
   // any played MATCH whose « Après la rencontre » is open.
   http.get('/api/clubs/:clubId/teams/:teamId/stats/matches/:eventId', () =>
-    HttpResponse.json({ hasStats: false, lines: [] }),
+    HttpResponse.json({ hasStats: false, lines: [], scoreboard: null, manuallyEdited: false }),
   ),
 
   // Default: no personal teams. MyTeamsPage always queries this; tests

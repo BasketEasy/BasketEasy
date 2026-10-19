@@ -719,7 +719,11 @@ export class EventsService {
       where: { eventId: { in: eventIds } },
       select: { storageKey: true },
     });
-    await Promise.all(scoresheets.map((s) => this.deleteStorageObjectSafely(s.storageKey)));
+    await Promise.all(
+      scoresheets.flatMap((s) =>
+        s.storageKey ? [this.deleteStorageObjectSafely(s.storageKey)] : [],
+      ),
+    );
   }
 
   // Bulk-changes only hour/minute across a series, leaving each occurrence's
@@ -1432,12 +1436,15 @@ export class EventsService {
       create: { eventId, storageKey, uploadedByTeamPlayerId: myTeamPlayer.id },
       update: {
         storageKey,
+        // A file replacing a hand-entered match makes it an upload again; its
+        // statsEditedAt stays, so confirming the read asks before overwriting.
+        source: 'UPLOAD',
         uploadedByTeamPlayerId: myTeamPlayer.id,
         uploadedAt: new Date(),
         status: 'UPLOADED',
       },
     });
-    if (previous && previous.storageKey !== storageKey) {
+    if (previous?.storageKey && previous.storageKey !== storageKey) {
       await this.deleteStorageObjectSafely(previous.storageKey);
     }
     // Hand off to the scoresheets module's async OCR pipeline now that a
@@ -1473,11 +1480,13 @@ export class EventsService {
   // this slice, only captured, so the frontend never needs a way to address it.
   private toEventScoresheet(scoresheet: {
     status: string;
+    source: string;
     uploadedByTeamPlayerId: string | null;
     uploadedAt: Date;
   }): EventScoresheet {
     return {
       status: scoresheet.status as EventScoresheet['status'],
+      source: scoresheet.source as EventScoresheet['source'],
       uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
       uploadedAt: scoresheet.uploadedAt.toISOString(),
     };

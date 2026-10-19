@@ -51,6 +51,24 @@ is allowed (a licensed guest), an empty mapping clears the match's stats, duplic
 A mapped number the running score never mentions scored 0. Rows are replaced wholesale on
 re-confirm; sheets confirmed before the mapping existed have no rows until re-confirmed.
 
+## Correcting a match after confirmation
+
+A confirmed sheet can still be wrong (a misread number, a wrong score), and a match can have no
+sheet at all. Decisions, taken with the product owner:
+
+| Question                              | Decision                                                                                                                                                                      | Rejected                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| What is editable                      | score and periods (both sides), player lines (jersey number, points, fouls, 3/2/LF split), adding and removing players, a match with no sheet                                 | numbers only                                              |
+| Where player edits live               | `MatchPlayerStat`; `parsedData` stays the verbatim read apart from the score                                                                                                  | rewriting `parsedData` wholesale, an overrides table      |
+| Where the score lives                 | the sheet's `parsedData` (one read path, `deriveMatchResult`); a sheet-less match gets a `MANUAL` sheet with no file                                                          | a score column on `Event`, a separate manual-result table |
+| Re-confirming the sheet after an edit | `409 STATS_EDITED`, then an explicit `overrideManualEdits` overwrite                                                                                                          | silent overwrite, per-row merge                           |
+| Who, and a trail                      | team managers; no editor identity or audit row (it is not an access change)                                                                                                   | full revision history                                     |
+| Validation                            | split must add up to the points when all four are known (400); the gap between the players' total and the score is a client-side warning, not a refusal (guests have no line) | strict equality                                           |
+| When                                  | only a played match (`startsAt` past) with a venue; the sheet must be `CONFIRMED` or absent                                                                                   | edit while a read is in flight or awaiting review         |
+
+Known narrow race: two first-ever edits of a sheet-less match at once can both try to create the
+`MANUAL` sheet; the loser gets a unique violation instead of a clean error.
+
 ## Season stats
 
 - A season runs 1 September to 31 August and is named by its starting year (« saison 2026-2027 »

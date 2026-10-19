@@ -259,6 +259,11 @@ export class ScoresheetOcrProcessor extends WorkerHost {
     const scoresheet = await this.prisma.eventScoresheet.findUniqueOrThrow({
       where: { id: eventScoresheetId },
     });
+    // A hand-entered sheet has no file to read; nothing should queue one, so
+    // fail loud instead of fetching an undefined key.
+    if (!scoresheet.storageKey) {
+      throw new Error(`Scoresheet ${eventScoresheetId} has no file to read`);
+    }
     await this.prisma.eventScoresheet.update({
       where: { id: eventScoresheetId },
       data: { status: 'PROCESSING' },

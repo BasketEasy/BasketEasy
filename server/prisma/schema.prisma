@@ -655,6 +655,14 @@ enum EventScoresheetStatus {
   FAILED
 }
 
+// Where a scoresheet row came from. UPLOAD is a photo/PDF read by the OCR
+// pipeline; MANUAL is a match entered by hand with no file (storageKey null).
+// See docs/decisions/scoresheets-and-stats.md.
+enum EventScoresheetSource {
+  UPLOAD
+  MANUAL
+}
+
 // One row per MATCH event's e-Marque scoresheet capture (photo or PDF) —
 // @@unique on eventId means a retry or a better file upserts this same row
 // rather than accumulating history; v1 doesn't need scoresheet-file
@@ -665,7 +673,13 @@ model EventScoresheet {
   id                     String                @id @default(uuid())
   eventId                String                @unique
   status                 EventScoresheetStatus @default(UPLOADED)
-  storageKey             String
+  // Null for a MANUAL sheet: nothing was uploaded, so there is no object in R2.
+  storageKey             String?
+  source                 EventScoresheetSource @default(UPLOAD)
+  // Set when a manager corrected the stats by hand after the sheet was
+  // confirmed (or entered them with no sheet). Confirming a sheet over it
+  // needs an explicit override, and the confirm clears it.
+  statsEditedAt          DateTime?
   // Attribution, not ownership: the sheet belongs to the event's team, so it
   // outlives its uploader (a player deleted, or their whole club when it
   // uploaded on a partner's team).

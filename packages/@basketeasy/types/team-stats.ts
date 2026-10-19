@@ -79,10 +79,54 @@ export interface MatchStatLine {
   isMe: boolean;
 }
 
+/** One period's score, from our side's point of view. */
+export interface MatchPeriodScore {
+  ours: number | null;
+  theirs: number | null;
+}
+
+/** The score of a match whose sheet is confirmed (or that was entered by hand). */
+export interface MatchScoreboard {
+  ourScore: number | null;
+  theirScore: number | null;
+  /** Quarters in order, overtime periods as extra entries. */
+  periods: MatchPeriodScore[];
+}
+
 /** One match's lines, via GET clubs/:clubId/teams/:teamId/stats/matches/:eventId. */
 export interface MatchStats {
   /** True once a confirmed sheet produced rows; false → the UI shows the scoresheet flow instead. */
   hasStats: boolean;
   /** Points desc, nulls last, then lastName. */
   lines: MatchStatLine[];
+  /** Null until a confirmed sheet (or a manual entry) holds a score. */
+  scoreboard: MatchScoreboard | null;
+  /** True when a manager corrected this match by hand after confirming (or entered it with no sheet). */
+  manuallyEdited: boolean;
+}
+
+/** Quarters plus overtime periods a manual entry may carry. */
+export const MAX_MATCH_PERIODS = 8;
+
+/** One player's line in a manual edit. A null stat is unknown, never 0. */
+export interface UpdateMatchStatsLine {
+  teamPlayerId: string;
+  jerseyNumber: number | null;
+  points: number | null;
+  fouls: number | null;
+  freeThrowPoints: number | null;
+  twoPointPoints: number | null;
+  threePointPoints: number | null;
+}
+
+/**
+ * Replaces a played match's score and player lines, via
+ * PUT clubs/:clubId/teams/:teamId/stats/matches/:eventId. A full replace: a
+ * roster member left out of `lines` ends up with no line for the match.
+ */
+export interface UpdateMatchStatsRequest {
+  ourScore: number;
+  theirScore: number;
+  periods: MatchPeriodScore[];
+  lines: UpdateMatchStatsLine[];
 }

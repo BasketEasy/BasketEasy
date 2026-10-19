@@ -250,11 +250,25 @@ describe('tiers that depend on the data', () => {
   });
 
   it('match stats: live until a confirmed sheet produced lines, slow after', () => {
-    expect(matchStatsStaleTime(fakeQuery({ hasStats: false, lines: [] } as MatchStats))).toBe(
-      FRESHNESS.live,
-    );
-    expect(matchStatsStaleTime(fakeQuery({ hasStats: true, lines: [] } as MatchStats))).toBe(
-      FRESHNESS.slow,
-    );
+    expect(
+      matchStatsStaleTime(
+        fakeQuery({
+          hasStats: false,
+          lines: [],
+          scoreboard: null,
+          manuallyEdited: false,
+        } as MatchStats),
+      ),
+    ).toBe(FRESHNESS.live);
+    expect(
+      matchStatsStaleTime(
+        fakeQuery({
+          hasStats: true,
+          lines: [],
+          scoreboard: null,
+          manuallyEdited: false,
+        } as MatchStats),
+      ),
+    ).toBe(FRESHNESS.slow);
   });
 });

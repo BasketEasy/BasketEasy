@@ -1,13 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventVoteCategory, TeamMemberRole } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type {
   MatchStatLine,
   MatchStats,
   TeamSeasonPlayerStats,
   TeamSeasonStats,
+  UpdateMatchStatsLine,
+  UpdateMatchStatsRequest,
 } from '@basketeasy/types/team-stats';
 import { PrismaService } from '../prisma/prisma.service';
 import { assertCanActForPlayer, resolveActingTeamPlayer } from '../common/acting-as';
+import { applyScoreboard, toScoreboard } from '../common/match-scoreboard';
+import { asParsedScoresheetData } from '../common/parsed-scoresheet-data';
 import { seasonWindow, seasonYearFor } from '../common/season';
 
 // One decimal, computed over known values only. A null denominator gives
@@ -162,12 +172,12 @@ export class TeamStatsService {
     await this.assertTeamInClub(clubId, teamId);
     const event = await this.prisma.event.findFirst({
       where: { id: eventId, teamId },
-      select: { id: true },
+      select: { id: true, venue: true },
     });
     if (!event) {
       throw new NotFoundException('Event not found');
     }
-    const [me, rows] = await Promise.all([
+    const [me, rows, scoresheet] = await Promise.all([
       resolveActingTeamPlayer(this.prisma, { userId, teamId, forPlayerId }),
       this.prisma.matchPlayerStat.findMany({
         where: { eventId },
@@ -182,6 +192,14 @@ export class TeamStatsService {
           teamPlayer: { select: { player: { select: { firstName: true, lastName: true } } } },
         },
       }),
+      this.prisma.eventScoresheet.findUnique({
+        where: { eventId },
+        select: {
+          status: true,
+          statsEditedAt: true,
+          extraction: { select: { parsedData: true } },
+        },
+      }),
     ]);
     const lines: MatchStatLine[] = rows
       .map(({ teamPlayer, ...row }) => ({
@@ -191,7 +209,164 @@ export class TeamStatsService {
         isMe: me !== null && row.teamPlayerId === me.id,
       }))
       .sort(byPointsThenName);
-    return { hasStats: lines.length > 0, lines };
+    return {
+      hasStats: lines.length > 0,
+      lines,
+      // A score only counts once a manager confirmed the sheet, the same rule
+      // `deriveMatchResult` applies to the event's result.
+      scoreboard:
+        scoresheet?.status === 'CONFIRMED'
+          ? toScoreboard(event.venue, asParsedScoresheetData(scoresheet.extraction?.parsedData))
+          : null,
+      manuallyEdited: scoresheet?.statsEditedAt != null,
+    };
+  }
+
+  /**
+   * A manager's correction of a played match, after its sheet was confirmed
+   * or with no sheet at all. A full replace of the score and of the player
+   * lines. The sheet's `parsedData` keeps the verbatim read apart from its
+   * score and periods; the per-player corrections live only in
+   * `MatchPlayerStat`, which a later confirm of the sheet would overwrite,
+   * hence `statsEditedAt` (see `ScoresheetsService.confirmExtraction`).
+   *
+   * A match with no sheet gets a MANUAL one (no file) so the score keeps one
+   * read path, `deriveMatchResult`. A sheet that is not CONFIRMED yet is a
+   * read still in progress or waiting for review: that flow owns its stats.
+   */
+  async updateMatchStats(
+    clubId: string,
+    teamId: string,
+    eventId: string,
+    userId: string,
+    request: UpdateMatchStatsRequest,
+  ): Promise<MatchStats> {
+    await this.assertTeamInClub(clubId, teamId);
+    const event = await this.prisma.event.findFirst({
+      where: { id: eventId, teamId },
+      select: { id: true, type: true, startsAt: true, venue: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+    if (event.type !== 'MATCH') {
+      throw new BadRequestException('Seul un match a des stats');
+    }
+    if (event.startsAt.getTime() > Date.now()) {
+      throw new BadRequestException("Le match n'a pas encore eu lieu");
+    }
+    // The score is stored per sheet side; without the venue there is no way to
+    // tell which one is ours, and a guess would credit the opposing squad.
+    if (event.venue === null) {
+      throw new BadRequestException(
+        'Le lieu du match (domicile ou extérieur) doit être renseigné avant de saisir les stats',
+      );
+    }
+    const venue = event.venue;
+    this.assertLinesValid(request.lines);
+    await this.assertLinesOnRoster(teamId, request.lines);
+
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const sheet = await tx.eventScoresheet.findUnique({
+        where: { eventId },
+        select: { id: true, status: true, extraction: { select: { id: true, parsedData: true } } },
+      });
+      if (sheet && sheet.status !== 'CONFIRMED') {
+        throw new ConflictException(
+          "La feuille de ce match n'est pas encore confirmée : confirmez-la ou relancez sa lecture avant de corriger les stats",
+        );
+      }
+      const parsedData = applyScoreboard(
+        venue,
+        asParsedScoresheetData(sheet?.extraction?.parsedData),
+        request,
+      ) as unknown as Prisma.InputJsonValue;
+      if (!sheet) {
+        await tx.eventScoresheet.create({
+          data: {
+            eventId,
+            source: 'MANUAL',
+            status: 'CONFIRMED',
+            storageKey: null,
+            statsEditedAt: now,
+            extraction: {
+              create: { rawResponse: {}, parsedData, reviewedByUserId: userId, reviewedAt: now },
+            },
+          },
+        });
+      } else {
+        await tx.eventScoresheet.update({ where: { id: sheet.id }, data: { statsEditedAt: now } });
+        if (sheet.extraction) {
+          await tx.scoresheetExtraction.update({
+            where: { id: sheet.extraction.id },
+            data: { parsedData },
+          });
+        } else {
+          await tx.scoresheetExtraction.create({
+            data: {
+              eventScoresheetId: sheet.id,
+              rawResponse: {},
+              parsedData,
+              reviewedByUserId: userId,
+              reviewedAt: now,
+            },
+          });
+        }
+      }
+      // Replaced wholesale, like a re-confirm: a player taken off the list
+      // must lose their row, not keep the previous read's.
+      await tx.matchPlayerStat.deleteMany({ where: { eventId } });
+      if (request.lines.length > 0) {
+        await tx.matchPlayerStat.createMany({
+          data: request.lines.map((line) => ({ eventId, ...line })),
+        });
+      }
+    });
+    return this.getMatchStats(clubId, teamId, eventId, userId);
+  }
+
+  private assertLinesValid(lines: UpdateMatchStatsLine[]): void {
+    const ids = lines.map((line) => line.teamPlayerId);
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('Un même joueur ne peut pas apparaître deux fois');
+    }
+    const numbers = lines.flatMap((line) =>
+      line.jerseyNumber === null ? [] : [line.jerseyNumber],
+    );
+    if (new Set(numbers).size !== numbers.length) {
+      throw new BadRequestException('Un même numéro ne peut pas être associé à deux joueurs');
+    }
+    for (const line of lines) {
+      const { points, freeThrowPoints, twoPointPoints, threePointPoints } = line;
+      // Only a fully known split can contradict the total. A partly known one
+      // is legal: the manager knows the points but not how they were made.
+      if (
+        points !== null &&
+        freeThrowPoints !== null &&
+        twoPointPoints !== null &&
+        threePointPoints !== null &&
+        freeThrowPoints + twoPointPoints + threePointPoints !== points
+      ) {
+        throw new BadRequestException(
+          'Pour chaque joueur, 3 PTS + 2 PTS + LF doivent faire le total de PTS',
+        );
+      }
+    }
+  }
+
+  // One query for the whole list, like the confirm flow's mapping check.
+  private async assertLinesOnRoster(teamId: string, lines: UpdateMatchStatsLine[]): Promise<void> {
+    if (lines.length === 0) {
+      return;
+    }
+    const found = await this.prisma.teamPlayer.findMany({
+      where: { teamId, id: { in: lines.map((line) => line.teamPlayerId) } },
+      select: { id: true },
+    });
+    if (found.length !== lines.length) {
+      throw new BadRequestException("Un joueur n'est pas dans l'effectif de cette équipe");
+    }
   }
 
   // Seasons the selector can offer: those the team actually has confirmed

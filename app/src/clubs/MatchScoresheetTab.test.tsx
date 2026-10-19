@@ -53,12 +53,18 @@ const matchEvent: TeamEvent = {
 
 const uploadedStatus: EventScoresheet = {
   status: 'UPLOADED',
+  source: 'UPLOAD',
   uploadedByTeamPlayerId: 'tp-1',
   uploadedAt: '2026-01-01T20:00:00.000Z',
 };
 
 function statusFor(status: EventScoresheet['status']): EventScoresheet {
-  return { status, uploadedByTeamPlayerId: 'tp-1', uploadedAt: '2026-01-01T20:00:00.000Z' };
+  return {
+    status,
+    source: 'UPLOAD',
+    uploadedByTeamPlayerId: 'tp-1',
+    uploadedAt: '2026-01-01T20:00:00.000Z',
+  };
 }
 
 const parsedData: ParsedScoresheetData = {

@@ -361,10 +361,51 @@ describe('ScoresheetsService', () => {
       });
       expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
         where: { id: 'sheet-1' },
-        data: { status: 'CONFIRMED' },
+        data: { status: 'CONFIRMED', statsEditedAt: null },
       });
       expect(result.status).toBe('CONFIRMED');
       expect(result.reviewedByUserId).toBe('user-1');
+    });
+
+    describe('over manually edited stats', () => {
+      beforeEach(() => {
+        prisma.eventScoresheet.findUnique.mockResolvedValue({
+          id: 'sheet-1',
+          statsEditedAt: new Date('2026-10-18T10:00:00Z'),
+          extraction: { id: 'extraction-1', parsedData: emptyParsedData },
+        });
+        prisma.scoresheetExtraction.update.mockResolvedValue({
+          parsedData: emptyParsedData,
+          confidence: null,
+          failureReason: null,
+          reviewedByUserId: 'user-1',
+          reviewedAt: new Date('2026-10-19T12:00:00Z'),
+        });
+      });
+
+      it('refuses with STATS_EDITED and writes nothing', async () => {
+        await expect(
+          service.confirmExtraction('club-1', 'team-1', 'event-1', 'user-1', { rosterMapping: [] }),
+        ).rejects.toMatchObject({ response: { code: 'STATS_EDITED' } });
+        expect(prisma.scoresheetExtraction.update).not.toHaveBeenCalled();
+        expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+        expect(prisma.matchPlayerStat.deleteMany).not.toHaveBeenCalled();
+      });
+
+      it('overwrites and clears the edited marker when the manager overrides', async () => {
+        await service.confirmExtraction('club-1', 'team-1', 'event-1', 'user-1', {
+          rosterMapping: [],
+          overrideManualEdits: true,
+        });
+
+        expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+          where: { id: 'sheet-1' },
+          data: { status: 'CONFIRMED', statsEditedAt: null },
+        });
+        expect(prisma.matchPlayerStat.deleteMany).toHaveBeenCalledWith({
+          where: { eventId: 'event-1' },
+        });
+      });
     });
 
     it('overwrites parsedData with the supplied corrections', async () => {
