@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
 
 describe('Tabs', () => {
@@ -52,5 +52,30 @@ describe('Tabs', () => {
     );
     expect(screen.getByText('18')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Calendrier' }).textContent).toBe('Calendrier');
+  });
+
+  it('moves secondary tabs into a « Plus » sheet and selects from it', async () => {
+    const onSelect = vi.fn();
+    render(
+      <Tabs value="roster">
+        <TabsList
+          more={{
+            activeValue: 'roster',
+            onSelect,
+            items: [{ value: 'jerseys', label: 'Maillots', badge: 2 }],
+          }}
+        >
+          <TabsTrigger value="roster">Effectif</TabsTrigger>
+          <TabsTrigger value="jerseys" secondary>
+            Maillots
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    expect(screen.getByRole('tab', { name: 'Maillots' })).toHaveClass('hidden', 'md:inline-flex');
+
+    await userEvent.click(screen.getByRole('button', { name: /Plus/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Maillots/ }));
+    expect(onSelect).toHaveBeenCalledWith('jerseys');
   });
 });

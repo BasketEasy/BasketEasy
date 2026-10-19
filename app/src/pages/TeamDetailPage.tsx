@@ -119,6 +119,16 @@ export function TeamDetailPage() {
       ? 'events'
       : requestedTab;
 
+  const selectTab = (value: string) =>
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('tab', value);
+        return next;
+      },
+      { replace: true },
+    );
+
   // Each tab's own data loads when the tab is the active one, not on every
   // visit to the page: only what the hero, the tab list (its count badges) or
   // a permission check reads is fetched whatever the tab. Every gated query
@@ -531,38 +541,45 @@ export function TeamDetailPage() {
 
         {canManageTeam && <TeamPendingCancellations clubId={clubId!} teamId={teamId!} />}
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) =>
-            setSearchParams(
-              (previous) => {
-                const next = new URLSearchParams(previous);
-                next.set('tab', value);
-                return next;
-              },
-              { replace: true },
-            )
-          }
-        >
-          <TabsList>
+        <Tabs value={activeTab} onValueChange={selectTab}>
+          <TabsList
+            more={
+              canManageTeam
+                ? {
+                    activeValue: activeTab,
+                    onSelect: selectTab,
+                    items: [
+                      { value: 'maillots', label: 'Maillots' },
+                      {
+                        value: 'clubs',
+                        label: 'Clubs partenaires',
+                        badge: allTeamClubsResult?.total ?? 0,
+                      },
+                      { value: 'admins', label: 'Administrateurs', badge: teamAdmins?.length ?? 0 },
+                    ],
+                  }
+                : undefined
+            }
+          >
             {canManageTeam ? (
-              // Manager: the five tabs stay exactly as they are, in the order
-              // they've always been in — the desktop power view this revamp
-              // deliberately doesn't touch (docs/personas.md).
+              // Manager: six sections. Below md only the first three stay in the
+              // bar and the `secondary` ones move into the « Plus » sheet.
               <>
+                <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
+                  Événements
+                </TabsTrigger>
                 <TabsTrigger value="roster" badge={rosterTotal}>
                   Effectif
                 </TabsTrigger>
-                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0}>
+                <TabsTrigger value="stats">Statistiques</TabsTrigger>
+                <TabsTrigger value="maillots" secondary>
+                  Maillots
+                </TabsTrigger>
+                <TabsTrigger value="clubs" badge={allTeamClubsResult?.total ?? 0} secondary>
                   Clubs partenaires
                 </TabsTrigger>
-                <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0}>
+                <TabsTrigger value="admins" badge={teamAdmins?.length ?? 0} secondary>
                   Administrateurs
-                </TabsTrigger>
-                <TabsTrigger value="stats">Statistiques</TabsTrigger>
-                <TabsTrigger value="maillots">Maillots</TabsTrigger>
-                <TabsTrigger value="events" badge={eventsResult?.total ?? 0}>
-                  Événements
                 </TabsTrigger>
               </>
             ) : (
