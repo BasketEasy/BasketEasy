@@ -115,7 +115,9 @@ event, the next event of a team, a club's FFBB code, a child's consent.
   (`surface`) strip with charcoal labels and a 2px orange rule under the active tab, so it keeps its
   contrast on the cream ground. Past four sections, mark the less-used triggers `secondary` and pass
   `TabsList` a `more` prop: below `md` the bar keeps the first three plus « Plus », which opens a
-  sheet with the rest (no hidden horizontal scroll); from `md` up every tab shows.
+  sheet with the rest (no hidden horizontal scroll); from `md` up every tab shows. On an entity page the bar is `edge`: below `md` it is the first
+  thing under `PageBar`, full-bleed and flat (the page is the `Tabs` root, `asChild`); from `md` up
+  it sits under the hero as a card.
 
 ## 5. Lists
 

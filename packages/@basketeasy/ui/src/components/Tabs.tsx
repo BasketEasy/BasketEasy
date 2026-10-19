@@ -38,10 +38,17 @@ export interface TabsListProps extends ComponentPropsWithoutRef<typeof TabsPrimi
    * and « Plus » is gone. Leave it out for a bar that always fits (≤ 4 tabs).
    */
   more?: TabsMore;
+  /**
+   * For a bar that is a direct child of the page's flex column (the page is
+   * the `Tabs` root): below `md` it moves to the top of the page, full-bleed
+   * under the page bar (`-mx-4`/`-mt-4` undo the container's padding), as a
+   * flat strip; from `md` up it stays where it is in the flow, as a card.
+   */
+  edge?: boolean;
 }
 
 export const TabsList = forwardRef<ElementRef<typeof TabsPrimitive.List>, TabsListProps>(
-  ({ className, more, children, ...props }, forwardedRef) => {
+  ({ className, more, edge = false, children, ...props }, forwardedRef) => {
     const [moreOpen, setMoreOpen] = useState(false);
     const listRef = useRef<HTMLDivElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -71,7 +78,14 @@ export const TabsList = forwardRef<ElementRef<typeof TabsPrimitive.List>, TabsLi
     }, [updateScrollState]);
 
     return (
-      <div className="relative max-w-full">
+      <div
+        className={cn(
+          'relative',
+          // max-w-full would cap the bar at the content width and undo -mx-4.
+          edge ? 'md:max-w-full' : 'max-w-full',
+          edge && 'order-first -mx-4 -mt-4 sm:-mx-6 md:order-none md:mx-0 md:mt-0',
+        )}
+      >
         <TabsPrimitive.List
           ref={(node) => {
             listRef.current = node;
@@ -102,6 +116,7 @@ export const TabsList = forwardRef<ElementRef<typeof TabsPrimitive.List>, TabsLi
             // there. w-full + flex-1 triggers below md, so a bar of up to four
             // reads as equal halves; md:inline-flex hugs the content again.
             'group/tabs flex min-h-12 w-full max-w-full snap-x snap-mandatory items-stretch overflow-x-auto overflow-y-hidden scroll-px-6 rounded-lg border border-border bg-surface px-1 [scrollbar-width:none] md:inline-flex md:w-auto [&::-webkit-scrollbar]:hidden',
+            edge && 'max-md:rounded-none max-md:border-0 max-md:border-b',
             className,
           )}
           {...props}
