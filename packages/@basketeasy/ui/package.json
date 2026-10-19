@@ -183,6 +183,14 @@
       "types": "./src/components/icons/ChevronLeftIcon.tsx",
       "default": "./src/components/icons/ChevronLeftIcon.tsx"
     },
+    "./icons/trash": {
+      "types": "./src/components/icons/TrashIcon.tsx",
+      "default": "./src/components/icons/TrashIcon.tsx"
+    },
+    "./icons/pencil": {
+      "types": "./src/components/icons/PencilIcon.tsx",
+      "default": "./src/components/icons/PencilIcon.tsx"
+    },
     "./icons/plus": {
       "types": "./src/components/icons/PlusIcon.tsx",
       "default": "./src/components/icons/PlusIcon.tsx"

@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@basketeasy/ui/avatar';
 import { Badge } from '@basketeasy/ui/badge';
+import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
+import { PencilIcon } from '@basketeasy/ui/icons/pencil';
 import { QueryError } from '@basketeasy/ui/query-error';
 import { ResponsiveTable, useTableLayout } from '@basketeasy/ui/responsive-table';
 import { SectionHeading } from '@basketeasy/ui/section-heading';
@@ -9,7 +12,9 @@ import { TableCell, TableRow } from '@basketeasy/ui/table';
 import { Text } from '@basketeasy/ui/text';
 import { useIsDesktopViewport } from '@basketeasy/ui/use-is-desktop-viewport';
 import type { MatchStatLine } from '@basketeasy/types/team-stats';
+import type { TeamEvent } from '@basketeasy/types/events';
 import { getInitials } from './getInitials';
+import { MatchStatsEditDialog } from './MatchStatsEditDialog';
 import { formatCount } from './teamStatsFormat';
 import { useMatchStats } from './useMatchStats';
 
@@ -102,18 +107,25 @@ function MatchStatRow({ line }: { line: MatchStatLine }) {
  * what the reader acts on). Mounted only when its section is open, and held
  * back before kickoff, so it never costs a request on page load for nothing.
  * An unknown value is `—`, never 0.
+ *
+ * `managedEvent` is passed for a team manager only: it adds « Modifier »,
+ * which opens the correction dialog, and keeps the section on screen for a
+ * confirmed match that holds a score but no player line.
  */
 export function MatchStatsTable({
   clubId,
   teamId,
   eventId,
   hasStarted,
+  managedEvent,
 }: {
   clubId: string;
   teamId: string;
   eventId: string;
   hasStarted: boolean;
+  managedEvent?: TeamEvent;
 }) {
+  const [editOpen, setEditOpen] = useState(false);
   const isDesktop = useIsDesktopViewport();
   const { data, isLoading, isError, refetch, isRefetching } = useMatchStats(
     clubId,
@@ -124,7 +136,7 @@ export function MatchStatsTable({
   if (!hasStarted) return null;
   if (isError) return <QueryError onRetry={() => refetch()} isRetrying={isRefetching} />;
   if (isLoading) return <SkeletonList rows={2} variant="card" />;
-  if (!data?.hasStats) return null;
+  if (!data?.hasStats && !(managedEvent && data?.scoreboard)) return null;
   const table = (
     <ResponsiveTable columns={COLUMNS} className="gap-2">
       {data.lines.map((line) => (
@@ -134,10 +146,44 @@ export function MatchStatsTable({
   );
   return (
     <div className="flex flex-col gap-2.5">
-      <SectionHeading as="h3">Stats du match</SectionHeading>
+      <div className="flex items-center gap-3">
+        <SectionHeading as="h3" className="flex-1">
+          Stats du match
+        </SectionHeading>
+        {data.manuallyEdited && (
+          <Badge variant="soft" tone="structure" size="sm">
+            Modifié
+          </Badge>
+        )}
+        {managedEvent && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-responsive"
+            aria-label="Modifier les stats"
+            onClick={() => setEditOpen(true)}
+          >
+            <PencilIcon size="md" />
+            <span className="hidden md:inline">Modifier</span>
+          </Button>
+        )}
+      </div>
+      {managedEvent && (
+        <MatchStatsEditDialog
+          clubId={clubId}
+          teamId={teamId}
+          event={managedEvent}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
       {/* A table needs a surface of its own; the phone cards bring theirs. The
           split columns only exist in the table layout, so does their legend. */}
-      {isDesktop ? (
+      {data.lines.length === 0 ? (
+        <Text variant="meta" size="sm">
+          Aucune ligne joueur pour ce match.
+        </Text>
+      ) : isDesktop ? (
         <Card variant="inset" className="flex flex-col gap-2">
           {table}
           <Text variant="meta" size="xs">

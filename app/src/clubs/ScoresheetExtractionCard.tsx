@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Badge } from '@basketeasy/ui/badge';
 import { Button } from '@basketeasy/ui/button';
@@ -20,12 +20,16 @@ import {
 import { IconBadge } from '@basketeasy/ui/icon-badge';
 import { Text } from '@basketeasy/ui/text';
 import { toast } from '@basketeasy/ui/toast-store';
-import type {
-  ParsedScoresheetData,
-  ScoresheetExtraction,
+import {
+  STATS_EDITED_CODE,
+  type ConfirmScoresheetExtractionRequest,
+  type ParsedScoresheetData,
+  type ScoresheetExtraction,
 } from '@basketeasy/types/scoresheet-extraction';
 import type { TeamEvent } from '@basketeasy/types/events';
+import { ApiError } from '../api/client';
 import { getClubErrorMessage } from './clubErrorMessages';
+import { OverwriteEditedStatsDialog } from './OverwriteEditedStatsDialog';
 import { formatEventDate } from './eventDateFormat';
 import {
   findMissingPlayerFields,
@@ -565,6 +569,11 @@ export function ScoresheetExtractionCard({
     teamId,
     event.id,
   );
+  // The request a confirm sent when the server refused it because the stats
+  // were corrected by hand; kept so « Écraser » can resend it unchanged.
+  const [pendingOverride, setPendingOverride] = useState<ConfirmScoresheetExtractionRequest | null>(
+    null,
+  );
   // One form over everything the manager can correct before confirming: the
   // parsed sheet itself, and jersey number → TeamPlayer id (or UNASSIGNED),
   // seeded from the server's suggestions so the common case is a manager
@@ -641,25 +650,42 @@ export function ScoresheetExtractionCard({
     });
   };
 
+  const sendConfirm = (request: ConfirmScoresheetExtractionRequest) => {
+    confirm(request, {
+      onSuccess: () => {
+        setPendingOverride(null);
+        toast({ variant: 'success', title: 'Feuille de match confirmée' });
+      },
+      onError: (err) => {
+        // A refusal to overwrite hand corrections is a question, not a failure:
+        // the dialog asks, so no toast for the same event.
+        if (
+          err instanceof ApiError &&
+          err.code === STATS_EDITED_CODE &&
+          !request.overrideManualEdits
+        ) {
+          setPendingOverride(request);
+          return;
+        }
+        setPendingOverride(null);
+        toast({ variant: 'destructive', description: getClubErrorMessage(err) });
+      },
+    });
+  };
+
   const onConfirm = (values: ExtractionFormValues) => {
     if (hasUnresolvedFlags || !values.corrections) return;
     const edited =
       extraction.parsedData && !isSameParsedData(values.corrections, extraction.parsedData);
-    confirm(
-      {
-        corrections: edited ? values.corrections : undefined,
-        rosterMapping: Object.entries(values.rosterMapping)
-          .filter(([, teamPlayerId]) => teamPlayerId !== UNASSIGNED)
-          .map(([jerseyNumber, teamPlayerId]) => ({
-            jerseyNumber: Number(jerseyNumber),
-            teamPlayerId,
-          })),
-      },
-      {
-        onSuccess: () => toast({ variant: 'success', title: 'Feuille de match confirmée' }),
-        onError: (err) => toast({ variant: 'destructive', description: getClubErrorMessage(err) }),
-      },
-    );
+    sendConfirm({
+      corrections: edited ? values.corrections : undefined,
+      rosterMapping: Object.entries(values.rosterMapping)
+        .filter(([, teamPlayerId]) => teamPlayerId !== UNASSIGNED)
+        .map(([jerseyNumber, teamPlayerId]) => ({
+          jerseyNumber: Number(jerseyNumber),
+          teamPlayerId,
+        })),
+    });
   };
 
   return (
@@ -779,6 +805,14 @@ export function ScoresheetExtractionCard({
           </div>
         )
       )}
+      <OverwriteEditedStatsDialog
+        open={pendingOverride !== null}
+        isPending={isPending}
+        onCancel={() => setPendingOverride(null)}
+        onConfirm={() =>
+          pendingOverride && sendConfirm({ ...pendingOverride, overrideManualEdits: true })
+        }
+      />
     </Card>
   );
 }

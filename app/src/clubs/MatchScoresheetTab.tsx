@@ -4,6 +4,8 @@ import { cn } from '@basketeasy/ui/cn';
 import { iconVariants, type IconProps } from '@basketeasy/ui/icon-variants';
 import { Button } from '@basketeasy/ui/button';
 import { Card } from '@basketeasy/ui/card';
+import { Divider } from '@basketeasy/ui/divider';
+import { PencilIcon } from '@basketeasy/ui/icons/pencil';
 import { Check } from '@basketeasy/ui/icons/check';
 import { EmptyState } from '@basketeasy/ui/empty-state';
 import { QueryError } from '@basketeasy/ui/query-error';
@@ -11,6 +13,7 @@ import { SkeletonList } from '@basketeasy/ui/skeleton';
 import type { TeamEvent } from '@basketeasy/types/events';
 import type { ScoresheetExtraction } from '@basketeasy/types/scoresheet-extraction';
 import { formatEventDate } from './eventDateFormat';
+import { MatchStatsEditDialog } from './MatchStatsEditDialog';
 import { ScoresheetExtractionCard } from './ScoresheetExtractionCard';
 import { useEventScoresheetExtraction } from './useEventScoresheetExtraction';
 import { isScoresheetPending, useEventScoresheetStatus } from './useEventScoresheetStatus';
@@ -118,6 +121,59 @@ function DocumentIcon({ size, tone, className, ...props }: IconProps) {
       <path d="M14 3v4a1 1 0 0 0 1 1h4" />
       <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z" />
     </svg>
+  );
+}
+
+/**
+ * « Pas de feuille ? » — the way to a match's stats without a scoresheet, for
+ * a manager of a match that has been played. It opens the same dialog as
+ * correcting a confirmed match, from an empty start.
+ */
+function ManualStatsEntry({
+  clubId,
+  teamId,
+  event,
+}: {
+  clubId: string;
+  teamId: string;
+  event: TeamEvent;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <Divider />
+        <Text as="span" variant="eyebrow">
+          ou
+        </Text>
+        <Divider />
+      </div>
+      <Card variant="inset" className="flex flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <IconBadge>
+            <PencilIcon size="lg" />
+          </IconBadge>
+          <div className="flex flex-col gap-0.5">
+            <Text variant="label" size="sm">
+              Pas de feuille ?
+            </Text>
+            <Text variant="meta" size="sm">
+              Saisissez le score et les stats des joueurs à la main.
+            </Text>
+          </div>
+        </div>
+        <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+          Saisir les stats à la main
+        </Button>
+      </Card>
+      <MatchStatsEditDialog
+        clubId={clubId}
+        teamId={teamId}
+        event={event}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
   );
 }
 
@@ -398,6 +454,36 @@ export function MatchScoresheetTab({
     );
   }
 
+  // Entered by hand: no file, no reading, nothing to review. The stats table
+  // above carries the data; what is left here is the way to a real sheet.
+  if (status?.status === 'CONFIRMED' && status.source === 'MANUAL') {
+    return (
+      <Card variant="inset" className="flex flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <IconBadge>
+            <PencilIcon size="lg" />
+          </IconBadge>
+          <div className="flex flex-col gap-0.5">
+            <Text variant="label" size="sm">
+              Stats saisies à la main
+            </Text>
+            <Text variant="meta" size="sm">
+              Aucune feuille de match n&apos;a été ajoutée pour ce match.
+            </Text>
+          </div>
+        </div>
+        {isRostered && (
+          <>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              Ajouter la feuille
+            </Button>
+            <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
+          </>
+        )}
+      </Card>
+    );
+  }
+
   if (
     status?.status === 'PARSED' ||
     status?.status === 'NEEDS_REVIEW' ||
@@ -430,37 +516,47 @@ export function MatchScoresheetTab({
     );
   }
 
+  const manualEntry = canManage && new Date(event.startsAt) <= new Date() && (
+    <ManualStatsEntry clubId={clubId} teamId={teamId} event={event} />
+  );
+
   if (!isRostered) {
     return (
-      <EmptyState
-        icon={<UploadIcon size="3xl" tone="secondary" />}
-        title="Aucune feuille de match pour le moment"
-        description="Un membre de l'effectif peut l'ajouter après la rencontre."
-      />
+      <div className="flex flex-col gap-3.5">
+        <EmptyState
+          icon={<UploadIcon size="3xl" tone="secondary" />}
+          title="Aucune feuille de match pour le moment"
+          description="Un membre de l'effectif peut l'ajouter après la rencontre."
+        />
+        {manualEntry}
+      </div>
     );
   }
 
   return (
-    <Card variant="panel" className="flex flex-col gap-5">
-      <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
-        <IconBadge className="h-14 w-14">
-          <UploadIcon size="2xl" />
-        </IconBadge>
-        <Text as="span" variant="label" size="sm">
-          Ajoutez la feuille de marque
-        </Text>
+    <div className="flex flex-col gap-3.5">
+      <Card variant="panel" className="flex flex-col gap-5">
+        <div className="flex flex-col items-center gap-3.5 rounded-lg border-2 border-dashed border-border-strong bg-surface-2 p-8 text-center">
+          <IconBadge className="h-14 w-14">
+            <UploadIcon size="2xl" />
+          </IconBadge>
+          <Text as="span" variant="label" size="sm">
+            Ajoutez la feuille de marque
+          </Text>
+          <Text as="span" variant="meta" size="xs" className="leading-relaxed">
+            Photo ou PDF de la feuille e-Marque.
+          </Text>
+        </div>
+        <Button onClick={() => fileInputRef.current?.click()}>
+          <UploadIcon size="md" />
+          Choisir un fichier
+        </Button>
         <Text as="span" variant="meta" size="xs" className="leading-relaxed">
-          Photo ou PDF de la feuille e-Marque.
+          Une IA lit automatiquement le score et les statistiques une fois le fichier envoyé.
         </Text>
-      </div>
-      <Button onClick={() => fileInputRef.current?.click()}>
-        <UploadIcon size="md" />
-        Choisir un fichier
-      </Button>
-      <Text as="span" variant="meta" size="xs" className="leading-relaxed">
-        Une IA lit automatiquement le score et les statistiques une fois le fichier envoyé.
-      </Text>
-      <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
-    </Card>
+        <ScoresheetFileInput inputRef={fileInputRef} onFileSelected={handleFileSelected} />
+      </Card>
+      {manualEntry}
+    </div>
   );
 }
