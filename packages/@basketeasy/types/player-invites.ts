@@ -2,6 +2,8 @@
 // yet) to sign up and get linked to their own Player record — see
 // server/src/invites and CLAUDE.md's Player invites section.
 
+import type { User } from './auth';
+
 export interface PlayerInviteLink {
   /** The raw token, shown once at generation time — never retrievable again. */
   token: string;
@@ -26,6 +28,18 @@ export interface PlayerInvitePreview {
 export interface AcceptPlayerInviteRequest {
   email: string;
   password: string;
+}
+
+/**
+ * Answer to `POST /invites/:token/accept-as-me`: a visitor who is already
+ * logged in links the invite to their own account. `user` carries the
+ * memberships as they are after the link (it gave one to the club), so the
+ * client can write it straight into the session cache.
+ */
+export interface AcceptedPlayerInvite {
+  playerId: string;
+  clubId: string;
+  user: User;
 }
 
 /**

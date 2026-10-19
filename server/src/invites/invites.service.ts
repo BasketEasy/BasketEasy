@@ -1,7 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
 import {
   INVITE_ALREADY_ACCEPTED_CODE,
+  type AcceptedPlayerInvite,
   type PlayerInvitePreview,
 } from '@basketeasy/types/player-invites';
 import { PrismaService } from '../prisma/prisma.service';
@@ -51,7 +53,42 @@ export class InvitesService {
     return { accessToken, refreshToken, user: linkedUser };
   }
 
+  // The logged-in path: the visitor already has an account (a parent who also
+  // plays, a player of another club, an admin testing their own link), so
+  // nothing is registered and no session changes. The caller's identity is the
+  // proof they hold the link; the invite token is what authorises the link,
+  // exactly as on the register path.
+  async acceptAsUser(token: string, userId: string): Promise<AcceptedPlayerInvite> {
+    const invite = await this.findValidInvite(token);
+
+    await this.linkAcceptedInvite(invite.id, invite.playerId, invite.player.clubId, userId);
+
+    // Re-read for the same reason as accept(): the membership was granted
+    // after the caller's session was minted.
+    const user = await this.authService.me(userId);
+
+    return { playerId: invite.playerId, clubId: invite.player.clubId, user };
+  }
+
   private async linkAcceptedInvite(
+    inviteId: string,
+    playerId: string,
+    clubId: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      await this.linkInTransaction(inviteId, playerId, clubId, userId);
+    } catch (err) {
+      // Player is unique on (clubId, userId): an account that already has a
+      // roster entry in this club cannot take a second one.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Ce compte est déjà lié à un autre joueur de ce club');
+      }
+      throw err;
+    }
+  }
+
+  private async linkInTransaction(
     inviteId: string,
     playerId: string,
     clubId: string,

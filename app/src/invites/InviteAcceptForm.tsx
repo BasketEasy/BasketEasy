@@ -9,12 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@basketeasy/ui/card';
 import { FormField } from '@basketeasy/ui/form-field';
 import { Loader } from '@basketeasy/ui/loader';
 import { QueryError } from '@basketeasy/ui/query-error';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@basketeasy/ui/tabs';
 import { Text } from '@basketeasy/ui/text';
 import { TextLink } from '@basketeasy/ui/text-link';
 import { ApiError } from '../api/client';
+import { LoginForm } from '../auth/LoginForm';
 import { useAccount } from '../auth/useAccount';
 import { useInvitePreview } from './useInvitePreview';
 import { useAcceptPlayerInvite } from './useAcceptPlayerInvite';
+import { InviteAcceptAsMe } from './InviteAcceptAsMe';
 import { getInviteErrorMessage, isInviteAlreadyAccepted } from './inviteErrorMessages';
 
 // Shared by both places an already-accepted invite can surface: the preview
@@ -40,14 +43,14 @@ const acceptSchema = z.object({
 
 type AcceptFormValues = z.infer<typeof acceptSchema>;
 
+/**
+ * What a player sees on opening their invite link: who they are about to be
+ * linked to, then either « continue as <account> » when already logged in, or
+ * « Créer un compte » / « J'ai déjà un compte ». Logging in through the second
+ * tab updates the session in place, which swaps this card to the logged-in
+ * branch: no redirect, the player stays on their link.
+ */
 export function InviteAcceptForm({ token }: { token: string }) {
-  const navigate = useNavigate();
-  // /invite/:token sits outside both PublicOnlyRoute and ProtectedRoute (see
-  // InviteAcceptPage) so it works for a logged-out visitor — but that also
-  // means an already-authenticated visitor (e.g. a club admin testing their
-  // own invite link) can land here. Submitting still unconditionally
-  // overwrites the session (see useAcceptPlayerInvite), so warn them up
-  // front rather than silently signing them out.
   const { user: currentUser } = useAccount();
   const {
     data: preview,
@@ -57,28 +60,6 @@ export function InviteAcceptForm({ token }: { token: string }) {
     refetch,
     isRefetching,
   } = useInvitePreview(token);
-  const { mutate: accept, isPending } = useAcceptPlayerInvite(token);
-  const [submitAlreadyAccepted, setSubmitAlreadyAccepted] = useState(false);
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<AcceptFormValues>({ resolver: zodResolver(acceptSchema) });
-
-  const onSubmit = (values: AcceptFormValues) => {
-    setSubmitAlreadyAccepted(false);
-    accept(values, {
-      onSuccess: () => navigate('/dashboard', { replace: true }),
-      onError: (err) => {
-        if (isInviteAlreadyAccepted(err)) {
-          setSubmitAlreadyAccepted(true);
-          return;
-        }
-        setError('root', { message: getInviteErrorMessage(err) });
-      },
-    });
-  };
 
   if (isError) {
     const alreadyAccepted = isInviteAlreadyAccepted(error);
@@ -134,63 +115,99 @@ export function InviteAcceptForm({ token }: { token: string }) {
       <CardHeader>
         <CardTitle>Rejoindre {preview.clubName}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Text variant="meta" className="mb-4">
+      <CardContent className="flex flex-col gap-4">
+        <Text variant="meta">
           Vous avez été invité·e en tant que {preview.playerFirstName} {preview.playerLastName}.
-          Créez votre compte pour accéder à votre espace joueur.
         </Text>
-        {currentUser && (
-          <Alert className="mb-4">
-            <AlertDescription>
-              Vous êtes actuellement connecté·e avec le compte {currentUser.email}. Créer ce nouveau
-              compte vous déconnectera de votre session actuelle.
-            </AlertDescription>
-          </Alert>
+        {currentUser ? (
+          <InviteAcceptAsMe token={token} preview={preview} email={currentUser.email} />
+        ) : (
+          <Tabs defaultValue="register" className="flex flex-col gap-4">
+            <TabsList>
+              <TabsTrigger value="register">Créer un compte</TabsTrigger>
+              <TabsTrigger value="login">J&apos;ai déjà un compte</TabsTrigger>
+            </TabsList>
+            <TabsContent value="register">
+              <InviteRegisterForm token={token} />
+            </TabsContent>
+            <TabsContent value="login">
+              <LoginForm />
+            </TabsContent>
+          </Tabs>
         )}
-        <form
-          noValidate
-          onSubmit={(e) => {
-            void handleSubmit(onSubmit)(e);
-          }}
-          className="flex flex-col gap-4"
-        >
-          {submitAlreadyAccepted && (
-            <Alert>
-              <AlertDescription>
-                <AlreadyAcceptedNotice as="span" />
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {errors.root?.message && (
-            <Alert variant="destructive">
-              <AlertDescription>{errors.root.message}</AlertDescription>
-            </Alert>
-          )}
-
-          <FormField
-            label="Adresse e-mail"
-            id="invite-email"
-            type="email"
-            autoComplete="email"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-
-          <FormField
-            label="Mot de passe"
-            id="invite-password"
-            type="password"
-            autoComplete="new-password"
-            error={errors.password?.message}
-            {...register('password')}
-          />
-
-          <Button type="submit" loading={isSubmitting || isPending}>
-            Créer mon compte
-          </Button>
-        </form>
       </CardContent>
     </Card>
+  );
+}
+
+function InviteRegisterForm({ token }: { token: string }) {
+  const navigate = useNavigate();
+  const { mutate: accept, isPending } = useAcceptPlayerInvite(token);
+  const [submitAlreadyAccepted, setSubmitAlreadyAccepted] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<AcceptFormValues>({ resolver: zodResolver(acceptSchema) });
+
+  const onSubmit = (values: AcceptFormValues) => {
+    setSubmitAlreadyAccepted(false);
+    accept(values, {
+      onSuccess: () => navigate('/dashboard', { replace: true }),
+      onError: (err) => {
+        if (isInviteAlreadyAccepted(err)) {
+          setSubmitAlreadyAccepted(true);
+          return;
+        }
+        setError('root', { message: getInviteErrorMessage(err) });
+      },
+    });
+  };
+
+  return (
+    <form
+      noValidate
+      onSubmit={(e) => {
+        void handleSubmit(onSubmit)(e);
+      }}
+      className="flex flex-col gap-4"
+    >
+      {submitAlreadyAccepted && (
+        <Alert>
+          <AlertDescription>
+            <AlreadyAcceptedNotice as="span" />
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {errors.root?.message && (
+        <Alert variant="destructive">
+          <AlertDescription>{errors.root.message}</AlertDescription>
+        </Alert>
+      )}
+
+      <FormField
+        label="Adresse e-mail"
+        id="invite-email"
+        type="email"
+        autoComplete="email"
+        error={errors.email?.message}
+        {...register('email')}
+      />
+
+      <FormField
+        label="Mot de passe"
+        id="invite-password"
+        type="password"
+        autoComplete="new-password"
+        error={errors.password?.message}
+        {...register('password')}
+      />
+
+      <Button type="submit" loading={isSubmitting || isPending}>
+        Créer mon compte
+      </Button>
+    </form>
   );
 }

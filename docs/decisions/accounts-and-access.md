@@ -35,12 +35,30 @@ reasoning behind them.
   the tree: removing the entries of still-mounted queries makes the next re-render of any of them
   (the logout button's own mutation state re-renders its siblings) rebuild the entry and refetch it
   as nobody. Accepting a guardian invite as an existing account keeps the user, so it keeps the
-  cache and only invalidates the personas.
+  cache and only invalidates the personas. Accepting a _player_ invite as an existing account keeps
+  the user too, but it grants a club membership and a roster entry the cached session and every
+  « me » entry predate, so it goes through `replaceSession` with the user the server re-read.
 - Impersonation keeps `queryClient.clear()`: it must also drop the session entry, which then
   refetches as the subject.
 - **Retry policy lives in the client factory.** A 4xx is a refusal of the request, not a transient
   failure, so it is never retried (it used to cost four requests, repeated on every mount); a 5xx or
   a network error is retried at most twice. A hook that sets `retry` itself keeps its value.
+
+## Player invite: a new account or the visitor's own
+
+- **`/invite/:token` offers the same three paths as the guardian link:** « Créer un compte »,
+  « J'ai déjà un compte » (the login form; logging in swaps the card in place, the visitor stays on
+  their link) and, when already logged in, « Lier ce compte à la fiche de … »
+  (`POST /invites/:token/accept-as-me`, `JwtAuthGuard`). Before, a logged-in visitor was warned that
+  creating the account would sign them out, and a player with an account elsewhere had to register a
+  second one. Rejected: a combined login-and-link endpoint, which would duplicate the login rate
+  limits and audit rows for no gain over « log in, then link ».
+- **The token authorises the link, the session identifies the account**, exactly as the register path
+  does for a new one. The route sets no cookie, so it takes no same-origin check; impersonation is
+  `GET`-only and cannot reach it.
+- **An account that already has a roster entry in the club gets `409`** (`Player` is unique on
+  `(clubId, userId)`), translated from the unique violation in `InvitesService`. It is not the
+  generic « e-mail déjà utilisée » copy: nothing is registered on this path.
 
 ## Account security
 

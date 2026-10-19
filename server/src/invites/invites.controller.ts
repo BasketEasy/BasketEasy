@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import type { AccessTokenResponse } from '@basketeasy/types/auth';
-import type { PlayerInvitePreview } from '@basketeasy/types/player-invites';
+import type { AcceptedPlayerInvite, PlayerInvitePreview } from '@basketeasy/types/player-invites';
 import { assertSameOrigin, setRefreshCookie } from '../auth/session-cookie.util';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser, RequestUser } from '../auth/decorators/current-user.decorator';
 import { AcceptPlayerInviteDto } from './dto/accept-player-invite.dto';
 import { InvitesService } from './invites.service';
 
@@ -38,5 +40,17 @@ export class InvitesController {
     );
     setRefreshCookie(res, this.config, refreshToken);
     return { accessToken, user };
+  }
+
+  // For a visitor who already has an account. Behind JwtAuthGuard, so it needs
+  // no same-origin check: it sets no cookie and a cross-site form post carries
+  // no bearer token.
+  @Post(':token/accept-as-me')
+  @UseGuards(JwtAuthGuard)
+  acceptAsMe(
+    @Param('token') token: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<AcceptedPlayerInvite> {
+    return this.invitesService.acceptAsUser(token, user.id);
   }
 }
