@@ -116,7 +116,7 @@ export const TabsList = forwardRef<ElementRef<typeof TabsPrimitive.List>, TabsLi
             // there. w-full + flex-1 triggers below md, so a bar of up to four
             // reads as equal halves; md:inline-flex hugs the content again.
             'group/tabs flex min-h-12 w-full max-w-full snap-x snap-mandatory items-stretch overflow-x-auto overflow-y-hidden scroll-px-6 rounded-lg border border-border bg-surface px-1 [scrollbar-width:none] md:inline-flex md:w-auto [&::-webkit-scrollbar]:hidden',
-            edge && 'max-md:rounded-none max-md:border-0 max-md:border-b',
+            edge && 'max-md:rounded-none max-md:border-0 max-md:border-b max-md:px-0',
             className,
           )}
           {...props}
