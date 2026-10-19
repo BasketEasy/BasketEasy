@@ -587,10 +587,14 @@ export class PlatformAdminActionsService {
             partnerOnTeamCount: partnerOnCount,
             playerCount,
             parentalConsentsKept: consentCount.count,
-            scoresheetFileCount: sheets.length,
+            scoresheetFileCount: sheets.filter((sheet) => sheet.storageKey).length,
           },
         });
-        return { result, storageKeys: sheets.map((sheet) => sheet.storageKey) };
+        // A hand-entered sheet has no file behind it.
+        return {
+          result,
+          storageKeys: sheets.flatMap((sheet) => (sheet.storageKey ? [sheet.storageKey] : [])),
+        };
       },
       // A large club has many rows to cascade; Prisma's 5s default would roll
       // the whole deletion back (P2028) for exactly the biggest clubs.

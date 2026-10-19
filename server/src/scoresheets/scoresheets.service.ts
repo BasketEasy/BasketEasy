@@ -17,6 +17,7 @@ import type {
   ScoresheetTeamSide,
   SuggestedRosterMappingEntry,
 } from '@basketeasy/types/scoresheet-extraction';
+import { STATS_EDITED_CODE } from '@basketeasy/types/scoresheet-extraction';
 import type { EventScoresheet } from '@basketeasy/types/events';
 import { PrismaService } from '../prisma/prisma.service';
 import { SCORESHEET_OCR_QUEUE } from '../queue/queue.module';
@@ -304,6 +305,7 @@ export class ScoresheetsService {
     await this.enqueueOcr(scoresheet.id, { replaceStale: true });
     return {
       status: 'QUEUED',
+      source: scoresheet.source,
       uploadedByTeamPlayerId: scoresheet.uploadedByTeamPlayerId,
       uploadedAt: scoresheet.uploadedAt.toISOString(),
     };
@@ -431,6 +433,16 @@ export class ScoresheetsService {
         "L'analyse de la feuille n'a produit aucune donnée : relancez-la ou saisissez les corrections avant de confirmer",
       );
     }
+    // A manager's hand corrections live only in MatchPlayerStat, which this
+    // confirm replaces wholesale: say so and wait for an explicit yes rather
+    // than silently throwing their work away.
+    if (scoresheet.statsEditedAt && !request.overrideManualEdits) {
+      throw new ConflictException({
+        message:
+          'Les stats de ce match ont été corrigées à la main : confirmer la feuille les remplace',
+        code: STATS_EDITED_CODE,
+      });
+    }
     await this.assertRosterMappingValid(teamId, request.rosterMapping);
     const stats = foldPlayerStats(parsedData, ourSideOf(event.venue), request.rosterMapping);
 
@@ -455,7 +467,7 @@ export class ScoresheetsService {
       });
       await tx.eventScoresheet.update({
         where: { id: scoresheet.id },
-        data: { status: 'CONFIRMED' },
+        data: { status: 'CONFIRMED', statsEditedAt: null },
       });
       // Replaced wholesale rather than upserted: a re-confirm that drops a
       // player from the mapping must drop their row too, not leave the

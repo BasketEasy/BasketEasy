@@ -74,6 +74,19 @@ describe('ScoresheetOcrProcessor', () => {
   }
 
   describe('process', () => {
+    it('refuses a hand-entered sheet, which has no file to read', async () => {
+      prisma.eventScoresheet.findUniqueOrThrow.mockResolvedValue({
+        id: 'sheet-1',
+        storageKey: null,
+      });
+
+      await expect(
+        processor.process({ data: { eventScoresheetId: 'sheet-1' } } as never),
+      ).rejects.toThrow('no file to read');
+      expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+      expect(storage.getObjectBuffer).not.toHaveBeenCalled();
+    });
+
     it('sets status to PROCESSING, then fetches the image with the mime type derived from the storageKey extension', async () => {
       await processor.process(makeJob());
 

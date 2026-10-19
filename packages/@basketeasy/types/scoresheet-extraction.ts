@@ -118,4 +118,13 @@ export interface ScoresheetRosterMappingEntry {
 export interface ConfirmScoresheetExtractionRequest {
   corrections?: ParsedScoresheetData;
   rosterMapping: ScoresheetRosterMappingEntry[];
+  /**
+   * Confirming replaces the match's stats with the sheet's reading. When a
+   * manager corrected them by hand since, the confirm answers 409
+   * `STATS_EDITED` unless this is true.
+   */
+  overrideManualEdits?: boolean;
 }
+
+/** The 409 code of a confirm that would overwrite a manual stats edit. */
+export const STATS_EDITED_CODE = 'STATS_EDITED';

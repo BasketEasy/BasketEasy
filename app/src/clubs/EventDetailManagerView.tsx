@@ -235,6 +235,7 @@ export function EventDetailManagerView({
                 teamId={teamId}
                 eventId={event.id}
                 hasStarted={new Date(event.startsAt) <= new Date()}
+                managedEvent={event}
               />
               <MatchScoresheetTab
                 clubId={clubId}

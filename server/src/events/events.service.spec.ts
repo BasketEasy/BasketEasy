@@ -4020,6 +4020,7 @@ describe('EventsService', () => {
         },
         update: {
           storageKey: 'scoresheets/event-1/abc.jpg',
+          source: 'UPLOAD',
           uploadedByTeamPlayerId: 'tp-1',
           uploadedAt: expect.any(Date),
           status: 'UPLOADED',

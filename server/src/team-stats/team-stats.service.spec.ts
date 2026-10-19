@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import type { UpdateMatchStatsRequest } from '@basketeasy/types/team-stats';
 import { TeamStatsService } from './team-stats.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,6 +18,9 @@ describe('TeamStatsService', () => {
     eventVote: { groupBy: jest.Mock };
     event: { findMany: jest.Mock; findFirst: jest.Mock };
     player: { findFirst: jest.Mock };
+    eventScoresheet: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    scoresheetExtraction: { update: jest.Mock; create: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   const rosterMember = (
@@ -61,7 +70,19 @@ describe('TeamStatsService', () => {
         findFirst: jest.fn().mockResolvedValue({ id: 'event-1' }),
       },
       player: { findFirst: jest.fn().mockResolvedValue(null) },
+      eventScoresheet: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({}),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      scoresheetExtraction: {
+        update: jest.fn().mockResolvedValue({}),
+        create: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn(),
     };
+    // The transaction callback runs against the same mock client.
+    prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [TeamStatsService, { provide: PrismaService, useValue: prisma }],
@@ -350,7 +371,7 @@ describe('TeamStatsService', () => {
       );
       expect(prisma.event.findFirst).toHaveBeenCalledWith({
         where: { id: 'event-x', teamId: 'team-1' },
-        select: { id: true },
+        select: { id: true, venue: true },
       });
     });
 
@@ -364,8 +385,55 @@ describe('TeamStatsService', () => {
 
     it('has no stats before a sheet is confirmed', async () => {
       await expect(service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1')).resolves.toEqual(
-        { hasStats: false, lines: [] },
+        { hasStats: false, lines: [], scoreboard: null, manuallyEdited: false },
       );
+    });
+
+    it('reports our side of a confirmed sheet and whether it was edited by hand', async () => {
+      prisma.event.findFirst.mockResolvedValue({ id: 'event-1', venue: 'AWAY' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'CONFIRMED',
+        statsEditedAt: new Date('2026-10-18T10:00:00Z'),
+        extraction: {
+          parsedData: {
+            homeScore: 55,
+            awayScore: 62,
+            quarterScores: [{ home: 12, away: 16 }],
+            players: [],
+            scoringPlays: [],
+          },
+        },
+      });
+
+      const result = await service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.scoreboard).toEqual({
+        ourScore: 62,
+        theirScore: 55,
+        periods: [{ ours: 16, theirs: 12 }],
+      });
+      expect(result.manuallyEdited).toBe(true);
+    });
+
+    it('shows no score for a sheet that is not confirmed yet', async () => {
+      prisma.event.findFirst.mockResolvedValue({ id: 'event-1', venue: 'HOME' });
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        status: 'PARSED',
+        statsEditedAt: null,
+        extraction: {
+          parsedData: {
+            homeScore: 62,
+            awayScore: 55,
+            quarterScores: [],
+            players: [],
+            scoringPlays: [],
+          },
+        },
+      });
+
+      const result = await service.getMatchStats('club-1', 'team-1', 'event-1', 'user-1');
+
+      expect(result.scoreboard).toBeNull();
     });
 
     it('orders by points, unknown totals last, then surname; nulls stay null', async () => {
@@ -421,6 +489,197 @@ describe('TeamStatsService', () => {
       await expect(
         service.getMatchStats('club-1', 'team-1', 'event-1', 'stranger', 'child-1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('updateMatchStats', () => {
+    const line = (teamPlayerId: string, overrides: Record<string, number | null> = {}) => ({
+      teamPlayerId,
+      jerseyNumber: 7,
+      points: 12,
+      fouls: 2,
+      freeThrowPoints: 2,
+      twoPointPoints: 10,
+      threePointPoints: 0,
+      ...overrides,
+    });
+    const request = (
+      overrides: Partial<UpdateMatchStatsRequest> = {},
+    ): UpdateMatchStatsRequest => ({
+      ourScore: 62,
+      theirScore: 55,
+      periods: [{ ours: 16, theirs: 12 }],
+      lines: [line('tp-1')],
+      ...overrides,
+    });
+    const playedMatch = {
+      id: 'event-1',
+      type: 'MATCH',
+      startsAt: new Date('2020-01-01T18:00:00Z'),
+      venue: 'HOME',
+    };
+    const update = (body: UpdateMatchStatsRequest = request()) =>
+      service.updateMatchStats('club-1', 'team-1', 'event-1', 'user-1', body);
+
+    beforeEach(() => {
+      prisma.event.findFirst.mockResolvedValue(playedMatch);
+      prisma.teamPlayer.findMany.mockResolvedValue([{ id: 'tp-1' }]);
+      Object.assign(prisma.matchPlayerStat, {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: jest.fn().mockResolvedValue({ count: 1 }),
+      });
+    });
+
+    const matchPlayerStat = () =>
+      prisma.matchPlayerStat as unknown as { deleteMany: jest.Mock; createMany: jest.Mock };
+
+    it('404s a team outside the route club and writes nothing', async () => {
+      prisma.clubTeam.findUnique.mockResolvedValue(null);
+
+      await expect(update()).rejects.toThrow(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('404s an event on another team', async () => {
+      prisma.event.findFirst.mockResolvedValue(null);
+
+      await expect(update()).rejects.toThrow(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['a training', { ...playedMatch, type: 'TRAINING' }],
+      ['a match not played yet', { ...playedMatch, startsAt: new Date(Date.now() + 86_400_000) }],
+      ['a match with no venue', { ...playedMatch, venue: null }],
+    ])('refuses %s', async (_label, event) => {
+      prisma.event.findFirst.mockResolvedValue(event);
+
+      await expect(update()).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses a player listed twice, a number used twice and a split that contradicts the total', async () => {
+      await expect(
+        update(request({ lines: [line('tp-1'), line('tp-1', { jerseyNumber: 8 })] })),
+      ).rejects.toThrow(BadRequestException);
+      await expect(update(request({ lines: [line('tp-1'), line('tp-2')] }))).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(
+        update(request({ lines: [line('tp-1', { threePointPoints: 3 })] })),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('accepts a partly known split and unknown values', async () => {
+      await update(
+        request({
+          lines: [line('tp-1', { twoPointPoints: null, fouls: null })],
+        }),
+      );
+
+      expect(matchPlayerStat().createMany).toHaveBeenCalled();
+    });
+
+    it('refuses a player who is not on the roster', async () => {
+      prisma.teamPlayer.findMany.mockResolvedValue([]);
+
+      await expect(update()).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('creates a MANUAL confirmed sheet for a match with no sheet', async () => {
+      await update();
+
+      expect(prisma.eventScoresheet.create).toHaveBeenCalledWith({
+        data: {
+          eventId: 'event-1',
+          source: 'MANUAL',
+          status: 'CONFIRMED',
+          storageKey: null,
+          statsEditedAt: expect.any(Date),
+          extraction: {
+            create: {
+              rawResponse: {},
+              parsedData: {
+                homeScore: 62,
+                awayScore: 55,
+                quarterScores: [{ home: 16, away: 12 }],
+                players: [],
+                scoringPlays: [],
+              },
+              reviewedByUserId: 'user-1',
+              reviewedAt: expect.any(Date),
+            },
+          },
+        },
+      });
+      expect(matchPlayerStat().deleteMany).toHaveBeenCalledWith({ where: { eventId: 'event-1' } });
+      expect(matchPlayerStat().createMany).toHaveBeenCalledWith({
+        data: [{ eventId: 'event-1', ...line('tp-1') }],
+      });
+    });
+
+    it('rewrites only the score of a confirmed sheet, keeping the verbatim read', async () => {
+      prisma.event.findFirst.mockResolvedValue({ ...playedMatch, venue: 'AWAY' });
+      const players = [{ team: 'away', number: 7, name: 'Martin', points: 12, fouls: 2 }];
+      prisma.eventScoresheet.findUnique.mockResolvedValue({
+        id: 'sheet-1',
+        status: 'CONFIRMED',
+        statsEditedAt: null,
+        extraction: {
+          id: 'extraction-1',
+          parsedData: {
+            homeScore: 1,
+            awayScore: 2,
+            quarterScores: [],
+            players,
+            scoringPlays: [],
+          },
+        },
+      });
+
+      await update();
+
+      expect(prisma.eventScoresheet.update).toHaveBeenCalledWith({
+        where: { id: 'sheet-1' },
+        data: { statsEditedAt: expect.any(Date) },
+      });
+      expect(prisma.scoresheetExtraction.update).toHaveBeenCalledWith({
+        where: { id: 'extraction-1' },
+        data: {
+          parsedData: {
+            homeScore: 55,
+            awayScore: 62,
+            quarterScores: [{ home: 12, away: 16 }],
+            players,
+            scoringPlays: [],
+          },
+        },
+      });
+      expect(prisma.eventScoresheet.create).not.toHaveBeenCalled();
+    });
+
+    it.each(['UPLOADED', 'QUEUED', 'PROCESSING', 'PARSED', 'NEEDS_REVIEW', 'FAILED'])(
+      'leaves a %s sheet to its own flow',
+      async (status) => {
+        prisma.eventScoresheet.findUnique.mockResolvedValue({
+          id: 'sheet-1',
+          status,
+          extraction: null,
+        });
+
+        await expect(update()).rejects.toThrow(ConflictException);
+        expect(prisma.eventScoresheet.update).not.toHaveBeenCalled();
+        expect(matchPlayerStat().deleteMany).not.toHaveBeenCalled();
+      },
+    );
+
+    it('empties the match when every line is removed', async () => {
+      await update(request({ lines: [] }));
+
+      expect(matchPlayerStat().deleteMany).toHaveBeenCalled();
+      expect(matchPlayerStat().createMany).not.toHaveBeenCalled();
     });
   });
 });

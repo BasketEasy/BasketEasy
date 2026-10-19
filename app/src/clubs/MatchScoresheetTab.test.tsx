@@ -53,12 +53,18 @@ const matchEvent: TeamEvent = {
 
 const uploadedStatus: EventScoresheet = {
   status: 'UPLOADED',
+  source: 'UPLOAD',
   uploadedByTeamPlayerId: 'tp-1',
   uploadedAt: '2026-01-01T20:00:00.000Z',
 };
 
 function statusFor(status: EventScoresheet['status']): EventScoresheet {
-  return { status, uploadedByTeamPlayerId: 'tp-1', uploadedAt: '2026-01-01T20:00:00.000Z' };
+  return {
+    status,
+    source: 'UPLOAD',
+    uploadedByTeamPlayerId: 'tp-1',
+    uploadedAt: '2026-01-01T20:00:00.000Z',
+  };
 }
 
 const parsedData: ParsedScoresheetData = {
@@ -815,5 +821,141 @@ describe('MatchScoresheetTab', () => {
 
     await waitFor(() => expect(retried).toBe(true));
     expect(await screen.findByText("En file d'attente pour analyse")).toBeInTheDocument();
+  });
+});
+
+describe('MatchScoresheetTab, stats without a sheet or over a hand edit', () => {
+  const renderTab = (
+    props: { isRostered?: boolean; canManage?: boolean; event?: TeamEvent } = {},
+  ) =>
+    renderWithProviders(
+      <MatchScoresheetTab
+        clubId="club-1"
+        teamId="team-1"
+        event={props.event ?? matchEvent}
+        isRostered={props.isRostered ?? true}
+        canManage={props.canManage ?? true}
+      />,
+    );
+
+  it('offers a manager of a played match a way to enter the stats by hand', async () => {
+    mockStatus(null);
+    renderTab();
+
+    expect(await screen.findByText('Pas de feuille ?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Saisir les stats à la main' })).toBeInTheDocument();
+  });
+
+  it('offers it to a manager who is not on the roster too', async () => {
+    mockStatus(null);
+    renderTab({ isRostered: false });
+
+    expect(await screen.findByText('Aucune feuille de match pour le moment')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Saisir les stats à la main' })).toBeInTheDocument();
+  });
+
+  it('does not offer it to a reader who does not manage the team', async () => {
+    mockStatus(null);
+    renderTab({ canManage: false });
+
+    expect(await screen.findByText('Ajoutez la feuille de marque')).toBeInTheDocument();
+    expect(screen.queryByText('Pas de feuille ?')).not.toBeInTheDocument();
+  });
+
+  it('does not offer it before the match has been played', async () => {
+    mockStatus(null);
+    renderTab({ event: { ...matchEvent, startsAt: '2999-01-01T18:00:00.000Z' } });
+
+    expect(await screen.findByText('Ajoutez la feuille de marque')).toBeInTheDocument();
+    expect(screen.queryByText('Pas de feuille ?')).not.toBeInTheDocument();
+  });
+
+  it('opens the entry dialog from « Saisir les stats à la main »', async () => {
+    mockStatus(null);
+    server.use(
+      http.get('/api/clubs/club-1/teams/team-1/stats/matches/event-1', () =>
+        HttpResponse.json({ hasStats: false, manuallyEdited: false, scoreboard: null, lines: [] }),
+      ),
+    );
+    mockRoster();
+    const user = userEvent.setup();
+    renderTab();
+
+    await user.click(await screen.findByRole('button', { name: 'Saisir les stats à la main' }));
+
+    expect(await screen.findByRole('heading', { name: 'Saisir les stats' })).toBeInTheDocument();
+  });
+
+  it('shows a hand-entered match as such, with a way to add the real sheet', async () => {
+    mockStatus({ ...statusFor('CONFIRMED'), source: 'MANUAL' });
+    renderTab();
+
+    expect(await screen.findByText('Stats saisies à la main')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ajouter la feuille' })).toBeInTheDocument();
+  });
+
+  describe('confirming a sheet over stats corrected by hand', () => {
+    const CONFIRM = '/api/clubs/club-1/teams/team-1/events/event-1/scoresheet-extraction/confirm';
+    const confirmed: ScoresheetExtraction = {
+      status: 'CONFIRMED',
+      parsedData,
+      confidence: 0.9,
+      failureReason: null,
+      reviewedByUserId: 'user-1',
+      reviewedAt: '2026-01-02T10:00:00.000Z',
+      suggestedRosterMapping: [],
+    };
+
+    const setup = () => {
+      mockStatus(statusFor('PARSED'));
+      mockExtraction({ ...confirmed, status: 'PARSED', reviewedByUserId: null, reviewedAt: null });
+      const bodies: unknown[] = [];
+      server.use(
+        http.patch(CONFIRM, async ({ request }) => {
+          const body = (await request.json()) as { overrideManualEdits?: boolean };
+          bodies.push(body);
+          if (!body.overrideManualEdits) {
+            return HttpResponse.json(
+              { statusCode: 409, message: 'Les stats ont été corrigées', code: 'STATS_EDITED' },
+              { status: 409 },
+            );
+          }
+          return HttpResponse.json(confirmed);
+        }),
+      );
+      return bodies;
+    };
+
+    it('asks before overwriting, and resends the same request with the override once agreed', async () => {
+      const bodies = setup();
+      const user = userEvent.setup();
+      renderTab();
+
+      await user.click(await screen.findByRole('button', { name: /Confirmer ces données/ }));
+      expect(await screen.findByText('Écraser vos modifications ?')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Écraser les modifications' }));
+
+      await waitFor(() => expect(bodies).toHaveLength(2));
+      expect(bodies[0]).not.toHaveProperty('overrideManualEdits');
+      expect(bodies[1]).toEqual({ ...(bodies[0] as object), overrideManualEdits: true });
+      await waitFor(() =>
+        expect(screen.queryByText('Écraser vos modifications ?')).not.toBeInTheDocument(),
+      );
+    });
+
+    it('sends nothing more when the manager backs out', async () => {
+      const bodies = setup();
+      const user = userEvent.setup();
+      renderTab();
+
+      await user.click(await screen.findByRole('button', { name: /Confirmer ces données/ }));
+      await screen.findByText('Écraser vos modifications ?');
+      await user.click(screen.getByRole('button', { name: 'Annuler' }));
+
+      await waitFor(() =>
+        expect(screen.queryByText('Écraser vos modifications ?')).not.toBeInTheDocument(),
+      );
+      expect(bodies).toHaveLength(1);
+    });
   });
 });

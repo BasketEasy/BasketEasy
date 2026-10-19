@@ -131,7 +131,7 @@ const routeDefs = [
   [
     'GET',
     '/api/clubs/:clubId/teams/:teamId/stats/matches/:eventId',
-    () => ({ hasStats: false, lines: [] }),
+    () => ({ hasStats: false, lines: [], scoreboard: null, manuallyEdited: false }),
   ],
   ['GET', '/api/me/teams', () => []],
   ['GET', '/api/me/dashboard', () => ({ totalPlayers: 0, upcomingEvents: [] })],

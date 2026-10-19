@@ -3,15 +3,22 @@ import { TeamStatsController } from './team-stats.controller';
 import { TeamStatsService } from './team-stats.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClubRolesGuard } from '../auth/guards/club-roles.guard';
+import { TeamManagerGuard } from '../auth/guards/team-manager.guard';
+import type { UpdateMatchStatsDto } from './dto/update-match-stats.dto';
 
 describe('TeamStatsController', () => {
   let controller: TeamStatsController;
-  let service: { getTeamSeasonStats: jest.Mock; getMatchStats: jest.Mock };
+  let service: {
+    getTeamSeasonStats: jest.Mock;
+    getMatchStats: jest.Mock;
+    updateMatchStats: jest.Mock;
+  };
 
   beforeEach(async () => {
     service = {
       getTeamSeasonStats: jest.fn().mockResolvedValue({ seasonYear: 2026 }),
       getMatchStats: jest.fn().mockResolvedValue({ hasStats: false, lines: [] }),
+      updateMatchStats: jest.fn().mockResolvedValue({ hasStats: true, lines: [] }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -21,6 +28,8 @@ describe('TeamStatsController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ClubRolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(TeamManagerGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -96,5 +105,23 @@ describe('TeamStatsController', () => {
       'child-1',
     );
     expect(result).toEqual({ hasStats: false, lines: [] });
+  });
+
+  it('passes the route ids, the caller and the body through to a manual stats edit', async () => {
+    const dto = { ourScore: 62, theirScore: 55, periods: [], lines: [] } as UpdateMatchStatsDto;
+
+    const result = await controller.updateMatchStats('club-1', 'team-1', 'event-1', dto, {
+      id: 'user-1',
+      email: 'a@example.com',
+    });
+
+    expect(service.updateMatchStats).toHaveBeenCalledWith(
+      'club-1',
+      'team-1',
+      'event-1',
+      'user-1',
+      dto,
+    );
+    expect(result).toEqual({ hasStats: true, lines: [] });
   });
 });
