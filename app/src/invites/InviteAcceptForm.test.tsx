@@ -140,24 +140,97 @@ describe('InviteAcceptForm', () => {
     await user.type(screen.getByLabelText(/mot de passe/i), 'password123');
     await user.click(screen.getByRole('button', { name: /créer mon compte/i }));
 
-    expect(await screen.findByText(/déjà un compte/i)).toBeInTheDocument();
+    expect(await screen.findByText(/déjà un compte pour cette invitation/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /connectez-vous/i })).toHaveAttribute('href', '/login');
   });
 
-  it('warns an already-authenticated visitor that submitting will replace their session', async () => {
-    server.use(
-      http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
-      http.get('/api/auth/me', () =>
-        HttpResponse.json({
-          id: 'user-1',
-          email: 'admin@example.com',
-          emailVerified: true,
-          firstName: 'Jean',
-          lastName: 'Dupont',
-          avatarUrl: null,
-          memberships: [],
+  describe('with a session', () => {
+    function useSession() {
+      server.use(
+        http.post('/api/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
+        http.get('/api/auth/me', () =>
+          HttpResponse.json({
+            id: 'user-1',
+            email: 'admin@example.com',
+            emailVerified: true,
+            firstName: 'Jean',
+            lastName: 'Dupont',
+            avatarUrl: null,
+            memberships: [],
+          }),
+        ),
+        http.get('/api/invites/abc123', () =>
+          HttpResponse.json({
+            playerFirstName: 'Théo',
+            playerLastName: 'Dupont',
+            clubName: 'ASVEL',
+          }),
+        ),
+      );
+    }
+
+    it('offers to link the logged-in account instead of registering a new one', async () => {
+      useSession();
+
+      renderForm();
+
+      expect(await screen.findByText(/admin@example\.com/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /lier ce compte à la fiche de théo/i }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText(/mot de passe/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /créer un compte/i })).not.toBeInTheDocument();
+    });
+
+    it('links the account with the accept-as-me route', async () => {
+      useSession();
+      let called = false;
+      server.use(
+        http.post('/api/invites/abc123/accept-as-me', () => {
+          called = true;
+          return HttpResponse.json({
+            playerId: 'player-1',
+            clubId: 'club-1',
+            user: {
+              id: 'user-1',
+              email: 'admin@example.com',
+              emailVerified: true,
+              firstName: 'Jean',
+              lastName: 'Dupont',
+              avatarUrl: null,
+              memberships: [{ clubId: 'club-1', role: 'MEMBER' }],
+            },
+          });
         }),
-      ),
+      );
+
+      const user = userEvent.setup();
+      renderForm();
+
+      await user.click(await screen.findByRole('button', { name: /lier ce compte/i }));
+
+      await waitFor(() => expect(called).toBe(true));
+    });
+
+    it('says so when the account already holds another player of the club', async () => {
+      useSession();
+      server.use(
+        http.post('/api/invites/abc123/accept-as-me', () =>
+          HttpResponse.json({ message: 'conflict' }, { status: 409 }),
+        ),
+      );
+
+      const user = userEvent.setup();
+      renderForm();
+
+      await user.click(await screen.findByRole('button', { name: /lier ce compte/i }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/déjà lié à un autre joueur/i);
+    });
+  });
+
+  it('offers a login tab to a visitor who already has an account', async () => {
+    server.use(
       http.get('/api/invites/abc123', () =>
         HttpResponse.json({
           playerFirstName: 'Théo',
@@ -167,11 +240,11 @@ describe('InviteAcceptForm', () => {
       ),
     );
 
+    const user = userEvent.setup();
     renderForm();
 
-    await screen.findByText(/rejoindre asvel/i);
+    await user.click(await screen.findByRole('tab', { name: /j'ai déjà un compte/i }));
 
-    expect(await screen.findByText(/admin@example\.com/)).toBeInTheDocument();
-    expect(screen.getByText(/déconnectera de votre session actuelle/i)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /se connecter/i })).toBeInTheDocument();
   });
 });

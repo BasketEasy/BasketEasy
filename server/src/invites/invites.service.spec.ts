@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { INVITE_ALREADY_ACCEPTED_CODE } from '@basketeasy/types/player-invites';
 import { InvitesService } from './invites.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -149,6 +150,68 @@ describe('InvitesService', () => {
       await expect(
         service.accept('token', 'theo@example.com', 'password1234'),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('acceptAsUser', () => {
+    it('links the invited player to the logged-in account without registering', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue(validInvite);
+      prisma.player.updateMany.mockResolvedValue({ count: 1 });
+      authService.me.mockResolvedValue({
+        id: 'user-9',
+        memberships: [{ clubId: 'club-1', role: 'MEMBER' }],
+      });
+
+      const result = await service.acceptAsUser('token', 'user-9');
+
+      expect(authService.register).not.toHaveBeenCalled();
+      expect(prisma.player.updateMany).toHaveBeenCalledWith({
+        where: { id: 'player-1', userId: null },
+        data: { userId: 'user-9' },
+      });
+      expect(prisma.clubMembership.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_clubId: { userId: 'user-9', clubId: 'club-1' } },
+        }),
+      );
+      expect(result).toEqual({
+        playerId: 'player-1',
+        clubId: 'club-1',
+        user: { id: 'user-9', memberships: [{ clubId: 'club-1', role: 'MEMBER' }] },
+      });
+    });
+
+    it('rejects an unknown or expired invite before touching anything', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue(null);
+
+      await expect(service.acceptAsUser('token', 'user-9')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(prisma.player.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invite that was already accepted', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue({ ...validInvite, acceptedAt: new Date() });
+
+      await expect(service.acceptAsUser('token', 'user-9')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(prisma.player.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('answers a conflict when the account already holds another player of the club', async () => {
+      prisma.playerInvite.findUnique.mockResolvedValue(validInvite);
+      prisma.player.updateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+
+      await expect(service.acceptAsUser('token', 'user-9')).rejects.toThrow(
+        'Ce compte est déjà lié à un autre joueur de ce club',
+      );
+      expect(prisma.playerInvite.update).not.toHaveBeenCalled();
     });
   });
 });
