@@ -18,6 +18,7 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:db": "jest --config ./test/db/jest.config.json",
+    "eval:scoresheets": "ts-node test/scoresheet-eval/run.ts",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -29,7 +30,8 @@
     "pretest:watch": "pnpm --filter @basketeasy/types build",
     "pretest:cov": "pnpm --filter @basketeasy/types build",
     "pretest:e2e": "pnpm --filter @basketeasy/types build",
-    "pretest:db": "pnpm --filter @basketeasy/types build"
+    "pretest:db": "pnpm --filter @basketeasy/types build",
+    "preeval:scoresheets": "pnpm --filter @basketeasy/types build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1120.0",
