@@ -8,7 +8,7 @@ import { createClub, createTeam, prisma, resetDb } from './db';
 const SQL = readFileSync(
   join(
     __dirname,
-    '../../prisma/migrations/20261001090000_recurring_events_paris_wall_clock/migration.sql',
+    '../../prisma/migrations/20261017130000_recurring_events_paris_wall_clock_fix/migration.sql',
   ),
   'utf8',
 );
