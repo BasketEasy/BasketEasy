@@ -211,6 +211,7 @@ function WeekDay({
 
 function isStandalone(): boolean {
   return (
+    typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(display-mode: standalone)').matches
   );

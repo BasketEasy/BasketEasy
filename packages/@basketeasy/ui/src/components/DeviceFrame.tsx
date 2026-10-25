@@ -1,7 +1,17 @@
-import { useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ImgHTMLAttributes,
+  type ReactNode,
+} from 'react';
 import { IPhoneMockup } from 'react-device-mockup';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn';
+
+// The landing page is prerendered on the server (app/scripts/prerender.mjs), where a layout effect only warns.
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
  * A real product screenshot, framed as the device it was taken on: a phone
@@ -110,7 +120,7 @@ function PhoneFrame({ className, children }: { className: string; children: Reac
 
   // Layout effect: the first measure lands before paint, so the frame never
   // visibly jumps from the fallback size.
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const measure = () => {
