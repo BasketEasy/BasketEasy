@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { RouteSeo } from './seo/RouteSeo';
 import { Toaster } from '@basketeasy/ui/toaster';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ProtectedRoute } from './auth/ProtectedRoute';
@@ -88,6 +89,7 @@ const AdminAuditLogPage = lazy(() =>
 export default function App() {
   return (
     <AppErrorBoundary>
+      <RouteSeo />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         {/* Top level, beside /invite/:token and for the same reason: each of
