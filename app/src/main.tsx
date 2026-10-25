@@ -9,7 +9,7 @@ import './index.css';
 
 const queryClient = createQueryClient();
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+const tree = (
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AccountProvider>
@@ -23,5 +23,14 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         </BrowserRouter>
       </AccountProvider>
     </QueryClientProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );
+
+const container = document.getElementById('root') as HTMLElement;
+// A public route ships prerendered (scripts/prerender.mjs): attach to it. Any
+// other route has had its root emptied by the inline script in index.html.
+if (container.hasChildNodes()) {
+  ReactDOM.hydrateRoot(container, tree);
+} else {
+  ReactDOM.createRoot(container).render(tree);
+}

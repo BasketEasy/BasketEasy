@@ -101,6 +101,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- The prerendered markup belongs to the public routes only. The same file
+         is also the SPA fallback for every other path, where it would flash
+         the landing page before the app mounts. -->
+    <script>
+      if (!__PRERENDERED_PATHS__.includes(location.pathname.replace(/(.)\/+$/, '$1'))) {
+        document.getElementById('root').textContent = '';
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -87,5 +87,7 @@ export function useToasts(): ToastItem[] {
       return () => listeners.delete(listener);
     },
     () => toasts,
+    // The prerender (app/scripts/prerender.mjs) renders on the server, where no toast exists.
+    () => toasts,
   );
 }
