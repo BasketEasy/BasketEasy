@@ -1,0 +1,26 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+/dashboard
+  X-Robots-Tag: noindex, nofollow
+/clubs/*
+  X-Robots-Tag: noindex, nofollow
+/invite/*
+  X-Robots-Tag: noindex, nofollow
+/guardian-invite/*
+  X-Robots-Tag: noindex, nofollow
+/r/*
+  X-Robots-Tag: noindex, nofollow
+/verify-email/*
+  X-Robots-Tag: noindex, nofollow
+/reset-password/*
+  X-Robots-Tag: noindex, nofollow
+/login
+  X-Robots-Tag: noindex, nofollow

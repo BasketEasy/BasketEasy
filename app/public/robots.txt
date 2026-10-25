@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /account
+Disallow: /children/
+Disallow: /notifications
+Disallow: /my-teams
+Disallow: /results
+Disallow: /clubs/
+Disallow: /invite/
+Disallow: /guardian-invite/
+Disallow: /r/
+Disallow: /verify-email/
+Disallow: /reset-password/
+Disallow: /login
+Disallow: /forgot-password
+
+Sitemap: https://kluvo.net/sitemap.xml
